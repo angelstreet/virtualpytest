@@ -122,15 +122,44 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   }, [executionLog, aiPlan]);
 
   // Helper function to enhance error messages for specific error types
-  const enhanceErrorMessage = useCallback((error: string) => {
+  const enhanceErrorMessage = useCallback((error: string, errorType?: string) => {
+    // Handle specific error types from backend
+    if (errorType) {
+      switch (errorType) {
+        case 'ai_timeout':
+          return '⏱️ AI service timed out. The request took too long to process. Please try again.';
+        case 'ai_connection_error':
+          return '🌐 Connection to AI service failed. Please check your internet connection and try again.';
+        case 'ai_auth_error':
+          return '🔑 AI service authentication failed. Please contact support if this persists.';
+        case 'ai_rate_limit':
+          return '🚦 AI service rate limit exceeded. Please wait a moment and try again.';
+        case 'ai_call_exception':
+          return '⚠️ Unexpected AI service error. Please try again or contact support.';
+        case 'ai_call_failed':
+          return '❌ AI service call failed. Please try again.';
+      }
+    }
+    
+    // Legacy error message enhancement (keep for backward compatibility)
     if (error.includes('429') || error.includes('rate limit')) {
       return '🤖 AI service is temporarily busy. Please wait a moment and try again.';
+    }
+    if (error.includes('timeout')) {
+      return '⏱️ AI service timed out. Please try again.';
+    }
+    if (error.includes('connection') || error.includes('network')) {
+      return '🌐 Network connection issue. Please check your connection and try again.';
+    }
+    if (error.includes('API key') || error.includes('authentication')) {
+      return '🔑 Authentication issue with AI service. Please contact support.';
     }
     if (error.includes('No path found to')) {
       const nodeMatch = error.match(/No path found to '([^']+)'/);
       const nodeName = nodeMatch ? nodeMatch[1] : 'target location';
       return `🧭 Cannot navigate to "${nodeName}" - screen not found in navigation tree.`;
     }
+    
     return error; // Return original error for other cases
   }, []);
 
@@ -369,7 +398,17 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
           ? (result.error || `HTTP ${response.status}: ${response.statusText}`)
           : (result.error || 'Failed to start task execution');
         
-        setErrorMessage(enhanceErrorMessage(rawErrorMessage));
+        const errorType = result.error_type;
+        const enhancedError = enhanceErrorMessage(rawErrorMessage, errorType);
+        
+        console.log('[useAIAgent] Task execution failed:', {
+          rawError: rawErrorMessage,
+          errorType,
+          enhancedError,
+          fullResult: result
+        });
+        
+        setErrorMessage(enhancedError);
         setCurrentStep('Task execution failed');
         setExecutionLog(result.execution_log || []);
         setIsPlanFeasible(false);
@@ -377,7 +416,8 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       }
     } catch (error) {
       console.error('[useAIAgent] Task execution error:', error);
-      const errorMsg = enhanceErrorMessage('Network error during task execution');
+      const networkError = error instanceof Error ? error.message : 'Unknown network error';
+      const errorMsg = enhanceErrorMessage(`Network error: ${networkError}`);
       setErrorMessage(errorMsg);
       setCurrentStep('Error');
       setIsPlanFeasible(false);
@@ -416,7 +456,8 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
       } else if (!response.ok) {
         console.error('[useAIAgent] Stop execution HTTP error:', response.status, result.error);
         const rawErrorMessage = result.error || `HTTP ${response.status}: Failed to stop execution`;
-        setErrorMessage(enhanceErrorMessage(rawErrorMessage));
+        const errorType = result.error_type;
+        setErrorMessage(enhanceErrorMessage(rawErrorMessage, errorType));
       }
     } catch (error) {
       console.error('[useAIAgent] Stop execution error:', error);

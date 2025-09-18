@@ -86,43 +86,58 @@ def _call_ai(prompt: str, task_type: str = 'text', image: Union[str, bytes] = No
     """
     Centralized AI call using OpenRouter only (no Hugging Face fallback).
     Fails fast if OpenRouter is not available.
+    Enhanced with detailed error reporting and logging.
     """
+    print(f"[AI_UTILS] Starting AI call - task_type: {task_type}, model: {model or 'default'}")
+    
     # Set defaults
     max_tokens = max_tokens or AI_CONFIG['defaults']['max_tokens']
-    temperature = temperature or AI_CONFIG['defaults']['temperature']
+    temperature = temperature if temperature is not None else AI_CONFIG['defaults']['temperature']
+    
+    print(f"[AI_UTILS] Parameters - max_tokens: {max_tokens}, temperature: {temperature}")
     
     # Try OpenRouter only
     try:
         # Use custom model if provided, otherwise use configured model for task type
         ai_model = model or AI_CONFIG['providers']['openrouter']['models'].get(task_type)
         if not ai_model:
-            return {'success': False, 'error': f'No OpenRouter model configured for task type: {task_type}', 'content': '', 'provider_used': 'none'}
+            error_msg = f'No OpenRouter model configured for task type: {task_type}'
+            print(f"[AI_UTILS] ERROR: {error_msg}")
+            print(f"[AI_UTILS] Available task types: {list(AI_CONFIG['providers']['openrouter']['models'].keys())}")
+            return {'success': False, 'error': error_msg, 'content': '', 'provider_used': 'none'}
         
-        print(f"[AI_UTILS] Trying OpenRouter with model {ai_model}")
+        print(f"[AI_UTILS] Using OpenRouter model: {ai_model}")
         result = _openrouter_call(prompt, ai_model, image, max_tokens, temperature)
+        
         if result['success']:
             result['provider_used'] = 'openrouter'
-            print(f"[AI_UTILS] OpenRouter success")
+            print(f"[AI_UTILS] ✅ OpenRouter call successful - content length: {len(result.get('content', ''))}")
             return result
         else:
             # OpenRouter failed, return detailed error
             error_msg = result.get('error', 'OpenRouter call failed')
-            print(f"[AI_UTILS] OpenRouter failed: {error_msg}")
-            return {'success': False, 'error': f'OpenRouter failed: {error_msg}', 'content': '', 'provider_used': 'openrouter'}
+            print(f"[AI_UTILS] ❌ OpenRouter call failed: {error_msg}")
+            return {'success': False, 'error': f'AI call failed: {error_msg}', 'content': '', 'provider_used': 'openrouter'}
             
     except Exception as e:
-        error_msg = f'OpenRouter exception: {str(e)}'
-        print(f"[AI_UTILS] {error_msg}")
+        error_msg = f'AI call exception: {str(e)}'
+        print(f"[AI_UTILS] ❌ {error_msg}")
         return {'success': False, 'error': error_msg, 'content': '', 'provider_used': 'openrouter'}
 
 def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None, 
                     max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:
-    """OpenRouter API call"""
+    """OpenRouter API call with enhanced error handling and logging"""
     try:
+        print(f"[AI_UTILS] OpenRouter call starting - model: {model}, max_tokens: {max_tokens}, temperature: {temperature}")
+        
         # Get API key
         api_key = os.getenv(AI_CONFIG['providers']['openrouter']['api_key_env'])
         if not api_key:
-            return {'success': False, 'error': 'OpenRouter API key not found', 'content': ''}
+            error_msg = 'OpenRouter API key not found in environment variables'
+            print(f"[AI_UTILS] ERROR: {error_msg}")
+            return {'success': False, 'error': error_msg, 'content': ''}
+        
+        print(f"[AI_UTILS] API key found, length: {len(api_key)} characters")
         
         # Prepare headers
         headers = {
@@ -130,6 +145,8 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             'Content-Type': 'application/json',
             **AI_CONFIG['providers']['openrouter']['headers']
         }
+        
+        print(f"[AI_UTILS] Headers prepared: {list(headers.keys())}")
         
         # Prepare message content
         if image:
@@ -146,18 +163,27 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             # Text request
             content = prompt
         
+        # Prepare request payload
+        payload = {
+            'model': model,
+            'messages': [{'role': 'user', 'content': content}],
+            'max_tokens': max_tokens,
+            'temperature': temperature
+        }
+        
+        print(f"[AI_UTILS] Making API call to: {AI_CONFIG['providers']['openrouter']['base_url']}")
+        print(f"[AI_UTILS] Payload keys: {list(payload.keys())}")
+        print(f"[AI_UTILS] Prompt length: {len(prompt)} characters")
+        
         # Make API call
         response = requests.post(
             AI_CONFIG['providers']['openrouter']['base_url'],
             headers=headers,
-            json={
-                'model': model,
-                'messages': [{'role': 'user', 'content': content}],
-                'max_tokens': max_tokens,
-                'temperature': temperature
-            },
+            json=payload,
             timeout=AI_CONFIG['defaults']['timeout']
         )
+        
+        print(f"[AI_UTILS] API response status: {response.status_code}")
         
         if response.status_code == 200:
             result = response.json()
@@ -179,10 +205,26 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
                 return {'success': False, 'error': f'Invalid OpenRouter response structure: {e}', 'content': ''}
         else:
             error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
-            return {'success': False, 'error': f'OpenRouter error: {error_text}', 'content': ''}
+            print(f"[AI_UTILS] OpenRouter API error - Status: {response.status_code}")
+            print(f"[AI_UTILS] Error response: {error_text}")
+            return {'success': False, 'error': f'OpenRouter API error (HTTP {response.status_code}): {error_text}', 'content': ''}
             
+    except requests.exceptions.Timeout as e:
+        error_msg = f'OpenRouter API timeout after {AI_CONFIG["defaults"]["timeout"]} seconds'
+        print(f"[AI_UTILS] {error_msg}")
+        return {'success': False, 'error': error_msg, 'content': ''}
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f'OpenRouter API connection error: {str(e)}'
+        print(f"[AI_UTILS] {error_msg}")
+        return {'success': False, 'error': error_msg, 'content': ''}
+    except requests.exceptions.RequestException as e:
+        error_msg = f'OpenRouter API request error: {str(e)}'
+        print(f"[AI_UTILS] {error_msg}")
+        return {'success': False, 'error': error_msg, 'content': ''}
     except Exception as e:
-        return {'success': False, 'error': f'OpenRouter exception: {str(e)}', 'content': ''}
+        error_msg = f'OpenRouter unexpected error: {str(e)}'
+        print(f"[AI_UTILS] {error_msg}")
+        return {'success': False, 'error': error_msg, 'content': ''}
 
 def _huggingface_call(prompt: str, model: str, image: Union[str, bytes] = None,
                      max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:

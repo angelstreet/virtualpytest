@@ -793,7 +793,6 @@ Your task is to navigate through the app using available commands provided.
 Task: "{task_description}"
 Device: {device_model}
 {navigation_context}
-
 Commands: {navigation_commands}
 
 Rules:
@@ -801,15 +800,12 @@ Rules:
 - "click X" → click_element, element_id="X"
 - "press X" → press_key, key="X"
 
-CRITICAL: You MUST include an "analysis" field explaining your reasoning.
-
 Example response format:
 {{"analysis": "Task requires navigating to live content. Since 'live' node is available, I'll navigate there directly.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "live"}}, "description": "Navigate to live content"}}]}}
-
 If task is not possible:
 {{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
 
-RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
+CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is REQUIRED"""
             
             # Call AI with timeout handled by AI utils (no signal handling needed)
             print(f"AI[{self.device_name}]: Making AI call with built-in timeout")
@@ -819,17 +815,22 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             print("=" * 80)
             
             try:
+                print(f"AI[{self.device_name}]: Calling AI with enhanced error tracking...")
                 result = call_text_ai(
                     prompt=prompt,
                     max_tokens=1000,
                     temperature=0.0
                 )
+                print(f"AI[{self.device_name}]: AI call completed - success: {result.get('success')}")
             except Exception as e:
                 error_msg = f"AI generation failed with exception: {str(e)}"
-                print(f"AI[{self.device_name}]: {error_msg}")
+                print(f"AI[{self.device_name}]: CRITICAL ERROR: {error_msg}")
+                print(f"AI[{self.device_name}]: Exception type: {type(e).__name__}")
                 return {
                     'success': False,
-                    'error': error_msg
+                    'error': error_msg,
+                    'error_type': 'ai_call_exception',
+                    'provider_used': 'unknown'
                 }
             
             # Check if AI call succeeded
@@ -837,14 +838,28 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
                 error_msg = result.get('error', 'Unknown AI error')
                 provider_used = result.get('provider_used', 'none')
                 
+                # Enhanced error categorization
+                error_type = 'ai_call_failed'
+                if 'timeout' in error_msg.lower():
+                    error_type = 'ai_timeout'
+                elif 'connection' in error_msg.lower():
+                    error_type = 'ai_connection_error'
+                elif 'api key' in error_msg.lower():
+                    error_type = 'ai_auth_error'
+                elif 'rate limit' in error_msg.lower() or '429' in error_msg:
+                    error_type = 'ai_rate_limit'
+                
                 # Detailed error logging and early failure
                 detailed_error = f"AI generation failed - Provider: {provider_used}, Error: {error_msg}"
-                print(f"AI[{self.device_name}]: {detailed_error}")
+                print(f"AI[{self.device_name}]: ❌ {detailed_error}")
+                print(f"AI[{self.device_name}]: Error type: {error_type}")
                 
                 # Fail fast - no retries, no fallbacks
                 return {
                     'success': False,
-                    'error': detailed_error
+                    'error': detailed_error,
+                    'error_type': error_type,
+                    'provider_used': provider_used
                 }
             
             # AI call succeeded, parse response
