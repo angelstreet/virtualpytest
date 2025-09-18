@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { Host, Device } from '../types/common/Host_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { useToast } from './useToast';
 
 interface UseAIProps {
   host: Host;
@@ -41,6 +42,12 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const [currentPlan, setCurrentPlan] = useState<AIPlan | null>(null);
   const [executionStatus, setExecutionStatus] = useState<ExecutionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Toast notifications
+  const toast = useToast();
+  
+  // Track completion toast to prevent duplicates
+  const completionToastShown = useRef(false);
 
   const analyzeCompatibility = useCallback(async (prompt: string) => {
     try {
@@ -84,11 +91,18 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const executeTask = useCallback(async (prompt: string, userinterface_name: string) => {
     if (isExecuting) return;
 
-    setIsExecuting(true);
-    setError(null);
+    // Clear previous state
+    setCurrentPlan(null);
     setExecutionStatus(null);
+    setError(null);
+    completionToastShown.current = false;
+
+    setIsExecuting(true);
 
     try {
+      // Show start notification
+      toast.showInfo(`🤖 Starting AI task`, { duration: 3000 });
+
       const response = await fetch(buildServerUrl('/server/ai/executeTask'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,16 +119,55 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
       const executionId = result.execution_id;
 
-      // Poll for status
+      // Poll for status with rich updates
       const pollStatus = async () => {
+        let previousLogLength = 0;
+        
         while (true) {
           const statusResponse = await fetch(buildServerUrl(`/server/ai/status/${executionId}`));
           const status = await statusResponse.json();
 
           setExecutionStatus(status);
 
+          // Extract and set plan if available
+          if (!currentPlan && status.execution_log) {
+            const planEntry = status.execution_log.find((entry: any) => 
+              entry.action_type === 'plan_generated'
+            );
+            if (planEntry && planEntry.value) {
+              setCurrentPlan(planEntry.value);
+              toast.showSuccess(`📋 AI plan generated with ${planEntry.value.steps?.length || 0} steps`, { duration: 3000 });
+            }
+          }
+
+          // Show step progress toasts
+          if (status.execution_log && status.execution_log.length > previousLogLength) {
+            const newEntries = status.execution_log.slice(previousLogLength);
+            for (const entry of newEntries) {
+              if (entry.action_type === 'step_success') {
+                const stepData = entry.data || entry.value;
+                toast.showSuccess(`✅ Step ${stepData.step} completed`, { duration: 2000 });
+              } else if (entry.action_type === 'step_failed') {
+                const stepData = entry.data || entry.value;
+                toast.showError(`❌ Step ${stepData.step} failed`, { duration: 2000 });
+              }
+            }
+            previousLogLength = status.execution_log.length;
+          }
+
           if (!status.is_executing) {
             setIsExecuting(false);
+            
+            // Show completion toast
+            if (!completionToastShown.current) {
+              completionToastShown.current = true;
+              const success = status.success !== false;
+              if (success) {
+                toast.showSuccess(`🎉 Task completed successfully`, { duration: 4000 });
+              } else {
+                toast.showError(`⚠️ Task failed`, { duration: 4000 });
+              }
+            }
             break;
           }
 
@@ -128,8 +181,9 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       const errorMessage = err instanceof Error ? err.message : 'Execution failed';
       setError(errorMessage);
       setIsExecuting(false);
+      toast.showError(`❌ AI task failed: ${errorMessage}`, { duration: 4000 });
     }
-  }, [host, device, isExecuting]);
+  }, [host, device, isExecuting, currentPlan, toast]);
 
   const executeTestCase = useCallback(async (testCaseId: string) => {
     try {
