@@ -1,6 +1,14 @@
 -- VirtualPyTest Core Tables Schema
 -- This file contains the main tables for the VirtualPyTest system
 
+-- Drop existing tables if they exist (for clean recreation)
+DROP TABLE IF EXISTS ai_analysis_cache CASCADE;
+DROP TABLE IF EXISTS campaign_executions CASCADE;
+DROP TABLE IF EXISTS environment_profiles CASCADE;
+DROP TABLE IF EXISTS device CASCADE;
+DROP TABLE IF EXISTS device_models CASCADE;
+DROP TABLE IF EXISTS teams CASCADE;
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

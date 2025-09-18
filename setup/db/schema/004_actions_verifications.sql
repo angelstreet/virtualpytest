@@ -1,6 +1,9 @@
 -- VirtualPyTest Actions and Verifications Tables Schema
 -- This file contains tables for test actions and verification definitions
 
+-- Drop existing tables if they exist (for clean recreation)
+DROP TABLE IF EXISTS verifications_references CASCADE;
+
 -- actions table removed - does not exist in current database
 
 -- verifications table removed - does not exist in current database

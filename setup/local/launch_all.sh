@@ -193,10 +193,10 @@ if lsof -ti:5109 > /dev/null 2>&1; then
     sleep 1
 fi
 
-# Port 6409 (backend_host)
-if lsof -ti:6409 > /dev/null 2>&1; then
-    echo "🛑 Killing processes on port 6409..."
-    lsof -ti:6409 | xargs kill -9 2>/dev/null || true
+# Port 6109 (backend_host)
+if lsof -ti:6109 > /dev/null 2>&1; then
+    echo "🛑 Killing processes on port 6109..."
+    lsof -ti:6109 | xargs kill -9 2>/dev/null || true
     sleep 1
 fi
 

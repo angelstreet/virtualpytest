@@ -18,11 +18,11 @@ This includes:
 
 ### 🌩️ **Cloud Database Option**
 
-By default, VirtualPyTest uses a local PostgreSQL database for Grafana metrics. If you prefer cloud-hosted database benefits, you can migrate to Supabase:
+By default, VirtualPyTest uses a local PostgreSQL database for the main application. If you prefer cloud-hosted database benefits, you can migrate to Supabase:
 
-**👉 [Grafana Cloud Database Migration Guide](grafana_cloud.md)**
+**👉 [Supabase Cloud Database Migration Guide](supabase_cloud.md)**
 
-*This migration is optional and can be done after initial installation.*
+*This migration is optional and can be done after initial installation. Note: Grafana metrics will remain local for optimal performance.*
 
 ---
 
@@ -137,7 +137,7 @@ Grafana provides detailed analytics:
 - **📖 [Features Guide](features.md)** - See all VirtualPyTest capabilities
 - **🧪 [Running Tests](running-tests.md)** - Create your own test scripts  
 - **📊 [Monitoring Guide](monitoring.md)** - Master Grafana dashboards
-- **🌩️ [Cloud Database Migration](grafana_cloud.md)** - Move Grafana to Supabase cloud
+- **🌩️ [Cloud Database Migration](supabase_cloud.md)** - Move main database to Supabase cloud
 
 ---
 

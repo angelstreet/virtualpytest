@@ -41,7 +41,7 @@ This document explains how to install and use Grafana for local development and 
 VirtualPyTest Local Development
 ├── Frontend (Port 3000)
 ├── backend_server (Port 5109)
-├── backend_host (Port 6409)
+├── backend_host (Port 6109)
 ├── Grafana (Port 3001)
 └── PostgreSQL (Port 5432)
     ├── grafana_metrics (Local metrics)

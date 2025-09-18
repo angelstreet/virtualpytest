@@ -3,6 +3,12 @@
 -- Description: Add automatic sync triggers for parent node label/screenshot changes
 --              and cascade delete for subtrees when parent node is deleted
 
+-- Drop existing triggers and functions if they exist (for clean recreation)
+DROP TRIGGER IF EXISTS cascade_delete_subtrees_trigger ON navigation_nodes;
+DROP TRIGGER IF EXISTS sync_parent_label_screenshot_trigger ON navigation_nodes;
+DROP FUNCTION IF EXISTS cascade_delete_subtrees() CASCADE;
+DROP FUNCTION IF EXISTS sync_parent_label_screenshot() CASCADE;
+
 -- ==============================================================================
 -- SYNC TRIGGERS FOR NESTED NAVIGATION
 -- ==============================================================================

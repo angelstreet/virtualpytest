@@ -191,7 +191,7 @@ Press `Ctrl+C` to stop all services gracefully.
 If you get port conflicts, the launch script automatically kills processes on required ports:
 - Port 3000 (Frontend)
 - Port 5109 (Backend Server)
-- Port 6409 (Backend Host)
+- Port 6109 (Backend Host)
 
 ### Missing Dependencies
 ```bash

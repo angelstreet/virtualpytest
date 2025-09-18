@@ -1,6 +1,12 @@
 -- VirtualPyTest Monitoring and Analytics Tables Schema
 -- This file contains tables for alerts, metrics, and analytics
 
+-- Drop existing tables if they exist (for clean recreation)
+DROP TABLE IF EXISTS edge_metrics CASCADE;
+DROP TABLE IF EXISTS node_metrics CASCADE;
+DROP TABLE IF EXISTS heatmaps CASCADE;
+DROP TABLE IF EXISTS alerts CASCADE;
+
 -- System alerts and monitoring incidents (UPDATED SCHEMA)
 CREATE TABLE alerts (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

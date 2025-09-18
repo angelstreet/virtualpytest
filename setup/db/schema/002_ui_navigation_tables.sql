@@ -1,6 +1,21 @@
 -- VirtualPyTest UI & Navigation Tables Schema
 -- This file contains tables for user interfaces, navigation trees, nodes, and edges
 
+-- Drop existing tables if they exist (for clean recreation)
+DROP TRIGGER IF EXISTS cascade_delete_subtrees_trigger ON navigation_nodes;
+DROP TRIGGER IF EXISTS sync_parent_label_screenshot_trigger ON navigation_nodes;
+DROP TRIGGER IF EXISTS trigger_update_subtree_counts ON navigation_trees;
+DROP FUNCTION IF EXISTS cascade_delete_subtrees() CASCADE;
+DROP FUNCTION IF EXISTS sync_parent_label_screenshot() CASCADE;
+DROP FUNCTION IF EXISTS update_node_subtree_counts() CASCADE;
+DROP FUNCTION IF EXISTS get_tree_path(uuid) CASCADE;
+DROP FUNCTION IF EXISTS get_descendant_trees(uuid) CASCADE;
+DROP TABLE IF EXISTS navigation_trees_history CASCADE;
+DROP TABLE IF EXISTS navigation_edges CASCADE;
+DROP TABLE IF EXISTS navigation_nodes CASCADE;
+DROP TABLE IF EXISTS navigation_trees CASCADE;
+DROP TABLE IF EXISTS userinterfaces CASCADE;
+
 -- User interfaces (screens/apps being tested) - UPDATED SCHEMA
 CREATE TABLE userinterfaces (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

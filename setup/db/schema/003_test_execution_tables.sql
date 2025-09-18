@@ -1,6 +1,14 @@
 -- VirtualPyTest Test Execution Tables Schema
 -- This file contains tables for test cases, executions, and results
 
+-- Drop existing tables if they exist (for clean recreation)
+DROP TABLE IF EXISTS zap_results CASCADE;
+DROP TABLE IF EXISTS script_results CASCADE;
+DROP TABLE IF EXISTS execution_results CASCADE;
+DROP TABLE IF EXISTS test_results CASCADE;
+DROP TABLE IF EXISTS test_executions CASCADE;
+DROP TABLE IF EXISTS test_cases CASCADE;
+
 -- Test case definitions (UPDATED SCHEMA)
 CREATE TABLE test_cases (
     test_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,  -- UPDATED: Changed from id to test_id
