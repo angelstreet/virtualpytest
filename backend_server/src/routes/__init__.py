@@ -16,7 +16,7 @@ from . import server_heatmap_routes
 from . import server_navigation_execution_routes
 from . import server_devicemodel_routes
 from . import server_remote_routes
-from . import server_aiagent_routes
+from . import server_ai_routes
 from . import server_ai_generation_routes
 from . import server_aitestcase_routes
 from . import server_desktop_bash_routes
