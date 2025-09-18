@@ -36,4 +36,5 @@ from . import server_script_routes
 from . import server_script_results_routes
 from . import server_metrics_routes
 from . import server_campaign_results_routes
-from . import server_frontend_routes 
+from . import server_frontend_routes
+from . import server_ai_queue_routes 
