@@ -106,45 +106,62 @@ def main():
         ai_steps = test_case.get('steps', [])
         print(f"[@ai_testcase_executor] Processing {len(ai_steps)} AI steps")
         
-        # Use AIAgentController._execute() with the PRE-GENERATED STEPS
-        # This leverages the existing AI execution framework without re-generating from prompt
-        from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
+        # Use AI Central for clean execution
+        from backend_core.src.controllers.ai.ai_central import AICentral, AIPlan, AIStep, AIStepType, ExecutionOptions, ExecutionMode
         
-        print(f"[@ai_testcase_executor] Using AIAgentController._execute() with pre-generated steps")
-        original_prompt = test_case.get('original_prompt', 'Navigate to home')
-        stored_steps = test_case.get('steps', [])
+        print(f"[@ai_testcase_executor] Using AI Central with stored test case")
         
-        # Create a fake plan using the stored steps (now in AI Agent format)
-        fake_plan = {
-            'analysis': f'Pre-generated test case for: {original_prompt}',
-            'feasible': True,
-            'plan': stored_steps  # Steps are now in AI Agent format!
-        }
+        # Convert stored steps to AI Central format
+        steps = []
+        for i, step_data in enumerate(test_case.get('steps', [])):
+            step_type = AIStepType.ACTION
+            if step_data.get('command') == 'execute_navigation':
+                step_type = AIStepType.NAVIGATION
+            elif step_data.get('command', '').startswith('verify_'):
+                step_type = AIStepType.VERIFICATION
+            elif step_data.get('command') == 'wait':
+                step_type = AIStepType.WAIT
+                
+            steps.append(AIStep(
+                step_id=i + 1,
+                type=step_type,
+                command=step_data.get('command'),
+                params=step_data.get('params', {}),
+                description=step_data.get('description', '')
+            ))
         
-        # Initialize AI agent and execute using stored steps
-        # EARLY VALIDATION: Ensure we have a valid device_id
-        if not context.selected_device or not context.selected_device.device_id:
-            context.error_message = "No valid device_id available for AI agent initialization"
-            print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        try:
-            ai_agent = AIAgentController(device_id=context.selected_device.device_id)
-        except ValueError as e:
-            context.error_message = f"AI agent initialization failed: {str(e)}"
-            print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
-            # Capture execution summary even on AI agent initialization failure
-            summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case, ai_steps)
-            context.execution_summary = summary_text
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        ai_result = ai_agent._execute(
-            plan=fake_plan,
-            navigation_tree=None,
+        plan = AIPlan(
+            id=test_case_id,
+            prompt=test_case.get('original_prompt', ''),
+            analysis=f"Stored test case: {test_case.get('name', '')}",
+            feasible=True,
+            steps=steps,
             userinterface_name=args.userinterface_name
         )
+        
+        # Execute using AI Central
+        ai_central = AICentral(
+            team_id=context.team_id,
+            host={'host_name': context.host.host_name},
+            device_id=context.selected_device.device_id
+        )
+        
+        options = ExecutionOptions(
+            mode=ExecutionMode.SCRIPT,
+            context={'tree_id': test_case.get('tree_id')},
+            enable_db_tracking=True
+        )
+        
+        execution_id = ai_central.execute_plan(plan, options)
+        
+        # Wait for completion
+        import time
+        while True:
+            status = ai_central.get_execution_status(execution_id)
+            if not status.get('is_executing', False):
+                ai_result = {'success': status.get('success', False)}
+                break
+            time.sleep(0.5)
         
         success = ai_result.get('success', False)
         context.overall_success = success
