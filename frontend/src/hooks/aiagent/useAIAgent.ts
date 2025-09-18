@@ -67,6 +67,9 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
   // Request deduplication
   const isRequestInProgress = useRef(false);
   const currentTaskId = useRef<string | null>(null);
+  
+  // Track completion toast to prevent duplicates
+  const completionToastShown = useRef(false);
 
   // Cache key for this device session
   const cacheKey = useMemo(() => `${host.host_name}-${device?.device_id}`, [host.host_name, device?.device_id]);
@@ -191,6 +194,9 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
     setTaskResult(null);
     setIsPlanFeasible(true);
     setCurrentStep('');
+    
+    // Reset completion toast flag for new task
+    completionToastShown.current = false;
 
     // Request deduplication - prevent duplicate calls
     const taskId = `${host.host_name}-${device.device_id}-${taskInput.trim()}-${Date.now()}`;
@@ -313,13 +319,8 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                     } else if (entry.action_type === 'step_failed') {
                       const stepData = entry.value;
                       toast.showError(`❌ Step ${stepData.step} failed (${stepData.duration.toFixed(1)}s)`, { duration: 2000 });
-                    } else if (entry.action_type === 'task_completed') {
-                      const taskData = entry.value;
-                      toast.showSuccess(`🎉 Task completed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS });
-                    } else if (entry.action_type === 'task_failed') {
-                      const taskData = entry.value;
-                      toast.showError(`⚠️ Task failed in ${taskData.duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.ERROR });
                     }
+                    // Remove task completion toasts from here - they'll be shown once when task actually completes
                   }
                 }
 
@@ -353,9 +354,27 @@ export const useAIAgent = ({ host, device, enabled = true }: UseAIAgentProps): U
                     const success = summaryEntry.action_type === 'task_completed';
                     const message = success ? 'Task Completed' : 'Task Failed';
                     setTaskResult({ success, message });
+                    
+                    // Show completion toast only once per task
+                    if (!completionToastShown.current) {
+                      completionToastShown.current = true;
+                      if (success) {
+                        const taskData = summaryEntry.value;
+                        const duration = taskData?.duration || 0;
+                        toast.showSuccess(`🎉 Task completed in ${duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS });
+                      } else {
+                        const taskData = summaryEntry.value;
+                        const duration = taskData?.duration || 0;
+                        toast.showError(`⚠️ Task failed in ${duration.toFixed(1)}s`, { duration: AI_CONSTANTS.TOAST_DURATION.ERROR });
+                      }
+                    }
                   } else {
                     // Fallback if no completion found
                     setTaskResult({ success: true, message: 'Task Completed' });
+                    if (!completionToastShown.current) {
+                      completionToastShown.current = true;
+                      toast.showSuccess(`🎉 Task completed`, { duration: AI_CONSTANTS.TOAST_DURATION.SUCCESS });
+                    }
                   }
 
                   // Cache final navigation state
