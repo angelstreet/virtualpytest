@@ -163,6 +163,45 @@ class AIAgentController(BaseController):
             print(f"AI[{self.device_name}]: {error_msg}")
             return {'success': False, 'error': error_msg}
 
+    def _get_available_actions(self, device_id: str) -> Dict[str, Any]:
+        """Get available actions from controller - reuse existing controller system"""
+        try:
+            from backend_core.src.controllers.controller_config_factory import get_controller_config
+            controller_config = get_controller_config(device_id)
+            return controller_config.get('available_actions', {})
+        except Exception as e:
+            print(f"AI[{self.device_name}]: Error getting available actions: {e}")
+            return {}
+
+    def _get_navigation_context(self, available_nodes: List[str]) -> str:
+        """Get navigation context with available nodes"""
+        if available_nodes:
+            return f"Navigation - Available nodes: {available_nodes}"
+        return "Navigation - No nodes available"
+
+    def _get_action_context(self) -> str:
+        """Get action context with available controller commands"""
+        try:
+            available_actions = self._get_available_actions(self.device_id)
+            if not available_actions:
+                return "Actions - No controller actions available"
+            
+            action_commands = list(available_actions.keys())
+            return f"Actions - Available commands: {action_commands}"
+        except Exception as e:
+            print(f"AI[{self.device_name}]: Error getting action context: {e}")
+            return f"Actions - Error: {str(e)}"
+
+    def _execute_action(self, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute controller action - delegate to frontend action system"""
+        print(f"AI[{self.device_name}]: Executing action '{command}' with params: {params}")
+        return {
+            'success': True, 
+            'action_type': 'controller_action',
+            'command': command,
+            'params': params,
+            'message': f'Action {command} queued for frontend execution'
+        }
 
     def analyze_compatibility(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
@@ -759,24 +798,20 @@ If not feasible:
 
 JSON ONLY - NO OTHER TEXT"""
             else:
-                # Use navigation-specific commands instead of device-specific actions
-                navigation_commands = ['execute_navigation', 'click_element', 'press_key', 'wait']
+                # Get consolidated contexts
+                navigation_context = self._get_navigation_context(available_nodes)
+                action_context = self._get_action_context()
                 
-                # Build navigation context with ALL nodes
-                navigation_context = ""
-                if available_nodes:
-                    navigation_context = f"Nodes: {available_nodes}"
-                    print(f"AI[{self.device_name}]: Navigation context includes {len(available_nodes)} nodes")
-                else:
-                    print(f"AI[{self.device_name}]: Navigation context is empty - no nodes available")
+                print(f"AI[{self.device_name}]: {navigation_context}")
+                print(f"AI[{self.device_name}]: {action_context}")
                 
                 prompt = f"""You are controlling a TV application on a device (STB/mobile/PC).
 Your task is to navigate through the app using available commands provided.
 
 Task: "{task_description}"
 Device: {device_model}
-AVAILABLE NAVIGATION NODES (use EXACTLY these node IDs): {available_nodes}
-Commands: {navigation_commands}
+{navigation_context}
+{action_context}
 
 CRITICAL RULES:
 - You MUST ONLY use nodes from the available list above
@@ -991,6 +1026,10 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
                 # Use cached userinterface_name if available, fallback to parameter
                 cached_interface = self.cached_userinterface_name or userinterface_name
                 result = self._execute_navigation(target_node, cached_interface)
+            elif command in ['press_key', 'click_element', 'wait']:
+                # Handle controller actions - delegate to frontend
+                params = step.get('params', {})
+                result = self._execute_action(command, params)
             else:
                 action = self._convert_step_to_action(step)
                 result = execute_action_directly(host, device, action)
