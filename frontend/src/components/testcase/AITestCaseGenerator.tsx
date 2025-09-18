@@ -26,7 +26,7 @@ import {
   ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 
-import { useAITestCase } from '../../hooks/aiagent/useAITestCase';
+// import { useAI } from '../../hooks/useAI';
 import { AIAnalysisResponse, TestCase } from '../../types/pages/TestCase_Types';
 
 interface AITestCaseGeneratorProps {
@@ -46,14 +46,10 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
   const [selectedInterfaces, setSelectedInterfaces] = useState<string[]>([]);
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
   
-  // Hook for AI operations
-  const { 
-    analyzeTestCase, 
-    generateTestCases, 
-    isAnalyzing, 
-    isGenerating, 
-    error 
-  } = useAITestCase();
+  // State for AI operations
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Helper function to get sample prompts
   const getSamplePrompts = () => [
@@ -68,40 +64,84 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
   const handleAnalyze = useCallback(async () => {
     if (!prompt.trim()) return;
 
+    setIsAnalyzing(true);
+    setError(null);
+
     try {
-      const analysisResult = await analyzeTestCase(prompt);
+      const response = await fetch('/server/ai/analyzeCompatibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+
+      if (!response.ok) throw new Error('Analysis failed');
+      
+      const analysisResult = await response.json();
       setAnalysis(analysisResult);
       setCurrentStep('analysis');
       
       // Pre-select all compatible interfaces by default
-      setSelectedInterfaces(analysisResult.compatibility_matrix.compatible_userinterfaces);
+      if (analysisResult.compatible_interfaces) {
+        setSelectedInterfaces(analysisResult.compatible_interfaces.map((i: any) => i.userinterface_name));
+      }
       
       // Reset expanded steps for new analysis
       setExpandedSteps(new Set());
     } catch (err) {
       console.error('Analysis failed:', err);
-      // Error is already handled by the hook
+      setError(err instanceof Error ? err.message : 'Analysis failed');
+    } finally {
+      setIsAnalyzing(false);
     }
-  }, [prompt, analyzeTestCase]);
+  }, [prompt]);
 
   // Step 2: Handle generation
   const handleGenerate = useCallback(async () => {
     if (!analysis || selectedInterfaces.length === 0) return;
 
+    setIsGenerating(true);
+    setError(null);
+
     try {
-      const generatedTestCases = await generateTestCases(
-        analysis.analysis_id,
-        selectedInterfaces
-      );
+      // For now, generate test cases for each interface individually
+      const generatedTestCases = [];
+      for (const interfaceName of selectedInterfaces) {
+        const response = await fetch('/server/ai/generatePlan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            prompt: prompt, 
+            userinterface_name: interfaceName 
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.plan) {
+            generatedTestCases.push({
+              test_id: result.plan.id,
+              test_type: 'functional' as const,
+              start_node: 'root',
+              name: `AI Generated: ${prompt.slice(0, 50)}...`,
+              original_prompt: prompt,
+              steps: result.plan.steps,
+              userinterface_name: interfaceName,
+              feasible: result.plan.feasible
+            });
+          }
+        }
+      }
       
       if (generatedTestCases.length > 0) {
         onTestCasesCreated(generatedTestCases);
       }
     } catch (err) {
       console.error('Generation failed:', err);
-      // Error is already handled by the hook
+      setError(err instanceof Error ? err.message : 'Generation failed');
+    } finally {
+      setIsGenerating(false);
     }
-  }, [analysis, selectedInterfaces, generateTestCases, onTestCasesCreated]);
+  }, [analysis, selectedInterfaces, onTestCasesCreated]);
 
   // Interface toggle handler
   const handleInterfaceToggle = useCallback((interfaceName: string) => {

@@ -16,7 +16,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useModal } from '../../contexts/ModalContext';
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
-import { useAIAgent } from '../../hooks/aiagent/useAIAgent';
+import { useAI } from '../../hooks/useAI';
 import { useStream } from '../../hooks/controller';
 import { useRec } from '../../hooks/pages/useRec';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
@@ -113,22 +113,25 @@ const RecHostStreamModalContent: React.FC<{
   // AI Agent hook - only active when aiAgentMode is true
   const {
     isExecuting: isAIExecuting,
-    taskInput,
-    aiPlan,
-    isPlanFeasible,
-    errorMessage: aiError,
-    executionLog,
-    currentStep,
-    progressPercentage,
-    setTaskInput,
+    currentPlan: aiPlan,
+    executionStatus,
+    error: aiError,
     executeTask: executeAITask,
-    clearLog: clearAILog,
-    clearCache: clearAICache,
-  } = useAIAgent({
+    clearError: clearAIError
+  } = useAI({
     host,
     device: device!,
-    enabled: true, // Always enabled so polling works
+    mode: 'real-time'
   });
+
+  // Extract values from executionStatus for backward compatibility
+  const executionLog = executionStatus?.execution_log || [];
+  const currentStep = executionStatus?.current_step || '';
+  const progressPercentage = executionStatus?.progress_percentage || 0;
+  const isPlanFeasible = aiPlan?.feasible !== false;
+  
+  // Task input state
+  const [taskInput, setTaskInput] = useState('');
 
   // Debug logging for AI agent state
   useEffect(() => {
@@ -136,7 +139,7 @@ const RecHostStreamModalContent: React.FC<{
       isAIExecuting,
       currentStep,
       progressPercentage,
-      aiPlan: aiPlan ? { feasible: aiPlan.feasible, planLength: aiPlan.plan?.length } : 'None',
+      aiPlan: aiPlan ? { feasible: aiPlan.feasible, planLength: aiPlan.steps?.length } : 'None',
       executionLogLength: executionLog.length,
       executionLogTypes: executionLog.map(e => e.action_type)
     });
@@ -294,12 +297,12 @@ const RecHostStreamModalContent: React.FC<{
         // Don't clear AI log when enabling - let user see previous results
       } else {
         // Only clear when disabling AI agent mode
-        clearAILog();
+        clearAIError();
       }
 
       return newMode;
     });
-  }, [isControlActive, clearAILog, showWarning]);
+  }, [isControlActive, clearAIError, showWarning]);
 
   // Handle restart mode toggle
   const handleToggleRestart = useCallback(() => {
@@ -344,8 +347,8 @@ const RecHostStreamModalContent: React.FC<{
   const handleClose = useCallback(async () => {
     console.log('[@component:RecHostStreamModal] Closing modal');
 
-    // Clear AI cache on modal close
-    clearAICache();
+    // Clear AI error on modal close
+    clearAIError();
 
     // Reset state (useDeviceControl handles cleanup automatically)
     setShowRemote(false);
@@ -354,7 +357,7 @@ const RecHostStreamModalContent: React.FC<{
     setAiAgentMode(false);
     setRestartMode(false);
     onClose();
-  }, [onClose, clearAICache]);
+  }, [onClose, clearAIError]);
 
   // Handle escape key
   useEffect(() => {
@@ -943,7 +946,7 @@ const RecHostStreamModalContent: React.FC<{
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        executeAITask();
+                        executeAITask(taskInput, 'horizon_android_mobile');
                       }
                     }}
                     disabled={isAIExecuting}
@@ -973,7 +976,7 @@ const RecHostStreamModalContent: React.FC<{
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={executeAITask}
+                    onClick={() => executeAITask(taskInput, 'horizon_android_mobile')}
                     disabled={!taskInput.trim() || isAIExecuting || !isControlActive}
                     startIcon={isAIExecuting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : undefined}
                     sx={{
@@ -1083,18 +1086,18 @@ const RecHostStreamModalContent: React.FC<{
                           )}
                         </Box>
 
-                        {aiPlan.plan && aiPlan.plan.length > 0 && (
+                        {aiPlan.steps && aiPlan.steps.length > 0 && (
                           <Box sx={{ mt: 0.5 }}>
                             <Typography variant="caption" sx={{ color: '#aaa', mb: 0, display: 'block' }}>
-                              Steps ({aiPlan.plan.length}):
+                              Steps ({aiPlan.steps.length}):
                             </Typography>
-                            {aiPlan.plan.map((step: any, index: number) => {
+                            {aiPlan.steps.map((step: any, index: number) => {
                               const stepNumber = step.step || index + 1;
                               const completedEntry = executionLog.find(entry => 
-                                entry.action_type === 'step_success' && entry.value.step === stepNumber
+                                entry.action_type === 'step_success' && entry.data.step === stepNumber
                               );
                               const failedEntry = executionLog.find(entry => 
-                                entry.action_type === 'step_failed' && entry.value.step === stepNumber
+                                entry.action_type === 'step_failed' && entry.data.step === stepNumber
                               );
                               const isCurrent = currentStep && currentStep.includes(`Step ${stepNumber}`);
                               
@@ -1117,7 +1120,7 @@ const RecHostStreamModalContent: React.FC<{
                                 borderColor = 'transparent';
                               }
                               
-                              const duration = completedEntry?.value.duration || failedEntry?.value.duration;
+                              const duration = completedEntry?.data.duration || failedEntry?.data.duration;
                               
                               return (
                                 <Box
@@ -1148,44 +1151,30 @@ const RecHostStreamModalContent: React.FC<{
 
                         {/* Summary Info */}
                         <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {aiPlan.estimated_time && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: '#4caf50',
-                                backgroundColor: 'rgba(76,175,80,0.1)',
-                                px: 1,
-                                py: 0.5,
-                                borderRadius: 0.5,
-                              }}
-                            >
-                              Time: {aiPlan.estimated_time}
-                            </Typography>
-                          )}
-                          {aiPlan.risk_level && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color:
-                                  aiPlan.risk_level === 'low'
-                                    ? '#4caf50'
-                                    : aiPlan.risk_level === 'high'
-                                      ? '#f44336'
-                                      : '#ff9800',
-                                backgroundColor:
-                                  aiPlan.risk_level === 'low'
-                                    ? 'rgba(76,175,80,0.1)'
-                                    : aiPlan.risk_level === 'high'
-                                      ? 'rgba(244,67,54,0.1)'
-                                      : 'rgba(255,152,0,0.1)',
-                                px: 1,
-                                py: 0.5,
-                                borderRadius: 0.5,
-                              }}
-                            >
-                              Risk: {aiPlan.risk_level}
-                            </Typography>
-                          )}
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: '#4caf50',
+                              backgroundColor: 'rgba(76,175,80,0.1)',
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 0.5,
+                            }}
+                          >
+                            Steps: {aiPlan.steps?.length || 0}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: aiPlan.feasible ? '#4caf50' : '#f44336',
+                              backgroundColor: aiPlan.feasible ? 'rgba(76,175,80,0.1)' : 'rgba(244,67,54,0.1)',
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 0.5,
+                            }}
+                          >
+                            {aiPlan.feasible ? 'Feasible' : 'Not Feasible'}
+                          </Typography>
                         </Box>
                       </>
                     )}

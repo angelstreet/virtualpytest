@@ -36,7 +36,7 @@ interface ExecutionStatus {
   progress_percentage: number;
 }
 
-export const useAI = ({ host, device, mode }: UseAIProps) => {
+export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<AIPlan | null>(null);
   const [executionStatus, setExecutionStatus] = useState<ExecutionStatus | null>(null);
