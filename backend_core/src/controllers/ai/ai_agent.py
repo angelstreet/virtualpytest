@@ -445,6 +445,9 @@ class AIAgentController(BaseController):
                 }
             
             # Add plan to log but don't start execution yet
+            print(f"AI[{self.device_name}]: Generated plan JSON:")
+            print(json.dumps(ai_plan, indent=2))
+            
             self._add_to_log("ai_plan", "plan_generated", ai_plan['plan'], "AI generated execution plan")
             
             return {
@@ -503,8 +506,12 @@ class AIAgentController(BaseController):
                     'execution_log': self.execution_log
                 }
             
-            # Execute the plan
-            execute_result = self._execute(plan_entry['plan'], navigation_tree, userinterface_name)
+            # Log plan JSON before execution
+            print(f"AI[{self.device_name}]: Executing plan JSON:")
+            print(json.dumps(plan_entry, indent=2))
+            
+            # Execute the plan (pass the full plan entry, not just the plan array)
+            execute_result = self._execute(plan_entry, navigation_tree, userinterface_name)
             self._add_to_log("execute", "plan_execution", execute_result, f"Plan execution: {execute_result}")
             
             # Generate result summary
@@ -633,7 +640,7 @@ class AIAgentController(BaseController):
                     'error': 'Navigation tree not cached - cannot execute plan',
                     'execution_log': self.execution_log
                 }
-            execute_result = self._execute(ai_plan['plan'], navigation_tree, userinterface_name)
+            execute_result = self._execute(ai_plan, navigation_tree, userinterface_name)
             self._add_to_log("execute", "plan_execution", execute_result, f"Plan execution: {execute_result}")
             
             # Step 3: Generate result summary
