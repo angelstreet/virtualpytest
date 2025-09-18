@@ -161,9 +161,22 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
         
         if response.status_code == 200:
             result = response.json()
-            content = result['choices'][0]['message']['content']
-            print(f"[AI_UTILS] OpenRouter response content: {repr(content)}")
-            return {'success': True, 'content': content}
+            print(f"[AI_UTILS] Full OpenRouter response: {json.dumps(result, indent=2)}")
+            
+            # Extract content safely
+            try:
+                content = result['choices'][0]['message']['content']
+                print(f"[AI_UTILS] Extracted content: {repr(content)}")
+                
+                # Handle None or empty content
+                if content is None or content == "":
+                    return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': ''}
+                
+                return {'success': True, 'content': content}
+            except (KeyError, IndexError, TypeError) as e:
+                print(f"[AI_UTILS] Error extracting content: {e}")
+                print(f"[AI_UTILS] Response structure: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                return {'success': False, 'error': f'Invalid OpenRouter response structure: {e}', 'content': ''}
         else:
             error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
             return {'success': False, 'error': f'OpenRouter error: {error_text}', 'content': ''}
