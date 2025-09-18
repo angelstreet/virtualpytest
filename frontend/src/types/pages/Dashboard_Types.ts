@@ -16,6 +16,19 @@ export interface SystemStats {
   architecture: string;
   python_version: string;
   error?: string;
+  // Process status information
+  ffmpeg_status?: {
+    status: 'active' | 'stuck' | 'stopped' | 'error' | 'unknown';
+    processes_running?: number;
+    recent_files?: Record<string, any>;
+    error?: string;
+  };
+  monitor_status?: {
+    status: 'active' | 'stuck' | 'stopped' | 'error' | 'unknown';
+    process_running?: boolean;
+    recent_json_files?: Record<string, any>;
+    error?: string;
+  };
 }
 
 // Recent activity interface (separate from LogEntry)

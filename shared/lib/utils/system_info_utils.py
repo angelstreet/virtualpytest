@@ -224,6 +224,29 @@ def get_host_system_stats():
         }
 
 
+def is_host_stuck():
+    """
+    Check if host has any stuck processes (FFmpeg or Monitor).
+    Reuses existing status checking functions to avoid code duplication.
+    
+    Returns:
+        bool: True if any process is stuck, False otherwise
+    """
+    try:
+        # Get status using existing functions
+        ffmpeg_status = check_ffmpeg_status()
+        monitor_status = check_monitor_status()
+        
+        # Check if either process is stuck
+        ffmpeg_stuck = ffmpeg_status.get('status') == 'stuck'
+        monitor_stuck = monitor_status.get('status') == 'stuck'
+        
+        return ffmpeg_stuck or monitor_stuck
+        
+    except Exception as e:
+        print(f"⚠️ Error checking if host is stuck: {e}")
+        return False
+
 def get_enhanced_system_stats():
     """Get enhanced system statistics including uptime and process status"""
     try:

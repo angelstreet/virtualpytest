@@ -69,7 +69,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     setIsStreamModalOpen(false);
   }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, isStuck: boolean = false) => {
+    // If processes are stuck, always show error regardless of host status
+    if (isStuck) {
+      return 'error';
+    }
+    
     switch (status) {
       case 'online':
         return 'success';
@@ -79,6 +84,13 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         return 'default';
     }
   };
+
+  // Check if host has stuck processes
+  const isHostStuck = useMemo(() => {
+    const ffmpegStuck = host.system_stats?.ffmpeg_status?.status === 'stuck';
+    const monitorStuck = host.system_stats?.monitor_status?.status === 'stuck';
+    return ffmpegStuck || monitorStuck;
+  }, [host.system_stats?.ffmpeg_status?.status, host.system_stats?.monitor_status?.status]);
 
   // Clean display values - special handling for VNC devices
   const displayName = device
@@ -123,9 +135,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             {displayName}
           </Typography>
           <Chip
-            label={host.status}
+            label={isHostStuck ? 'error' : host.status}
             size="small"
-            color={getStatusColor(host.status) as any}
+            color={getStatusColor(host.status, isHostStuck) as any}
             sx={{ fontSize: '0.7rem', height: 20 }}
           />
         </Box>
