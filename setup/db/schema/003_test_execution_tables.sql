@@ -110,6 +110,39 @@ CREATE TABLE script_results (
     discard_comment text
 );
 
+-- Zap results table (moved from 001_core_tables.sql to fix dependency)
+CREATE TABLE zap_results (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    script_result_id uuid REFERENCES script_results(id) ON DELETE CASCADE,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    host_name text NOT NULL,
+    device_name text NOT NULL,
+    device_model text,
+    execution_date timestamp with time zone NOT NULL,
+    iteration_index integer NOT NULL,
+    action_command text NOT NULL,
+    duration_seconds numeric NOT NULL,
+    motion_detected boolean DEFAULT false,
+    subtitles_detected boolean DEFAULT false,
+    audio_speech_detected boolean DEFAULT false,
+    blackscreen_freeze_detected boolean DEFAULT false,
+    subtitle_language text,
+    subtitle_text text,
+    audio_language text,
+    audio_transcript text,
+    blackscreen_freeze_duration_seconds numeric,
+    detection_method text,
+    channel_name text,
+    channel_number text,
+    program_name text,
+    program_start_time text,
+    program_end_time text,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    userinterface_name text,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone
+);
+
 -- Add indexes for performance
 CREATE INDEX idx_test_cases_team_id ON test_cases(team_id);
 CREATE INDEX idx_test_cases_test_type ON test_cases(test_type);
@@ -130,6 +163,10 @@ CREATE INDEX idx_script_results_team_id ON script_results(team_id);
 CREATE INDEX idx_script_results_script_name ON script_results(script_name);
 CREATE INDEX idx_script_results_host_name ON script_results(host_name);
 CREATE INDEX idx_script_results_discard ON script_results(discard);
+CREATE INDEX idx_zap_results_team_id ON zap_results(team_id);
+CREATE INDEX idx_zap_results_script_result_id ON zap_results(script_result_id);
+CREATE INDEX idx_zap_results_host_name ON zap_results(host_name);
+CREATE INDEX idx_zap_results_execution_date ON zap_results(execution_date);
 
 -- Add comments
 COMMENT ON TABLE test_cases IS 'Test case definitions and configurations';
@@ -137,6 +174,7 @@ COMMENT ON TABLE test_executions IS 'Test execution tracking records';
 COMMENT ON TABLE test_results IS 'Test execution results and outcomes';
 COMMENT ON TABLE execution_results IS 'Detailed execution results matching automai schema';
 COMMENT ON TABLE script_results IS 'Script execution results matching automai schema';
+COMMENT ON TABLE zap_results IS 'Individual zap iteration results with detailed analysis data';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE test_cases ENABLE ROW LEVEL SECURITY;
@@ -144,6 +182,7 @@ ALTER TABLE test_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE execution_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE script_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE zap_results ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for test_cases table (updated to match actual working database)
 CREATE POLICY "test_cases_access_policy" ON test_cases
@@ -171,6 +210,12 @@ USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
 -- RLS Policies for script_results table (updated to match actual working database)
 CREATE POLICY "script_results_access_policy" ON script_results
+FOR ALL 
+TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+
+-- RLS Policies for zap_results table
+CREATE POLICY "zap_results_access_policy" ON zap_results
 FOR ALL 
 TO public
 USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true); 

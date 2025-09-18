@@ -93,38 +93,6 @@ CREATE TABLE ai_analysis_cache (
     expires_at timestamp with time zone DEFAULT (now() + '01:00:00'::interval)
 );
 
--- Zap results table (NEW TABLE)
-CREATE TABLE zap_results (
-    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    script_result_id uuid REFERENCES script_results(id) ON DELETE CASCADE,
-    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-    host_name text NOT NULL,
-    device_name text NOT NULL,
-    device_model text,
-    execution_date timestamp with time zone NOT NULL,
-    iteration_index integer NOT NULL,
-    action_command text NOT NULL,
-    duration_seconds numeric NOT NULL,
-    motion_detected boolean DEFAULT false,
-    subtitles_detected boolean DEFAULT false,
-    audio_speech_detected boolean DEFAULT false,
-    blackscreen_freeze_detected boolean DEFAULT false,
-    subtitle_language text,
-    subtitle_text text,
-    audio_language text,
-    audio_transcript text,
-    blackscreen_freeze_duration_seconds numeric,
-    detection_method text,
-    channel_name text,
-    channel_number text,
-    program_name text,
-    program_start_time text,
-    program_end_time text,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-    userinterface_name text,
-    started_at timestamp with time zone,
-    completed_at timestamp with time zone
-);
 
 -- Add indexes for performance
 CREATE INDEX idx_device_models_team_id ON device_models(team_id);
@@ -137,10 +105,6 @@ CREATE INDEX idx_campaign_executions_host_name ON campaign_executions(host_name)
 CREATE INDEX idx_campaign_executions_status ON campaign_executions(status);
 CREATE INDEX idx_ai_analysis_cache_team_id ON ai_analysis_cache(team_id);
 CREATE INDEX idx_ai_analysis_cache_expires_at ON ai_analysis_cache(expires_at);
-CREATE INDEX idx_zap_results_team_id ON zap_results(team_id);
-CREATE INDEX idx_zap_results_script_result_id ON zap_results(script_result_id);
-CREATE INDEX idx_zap_results_host_name ON zap_results(host_name);
-CREATE INDEX idx_zap_results_execution_date ON zap_results(execution_date);
 
 -- Add comments
 COMMENT ON TABLE device_models IS 'Device model definitions and capabilities';
@@ -149,7 +113,6 @@ COMMENT ON TABLE device IS 'Physical device instances';
 COMMENT ON TABLE environment_profiles IS 'Test environment configurations';
 COMMENT ON TABLE campaign_executions IS 'Campaign execution tracking and results';
 COMMENT ON TABLE ai_analysis_cache IS 'Caches AI analysis results for the two-step test case generation process';
-COMMENT ON TABLE zap_results IS 'Individual zap iteration results with detailed analysis data';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
@@ -159,7 +122,6 @@ ALTER TABLE device ENABLE ROW LEVEL SECURITY;
 ALTER TABLE environment_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_analysis_cache ENABLE ROW LEVEL SECURITY;
-ALTER TABLE zap_results ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for teams table (updated to match actual working database)
 CREATE POLICY "teams_access_policy" ON teams
@@ -200,9 +162,3 @@ CREATE POLICY "ai_analysis_cache_access_policy" ON ai_analysis_cache
 FOR ALL 
 TO public
 USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
-
--- RLS Policies for zap_results table
-CREATE POLICY "zap_results_access_policy" ON zap_results
-FOR ALL 
-TO public
-USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true); 
