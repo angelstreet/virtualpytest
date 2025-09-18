@@ -118,7 +118,7 @@ class AIPlanGenerator:
         if not userinterface_info:
             raise ValueError(f"Userinterface {userinterface_name} not found")
 
-        root_tree = get_root_tree_for_interface(userinterface_info['userinterface_id'], self.team_id)
+        root_tree = get_root_tree_for_interface(userinterface_info['id'], self.team_id)
         if not root_tree:
             raise ValueError(f"No root tree found for {userinterface_name}")
 
