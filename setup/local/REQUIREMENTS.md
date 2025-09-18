@@ -53,6 +53,11 @@ sudo apt-get install -y inotify-tools
 sudo apt-get install -y lsof net-tools psmisc
 ```
 
+#### **📡 IR Remote Control (for Apple TV, Samsung TV, etc.)**
+```bash
+sudo apt-get install -y lirc lirc-tools ir-keytable
+```
+
 ## 🎯 **Hardware-Specific Requirements**
 
 ### **For Video Capture (HDMI devices):**
@@ -74,7 +79,8 @@ sudo apt-get update && sudo apt-get install -y \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-ita \
     tigervnc-standalone-server xvfb fluxbox novnc websockify \
     epiphany-browser chromium-browser \
-    inotify-tools lsof net-tools psmisc
+    inotify-tools lsof net-tools psmisc \
+    lirc lirc-tools ir-keytable
 ```
 
 ## 🔍 **Verification**
