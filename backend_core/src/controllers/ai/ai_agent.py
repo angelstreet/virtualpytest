@@ -10,7 +10,7 @@ import os
 import requests
 from typing import Dict, Any, List
 from ..base_controller import BaseController
-from shared.lib.utils.ai_utils import call_text_ai
+from shared.lib.utils.ai_utils import call_text_ai, AI_CONFIG
 
 
 class AIAgentController(BaseController):
@@ -114,6 +114,21 @@ class AIAgentController(BaseController):
         """
         try:
             print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' using cached tree")
+            
+            # Simple validation: check if target_node is in available nodes list
+            available_nodes = []
+            if self.cached_tree_id:
+                from shared.lib.utils.navigation_cache import get_cached_unified_graph
+                unified_graph = get_cached_unified_graph(self.cached_tree_id, self.team_id)
+                if unified_graph:
+                    for node_id in unified_graph.nodes:
+                        node_data = unified_graph.nodes[node_id]
+                        label = node_data.get('label')
+                        if label:
+                            available_nodes.append(label)
+            
+            if target_node not in available_nodes:
+                return {'success': False, 'error': f"Target node {target_node} not found in unified graph. Available nodes: {available_nodes}"}
             
             # Use the new specialized utils modules
             from shared.lib.utils.script_execution_utils import (
@@ -799,18 +814,27 @@ Your task is to navigate through the app using available commands provided.
 
 Task: "{task_description}"
 Device: {device_model}
-{navigation_context}
+AVAILABLE NAVIGATION NODES (use EXACTLY these node IDs): {available_nodes}
 Commands: {navigation_commands}
 
-Rules:
-- "go to node X" → execute_navigation, target_node="X"
-- "click X" → click_element, element_id="X"
-- "press X" → press_key, key="X"
+CRITICAL RULES:
+- You MUST ONLY use nodes from the available list above
+- For execute_navigation, target_node MUST be one of the exact node IDs listed
+- DO NOT create or assume node names like "home", "live", "home_live" - use only the provided node IDs
+- If the task requires navigation to a concept like "home" or "live", you must mark it as not feasible since semantic nodes are not available
+- "click X" → click_element, element_id="X" (for UI elements, not navigation nodes)
+- "press X" → press_key, key="X" (for remote control keys)
 
-Example response format:
-{{"analysis": "Task requires navigating to live content. Since 'live' node is available, I'll navigate there directly.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "live"}}, "description": "Navigate to live content"}}]}}
-If task is not possible:
-{{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
+Example response format (using actual node IDs):
+{{"analysis": "Task requires navigation but the available nodes are only technical IDs without semantic meaning. Cannot determine which node corresponds to the requested destination.", "feasible": false, "plan": []}}
+
+If a task can be completed with available nodes:
+{{"analysis": "Task can be completed using available node IDs.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "node-1748723779677"}}, "description": "Navigate to node-1748723779677"}}]}}
+
+IMPORTANT: 
+- If you cannot map the task to specific available node IDs, mark as NOT FEASIBLE
+- Do not guess or create node names
+- Only use the exact node IDs provided in the available list
 
 CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is REQUIRED"""
             
@@ -823,10 +847,13 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
             
             try:
                 print(f"AI[{self.device_name}]: Calling AI with enhanced error tracking...")
+                # Use dedicated agent model for complex reasoning tasks
+                agent_model = AI_CONFIG['providers']['openrouter']['models']['agent']
                 result = call_text_ai(
                     prompt=prompt,
-                    max_tokens=1000,
-                    temperature=0.0
+                    max_tokens=1500,
+                    temperature=0.0,
+                    model=agent_model
                 )
                 print(f"AI[{self.device_name}]: AI call completed - success: {result.get('success')}")
             except Exception as e:
@@ -1101,13 +1128,13 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
     
     
     
-    def _result_summary(self, plan: Dict[str, Any], execute_result: Dict[str, Any]) -> Dict[str, Any]:
+    def _result_summary(self, plan_steps: List[Dict], execute_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate comprehensive result summary for AI task execution.
         Provides detailed analysis of both actions and verifications like useNode.ts.
         
         Args:
-            plan: Original AI plan
+            plan_steps: List of plan steps from AI plan
             execute_result: Combined execution results
             
         Returns:
@@ -1196,13 +1223,12 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
             elif total_executed > 0:
                 recommendations.append("Partial success - review failed steps and retry if needed")
             
-            # Plan analysis (unique to AI agent)
-            plan_steps = plan.get('plan', [])
+            # Plan analysis (unique to AI agent) - plan_steps is now a list
             plan_analysis = {
-                'total_planned_steps': len(plan_steps),
-                'action_steps_planned': len([s for s in plan_steps if s.get('type') == 'action']),
-                'verification_steps_planned': len([s for s in plan_steps if s.get('type') == 'verification']),
-                'plan_feasibility': plan.get('feasible', True)
+                'total_planned_steps': len(plan_steps) if plan_steps else 0,
+                'action_steps_planned': len([s for s in plan_steps if s.get('type') == 'action']) if plan_steps else 0,
+                'verification_steps_planned': len([s for s in plan_steps if s.get('type') == 'verification']) if plan_steps else 0,
+                'plan_feasibility': True  # We can't determine feasibility from just the steps list
             }
             
             print(f"AI[{self.device_name}]: Task summary: {outcome} - {summary}")

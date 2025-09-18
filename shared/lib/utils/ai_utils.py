@@ -30,7 +30,8 @@ AI_CONFIG = {
             'models': {
                 'text': 'microsoft/phi-3-mini-128k-instruct',
                 'vision': 'qwen/qwen-2.5-vl-7b-instruct',
-                'translation': 'microsoft/phi-3-mini-128k-instruct' #microsoft/phi-3-mini-128k-instruct
+                'translation': 'microsoft/phi-3-mini-128k-instruct',
+                'agent': 'google/gemini-2.0-flash-exp:free'  # Sophisticated model for AI agent tasks
             }
         },
         'huggingface': {
