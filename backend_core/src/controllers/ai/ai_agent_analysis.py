@@ -170,7 +170,7 @@ Return JSON only: {{"feasible": true/false, "reason": "brief explanation", "sugg
             )
             
             if result.get('success'):
-                ai_response = json.loads(result['response'])
+                ai_response = json.loads(result['content'])
                 return {
                     'success': True,
                     'feasible': ai_response.get('feasible', False),

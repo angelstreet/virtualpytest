@@ -341,7 +341,7 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
                     }
                 
                 # Parse AI response
-                ai_response = result['response']
+                ai_response = result['content']
                 print(f"AI[{self.device_name}]: Raw AI response: {ai_response[:200]}...")
                 
                 try:
