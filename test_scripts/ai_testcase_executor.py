@@ -108,7 +108,7 @@ def main():
         
         # Use AIAgentController._execute() with the PRE-GENERATED STEPS
         # This leverages the existing AI execution framework without re-generating from prompt
-        from backend_core.src.controllers.ai.ai_agent import AIAgentController
+        from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
         
         print(f"[@ai_testcase_executor] Using AIAgentController._execute() with pre-generated steps")
         original_prompt = test_case.get('original_prompt', 'Navigate to home')

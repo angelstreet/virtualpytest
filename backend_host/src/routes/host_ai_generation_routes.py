@@ -182,7 +182,7 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import necessary modules for exploration using existing infrastructure
-        from backend_core.src.controllers.ai.ai_agent import AIAgentController
+        from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
         from backend_core.src.controllers.remote.android_mobile import AndroidMobileController
         from backend_core.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         

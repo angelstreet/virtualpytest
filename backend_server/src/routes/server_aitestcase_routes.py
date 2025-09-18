@@ -14,9 +14,9 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
 import importlib
-import controllers.ai.ai_agent
-importlib.reload(controllers.ai.ai_agent)
-from controllers.ai.ai_agent import AIAgentController
+import controllers.ai.ai_agent_analysis
+importlib.reload(controllers.ai.ai_agent_analysis)
+from controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
@@ -141,13 +141,31 @@ def analyze_test_case():
         
         print(f"=== END ANALYSIS ===\n")
         
-        # Initialize AI Test Case Analyzer with real command data
-        from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
-        analyzer = AITestCaseAnalyzer()
-        print(f"[@route:server_aitestcase:analyze] Using AITestCaseAnalyzer with real command analysis")
+        # Use unified AI Agent for compatibility analysis
+        ai_agent = AIAgentController(device_id="server", device_name="server")
+        print(f"[@route:server_aitestcase:analyze] Using unified AI Agent for compatibility analysis")
         
-        # Use AITestCaseAnalyzer with command-aware compatibility analysis
-        analysis_result = analyzer.analyze_compatibility(prompt, userinterfaces, model_commands)
+        # Analyze compatibility using AI Agent's superior analysis
+        analysis_result = ai_agent.analyze_cross_device_compatibility(
+            {'test_steps': [], 'original_prompt': prompt}, 
+            [ui['name'] for ui in userinterfaces]
+        )
+        
+        # Convert to expected format for backward compatibility
+        compatible_interfaces = [r['interface_name'] for r in analysis_result if r.get('compatible', False)]
+        analysis_result = {
+            'analysis_id': str(uuid.uuid4()),
+            'understanding': f"AI analysis of: {prompt}",
+            'compatibility_matrix': {
+                'compatible_userinterfaces': compatible_interfaces,
+                'incompatible': [r['interface_name'] for r in analysis_result if not r.get('compatible', True)],
+                'reasons': {r['interface_name']: r.get('reasoning', '') for r in analysis_result}
+            },
+            'requires_multiple_testcases': False,
+            'estimated_complexity': 'medium',
+            'compatible_count': len(compatible_interfaces),
+            'total_analyzed': len(userinterfaces)
+        }
         
         # Add model commands to analysis result for frontend debugging
         analysis_result['model_commands'] = model_commands
@@ -223,9 +241,8 @@ def generate_test_cases():
         
         original_prompt = cached_analysis['prompt']
         
-        # Initialize AI Test Case Analyzer (server-side, no device dependencies)
-        from backend_core.src.controllers.ai.ai_testcase_analyzer import AITestCaseAnalyzer
-        analyzer = AITestCaseAnalyzer()
+        # Use unified AI Agent for test case generation
+        ai_agent = AIAgentController(device_id="server", device_name="server")
         generated_testcases = []
         
         # Generate ONE test case with ALL confirmed interfaces
@@ -233,10 +250,18 @@ def generate_test_cases():
             try:
                 print(f"[@route:server_aitestcase:generate] Generating single test case for interfaces: {confirmed_interfaces}")
                 
-                # Use AITestCaseAnalyzer to generate test steps
-                # Generate steps for the primary interface (first one)
+                # Use unified AI Agent to generate test case
                 primary_interface = confirmed_interfaces[0]
-                steps = analyzer.generate_test_steps(original_prompt, primary_interface)
+                generation_result = ai_agent.generate_test_case(
+                    prompt=original_prompt,
+                    userinterface_name=primary_interface,
+                    store_in_db=False
+                )
+                
+                if generation_result.get('success'):
+                    steps = generation_result['test_case'].get('test_steps', [])
+                else:
+                    steps = []
                 verification_conditions = []
                 
                 # Create unified tags from all interfaces
@@ -303,161 +328,66 @@ def generate_test_cases():
 
 @server_aitestcase_bp.route('/generateTestCase', methods=['POST'])
 def generate_test_case():
-    """Generate AI test case from natural language prompt - Server handles generation"""
+    """Generate AI test case using unified AI Agent - Server handles generation"""
     try:
-        print("[@route:server_aitestcase:generate_test_case] Starting AI test case generation")
+        print("[@route:server_aitestcase:generate_test_case] Starting unified AI test case generation")
         
         team_id = get_team_id()
         request_data = request.get_json() or {}
         
         prompt = request_data.get('prompt')
-        device_model = request_data.get('device_model')
+        device_model = request_data.get('device_model', 'generic')
         interface_name = request_data.get('interface_name')
         
-        if not all([prompt, device_model, interface_name]):
+        if not prompt:
             return jsonify({
                 'success': False,
-                'error': 'Missing required parameters: prompt, device_model, interface_name'
+                'error': 'Missing required parameter: prompt'
             }), 400
         
         print(f"[@route:server_aitestcase:generate_test_case] Prompt: {prompt}")
-        print(f"[@route:server_aitestcase:generate_test_case] Device: {device_model}, Interface: {interface_name}")
+        print(f"[@route:server_aitestcase:generate_test_case] Interface: {interface_name}")
         
-        # Server directly accesses backend_core - no proxy needed for generation
-        ai_agent = AIAgentController()
+        # Use unified AI Agent with test case generation capability
+        ai_agent = AIAgentController(device_id="server", device_name="server")
         
-        # Get device capabilities and navigation context
-        device_capabilities = get_device_capabilities(device_model)
+        # Generate test case using new unified method
+        generation_result = ai_agent.generate_test_case(
+            prompt=prompt,
+            userinterface_name=interface_name,
+            store_in_db=False  # We'll handle storage here
+        )
         
-        # Get userinterface info for compatibility analysis  
-        userinterface_info = get_userinterface_by_name(interface_name, team_id)
+        if not generation_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': generation_result.get('error', 'AI test case generation failed')
+            }), 500
         
-        # Get navigation tree for interface
-        if userinterface_info:
-            root_tree = get_root_tree_for_interface(userinterface_info.get('userinterface_id'), team_id)
-            unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
+        test_case = generation_result['test_case']
+        
+        # Analyze cross-device compatibility if multiple interfaces available
+        all_interfaces = get_all_userinterfaces(team_id)
+        interface_names = [ui['name'] for ui in all_interfaces]
+        
+        if len(interface_names) > 1:
+            compatibility_results = ai_agent.analyze_cross_device_compatibility(
+                test_case, interface_names
+            )
         else:
-            unified_graph = None
+            compatibility_results = []
         
-        if not userinterface_info:
-            return jsonify({
-                'success': False,
-                'error': f'Userinterface {interface_name} not found'
-            }), 404
+        # Store in database with team context
+        test_case['team_id'] = team_id
+        save_test_case(test_case, team_id)
         
-        # Prepare AI context
-        ai_context = {
-            'prompt': prompt,
-            'device_model': device_model,
-            'interface_name': interface_name,
-            'device_capabilities': device_capabilities,
-            'navigation_graph': unified_graph,
-            'userinterface_info': userinterface_info
-        }
-        
-        print("[@route:server_aitestcase:generate_test_case] Calling AI agent")
-        
-        # Get model-specific commands for AI generation
-        try:
-            from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
-            # Use actual device model instead of virtual device
-            enhanced_data = get_commands_for_device_model(device_model)
-            
-            if 'error' in enhanced_data:
-                return jsonify({
-                    'success': False,
-                    'error': f"Device model not supported: {enhanced_data['error']}",
-                    'details': {
-                        'available_models': enhanced_data.get('available_models', []),
-                        'requested_model': device_model
-                    }
-                }), 400
-            
-            available_actions = enhanced_data.get('actions', [])
-            available_verifications = enhanced_data.get('verifications', [])
-            print(f"[@route:server_aitestcase:generate_test_case] Model {device_model}: Loaded {len(available_actions)} actions, {len(available_verifications)} verifications")
-            
-            # Log what commands are available for debugging
-            if available_actions:
-                action_commands = [action.get('command', 'unknown') for action in available_actions]
-                print(f"[@route:server_aitestcase:generate_test_case] Available actions: {action_commands}")
-            if available_verifications:
-                verification_commands = [verif.get('command', 'unknown') for verif in available_verifications]
-                print(f"[@route:server_aitestcase:generate_test_case] Available verifications: {verification_commands}")
-                
-        except Exception as e:
-            print(f"[@route:server_aitestcase:generate_test_case] Failed to load model-specific commands: {e}")
-            return jsonify({
-                'success': False,
-                'error': f'Failed to load commands for device model {device_model}: {str(e)}'
-            }), 500
-
-        # Generate test case using AI - use existing execute_task method
-        ai_result = ai_agent.execute_task(
-            task_description=prompt,
-            available_actions=available_actions,
-            available_verifications=available_verifications,
-            device_model=device_model,
-            userinterface_name=interface_name
-        )
-        
-        if not ai_result.get('success'):
-            return jsonify({
-                'success': False,
-                'error': ai_result.get('error', 'AI generation failed')
-            }), 500
-        
-        # Analyze compatibility across all userinterfaces
-        compatibility_results = analyze_userinterface_compatibility(
-            ai_result, team_id, device_model
-        )
-        
-        # Create test case data structure
-        test_case_data = {
-            'test_id': str(uuid.uuid4()),
-            'name': ai_result.get('name', f'AI Generated: {prompt[:50]}...'),
-            'test_type': ai_result.get('test_type', 'functional'),
-            'start_node': ai_result.get('start_node'),
-            'steps': ai_result.get('steps', []),
-            'team_id': team_id,
-            'creator': 'ai',
-            'original_prompt': prompt,
-            'ai_analysis': {
-                'feasibility': ai_result.get('feasibility', 'possible'),
-                'reasoning': ai_result.get('reasoning', ''),
-                'required_capabilities': ai_result.get('required_capabilities', []),
-                'estimated_steps': len(ai_result.get('steps', [])),
-                'generated_at': datetime.utcnow().isoformat()
-            },
-            'device_id': None,  # Will be set during execution
-            'environment_profile_id': None,  # Will be set during execution
-            'verification_conditions': ai_result.get('verification_conditions', []),
-            'expected_results': ai_result.get('expected_results', {}),
-            'execution_config': ai_result.get('execution_config', {}),
-            'tags': ai_result.get('tags', ['ai-generated']),
-            'priority': ai_result.get('priority', 2),
-            'estimated_duration': ai_result.get('estimated_duration', 60),
-            'compatible_devices': compatibility_results.get('compatible_devices', [device_model]),
-            'compatible_userinterfaces': compatibility_results.get('compatible_userinterfaces', [interface_name]),
-            'device_adaptations': compatibility_results.get('device_adaptations', {})
-        }
-        
-        # Store in database  
-        save_test_case(test_case_data, team_id)
-        stored_test_case = test_case_data  # Return the data we just saved
-        
-        if not stored_test_case:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to store test case in database'
-            }), 500
-        
-        print(f"[@route:server_aitestcase:generate_test_case] Test case created: {stored_test_case['test_id']}")
+        print(f"[@route:server_aitestcase:generate_test_case] Test case created: {test_case['id']}")
         
         return jsonify({
             'success': True,
-            'test_case': stored_test_case,
-            'compatibility_results': compatibility_results.get('analysis', [])
+            'test_case': test_case,
+            'compatibility_results': compatibility_results,
+            'ai_confidence': generation_result.get('ai_confidence', 0.8)
         })
         
     except Exception as e:
@@ -465,6 +395,34 @@ def generate_test_case():
         return jsonify({
             'success': False,
             'error': f'Test case generation error: {str(e)}'
+        }), 500
+
+@server_aitestcase_bp.route('/quickFeasibilityCheck', methods=['POST'])
+def quick_feasibility_check():
+    """Quick feasibility check using unified AI Agent"""
+    try:
+        request_data = request.get_json() or {}
+        prompt = request_data.get('prompt')
+        interface_name = request_data.get('interface_name')
+        
+        if not prompt:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required parameter: prompt'
+            }), 400
+        
+        # Use unified AI Agent for feasibility check
+        ai_agent = AIAgentController(device_id="server", device_name="server")
+        
+        result = ai_agent.quick_feasibility_check(prompt, interface_name)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'feasible': False,
+            'reason': f'Feasibility check error: {str(e)}'
         }), 500
 
 

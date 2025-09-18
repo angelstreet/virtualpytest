@@ -8,7 +8,7 @@ Available Controllers:
 - AIAgentController: AI task execution agent with natural language understanding
 """
 
-from .ai_agent import AIAgentController
+from .ai_agent_analysis import AIAgentAnalysis as AIAgentController
 
 __all__ = [
     'AIAgentController'

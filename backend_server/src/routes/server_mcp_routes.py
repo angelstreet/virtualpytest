@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI agent controller directly
-from backend_core.src.controllers.ai.ai_agent import AIAgentController
+from backend_core.src.controllers.ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')

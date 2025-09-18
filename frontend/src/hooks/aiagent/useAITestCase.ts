@@ -103,21 +103,25 @@ export const useAITestCase = () => {
     }
   }, []);
 
-  // Legacy single-step generation (kept for compatibility)
+  // Unified AI Agent generation
   const generateTestCase = useCallback(async (request: AITestCaseRequest): Promise<AITestCaseResponse> => {
     setIsGenerating(true);
     setError(null);
     setCompatibilityResults([]);
 
     try {
-      console.log('[@useAITestCase:generateTestCase] Starting AI test case generation', request);
+      console.log('[@useAITestCase:generateTestCase] Starting unified AI test case generation', request);
 
       const response = await fetch(buildServerUrl('/server/aitestcase/generateTestCase'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(request)
+        body: JSON.stringify({
+          prompt: request.prompt,
+          device_model: request.device_model,
+          interface_name: request.interface_name
+        })
       });
 
       if (!response.ok) {
@@ -134,7 +138,7 @@ export const useAITestCase = () => {
         setError(result.error);
       }
 
-      console.log('[@useAITestCase:generateTestCase] Generation completed', result.success);
+      console.log('[@useAITestCase:generateTestCase] Unified generation completed', result.success);
 
       return result;
 
@@ -149,6 +153,46 @@ export const useAITestCase = () => {
       };
     } finally {
       setIsGenerating(false);
+    }
+  }, []);
+
+  // Quick feasibility check using unified AI Agent
+  const quickFeasibilityCheck = useCallback(async (
+    prompt: string, 
+    interfaceName?: string
+  ): Promise<{ success: boolean; feasible?: boolean; reason?: string; suggestions?: string[] }> => {
+    try {
+      console.log('[@useAITestCase:quickFeasibilityCheck] Checking feasibility:', prompt);
+
+      const response = await fetch(buildServerUrl('/server/aitestcase/quickFeasibilityCheck'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt,
+          interface_name: interfaceName
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('[@useAITestCase:quickFeasibilityCheck] Feasibility check completed:', result.feasible);
+
+      return result;
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.error('[@useAITestCase:quickFeasibilityCheck] Error:', errorMessage);
+      
+      return {
+        success: false,
+        feasible: false,
+        reason: errorMessage
+      };
     }
   }, []);
 
@@ -255,8 +299,9 @@ export const useAITestCase = () => {
     analyzeTestCase,
     generateTestCases,
     
-    // Legacy actions
+    // Unified AI Agent actions
     generateTestCase,
+    quickFeasibilityCheck,
     executeTestCase,
     validateCompatibility,
     clearError,

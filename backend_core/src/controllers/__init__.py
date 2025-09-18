@@ -50,7 +50,7 @@ from .verification.video import VideoVerificationController
 from .verification.audio import AudioVerificationController
 
 # Import AI implementations
-from .ai.ai_agent import AIAgentController
+from .ai.ai_agent_analysis import AIAgentAnalysis as AIAgentController
 
 # Controller type registry
 CONTROLLER_REGISTRY = {
