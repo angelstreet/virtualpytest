@@ -122,7 +122,7 @@ class AIPlanGenerator:
         if not root_tree:
             raise ValueError(f"No root tree found for {userinterface_name}")
 
-        unified_graph = get_cached_unified_graph(root_tree['tree_id'], self.team_id)
+        unified_graph = get_cached_unified_graph(root_tree['id'], self.team_id)
         if not unified_graph:
             raise ValueError(f"No navigation graph found for {userinterface_name}")
 
@@ -136,7 +136,7 @@ class AIPlanGenerator:
 
         return {
             'userinterface_name': userinterface_name,
-            'tree_id': root_tree['tree_id'],
+            'tree_id': root_tree['id'],
             'available_nodes': available_nodes
         }
 
