@@ -39,6 +39,9 @@ class AIAgentController(BaseController):
         self.cached_userinterface_name = None
         self.team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
         
+        # Current node position tracking (like NavigationContext)
+        self.current_node_id = None
+        
         print(f"AI[{self.device_name}]: Initialized with device_id: {self.device_id}")
     
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
@@ -102,8 +105,8 @@ class AIAgentController(BaseController):
     
     def _execute_navigation(self, target_node: str, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
-        Execute navigation using cached tree_id to avoid reloading.
-        Uses pathfinding to get proper navigation sequence with actions.
+        Execute navigation using the existing NavigationExecutor system.
+        Reuses proven navigation logic with proper current node tracking.
         
         Args:
             target_node: Target node to navigate to
@@ -113,7 +116,7 @@ class AIAgentController(BaseController):
             Dictionary with execution results
         """
         try:
-            print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' using cached tree")
+            print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' from current position: {self.current_node_id}")
             
             # Simple validation: check if target_node is in available nodes list
             available_nodes = []
@@ -130,72 +133,30 @@ class AIAgentController(BaseController):
             if target_node not in available_nodes:
                 return {'success': False, 'error': f"Target node {target_node} not found in unified graph. Available nodes: {available_nodes}"}
             
-            # Use the new specialized utils modules
-            from shared.lib.utils.script_execution_utils import (
-                setup_script_environment,
-                select_device
-            )
-            from shared.lib.utils.action_utils import execute_navigation_with_verifications
+            # Use the existing navigation system instead of duplicating logic
+            from backend_core.src.services.navigation.navigation_service import execute_navigation_with_verification
             
-            # Setup script environment (same as validation.py)
-            setup_result = setup_script_environment("ai_agent")
-            if not setup_result['success']:
-                return {'success': False, 'error': f"Script environment setup failed: {setup_result['error']}"}
-            
-            host = setup_result['host']
-            team_id = setup_result['team_id']
-            
-            # Select device (same as validation.py) - use device_id, not device_name
-            device_result = select_device(host, self.device_id, "ai_agent")
-            if not device_result['success']:
-                return {'success': False, 'error': f"Device selection failed: {device_result['error']}"}
-            
-            selected_device = device_result['device']
-            
-            # Use cached tree_id instead of reloading the entire tree
-            tree_id = self.cached_tree_id
-            if not tree_id:
+            if not self.cached_tree_id:
                 return {'success': False, 'error': f"No cached tree_id available - tree must be loaded first"}
             
-            print(f"AI[{self.device_name}]: Using cached tree_id: {tree_id} (no DB reload needed)")
+            print(f"AI[{self.device_name}]: Using existing NavigationExecutor with tree_id: {self.cached_tree_id}")
             
-            # Verify unified cache is still available
-            from shared.lib.utils.navigation_cache import get_cached_unified_graph
-            unified_graph = get_cached_unified_graph(tree_id, self.team_id)
-            if not unified_graph:
-                return {'success': False, 'error': f"Unified cache not available for tree_id: {tree_id}"}
+            # Call the existing navigation system with current node tracking
+            result = execute_navigation_with_verification(
+                tree_id=self.cached_tree_id,
+                target_node_id=target_node,
+                team_id=self.team_id,
+                current_node_id=self.current_node_id  # Pass current position for proper pathfinding
+            )
             
-            # Get navigation sequence using pathfinding with cached tree_id
-            from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+            # Update current position after successful navigation
+            if result.get('success'):
+                # Use final_position_node_id if available, otherwise assume we reached target
+                final_position = result.get('final_position_node_id', target_node)
+                self.current_node_id = final_position
+                print(f"AI[{self.device_name}]: Updated current position to: {self.current_node_id}")
             
-            print(f"AI[{self.device_name}]: Finding path to '{target_node}' using cached pathfinding")
-            
-            # Find path from current location to target node using cached tree_id
-            path_sequence = find_shortest_path(tree_id, target_node, self.team_id)
-            
-            if not path_sequence:
-                return {'success': False, 'error': f"No path found to '{target_node}'"}
-            
-            print(f"AI[{self.device_name}]: Found path with {len(path_sequence)} transitions")
-            
-            # Execute each transition in the path (same as validation.py)
-            for i, transition in enumerate(path_sequence):
-                step_num = i + 1
-                from_node = transition.get('from_node_label', 'unknown')
-                to_node = transition.get('to_node_label', 'unknown')
-                
-                print(f"AI[{self.device_name}]: Executing transition {step_num}/{len(path_sequence)}: {from_node} → {to_node}")
-                
-                # Execute the navigation step directly (same as validation.py)
-                result = execute_navigation_with_verifications(host, selected_device, transition, self.team_id, tree_id)
-                
-                if not result['success']:
-                    return {'success': False, 'error': f"Navigation failed at transition {step_num}: {result.get('error', 'Unknown error')}"}
-                
-                print(f"AI[{self.device_name}]: Transition {step_num} completed successfully")
-            
-            print(f"AI[{self.device_name}]: Navigation to '{target_node}' completed successfully")
-            return {'success': True, 'message': f"Successfully navigated to '{target_node}'"}
+            return result
             
         except Exception as e:
             error_msg = f"Navigation execution error: {str(e)}"
