@@ -1,6 +1,7 @@
 """
 Host Script Routes - Execute scripts on host device
 """
+import json
 from flask import Blueprint, request, jsonify
 from shared.lib.utils.script_execution_utils import execute_script
 
@@ -83,4 +84,4 @@ def _execute_script():
         return jsonify({
             'success': False,
             'error': str(e)
-        }), 500 
+        }), 500

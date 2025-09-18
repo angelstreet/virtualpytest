@@ -334,6 +334,51 @@ const mockHosts: TestHost[] = [
       },
     },
   },
+  {
+    host_name: 'Test Apple TV Remote',
+    description: 'Apple TV IR Remote Test Device',
+    host_url: 'http://localhost:6109',
+    host_port: 6109,
+    devices: [
+      {
+        device_id: 'device1',
+        device_name: 'Apple TV Remote',
+        device_model: 'ir_remote',
+        device_capabilities: {
+          av: 'hdmi_stream',
+          remote: 'ir_remote',
+        },
+        ir_type: 'apple_tv',
+      },
+    ],
+    device_count: 1,
+    status: 'online',
+    last_seen: Date.now(),
+    registered_at: new Date().toISOString(),
+    system_stats: {
+      cpu_percent: 10,
+      memory_percent: 30,
+      disk_percent: 50,
+      platform: 'linux',
+      architecture: 'x64',
+      python_version: '3.9.0',
+    },
+    isLocked: false,
+    controller_configs: {
+      remote: {
+        implementation: 'ir_remote',
+        type: 'ir_remote',
+        parameters: {
+          ir_type: 'apple_tv',
+        },
+      },
+      av: {
+        implementation: 'hdmi_stream',
+        type: 'hdmi_stream',
+        parameters: {},
+      },
+    },
+  },
 ];
 
 export default function RemoteTestPage() {

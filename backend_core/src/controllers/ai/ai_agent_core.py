@@ -38,7 +38,7 @@ class AIAgentCore(BaseController):
         # Navigation tree caching for reuse during execution
         self.cached_tree_id = None
         self.cached_userinterface_name = None
-        self.team_id = kwargs.get('team_id', 'default')
+        self.team_id = kwargs.get('team_id', "7fdeb4bb-3639-4ec3-959f-b54769a219ce")
         
         # Current node position tracking (like NavigationContext)
         self.current_node_id = None
@@ -115,58 +115,6 @@ class AIAgentCore(BaseController):
             print(f"AI[{self.device_name}]: Error loading navigation tree for {userinterface_name}: {e}")
             return None
 
-    def _execute_navigation(self, target_node: str, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
-        """
-        Execute navigation using existing navigation system with current position tracking.
-        
-        Args:
-            target_node: Target node to navigate to
-            userinterface_name: Name of the userinterface for navigation tree
-            
-        Returns:
-            Dictionary with execution results
-        """
-        try:
-            print(f"AI[{self.device_name}]: Executing navigation to '{target_node}' using cached tree")
-            
-            # Simple validation: check if target_node is in available nodes list
-            available_nodes = []
-            if self.cached_tree_id:
-                from shared.lib.utils.navigation_cache import get_cached_unified_graph
-                unified_graph = get_cached_unified_graph(self.cached_tree_id, self.team_id)
-                if unified_graph:
-                    available_nodes = list(unified_graph.keys())
-            
-            if target_node not in available_nodes:
-                return {
-                    'success': False, 
-                    'error': f'Target node {target_node} not found in unified graph. Available nodes: {available_nodes}'
-                }
-            
-            # Use existing navigation system with current position
-            from backend_core.src.services.navigation.navigation_service import execute_navigation_with_verification
-            
-            result = execute_navigation_with_verification(
-                tree_id=self.cached_tree_id,
-                target_node_id=target_node,
-                current_node_id=self.current_node_id,  # Start from current position
-                team_id=self.team_id
-            )
-            
-            # Update current position after successful navigation
-            if result.get('success'):
-                final_position = result.get('final_position_node_id')
-                if final_position:
-                    self.current_node_id = final_position
-                    print(f"AI[{self.device_name}]: Updated current position to: {self.current_node_id}")
-            
-            return result
-            
-        except Exception as e:
-            error_msg = f"Navigation execution error: {str(e)}"
-            print(f"AI[{self.device_name}]: {error_msg}")
-            return {'success': False, 'error': error_msg}
-
     def _get_available_actions(self, device_id: str) -> Dict[str, Any]:
         """Get available actions from controller - reuse existing controller system"""
         try:
@@ -195,17 +143,6 @@ class AIAgentCore(BaseController):
         except Exception as e:
             print(f"AI[{self.device_name}]: Error getting action context: {e}")
             return f"Actions - Error: {str(e)}"
-
-    def _execute_action(self, command: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute controller action - delegate to frontend action system"""
-        print(f"AI[{self.device_name}]: Executing action '{command}' with params: {params}")
-        return {
-            'success': True, 
-            'action_type': 'controller_action',
-            'command': command,
-            'params': params,
-            'message': f'Action {command} queued for frontend execution'
-        }
 
     def _add_to_log(self, log_type: str, action_type: str, data: Dict[str, Any], description: str = ""):
         """Add entry to execution log with timestamp"""
@@ -239,59 +176,30 @@ class AIAgentCore(BaseController):
         try:
             print(f"AI[{self.device_name}]: Generating plan for: {task_description}")
             
-            # Extract available nodes from navigation tree
+            # Extract available nodes from navigation tree - USE LABELS
             available_nodes = []
-            if navigation_tree and 'unified_graph' in navigation_tree:
-                available_nodes = list(navigation_tree['unified_graph'].keys())
-                print(f"AI[{self.device_name}]: Found {len(available_nodes)} navigation nodes")
+            if navigation_tree:
+                tree_id = navigation_tree.get('tree_id')
+                if tree_id:
+                    from shared.lib.utils.navigation_cache import get_cached_unified_graph
+                    unified_graph = get_cached_unified_graph(tree_id, self.team_id)
+                    if unified_graph and unified_graph.nodes:
+                        # Extract node labels from unified graph
+                        for node_id in unified_graph.nodes:
+                            node_data = unified_graph.nodes[node_id]
+                            label = node_data.get('label')
+                            if label:
+                                available_nodes.append(label)
+                        print(f"AI[{self.device_name}]: Extracted {len(available_nodes)} navigation node labels")
             
-            # Handle MCP interface differently
-            if device_model == "MCP_Interface":
-                # MCP-specific prompt for web interface tasks
-                prompt = f"""You are an MCP (Model Context Protocol) task automation AI. Generate an execution plan for web interface tasks.
-
-Task: "{task_description}"
-Available MCP tools: {[action.get('command') for action in available_actions]}
-
-MCP Tool Guidelines:
-- navigate_to_page: Use for "go to [page]" requests (pages: dashboard, rec, userinterface, runTests)
-- execute_navigation_to_node: Use for navigation tree operations
-- remote_execute_command: Use for device command execution
-
-CRITICAL: Respond with ONLY valid JSON. No other text.
-
-Required JSON format:
-{{
-  "analysis": "brief analysis of the task",
-  "feasible": true,
-  "plan": [
-    {{
-      "step": 1,
-      "type": "action",
-      "command": "navigate_to_page",
-      "params": {{"page": "rec"}},
-      "description": "Navigate to rec page"
-    }}
-  ]
-}}
-
-If task is not possible:
-{{
-  "analysis": "Task cannot be completed because...",
-  "feasible": false,
-  "plan": []
-}}
-
-JSON ONLY - NO OTHER TEXT"""
-            else:
-                # Get consolidated contexts
-                navigation_context = self._get_navigation_context(available_nodes)
-                action_context = self._get_action_context()
-                
-                print(f"AI[{self.device_name}]: {navigation_context}")
-                print(f"AI[{self.device_name}]: {action_context}")
-                
-                prompt = f"""You are controlling a TV application on a device (STB/mobile/PC).
+            # Get consolidated contexts
+            navigation_context = self._get_navigation_context(available_nodes)
+            action_context = self._get_action_context()
+            
+            print(f"AI[{self.device_name}]: {navigation_context}")
+            print(f"AI[{self.device_name}]: {action_context}")
+            
+            prompt = f"""You are controlling a TV application on a device (STB/mobile/PC).
 Your task is to navigate through the app using available commands provided.
 
 Task: "{task_description}"
@@ -301,22 +209,15 @@ Device: {device_model}
 
 CRITICAL RULES:
 - You MUST ONLY use nodes from the available list above
-- For execute_navigation, target_node MUST be one of the exact node IDs listed
-- DO NOT create or assume node names like "home", "live", "home_live" - use only the provided node IDs
-- If the task requires navigation to a concept like "home" or "live", you must mark it as not feasible since semantic nodes are not available
+- For execute_navigation, target_node MUST be one of the exact node labels listed
 - "click X" → click_element, element_id="X" (for UI elements, not navigation nodes)
 - "press X" → press_key, key="X" (for remote control keys)
 
-Example response format (using actual node IDs):
-{{"analysis": "Task requires navigation but the available nodes are only technical IDs without semantic meaning. Cannot determine which node corresponds to the requested destination.", "feasible": false, "plan": []}}
+Example response format:
+{{"analysis": "Task can be completed using available nodes.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home"}}, "description": "Navigate to home"}}]}}
 
-If a task can be completed with available nodes:
-{{"analysis": "Task can be completed using available node IDs.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "node-1748723779677"}}, "description": "Navigate to node-1748723779677"}}]}}
-
-IMPORTANT: 
-- If you cannot map the task to specific available node IDs, mark as NOT FEASIBLE
-- Do not guess or create node names
-- Only use the exact node IDs provided in the available list
+If task not possible:
+{{"analysis": "Task cannot be completed because...", "feasible": false, "plan": []}}
 
 CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is REQUIRED"""
             
@@ -372,113 +273,31 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
                 'error': f"Plan generation failed: {str(e)}"
             }
 
-    def execute_task(self, task_description: str, available_actions: List[Dict] = None, available_verifications: List[Dict] = None, device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
-        """
-        Execute AI task with real-time execution and position tracking.
-        
-        Args:
-            task_description: User's task description
-            available_actions: Available device actions (optional)
-            available_verifications: Available verifications (optional)
-            device_model: Device model for context
-            userinterface_name: Target userinterface name
-            
-        Returns:
-            Dictionary with execution results
-        """
+    def execute_task(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """Execute a task with both plan generation and execution."""
         try:
-            print(f"AI[{self.device_name}]: Starting task execution: {task_description}")
+            print(f"AI[{self.device_name}]: Starting full task: {task_description}")
             
-            # Set execution state
-            self.is_executing = True
-            self.task_start_time = time.time()
-            self.execution_log = []
-            
-            # Load navigation tree
-            navigation_tree = self._get_navigation_tree(userinterface_name)
-            
-            # Get default actions if not provided
-            if available_actions is None:
-                available_actions = [{'command': cmd} for cmd in self._get_available_actions(self.device_id).keys()]
-            
-            if available_verifications is None:
-                available_verifications = []
-            
-            # Generate AI plan
-            plan_result = self._generate_plan(
-                task_description, 
-                available_actions, 
-                available_verifications, 
-                device_model, 
-                navigation_tree
-            )
+            # Phase 1: Generate plan
+            plan_result = self.generate_plan_only(task_description, available_actions, available_verifications, device_model, userinterface_name)
             
             if not plan_result.get('success'):
-                return {
-                    'success': False,
-                    'error': plan_result.get('error', 'Plan generation failed')
-                }
+                return plan_result
             
-            ai_plan = plan_result['plan']
+            # Phase 2: Execute plan
+            execution_result = self.execute_plan_only(userinterface_name)
             
-            if not ai_plan.get('feasible', True):
-                return {
-                    'success': False,
-                    'error': f"Task not feasible: {ai_plan.get('analysis', 'No analysis provided')}"
-                }
-            
-            plan_steps = ai_plan.get('plan', [])
-            
-            # Execute steps
-            executed_steps = 0
-            total_steps = len(plan_steps)
-            
-            for i, step in enumerate(plan_steps):
-                step_num = i + 1
-                command = step.get('command')
-                description = step.get('description', f'Step {step_num}')
-                
-                print(f"AI[{self.device_name}]: Executing step {step_num}/{total_steps}: {description}")
-                
-                # Execute step based on command type
-                if command == 'execute_navigation':
-                    target_node = step.get('params', {}).get('target_node')
-                    cached_interface = self.cached_userinterface_name or userinterface_name
-                    result = self._execute_navigation(target_node, cached_interface)
-                elif command in ['press_key', 'click_element', 'wait']:
-                    params = step.get('params', {})
-                    result = self._execute_action(command, params)
-                else:
-                    result = {'success': False, 'error': f'Unknown command: {command}'}
-                
-                if result.get('success'):
-                    executed_steps += 1
-                    print(f"AI[{self.device_name}]: Step {step_num} completed successfully")
-                else:
-                    print(f"AI[{self.device_name}]: Step {step_num} failed: {result.get('error', 'Unknown error')}")
-                    break
-            
-            # Calculate execution time
-            execution_time = time.time() - self.task_start_time
-            
-            return {
-                'success': executed_steps == total_steps,
-                'executed_steps': executed_steps,
-                'total_steps': total_steps,
-                'execution_time_ms': int(execution_time * 1000),
-                'current_position': self.current_node_id,
-                'ai_analysis': ai_plan.get('analysis', ''),
-                'execution_log': self.execution_log
-            }
+            return execution_result
             
         except Exception as e:
-            print(f"AI[{self.device_name}]: Task execution error: {e}")
+            error_msg = f"Task execution failed: {str(e)}"
+            print(f"AI[{self.device_name}]: {error_msg}")
             return {
                 'success': False,
-                'error': f'Task execution failed: {str(e)}'
+                'error': error_msg,
+                'execution_log': self.execution_log,
+                'current_step': self.current_step
             }
-        finally:
-            self.is_executing = False
 
     def generate_plan_only(self, task_description: str, available_actions: List[Dict], available_verifications: List[Dict], device_model: str = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
         """
@@ -545,84 +364,155 @@ CRITICAL: RESPOND WITH JSON ONLY. ANALYSIS FIELD explaining your reasoning is RE
             }
 
     def execute_plan_only(self, userinterface_name: str = None) -> Dict[str, Any]:
-        """
-        Execute previously generated plan (for 2-phase execution).
+        """Execute previously generated plan using existing _execute method."""
+        if not hasattr(self, 'cached_plan') or not self.cached_plan:
+            return {'success': False, 'error': 'No cached plan available for execution'}
         
-        Args:
-            userinterface_name: Target userinterface name (optional, uses cached)
-            
-        Returns:
-            Dictionary with execution results
+        print(f"AI[{self.device_name}]: Executing cached plan")
+        
+        # Delegate to existing _execute method (same as ai_testcase_executor.py)
+        result = self._execute(
+            plan=self.cached_plan,
+            navigation_tree=None,
+            userinterface_name=userinterface_name or self.cached_userinterface_name
+        )
+        
+        # Clear cached plan after execution
+        self.cached_plan = None
+        self.is_executing = False
+        
+        return result
+
+    def _determine_step_type(self, command: str) -> str:
+        """Determine step type for script system compatibility"""
+        if command == 'execute_navigation':
+            return 'navigation'
+        elif command in ['press_key', 'click_element', 'swipe', 'tap']:
+            return 'action'
+        elif 'verify' in command or 'check' in command:
+            return 'verification'
+        else:
+            return 'action'
+
+    def _execute(self, plan: Dict[str, Any], navigation_tree: Dict = None, userinterface_name: str = "horizon_android_mobile") -> Dict[str, Any]:
+        """
+        Execute AI plan using existing system infrastructure (like ai_testcase_executor.py).
+        This is the method called by test case executor.
         """
         try:
-            if not hasattr(self, 'cached_plan') or not self.cached_plan:
-                return {
-                    'success': False,
-                    'error': 'No cached plan available for execution'
-                }
+            if not plan.get('feasible', True):
+                return {'success': False, 'error': 'Plan marked as not feasible', 'executed_steps': 0, 'total_steps': 0}
             
-            print(f"AI[{self.device_name}]: Executing cached plan")
+            plan_steps = plan.get('plan', [])
+            if not plan_steps:
+                return {'success': True, 'executed_steps': 0, 'total_steps': 0, 'message': 'No steps to execute'}
             
-            # Set execution state
-            self.is_executing = True
-            self.task_start_time = time.time()
+            print(f"AI[{self.device_name}]: Executing plan with {len(plan_steps)} steps using system infrastructure")
             
-            # Use cached interface or provided one
-            interface_name = userinterface_name or self.cached_userinterface_name
+            # Classify steps like working version
+            action_steps, verification_steps = self._classify_ai_steps(plan_steps)
+            total_steps = len(action_steps) + len(verification_steps)
             
-            plan_steps = self.cached_plan.get('plan', [])
-            executed_steps = 0
-            total_steps = len(plan_steps)
+            print(f"AI[{self.device_name}]: Found {total_steps} steps to execute ({len(action_steps)} actions, {len(verification_steps)} verifications)")
             
-            # Execute steps
-            for i, step in enumerate(plan_steps):
+            # Setup execution environment using existing infrastructure
+            from shared.lib.utils.script_execution_utils import setup_script_environment, select_device
+            from shared.lib.utils.action_utils import execute_action_directly
+            
+            setup_result = setup_script_environment("ai_agent")
+            if not setup_result['success']:
+                return {'success': False, 'error': f"Setup failed: {setup_result['error']}", 'executed_steps': 0, 'total_steps': len(plan_steps)}
+            
+            host = setup_result['host']
+            device_result = select_device(host, self.device_id, "ai_agent")
+            if not device_result['success']:
+                return {'success': False, 'error': f"Device selection failed: {device_result['error']}", 'executed_steps': 0, 'total_steps': len(plan_steps)}
+            
+            device = device_result['device']
+            
+            # Execute actions using existing infrastructure (like working version)
+            executed_actions = 0
+            
+            for i, step in enumerate(action_steps):
                 step_num = i + 1
                 command = step.get('command')
-                description = step.get('description', f'Step {step_num}')
+                description = step.get('description', command)
                 
-                print(f"AI[{self.device_name}]: Executing step {step_num}/{total_steps}: {description}")
+                print(f"AI[{self.device_name}]: Step {step_num}/{len(action_steps)}: {description}")
                 
-                # Execute step based on command type
+                # Execute step using existing action infrastructure
                 if command == 'execute_navigation':
                     target_node = step.get('params', {}).get('target_node')
-                    result = self._execute_navigation(target_node, interface_name)
-                elif command in ['press_key', 'click_element', 'wait']:
-                    params = step.get('params', {})
-                    result = self._execute_action(command, params)
+                    # Use existing navigation infrastructure (no hardcoding)
+                    from backend_core.src.services.navigation.navigation_service import execute_navigation_with_verification
+                    result = execute_navigation_with_verification(
+                        tree_id=self.cached_tree_id,
+                        target_node_id=target_node,
+                        current_node_id=self.current_node_id,
+                        team_id=self.team_id
+                    )
                 else:
-                    result = {'success': False, 'error': f'Unknown command: {command}'}
+                    # Use existing action infrastructure (no hardcoded controller selection)
+                    action = self._convert_step_to_action(step)
+                    result = execute_action_directly(host, device, action)
                 
                 if result.get('success'):
-                    executed_steps += 1
+                    executed_actions += 1
                     print(f"AI[{self.device_name}]: Step {step_num} completed successfully")
                 else:
-                    print(f"AI[{self.device_name}]: Step {step_num} failed: {result.get('error', 'Unknown error')}")
+                    print(f"AI[{self.device_name}]: Step {step_num} failed: {result.get('error')}")
                     break
             
-            # Calculate execution time
-            execution_time = time.time() - self.task_start_time
-            
-            # Clear cached plan after execution
-            self.cached_plan = None
-            
             return {
-                'success': executed_steps == total_steps,
-                'executed_steps': executed_steps,
-                'total_steps': total_steps,
-                'execution_time_ms': int(execution_time * 1000),
-                'current_position': self.current_node_id,
-                'execution_log': self.execution_log
+                'success': executed_actions == len(action_steps),
+                'executed_steps': executed_actions,
+                'total_steps': len(action_steps),
+                'action_result': {'executed_steps': executed_actions, 'total_steps': len(action_steps)},
+                'verification_result': {'executed_verifications': 0, 'total_verifications': len(verification_steps)}
             }
             
         except Exception as e:
-            print(f"AI[{self.device_name}]: Plan execution error: {e}")
+            print(f"AI[{self.device_name}]: Execution error: {e}")
             return {
                 'success': False,
-                'error': f'Plan execution failed: {str(e)}',
-                'execution_log': self.execution_log
+                'error': f'Execution failed: {str(e)}',
+                'executed_steps': 0,
+                'total_steps': len(plan_steps) if plan_steps else 0
             }
-        finally:
-            self.is_executing = False
+
+    def _classify_ai_steps(self, plan_steps: List[Dict]) -> tuple:
+        """Classify AI steps into actions and verifications (like working version)"""
+        actions = []
+        verifications = []
+        
+        for step in plan_steps:
+            command = step.get('command', '')
+            if command.startswith(('waitFor', 'verify', 'check')):
+                verifications.append(step)
+            else:
+                actions.append(step)
+        
+        return actions, verifications
+
+    def _convert_step_to_action(self, step: Dict) -> Dict:
+        """Convert AI step to system action format (like working version)"""
+        command = step.get('command', '')
+        
+        # Handle navigation specially
+        if command == 'execute_navigation':
+            return {
+                'command': command,
+                'params': step.get('params', {}),
+                'action_type': 'navigation'
+            }
+        
+        # Regular actions
+        return {
+            'command': command,
+            'params': step.get('params', {}),
+            'action_type': 'remote'
+        }
+
 
     def get_status(self) -> Dict[str, Any]:
         """Get current AI agent status."""
