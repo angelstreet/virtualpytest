@@ -343,8 +343,12 @@ class AIOrchestrator:
 
 
 class AITracker:
+    # Class-level shared executions dictionary for persistence across instances
+    _shared_executions = {}
+    
     def __init__(self):
-        self.executions = {}
+        # All instances share the same executions dictionary
+        self.executions = AITracker._shared_executions
 
     def start_execution(self, execution_id: str, plan: AIPlan):
         self.executions[execution_id] = {
@@ -354,6 +358,7 @@ class AITracker:
             'step_results': [],
             'start_time': time.time()
         }
+        print(f"[@ai_tracker] Started execution {execution_id}, total tracked: {len(self.executions)}")
 
     def update_step(self, execution_id: str, step_result: StepResult):
         if execution_id in self.executions:
@@ -369,6 +374,7 @@ class AITracker:
             execution['end_time'] = time.time()
 
     def get_status(self, execution_id: str) -> Dict[str, Any]:
+        print(f"[@ai_tracker] Looking for execution {execution_id}, available: {list(self.executions.keys())}")
         if execution_id not in self.executions:
             return {'success': False, 'error': 'Execution not found'}
 
