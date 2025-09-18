@@ -138,8 +138,8 @@ class AITestCaseAnalyzer:
             return 'web'
         elif 'stb' in ui_name:
             return 'stb'
-        elif 'appletv' in ui_name:
-            return 'appletv'
+        elif 'apple_tv' in ui_name:
+            return 'apple_tv'
         else:
             # Default fallback - try to extract last part
             parts = ui_name.split('_')

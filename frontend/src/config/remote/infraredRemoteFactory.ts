@@ -21,11 +21,11 @@ export function getInfraredRemoteConfig(irType: string): InfraredRemoteConfig {
       console.log(`[@config:infraredRemoteFactory] Loading EOS remote config`);
       return eosRemoteConfig;
     
-    case 'firetv':
+    case 'fire_tv':
       console.log(`[@config:infraredRemoteFactory] Loading FireTV remote config`);
       return firetvRemoteConfig;
     
-    case 'appletv':
+    case 'apple_tv':
       console.log(`[@config:infraredRemoteFactory] Loading Apple TV remote config`);
       return appleTvRemoteConfig;
     
@@ -39,7 +39,7 @@ export function getInfraredRemoteConfig(irType: string): InfraredRemoteConfig {
  * Get all available infrared remote types
  */
 export function getAvailableInfraredRemoteTypes(): InfraredRemoteType[] {
-  return ['samsung', 'eos', 'firetv', 'appletv'];
+  return ['samsung', 'eos', 'fire_tv', 'apple_tv'];
 }
 
 /**

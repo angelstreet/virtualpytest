@@ -52,7 +52,7 @@ DEVICE_CONTROLLER_MAP = {
         'network': [],
         'ai': ['ai_agent']
     },
-    'appletv': {
+    'apple_tv': {
         'av': ['hdmi_stream'], 
         'remote': ['ir_remote'],
         'desktop': [],
