@@ -37,7 +37,6 @@ class AIContextService:
         from backend_core.src.services.actions.action_executor import ActionExecutor
         from backend_core.src.services.verifications.verification_executor import VerificationExecutor
         from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
-        from shared.lib.utils.host_utils import get_device_by_id
         
         # Create executors for context loading
         action_executor = ActionExecutor(host, device_id, team_id)
