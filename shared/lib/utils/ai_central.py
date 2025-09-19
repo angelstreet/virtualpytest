@@ -345,6 +345,9 @@ Your task is to navigate through the app using available commands provided.
 Task: "{prompt}"
 Device: {device_model}
 
+Navigation System: Apps have hierarchical menus (home_replay, home_movies, etc.) - navigate to parent menu first, then use OK/select to enter submenu.
+If target node doesn't exist, find closest parent menu and navigate there, then use action commands to reach the final destination.
+
 {navigation_context}
 
 {action_context}
