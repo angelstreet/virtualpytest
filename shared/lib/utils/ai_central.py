@@ -370,11 +370,9 @@ If task is not possible:
 
 RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
 
-        # Log the full prompt for debugging
-        print(f"[@ai_central] Full AI Prompt:")
-        print("=" * 80)
+        # Log the full prompt for debugging (copy-paste ready for OpenRouterDebug)
+        print(f"[@ai_central] AI Prompt (length: {len(ai_prompt)} chars):")
         print(ai_prompt)
-        print("=" * 80)
 
         result = call_text_ai(
             prompt=ai_prompt,
@@ -382,6 +380,8 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
             temperature=0.0,
             model=AI_CONFIG['providers']['openrouter']['models']['agent']
         )
+
+        print(f"[@ai_central] AI Response received, content length: {len(result.get('content', '')) if result else 0} characters")
 
         if not result.get('success'):
             raise Exception(f"AI call failed: {result.get('error')}")
