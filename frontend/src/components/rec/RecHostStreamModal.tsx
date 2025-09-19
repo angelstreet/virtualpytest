@@ -114,7 +114,6 @@ const RecHostStreamModalContent: React.FC<{
   const {
     isExecuting: isAIExecuting,
     currentPlan: aiPlan,
-    error: aiError,
     taskResult,
     executionSummary,
     executeTask: executeAITask,
@@ -403,12 +402,7 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [urlError, showError]);
 
-  // Show AI errors
-  useEffect(() => {
-    if (aiError) {
-      showError(`AI Agent error: ${aiError}`);
-    }
-  }, [aiError, showError]);
+  // AI errors are handled by useAI hook - no duplicate toasts needed here
 
   return (
       <Box
@@ -1036,17 +1030,17 @@ const RecHostStreamModalContent: React.FC<{
 
                     {/* PHASE 1: Analysis Display (Always show first when available) */}
                     {aiPlan && aiPlan.analysis && (
-                      <Box sx={{ mb: 1 }}>
+                      <Box sx={{ mb: 0.5 }}>
                         <Typography variant="subtitle2" sx={{ 
                           color: isPlanFeasible ? '#4caf50' : '#f44336', 
-                          mb: 1,
+                          mb: 0.5,
                           display: 'flex',
                           alignItems: 'center',
                           gap: 1
                         }}>
                           {isPlanFeasible ? '✅' : '❌'} Task Analysis
                           {!isPlanFeasible && (
-                            <Typography variant="caption" sx={{ color: '#f44336', ml: 1 }}>
+                            <Typography variant="caption" sx={{ color: '#f44336', ml: 0 }}>
                               (Not Feasible)
                             </Typography>
                           )}

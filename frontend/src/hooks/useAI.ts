@@ -34,6 +34,9 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   // Track polling state to prevent duplicate toasts
   const pollCount = useRef(0);
   const lastStepToastShown = useRef<string | null>(null);
+  
+  // Track unique toasts to prevent duplicates across execution
+  const shownToasts = useRef<Set<string>>(new Set());
 
   // Helper function to enhance error messages for specific error types
   const enhanceErrorMessage = useCallback((error: string, errorType?: AIErrorType) => {
@@ -170,14 +173,15 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     setTaskResult(null);
     completionToastShown.current = false;
     
-    // Reset polling counters for new task
+    // Reset polling counters and toast tracking for new task
     pollCount.current = 0;
     lastStepToastShown.current = null;
+    shownToasts.current.clear();
 
     setIsExecuting(true);
 
     try {
-      // Show start notification
+      // Show start notification (only major state changes)
       toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
       const response = await fetch(buildServerUrl('/server/ai/executeTask'), {
@@ -203,14 +207,10 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         while (true) {
           pollCount.current += 1;
           
-          // Show polling toast on first poll and every 5th poll to avoid spam
+          // Minimal polling feedback - only on first poll
           if (pollCount.current === 1) {
-            toast.showInfo(`🔄 Starting AI execution monitoring...`, { 
+            toast.showInfo(`🔄 Monitoring AI execution...`, { 
               duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-            });
-          } else if (pollCount.current % 5 === 0) {
-            toast.showInfo(`🔄 Polling AI status... (${pollCount.current} polls)`, { 
-              duration: 1500 // Shorter duration for polling updates
             });
           }
           
@@ -222,9 +222,13 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           // Extract and set plan if available from status.plan (new backend format)
           if (!currentPlan && status.plan) {
             setCurrentPlan(status.plan);
-            toast.showSuccess(`📋 AI plan generated with ${status.plan.steps?.length || 0} steps`, { 
-              duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-            });
+            const planToastKey = `plan-generated-${status.plan.id || 'unknown'}`;
+            if (!shownToasts.current.has(planToastKey)) {
+              shownToasts.current.add(planToastKey);
+              toast.showSuccess(`📋 AI plan generated with ${status.plan.steps?.length || 0} steps`, { 
+                duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+              });
+            }
           }
 
           // Fallback: Extract plan from execution_log (legacy compatibility)
@@ -234,42 +238,18 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
             );
             if (planEntry && planEntry.value) {
               setCurrentPlan(planEntry.value);
-              toast.showSuccess(`📋 AI plan generated with ${planEntry.value.steps?.length || 0} steps`, { 
-                duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-              });
+              const planToastKey = `plan-generated-${planEntry.value.id || 'legacy'}`;
+              if (!shownToasts.current.has(planToastKey)) {
+                shownToasts.current.add(planToastKey);
+                toast.showSuccess(`📋 AI plan generated with ${planEntry.value.steps?.length || 0} steps`, { 
+                  duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+                });
+              }
             }
           }
 
-          // Show step progress toasts with enhanced details
+          // Track new log entries for state updates (no toasts here - handled by components)
           if (status.execution_log && status.execution_log.length > previousLogLength) {
-            const newEntries = status.execution_log.slice(previousLogLength);
-            for (const entry of newEntries) {
-              if (entry.action_type === 'step_success') {
-                const stepData = entry.data || entry.value;
-                const duration = stepData.duration ? ` (${stepData.duration.toFixed(1)}s)` : '';
-                const stepKey = `success-${stepData.step}`;
-                
-                // Prevent duplicate step toasts
-                if (lastStepToastShown.current !== stepKey) {
-                  lastStepToastShown.current = stepKey;
-                  toast.showSuccess(`✅ Step ${stepData.step} completed${duration}`, { 
-                    duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-                  });
-                }
-              } else if (entry.action_type === 'step_failed') {
-                const stepData = entry.data || entry.value;
-                const duration = stepData.duration ? ` (${stepData.duration.toFixed(1)}s)` : '';
-                const stepKey = `failed-${stepData.step}`;
-                
-                // Prevent duplicate step toasts
-                if (lastStepToastShown.current !== stepKey) {
-                  lastStepToastShown.current = stepKey;
-                  toast.showError(`❌ Step ${stepData.step} failed${duration}`, { 
-                    duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-                  });
-                }
-              }
-            }
             previousLogLength = status.execution_log.length;
           }
 
@@ -291,8 +271,10 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
                 message: success ? 'Task Completed' : 'Task Failed' 
               });
 
-              // Show completion toast with duration
-              if (!completionToastShown.current) {
+              // Show completion toast with duration (unique per execution)
+              const completionToastKey = `task-${success ? 'completed' : 'failed'}-${executionId}`;
+              if (!shownToasts.current.has(completionToastKey)) {
+                shownToasts.current.add(completionToastKey);
                 completionToastShown.current = true;
                 if (success) {
                   toast.showSuccess(`🎉 Task completed in ${duration.toFixed(1)}s`, { 
@@ -305,8 +287,10 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
                 }
               }
             } else {
-              // Fallback completion toast
-              if (!completionToastShown.current) {
+              // Fallback completion toast (unique per execution)
+              const fallbackToastKey = `task-fallback-${executionId}`;
+              if (!shownToasts.current.has(fallbackToastKey)) {
+                shownToasts.current.add(fallbackToastKey);
                 completionToastShown.current = true;
                 const success = status.success !== false;
                 if (success) {
