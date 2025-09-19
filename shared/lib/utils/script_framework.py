@@ -365,15 +365,11 @@ class ScriptExecutor:
                     if not result.get('step_start_screenshot_path'):
                         result['step_start_screenshot_path'] = step_start_screenshot
                 else:
-                    # Use NavigationExecutor for single step execution
-                    from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
-                    nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
-                    
-                    # Execute actions from the step
+                    # Use ActionExecutor for single step execution (like original)
                     actions = step.get('actions', [])
                     if actions:
                         from backend_core.src.services.actions.action_executor import ActionExecutor
-                        action_executor = ActionExecutor(context.host, context.selected_device.device_id, context.tree_id, step.get('edge_id'), context.team_id)
+                        action_executor = ActionExecutor(context.host, context.selected_device, context.tree_id, step.get('edge_id'), context.team_id)
                         result = action_executor.execute_actions(actions)
                     else:
                         result = {'success': True, 'message': 'No actions to execute'}
@@ -530,7 +526,7 @@ class ScriptExecutor:
             from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             
             recovery_start_time = time.time()
-            nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+            nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)
             result = nav_executor.execute_navigation(context.tree_id, recovery_target, context.current_node_id)
             recovery_time = int((time.time() - recovery_start_time) * 1000)
             

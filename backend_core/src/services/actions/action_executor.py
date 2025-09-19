@@ -21,19 +21,19 @@ class ActionExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, host: Dict[str, Any], device_id: Optional[str] = None, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
+    def __init__(self, host, device, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
         """
         Initialize ActionExecutor
         
         Args:
-            host: Host configuration dict with host_name, devices, etc.
-            device_id: Optional device ID for multi-device hosts
+            host: Real host object (same as original goto_node)
+            device: Real device object (same as original goto_node)
             tree_id: Tree ID for navigation context
             edge_id: Edge ID for navigation context
             team_id: Team ID for database context
         """
         self.host = host
-        self.device_id = device_id
+        self.device = device
         self.tree_id = tree_id
         self.edge_id = edge_id
         self.action_set_id = action_set_id
@@ -43,10 +43,6 @@ class ActionExecutor:
         
         # Initialize screenshot tracking
         self.action_screenshots = []
-        
-        # Validate host configuration
-        if not host or not host.get('host_name'):
-            raise ValueError("Host configuration with host_name is required")
     
     def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
         """
@@ -613,13 +609,18 @@ class ActionExecutor:
         try:
             from shared.lib.utils.action_utils import capture_validation_screenshot
             
-            host_obj = self._get_host_object()
-            device_obj = self._get_device_object()
-            
             success_status = "success" if result.get('success') else "failure"
             screenshot_name = f"action_{action_number}_{action.get('command', 'unknown')}_{success_status}"
             
-            return capture_validation_screenshot(host_obj, device_obj, screenshot_name, "action")
+            # Use real host and device objects directly (like original goto_node)
+            screenshot_path = capture_validation_screenshot(self.host, self.device, screenshot_name, "action")
+            
+            # If screenshot capture failed, try emergency capture
+            if not screenshot_path:
+                print(f"[@action_executor] Primary screenshot failed, trying emergency capture")
+                return self._emergency_screenshot_capture(action_number)
+                
+            return screenshot_path
             
         except Exception as e:
             print(f"[@action_executor] Screenshot capture failed: {e}")
@@ -630,10 +631,13 @@ class ActionExecutor:
         try:
             screenshot_name = f"action_{action_number}_emergency"
             
+            # Use device.device_id from real device object
+            device_id = getattr(self.device, 'device_id', 'device1')
+            
             # Direct screenshot capture via host
             screenshot_response = proxy_to_host_direct(
                 self.host,
-                f"/device/{self.device_id or 'device1'}/screenshot",
+                f"/device/{device_id}/screenshot",
                 method="GET"
             )
             
@@ -647,51 +651,21 @@ class ActionExecutor:
             print(f"[@action_executor] Emergency screenshot failed: {e}")
             return None
     
-    def _get_host_object(self):
-        """Convert host dict to object for legacy functions"""
-        # Create mock host object from dict
-        class MockHost:
-            def __init__(self, host_dict):
-                self.host_name = host_dict.get('host_name')
-                self.devices = host_dict.get('devices', [])
-                self.host_url = host_dict.get('host_url', '')
-                self.host_port = host_dict.get('host_port', 0)
-        
-        return MockHost(self.host)
-    
-    def _get_device_object(self):
-        """Get device object from host"""
-        host_obj = self._get_host_object()
-        device_id = self.device_id or 'device1'
-        
-        # Find device in host.devices
-        if hasattr(host_obj, 'devices') and host_obj.devices:
-            for device in host_obj.devices:
-                if hasattr(device, 'device_id') and device.device_id == device_id:
-                    return device
-        
-        # Create mock device if not found
-        class MockDevice:
-            def __init__(self, device_id):
-                self.device_id = device_id
-                self.device_model = 'unknown'
-        
-        return MockDevice(device_id)
-    
     def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None):
         """Record edge execution to database (same as old system)"""
         try:
             from shared.lib.supabase.execution_results_db import record_edge_execution
             
-            host_obj = self._get_host_object()
-            device_obj = self._get_device_object()
+            # Use real host and device objects directly
+            host_name = getattr(self.host, 'host_name', 'unknown')
+            device_model = getattr(self.device, 'device_model', 'unknown')
             
             result = record_edge_execution(
                 team_id=self.team_id,
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
-                host_name=host_obj.host_name,
-                device_model=device_obj.device_model,
+                host_name=host_name,
+                device_model=device_model,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message='Navigation actions completed' if success else 'Navigation actions failed',

@@ -51,7 +51,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             print(f"🎧 [AudioMenuAnalyzer] Using audio menu target: {audio_menu_target}")
             
             # Navigate to combined audio menu
-            nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+            nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)
             audio_menu_nav = nav_executor.execute_navigation(context.tree_id, audio_menu_target, context.current_node_id)
             
             if audio_menu_nav.get('success'):
@@ -74,7 +74,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
                 # Navigate back to target node
                 try:
                     print(f"🔄 [AudioMenuAnalyzer] Navigating back to {target_node}")
-                    nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+                    nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)
                     nav_executor.execute_navigation(context.tree_id, target_node, audio_menu_target)
                 except Exception as nav_error:
                     print(f"⚠️ [AudioMenuAnalyzer] Navigation back to {target_node} failed: {nav_error}")
@@ -113,7 +113,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             
             # 1. Analyze audio menu (via live_menu intermediate node)
             print(f"🔊 [AudioMenuAnalyzer] Checking audio menu...")
-            nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+            nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)
             audio_nav = nav_executor.execute_navigation(context.tree_id, "live_menu_audio", context.current_node_id)
             
             if audio_nav.get('success'):
@@ -136,7 +136,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             
             # 2. Analyze subtitle menu (via live_menu intermediate node)
             print(f"📝 [AudioMenuAnalyzer] Checking subtitle menu...")
-            nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+            nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)
             subtitle_nav = nav_executor.execute_navigation(context.tree_id, "live_menu_subtitles", context.current_node_id)
             
             if subtitle_nav.get('success'):
@@ -160,7 +160,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             # Navigate back to target node
             try:
                 print(f"🔄 [AudioMenuAnalyzer] Navigating back to {target_node}")
-                nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+                nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)
                 nav_executor.execute_navigation(context.tree_id, target_node, context.current_node_id)
             except Exception as nav_error:
                 print(f"⚠️ [AudioMenuAnalyzer] Navigation back to {target_node} failed: {nav_error}")

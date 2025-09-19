@@ -399,7 +399,7 @@ class ZapController:
         
         # Execute action with timing using ActionExecutor
         from backend_core.src.services.actions.action_executor import ActionExecutor
-        action_executor = ActionExecutor(context.host, context.selected_device.device_id, context.team_id)
+        action_executor = ActionExecutor(context.host, context.selected_device, context.team_id)
         actions = action_edge.get('actions', [])
         action_result = action_executor.execute_actions(actions)
         end_time = time.time()

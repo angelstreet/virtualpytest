@@ -38,20 +38,20 @@ class ActionExecutor:
     def __init__(self, host: Dict[str, Any], device_id: Optional[str] = None, ...):
         self.host = host  # Dict format only - no legacy compatibility
         self.action_screenshots = []  # NEW: Screenshot tracking
-        
-    def execute_actions(self, actions, retry_actions=None, failure_actions=None):
-        # ... existing execution logic ...
-        
+
+def execute_actions(self, actions, retry_actions=None, failure_actions=None):
+    # ... existing execution logic ...
+    
         # NEW: Always capture screenshots (success AND failure)
         screenshot_path = self._capture_action_screenshot_always(action, action_number, result)
         
         # NEW: Record edge execution to database
         if self.tree_id and self.edge_id:
             self._record_edge_execution(success, execution_time_ms, error_details)
-            
-        return {
-            'success': overall_success,
-            'action_screenshots': self.action_screenshots,  # NEW
+    
+    return {
+        'success': overall_success,
+        'action_screenshots': self.action_screenshots,  # NEW
             'execution_time_ms': total_execution_time,      # NEW
             # ... existing fields ...
         }
@@ -68,18 +68,18 @@ class NavigationExecutor:
         
         for i, transition in enumerate(transitions):
             # NEW: Always capture step-start screenshot
-            step_start_screenshot = self._capture_step_screenshot_always(
-                f"step_{step_num}_{from_node}_{to_node}_start"
-            )
-            
-            # Execute actions with enhanced ActionExecutor
-            result = action_executor.execute_actions(actions, retry_actions)
-            
+        step_start_screenshot = self._capture_step_screenshot_always(
+            f"step_{step_num}_{from_node}_{to_node}_start"
+        )
+        
+        # Execute actions with enhanced ActionExecutor
+        result = action_executor.execute_actions(actions, retry_actions)
+        
             # NEW: Always capture step-end screenshot
-            step_end_screenshot = self._capture_step_screenshot_always(
-                f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
-            )
-            
+        step_end_screenshot = self._capture_step_screenshot_always(
+            f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
+        )
+        
             # NEW: Execute per-step verifications
             verification_result = self._execute_step_verifications(
                 step_verifications, transition.get('to_node_id')

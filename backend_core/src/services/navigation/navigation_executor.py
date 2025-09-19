@@ -24,22 +24,18 @@ class NavigationExecutor:
     to provide complete navigation functionality.
     """
     
-    def __init__(self, host: Dict[str, Any], device_id: Optional[str] = None, team_id: Optional[str] = None):
+    def __init__(self, host, device, team_id: Optional[str] = None):
         """
         Initialize NavigationExecutor
         
         Args:
-            host: Host configuration dict with host_name, devices, etc.
-            device_id: Optional device ID for multi-device hosts
+            host: Real host object (same as original goto_node)
+            device: Real device object (same as original goto_node)
             team_id: Optional team ID, defaults to system team ID
         """
         self.host = host
-        self.device_id = device_id
+        self.device = device
         self.team_id = team_id or get_team_id()
-        
-        # Validate host configuration
-        if not host or not host.get('host_name'):
-            raise ValueError("Host configuration with host_name is required")
         
         # Initialize standardized executors (will be updated with navigation context per execution)
         self.action_executor = None
@@ -200,7 +196,7 @@ class NavigationExecutor:
                     
                     action_executor = ActionExecutor(
                         host=self.host,
-                        device_id=self.device_id,
+                        device=self.device,
                         tree_id=execution_tree_id,
                         edge_id=edge_id,
                         team_id=self.team_id
@@ -382,7 +378,7 @@ class NavigationExecutor:
         
         verification_executor = VerificationExecutor(
             host=self.host,
-            device_id=self.device_id,
+            device=self.device,
             tree_id=self.tree_id,
             node_id=node_id,
             team_id=self.team_id
@@ -395,11 +391,9 @@ class NavigationExecutor:
         try:
             from shared.lib.utils.report_generation import capture_and_upload_screenshot
             
-            host_obj = self._get_host_object()
-            device_obj = self._get_device_object()
-            
+            # Use real host and device objects directly (like original goto_node)
             screenshot_result = capture_and_upload_screenshot(
-                host_obj, device_obj, screenshot_name, "navigation"
+                self.host, self.device, screenshot_name, "navigation"
             )
             
             screenshot_path = screenshot_result.get('screenshot_path')
@@ -411,37 +405,6 @@ class NavigationExecutor:
         except Exception as e:
             print(f"[@navigation_executor] Step screenshot failed: {e}")
             return None
-    
-    def _get_host_object(self):
-        """Convert host dict to object for legacy functions"""
-        # Create mock host object from dict
-        class MockHost:
-            def __init__(self, host_dict):
-                self.host_name = host_dict.get('host_name')
-                self.devices = host_dict.get('devices', [])
-                self.host_url = host_dict.get('host_url', '')
-                self.host_port = host_dict.get('host_port', 0)
-        
-        return MockHost(self.host)
-    
-    def _get_device_object(self):
-        """Get device object from host"""
-        host_obj = self._get_host_object()
-        device_id = self.device_id or 'device1'
-        
-        # Find device in host.devices
-        if hasattr(host_obj, 'devices') and host_obj.devices:
-            for device in host_obj.devices:
-                if hasattr(device, 'device_id') and device.device_id == device_id:
-                    return device
-        
-        # Create mock device if not found
-        class MockDevice:
-            def __init__(self, device_id):
-                self.device_id = device_id
-                self.device_model = 'unknown'
-        
-        return MockDevice(device_id)
     
     def get_navigation_preview(self, 
                              tree_id: str, 
