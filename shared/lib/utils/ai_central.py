@@ -143,21 +143,35 @@ class AIPlanGenerator:
             verification_context = verification_executor.get_available_context(device_model, userinterface_name)
             navigation_context = navigation_executor.get_available_context(device_model, userinterface_name)
             
-            # Combine contexts
-            device_actions = []
-            device_actions.extend(action_context.get('available_actions', []))
-            device_actions.extend(verification_context.get('available_verifications', []))
+            # Separate contexts for clean AI prioritization
+            available_actions = action_context.get('available_actions', [])
+            available_verifications = verification_context.get('available_verifications', [])
+            available_nodes = navigation_context.get('available_nodes', [])
+            tree_id = navigation_context.get('tree_id')
             
             print(f"[@ai_central] Loaded context from services:")
-            print(f"  - Actions: {len(action_context.get('available_actions', []))}")
-            print(f"  - Verifications: {len(verification_context.get('available_verifications', []))}")
-            print(f"  - Navigation nodes: {len(navigation_context.get('available_nodes', []))}")
+            print(f"  - Actions: {len(available_actions)}")
+            print(f"  - Verifications: {len(available_verifications)}")
+            print(f"  - Navigation nodes: {len(available_nodes)} (tree_id: {tree_id})")
+            
+            # Ensure navigation tree is cached for execution
+            if tree_id and available_nodes:
+                try:
+                    from shared.lib.utils.navigation_cache import get_cached_graph
+                    cached_graph = get_cached_graph(tree_id, self.team_id)
+                    if cached_graph:
+                        print(f"[@ai_central] Navigation tree cached successfully for tree_id: {tree_id}")
+                    else:
+                        print(f"[@ai_central] Warning: Navigation tree not cached for tree_id: {tree_id}")
+                except Exception as e:
+                    print(f"[@ai_central] Error checking navigation cache: {e}")
             
             return {
                 'userinterface_name': userinterface_name,
-                'tree_id': navigation_context.get('tree_id'),
-                'available_nodes': navigation_context.get('available_nodes', []),
-                'device_actions': device_actions,
+                'tree_id': tree_id,
+                'available_nodes': available_nodes,
+                'available_actions': available_actions,
+                'available_verifications': available_verifications,
                 'device_id': device_id,
                 'device_model': device_model
             }
@@ -168,41 +182,83 @@ class AIPlanGenerator:
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
                 'available_nodes': [],
-                'device_actions': [],
+                'available_actions': [],
+                'available_verifications': [],
                 'device_id': device_id,
                 'device_model': None
             }
 
     def _call_ai(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        available_nodes = context['available_nodes']
-        device_actions = context.get('device_actions', [])
+        available_nodes = context.get('available_nodes', [])
+        available_actions = context.get('available_actions', [])
+        available_verifications = context.get('available_verifications', [])
+        device_model = context.get('device_model', 'unknown')
         
-        # Build command list with controller info and descriptions
-        command_list = []
-        if device_actions:
-            # Limit total commands to avoid token overflow
-            for action in device_actions[:20]:  # Max 20 commands total
+        # Build navigation context (prioritized)
+        navigation_context = ""
+        if available_nodes:
+            navigation_context = f"Navigation: Nodes label used to navigate in app with navigation function\n{available_nodes}"
+        
+        # Build action commands (secondary)
+        action_commands = []
+        if available_actions:
+            # Limit actions to avoid token overflow
+            for action in available_actions[:10]:  # Max 10 actions
                 cmd = action['command']
                 action_type = action.get('action_type', 'remote')
                 description = action.get('description', '')
-                if description:
-                    command_list.append(f"{cmd}({action_type}): {description}")
-                else:
-                    command_list.append(f"{cmd}({action_type})")
+                command_str = f"{cmd}({action_type}): {description}" if description else f"{cmd}({action_type})"
+                action_commands.append(command_str)
         
-        # Create minimal AI prompt
-        ai_prompt = f"""Task: "{prompt}"
+        # Build verification commands (tertiary)
+        verification_commands = []
+        if available_verifications:
+            # Limit verifications to avoid token overflow
+            for verification in available_verifications[:5]:  # Max 5 verifications
+                cmd = verification['command']
+                action_type = verification.get('action_type', 'verification')
+                description = verification.get('description', '')
+                command_str = f"{cmd}({action_type}): {description}" if description else f"{cmd}({action_type})"
+                verification_commands.append(command_str)
+        
+        # Build action context (secondary)
+        action_context = ""
+        if action_commands:
+            action_context = f"Action: Actions available to control the device\n{', '.join(action_commands)}"
+        
+        # Build verification context (tertiary)
+        verification_context = ""
+        if verification_commands:
+            verification_context = f"Verification: Verification available to check the device\n{', '.join(verification_commands)}"
+        
+        # Create comprehensive AI prompt
+        ai_prompt = f"""You are controlling a TV application on a device ({device_model}).
+Your task is to navigate through the app using available commands provided.
 
-Available nodes: {available_nodes}
-Available commands: {', '.join(command_list) if command_list else 'click_element(remote): Click UI element, press_key(remote): Press keyboard key'}
+Task: "{prompt}"
+Device: {device_model}
 
+{navigation_context}
+
+{action_context}
+
+{verification_context}
 Rules:
-- "navigate to X" → execute_navigation, target_node="X"
-- Use commands with their specified controller type
-- ALWAYS specify action_type in params matching the controller
+- "go to node X" → execute_navigation, target_node="X"
+- "click X" → click_element, element_id="X"  
+- "press X" → press_key, key="X"
+- PRIORITIZE navigation over manual actions
+- ALWAYS specify action_type in params
 
-Response format:
-{{"analysis": "reasoning", "feasible": true/false, "plan": [{{"step": 1, "command": "click_element", "params": {{"element_id": "Home Tab", "action_type": "remote"}}, "description": "Click Home Tab"}}]}}"""
+CRITICAL: You MUST include an "analysis" field explaining your reasoning.
+
+Example response format:
+{{"analysis": "Task requires navigating to live content. Since 'live' node is available, I'll navigate there directly.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "live", "action_type": "navigation"}}, "description": "Navigate to live content"}}]}}
+
+If task is not possible:
+{{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
+
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
 
         result = call_text_ai(
             prompt=ai_prompt,
