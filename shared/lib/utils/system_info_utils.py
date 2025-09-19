@@ -502,7 +502,6 @@ def check_ffmpeg_status():
                 if os.path.exists(captures_dir):
                     try:
                         # Use find command to count sequential format files newer than 1 minute
-                        import subprocess
                         result = subprocess.run([
                             'find', captures_dir, '-name', 'capture_*.jpg', '!', '-name', '*_thumbnail.jpg', '-mmin', '-1'
                         ], capture_output=True, text=True)
@@ -612,7 +611,6 @@ def check_monitor_status():
                 recent_json_count = 0
                 try:
                     # Use find command to count sequential format files newer than 1 minute
-                    import subprocess
                     result = subprocess.run([
                         'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-1'
                     ], capture_output=True, text=True)
