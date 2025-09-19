@@ -398,31 +398,6 @@ def create_mosaic_image(images_data: List[Dict], target_size: Tuple[int, int] = 
     
     return mosaic
 
-def upload_to_r2(image: Image.Image, filename: str) -> Optional[str]:
-    """Upload image to R2 storage and return public URL"""
-    try:
-        # Convert image to bytes
-        img_bytes = io.BytesIO()
-        image.save(img_bytes, format='JPEG', quality=85)
-        img_bytes.seek(0)
-        
-        # TODO: Implement actual R2 upload
-        # For now, save locally and return mock URL
-        local_path = f"/tmp/heatmap/{filename}"
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        
-        with open(local_path, 'wb') as f:
-            f.write(img_bytes.getvalue())
-        
-        # Return mock URL (replace with actual R2 URL)
-        public_url = f"https://your-r2-domain.com/heatmap/{filename}"
-        print(f"[@heatmap_utils] Uploaded mosaic to: {public_url}")
-        
-        return public_url
-        
-    except Exception as e:
-        print(f"[@heatmap_utils] Failed to upload to R2: {e}")
-        return None
 
 def process_single_image(image_info: Dict, timestamp: str) -> Optional[Dict]:
     """

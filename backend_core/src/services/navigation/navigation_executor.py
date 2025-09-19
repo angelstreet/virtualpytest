@@ -62,7 +62,7 @@ class NavigationExecutor:
         if not userinterface_name:
             return {
                 'service_type': 'navigation',
-                'device_id': self.device_id,
+                'device_id': getattr(self.device, 'device_id', 'device1'),
                 'device_model': device_model,
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
@@ -73,7 +73,7 @@ class NavigationExecutor:
         if not tree_id:
             return {
                 'service_type': 'navigation',
-                'device_id': self.device_id,
+                'device_id': getattr(self.device, 'device_id', 'device1'),
                 'device_model': device_model,
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
@@ -95,7 +95,7 @@ class NavigationExecutor:
         
         return {
             'service_type': 'navigation',
-            'device_id': self.device_id,
+            'device_id': getattr(self.device, 'device_id', 'device1'),
             'device_model': device_model,
             'userinterface_name': userinterface_name,
             'tree_id': tree_id,
@@ -176,8 +176,9 @@ class NavigationExecutor:
                 print(f"[@navigation_executor] Step {step_num}: {from_node} → {to_node}")
                 
                 # ALWAYS capture step-start screenshot
-                step_start_screenshot = self._capture_step_screenshot_always(
-                    f"step_{step_num}_{from_node}_{to_node}_start"
+                from shared.lib.utils.action_utils import take_screenshot
+                step_start_screenshot = take_screenshot(
+                    self.host, self.device, f"step_{step_num}_{from_node}_{to_node}_start"
                 )
                 
                 actions = transition.get('actions', [])
@@ -214,8 +215,8 @@ class NavigationExecutor:
                     
                     # ALWAYS capture step-end screenshot
                     success_status = "success" if result.get('success') else "failure"
-                    step_end_screenshot = self._capture_step_screenshot_always(
-                        f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
+                    step_end_screenshot = take_screenshot(
+                        self.host, self.device, f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
                     )
                     
                     # Execute per-step verifications (NEW)
@@ -288,7 +289,7 @@ class NavigationExecutor:
                 # Initialize verification executor with navigation context
                 verification_executor = VerificationExecutor(
                     host=self.host,
-                    device_id=self.device_id,
+                    device_id=getattr(self.device, 'device_id', 'device1'),
                     tree_id=tree_id,
                     node_id=target_node_id,
                     team_id=self.team_id
@@ -386,25 +387,6 @@ class NavigationExecutor:
         
         return verification_executor.execute_verifications(verifications)
     
-    def _capture_step_screenshot_always(self, screenshot_name: str) -> Optional[str]:
-        """GUARANTEED step screenshot capture with upload"""
-        try:
-            from shared.lib.utils.report_generation import capture_and_upload_screenshot
-            
-            # Use real host and device objects directly (like original goto_node)
-            screenshot_result = capture_and_upload_screenshot(
-                self.host, self.device, screenshot_name, "navigation"
-            )
-            
-            screenshot_path = screenshot_result.get('screenshot_path')
-            if screenshot_path:
-                print(f"📸 [@navigation_executor] Step screenshot captured: {screenshot_name}")
-            
-            return screenshot_path
-            
-        except Exception as e:
-            print(f"[@navigation_executor] Step screenshot failed: {e}")
-            return None
     
     def get_navigation_preview(self, 
                              tree_id: str, 

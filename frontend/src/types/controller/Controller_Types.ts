@@ -101,7 +101,7 @@ export type VerificationControllerImplementation =
 
 export type NetworkControllerImplementation = 'network' | 'rtsp' | 'http_stream' | 'webrtc';
 
-export type PowerControllerImplementation = 'mock' | 'smart_plug' | 'ipmi';
+export type PowerControllerImplementation = 'smart_plug' | 'ipmi';
 
 export interface ControllerInputField {
   name: string;

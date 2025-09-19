@@ -38,7 +38,7 @@ from shared.lib.utils.script_execution_utils import (
 )
 from shared.lib.utils.navigation_utils import load_navigation_tree
 from shared.lib.utils.action_utils import (
-    capture_validation_screenshot
+    take_screenshot
 )
 
 from shared.lib.utils.navigation_cache import populate_cache
@@ -240,8 +240,8 @@ class ScriptExecutor:
             
             # 5. Capture initial screenshot
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
-            initial_screenshot = capture_validation_screenshot(
-                context.host, context.selected_device, "initial_state", self.script_name
+            initial_screenshot = take_screenshot(
+                context.host, context.selected_device, "initial_state"
             )
             context.add_screenshot(initial_screenshot)
             
@@ -354,8 +354,8 @@ class ScriptExecutor:
                 
                 # Capture step-start screenshot for ALL steps (custom and navigation)
                 step_name = f"step_{step_num}_{from_node}_{to_node}"
-                step_start_screenshot = capture_validation_screenshot(
-                    context.host, context.selected_device, f"{step_name}_start", self.script_name
+                step_start_screenshot = take_screenshot(
+                    context.host, context.selected_device, f"{step_name}_start"
                 )
                 
                 # Use custom handler if provided, otherwise use default navigation
@@ -375,8 +375,8 @@ class ScriptExecutor:
                         result = {'success': True, 'message': 'No actions to execute'}
                 
                 # Capture step-end screenshot for ALL steps (custom and navigation)
-                step_end_screenshot = capture_validation_screenshot(
-                    context.host, context.selected_device, f"{step_name}_end", self.script_name
+                step_end_screenshot = take_screenshot(
+                    context.host, context.selected_device, f"{step_name}_end"
                 )
                 if not result.get('step_end_screenshot_path'):
                     result['step_end_screenshot_path'] = step_end_screenshot
@@ -557,8 +557,8 @@ class ScriptExecutor:
             # Capture final screenshot
             print(f"[@script_framework:generate_final_report] DEBUG: Step 1 - Capturing final screenshot...")
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
-            final_screenshot = capture_validation_screenshot(
-                context.host, context.selected_device, "final_state", self.script_name
+            final_screenshot = take_screenshot(
+                context.host, context.selected_device, "final_state"
             )
             context.add_screenshot(final_screenshot)
             

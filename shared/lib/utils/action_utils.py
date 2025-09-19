@@ -436,34 +436,22 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         return {'success': False, 'error': f'Verification execution error: {str(e)}'}
 
 
-def capture_validation_screenshot(host, device: Any, step_name: str, script_name: str = "validation") -> str:
+def take_screenshot(host, device, name: str) -> str:
     """
-    Capture screenshot for validation reporting using AV controller directly.
-    No HTTP requests needed - uses controller abstraction.
+    Take a screenshot. That's it.
     
     Args:
-        host: Host instance (not dict)
-        device: Device object
-        step_name: Name of the step (e.g., "initial_state", "step_1", "final_state")
-        script_name: Name of the script for logging
+        host: Host instance
+        device: Device object  
+        name: Screenshot name
         
     Returns:
-        Local path to captured screenshot or empty string if failed
+        Local path to screenshot or empty string if failed
     """
     try:
-        print(f"[@action_utils:capture_validation_screenshot] Capturing screenshot for step: {step_name}")
         av_controller = get_controller(device.device_id, 'av')
-        
         screenshot_path = av_controller.take_screenshot()
-        
-        if screenshot_path:
-            print(f"[@action_utils:capture_validation_screenshot] Screenshot captured successfully: {screenshot_path}")
-            return screenshot_path
-        else:
-            print(f"[@action_utils:capture_validation_screenshot] Screenshot capture returned empty path")
-            return ""
-            
+        return screenshot_path or ""
     except Exception as e:
-        print(f"[@action_utils:capture_validation_screenshot] Screenshot capture failed: {str(e)}")
-        import traceback
-        print(f"[@action_utils:capture_validation_screenshot] Traceback: {traceback.format_exc()}")
+        print(f"[@action_utils] Screenshot failed: {e}")
+        return ""

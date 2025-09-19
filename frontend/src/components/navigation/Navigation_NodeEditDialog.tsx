@@ -203,33 +203,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           onTest={nodeEdit.verification.handleTest}
         />
 
-        {/* Navigation Goto Result */}
-        {nodeEdit.gotoResult && (
-          <Box
-            sx={{
-              p: 1,
-              bgcolor:
-                nodeEdit.gotoResult.includes('❌') || nodeEdit.gotoResult.includes('⚠️')
-                  ? 'error.light'
-                  : 'success.light',
-              borderRadius: 1,
-              maxHeight: 200,
-              overflow: 'auto',
-              mt: 1,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-              Navigation Result:
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontFamily: 'monospace', whiteSpace: 'pre-line', fontSize: '0.75rem' }}
-            >
-              {nodeEdit.gotoResult}
-            </Typography>
-          </Box>
-        )}
 
         {/* Verification Test Results - updated to match edge dialog style */}
         {nodeEdit.verification.testResults && nodeEdit.verification.testResults.length > 0 && (

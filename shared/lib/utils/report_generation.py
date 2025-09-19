@@ -43,8 +43,8 @@ def capture_and_upload_screenshot(host, device, step_name: str, script_context: 
     
     try:
         # 1. Capture screenshot locally
-        from .action_utils import capture_validation_screenshot
-        screenshot_path = capture_validation_screenshot(host, device, step_name, script_context)
+        from .action_utils import take_screenshot
+        screenshot_path = take_screenshot(host, device, step_name)
         result['screenshot_path'] = screenshot_path
         
         if screenshot_path:

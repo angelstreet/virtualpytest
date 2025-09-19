@@ -24,7 +24,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from .host_utils import get_controller
-from .action_utils import capture_validation_screenshot
+from .action_utils import take_screenshot
 from .navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from .navigation_cache import populate_unified_cache
 

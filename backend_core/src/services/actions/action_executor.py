@@ -59,7 +59,7 @@ class ActionExecutor:
             from shared.lib.utils.host_utils import get_device_by_id, get_controller
             
             device_actions = []
-            device_id = self.device_id or 'device1'
+            device_id = getattr(self.device, 'device_id', 'device1')
             
             print(f"[@action_executor] Loading action context for device: {device_id}, model: {device_model}")
             
@@ -109,7 +109,7 @@ class ActionExecutor:
             print(f"[@action_executor] Error loading action context: {e}")
             return {
                 'service_type': 'actions',
-                'device_id': self.device_id or 'device1',
+                'device_id': getattr(self.device, 'device_id', 'device1'),
                 'device_model': device_model,
                 'userinterface_name': userinterface_name,
                 'available_actions': []
@@ -340,7 +340,7 @@ class ActionExecutor:
                             'command': action.get('command'),
                             'params': params
                         },
-                        'device_id': self.device_id or 'device1'
+                        'device_id': getattr(self.device, 'device_id', 'device1')
                     }
                 elif action_type == 'web':
                     # Route to web endpoint
@@ -359,7 +359,7 @@ class ActionExecutor:
                     request_data = {
                         'command': action.get('command'),
                         'params': web_params,
-                        'device_id': self.device_id or 'device1'
+                        'device_id': getattr(self.device, 'device_id', 'device1')
                     }
                 elif action_type == 'desktop':
                     # Intelligent routing to correct desktop controller
@@ -381,7 +381,7 @@ class ActionExecutor:
                     request_data = {
                         'command': action.get('command'),
                         'params': params,
-                        'device_id': self.device_id or 'device1'
+                        'device_id': getattr(self.device, 'device_id', 'device1')
                     }
                 else:
                     # Route to remote endpoint (default behavior for remote actions)
@@ -391,7 +391,7 @@ class ActionExecutor:
                     request_data = {
                         'command': action.get('command'),
                         'params': params,
-                        'device_id': self.device_id or 'device1'
+                        'device_id': getattr(self.device, 'device_id', 'device1')
                     }
                 
                 # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
@@ -491,10 +491,10 @@ class ActionExecutor:
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
         # ALWAYS capture screenshot - success OR failure
-        screenshot_path = self._capture_action_screenshot_always(action, action_number, {
-            'success': all_iterations_successful,
-            'error': None if all_iterations_successful else f"Failed after {len(iteration_results)} iteration(s)"
-        })
+        from shared.lib.utils.action_utils import take_screenshot
+        success_status = "success" if all_iterations_successful else "failure"
+        screenshot_name = f"action_{action_number}_{action.get('command', 'unknown')}_{success_status}"
+        screenshot_path = take_screenshot(self.host, self.device, screenshot_name)
         
         if screenshot_path:
             self.action_screenshots.append(screenshot_path)
@@ -516,14 +516,14 @@ class ActionExecutor:
         try:
             from shared.lib.utils.host_utils import get_device_by_id, get_controller
             
-            device = get_device_by_id(self.device_id)
+            device = get_device_by_id(getattr(self.device, 'device_id', 'device1'))
             if not device:
                 return 'remote'
             
             # Check each controller type in priority order
             for controller_type in ['remote', 'web', 'desktop', 'av', 'power']:
                 try:
-                    controller = get_controller(self.device_id, controller_type)
+                    controller = get_controller(getattr(self.device, 'device_id', 'device1'), controller_type)
                     if controller and hasattr(controller, 'get_available_actions'):
                         actions = controller.get_available_actions()
                         if self._command_exists_in_actions(command, actions):
@@ -534,7 +534,7 @@ class ActionExecutor:
             # Check verification controllers
             for v_type in ['image', 'text', 'adb', 'appium', 'video', 'audio']:
                 try:
-                    controller = get_controller(self.device_id, f'verification_{v_type}')
+                    controller = get_controller(getattr(self.device, 'device_id', 'device1'), f'verification_{v_type}')
                     if controller and hasattr(controller, 'get_available_verifications'):
                         verifications = controller.get_available_verifications()
                         if self._command_exists_in_actions(command, verifications):
@@ -565,7 +565,7 @@ class ActionExecutor:
         try:
             # Get device configuration from host
             devices = self.host.get('devices', [])
-            device_id = self.device_id or 'device1'
+            device_id = getattr(self.device, 'device_id', 'device1')
             
             for device in devices:
                 if device.get('device_id') == device_id:
@@ -604,52 +604,6 @@ class ActionExecutor:
         except Exception as e:
             print(f"[@lib:action_executor:_record_execution_to_database] Database recording error: {e}")
     
-    def _capture_action_screenshot_always(self, action: Dict[str, Any], action_number: int, result: Dict[str, Any]) -> Optional[str]:
-        """GUARANTEED screenshot capture - never skip"""
-        try:
-            from shared.lib.utils.action_utils import capture_validation_screenshot
-            
-            success_status = "success" if result.get('success') else "failure"
-            screenshot_name = f"action_{action_number}_{action.get('command', 'unknown')}_{success_status}"
-            
-            # Use real host and device objects directly (like original goto_node)
-            screenshot_path = capture_validation_screenshot(self.host, self.device, screenshot_name, "action")
-            
-            # If screenshot capture failed, try emergency capture
-            if not screenshot_path:
-                print(f"[@action_executor] Primary screenshot failed, trying emergency capture")
-                return self._emergency_screenshot_capture(action_number)
-                
-            return screenshot_path
-            
-        except Exception as e:
-            print(f"[@action_executor] Screenshot capture failed: {e}")
-            return self._emergency_screenshot_capture(action_number)
-    
-    def _emergency_screenshot_capture(self, action_number: int) -> Optional[str]:
-        """Emergency screenshot capture using direct host communication"""
-        try:
-            screenshot_name = f"action_{action_number}_emergency"
-            
-            # Use device.device_id from real device object
-            device_id = getattr(self.device, 'device_id', 'device1')
-            
-            # Direct screenshot capture via host
-            screenshot_response = proxy_to_host_direct(
-                self.host,
-                f"/device/{device_id}/screenshot",
-                method="GET"
-            )
-            
-            if screenshot_response.get('success') and screenshot_response.get('screenshot_path'):
-                print(f"[@action_executor] Emergency screenshot captured: {screenshot_name}")
-                return screenshot_response.get('screenshot_path')
-            
-            return None
-            
-        except Exception as e:
-            print(f"[@action_executor] Emergency screenshot failed: {e}")
-            return None
     
     def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None):
         """Record edge execution to database (same as old system)"""

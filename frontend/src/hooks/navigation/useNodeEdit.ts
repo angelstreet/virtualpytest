@@ -45,8 +45,6 @@ export const useNodeEdit = ({
 
   // Local state for dialog-specific concerns
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isRunningGoto, setIsRunningGoto] = useState(false);
-  const [gotoResult, setGotoResult] = useState('');
 
   // Fix loop: Use a ref to track if we've already initialized, preventing re-calls during the same open session.
   // Also, use shallow equality for verifications dep to avoid triggering on new array references.
@@ -73,7 +71,6 @@ export const useNodeEdit = ({
   useEffect(() => {
     if (!isOpen) {
       setSaveSuccess(false);
-      setGotoResult('');
       // Don't clear verification state immediately to preserve test results
       // Let the user see results before dialog closes
       setTimeout(() => {
@@ -131,23 +128,6 @@ export const useNodeEdit = ({
     [verification.verifications],
   );
 
-  // Run goto operation
-  const runGoto = useCallback(async () => {
-    if (!isControlActive || !selectedHost) return;
-
-    setIsRunningGoto(true);
-    setGotoResult('Running goto operation...');
-
-    try {
-      // Mock implementation - replace with actual goto logic
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setGotoResult('✅ Goto operation completed successfully');
-    } catch (error) {
-      setGotoResult(`❌ Goto operation failed: ${error}`);
-    } finally {
-      setIsRunningGoto(false);
-    }
-  }, [isControlActive, selectedHost]);
 
   // Get parent names from parent IDs
   const getParentNames = useCallback((parentIds: string[], nodes: UINavigationNode[]): string => {
@@ -185,10 +165,6 @@ export const useNodeEdit = ({
     isFormValid,
     saveSuccess,
 
-    // Navigation
-    runGoto,
-    isRunningGoto,
-    gotoResult,
 
     // Utilities
     getParentNames,

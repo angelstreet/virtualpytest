@@ -8,15 +8,13 @@ The factory system allows you to select specific controller implementations
 for each device type, providing maximum flexibility.
 """
 
-from typing import Dict, Any, Optional, Type, Union
+from typing import Dict, Any, Type
 from .base_controller import (
     BaseController,
     RemoteControllerInterface,
     AVControllerInterface,
     VerificationControllerInterface,
-    PowerControllerInterface,
-    DesktopControllerInterface,
-    WebControllerInterface
+    PowerControllerInterface
 )
 
 # Import AV implementations
@@ -49,9 +47,6 @@ from .verification.appium import AppiumVerificationController
 from .verification.video import VideoVerificationController
 from .verification.audio import AudioVerificationController
 
-# Import AI implementations
-# AICentral moved to shared.lib.utils.ai_central
-
 # Controller type registry
 CONTROLLER_REGISTRY = {
     'remote': {
@@ -66,9 +61,6 @@ CONTROLLER_REGISTRY = {
         'vnc_stream': VNCStreamController,   # VNC stream URL controller
         'camera_stream': CameraStreamController, # Camera stream URL controller
     },
-    # 'ai': {
-    #     # AICentral moved to shared.lib.utils.ai_central
-    # },
     'verification': {
         'ocr': TextVerificationController,   # OCR-based text verification using Tesseract
         'text': TextVerificationController,  # OCR-based text verification using Tesseract
@@ -110,7 +102,7 @@ class ControllerFactory:
         Create a remote controller instance.
         
         Args:
-            device_type: Type of device/implementation (mock, android_tv, apple_tv, etc.)
+            device_type: Type of device/implementation (android_tv, apple_tv, etc.)
             device_name: Name of the device for logging
             **kwargs: Additional parameters for the controller
         
@@ -134,7 +126,7 @@ class ControllerFactory:
         Create an AV controller instance.
         
         Args:
-            capture_type: Type of capture implementation (mock, hdmi, adb, camera, etc.)
+            capture_type: Type of capture implementation (hdmi, adb, camera, etc.)
             device_name: Name of the device for logging
             capture_source: Source for capture (HDMI, Network, Tapo, etc.)
             **kwargs: Additional parameters for the controller
@@ -187,7 +179,7 @@ class ControllerFactory:
         Create a power controller instance.
         
         Args:
-            power_type: Type of power implementation (mock, smart_plug, network, adb, etc.)
+            power_type: Type of power implementation (smart_plug, network, adb, etc.)
             device_name: Name of the device for logging
             **kwargs: Additional parameters for the controller
         
@@ -233,93 +225,6 @@ class ControllerFactory:
             for controller_type, implementations in CONTROLLER_REGISTRY.items()
         }
 
-
-class DeviceControllerSet:
-    """
-    Container for a complete set of controllers for a device.
-    
-    Allows you to configure different controller implementations
-    for each controller type on a per-device basis.
-    """
-    
-    def __init__(
-        self,
-        device_name: str,
-        remote_type: str = "android_tv",
-        av_type: str = "hdmi_stream", 
-        verification_type: str = "ocr",
-        power_type: str = "mock",
-        **controller_kwargs
-    ):
-        """
-        Initialize a complete controller set for a device.
-        
-        Args:
-            device_name: Name of the device
-            remote_type: Type of remote controller to use
-            av_type: Type of AV controller to use
-            verification_type: Type of verification controller to use
-            power_type: Type of power controller to use
-            **controller_kwargs: Additional parameters for controllers
-        """
-        self.device_name = device_name
-        
-        # Create controllers
-        self.remote = ControllerFactory.create_remote_controller(
-            device_type=remote_type,
-            device_name=device_name,
-            **controller_kwargs.get('remote', {})
-        )
-        
-        self.av = ControllerFactory.create_av_controller(
-            capture_type=av_type,
-            device_name=device_name,
-            **controller_kwargs.get('av', {})
-        )
-        
-        # Verification controller needs av_controller parameter
-        verification_kwargs = controller_kwargs.get('verification', {})
-        verification_kwargs['av_controller'] = self.av
-        
-        self.verification = ControllerFactory.create_verification_controller(
-            verification_type=verification_type,
-            **verification_kwargs
-        )
-        
-        self.power = ControllerFactory.create_power_controller(
-            power_type=power_type,
-            device_name=device_name,
-            **controller_kwargs.get('power', {})
-        )
-    
-    def connect_all(self) -> bool:
-        """Connect all controllers."""
-        results = []
-        results.append(self.remote.connect())
-        results.append(self.av.connect())
-        results.append(self.verification.connect())
-        results.append(self.power.connect())
-        return all(results)
-    
-    def disconnect_all(self) -> bool:
-        """Disconnect all controllers."""
-        results = []
-        results.append(self.remote.disconnect())
-        results.append(self.av.disconnect())
-        results.append(self.verification.disconnect())
-        results.append(self.power.disconnect())
-        return all(results)
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Get status of all controllers."""
-        return {
-            'device_name': self.device_name,
-            'remote': self.remote.get_status(),
-            'av': self.av.get_status(),
-            'verification': self.verification.get_status(),
-            'power': self.power.get_status()
-        }
-
 # Export main classes and functions
 __all__ = [
     'BaseController',
@@ -328,6 +233,5 @@ __all__ = [
     'VerificationControllerInterface',
     'PowerControllerInterface',
     'ControllerFactory',
-    'DeviceControllerSet',
     'CONTROLLER_REGISTRY'
 ]
