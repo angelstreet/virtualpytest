@@ -56,8 +56,13 @@ class NavigationExecutor:
         if not self.device_model:
             raise ValueError(f"Device {device_id} has no device_model")
         
+        # Get AV controller during initialization
+        from shared.lib.utils.host_utils import get_controller
+        self.av_controller = get_controller(self.device_id, 'av')
+        if not self.av_controller:
+            print(f"[@navigation_executor] Warning: No AV controller found for device {self.device_id}")
         
-        print(f"[@navigation_executor] Initialized with host: {self.host_name}, device_id: {self.device_id}, device_model: {self.device_model}, team_id: {self.team_id}")
+        print(f"[@navigation_executor] Initialized with host: {self.host_name}, device_id: {self.device_id}, device_model: {self.device_model}, team_id: {self.team_id}, av_controller: {self.av_controller is not None}")
     
     def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
@@ -189,10 +194,11 @@ class NavigationExecutor:
                 print(f"[@navigation_executor] Step {step_num}: {from_node} → {to_node}")
                 
                 # ALWAYS capture step-start screenshot
-                from shared.lib.utils.host_utils import get_controller
                 try:
-                    av_controller = get_controller(self.device_id, 'av')
-                    step_start_screenshot = av_controller.take_screenshot()
+                    if self.av_controller:
+                        step_start_screenshot = self.av_controller.take_screenshot()
+                    else:
+                        step_start_screenshot = ""
                 except Exception as e:
                     print(f"[@navigation_executor] Screenshot failed: {e}")
                     step_start_screenshot = ""
@@ -231,8 +237,10 @@ class NavigationExecutor:
                     
                     # ALWAYS capture step-end screenshot
                     try:
-                        av_controller = get_controller(self.device_id, 'av')
-                        step_end_screenshot = av_controller.take_screenshot()
+                        if self.av_controller:
+                            step_end_screenshot = self.av_controller.take_screenshot()
+                        else:
+                            step_end_screenshot = ""
                     except Exception as e:
                         print(f"[@navigation_executor] Screenshot failed: {e}")
                         step_end_screenshot = ""

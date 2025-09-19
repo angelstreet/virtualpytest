@@ -58,6 +58,12 @@ class ActionExecutor:
         if not self.device_model:
             raise ValueError(f"Device {device_id} has no device_model")
         
+        # Get AV controller during initialization
+        from shared.lib.utils.host_utils import get_controller
+        self.av_controller = get_controller(self.device_id, 'av')
+        if not self.av_controller:
+            print(f"[@action_executor] Warning: No AV controller found for device {self.device_id}")
+        
         # Initialize screenshot tracking
         self.action_screenshots = []
     
@@ -507,10 +513,11 @@ class ActionExecutor:
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
         # ALWAYS capture screenshot - success OR failure
-        from shared.lib.utils.host_utils import get_controller
         try:
-            av_controller = get_controller(self.device_id, 'av')
-            screenshot_path = av_controller.take_screenshot()
+            if self.av_controller:
+                screenshot_path = self.av_controller.take_screenshot()
+            else:
+                screenshot_path = ""
         except Exception as e:
             print(f"[@action_executor] Screenshot failed: {e}")
             screenshot_path = ""
