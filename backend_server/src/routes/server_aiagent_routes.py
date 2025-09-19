@@ -126,3 +126,63 @@ def analyze_compatibility():
             'success': False, 
             'error': f'Server error: {str(e)}'
         }), 500
+
+@server_aiagent_bp.route('/debug', methods=['POST'])
+def debug_openrouter():
+    """Debug endpoint to test OpenRouter AI models directly"""
+    try:
+        print("[@route:server_aiagent:debug] OpenRouter debug request")
+        
+        # Import here to avoid circular imports
+        from shared.lib.utils.ai_utils import call_text_ai
+        
+        # Get request data
+        request_data = request.get_json() or {}
+        model = request_data.get('model', 'qwen/qwen-2.5-vl-7b-instruct')
+        prompt = request_data.get('prompt', '')
+        max_tokens = request_data.get('max_tokens', 1000)
+        temperature = request_data.get('temperature', 0.0)
+        
+        if not prompt:
+            return jsonify({
+                'success': False,
+                'error': 'Prompt is required'
+            }), 400
+        
+        print(f"[@route:server_aiagent:debug] Testing model: {model}")
+        print(f"[@route:server_aiagent:debug] Prompt length: {len(prompt)}")
+        
+        # Call AI directly using ai_utils with custom model
+        result = call_text_ai(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model=model
+        )
+        
+        print(f"[@route:server_aiagent:debug] AI call result: success={result.get('success')}")
+        
+        if result.get('success'):
+            print(f"[@route:server_aiagent:debug] Response length: {len(result.get('content', ''))}")
+            return jsonify({
+                'success': True,
+                'content': result.get('content', ''),
+                'provider_used': result.get('provider_used', 'unknown'),
+                'model': model
+            })
+        else:
+            error_msg = result.get('error', 'Unknown AI error')
+            print(f"[@route:server_aiagent:debug] AI call failed: {error_msg}")
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'provider_used': result.get('provider_used', 'unknown'),
+                'model': model
+            }), 400
+        
+    except Exception as e:
+        print(f"[@route:server_aiagent:debug] Exception: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Debug endpoint error: {str(e)}'
+        }), 500
