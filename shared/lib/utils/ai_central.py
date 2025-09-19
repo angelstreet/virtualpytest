@@ -345,8 +345,11 @@ Your task is to navigate through the app using available commands provided.
 Task: "{prompt}"
 Device: {device_model}
 
-Navigation System: Apps have hierarchical menus (home_replay, home_movies, etc.) - navigate to parent menu first, then use OK/select to enter submenu.
-If target node doesn't exist, find closest parent menu and navigate there, then use action commands to reach the final destination.
+Navigation System: Each node in the navigation list is a DIRECT destination you can navigate to in ONE STEP.
+- Node names like "home_replay", "home_movies", "live" are COMPLETE node identifiers, not hierarchical paths
+- To go to "home_replay" → execute_navigation with target_node="home_replay" (NOT "home" then "replay")
+- Each node represents a specific screen/section that can be reached directly through the navigation tree
+- Only use action commands (click/press) if the exact node doesn't exist in the available navigation nodes
 
 {navigation_context}
 
@@ -354,16 +357,17 @@ If target node doesn't exist, find closest parent menu and navigate there, then 
 
 {verification_context}
 Rules:
-- "go to node X" → execute_navigation, target_node="X"
+- "go to node X" → execute_navigation, target_node="X" (use EXACT node name from navigation list)
 - "click X" → click_element, element_id="X"  
 - "press X" → press_key, key="X"
+- NEVER break down node names (e.g., "home_replay" is ONE node, not "home" + "replay")
 - PRIORITIZE navigation over manual actions
 - ALWAYS specify action_type in params
 
 CRITICAL: You MUST include an "analysis" field explaining your reasoning.
 
 Example response format:
-{{"analysis": "Task requires navigating to live content. Since 'live' node is available, I'll navigate there directly.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "live", "action_type": "navigation"}}, "description": "Navigate to live content"}}]}}
+{{"analysis": "Task requires navigating to home_replay. Since 'home_replay' node is available in the navigation list, I'll navigate there directly in one step.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate directly to home_replay"}}]}}
 
 If task is not possible:
 {{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
