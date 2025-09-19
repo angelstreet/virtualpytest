@@ -66,9 +66,9 @@ CONTROLLER_REGISTRY = {
         'vnc_stream': VNCStreamController,   # VNC stream URL controller
         'camera_stream': CameraStreamController, # Camera stream URL controller
     },
-    'ai': {
-        'ai_agent': AICentral,              # AI task execution agent
-    },
+    # 'ai': {
+    #     # AICentral moved to shared.lib.utils.ai_central
+    # },
     'verification': {
         'ocr': TextVerificationController,   # OCR-based text verification using Tesseract
         'text': TextVerificationController,  # OCR-based text verification using Tesseract
