@@ -392,7 +392,6 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
     def _extract_json_from_ai_response(self, content: str) -> Dict[str, Any]:
         """Extract JSON from AI response using existing codebase pattern"""
         try:
-            print(f"[@ai_central] Raw AI response: {repr(content)}")
             
             # Use existing codebase pattern (same as ai_utils.py, video_ai_helpers.py, ai_analyzer.py)
             cleaned_content = content.strip()
@@ -725,7 +724,7 @@ class AITracker:
         
         # Current step description
         current_step_desc = f"Step {execution['current_step']}/{len(plan.steps)}"
-        if execution['status'] == 'executing' and execution['current_step'] > 0:
+        if execution['status'] == 'executing' and int(execution['current_step']) > 0:
             current_step_desc = f"Executing step {execution['current_step']}"
         elif execution['status'] != 'executing':
             current_step_desc = "Task completed" if execution['status'] == 'completed' else "Task failed"

@@ -193,8 +193,6 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             # Extract content safely
             try:
                 content = result['choices'][0]['message']['content']
-                print(f"[AI_UTILS] Extracted content: {repr(content)}")
-                
                 # Handle None or empty content
                 if content is None or content == "":
                     return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': ''}
