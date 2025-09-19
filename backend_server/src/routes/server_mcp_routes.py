@@ -213,7 +213,7 @@ def _execute_navigate_to_page(params):
 def _execute_navigation_to_node(params):
     """Execute execute_navigation_to_node MCP tool"""
     try:
-        from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
+        from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
         from shared.lib.utils.app_utils import get_team_id
         
         tree_id = params.get("tree_id", "default_tree")

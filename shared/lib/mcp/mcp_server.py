@@ -109,7 +109,7 @@ class MockMCPServer:
             project_root = Path(__file__).parent.parent.parent.parent
             sys.path.insert(0, str(project_root))
             
-            from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
+            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             from shared.lib.utils.app_utils import get_team_id
             
             tree_id = params.get("tree_id", "default_tree")

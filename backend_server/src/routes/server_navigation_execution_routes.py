@@ -11,7 +11,7 @@ The endpoints use the same NavigationExecutor that can be used directly in Pytho
 """
 
 from flask import Blueprint, request, jsonify
-from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
+from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 from shared.lib.utils.app_utils import get_team_id
 
 # Create blueprint
