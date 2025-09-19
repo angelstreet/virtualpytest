@@ -130,7 +130,6 @@ class AIPlanGenerator:
         if cache_key in self._context_cache:
             cached_data, cache_time = self._context_cache[cache_key]
             if current_time - cache_time < self._cache_ttl:
-                print(f"[@ai_central] Using cached context for interface: {userinterface_name}, device: {device_id}")
                 return cached_data
         
         try:
@@ -139,19 +138,12 @@ class AIPlanGenerator:
             from backend_core.src.services.verifications.verification_executor import VerificationExecutor
             from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             
-            print(f"[@ai_central] Loading context from services for interface: {userinterface_name}, device: {device_id}")
-            
             # Get device model for context
             device_model = None
             if device_id:
                 device = get_device_by_id(device_id)
                 if device:
                     device_model = device.get('device_model', 'unknown')
-                    print(f"[@ai_central] Retrieved device model: {device_model} for device: {device_id}")
-                else:
-                    print(f"[@ai_central] Warning: Device not found for device_id: {device_id}")
-            else:
-                print(f"[@ai_central] Warning: No device_id provided for context loading")
             
             # Initialize service executors with minimal host info for context loading
             host_info = {'host_name': 'context_loading'}
@@ -166,48 +158,23 @@ class AIPlanGenerator:
             verification_context = self._get_cached_verification_context(verification_executor, device_model, userinterface_name)
             navigation_context = self._get_cached_navigation_context(navigation_executor, device_model, userinterface_name)
             
-            # Separate contexts for clean AI prioritization
-            available_actions = action_context.get('available_actions', [])
-            available_verifications = verification_context.get('available_verifications', [])
-            available_nodes = navigation_context.get('available_nodes', [])
-            tree_id = navigation_context.get('tree_id')
-            
-            print(f"[@ai_central] Loaded context from services:")
-            print(f"  - Actions: {len(available_actions)}")
-            print(f"  - Verifications: {len(available_verifications)}")
-            print(f"  - Navigation nodes: {len(available_nodes)} (tree_id: {tree_id})")
-            
-            # Ensure navigation tree is cached for execution
-            if tree_id and available_nodes:
-                try:
-                    from shared.lib.utils.navigation_cache import get_cached_graph
-                    cached_graph = get_cached_graph(tree_id, self.team_id)
-                    if cached_graph:
-                        print(f"[@ai_central] Navigation tree cached successfully for tree_id: {tree_id}")
-                    else:
-                        print(f"[@ai_central] Warning: Navigation tree not cached for tree_id: {tree_id}")
-                except Exception as e:
-                    print(f"[@ai_central] Error checking navigation cache: {e}")
-            
             # Create context result
             context_result = {
                 'userinterface_name': userinterface_name,
-                'tree_id': tree_id,
-                'available_nodes': available_nodes,
-                'available_actions': available_actions,
-                'available_verifications': available_verifications,
+                'tree_id': navigation_context.get('tree_id'),
+                'available_nodes': navigation_context.get('available_nodes', []),
+                'available_actions': action_context.get('available_actions', []),
+                'available_verifications': verification_context.get('available_verifications', []),
                 'device_id': device_id,
                 'device_model': device_model
             }
             
             # Cache the result
             self._context_cache[cache_key] = (context_result, current_time)
-            print(f"[@ai_central] Context cached for interface: {userinterface_name}, device: {device_id}")
             
             return context_result
             
         except Exception as e:
-            print(f"[@ai_central] Error loading context from services: {e}")
             return {
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
@@ -783,6 +750,9 @@ class AITracker:
 
 
 class AICentral:
+    # Class-level shared device positions (like AITracker does)
+    _device_positions = {}  # {device_id: {'node_id': 'home', 'node_label': 'Home Screen'}}
+    
     def __init__(self, team_id: str, host: Dict = None, device_id: str = None):
         self.team_id = team_id
         self.host = host
@@ -790,10 +760,12 @@ class AICentral:
         
         self.planner = AIPlanGenerator(team_id)
         self.tracker = AITracker()
-        
-        # Track current node like the old system
-        self.current_node_id = None
         self.orchestrator = AIOrchestrator(host, device_id, team_id, self.tracker) if host else None
+        
+        # Load current position from shared storage
+        position = self._device_positions.get(device_id, {})
+        self.current_node_id = position.get('node_id')
+        self.current_node_label = position.get('node_label')
 
     def analyze_compatibility(self, prompt: str) -> Dict[str, Any]:
         return self.planner.analyze_compatibility(prompt)
@@ -836,14 +808,24 @@ class AICentral:
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         return self.tracker.get_status(execution_id)
     
-    def update_current_node(self, node_id: str):
-        """Update the current node position for navigation context"""
-        self.current_node_id = node_id
-        print(f"[@ai_central] Current node updated to: {node_id}")
+    def update_current_node(self, node_id: str, node_label: str = None):
+        """Update current position in shared storage"""
+        if self.device_id:
+            self._device_positions[self.device_id] = {
+                'node_id': node_id,
+                'node_label': node_label or node_id
+            }
+            self.current_node_id = node_id
+            self.current_node_label = node_label
 
     def execute_task(self, prompt: str, userinterface_name: str, options: ExecutionOptions) -> str:
         # Generate plan with device context
         plan = self.generate_plan(prompt, userinterface_name, self.device_id)
+        
+        # Check if already at target
+        target_node = self._extract_target_from_prompt(prompt)
+        if target_node and target_node == self.current_node_id:
+            return self._create_already_there_response(target_node)
         
         # Load context to get tree_id for execution
         context = self.planner._load_context(userinterface_name, self.device_id)
@@ -854,6 +836,42 @@ class AICentral:
         options.context['tree_id'] = tree_id
         options.context['device_model'] = device_model
         options.context['current_node_id'] = self.current_node_id
-        print(f"[@ai_central] Updated execution context with tree_id: {tree_id}, device_model: {device_model}, current_node: {self.current_node_id}")
         
-        return self.execute_plan(plan, options)
+        execution_id = self.execute_plan(plan, options)
+        
+        # For synchronous execution, update position immediately
+        if options.mode != ExecutionMode.REAL_TIME:
+            result = self.get_execution_status(execution_id)
+            if result.get('success'):
+                final_position = result.get('execution_summary', {}).get('final_position_node_id')
+                if final_position:
+                    self.update_current_node(final_position)
+        
+        return execution_id
+
+    def _extract_target_from_prompt(self, prompt: str) -> Optional[str]:
+        """Simple regex to extract target node from prompt"""
+        import re
+        # Match patterns like "go to replay", "navigate to home", etc.
+        match = re.search(r'(?:go to|navigate to|goto)\s+(\w+)', prompt.lower())
+        return match.group(1) if match else None
+
+    def _create_already_there_response(self, target_node: str) -> str:
+        """Create response for already at target"""
+        execution_id = str(uuid.uuid4())
+        mock_plan = AIPlan(
+            id=str(uuid.uuid4()),
+            prompt=f"Already at {target_node}",
+            analysis=f"Already at target node: {target_node}",
+            feasible=True,
+            steps=[],
+            userinterface_name=""
+        )
+        self.tracker.start_execution(execution_id, mock_plan)
+        self.tracker.complete_execution(execution_id, ExecutionResult(
+            plan_id=mock_plan.id,
+            success=True,
+            step_results=[],
+            total_time_ms=0
+        ))
+        return execution_id

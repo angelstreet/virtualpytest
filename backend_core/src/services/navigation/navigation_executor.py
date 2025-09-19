@@ -56,64 +56,63 @@ class NavigationExecutor:
         Returns:
             Dict with available navigation nodes and tree information
         """
-        try:
-            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
-            from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
-            
-            print(f"[@navigation_executor] Loading navigation context for interface: {userinterface_name}")
-            
-            available_nodes = []
-            tree_id = None
-            
-            if userinterface_name:
-                # Load navigation tree with hierarchy (exactly like script framework)
-                print(f"[@navigation_executor] Loading unified navigation tree hierarchy...")
-                
-                try:
-                    # Use new unified loading - NO FALLBACK (exactly like script framework line 273)
-                    tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_context")
-                    
-                    # Extract tree data
-                    tree_id = tree_result['tree_id']
-                    nodes = tree_result['root_tree']['nodes']
-                    
-                    # Extract node names for AI context
-                    available_nodes = [node.get('node_name', node.get('node_id', '')) for node in nodes if node.get('node_name')]
-                    
-                    print(f"[@navigation_executor] Successfully loaded navigation tree: {tree_id}")
-                    print(f"[@navigation_executor] Available nodes: {available_nodes}")
-                    
-                except (NavigationTreeError, UnifiedCacheError) as e:
-                    print(f"[@navigation_executor] Navigation tree loading failed: {e}")
-                    # Don't fallback - let it fail cleanly
-                    tree_id = None
-                    available_nodes = []
-                except Exception as e:
-                    print(f"[@navigation_executor] Unexpected error loading navigation tree: {e}")
-                    tree_id = None
-                    available_nodes = []
-            
-            print(f"[@navigation_executor] Loaded {len(available_nodes)} navigation nodes for tree: {tree_id}")
-            
+        from shared.lib.utils.navigation_cache import get_cached_graph, populate_cache
+        from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+        
+        if not userinterface_name:
             return {
                 'service_type': 'navigation',
-                'device_id': self.device_id or 'device1',
-                'device_model': device_model,
-                'userinterface_name': userinterface_name,
-                'tree_id': tree_id,
-                'available_nodes': available_nodes
-            }
-            
-        except Exception as e:
-            print(f"[@navigation_executor] Error loading navigation context: {e}")
-            return {
-                'service_type': 'navigation',
-                'device_id': self.device_id or 'device1',
+                'device_id': self.device_id,
                 'device_model': device_model,
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
                 'available_nodes': []
             }
+        
+        tree_id = self._get_tree_id_for_interface(userinterface_name)
+        if not tree_id:
+            return {
+                'service_type': 'navigation',
+                'device_id': self.device_id,
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'tree_id': None,
+                'available_nodes': []
+            }
+        
+        # Check cache first
+        cached_graph = get_cached_graph(tree_id, self.team_id)
+        if cached_graph:
+            nodes = [data for _, data in cached_graph.nodes(data=True)]
+            available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
+        else:
+            # Load and cache
+            tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "navigation_executor")
+            nodes = tree_result['root_tree']['nodes']
+            edges = tree_result['root_tree']['edges']
+            populate_cache(tree_id, self.team_id, nodes, edges)
+            available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
+        
+        return {
+            'service_type': 'navigation',
+            'device_id': self.device_id,
+            'device_model': device_model,
+            'userinterface_name': userinterface_name,
+            'tree_id': tree_id,
+            'available_nodes': available_nodes
+        }
+    
+    def _get_tree_id_for_interface(self, userinterface_name: str) -> Optional[str]:
+        """Get tree_id for interface"""
+        from shared.lib.supabase.userinterface_db import get_userinterface_by_name
+        from shared.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+        
+        interface = get_userinterface_by_name(userinterface_name, self.team_id)
+        if not interface:
+            return None
+        
+        root_tree = get_root_tree_for_interface(interface['id'], self.team_id)
+        return root_tree['id'] if root_tree else None
     
     def execute_navigation(self, 
                           tree_id: str, 
