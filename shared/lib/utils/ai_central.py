@@ -373,7 +373,7 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED"""
         # Log the full prompt for debugging (copy-paste ready for OpenRouterDebug)
         print(f"[@ai_central] AI Prompt (length: {len(ai_prompt)} chars):")
         print("=" * 80)
-        print(ai_prompt)
+        print(repr(ai_prompt))
         print("=" * 80)
 
         result = call_text_ai(
