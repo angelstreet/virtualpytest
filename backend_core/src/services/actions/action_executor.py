@@ -277,6 +277,10 @@ class ActionExecutor:
             iterator_count = 1  # Force single execution for verifications
         else:
             iterator_count = action.get('iterator', 1)
+            try:
+                iterator_count = int(iterator_count)
+            except (ValueError, TypeError):
+                iterator_count = 1
             if iterator_count < 1 or iterator_count > 100:
                 iterator_count = 1  # Clamp to valid range
         
@@ -419,6 +423,10 @@ class ActionExecutor:
                 # Wait between iterations if there are more iterations (same wait_time)
                 if iteration < iterator_count - 1:
                     wait_time = params.get('wait_time', 0)
+                    try:
+                        wait_time = int(wait_time)
+                    except (ValueError, TypeError):
+                        wait_time = 0
                     if wait_time > 0:
                         iter_time = time.strftime("%H:%M:%S", time.localtime())
                         print(f"[@lib:action_executor:_execute_single_action] [{iter_time}] Waiting {wait_time}ms between iterations")
@@ -444,6 +452,10 @@ class ActionExecutor:
         
         # Wait after successful action execution (once per action, after all iterations)
         wait_time = params.get('wait_time', 0)
+        try:
+            wait_time = int(wait_time)
+        except (ValueError, TypeError):
+            wait_time = 0
         if all_iterations_successful and wait_time > 0:
             wait_seconds = wait_time / 1000.0
             current_time = time.strftime("%H:%M:%S", time.localtime())
