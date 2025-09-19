@@ -312,45 +312,88 @@ AI_CONFIG = {
 
 ## Recent Enhancements (Implemented)
 
-### 1. **Granular Context Caching System** ✅
+### 1. **Navigation Tree Caching System** ✅
+- **NavigationExecutor caching**: Uses `get_cached_graph()` before loading trees from database
+- **Cache-first approach**: Checks cache, only loads fresh if not found
+- **Automatic population**: Uses `populate_cache()` when loading fresh trees
+- **Performance boost**: Eliminates expensive tree loading on subsequent executions
+
+```python
+# NavigationExecutor now uses cache-first approach
+def get_available_context(self, device_model: str = None, userinterface_name: str = None):
+    tree_id = self._get_tree_id_for_interface(userinterface_name)
+    
+    # Check cache first
+    cached_graph = get_cached_graph(tree_id, self.team_id)
+    if cached_graph:
+        nodes = [data for _, data in cached_graph.nodes(data=True)]
+        available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
+    else:
+        # Load and cache
+        tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "navigation_executor")
+        nodes = tree_result['root_tree']['nodes']
+        edges = tree_result['root_tree']['edges']
+        populate_cache(tree_id, self.team_id, nodes, edges)
+        available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
+```
+
+### 2. **Simple Current Node Tracking** ✅
+- **Shared device positions**: Class-level dict `_device_positions` tracks position per device
+- **In-memory persistence**: Positions persist across AICentral instances like AITracker
+- **Already there detection**: Checks current position before executing navigation
+- **Automatic position updates**: Updates position from executor results after successful navigation
+
+```python
+class AICentral:
+    # Class-level shared device positions (like AITracker does)
+    _device_positions = {}  # {device_id: {'node_id': 'home', 'node_label': 'Home Screen'}}
+    
+    def update_current_node(self, node_id: str, node_label: str = None):
+        """Update current position in shared storage"""
+        if self.device_id:
+            self._device_positions[self.device_id] = {
+                'node_id': node_id,
+                'node_label': node_label or node_id
+            }
+            self.current_node_id = node_id
+            self.current_node_label = node_label
+```
+
+### 3. **Already There Intelligence** ✅
+- **Smart navigation detection**: Regex pattern matching to extract target nodes from prompts
+- **Skip unnecessary navigation**: Returns immediately if already at target node
+- **Mock execution tracking**: Creates proper execution tracking for "already there" responses
+- **User feedback**: Clear indication when navigation is skipped
+
+```python
+def execute_task(self, prompt: str, userinterface_name: str, options: ExecutionOptions):
+    # Check if already at target
+    target_node = self._extract_target_from_prompt(prompt)
+    if target_node and target_node == self.current_node_id:
+        return self._create_already_there_response(target_node)
+    
+def _extract_target_from_prompt(self, prompt: str) -> Optional[str]:
+    """Simple regex to extract target node from prompt"""
+    import re
+    # Match patterns like "go to replay", "navigate to home", etc.
+    match = re.search(r'(?:go to|navigate to|goto)\s+(\w+)', prompt.lower())
+    return match.group(1) if match else None
+```
+
+### 4. **Granular Context Caching System** ✅
 - **Individual service caches**: Separate caches for action, verification, and navigation contexts
 - **Cache keys**: `action:{device_model}:{userinterface_name}`, `verification:{device_model}:{userinterface_name}`, `navigation:{device_model}:{userinterface_name}`
 - **5-minute TTL**: Automatic cache expiration to prevent stale data
 - **Cache management**: Methods to clear specific or all caches
 - **Performance boost**: Eliminates expensive database queries on subsequent executions
 
-```python
-# Individual caching methods
-def _get_cached_action_context(self, action_executor, device_model: str, userinterface_name: str)
-def _get_cached_verification_context(self, verification_executor, device_model: str, userinterface_name: str)  
-def _get_cached_navigation_context(self, navigation_executor, device_model: str, userinterface_name: str)
-
-# Cache management
-def clear_context_cache(self, device_model: str = None, userinterface_name: str = None)
-```
-
-### 2. **Device Model Fix** ✅
+### 5. **Device Model Fix** ✅
 - **Fixed `model: None` issue**: Device model now properly retrieved and passed to all executors
 - **Enhanced logging**: Detailed tracking of device model retrieval process
 - **Error handling**: Graceful handling when device not found
 - **Context propagation**: Device model passed through execution context to all services
 
-### 3. **Current Node Tracking** ✅
-- **Navigation state tracking**: Like the old system, tracks current navigation position
-- **Context integration**: Current node ID passed through execution context
-- **Update method**: `update_current_node(node_id)` for navigation state changes
-- **Execution context**: Current node available to all executors during plan execution
-
-```python
-# Track current node like the old system
-self.current_node_id = None
-
-def update_current_node(self, node_id: str):
-    """Update the current node position for navigation context"""
-    self.current_node_id = node_id
-```
-
-### 4. **AI Prompt Optimization** ✅
+### 6. **AI Prompt Optimization** ✅
 - **Concise format**: Removed verbose duplication in AI prompts
 - **Clear sections**: `Navigation:`, `Action:`, `Verification:` format
 - **Prioritization**: Navigation context always shown first
@@ -367,45 +410,18 @@ Verification: Verification available to check the device
 waitForImageToAppear(verification_image): Wait for image to appear on screen
 ```
 
-### 5. **Toast Notification Optimization** ✅
+### 7. **Toast Notification Optimization** ✅
 - **Eliminated duplicate toasts**: Fixed duplicate notifications between useAI hook and components
 - **Unique toast tracking**: Prevents same toast from showing multiple times
 - **Reduced polling noise**: Minimal feedback during AI execution monitoring
 - **Clean user experience**: Only essential state changes generate notifications
 
-```typescript
-// Track unique toasts to prevent duplicates across execution
-const shownToasts = useRef<Set<string>>(new Set());
-
-// Example usage with unique keys
-const planToastKey = `plan-generated-${status.plan.id || 'unknown'}`;
-if (!shownToasts.current.has(planToastKey)) {
-  shownToasts.current.add(planToastKey);
-  toast.showSuccess(`📋 AI plan generated with ${status.plan.steps?.length || 0} steps`);
-}
-```
-
-### 6. **Prompt Template System** ✅
+### 8. **Prompt Template System** ✅
 - **Multiple prompt formats**: Support for different AI prompt templates
 - **Template selector**: Dropdown in OpenRouterDebug page to choose prompt format
 - **AI Central format**: Current optimized format with clear sections
 - **Legacy compatibility**: Support for old prompt formats for comparison
 - **Template management**: Easy switching between prompt styles for testing
-
-```typescript
-const promptTemplates = [
-  {
-    value: 'ai_central_format',
-    label: 'AI Central Format (Current)',
-    template: `You are controlling a TV application...`
-  },
-  {
-    value: 'legacy_format', 
-    label: 'Legacy Format',
-    template: `Task: "{prompt}"...`
-  }
-];
-```
 
 ## Future Enhancements
 
@@ -428,24 +444,35 @@ The new AI architecture provides a clean, maintainable, and extensible foundatio
 ### Key Achievements
 
 **Performance Optimizations:**
+- ✅ **Navigation tree caching** eliminates expensive tree loading on subsequent executions
+- ✅ **Cache-first approach** in NavigationExecutor checks cache before database queries
 - ✅ **Granular caching system** eliminates expensive database queries on subsequent executions
 - ✅ **5-minute TTL** balances performance with data freshness
 - ✅ **Individual service caches** optimize action, verification, and navigation context loading
 
+**Intelligence Improvements:**
+- ✅ **Already there detection** skips unnecessary navigation when already at target
+- ✅ **Simple current node tracking** maintains device position across sessions
+- ✅ **Smart navigation detection** uses regex to extract target nodes from prompts
+- ✅ **Automatic position updates** tracks final position after successful navigation
+
 **Reliability Improvements:**
 - ✅ **Fixed device model passing** resolves `model: None` issues in executors
-- ✅ **Current node tracking** maintains navigation state like the old system
+- ✅ **In-memory position persistence** using shared class-level storage like AITracker
 - ✅ **Robust JSON extraction** handles AI responses with code blocks and formatting
+- ✅ **Clean architecture** with no database complexity for simple position tracking
 
 **User Experience Enhancements:**
 - ✅ **Eliminated duplicate toasts** provides clean feedback without spam
 - ✅ **Optimized AI prompts** with clear sections and prioritization
 - ✅ **Prompt template system** allows testing different AI prompt formats
+- ✅ **Instant "already there" responses** with proper execution tracking
 
 **System Architecture:**
 - ✅ **Service-oriented design** with clean separation of concerns
 - ✅ **Dynamic action type detection** without hardcoded mappings
 - ✅ **Comprehensive error handling** with graceful degradation
 - ✅ **Enhanced logging** for debugging and monitoring
+- ✅ **Clean implementation** with no legacy code or backward compatibility
 
-The system now delivers **high-performance AI automation** with **intelligent caching**, **reliable execution**, and **excellent user experience** while maintaining the flexibility to handle diverse device types and automation scenarios.
+The system now delivers **high-performance AI automation** with **intelligent caching**, **smart navigation**, **reliable execution**, and **excellent user experience** while maintaining the flexibility to handle diverse device types and automation scenarios.

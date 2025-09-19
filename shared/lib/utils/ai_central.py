@@ -84,8 +84,10 @@ class AIPlanGenerator:
         self._navigation_cache = {}
         self._cache_ttl = 300  # 5 minutes cache TTL
 
-    def generate_plan(self, prompt: str, userinterface_name: str, device_id: str = None) -> AIPlan:
+    def generate_plan(self, prompt: str, userinterface_name: str, device_id: str = None, current_node_id: str = None) -> AIPlan:
         context = self._load_context(userinterface_name, device_id)
+        # Add current node to context for AI prompt
+        context['current_node_id'] = current_node_id
         ai_response = self._call_ai(prompt, context)
         return self._convert_to_plan(prompt, ai_response, userinterface_name)
 
@@ -305,12 +307,16 @@ class AIPlanGenerator:
         if verification_commands:
             verification_context = f"Verification: Verification available to check the device\n{', '.join(verification_commands)}"
         
+        # Get current node for context
+        current_node = context.get('current_node_id', 'unknown')
+        
         # Create comprehensive AI prompt
         ai_prompt = f"""You are controlling a TV application on a device ({device_model}).
 Your task is to navigate through the app using available commands provided.
 
 Task: "{prompt}"
 Device: {device_model}
+Current Position: {current_node}
 
 Navigation System: Each node in the navigation list is a DIRECT destination you can navigate to in ONE STEP.
 - Node names like "home_replay", "home_movies", "live" are COMPLETE node identifiers, not hierarchical paths
@@ -324,6 +330,7 @@ Navigation System: Each node in the navigation list is a DIRECT destination you 
 
 {verification_context}
 Rules:
+- If already at target node, respond with feasible=true, plan=[]
 - "go to node X" → execute_navigation, target_node="X" (use EXACT node name from navigation list)
 - "click X" → click_element, element_id="X"  
 - "press X" → press_key, key="X"
@@ -504,11 +511,17 @@ class AIOrchestrator:
         
         executor = NavigationExecutor(self.host, self.device_id, self.team_id)
         
-        return executor.execute_navigation(
+        result = executor.execute_navigation(
             tree_id=options.context.get('tree_id'),
             target_node_id=step.params.get('target_node'),
             current_node_id=options.context.get('current_node_id')
         )
+        
+        # Store final position for AICentral to read
+        if result.get('success') and result.get('final_position_node_id'):
+            options.context['final_position_node_id'] = result.get('final_position_node_id')
+        
+        return result
 
     def _execute_action(self, step: AIStep, options: ExecutionOptions) -> Dict[str, Any]:
         from backend_core.src.services.actions.action_executor import ActionExecutor
@@ -766,12 +779,13 @@ class AICentral:
         position = self._device_positions.get(device_id, {})
         self.current_node_id = position.get('node_id')
         self.current_node_label = position.get('node_label')
+        print(f"[@ai_central] Initialized with device_id: {device_id}, current_node_id: {self.current_node_id}, shared_positions: {self._device_positions}")
 
     def analyze_compatibility(self, prompt: str) -> Dict[str, Any]:
         return self.planner.analyze_compatibility(prompt)
 
     def generate_plan(self, prompt: str, userinterface_name: str, device_id: str = None) -> AIPlan:
-        return self.planner.generate_plan(prompt, userinterface_name, device_id or self.device_id)
+        return self.planner.generate_plan(prompt, userinterface_name, device_id or self.device_id, self.current_node_id)
 
     def execute_plan(self, plan: AIPlan, options: ExecutionOptions) -> str:
         if not self.orchestrator:
@@ -836,16 +850,21 @@ class AICentral:
         options.context['tree_id'] = tree_id
         options.context['device_model'] = device_model
         options.context['current_node_id'] = self.current_node_id
+        print(f"[@ai_central] Setting execution context - current_node_id: {self.current_node_id}, tree_id: {tree_id}")
         
         execution_id = self.execute_plan(plan, options)
         
         # For synchronous execution, update position immediately
         if options.mode != ExecutionMode.REAL_TIME:
             result = self.get_execution_status(execution_id)
+            print(f"[@ai_central] Execution result success: {result.get('success')}, result keys: {list(result.keys()) if result else 'None'}")
             if result.get('success'):
-                final_position = result.get('execution_summary', {}).get('final_position_node_id')
+                # Get final position from execution context (stored by AIOrchestrator)
+                final_position = options.context.get('final_position_node_id')
+                print(f"[@ai_central] Final position from context: {final_position}")
                 if final_position:
                     self.update_current_node(final_position)
+                    print(f"[@ai_central] Updated current_node_id to: {self.current_node_id}")
         
         return execution_id
 
