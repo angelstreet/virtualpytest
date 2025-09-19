@@ -186,6 +186,24 @@ class AIPlanGenerator:
                             except Exception as e:
                                 print(f"[@ai_central] Could not load {controller_type} actions: {e}")
                                 continue
+                        
+                        # Get verification actions from verification controllers
+                        verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
+                        for v_type in verification_types:
+                            try:
+                                controller = get_controller(device_id, f'verification_{v_type}')
+                                if controller and hasattr(controller, 'get_available_verifications'):
+                                    verifications = controller.get_available_verifications()
+                                    if isinstance(verifications, list):
+                                        for verification in verifications:
+                                            device_actions.append({
+                                                'command': verification.get('command', ''),
+                                                'action_type': 'verification',
+                                                'params': verification.get('params', {})
+                                            })
+                            except Exception as e:
+                                print(f"[@ai_central] Could not load verification_{v_type} actions: {e}")
+                                continue
                     
                     print(f"[@ai_central] Loaded {len(device_actions)} minimal actions from controllers")
                     

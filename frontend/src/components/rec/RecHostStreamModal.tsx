@@ -133,28 +133,31 @@ const RecHostStreamModalContent: React.FC<{
   // Task input state
   const [taskInput, setTaskInput] = useState('');
 
-  // Debug logging for AI agent state
+  // Debug logging for AI agent state - only log when significant changes occur
   useEffect(() => {
-    console.log('[RecHostStreamModal] AI Agent State:', {
-      isAIExecuting,
-      currentStep,
-      progressPercentage,
-      aiPlan: aiPlan ? { 
-        id: aiPlan.id,
-        feasible: aiPlan.feasible, 
-        planLength: aiPlan.steps?.length,
-        hasAnalysis: !!aiPlan.analysis
-      } : 'None',
-      executionLogLength: executionLog.length,
-      executionLogTypes: executionLog.map(e => e.action_type),
-      taskResult,
-      executionSummary: executionSummary ? {
-        totalSteps: executionSummary.totalSteps,
-        completedSteps: executionSummary.completedSteps,
-        success: executionSummary.success
-      } : null
-    });
-  }, [isAIExecuting, currentStep, progressPercentage, aiPlan, executionLog.length, taskResult, executionSummary]);
+    // Only log when AI execution state changes or when step changes
+    if (isAIExecuting || currentStep || taskResult) {
+      console.log('[RecHostStreamModal] AI Agent State:', {
+        isAIExecuting,
+        currentStep,
+        progressPercentage,
+        aiPlan: aiPlan ? { 
+          id: aiPlan.id,
+          feasible: aiPlan.feasible, 
+          planLength: aiPlan.steps?.length,
+          hasAnalysis: !!aiPlan.analysis
+        } : 'None',
+        executionLogLength: executionLog.length,
+        executionLogTypes: executionLog.map(e => e.action_type),
+        taskResult,
+        executionSummary: executionSummary ? {
+          totalSteps: executionSummary.totalSteps,
+          completedSteps: executionSummary.completedSteps,
+          success: executionSummary.success
+        } : null
+      });
+    }
+  }, [isAIExecuting, currentStep, taskResult]); // Reduced dependencies to prevent spam
 
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {

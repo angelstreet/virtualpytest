@@ -30,6 +30,10 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   
   // Track completion toast to prevent duplicates
   const completionToastShown = useRef(false);
+  
+  // Track polling state to prevent duplicate toasts
+  const pollCount = useRef(0);
+  const lastStepToastShown = useRef<string | null>(null);
 
   // Helper function to enhance error messages for specific error types
   const enhanceErrorMessage = useCallback((error: string, errorType?: AIErrorType) => {
@@ -165,6 +169,10 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     setError(null);
     setTaskResult(null);
     completionToastShown.current = false;
+    
+    // Reset polling counters for new task
+    pollCount.current = 0;
+    lastStepToastShown.current = null;
 
     setIsExecuting(true);
 
@@ -193,6 +201,19 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         let previousLogLength = 0;
         
         while (true) {
+          pollCount.current += 1;
+          
+          // Show polling toast on first poll and every 5th poll to avoid spam
+          if (pollCount.current === 1) {
+            toast.showInfo(`🔄 Starting AI execution monitoring...`, { 
+              duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+            });
+          } else if (pollCount.current % 5 === 0) {
+            toast.showInfo(`🔄 Polling AI status... (${pollCount.current} polls)`, { 
+              duration: 1500 // Shorter duration for polling updates
+            });
+          }
+          
           const statusResponse = await fetch(buildServerUrl(`/server/ai/status/${executionId}`));
           const status = await statusResponse.json();
 
@@ -226,15 +247,27 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
               if (entry.action_type === 'step_success') {
                 const stepData = entry.data || entry.value;
                 const duration = stepData.duration ? ` (${stepData.duration.toFixed(1)}s)` : '';
-                toast.showSuccess(`✅ Step ${stepData.step} completed${duration}`, { 
-                  duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-                });
+                const stepKey = `success-${stepData.step}`;
+                
+                // Prevent duplicate step toasts
+                if (lastStepToastShown.current !== stepKey) {
+                  lastStepToastShown.current = stepKey;
+                  toast.showSuccess(`✅ Step ${stepData.step} completed${duration}`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+                  });
+                }
               } else if (entry.action_type === 'step_failed') {
                 const stepData = entry.data || entry.value;
                 const duration = stepData.duration ? ` (${stepData.duration.toFixed(1)}s)` : '';
-                toast.showError(`❌ Step ${stepData.step} failed${duration}`, { 
-                  duration: AI_CONSTANTS.TOAST_DURATION.INFO 
-                });
+                const stepKey = `failed-${stepData.step}`;
+                
+                // Prevent duplicate step toasts
+                if (lastStepToastShown.current !== stepKey) {
+                  lastStepToastShown.current = stepKey;
+                  toast.showError(`❌ Step ${stepData.step} failed${duration}`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+                  });
+                }
               }
             }
             previousLogLength = status.execution_log.length;
