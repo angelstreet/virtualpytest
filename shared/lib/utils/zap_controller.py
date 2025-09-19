@@ -12,7 +12,6 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from .action_utils import take_screenshot
 from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 from .host_utils import get_controller
 from .report_utils import capture_and_upload_screenshot
