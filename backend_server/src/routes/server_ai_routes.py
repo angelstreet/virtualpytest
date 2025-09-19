@@ -1,9 +1,9 @@
 """
-Clean AI Routes - Uses AI Central
+Clean AI Routes - Uses New AI Architecture
 """
 
 from flask import Blueprint, request, jsonify
-from shared.lib.utils.ai_central import AICentral, ExecutionOptions, ExecutionMode
+from shared.lib.utils.ai_central import AISession, AIPlanner, AITracker, AIContextService, ExecutionMode
 from shared.lib.utils.app_utils import get_team_id
 
 server_ai_bp = Blueprint('server_ai', __name__, url_prefix='/server/ai')
@@ -17,14 +17,53 @@ def analyze_compatibility():
     if not prompt:
         return jsonify({'success': False, 'error': 'Prompt required'}), 400
     
-    ai_central = AICentral(team_id=get_team_id())
-    result = ai_central.analyze_compatibility(prompt)
-    
-    return jsonify({
-        'success': True,
-        'analysis_id': f"analysis_{hash(prompt)}",
-        **result
-    })
+    try:
+        from shared.lib.supabase.userinterface_db import get_all_userinterfaces
+        
+        interfaces = get_all_userinterfaces(get_team_id())
+        compatible = []
+        incompatible = []
+        
+        # Analyze compatibility across all interfaces
+        for interface in interfaces:
+            try:
+                # Create temporary context for analysis
+                context = {
+                    'device_model': 'unknown',
+                    'userinterface_name': interface['name'],
+                    'available_nodes': [],
+                    'available_actions': [],
+                    'available_verifications': []
+                }
+                
+                planner = AIPlanner.get_instance(get_team_id())
+                plan_dict = planner.generate_plan(prompt, context)
+                
+                if plan_dict.get('feasible', True):
+                    compatible.append({
+                        'userinterface_name': interface['name'],
+                        'reasoning': plan_dict.get('analysis', '')
+                    })
+                else:
+                    incompatible.append({
+                        'userinterface_name': interface['name'],
+                        'reasoning': plan_dict.get('analysis', '')
+                    })
+            except Exception as e:
+                incompatible.append({
+                    'userinterface_name': interface['name'],
+                    'reasoning': f'Analysis failed: {str(e)}'
+                })
+        
+        return jsonify({
+            'success': True,
+            'analysis_id': f"analysis_{hash(prompt)}",
+            'compatible_interfaces': compatible,
+            'incompatible_interfaces': incompatible,
+            'compatible_count': len(compatible)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @server_ai_bp.route('/generatePlan', methods=['POST'])
@@ -32,32 +71,32 @@ def generate_plan():
     data = request.get_json()
     prompt = data.get('prompt')
     userinterface_name = data.get('userinterface_name')
+    host = data.get('host')
+    device_id = data.get('device_id')
     
     if not prompt or not userinterface_name:
         return jsonify({'success': False, 'error': 'Prompt and userinterface_name required'}), 400
     
     try:
-        ai_central = AICentral(team_id=get_team_id())
-        plan = ai_central.generate_plan(prompt, userinterface_name)
+        # Load context if host and device provided, otherwise use minimal context
+        if host and device_id:
+            context = AIContextService.load_context(host, device_id, get_team_id(), userinterface_name)
+        else:
+            context = {
+                'device_model': 'unknown',
+                'userinterface_name': userinterface_name,
+                'available_nodes': [],
+                'available_actions': [],
+                'available_verifications': []
+            }
         
+        planner = AIPlanner.get_instance(get_team_id())
+        plan = planner.generate_plan(prompt, context)
+        
+        # Return plan dict directly - no conversion needed
         return jsonify({
             'success': True,
-            'plan': {
-                'id': plan.id,
-                'prompt': plan.prompt,
-                'analysis': plan.analysis,
-                'feasible': plan.feasible,
-                'steps': [
-                    {
-                        'step': step.step_id,
-                        'type': step.type.value,
-                        'command': step.command,
-                        'params': step.params,
-                        'description': step.description
-                    }
-                    for step in plan.steps
-                ]
-            }
+            'ai_plan': plan  # plan is already a dict from generate_plan
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -75,18 +114,15 @@ def execute_task():
         return jsonify({'success': False, 'error': 'Missing required fields'}), 400
     
     try:
-        ai_central = AICentral(
-            team_id=get_team_id(),
+        # Create session for this request
+        session = AISession(
             host=host,
-            device_id=device_id
+            device_id=device_id,
+            team_id=get_team_id()
         )
         
-        options = ExecutionOptions(
-            mode=ExecutionMode.REAL_TIME,
-            context={'tree_id': None, 'current_node_id': None}
-        )
-        
-        execution_id = ai_central.execute_task(prompt, userinterface_name, options)
+        # Execute task
+        execution_id = session.execute_task(prompt, userinterface_name, ExecutionMode.REAL_TIME)
         
         return jsonify({
             'success': True,
@@ -99,8 +135,7 @@ def execute_task():
 @server_ai_bp.route('/status/<execution_id>', methods=['GET'])
 def get_status(execution_id):
     try:
-        ai_central = AICentral(team_id=get_team_id())
-        status = ai_central.get_execution_status(execution_id)
+        status = AITracker.get_status(execution_id)
         return jsonify(status)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -119,62 +154,24 @@ def execute_test_case():
     try:
         # Load test case from database
         from shared.lib.supabase.testcase_db import get_test_case
-        from shared.lib.utils.ai_central import AIPlan, AIStep, AIStepType
+        import uuid
         
         test_case = get_test_case(test_case_id, get_team_id())
         if not test_case:
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
-        # Convert stored test case to AIPlan
-        steps = []
-        for i, step_data in enumerate(test_case.get('steps', [])):
-            step_type = AIStepType.ACTION
-            if step_data.get('command') == 'execute_navigation':
-                step_type = AIStepType.NAVIGATION
-            elif step_data.get('command', '').startswith('verify_'):
-                step_type = AIStepType.VERIFICATION
-            elif step_data.get('command') == 'wait':
-                step_type = AIStepType.WAIT
-                
-            steps.append(AIStep(
-                step_id=i + 1,
-                type=step_type,
-                command=step_data.get('command'),
-                params=step_data.get('params', {}),
-                description=step_data.get('description', '')
-            ))
-        
-        plan = AIPlan(
-            id=test_case_id,
-            prompt=test_case.get('original_prompt', ''),
-            analysis=f"Stored test case: {test_case.get('name', '')}",
-            feasible=True,
-            steps=steps,
-            userinterface_name=test_case.get('userinterface_name', 'horizon_android_mobile')
-        )
-        
-        ai_central = AICentral(
-            team_id=get_team_id(),
+        # Route should NOT reconstruct plans - AI central handles stored plans directly
+        session = AISession(
             host=host,
-            device_id=device_id
+            device_id=device_id,
+            team_id=get_team_id()
         )
         
-        options = ExecutionOptions(
-            mode=ExecutionMode.TEST_CASE,
-            context={'tree_id': test_case.get('tree_id')},
-            enable_db_tracking=True
-        )
+        # Execute stored test case directly - AI central handles everything
+        execution_id = session.execute_stored_testcase(test_case_id)
         
-        execution_id = ai_central.execute_plan(plan, options)
-        
-        # Wait for completion (synchronous for test cases)
-        import time
-        while True:
-            status = ai_central.get_execution_status(execution_id)
-            if not status.get('is_executing', False):
-                break
-            time.sleep(0.5)
-        
+        # Return execution status
+        status = AITracker.get_status(execution_id)
         return jsonify(status)
         
     except Exception as e:

@@ -8,8 +8,8 @@ Handles task execution using AI agent with MCP tool awareness.
 from flask import Blueprint, request, jsonify
 import logging
 
-# Import AI Central
-from shared.lib.utils.ai_central import AICentral
+# Import AI System
+from shared.lib.utils.ai_central import AISession, ExecutionMode
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -80,16 +80,26 @@ def execute_task():
             }
         ]
         
-        # Instantiate AI Central
-        ai_central = AICentral(team_id="default")
-        
-        # Execute task with MCP context
+        # Generate plan using new AI system
         try:
-            plan = ai_central.generate_plan(task, "mcp_interface")
+            from shared.lib.utils.ai_central import AIPlanner
+            
+            # Create minimal context for MCP interface
+            context = {
+                'device_model': 'mcp_device',
+                'userinterface_name': 'mcp_interface',
+                'available_nodes': [],
+                'available_actions': mcp_tools,  # Fixed: use mcp_tools not undefined mcp_actions
+                'available_verifications': mcp_verifications
+            }
+            
+            planner = AIPlanner.get_instance("default")
+            plan_dict = planner.generate_plan(task, context)
+            
             ai_result = {
-                'success': plan.feasible,
-                'plan': plan,
-                'error': None if plan.feasible else plan.analysis
+                'success': plan_dict.get('feasible', True),
+                'plan': plan_dict,
+                'error': None if plan_dict.get('feasible', True) else plan_dict.get('analysis', '')
             }
         except Exception as e:
             ai_result = {
@@ -99,8 +109,8 @@ def execute_task():
         
         if ai_result.get('success'):
             # Extract MCP tool execution from AI plan
-            ai_plan = ai_result.get('ai_plan', {})
-            plan_steps = ai_plan.get('plan', [])
+            plan_dict = ai_result.get('plan')
+            plan_steps = plan_dict.get('plan', [])  # Direct dict access - no conversion
             
             # Execute the first MCP tool from the plan
             mcp_result = _execute_mcp_tool_from_plan(plan_steps)
@@ -110,14 +120,14 @@ def execute_task():
                 "result": "Task completed successfully",
                 "tool_executed": mcp_result.get('tool_name'),
                 "tool_result": mcp_result.get('result'),
-                "ai_analysis": ai_plan.get('analysis', 'Task analyzed by AI'),
-                "execution_log": ai_result.get('execution_log', [])
+                "ai_analysis": plan_dict.get('analysis', ''),
+                "execution_log": []
             })
         else:
             return jsonify({
                 "success": False,
                 "error": ai_result.get('error', 'AI agent failed to process task'),
-                "execution_log": ai_result.get('execution_log', [])
+                "execution_log": []
             }), 500
         
     except Exception as e:

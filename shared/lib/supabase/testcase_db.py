@@ -27,7 +27,7 @@ def save_test_case(test_case: Dict, team_id: str, creator_id: str = None) -> Dic
         'name': test_case['name'],
         'test_type': test_case.get('test_type', 'functional'),
         'start_node': test_case.get('start_node', ''),
-        'steps': json.dumps(test_case.get('steps', [])),
+        'steps': json.dumps(test_case.get('steps', [])),  # Keep for backward compatibility
         'team_id': team_id,
         'creator_id': creator_id,
         # Existing Phase 2 fields
@@ -42,6 +42,7 @@ def save_test_case(test_case: Dict, team_id: str, creator_id: str = None) -> Dic
         # NEW: AI-specific fields
         'creator': test_case.get('creator', 'manual'),
         'original_prompt': test_case.get('original_prompt'),
+        'ai_plan': json.dumps(test_case.get('ai_plan')) if test_case.get('ai_plan') else None,  # Store AIPlan directly
         'ai_analysis': json.dumps(test_case.get('ai_analysis')) if test_case.get('ai_analysis') else None,
         'compatible_devices': test_case.get('compatible_devices', []),
         'compatible_userinterfaces': test_case.get('compatible_userinterfaces', []),
@@ -82,7 +83,7 @@ def get_test_case(test_id: str, team_id: str) -> Optional[Dict]:
         'device_id', 'environment_profile_id', 'verification_conditions', 'expected_results',
         'execution_config', 'tags', 'priority', 'estimated_duration',
         # NEW: AI-specific fields
-        'creator', 'original_prompt', 'ai_analysis', 'compatible_devices', 
+        'creator', 'original_prompt', 'ai_plan', 'ai_analysis', 'compatible_devices', 
         'compatible_userinterfaces', 'device_adaptations'
     ).eq('test_id', test_id).eq('team_id', team_id).execute()
     
@@ -93,6 +94,7 @@ def get_test_case(test_id: str, team_id: str) -> Optional[Dict]:
         test_case['verification_conditions'] = json.loads(test_case['verification_conditions']) if test_case['verification_conditions'] else []
         test_case['expected_results'] = json.loads(test_case['expected_results']) if test_case['expected_results'] else {}
         test_case['execution_config'] = json.loads(test_case['execution_config']) if test_case['execution_config'] else {}
+        test_case['ai_plan'] = json.loads(test_case['ai_plan']) if test_case['ai_plan'] else None  # Parse stored AIPlan
         test_case['ai_analysis'] = json.loads(test_case['ai_analysis']) if test_case['ai_analysis'] else None
         test_case['device_adaptations'] = json.loads(test_case['device_adaptations']) if test_case['device_adaptations'] else {}
         return test_case
@@ -106,7 +108,7 @@ def get_all_test_cases(team_id: str) -> List[Dict]:
         'device_id', 'environment_profile_id', 'verification_conditions', 'expected_results',
         'execution_config', 'tags', 'priority', 'estimated_duration',
         # NEW: AI-specific fields
-        'creator', 'original_prompt', 'ai_analysis', 'compatible_devices', 
+        'creator', 'original_prompt', 'ai_plan', 'ai_analysis', 'compatible_devices', 
         'compatible_userinterfaces', 'device_adaptations'
     ).eq('team_id', team_id).order('created_at', desc=True).execute()
     
@@ -118,6 +120,7 @@ def get_all_test_cases(team_id: str) -> List[Dict]:
         test_case['verification_conditions'] = json.loads(test_case['verification_conditions']) if test_case['verification_conditions'] else []
         test_case['expected_results'] = json.loads(test_case['expected_results']) if test_case['expected_results'] else {}
         test_case['execution_config'] = json.loads(test_case['execution_config']) if test_case['execution_config'] else {}
+        test_case['ai_plan'] = json.loads(test_case['ai_plan']) if test_case['ai_plan'] else None  # Parse stored AIPlan
         test_case['ai_analysis'] = json.loads(test_case['ai_analysis']) if test_case['ai_analysis'] else None
         test_case['device_adaptations'] = json.loads(test_case['device_adaptations']) if test_case['device_adaptations'] else {}
         test_cases.append(test_case)

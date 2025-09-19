@@ -13,7 +13,7 @@ import os
 # Add backend_core to path for direct access
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-from shared.lib.utils.ai_central import AICentral
+from shared.lib.utils.ai_central import AIPlanner, AIContextService
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
@@ -138,12 +138,51 @@ def analyze_test_case():
         
         print(f"=== END ANALYSIS ===\n")
         
-        # Use AI Central for compatibility analysis
-        ai_central = AICentral(team_id=team_id)
-        print(f"[@route:server_aitestcase:analyze] Using AI Central for compatibility analysis")
+        # Use AI Planner for compatibility analysis
+        print(f"[@route:server_aitestcase:analyze] Using AI Planner for compatibility analysis")
         
-        # Analyze compatibility using AI Central
-        analysis_result = ai_central.analyze_compatibility(prompt)
+        # Analyze compatibility using AI Planner
+        from shared.lib.supabase.userinterface_db import get_all_userinterfaces
+        
+        interfaces = get_all_userinterfaces(team_id)
+        compatible = []
+        incompatible = []
+        
+        for interface in interfaces:
+            try:
+                # Create minimal context for analysis
+                context = {
+                    'device_model': 'unknown',
+                    'userinterface_name': interface['name'],
+                    'available_nodes': [],
+                    'available_actions': [],
+                    'available_verifications': []
+                }
+                
+                planner = AIPlanner.get_instance(team_id)
+                plan_dict = planner.generate_plan(prompt, context)
+                
+                if plan_dict.get('feasible', True):
+                    compatible.append({
+                        'userinterface_name': interface['name'],
+                        'reasoning': plan_dict.get('analysis', '')
+                    })
+                else:
+                    incompatible.append({
+                        'userinterface_name': interface['name'],
+                        'reasoning': plan_dict.get('analysis', '')
+                    })
+            except Exception as e:
+                incompatible.append({
+                    'userinterface_name': interface['name'],
+                    'reasoning': f'Analysis failed: {str(e)}'
+                })
+        
+        analysis_result = {
+            'compatible_interfaces': compatible,
+            'incompatible_interfaces': incompatible,
+            'compatible_count': len(compatible)
+        }
         
         # Convert to expected format for backward compatibility
         compatible_interfaces = [r['userinterface_name'] for r in analysis_result['compatible_interfaces']]
@@ -235,8 +274,7 @@ def generate_test_cases():
         
         original_prompt = cached_analysis['prompt']
         
-        # Use AI Central for test case generation
-        ai_central = AICentral(team_id=team_id)
+        # Use AI Planner for test case generation
         generated_testcases = []
         
         # Generate ONE test case with ALL confirmed interfaces
@@ -244,16 +282,23 @@ def generate_test_cases():
             try:
                 print(f"[@route:server_aitestcase:generate] Generating single test case for interfaces: {confirmed_interfaces}")
                 
-                # Use unified AI Agent to generate test case
+                # Use AI Planner to generate test case
                 primary_interface = confirmed_interfaces[0]
-                generation_result = ai_agent.generate_test_case(
-                    prompt=original_prompt,
-                    userinterface_name=primary_interface,
-                    store_in_db=False
-                )
                 
-                if generation_result.get('success'):
-                    steps = generation_result['test_case'].get('test_steps', [])
+                # Create context for generation
+                context = {
+                    'device_model': 'unknown',
+                    'userinterface_name': primary_interface,
+                    'available_nodes': [],
+                    'available_actions': [],
+                    'available_verifications': []
+                }
+                
+                planner = AIPlanner.get_instance(team_id)
+                plan_dict = planner.generate_plan(original_prompt, context)
+                
+                if plan_dict.get('feasible', True):
+                    steps = plan_dict.get('plan', [])  # Direct dict access - no conversion
                 else:
                     steps = []
                 verification_conditions = []
@@ -342,28 +387,31 @@ def generate_test_case():
         print(f"[@route:server_aitestcase:generate_test_case] Prompt: {prompt}")
         print(f"[@route:server_aitestcase:generate_test_case] Interface: {interface_name}")
         
-        # Use AI Central for test case generation
-        ai_central = AICentral(team_id=team_id)
+        # Use AI Planner for test case generation
         
-        # Generate test case using AI Central
+        # Generate test case using AI Planner
         try:
-            plan = ai_central.generate_plan(prompt, interface_name)
+            # Create context for generation
+            context = {
+                'device_model': device_model,
+                'userinterface_name': interface_name,
+                'available_nodes': [],
+                'available_actions': [],
+                'available_verifications': []
+            }
+            
+            planner = AIPlanner.get_instance(team_id)
+            plan_dict = planner.generate_plan(prompt, context)
+            
             generation_result = {
                 'success': True,
                 'test_case': {
+                    'id': str(uuid.uuid4()),
                     'name': f"AI Generated: {prompt[:50]}...",
                     'original_prompt': prompt,
-                    'steps': [
-                        {
-                            'step': step.step_id,
-                            'command': step.command,
-                            'params': step.params,
-                            'description': step.description
-                        }
-                        for step in plan.steps
-                    ],
+                    'steps': plan_dict.get('plan', []),  # Direct dict access - no conversion
                     'userinterface_name': interface_name,
-                    'feasible': plan.feasible
+                    'feasible': plan_dict.get('feasible', True)
                 }
             }
         except Exception as e:
@@ -384,12 +432,16 @@ def generate_test_case():
         all_interfaces = get_all_userinterfaces(team_id)
         interface_names = [ui['name'] for ui in all_interfaces]
         
-        if len(interface_names) > 1:
-            compatibility_results = ai_agent.analyze_cross_device_compatibility(
-                test_case, interface_names
-            )
-        else:
-            compatibility_results = []
+        # Simple compatibility analysis - all interfaces are compatible for now
+        # TODO: Implement proper cross-device compatibility analysis
+        compatibility_results = [
+            {
+                'interface_name': name,
+                'compatible': True,
+                'reasoning': 'Basic AI-generated test case'
+            }
+            for name in interface_names
+        ]
         
         # Store in database with team context
         test_case['team_id'] = team_id
@@ -425,15 +477,27 @@ def quick_feasibility_check():
                 'error': 'Missing required parameter: prompt'
             }), 400
         
-        # Use AI Central for feasibility check
-        ai_central = AICentral(team_id=team_id)
-        
+        # Use AI Planner for feasibility check
         try:
-            plan = ai_central.generate_plan(prompt, interface_name)
+            from shared.lib.utils.app_utils import get_team_id
+            team_id = get_team_id()
+            
+            # Create minimal context for feasibility check
+            context = {
+                'device_model': 'unknown',
+                'userinterface_name': interface_name or 'unknown',
+                'available_nodes': [],
+                'available_actions': [],
+                'available_verifications': []
+            }
+            
+            planner = AIPlanner.get_instance(team_id)
+            plan_dict = planner.generate_plan(prompt, context)
+            
             result = {
                 'success': True,
-                'feasible': plan.feasible,
-                'reason': plan.analysis
+                'feasible': plan_dict.get('feasible', True),
+                'reason': plan_dict.get('analysis', '')
             }
         except Exception as e:
             result = {

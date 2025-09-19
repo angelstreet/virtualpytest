@@ -246,15 +246,7 @@ def _create_controller_instance(controller_type: str, implementation: str, param
         elif implementation == 'ir_remote':
             return IRRemoteController(**params)
     
-    # AI Controllers
-    elif controller_type == 'ai':
-        if implementation == 'ai_agent':
-            # Lazy import to avoid circular import
-            from shared.lib.utils.ai_central import AICentral
-            # Pass device_name explicitly from params
-            device_name = params.get('device_id')
-            return AICentral(team_id=params.get('team_id'), **params)
-    
+ 
     # Verification Controllers - now require device_model
     elif controller_type == 'verification':
         if implementation == 'image':

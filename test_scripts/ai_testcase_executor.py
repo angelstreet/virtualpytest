@@ -102,62 +102,27 @@ def main():
         print(f"[@ai_testcase_executor] Loaded navigation tree for {args.userinterface_name}")
         print(f"[@ai_testcase_executor] Original prompt: {test_case.get('original_prompt', 'N/A')}")
         
-        # Get AI steps from test case
-        ai_steps = test_case.get('steps', [])
-        print(f"[@ai_testcase_executor] Processing {len(ai_steps)} AI steps")
+        # Test case IS an AI plan - execute the stored plan directly
+        from shared.lib.utils.ai_central import AISession, AITracker, AIContextService
+        import uuid
         
-        # Use AI Central for clean execution
-        from shared.lib.utils.ai_central import AICentral, AIPlan, AIStep, AIStepType, ExecutionOptions, ExecutionMode
+        # Execute stored test case directly - AI central handles everything
+        print(f"[@ai_testcase_executor] Executing stored test case {test_case_id}")
         
-        print(f"[@ai_testcase_executor] Using AI Central with stored test case")
-        
-        # Convert stored steps to AI Central format
-        steps = []
-        for i, step_data in enumerate(test_case.get('steps', [])):
-            step_type = AIStepType.ACTION
-            if step_data.get('command') == 'execute_navigation':
-                step_type = AIStepType.NAVIGATION
-            elif step_data.get('command', '').startswith('verify_'):
-                step_type = AIStepType.VERIFICATION
-            elif step_data.get('command') == 'wait':
-                step_type = AIStepType.WAIT
-                
-            steps.append(AIStep(
-                step_id=i + 1,
-                type=step_type,
-                command=step_data.get('command'),
-                params=step_data.get('params', {}),
-                description=step_data.get('description', '')
-            ))
-        
-        plan = AIPlan(
-            id=test_case_id,
-            prompt=test_case.get('original_prompt', ''),
-            analysis=f"Stored test case: {test_case.get('name', '')}",
-            feasible=True,
-            steps=steps,
-            userinterface_name=args.userinterface_name
+        # Create AI session
+        ai_session = AISession(
+            host=context.host,
+            device_id=context.selected_device.device_id,
+            team_id=context.team_id
         )
         
-        # Execute using AI Central
-        ai_central = AICentral(
-            team_id=context.team_id,
-            host={'host_name': context.host.host_name},
-            device_id=context.selected_device.device_id
-        )
+        # Execute stored test case - AI central handles the stored plan
+        execution_id = ai_session.execute_stored_testcase(test_case_id)
         
-        options = ExecutionOptions(
-            mode=ExecutionMode.SCRIPT,
-            context={'tree_id': test_case.get('tree_id')},
-            enable_db_tracking=True
-        )
-        
-        execution_id = ai_central.execute_plan(plan, options)
-        
-        # Wait for completion
+        # Wait for completion and get results
         import time
         while True:
-            status = ai_central.get_execution_status(execution_id)
+            status = AITracker.get_status(execution_id)
             if not status.get('is_executing', False):
                 ai_result = {'success': status.get('success', False)}
                 break
@@ -192,7 +157,8 @@ def main():
             print(f"[@ai_testcase_executor] AI execution error: {error_msg}")
         
         # Capture summary for report
-        summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case, ai_steps)
+        stored_plan = test_case.get('ai_plan', {})
+        summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case, stored_plan.get('steps', []))
         context.execution_summary = summary_text
         
         if success:

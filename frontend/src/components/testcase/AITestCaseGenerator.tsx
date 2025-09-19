@@ -26,6 +26,7 @@ import {
   ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 // import { useAI } from '../../hooks/useAI';
 import { AIAnalysisResponse, TestCase } from '../../types/pages/TestCase_Types';
 
@@ -117,22 +118,38 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
 
         if (response.ok) {
           const result = await response.json();
-          if (result.success && result.plan) {
+          if (result.success && result.ai_plan) {
+            // Store AIPlan directly - no conversion, no parsing needed later
             generatedTestCases.push({
-              test_id: result.plan.id,
+              test_id: result.ai_plan.id,
               test_type: 'functional' as const,
               start_node: 'root',
               name: `AI Generated: ${prompt.slice(0, 50)}...`,
               original_prompt: prompt,
-              steps: result.plan.steps,
+              ai_plan: result.ai_plan,  // Store complete AIPlan
               userinterface_name: interfaceName,
-              feasible: result.plan.feasible
+              feasible: result.ai_plan.feasible,
+              creator: 'ai',  // Mark as AI-generated
+              compatible_userinterfaces: [interfaceName]  // Track compatible interfaces
             });
           }
         }
       }
       
       if (generatedTestCases.length > 0) {
+        // Store test cases in database
+        for (const testCase of generatedTestCases) {
+          const storeResponse = await fetch(buildServerUrl('/server/testcases/createTestCase'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(testCase)
+          });
+          
+          if (!storeResponse.ok) {
+            console.error('Failed to store test case:', testCase.name);
+          }
+        }
+        
         onTestCasesCreated(generatedTestCases);
       }
     } catch (err) {
