@@ -270,7 +270,38 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
         if not result.get('success'):
             raise Exception(f"AI call failed: {result.get('error')}")
 
-        return json.loads(result['content'])
+        # Extract JSON from AI response with protective parsing
+        return self._extract_json_from_ai_response(result['content'])
+
+    def _extract_json_from_ai_response(self, content: str) -> Dict[str, Any]:
+        """Extract JSON from AI response using existing codebase pattern"""
+        try:
+            print(f"[@ai_central] Raw AI response: {repr(content)}")
+            
+            # Use existing codebase pattern (same as ai_utils.py, video_ai_helpers.py, ai_analyzer.py)
+            cleaned_content = content.strip()
+            
+            # Handle markdown code blocks
+            if cleaned_content.startswith('```json'):
+                cleaned_content = cleaned_content.replace('```json', '').replace('```', '').strip()
+            elif cleaned_content.startswith('```'):
+                cleaned_content = cleaned_content.replace('```', '').strip()
+            
+            print(f"[@ai_central] Cleaned content: {repr(cleaned_content)}")
+            
+            # Parse JSON
+            parsed_json = json.loads(cleaned_content)
+            print(f"[@ai_central] Successfully parsed JSON with keys: {list(parsed_json.keys())}")
+            
+            return parsed_json
+            
+        except json.JSONDecodeError as e:
+            print(f"[@ai_central] JSON parsing error: {e}")
+            print(f"[@ai_central] Raw content: {repr(content)}")
+            raise Exception(f"AI returned invalid JSON: {e}")
+        except Exception as e:
+            print(f"[@ai_central] JSON extraction error: {e}")
+            raise Exception(f"Failed to extract JSON from AI response: {e}")
 
     def _convert_to_plan(self, prompt: str, ai_response: Dict, userinterface_name: str) -> AIPlan:
         steps = []

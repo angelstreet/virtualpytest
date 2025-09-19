@@ -33,7 +33,8 @@ interface LogEntry {
 const OpenRouterDebug: React.FC = () => {
   // State
   const [selectedModel, setSelectedModel] = useState('qwen/qwen-2.5-vl-7b-instruct');
-  const [prompt, setPrompt] = useState('You are controlling a TV application on a device (STB/mobile/PC).\nYour task is to navigate through the app using available commands provided.\n\nTask: "go to live"\nDevice: android_mobile\nNodes: ["ENTRY", "home", "home_tvguide", "live_fullscreen", "live", "home_movies", "home_replay", "home_saved", "tvguide_livetv", "live_fullscreen_audiomenu", "live_fullscreen_chup", "live_fullscreen_chdown", "live_chup", "live_chdown", "live_volumeup", "live_volumedown", "live_audiomenu"]\n\nCommands: ["execute_navigation", "click_element", "press_key", "wait"]\n\nRules:\n- "go to node X" → execute_navigation, target_node="X"\n- "click X" → click_element, element_id="X"\n- "press X" → press_key, key="X"\n\nCRITICAL: You MUST include an "analysis" field explaining your reasoning.\n\nExample response format:\n{"analysis": "Task requires navigating to live content. Since live node is available, I will navigate there directly.", "feasible": true, "plan": [{"step": 1, "command": "execute_navigation", "params": {"target_node": "live"}, "description": "Navigate to live content"}]}\n\nIf task is not possible:\n{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}\n\nRESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:');
+  const [selectedTemplate, setSelectedTemplate] = useState('ai_central_format');
+  const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
@@ -50,10 +51,129 @@ const OpenRouterDebug: React.FC = () => {
     { value: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
   ];
 
+  // Available prompt templates
+  const promptTemplates = [
+    {
+      value: 'ai_central_format',
+      label: 'AI Central Format (Current)',
+      template: `You are controlling a TV application on a device (android_mobile).
+Your task is to navigate through the app using available commands provided.
+
+Task: "go to live"
+Device: android_mobile
+
+Navigation: Nodes label used to navigate in app with navigation function
+['ENTRY', 'home', 'home_tvguide', 'live_fullscreen', 'live', 'home_movies', 'home_replay', 'home_saved', 'tvguide_livetv', 'live_fullscreen_audiomenu', 'live_fullscreen_chup', 'live_fullscreen_chdown', 'live_chup', 'live_chdown', 'live_volumeup', 'live_volumedown', 'live_audiomenu']
+
+Action: Actions available to control the device
+click_element(remote): Click UI element, press_key(remote): Press keyboard key
+
+Verification: Verification available to check the device
+waitForImageToAppear(verification_image): Wait for image to appear on screen
+
+Rules:
+- "go to node X" → execute_navigation, target_node="X"
+- "click X" → click_element, element_id="X"  
+- "press X" → press_key, key="X"
+- PRIORITIZE navigation over manual actions
+- ALWAYS specify action_type in params
+
+CRITICAL: You MUST include an "analysis" field explaining your reasoning.
+
+Example response format:
+{"analysis": "Task requires navigating to live content. Since 'live' node is available, I'll navigate there directly.", "feasible": true, "plan": [{"step": 1, "command": "execute_navigation", "params": {"target_node": "live", "action_type": "navigation"}, "description": "Navigate to live content"}]}
+
+If task is not possible:
+{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}
+
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:`
+    },
+    {
+      value: 'legacy_format',
+      label: 'Legacy Format (Old)',
+      template: `You are controlling a TV application on a device (STB/mobile/PC).
+Your task is to navigate through the app using available commands provided.
+
+Task: "go to live"
+Device: android_mobile
+Nodes: ["ENTRY", "home", "home_tvguide", "live_fullscreen", "live", "home_movies", "home_replay", "home_saved", "tvguide_livetv", "live_fullscreen_audiomenu", "live_fullscreen_chup", "live_fullscreen_chdown", "live_chup", "live_chdown", "live_volumeup", "live_volumedown", "live_audiomenu"]
+
+Commands: ["execute_navigation", "click_element", "press_key", "wait"]
+
+Rules:
+- "go to node X" → execute_navigation, target_node="X"
+- "click X" → click_element, element_id="X"
+- "press X" → press_key, key="X"
+
+CRITICAL: You MUST include an "analysis" field explaining your reasoning.
+
+Example response format:
+{"analysis": "Task requires navigating to live content. Since live node is available, I will navigate there directly.", "feasible": true, "plan": [{"step": 1, "command": "execute_navigation", "params": {"target_node": "live"}, "description": "Navigate to live content"}]}
+
+If task is not possible:
+{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}
+
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:`
+    },
+    {
+      value: 'complex_navigation',
+      label: 'Complex Navigation Test',
+      template: `You are controlling a TV application on a device (android_mobile).
+Your task is to navigate through the app using available commands provided.
+
+Task: "go to live fullscreen and change channel up"
+Device: android_mobile
+
+Navigation: Nodes label used to navigate in app with navigation function
+['ENTRY', 'home', 'home_tvguide', 'live_fullscreen', 'live', 'home_movies', 'home_replay', 'home_saved', 'tvguide_livetv', 'live_fullscreen_audiomenu', 'live_fullscreen_chup', 'live_fullscreen_chdown', 'live_chup', 'live_chdown', 'live_volumeup', 'live_volumedown', 'live_audiomenu']
+
+Action: Actions available to control the device
+click_element(remote): Click UI element, press_key(remote): Press keyboard key, press_key(remote): Press CHANNEL_UP key
+
+Verification: Verification available to check the device
+waitForImageToAppear(verification_image): Wait for image to appear on screen
+
+Rules:
+- "go to node X" → execute_navigation, target_node="X"
+- "click X" → click_element, element_id="X"  
+- "press X" → press_key, key="X"
+- PRIORITIZE navigation over manual actions
+- ALWAYS specify action_type in params
+
+CRITICAL: You MUST include an "analysis" field explaining your reasoning.
+
+Example response format:
+{"analysis": "Task requires navigating to live fullscreen then changing channel. I'll navigate to live_fullscreen_chup node directly.", "feasible": true, "plan": [{"step": 1, "command": "execute_navigation", "params": {"target_node": "live_fullscreen_chup", "action_type": "navigation"}, "description": "Navigate to live fullscreen and change channel up"}]}
+
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:`
+    },
+    {
+      value: 'custom',
+      label: 'Custom Prompt',
+      template: ''
+    }
+  ];
+
   // Auto-scroll logs to bottom
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
+
+  // Update prompt when template changes
+  useEffect(() => {
+    const template = promptTemplates.find(t => t.value === selectedTemplate);
+    if (template && template.template) {
+      setPrompt(template.template);
+    }
+  }, [selectedTemplate]);
+
+  // Initialize with default template
+  useEffect(() => {
+    const defaultTemplate = promptTemplates.find(t => t.value === 'ai_central_format');
+    if (defaultTemplate) {
+      setPrompt(defaultTemplate.template);
+    }
+  }, []);
 
   // Add log entry
   const addLog = (source: LogEntry['source'], level: LogEntry['level'], message: string) => {
@@ -80,7 +200,9 @@ const OpenRouterDebug: React.FC = () => {
     }
 
     setIsLoading(true);
+    const templateLabel = promptTemplates.find(t => t.value === selectedTemplate)?.label || selectedTemplate;
     addLog('frontend', 'info', `Starting OpenRouter test with model: ${selectedModel}`);
+    addLog('frontend', 'info', `Using template: ${templateLabel}`);
     addLog('frontend', 'info', `Prompt length: ${prompt.length} characters`);
 
     try {
@@ -186,6 +308,23 @@ const OpenRouterDebug: React.FC = () => {
               {models.map((model) => (
                 <MenuItem key={model.value} value={model.value}>
                   {model.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Prompt Template Selection */}
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Prompt Template</InputLabel>
+            <Select
+              value={selectedTemplate}
+              label="Prompt Template"
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+              disabled={isLoading}
+            >
+              {promptTemplates.map((template) => (
+                <MenuItem key={template.value} value={template.value}>
+                  {template.label}
                 </MenuItem>
               ))}
             </Select>
