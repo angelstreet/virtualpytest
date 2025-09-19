@@ -370,6 +370,12 @@ If task is not possible:
 
 RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
 
+        # Log the full prompt for debugging
+        print(f"[@ai_central] Full AI Prompt:")
+        print("=" * 80)
+        print(ai_prompt)
+        print("=" * 80)
+
         result = call_text_ai(
             prompt=ai_prompt,
             max_tokens=1500,
