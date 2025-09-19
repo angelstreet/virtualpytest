@@ -32,19 +32,16 @@ class AIContextService:
     """Centralized context loading - single responsibility"""
     
     @staticmethod
-    def load_context(host: Dict, device_id: str, team_id: str, userinterface_name: str) -> Dict:
+    def load_context(host: Dict, device_id: str, team_id: str, userinterface_name: str, device_model: str) -> Dict:
         """Load complete context from all executors"""
         from backend_core.src.services.actions.action_executor import ActionExecutor
         from backend_core.src.services.verifications.verification_executor import VerificationExecutor
         from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
         
-        # Create executors for context loading
+        # Create executors for context loading (they still need host for execution, but not for context)
         action_executor = ActionExecutor(host, device_id, team_id)
         verification_executor = VerificationExecutor(host, device_id, team_id)
         navigation_executor = NavigationExecutor(host, device_id, team_id)
-        
-        # Get device model from host
-        device_model = host.get_device_by_id(device_id).device_model
         
         print(f"[@ai_context] Loading context for device: {device_id}, model: {device_model}, interface: {userinterface_name}")
         
@@ -424,12 +421,19 @@ class AISession:
         self.team_id = team_id
         self.execution_id = str(uuid.uuid4())
         
+        # Cache device_model for efficiency
+        from shared.lib.utils.build_url_utils import get_device_by_id
+        device_dict = get_device_by_id(host, device_id)
+        if not device_dict:
+            raise Exception(f"Device {device_id} not found in host")
+        self.device_model = device_dict.get('device_model')
+        
         # PRESERVE: Current node tracking from shared positions
         position = AIDeviceTracker.get_position(device_id)
         self.current_node_id = position.get('node_id')
         self.current_node_label = position.get('node_label')
         
-        print(f"[@ai_session] Initialized with device_id: {device_id}, current_node_id: {self.current_node_id}")
+        print(f"[@ai_session] Initialized with device_id: {device_id}, device_model: {self.device_model}, current_node_id: {self.current_node_id}")
         
         # Create executors once per session (for execution, not context loading)
         from backend_core.src.services.actions.action_executor import ActionExecutor
@@ -449,8 +453,8 @@ class AISession:
             print(f"[@ai_session] Already at target node '{target_node}' - no execution needed")
             return "already_there"
         
-        # Load context using centralized service
-        context = AIContextService.load_context(self.host, self.device_id, self.team_id, userinterface_name)
+        # Load context using centralized service with cached device_model
+        context = AIContextService.load_context(self.host, self.device_id, self.team_id, userinterface_name, self.device_model)
         context['current_node_id'] = self.current_node_id
         context['current_node_label'] = self.current_node_label
         
@@ -469,7 +473,7 @@ class AISession:
         
         # Load context if not already loaded
         userinterface_name = plan_dict.get('userinterface_name', 'horizon_android_mobile')
-        context = AIContextService.load_context(self.host, self.device_id, self.team_id, userinterface_name)
+        context = AIContextService.load_context(self.host, self.device_id, self.team_id, userinterface_name, self.device_model)
         context['current_node_id'] = self.current_node_id
         context['current_node_label'] = self.current_node_label
         

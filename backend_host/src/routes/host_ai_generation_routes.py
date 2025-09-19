@@ -217,7 +217,7 @@ def run_exploration(exploration_id: str):
         
         # Load context using AI architecture (discovers capabilities automatically)
         update_progress(exploration_id, "Analyzing device capabilities...")
-        context = AIContextService.load_context(host, device_id, team_id, userinterface_name)
+        context = AIContextService.load_context(host, device_id, team_id, userinterface_name, device.device_model)
         
         # Create AI session for exploration
         ai_session = AISession(host=host, device_id=device_id, team_id=team_id)

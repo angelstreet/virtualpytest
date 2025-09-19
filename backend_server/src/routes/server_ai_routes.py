@@ -80,7 +80,11 @@ def generate_plan():
     try:
         # Load context if host and device provided, otherwise use minimal context
         if host and device_id:
-            context = AIContextService.load_context(host, device_id, get_team_id(), userinterface_name)
+            # Extract device_model from host for efficiency
+            from shared.lib.utils.build_url_utils import get_device_by_id
+            device_dict = get_device_by_id(host, device_id)
+            device_model = device_dict.get('device_model') if device_dict else 'unknown'
+            context = AIContextService.load_context(host, device_id, get_team_id(), userinterface_name, device_model)
         else:
             context = {
                 'device_model': 'unknown',
