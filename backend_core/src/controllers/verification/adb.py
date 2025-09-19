@@ -465,7 +465,8 @@ class ADBVerificationController(VerificationControllerInterface):
                     'search_term': '',      # Empty string for user input
                     'timeout': 0.0,         # Default: single check, no polling
                 },
-                'verification_type': 'adb'
+                'verification_type': 'adb',
+                'description': 'Wait for UI element to appear using ADB'
             },
             {
                 'command': 'waitForElementToDisappear',
@@ -473,7 +474,8 @@ class ADBVerificationController(VerificationControllerInterface):
                     'search_term': '',      # Empty string for user input
                     'timeout': 0.0,         # Default: single check, no polling
                 },
-                'verification_type': 'adb'
+                'verification_type': 'adb',
+                'description': 'Wait for UI element to disappear using ADB'
             }
         ]
 

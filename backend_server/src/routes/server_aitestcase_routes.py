@@ -13,7 +13,7 @@ import os
 # Add backend_core to path for direct access
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-from backend_core.src.controllers.ai.ai_central import AICentral
+from shared.lib.utils.ai_central import AICentral
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface

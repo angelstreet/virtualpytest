@@ -8,7 +8,7 @@ Uses shared FFmpeg-based capture functionality.
 
 import subprocess
 from typing import Dict, Any, Optional
-from ..base_controller import FFmpegCaptureController
+from ...base_controller import FFmpegCaptureController
 
 
 class VNCStreamController(FFmpegCaptureController):

@@ -43,6 +43,66 @@ class VerificationExecutor:
         if not host or not host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
     
+    def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
+        """
+        Get available verification context for AI based on device model and user interface
+        
+        Args:
+            device_model: Device model (e.g., 'android_mobile', 'android_tv')
+            userinterface_name: User interface name for context
+            
+        Returns:
+            Dict with available verifications and their descriptions
+        """
+        try:
+            from shared.lib.utils.host_utils import get_device_by_id, get_controller
+            
+            device_verifications = []
+            device_id = self.device_id or 'device1'
+            
+            print(f"[@verification_executor] Loading verification context for device: {device_id}, model: {device_model}")
+            
+            device = get_device_by_id(device_id)
+            if device:
+                # Get verification actions from verification controllers
+                verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
+                for v_type in verification_types:
+                    try:
+                        controller = get_controller(device_id, f'verification_{v_type}')
+                        if controller and hasattr(controller, 'get_available_verifications'):
+                            verifications = controller.get_available_verifications()
+                            if isinstance(verifications, list):
+                                for verification in verifications:
+                                    device_verifications.append({
+                                        'command': verification.get('command', ''),
+                                        'action_type': f'verification_{v_type}',
+                                        'params': verification.get('params', {}),
+                                        'description': verification.get('description', '')
+                                    })
+                    except Exception as e:
+                        print(f"[@verification_executor] Could not load verification_{v_type} verifications: {e}")
+                        continue
+            
+            print(f"[@verification_executor] Loaded {len(device_verifications)} verifications from controllers")
+            
+            return {
+                'service_type': 'verifications',
+                'device_id': device_id,
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'available_verifications': device_verifications
+            }
+            
+        except Exception as e:
+            print(f"[@verification_executor] Error loading verification context: {e}")
+            return {
+                'service_type': 'verifications',
+                'device_id': self.device_id or 'device1',
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'available_verifications': []
+            }
+    
     def execute_verifications(self, 
                             verifications: List[Dict[str, Any]], 
                             image_source_url: Optional[str] = None

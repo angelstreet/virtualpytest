@@ -426,7 +426,8 @@ class TextVerificationController:
                     "confidence": 0.8,      # OCR language detection confidence (0.0 to 1.0)
                     "area": None            # Optional area
                 },
-                "verification_type": "text"
+                "verification_type": "text",
+                "description": "Wait for text to appear on screen using OCR"
             },
             {
                 "command": "waitForTextToDisappear",
@@ -437,7 +438,8 @@ class TextVerificationController:
                     "confidence": 0.8,      # OCR language detection confidence (0.0 to 1.0)
                     "area": None            # Optional area
                 },
-                "verification_type": "text"
+                "verification_type": "text",
+                "description": "Wait for text to disappear from screen using OCR"
             }
         ] 
 

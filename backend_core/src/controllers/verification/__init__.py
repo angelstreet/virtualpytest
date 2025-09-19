@@ -11,6 +11,7 @@ Available Controllers:
 - AppiumVerificationController: Cross-platform element verification using Appium WebDriver
 - VideoVerificationController: Motion detection and video content verification
 - AudioVerificationController: Audio level and sound verification
+- VNCStreamController: VNC stream controller for VNC-based verification
 """
 
 from .text import TextVerificationController
@@ -19,6 +20,7 @@ from .adb import ADBVerificationController
 from .appium import AppiumVerificationController
 from .video import VideoVerificationController
 from .audio import AudioVerificationController
+from .vnc_stream import VNCStreamController
 
 __all__ = [
     'TextVerificationController', 
@@ -26,5 +28,6 @@ __all__ = [
     'ADBVerificationController',
     'AppiumVerificationController',
     'VideoVerificationController',
-    'AudioVerificationController'
+    'AudioVerificationController',
+    'VNCStreamController'
 ]

@@ -322,7 +322,7 @@ class FFmpegCaptureController(AVControllerInterface):
     def monitoring_helpers(self):
         """Lazy initialization of monitoring helpers"""
         if self._monitoring_helpers is None:
-            from .audiovideo.video_monitoring_helpers import VideoMonitoringHelpers
+            from .verification.video_monitoring_helpers import VideoMonitoringHelpers
             self._monitoring_helpers = VideoMonitoringHelpers(self, self.real_device_name)
         return self._monitoring_helpers
 

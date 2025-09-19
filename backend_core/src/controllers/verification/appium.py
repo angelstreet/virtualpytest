@@ -618,7 +618,8 @@ class AppiumVerificationController(VerificationControllerInterface):
                     'timeout': 0.0,         # Default: single check, no polling
                     'check_interval': 1.0   # Default value
                 },
-                'verification_type': 'appium'
+                'verification_type': 'appium',
+                'description': 'Wait for UI element to appear using Appium'
             },
             {
                 'command': 'waitForElementToDisappear',
@@ -627,7 +628,8 @@ class AppiumVerificationController(VerificationControllerInterface):
                     'timeout': 0.0,         # Default: single check, no polling
                     'check_interval': 1.0   # Default value
                 },
-                'verification_type': 'appium'
+                'verification_type': 'appium',
+                'description': 'Wait for UI element to disappear using Appium'
             }
         ]
 

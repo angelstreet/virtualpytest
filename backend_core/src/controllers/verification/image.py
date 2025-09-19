@@ -545,7 +545,8 @@ class ImageVerificationController:
                     "threshold": 0.8,      # Default value
                     "area": None            # Optional area
                 },
-                "verification_type": "image"
+                "verification_type": "image",
+                "description": "Wait for image to appear on screen"
             },
             {
                 "command": "waitForImageToDisappear",
@@ -555,7 +556,8 @@ class ImageVerificationController:
                     "threshold": 0.8,      # Default value
                     "area": None            # Optional area
                 },
-                "verification_type": "image"
+                "verification_type": "image",
+                "description": "Wait for image to disappear from screen"
             }
         ]
 

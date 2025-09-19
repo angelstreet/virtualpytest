@@ -182,7 +182,7 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import AI Central for exploration
-        from backend_core.src.controllers.ai.ai_central import AICentral
+        from shared.lib.utils.ai_central import AICentral
         from backend_core.src.controllers.remote.android_mobile import AndroidMobileController
         from backend_core.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         

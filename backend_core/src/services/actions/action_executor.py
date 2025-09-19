@@ -45,6 +45,77 @@ class ActionExecutor:
         if not host or not host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
     
+    def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
+        """
+        Get available action context for AI based on device model and user interface
+        
+        Args:
+            device_model: Device model (e.g., 'android_mobile', 'android_tv')
+            userinterface_name: User interface name for context
+            
+        Returns:
+            Dict with available actions and their descriptions
+        """
+        try:
+            from shared.lib.utils.host_utils import get_device_by_id, get_controller
+            
+            device_actions = []
+            device_id = self.device_id or 'device1'
+            
+            print(f"[@action_executor] Loading action context for device: {device_id}, model: {device_model}")
+            
+            device = get_device_by_id(device_id)
+            if device:
+                # Get actions from each controller type
+                controller_types = ['remote', 'web', 'desktop_bash', 'desktop_pyautogui', 'av', 'power']
+                
+                for controller_type in controller_types:
+                    try:
+                        controller = get_controller(device_id, controller_type)
+                        if controller and hasattr(controller, 'get_available_actions'):
+                            actions = controller.get_available_actions()
+                            if isinstance(actions, dict):
+                                for category, action_list in actions.items():
+                                    if isinstance(action_list, list):
+                                        for action in action_list:
+                                            device_actions.append({
+                                                'command': action.get('command', ''),
+                                                'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
+                                                'params': action.get('params', {}),
+                                                'description': action.get('description', '')
+                                            })
+                            elif isinstance(actions, list):
+                                for action in actions:
+                                    device_actions.append({
+                                        'command': action.get('command', ''),
+                                        'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
+                                        'params': action.get('params', {}),
+                                        'description': action.get('description', '')
+                                    })
+                    except Exception as e:
+                        print(f"[@action_executor] Could not load {controller_type} actions: {e}")
+                        continue
+            
+            print(f"[@action_executor] Loaded {len(device_actions)} actions from controllers")
+            
+            return {
+                'service_type': 'actions',
+                'device_id': device_id,
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'available_actions': device_actions
+            }
+            
+        except Exception as e:
+            print(f"[@action_executor] Error loading action context: {e}")
+            return {
+                'service_type': 'actions',
+                'device_id': self.device_id or 'device1',
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'available_actions': []
+            }
+    
     def execute_actions(self, 
                        actions: List[Dict[str, Any]], 
                        retry_actions: Optional[List[Dict[str, Any]]] = None,
@@ -230,49 +301,11 @@ class ActionExecutor:
                 params = action.get('params', {})
                 action_type = action.get('action_type')
                 
-                # Intelligent action_type detection if not specified
+                # Dynamic action_type detection based on device controllers
                 if not action_type:
-                    command = action.get('command', '')
-                    
-                    # Web-specific commands (from Playwright web controller)
-                    web_commands = {
-                        'open_browser', 'close_browser', 'connect_browser',
-                        'navigate_to_url', 'click_element', 'find_element', 'input_text', 
-                        'tap_x_y', 'execute_javascript', 'get_page_info', 'activate_semantic',
-                        'dump_elements', 'browser_use_task'
-                    }
-                    
-                    # Desktop-specific commands (from PyAutoGUI/Bash controllers)
-                    desktop_commands = {
-                        'execute_pyautogui_click', 'execute_pyautogui_rightclick', 'execute_pyautogui_doubleclick',
-                        'execute_pyautogui_move', 'execute_pyautogui_keypress', 'execute_pyautogui_type',
-                        'execute_pyautogui_scroll', 'execute_pyautogui_locate', 'execute_pyautogui_locate_and_click',
-                        'execute_pyautogui_launch', 'execute_bash_command'
-                    }
-                    
-                    # Verification commands
-                    verification_commands = {
-                        'waitForTextToAppear', 'waitForTextToDisappear',
-                        'waitForImageToAppear', 'waitForImageToDisappear'
-                    }
-                    
-                    if command in web_commands:
-                        action_type = 'web'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected web action: {command}")
-                    elif command in desktop_commands:
-                        action_type = 'desktop'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected desktop action: {command}")
-                    elif command in verification_commands:
-                        action_type = 'verification'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Auto-detected verification action: {command}")
-                    else:
-                        # Default to remote for unknown commands (backward compatibility)
-                        action_type = 'remote'
-                        if iteration == 0:  # Only log once
-                            print(f"[@lib:action_executor:_execute_single_action] Defaulting to remote action: {command}")
+                    action_type = self._detect_action_type_from_device(action.get('command', ''))
+                    if iteration == 0:
+                        print(f"[@lib:action_executor:_execute_single_action] Detected action_type: {action_type}")
                 
                 if iteration == 0:  # Only log action type once
                     print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
@@ -443,6 +476,55 @@ class ActionExecutor:
             'iterations': iteration_results if iterator_count > 1 else None
         }
     
+    def _detect_action_type_from_device(self, command: str) -> str:
+        """Detect action_type by checking which device controller has the command"""
+        try:
+            from shared.lib.utils.host_utils import get_device_by_id, get_controller
+            
+            device = get_device_by_id(self.device_id)
+            if not device:
+                return 'remote'
+            
+            # Check each controller type in priority order
+            for controller_type in ['remote', 'web', 'desktop', 'av', 'power']:
+                try:
+                    controller = get_controller(self.device_id, controller_type)
+                    if controller and hasattr(controller, 'get_available_actions'):
+                        actions = controller.get_available_actions()
+                        if self._command_exists_in_actions(command, actions):
+                            return controller_type.replace('desktop_', 'desktop')
+                except:
+                    continue
+            
+            # Check verification controllers
+            for v_type in ['image', 'text', 'adb', 'appium', 'video', 'audio']:
+                try:
+                    controller = get_controller(self.device_id, f'verification_{v_type}')
+                    if controller and hasattr(controller, 'get_available_verifications'):
+                        verifications = controller.get_available_verifications()
+                        if self._command_exists_in_actions(command, verifications):
+                            return f'verification_{v_type}'
+                except:
+                    continue
+            
+            return 'remote'  # Default fallback
+        except:
+            return 'remote'  # Safe fallback
+    
+    def _command_exists_in_actions(self, command: str, actions) -> bool:
+        """Check if command exists in controller actions"""
+        if isinstance(actions, dict):
+            for action_list in actions.values():
+                if isinstance(action_list, list):
+                    for action in action_list:
+                        if action.get('command') == command:
+                            return True
+        elif isinstance(actions, list):
+            for action in actions:
+                if action.get('command') == command:
+                    return True
+        return False
+
     def _get_device_model(self) -> str:
         """Get device model from host configuration"""
         try:

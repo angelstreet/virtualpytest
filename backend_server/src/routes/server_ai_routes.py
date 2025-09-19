@@ -3,7 +3,7 @@ Clean AI Routes - Uses AI Central
 """
 
 from flask import Blueprint, request, jsonify
-from backend_core.src.controllers.ai.ai_central import AICentral, ExecutionOptions, ExecutionMode
+from shared.lib.utils.ai_central import AICentral, ExecutionOptions, ExecutionMode
 from shared.lib.utils.app_utils import get_team_id
 
 server_ai_bp = Blueprint('server_ai', __name__, url_prefix='/server/ai')
@@ -119,7 +119,7 @@ def execute_test_case():
     try:
         # Load test case from database
         from shared.lib.supabase.testcase_db import get_test_case
-        from backend_core.src.controllers.ai.ai_central import AIPlan, AIStep, AIStepType
+        from shared.lib.utils.ai_central import AIPlan, AIStep, AIStepType
         
         test_case = get_test_case(test_case_id, get_team_id())
         if not test_case:

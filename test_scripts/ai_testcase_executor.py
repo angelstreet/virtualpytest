@@ -107,7 +107,7 @@ def main():
         print(f"[@ai_testcase_executor] Processing {len(ai_steps)} AI steps")
         
         # Use AI Central for clean execution
-        from backend_core.src.controllers.ai.ai_central import AICentral, AIPlan, AIStep, AIStepType, ExecutionOptions, ExecutionMode
+        from shared.lib.utils.ai_central import AICentral, AIPlan, AIStep, AIStepType, ExecutionOptions, ExecutionMode
         
         print(f"[@ai_testcase_executor] Using AI Central with stored test case")
         

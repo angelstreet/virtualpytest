@@ -114,153 +114,95 @@ class AIPlanGenerator:
         }
 
     def _load_context(self, userinterface_name: str, device_id: str = None) -> Dict[str, Any]:
-        # Use the same working approach as the old AI agent
+        """Load context for AI planning by asking services for their available context"""
         try:
-            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from shared.lib.utils.host_utils import get_device_by_id
+            from backend_core.src.services.actions.action_executor import ActionExecutor
+            from backend_core.src.services.verifications.verification_executor import VerificationExecutor
+            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             
-            print(f"[@ai_central] Loading unified navigation tree hierarchy for: {userinterface_name}")
-            tree_result = load_navigation_tree_with_hierarchy(userinterface_name, "ai_central")
+            print(f"[@ai_central] Loading context from services for interface: {userinterface_name}, device: {device_id}")
             
-            if not tree_result.get('success'):
-                raise ValueError(f"Failed to load navigation tree for {userinterface_name}: {tree_result.get('error')}")
-            
-            tree_id = tree_result.get('tree_id')
-            if not tree_id:
-                raise ValueError(f"No tree_id returned for {userinterface_name}")
-            
-            print(f"[@ai_central] Successfully loaded unified navigation tree for: {userinterface_name}")
-            print(f"[@ai_central] Unified cache populated with {tree_result.get('unified_graph_nodes', 0)} nodes, {tree_result.get('unified_graph_edges', 0)} edges")
-            
-            # Now we can safely get the cached unified graph
-            from shared.lib.utils.navigation_cache import get_cached_unified_graph
-            unified_graph = get_cached_unified_graph(tree_id, self.team_id)
-            
-            if not unified_graph:
-                raise ValueError(f"Unified graph not found in cache for {userinterface_name}")
-            
-            # Extract available nodes from the unified graph
-            available_nodes = []
-            if unified_graph.nodes:
-                for node_id in unified_graph.nodes:
-                    node_data = unified_graph.nodes[node_id]
-                    label = node_data.get('label')
-                    if label:
-                        available_nodes.append(label)
-            
-            print(f"[@ai_central] Extracted {len(available_nodes)} navigation nodes from unified cache")
-            
-            # Load minimal device actions directly from controllers if device_id is provided
-            device_actions = []
+            # Get device model for context
+            device_model = None
             if device_id:
-                try:
-                    from shared.lib.utils.host_utils import get_device_by_id, get_controller
-                    
-                    print(f"[@ai_central] Loading minimal actions from controllers for device: {device_id}")
-                    device = get_device_by_id(device_id)
-                    
-                    if device:
-                        # Get actions from each controller type
-                        controller_types = ['remote', 'web', 'desktop_bash', 'desktop_pyautogui', 'av', 'power']
-                        
-                        for controller_type in controller_types:
-                            try:
-                                controller = get_controller(device_id, controller_type)
-                                if controller and hasattr(controller, 'get_available_actions'):
-                                    actions = controller.get_available_actions()
-                                    if isinstance(actions, dict):
-                                        for category, action_list in actions.items():
-                                            if isinstance(action_list, list):
-                                                for action in action_list:
-                                                    device_actions.append({
-                                                        'command': action.get('command', ''),
-                                                        'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
-                                                        'params': action.get('params', {})
-                                                    })
-                                    elif isinstance(actions, list):
-                                        for action in actions:
-                                            device_actions.append({
-                                                'command': action.get('command', ''),
-                                                'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
-                                                'params': action.get('params', {})
-                                            })
-                            except Exception as e:
-                                print(f"[@ai_central] Could not load {controller_type} actions: {e}")
-                                continue
-                        
-                        # Get verification actions from verification controllers
-                        verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
-                        for v_type in verification_types:
-                            try:
-                                controller = get_controller(device_id, f'verification_{v_type}')
-                                if controller and hasattr(controller, 'get_available_verifications'):
-                                    verifications = controller.get_available_verifications()
-                                    if isinstance(verifications, list):
-                                        for verification in verifications:
-                                            device_actions.append({
-                                                'command': verification.get('command', ''),
-                                                'action_type': 'verification',
-                                                'params': verification.get('params', {})
-                                            })
-                            except Exception as e:
-                                print(f"[@ai_central] Could not load verification_{v_type} actions: {e}")
-                                continue
-                    
-                    print(f"[@ai_central] Loaded {len(device_actions)} minimal actions from controllers")
-                    
-                except Exception as e:
-                    print(f"[@ai_central] Warning: Could not load controller actions for device {device_id}: {e}")
-                    # Continue without device actions - fallback to basic functionality
+                device = get_device_by_id(device_id)
+                if device:
+                    device_model = device.get('device_model', 'unknown')
+            
+            # Initialize service executors with minimal host info for context loading
+            host_info = {'host_name': 'context_loading'}
+            
+            # Get context from each service
+            action_executor = ActionExecutor(host=host_info, device_id=device_id, team_id=self.team_id)
+            verification_executor = VerificationExecutor(host=host_info, device_id=device_id, team_id=self.team_id)
+            navigation_executor = NavigationExecutor(host=host_info, device_id=device_id, team_id=self.team_id)
+            
+            # Load context from each service
+            action_context = action_executor.get_available_context(device_model, userinterface_name)
+            verification_context = verification_executor.get_available_context(device_model, userinterface_name)
+            navigation_context = navigation_executor.get_available_context(device_model, userinterface_name)
+            
+            # Combine contexts
+            device_actions = []
+            device_actions.extend(action_context.get('available_actions', []))
+            device_actions.extend(verification_context.get('available_verifications', []))
+            
+            print(f"[@ai_central] Loaded context from services:")
+            print(f"  - Actions: {len(action_context.get('available_actions', []))}")
+            print(f"  - Verifications: {len(verification_context.get('available_verifications', []))}")
+            print(f"  - Navigation nodes: {len(navigation_context.get('available_nodes', []))}")
             
             return {
                 'userinterface_name': userinterface_name,
-                'tree_id': tree_id,
-                'available_nodes': available_nodes,
+                'tree_id': navigation_context.get('tree_id'),
+                'available_nodes': navigation_context.get('available_nodes', []),
                 'device_actions': device_actions,
-                'device_id': device_id
+                'device_id': device_id,
+                'device_model': device_model
             }
             
-        except ImportError as e:
-            raise ValueError(f"Navigation system import error for {userinterface_name}: {e}")
         except Exception as e:
-            error_str = str(e)
-            if "NavigationTreeError" in error_str or "UnifiedCacheError" in error_str:
-                raise ValueError(f"Navigation system error for {userinterface_name}: {e}")
-            else:
-                raise ValueError(f"Error loading unified navigation tree for {userinterface_name}: {e}")
+            print(f"[@ai_central] Error loading context from services: {e}")
+            return {
+                'userinterface_name': userinterface_name,
+                'tree_id': None,
+                'available_nodes': [],
+                'device_actions': [],
+                'device_id': device_id,
+                'device_model': None
+            }
 
     def _call_ai(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         available_nodes = context['available_nodes']
         device_actions = context.get('device_actions', [])
         
-        # Build minimal action list - just command names and action_type
-        action_list = []
+        # Build command list with controller info and descriptions
+        command_list = []
         if device_actions:
-            # Group by action_type for clarity
-            actions_by_type = {}
-            for action in device_actions:
+            # Limit total commands to avoid token overflow
+            for action in device_actions[:20]:  # Max 20 commands total
+                cmd = action['command']
                 action_type = action.get('action_type', 'remote')
-                if action_type not in actions_by_type:
-                    actions_by_type[action_type] = []
-                actions_by_type[action_type].append(action['command'])
-            
-            # Create minimal action list
-            for action_type, commands in actions_by_type.items():
-                # Limit to 8 most common commands per type to avoid token overflow
-                limited_commands = commands[:8]
-                action_list.append(f"{action_type}: {', '.join(limited_commands)}")
+                description = action.get('description', '')
+                if description:
+                    command_list.append(f"{cmd}({action_type}): {description}")
+                else:
+                    command_list.append(f"{cmd}({action_type})")
         
         # Create minimal AI prompt
         ai_prompt = f"""Task: "{prompt}"
 
 Available nodes: {available_nodes}
-Available actions: {' | '.join(action_list) if action_list else 'click_element, press_key, input_text'}
+Available commands: {', '.join(command_list) if command_list else 'click_element(remote): Click UI element, press_key(remote): Press keyboard key'}
 
 Rules:
 - "navigate to X" → execute_navigation, target_node="X"
-- Always specify action_type (remote, web, desktop, av, power)
+- Use commands with their specified controller type
+- ALWAYS specify action_type in params matching the controller
 
 Response format:
-{{"analysis": "reasoning", "feasible": true/false, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home"}}, "description": "Navigate to home"}}]}}"""
+{{"analysis": "reasoning", "feasible": true/false, "plan": [{{"step": 1, "command": "click_element", "params": {{"element_id": "Home Tab", "action_type": "remote"}}, "description": "Click Home Tab"}}]}}"""
 
         result = call_text_ai(
             prompt=ai_prompt,
@@ -383,7 +325,7 @@ class AIOrchestrator:
             )
 
     def _execute_navigation(self, step: AIStep, options: ExecutionOptions) -> Dict[str, Any]:
-        from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
+        from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
         
         executor = NavigationExecutor(self.host, self.device_id, self.team_id)
         

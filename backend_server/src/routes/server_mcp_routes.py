@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI Central
-from backend_core.src.controllers.ai.ai_central import AICentral
+from shared.lib.utils.ai_central import AICentral
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')

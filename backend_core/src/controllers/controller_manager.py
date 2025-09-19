@@ -13,7 +13,7 @@ from backend_core.src.controllers.controller_config_factory import create_contro
 
 # Import controller classes
 from backend_core.src.controllers.audiovideo.hdmi_stream import HDMIStreamController
-from backend_core.src.controllers.audiovideo.vnc_stream import VNCStreamController
+from backend_core.src.controllers.verification.vnc_stream import VNCStreamController
 from backend_core.src.controllers.audiovideo.camera_stream import CameraStreamController
 from backend_core.src.controllers.remote.android_mobile import AndroidMobileRemoteController
 from backend_core.src.controllers.remote.android_tv import AndroidTVRemoteController
@@ -28,7 +28,7 @@ from backend_core.src.controllers.verification.appium import AppiumVerificationC
 from backend_core.src.controllers.verification.video import VideoVerificationController
 from backend_core.src.controllers.verification.audio import AudioVerificationController
 from backend_core.src.controllers.power.tapo_power import TapoPowerController
-# from backend_core.src.controllers.ai.ai_central import AICentral  # Lazy import to avoid circular import
+# from shared.lib.utils.ai_central import AICentral  # Lazy import to avoid circular import
 
 
 def create_host_from_environment() -> Host:
@@ -250,7 +250,7 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     elif controller_type == 'ai':
         if implementation == 'ai_agent':
             # Lazy import to avoid circular import
-            from backend_core.src.controllers.ai.ai_central import AICentral
+            from shared.lib.utils.ai_central import AICentral
             # Pass device_name explicitly from params
             device_name = params.get('device_id')
             return AICentral(team_id=params.get('team_id'), **params)

@@ -482,13 +482,15 @@ const executeTestCase = async (testCaseId: string, deviceId: string) => {
 **How it works:**
 ```python
 # AI Agent delegates to existing navigation service
-from backend_core.src.services.navigation.navigation_service import execute_navigation_with_verification
+from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 
-result = execute_navigation_with_verification(
+# Initialize NavigationExecutor with host configuration
+executor = NavigationExecutor(host=self.host, device_id=self.device_id, team_id=self.team_id)
+
+result = executor.execute_navigation(
     tree_id=self.cached_tree_id,           # Loaded navigation tree
     target_node_id=target_node,            # AI-specified target
-    current_node_id=self.current_node_id,  # Current position tracking
-    team_id=self.team_id                   # Security context
+    current_node_id=self.current_node_id   # Current position tracking
 )
 
 # Service handles:

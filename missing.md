@@ -401,3 +401,49 @@ The new system has **significantly more comprehensive action context** than the 
 
 **Solution**: Integrate the enhanced action context into AI Central's prompt generation to leverage the new comprehensive capabilities while restoring the working proxy architecture.
 
+## 🚨 CRITICAL ISSUE IDENTIFIED (Sep 19, 2025)
+
+### Problem: Action Type Override Still Happening
+From production logs:
+```
+Device device1 created with capabilities: ['av', 'remote', 'verification', 'ai']
+[@lib:action_executor:_execute_single_action] Auto-detected web action: click_element
+[@lib:action_executor:_execute_single_action] Action type: web
+```
+
+**Root Cause**: `click_element` was in `web_commands` set, causing auto-detection to override to `web` even on mobile devices.
+
+### Immediate Fixes Applied:
+1. **Removed generic commands from web_commands**: `click_element`, `input_text`, `tap_x_y` removed from web-specific detection
+2. **Enhanced AI prompt**: Made action_type requirements explicit with examples
+3. **Better fallback**: Default action list shows `remote: click_element, press_key, input_text`
+
+### Expected Result:
+- Mobile device actions should now default to `action_type="remote"`
+- AI should explicitly specify action_type in params
+- No more Playwright routing on mobile devices
+
+## ✅ FINAL IMPLEMENTATION COMPLETED (Sep 19, 2025)
+
+### 🧹 Clean Architecture Implemented:
+1. **Deleted Legacy Enhancement System**: Removed entire `ai_descriptions/` folder (200+ lines of duplication)
+2. **Controller-Based Descriptions**: Actions now include simple `description` field directly in controllers
+3. **Dynamic Action Detection**: Action executor queries actual device controllers instead of hardcoded patterns
+4. **Minimal AI Context**: AI sees `command(controller): description` format for understanding
+
+### 🎯 New Flow:
+1. **Controllers define actions** with simple description field
+2. **AI Central loads** actions directly from device controllers  
+3. **AI sees**: `click_element(remote): Click UI element, waitForImageToAppear(verification_image): Wait for image`
+4. **AI generates**: Command with correct action_type based on controller info
+5. **Action executor**: Uses dynamic detection or trusts AI's action_type
+6. **Result**: Proper routing to actual device controllers
+
+### 🚀 Benefits Achieved:
+- ✅ **No hardcoded patterns** - Dynamic controller querying
+- ✅ **No duplication** - Single source of truth in controllers
+- ✅ **Minimal context** - 1-line descriptions vs verbose enhancements
+- ✅ **Controller-aware AI** - Knows which commands belong to which controllers
+- ✅ **Proper routing** - Mobile uses remote, web uses Playwright, etc.
+- ✅ **Clean codebase** - Deleted 200+ lines of enhancement duplication
+

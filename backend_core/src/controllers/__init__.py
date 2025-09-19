@@ -21,7 +21,7 @@ from .base_controller import (
 
 # Import AV implementations
 from .audiovideo.hdmi_stream import HDMIStreamController
-from .audiovideo.vnc_stream import VNCStreamController
+from .verification.vnc_stream import VNCStreamController
 from .audiovideo.camera_stream import CameraStreamController
 
 # Import real implementations
@@ -50,7 +50,7 @@ from .verification.video import VideoVerificationController
 from .verification.audio import AudioVerificationController
 
 # Import AI implementations
-from .ai.ai_central import AICentral
+# AICentral moved to shared.lib.utils.ai_central
 
 # Controller type registry
 CONTROLLER_REGISTRY = {

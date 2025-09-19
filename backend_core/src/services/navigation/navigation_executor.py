@@ -45,6 +45,62 @@ class NavigationExecutor:
         if not host or not host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
     
+    def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
+        """
+        Get available navigation context for AI based on device model and user interface
+        
+        Args:
+            device_model: Device model (e.g., 'android_mobile', 'android_tv')
+            userinterface_name: User interface name for context
+            
+        Returns:
+            Dict with available navigation nodes and tree information
+        """
+        try:
+            from shared.lib.utils.navigation_cache import get_cached_graph
+            from shared.lib.utils.navigation_graph import get_all_nodes
+            from shared.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+            
+            print(f"[@navigation_executor] Loading navigation context for interface: {userinterface_name}")
+            
+            available_nodes = []
+            tree_id = None
+            
+            if userinterface_name:
+                # Get root tree for interface
+                root_tree = get_root_tree_for_interface(userinterface_name, self.team_id)
+                if root_tree:
+                    tree_id = root_tree.get('tree_id')
+                    
+                    # Get cached graph
+                    G = get_cached_graph(tree_id, self.team_id)
+                    if G:
+                        # Get all available nodes
+                        nodes = get_all_nodes(G)
+                        available_nodes = [node.get('node_name', node.get('node_id', '')) for node in nodes if node.get('node_name')]
+            
+            print(f"[@navigation_executor] Loaded {len(available_nodes)} navigation nodes for tree: {tree_id}")
+            
+            return {
+                'service_type': 'navigation',
+                'device_id': self.device_id or 'device1',
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'tree_id': tree_id,
+                'available_nodes': available_nodes
+            }
+            
+        except Exception as e:
+            print(f"[@navigation_executor] Error loading navigation context: {e}")
+            return {
+                'service_type': 'navigation',
+                'device_id': self.device_id or 'device1',
+                'device_model': device_model,
+                'userinterface_name': userinterface_name,
+                'tree_id': None,
+                'available_nodes': []
+            }
+    
     def execute_navigation(self, 
                           tree_id: str, 
                           target_node_id: str, 

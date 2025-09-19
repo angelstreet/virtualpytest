@@ -115,7 +115,7 @@ test_scripts/
 
 ### 1. AudioDubbingHelpers Class
 
-**Location**: `backend_core/src/controllers/audiovideo/audio_dubbing_helpers.py`
+**Location**: `backend_core/src/controllers/verification/audio_dubbing_helpers.py`
 
 #### Overview
 

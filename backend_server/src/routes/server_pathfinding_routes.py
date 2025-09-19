@@ -22,7 +22,7 @@ server_pathfinding_bp = Blueprint('server_pathfinding', __name__, url_prefix='/s
 take_control_sessions = {}
 
 # =====================================================
-# HELPER FUNCTIONS (moved from navigation_service.py)
+# HELPER FUNCTIONS (legacy navigation service removed)
 # =====================================================
 
 def is_take_control_active(tree_id: str, team_id: str) -> bool:
