@@ -195,6 +195,12 @@ def get_cpu_temperature():
 def get_host_system_stats():
     """Get basic system statistics for host registration"""
     try:
+        # Get service uptime from status checks
+        ffmpeg_status = check_ffmpeg_status()
+        monitor_status = check_monitor_status()
+        ffmpeg_service_uptime = ffmpeg_status.get('service_uptime_seconds', 0)
+        monitor_service_uptime = monitor_status.get('service_uptime_seconds', 0)
+        
         stats = {
             'cpu_percent': psutil.cpu_percent(interval=1),
             'memory_percent': psutil.virtual_memory().percent,
@@ -202,7 +208,9 @@ def get_host_system_stats():
             'uptime_seconds': int(time.time() - psutil.boot_time()),
             'platform': platform.system(),
             'architecture': platform.machine(),
-            'python_version': platform.python_version()
+            'python_version': platform.python_version(),
+            'ffmpeg_service_uptime_seconds': ffmpeg_service_uptime,
+            'monitor_service_uptime_seconds': monitor_service_uptime
         }
         
         # Add CPU temperature if available
@@ -220,7 +228,9 @@ def get_host_system_stats():
             'uptime_seconds': 0,
             'platform': 'unknown',
             'architecture': 'unknown',
-            'python_version': 'unknown'
+            'python_version': 'unknown',
+            'ffmpeg_service_uptime_seconds': 0,
+            'monitor_service_uptime_seconds': 0
         }
 
 
@@ -258,11 +268,15 @@ def get_enhanced_system_stats():
         boot_time = psutil.boot_time()
         uptime_seconds = int(time.time() - boot_time)
         
-        # FFmpeg status check
+        # FFmpeg status check (includes service uptime)
         ffmpeg_status = check_ffmpeg_status()
         
-        # Monitor status check  
+        # Monitor status check (includes service uptime)
         monitor_status = check_monitor_status()
+        
+        # Extract service uptime from status checks
+        ffmpeg_service_uptime = ffmpeg_status.get('service_uptime_seconds', 0)
+        monitor_service_uptime = monitor_status.get('service_uptime_seconds', 0)
         
         stats = {
             'cpu_percent': round(psutil.cpu_percent(interval=1), 2),
@@ -276,7 +290,9 @@ def get_enhanced_system_stats():
             'platform': platform.system(),
             'architecture': platform.machine(),
             'ffmpeg_status': ffmpeg_status,
-            'monitor_status': monitor_status
+            'monitor_status': monitor_status,
+            'ffmpeg_service_uptime_seconds': ffmpeg_service_uptime,
+            'monitor_service_uptime_seconds': monitor_service_uptime
         }
         
         # Add CPU temperature if available
@@ -299,7 +315,9 @@ def get_enhanced_system_stats():
             'platform': 'unknown',
             'architecture': 'unknown',
             'ffmpeg_status': {'status': 'unknown', 'error': str(e)},
-            'monitor_status': {'status': 'unknown', 'error': str(e)}
+            'monitor_status': {'status': 'unknown', 'error': str(e)},
+            'ffmpeg_service_uptime_seconds': 0,
+            'monitor_service_uptime_seconds': 0
         }
 
 
@@ -409,10 +427,10 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
                 'video_device': video_device,  # Add video device path for hardware tracking
                 'ffmpeg_status': ffmpeg_device_status,
                 'ffmpeg_last_activity': ffmpeg_last_activity,
-                'ffmpeg_uptime_seconds': ffmpeg_uptime_seconds,  # Will be calculated from history
+                'ffmpeg_working_uptime_seconds': ffmpeg_uptime_seconds,  # Per-device working time before stuck
                 'monitor_status': monitor_device_status,
                 'monitor_last_activity': monitor_last_activity,
-                'monitor_uptime_seconds': monitor_uptime_seconds  # Will be calculated from history
+                'monitor_working_uptime_seconds': monitor_uptime_seconds  # Per-device working time before stuck
             }
             
             device_metrics.append(device_metric)
@@ -430,7 +448,9 @@ def check_ffmpeg_status():
         status = {
             'processes_running': 0,
             'recent_files': {},
-            'status': 'unknown'
+            'status': 'unknown',
+            'service_start_time': None,
+            'service_uptime_seconds': 0
         }
         
         # Check running FFmpeg processes
@@ -447,6 +467,24 @@ def check_ffmpeg_status():
         
         status['processes_running'] = len(ffmpeg_processes)
         status['processes'] = ffmpeg_processes
+        
+        # Get service start time from systemctl
+        try:
+            result = subprocess.run(['systemctl', 'show', 'stream', '--property=ActiveEnterTimestamp'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                timestamp_line = result.stdout.strip()
+                if timestamp_line.startswith('ActiveEnterTimestamp='):
+                    timestamp_str = timestamp_line.split('=', 1)[1]
+                    if timestamp_str and timestamp_str != '0':
+                        # Parse systemd timestamp format
+                        from datetime import datetime
+                        service_start_time = datetime.strptime(timestamp_str, '%a %Y-%m-%d %H:%M:%S %Z').timestamp()
+                        status['service_start_time'] = service_start_time
+                        status['service_uptime_seconds'] = int(time.time() - service_start_time)
+        except Exception as e:
+            print(f"⚠️ Could not get stream service start time: {e}")
+            pass
         
         # Check recent file creation in capture directories (dynamic from config)
         capture_dirs = get_active_capture_dirs()
@@ -512,7 +550,9 @@ def check_ffmpeg_status():
             'status': 'error',
             'error': str(e),
             'processes_running': 0,
-            'recent_files': {}
+            'recent_files': {},
+            'service_start_time': None,
+            'service_uptime_seconds': 0
         }
 
 
@@ -522,7 +562,9 @@ def check_monitor_status():
         status = {
             'process_running': False,
             'recent_json_files': {},
-            'status': 'unknown'
+            'status': 'unknown',
+            'service_start_time': None,
+            'service_uptime_seconds': 0
         }
         
         # Check if capture_monitor.py process is running
@@ -539,6 +581,24 @@ def check_monitor_status():
         
         status['process_running'] = len(monitor_processes) > 0
         status['processes'] = monitor_processes
+        
+        # Get service start time from systemctl
+        try:
+            result = subprocess.run(['systemctl', 'show', 'monitor', '--property=ActiveEnterTimestamp'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                timestamp_line = result.stdout.strip()
+                if timestamp_line.startswith('ActiveEnterTimestamp='):
+                    timestamp_str = timestamp_line.split('=', 1)[1]
+                    if timestamp_str and timestamp_str != '0':
+                        # Parse systemd timestamp format
+                        from datetime import datetime
+                        service_start_time = datetime.strptime(timestamp_str, '%a %Y-%m-%d %H:%M:%S %Z').timestamp()
+                        status['service_start_time'] = service_start_time
+                        status['service_uptime_seconds'] = int(time.time() - service_start_time)
+        except Exception as e:
+            print(f"⚠️ Could not get monitor service start time: {e}")
+            pass
         
         # Check recent JSON file creation (dynamic from config)
         base_capture_dirs = get_active_capture_dirs()
@@ -598,5 +658,7 @@ def check_monitor_status():
             'status': 'error',
             'error': str(e),
             'process_running': False,
-            'recent_json_files': {}
+            'recent_json_files': {},
+            'service_start_time': None,
+            'service_uptime_seconds': 0
         } 

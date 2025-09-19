@@ -195,6 +195,8 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
             'architecture': metrics_data.get('architecture', 'unknown'),
             'ffmpeg_status': metrics_data.get('ffmpeg_status', {}),
             'monitor_status': metrics_data.get('monitor_status', {}),
+            'ffmpeg_service_uptime_seconds': metrics_data.get('ffmpeg_service_uptime_seconds', 0),
+            'monitor_service_uptime_seconds': metrics_data.get('monitor_service_uptime_seconds', 0),
             'cpu_temperature_celsius': metrics_data.get('cpu_temperature_celsius')
         }
         

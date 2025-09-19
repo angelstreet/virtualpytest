@@ -314,9 +314,12 @@ def send_ping_to_server():
         # Store host's own system metrics (same routine as server)
         host_system_stats = get_host_system_stats()
         
-        # Debug: Show host's own system stats
+        # Debug: Show host's own system stats including service uptime
         temp_str = f", Temp={host_system_stats.get('cpu_temperature_celsius', 'N/A')}°C" if 'cpu_temperature_celsius' in host_system_stats else ""
-        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%{temp_str}")
+        ffmpeg_service_uptime = host_system_stats.get('ffmpeg_service_uptime_seconds', 0)
+        monitor_service_uptime = host_system_stats.get('monitor_service_uptime_seconds', 0)
+        service_uptime_str = f", Services: FFmpeg={ffmpeg_service_uptime}s, Monitor={monitor_service_uptime}s"
+        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%{temp_str}{service_uptime_str}")
         
         # Store host system metrics directly (same function as server uses)
         from shared.lib.supabase.system_metrics_db import store_system_metrics
@@ -333,7 +336,9 @@ def send_ping_to_server():
             capture_folder = device_metric.get('capture_folder', 'unknown')
             ffmpeg_status = device_metric.get('ffmpeg_status', 'unknown')
             monitor_status = device_metric.get('monitor_status', 'unknown')
-            print(f"[@host:device_debug] 📹 {device_name} ({capture_folder}): FFmpeg={ffmpeg_status}, Monitor={monitor_status}")
+            ffmpeg_working_time = device_metric.get('ffmpeg_working_uptime_seconds', 0)
+            monitor_working_time = device_metric.get('monitor_working_uptime_seconds', 0)
+            print(f"[@host:device_debug] 📹 {device_name} ({capture_folder}): FFmpeg={ffmpeg_status}({ffmpeg_working_time}s), Monitor={monitor_status}({monitor_working_time}s)")
             
             # Store device metrics independently on host
             store_device_metrics(host.host_name, device_metric, host_system_stats)
