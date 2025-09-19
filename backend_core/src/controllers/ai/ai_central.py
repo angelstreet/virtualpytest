@@ -78,8 +78,8 @@ class AIPlanGenerator:
     def __init__(self, team_id: str):
         self.team_id = team_id
 
-    def generate_plan(self, prompt: str, userinterface_name: str) -> AIPlan:
-        context = self._load_context(userinterface_name)
+    def generate_plan(self, prompt: str, userinterface_name: str, device_id: str = None) -> AIPlan:
+        context = self._load_context(userinterface_name, device_id)
         ai_response = self._call_ai(prompt, context)
         return self._convert_to_plan(prompt, ai_response, userinterface_name)
 
@@ -113,7 +113,7 @@ class AIPlanGenerator:
             'compatible_count': len(compatible)
         }
 
-    def _load_context(self, userinterface_name: str) -> Dict[str, Any]:
+    def _load_context(self, userinterface_name: str, device_id: str = None) -> Dict[str, Any]:
         # Use the same working approach as the old AI agent
         try:
             from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
@@ -149,10 +149,56 @@ class AIPlanGenerator:
             
             print(f"[@ai_central] Extracted {len(available_nodes)} navigation nodes from unified cache")
             
+            # Load minimal device actions directly from controllers if device_id is provided
+            device_actions = []
+            if device_id:
+                try:
+                    from shared.lib.utils.host_utils import get_device_by_id, get_controller
+                    
+                    print(f"[@ai_central] Loading minimal actions from controllers for device: {device_id}")
+                    device = get_device_by_id(device_id)
+                    
+                    if device:
+                        # Get actions from each controller type
+                        controller_types = ['remote', 'web', 'desktop_bash', 'desktop_pyautogui', 'av', 'power']
+                        
+                        for controller_type in controller_types:
+                            try:
+                                controller = get_controller(device_id, controller_type)
+                                if controller and hasattr(controller, 'get_available_actions'):
+                                    actions = controller.get_available_actions()
+                                    if isinstance(actions, dict):
+                                        for category, action_list in actions.items():
+                                            if isinstance(action_list, list):
+                                                for action in action_list:
+                                                    device_actions.append({
+                                                        'command': action.get('command', ''),
+                                                        'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
+                                                        'params': action.get('params', {})
+                                                    })
+                                    elif isinstance(actions, list):
+                                        for action in actions:
+                                            device_actions.append({
+                                                'command': action.get('command', ''),
+                                                'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
+                                                'params': action.get('params', {})
+                                            })
+                            except Exception as e:
+                                print(f"[@ai_central] Could not load {controller_type} actions: {e}")
+                                continue
+                    
+                    print(f"[@ai_central] Loaded {len(device_actions)} minimal actions from controllers")
+                    
+                except Exception as e:
+                    print(f"[@ai_central] Warning: Could not load controller actions for device {device_id}: {e}")
+                    # Continue without device actions - fallback to basic functionality
+            
             return {
                 'userinterface_name': userinterface_name,
                 'tree_id': tree_id,
-                'available_nodes': available_nodes
+                'available_nodes': available_nodes,
+                'device_actions': device_actions,
+                'device_id': device_id
             }
             
         except ImportError as e:
@@ -166,16 +212,34 @@ class AIPlanGenerator:
 
     def _call_ai(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         available_nodes = context['available_nodes']
+        device_actions = context.get('device_actions', [])
         
+        # Build minimal action list - just command names and action_type
+        action_list = []
+        if device_actions:
+            # Group by action_type for clarity
+            actions_by_type = {}
+            for action in device_actions:
+                action_type = action.get('action_type', 'remote')
+                if action_type not in actions_by_type:
+                    actions_by_type[action_type] = []
+                actions_by_type[action_type].append(action['command'])
+            
+            # Create minimal action list
+            for action_type, commands in actions_by_type.items():
+                # Limit to 8 most common commands per type to avoid token overflow
+                limited_commands = commands[:8]
+                action_list.append(f"{action_type}: {', '.join(limited_commands)}")
+        
+        # Create minimal AI prompt
         ai_prompt = f"""Task: "{prompt}"
+
 Available nodes: {available_nodes}
+Available actions: {' | '.join(action_list) if action_list else 'click_element, press_key, input_text'}
 
 Rules:
-- Use only nodes from the available list
 - "navigate to X" → execute_navigation, target_node="X"
-- "press X" → press_key, key="X"
-- "click X" → click_element, element_id="X"
-- "wait X seconds" → wait, duration={1000}
+- Always specify action_type (remote, web, desktop, av, power)
 
 Response format:
 {{"analysis": "reasoning", "feasible": true/false, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home"}}, "description": "Navigate to home"}}]}}"""
@@ -196,11 +260,19 @@ Response format:
         steps = []
         for i, step_data in enumerate(ai_response.get('plan', [])):
             step_type = self._get_step_type(step_data.get('command'))
+            
+            # Extract params and ensure action_type is included
+            params = step_data.get('params', {})
+            
+            # If action_type is provided at step level, add it to params
+            if 'action_type' in step_data and 'action_type' not in params:
+                params['action_type'] = step_data['action_type']
+            
             steps.append(AIStep(
                 step_id=i + 1,
                 type=step_type,
                 command=step_data.get('command'),
-                params=step_data.get('params', {}),
+                params=params,
                 description=step_data.get('description', '')
             ))
 
@@ -314,10 +386,14 @@ class AIOrchestrator:
             team_id=self.team_id
         )
 
+        # Extract action_type from params or use intelligent detection
+        action_type = step.params.get('action_type')
+        
+        # If no action_type specified, let the action executor handle intelligent detection
         action = {
             'command': step.command,
             'params': step.params,
-            'action_type': step.params.get('action_type', 'remote')
+            'action_type': action_type  # Let action executor handle None case
         }
 
         return executor.execute_actions([action])
@@ -551,8 +627,8 @@ class AICentral:
     def analyze_compatibility(self, prompt: str) -> Dict[str, Any]:
         return self.planner.analyze_compatibility(prompt)
 
-    def generate_plan(self, prompt: str, userinterface_name: str) -> AIPlan:
-        return self.planner.generate_plan(prompt, userinterface_name)
+    def generate_plan(self, prompt: str, userinterface_name: str, device_id: str = None) -> AIPlan:
+        return self.planner.generate_plan(prompt, userinterface_name, device_id or self.device_id)
 
     def execute_plan(self, plan: AIPlan, options: ExecutionOptions) -> str:
         if not self.orchestrator:
@@ -590,10 +666,11 @@ class AICentral:
         return self.tracker.get_status(execution_id)
 
     def execute_task(self, prompt: str, userinterface_name: str, options: ExecutionOptions) -> str:
-        plan = self.generate_plan(prompt, userinterface_name)
+        # Generate plan with device context
+        plan = self.generate_plan(prompt, userinterface_name, self.device_id)
         
         # Load context to get tree_id for execution
-        context = self.planner._load_context(userinterface_name)
+        context = self.planner._load_context(userinterface_name, self.device_id)
         tree_id = context.get('tree_id')
         
         # Update execution options with the correct tree_id
