@@ -14,15 +14,6 @@ import time
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 
-# Add project root to path for imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-lib_dir = os.path.dirname(current_dir)
-shared_dir = os.path.dirname(lib_dir)
-project_root = os.path.dirname(shared_dir)
-
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 from .host_utils import get_controller
 from .navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from .navigation_cache import populate_unified_cache
