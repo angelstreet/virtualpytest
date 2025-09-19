@@ -44,9 +44,8 @@ class AIContextService:
         verification_executor = VerificationExecutor(host, device_id, team_id)
         navigation_executor = NavigationExecutor(host, device_id, team_id)
         
-        # Get device model
-        device = get_device_by_id(device_id)
-        device_model = device['device_model']
+        # Get device model from host
+        device_model = host.get_device_by_id(device_id).device_model
         
         print(f"[@ai_context] Loading context for device: {device_id}, model: {device_model}, interface: {userinterface_name}")
         
