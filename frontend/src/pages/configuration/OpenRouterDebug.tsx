@@ -86,7 +86,7 @@ Example response format:
 If task is not possible:
 {"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}
 
-RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:`
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED`
     },
     {
       value: 'legacy_format',
@@ -113,7 +113,7 @@ Example response format:
 If task is not possible:
 {"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}
 
-RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:`
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED`
     },
     {
       value: 'complex_navigation',
@@ -145,7 +145,7 @@ CRITICAL: You MUST include an "analysis" field explaining your reasoning.
 Example response format:
 {"analysis": "Task requires navigating to live fullscreen then changing channel. I'll navigate to live_fullscreen_chup node directly.", "feasible": true, "plan": [{"step": 1, "command": "execute_navigation", "params": {"target_node": "live_fullscreen_chup", "action_type": "navigation"}, "description": "Navigate to live fullscreen and change channel up"}]}
 
-RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:`
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED`
     },
     {
       value: 'custom',

@@ -368,11 +368,13 @@ Example response format:
 If task is not possible:
 {{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
 
-RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED:"""
+RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED"""
 
         # Log the full prompt for debugging (copy-paste ready for OpenRouterDebug)
         print(f"[@ai_central] AI Prompt (length: {len(ai_prompt)} chars):")
+        print("=" * 80)
         print(ai_prompt)
+        print("=" * 80)
 
         result = call_text_ai(
             prompt=ai_prompt,
