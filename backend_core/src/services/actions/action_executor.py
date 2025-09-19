@@ -41,6 +41,9 @@ class ActionExecutor:
         # team_id is required
         self.team_id = team_id
         
+        # Initialize screenshot tracking
+        self.action_screenshots = []
+        
         # Validate host configuration
         if not host or not host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
@@ -239,14 +242,27 @@ class ActionExecutor:
         else:
             error_message = None
         
+        # Calculate total execution time
+        total_execution_time = sum(r.get('execution_time_ms', 0) for r in results)
+        
+        # Record edge execution to database if we have navigation context
+        if self.tree_id and self.edge_id and valid_actions:
+            self._record_edge_execution(
+                success=overall_success,
+                execution_time_ms=total_execution_time,
+                error_details=error_message if not overall_success else None
+            )
+        
         return {
             'success': overall_success,
             'total_count': len(valid_actions),
             'passed_count': passed_count,
             'failed_count': len(valid_actions) - passed_count,
             'results': results,
+            'action_screenshots': self.action_screenshots,  # NEW: Include screenshots
             'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
-            'error': error_message
+            'error': error_message,
+            'execution_time_ms': total_execution_time
         }
     
     def _filter_valid_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -478,6 +494,16 @@ class ActionExecutor:
             successful_iterations = len([r for r in iteration_results if r['success']])
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
+        # ALWAYS capture screenshot - success OR failure
+        screenshot_path = self._capture_action_screenshot_always(action, action_number, {
+            'success': all_iterations_successful,
+            'error': None if all_iterations_successful else f"Failed after {len(iteration_results)} iteration(s)"
+        })
+        
+        if screenshot_path:
+            self.action_screenshots.append(screenshot_path)
+            print(f"[@action_executor] Screenshot captured: {screenshot_path}")
+        
         return {
             'success': all_iterations_successful,
             'message': result_message,
@@ -485,6 +511,7 @@ class ActionExecutor:
             'resultType': 'PASS' if all_iterations_successful else 'FAIL',
             'execution_time_ms': total_execution_time,
             'action_category': action_category,
+            'screenshot_path': screenshot_path,  # Always present
             'iterations': iteration_results if iterator_count > 1 else None
         }
     
@@ -579,4 +606,103 @@ class ActionExecutor:
             )
             
         except Exception as e:
-            print(f"[@lib:action_executor:_record_execution_to_database] Database recording error: {e}") 
+            print(f"[@lib:action_executor:_record_execution_to_database] Database recording error: {e}")
+    
+    def _capture_action_screenshot_always(self, action: Dict[str, Any], action_number: int, result: Dict[str, Any]) -> Optional[str]:
+        """GUARANTEED screenshot capture - never skip"""
+        try:
+            from shared.lib.utils.action_utils import capture_validation_screenshot
+            
+            host_obj = self._get_host_object()
+            device_obj = self._get_device_object()
+            
+            success_status = "success" if result.get('success') else "failure"
+            screenshot_name = f"action_{action_number}_{action.get('command', 'unknown')}_{success_status}"
+            
+            return capture_validation_screenshot(host_obj, device_obj, screenshot_name, "action")
+            
+        except Exception as e:
+            print(f"[@action_executor] Screenshot capture failed: {e}")
+            return self._emergency_screenshot_capture(action_number)
+    
+    def _emergency_screenshot_capture(self, action_number: int) -> Optional[str]:
+        """Emergency screenshot capture using direct host communication"""
+        try:
+            screenshot_name = f"action_{action_number}_emergency"
+            
+            # Direct screenshot capture via host
+            screenshot_response = proxy_to_host_direct(
+                self.host,
+                f"/device/{self.device_id or 'device1'}/screenshot",
+                method="GET"
+            )
+            
+            if screenshot_response.get('success') and screenshot_response.get('screenshot_path'):
+                print(f"[@action_executor] Emergency screenshot captured: {screenshot_name}")
+                return screenshot_response.get('screenshot_path')
+            
+            return None
+            
+        except Exception as e:
+            print(f"[@action_executor] Emergency screenshot failed: {e}")
+            return None
+    
+    def _get_host_object(self):
+        """Convert host dict to object for legacy functions"""
+        # Create mock host object from dict
+        class MockHost:
+            def __init__(self, host_dict):
+                self.host_name = host_dict.get('host_name')
+                self.devices = host_dict.get('devices', [])
+                self.host_url = host_dict.get('host_url', '')
+                self.host_port = host_dict.get('host_port', 0)
+        
+        return MockHost(self.host)
+    
+    def _get_device_object(self):
+        """Get device object from host"""
+        host_obj = self._get_host_object()
+        device_id = self.device_id or 'device1'
+        
+        # Find device in host.devices
+        if hasattr(host_obj, 'devices') and host_obj.devices:
+            for device in host_obj.devices:
+                if hasattr(device, 'device_id') and device.device_id == device_id:
+                    return device
+        
+        # Create mock device if not found
+        class MockDevice:
+            def __init__(self, device_id):
+                self.device_id = device_id
+                self.device_model = 'unknown'
+        
+        return MockDevice(device_id)
+    
+    def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None):
+        """Record edge execution to database (same as old system)"""
+        try:
+            from shared.lib.supabase.execution_results_db import record_edge_execution
+            
+            host_obj = self._get_host_object()
+            device_obj = self._get_device_object()
+            
+            result = record_edge_execution(
+                team_id=self.team_id,
+                tree_id=self.tree_id,
+                edge_id=self.edge_id,
+                host_name=host_obj.host_name,
+                device_model=device_obj.device_model,
+                success=success,
+                execution_time_ms=execution_time_ms,
+                message='Navigation actions completed' if success else 'Navigation actions failed',
+                error_details=error_details,
+                action_set_id=self.action_set_id
+            )
+            
+            if result:
+                print(f"[@action_executor] ✅ Edge execution recorded: {result}")
+            else:
+                print(f"[@action_executor] ❌ Edge execution recording failed")
+                
+        except Exception as e:
+            print(f"[@action_executor] ❌ Edge execution recording error: {e}") 

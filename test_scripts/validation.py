@@ -25,7 +25,7 @@ if project_root not in sys.path:
 
 from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from backend_core.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-from shared.lib.utils.action_utils import execute_navigation_with_verifications
+from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 from datetime import datetime
 import time
 
@@ -63,12 +63,14 @@ def get_node_label_from_id(node_id: str, tree_id: str, team_id: str) -> str:
 def custom_validation_step_handler(context: ScriptExecutionContext, step, step_num):
     """Enhanced validation step handler with force navigation recovery on failure"""
     try:
-        # Attempt normal navigation execution first
-        result = execute_navigation_with_verifications(
-            context.host, context.selected_device, step, context.team_id, 
-            context.tree_id, context.script_result_id, 'validation', 
-            context.global_verification_counter
-        )
+        # Attempt normal navigation execution first using ActionExecutor
+        from backend_core.src.services.actions.action_executor import ActionExecutor
+        actions = step.get('actions', [])
+        if actions:
+            action_executor = ActionExecutor(context.host, context.selected_device.device_id, context.tree_id, step.get('edge_id'), context.team_id)
+            result = action_executor.execute_actions(actions)
+        else:
+            result = {'success': True, 'message': 'No actions to execute'}
         
         # Update global verification counter for next step
         counter_increment = result.get('global_verification_counter_increment', 0)

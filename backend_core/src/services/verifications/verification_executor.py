@@ -333,11 +333,17 @@ class VerificationExecutor:
         try:
             from shared.lib.supabase.execution_results_db import record_node_execution
             
+            # Get device_model from host
+            from shared.lib.utils.build_url_utils import get_device_by_id
+            device_dict = get_device_by_id(self.host, self.device_id or 'device1')
+            device_model = device_dict.get('device_model', 'unknown') if device_dict else 'unknown'
+            
             record_node_execution(
                 team_id=self.team_id,
                 tree_id=self.tree_id,
                 node_id=self.node_id,
                 host_name=self.host.get('host_name'),
+                device_model=device_model,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,

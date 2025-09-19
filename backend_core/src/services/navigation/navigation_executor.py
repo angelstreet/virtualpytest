@@ -37,12 +37,16 @@ class NavigationExecutor:
         self.device_id = device_id
         self.team_id = team_id or get_team_id()
         
+        # Validate host configuration
+        if not host or not host.get('host_name'):
+            raise ValueError("Host configuration with host_name is required")
+        
         # Initialize standardized executors (will be updated with navigation context per execution)
         self.action_executor = None
         self.verification_executor = None
         
         # Validate host configuration
-        if not host or not host.get('host_name'):
+        if not self.host or not self.host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
     
     def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
@@ -165,8 +169,20 @@ class NavigationExecutor:
             
             print(f"[@lib:navigation_execution:execute_navigation] Executing {len(transitions)} transitions with {total_actions} total actions")
             
+            # Initialize step screenshot tracking
+            step_screenshots = []
+            
             for i, transition in enumerate(transitions):
-                print(f"[@lib:navigation_execution:execute_navigation] Executing transition {i+1}/{len(transitions)}: {transition.get('description', 'Unknown')}")
+                step_num = i + 1
+                from_node = transition.get('from_node_label', 'unknown')
+                to_node = transition.get('to_node_label', 'unknown')
+                
+                print(f"[@navigation_executor] Step {step_num}: {from_node} → {to_node}")
+                
+                # ALWAYS capture step-start screenshot
+                step_start_screenshot = self._capture_step_screenshot_always(
+                    f"step_{step_num}_{from_node}_{to_node}_start"
+                )
                 
                 actions = transition.get('actions', [])
                 retry_actions = transition.get('retryActions', [])
@@ -200,7 +216,26 @@ class NavigationExecutor:
                             retry_actions=retry_actions
                         )
                     
-                    if not result.get('success'):
+                    # ALWAYS capture step-end screenshot
+                    success_status = "success" if result.get('success') else "failure"
+                    step_end_screenshot = self._capture_step_screenshot_always(
+                        f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
+                    )
+                    
+                    # Execute per-step verifications (NEW)
+                    step_verifications = transition.get('verifications', [])
+                    verification_result = self._execute_step_verifications(step_verifications, transition.get('to_node_id'))
+                    
+                    # Store step screenshots
+                    step_screenshots.extend([
+                        step_start_screenshot,
+                        step_end_screenshot
+                    ])
+                    
+                    # Check overall step success (actions + verifications)
+                    step_success = result.get('success') and verification_result.get('success', True)
+                    
+                    if not step_success:
                         # Calculate where we actually are: if we're at transition i and it failed,
                         # we're still at the from_node_id of the failed transition
                         # (or at the to_node_id of the previous successful transition)
@@ -232,7 +267,13 @@ class NavigationExecutor:
                             'failed_transition': i + 1,
                             'failed_transition_description': transition_description,
                             'action_results': result.get('results', []),
-                            'failed_actions': result.get('failed_actions', [])
+                            'failed_actions': result.get('failed_actions', []),
+                            'failed_at_step': step_num,
+                            'step_start_screenshot_path': step_start_screenshot,
+                            'step_end_screenshot_path': step_end_screenshot,
+                            'action_screenshots': result.get('action_screenshots', []),
+                            'verification_results': verification_result.get('results', []),
+                            'step_screenshots': step_screenshots
                         }
                     
                     actions_executed += result.get('passed_count', 0)
@@ -309,6 +350,7 @@ class NavigationExecutor:
                 'total_actions': total_actions,
                 'execution_time': execution_time,
                 'verification_results': verification_results,
+                'step_screenshots': step_screenshots,  # NEW: Include step screenshots
                 'navigation_path': [t.get('description', f"Transition {i+1}") for i, t in enumerate(transitions)]
             }
             
@@ -332,6 +374,74 @@ class NavigationExecutor:
                 'total_actions': 0,
                 'execution_time': execution_time
             }
+    
+    def _execute_step_verifications(self, verifications: List[Dict[str, Any]], node_id: str) -> Dict[str, Any]:
+        """Execute verifications for a single step (not just target node)"""
+        if not verifications:
+            return {'success': True, 'results': []}
+        
+        verification_executor = VerificationExecutor(
+            host=self.host,
+            device_id=self.device_id,
+            tree_id=self.tree_id,
+            node_id=node_id,
+            team_id=self.team_id
+        )
+        
+        return verification_executor.execute_verifications(verifications)
+    
+    def _capture_step_screenshot_always(self, screenshot_name: str) -> Optional[str]:
+        """GUARANTEED step screenshot capture with upload"""
+        try:
+            from shared.lib.utils.report_generation import capture_and_upload_screenshot
+            
+            host_obj = self._get_host_object()
+            device_obj = self._get_device_object()
+            
+            screenshot_result = capture_and_upload_screenshot(
+                host_obj, device_obj, screenshot_name, "navigation"
+            )
+            
+            screenshot_path = screenshot_result.get('screenshot_path')
+            if screenshot_path:
+                print(f"📸 [@navigation_executor] Step screenshot captured: {screenshot_name}")
+            
+            return screenshot_path
+            
+        except Exception as e:
+            print(f"[@navigation_executor] Step screenshot failed: {e}")
+            return None
+    
+    def _get_host_object(self):
+        """Convert host dict to object for legacy functions"""
+        # Create mock host object from dict
+        class MockHost:
+            def __init__(self, host_dict):
+                self.host_name = host_dict.get('host_name')
+                self.devices = host_dict.get('devices', [])
+                self.host_url = host_dict.get('host_url', '')
+                self.host_port = host_dict.get('host_port', 0)
+        
+        return MockHost(self.host)
+    
+    def _get_device_object(self):
+        """Get device object from host"""
+        host_obj = self._get_host_object()
+        device_id = self.device_id or 'device1'
+        
+        # Find device in host.devices
+        if hasattr(host_obj, 'devices') and host_obj.devices:
+            for device in host_obj.devices:
+                if hasattr(device, 'device_id') and device.device_id == device_id:
+                    return device
+        
+        # Create mock device if not found
+        class MockDevice:
+            def __init__(self, device_id):
+                self.device_id = device_id
+                self.device_model = 'unknown'
+        
+        return MockDevice(device_id)
     
     def get_navigation_preview(self, 
                              tree_id: str, 

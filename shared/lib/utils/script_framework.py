@@ -38,7 +38,6 @@ from shared.lib.utils.script_execution_utils import (
 )
 from shared.lib.utils.navigation_utils import load_navigation_tree
 from shared.lib.utils.action_utils import (
-    execute_navigation_with_verifications,
     capture_validation_screenshot
 )
 
@@ -366,11 +365,18 @@ class ScriptExecutor:
                     if not result.get('step_start_screenshot_path'):
                         result['step_start_screenshot_path'] = step_start_screenshot
                 else:
-                    result = execute_navigation_with_verifications(
-                        context.host, context.selected_device, step, context.team_id, context.tree_id,
-                        script_result_id=context.script_result_id, script_context='script', 
-                        global_verification_counter=context.global_verification_counter
-                    )
+                    # Use NavigationExecutor for single step execution
+                    from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+                    nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+                    
+                    # Execute actions from the step
+                    actions = step.get('actions', [])
+                    if actions:
+                        from backend_core.src.services.actions.action_executor import ActionExecutor
+                        action_executor = ActionExecutor(context.host, context.selected_device.device_id, context.tree_id, step.get('edge_id'), context.team_id)
+                        result = action_executor.execute_actions(actions)
+                    else:
+                        result = {'success': True, 'message': 'No actions to execute'}
                 
                 # Capture step-end screenshot for ALL steps (custom and navigation)
                 step_end_screenshot = capture_validation_screenshot(
@@ -521,17 +527,11 @@ class ScriptExecutor:
         context.recovery_attempts += 1
         
         try:
-            from shared.lib.utils.navigation_utils import goto_node
+            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             
             recovery_start_time = time.time()
-            result = goto_node(
-                context.host, 
-                context.selected_device, 
-                recovery_target, 
-                context.tree_id, 
-                context.team_id,
-                context
-            )
+            nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+            result = nav_executor.execute_navigation(context.tree_id, recovery_target, context.current_node_id)
             recovery_time = int((time.time() - recovery_start_time) * 1000)
             
             if result.get('success'):

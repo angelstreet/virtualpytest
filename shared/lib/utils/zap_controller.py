@@ -12,8 +12,8 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from .action_utils import execute_edge_actions, capture_validation_screenshot
-from .navigation_utils import goto_node
+from .action_utils import capture_validation_screenshot
+from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 from .host_utils import get_controller
 from .report_utils import capture_and_upload_screenshot
 from .audio_menu_analyzer import analyze_audio_menu
@@ -255,7 +255,7 @@ class ZapController:
             return 40  # Android Mobile: 8 seconds * 5fps = 40 images
         elif 'android_tv' in device_model.lower():
             return 40  # Android TV: 7 seconds * 5fps = 35 images
-         elif 'apple_tv' in device_model.lower():
+        elif 'apple_tv' in device_model.lower():
             return 40  # Apple TV: 7 seconds * 5fps = 35 images
         else:
             return 40  # Default: 8 seconds * 5fps = 40 images
@@ -397,8 +397,11 @@ class ZapController:
             print(f"📸 [ZapController] Step-start screenshot captured: {step_start_screenshot_path}")
             context.add_screenshot(step_start_screenshot_path)
         
-        # Execute action with timing
-        action_result = execute_edge_actions(context.host, context.selected_device, action_edge, team_id=context.team_id)
+        # Execute action with timing using ActionExecutor
+        from backend_core.src.services.actions.action_executor import ActionExecutor
+        action_executor = ActionExecutor(context.host, context.selected_device.device_id, context.team_id)
+        actions = action_edge.get('actions', [])
+        action_result = action_executor.execute_actions(actions)
         end_time = time.time()
         execution_time = int((end_time - start_time) * 1000)
         

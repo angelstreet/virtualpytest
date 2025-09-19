@@ -272,30 +272,6 @@ def get_navigation_transitions(tree_id: str, target_node_id: str, team_id: str, 
     return find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
 
 
-def validate_action_availability(nodes: List[Dict], edges: List[Dict], action_command: str, tree_id: str, team_id: str) -> Tuple[Optional[Dict], Optional[str]]:
-    """
-    Validate that an action is available in the navigation tree
-    Uses unified pathfinding system
-    """
-    try:
-        # This function needs to be updated to work with unified graphs
-        # For now, return a simple validation
-        print(f"[@navigation:pathfinding:validate_action_availability] Validating action '{action_command}' in unified system")
-        
-        # Find edges that contain the action command using action_sets ONLY
-        for edge in edges:
-            action_sets = edge.get('action_sets', [])
-            for action_set in action_sets:
-                actions = action_set.get('actions', [])
-                for action in actions:
-                    if action.get('command') == action_command:
-                        print(f"[@navigation:pathfinding:validate_action_availability] Action '{action_command}' found in edge {edge.get('edge_id')}")
-                        return edge, None
-        
-        return None, f"Action '{action_command}' not found in navigation tree"
-        
-    except Exception as e:
-        return None, f"Error validating action: {str(e)}"
 
 
 def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Dict]:

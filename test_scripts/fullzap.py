@@ -30,10 +30,7 @@ if project_root not in sys.path:
 
 from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from shared.lib.utils.zap_controller import ZapController
-from shared.lib.utils.navigation_utils import (
-    validate_action_availability,
-    goto_node
-)
+from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 from shared.lib.utils.audio_menu_analyzer import analyze_audio_menu
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
@@ -248,7 +245,8 @@ def main():
         nav_success = True
         if args.goto_live:
             print(f"🗺️ [fullzap] Navigating to {target_node} node...")
-            live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
+            nav_executor = NavigationExecutor(context.host, context.selected_device.device_id, context.team_id)
+            live_result = nav_executor.execute_navigation(context.tree_id, target_node, context.current_node_id)
             
             if not live_result.get('success'):
                 context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
