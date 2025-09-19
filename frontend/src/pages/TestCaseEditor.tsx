@@ -35,6 +35,33 @@ import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
+
+// Helper function to get step count for unified dict architecture
+const getStepCount = (testCase: TestCase): number => {
+  // AI-generated test cases use ai_plan.plan array
+  if (testCase.ai_plan?.plan) {
+    return testCase.ai_plan.plan.length;
+  }
+  // Manual test cases use steps array
+  if (testCase.steps) {
+    return testCase.steps.length;
+  }
+  return 0;
+};
+
+// Helper function to get steps for display
+const getStepsForDisplay = (testCase: TestCase): any[] => {
+  // AI-generated test cases use ai_plan.plan array
+  if (testCase.ai_plan?.plan) {
+    return testCase.ai_plan.plan;
+  }
+  // Manual test cases use steps array
+  if (testCase.steps) {
+    return testCase.steps;
+  }
+  return [];
+};
+
 const TestCaseEditor: React.FC = () => {
   // Use registration context for centralized URL management
   const [testCases, setTestCases] = useState<TestCase[]>([]);
@@ -265,7 +292,7 @@ const TestCaseEditor: React.FC = () => {
                       )}
                     </Box>
                   </TableCell>
-                  <TableCell>{testCase.steps.length}</TableCell>
+                  <TableCell>{getStepCount(testCase)}</TableCell>
                   <TableCell>
                     <IconButton 
                       onClick={(e) => {
@@ -387,11 +414,11 @@ const TestCaseEditor: React.FC = () => {
                 <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
                   Actions:
                 </Typography>
-                {selectedTestCase.steps?.length > 0 ? (
+                {getStepsForDisplay(selectedTestCase).length > 0 ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, pl: 2 }}>
-                    {selectedTestCase.steps.map((step, index) => (
+                    {getStepsForDisplay(selectedTestCase).map((step, index) => (
                       <Typography key={index} variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
-                        {index + 1}. {step.target_node}
+                        {index + 1}. {step.target_node || step.description || step.command || 'Unknown step'}
                       </Typography>
                     ))}
                   </Box>

@@ -24,6 +24,7 @@ export interface TestCase {
   // AI-specific fields - clean modern implementation
   creator?: 'ai' | 'manual';
   original_prompt?: string;
+  ai_plan?: any; // Direct AI plan dict from unified architecture
   ai_analysis?: AIAnalysis;
   compatible_devices?: string[];
   compatible_userinterfaces?: string[];
