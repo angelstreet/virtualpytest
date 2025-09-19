@@ -277,12 +277,25 @@ AI_CONFIG = {
 
 ## Monitoring and Logging
 
-### Context Loading
+### Context Loading (First Execution)
 ```
 [@ai_central] Loading context from services for interface: horizon_android_mobile, device: device1
+[@ai_central] Retrieved device model: android_mobile for device: device1
+[@ai_central] Loading fresh action context for model: android_mobile, interface: horizon_android_mobile
 [@action_executor] Loading action context for device: device1, model: android_mobile
+[@ai_central] Loading fresh verification context for model: android_mobile, interface: horizon_android_mobile
 [@verification_executor] Loading verification context for device: device1, model: android_mobile
+[@ai_central] Loading fresh navigation context for model: android_mobile, interface: horizon_android_mobile
 [@navigation_executor] Loading navigation context for interface: horizon_android_mobile
+[@ai_central] Context cached for interface: horizon_android_mobile, device: device1
+```
+
+### Context Loading (Subsequent Executions - Cached)
+```
+[@ai_central] Using cached context for interface: horizon_android_mobile, device: device1
+[@ai_central] Using cached action context for model: android_mobile, interface: horizon_android_mobile
+[@ai_central] Using cached verification context for model: android_mobile, interface: horizon_android_mobile
+[@ai_central] Using cached navigation context for model: android_mobile, interface: horizon_android_mobile
 ```
 
 ### Execution Tracking
@@ -291,28 +304,148 @@ AI_CONFIG = {
   - Actions: 15
   - Verifications: 12
   - Navigation nodes: 8
+[@ai_central] Updated execution context with tree_id: bbf2d95d-72c2-4701-80a7-0b9d131a5c38, device_model: android_mobile, current_node: home
 [@action_executor] Detected action_type: remote
 [@action_executor] Action 1 result: success=true, time=142ms
+[@ai_central] Current node updated to: live
+```
+
+## Recent Enhancements (Implemented)
+
+### 1. **Granular Context Caching System** ✅
+- **Individual service caches**: Separate caches for action, verification, and navigation contexts
+- **Cache keys**: `action:{device_model}:{userinterface_name}`, `verification:{device_model}:{userinterface_name}`, `navigation:{device_model}:{userinterface_name}`
+- **5-minute TTL**: Automatic cache expiration to prevent stale data
+- **Cache management**: Methods to clear specific or all caches
+- **Performance boost**: Eliminates expensive database queries on subsequent executions
+
+```python
+# Individual caching methods
+def _get_cached_action_context(self, action_executor, device_model: str, userinterface_name: str)
+def _get_cached_verification_context(self, verification_executor, device_model: str, userinterface_name: str)  
+def _get_cached_navigation_context(self, navigation_executor, device_model: str, userinterface_name: str)
+
+# Cache management
+def clear_context_cache(self, device_model: str = None, userinterface_name: str = None)
+```
+
+### 2. **Device Model Fix** ✅
+- **Fixed `model: None` issue**: Device model now properly retrieved and passed to all executors
+- **Enhanced logging**: Detailed tracking of device model retrieval process
+- **Error handling**: Graceful handling when device not found
+- **Context propagation**: Device model passed through execution context to all services
+
+### 3. **Current Node Tracking** ✅
+- **Navigation state tracking**: Like the old system, tracks current navigation position
+- **Context integration**: Current node ID passed through execution context
+- **Update method**: `update_current_node(node_id)` for navigation state changes
+- **Execution context**: Current node available to all executors during plan execution
+
+```python
+# Track current node like the old system
+self.current_node_id = None
+
+def update_current_node(self, node_id: str):
+    """Update the current node position for navigation context"""
+    self.current_node_id = node_id
+```
+
+### 4. **AI Prompt Optimization** ✅
+- **Concise format**: Removed verbose duplication in AI prompts
+- **Clear sections**: `Navigation:`, `Action:`, `Verification:` format
+- **Prioritization**: Navigation context always shown first
+- **JSON extraction**: Robust parsing of AI responses with code block handling
+
+```
+Navigation: Nodes label used to navigate in app with navigation function
+['home', 'live', 'replay']
+
+Action: Actions available to control the device
+click_element(remote): Click UI element, press_key(remote): Press keyboard key
+
+Verification: Verification available to check the device
+waitForImageToAppear(verification_image): Wait for image to appear on screen
+```
+
+### 5. **Toast Notification Optimization** ✅
+- **Eliminated duplicate toasts**: Fixed duplicate notifications between useAI hook and components
+- **Unique toast tracking**: Prevents same toast from showing multiple times
+- **Reduced polling noise**: Minimal feedback during AI execution monitoring
+- **Clean user experience**: Only essential state changes generate notifications
+
+```typescript
+// Track unique toasts to prevent duplicates across execution
+const shownToasts = useRef<Set<string>>(new Set());
+
+// Example usage with unique keys
+const planToastKey = `plan-generated-${status.plan.id || 'unknown'}`;
+if (!shownToasts.current.has(planToastKey)) {
+  shownToasts.current.add(planToastKey);
+  toast.showSuccess(`📋 AI plan generated with ${status.plan.steps?.length || 0} steps`);
+}
+```
+
+### 6. **Prompt Template System** ✅
+- **Multiple prompt formats**: Support for different AI prompt templates
+- **Template selector**: Dropdown in OpenRouterDebug page to choose prompt format
+- **AI Central format**: Current optimized format with clear sections
+- **Legacy compatibility**: Support for old prompt formats for comparison
+- **Template management**: Easy switching between prompt styles for testing
+
+```typescript
+const promptTemplates = [
+  {
+    value: 'ai_central_format',
+    label: 'AI Central Format (Current)',
+    template: `You are controlling a TV application...`
+  },
+  {
+    value: 'legacy_format', 
+    label: 'Legacy Format',
+    template: `Task: "{prompt}"...`
+  }
+];
 ```
 
 ## Future Enhancements
 
-### 1. **Context Caching**
-- Cache service contexts to avoid repeated controller queries
-- Invalidate cache when device capabilities change
-
-### 2. **Smart Context Filtering**
+### 1. **Smart Context Filtering**
 - Filter actions based on current UI state
 - Show only relevant commands for current context
 
-### 3. **Learning from Execution**
+### 2. **Learning from Execution**
 - Track successful action patterns
 - Improve context relevance based on execution history
 
-### 4. **Multi-Device Context**
+### 3. **Multi-Device Context**
 - Support context loading for multiple devices
 - Cross-device action coordination
 
 ## Conclusion
 
 The new AI architecture provides a clean, maintainable, and extensible foundation for AI-driven automation. By separating concerns and using service-oriented context loading, the system is more robust, easier to debug, and capable of handling diverse device types and capabilities.
+
+### Key Achievements
+
+**Performance Optimizations:**
+- ✅ **Granular caching system** eliminates expensive database queries on subsequent executions
+- ✅ **5-minute TTL** balances performance with data freshness
+- ✅ **Individual service caches** optimize action, verification, and navigation context loading
+
+**Reliability Improvements:**
+- ✅ **Fixed device model passing** resolves `model: None` issues in executors
+- ✅ **Current node tracking** maintains navigation state like the old system
+- ✅ **Robust JSON extraction** handles AI responses with code blocks and formatting
+
+**User Experience Enhancements:**
+- ✅ **Eliminated duplicate toasts** provides clean feedback without spam
+- ✅ **Optimized AI prompts** with clear sections and prioritization
+- ✅ **Prompt template system** allows testing different AI prompt formats
+
+**System Architecture:**
+- ✅ **Service-oriented design** with clean separation of concerns
+- ✅ **Dynamic action type detection** without hardcoded mappings
+- ✅ **Comprehensive error handling** with graceful degradation
+- ✅ **Enhanced logging** for debugging and monitoring
+
+The system now delivers **high-performance AI automation** with **intelligent caching**, **reliable execution**, and **excellent user experience** while maintaining the flexibility to handle diverse device types and automation scenarios.
