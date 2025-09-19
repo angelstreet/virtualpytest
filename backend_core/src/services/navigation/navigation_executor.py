@@ -26,7 +26,7 @@ class NavigationExecutor:
     
     def __init__(self, host, device, team_id: Optional[str] = None):
         """
-        Initialize NavigationExecutor
+        Initialize NavigationExecutor with all required parameters
         
         Args:
             host: Real host object (same as original goto_node)
@@ -37,20 +37,28 @@ class NavigationExecutor:
         self.device = device
         self.team_id = team_id or get_team_id()
         
-        # Initialize standardized executors (will be updated with navigation context per execution)
-        self.action_executor = None
-        self.verification_executor = None
+        # Extract and validate required parameters - fail fast if missing
+        if not hasattr(device, 'device_id') or not device.device_id:
+            raise ValueError("Device must have a valid device_id")
+        self.device_id = device.device_id
         
-        # Validate host configuration
+        # Extract device_model if available
+        if not hasattr(device, 'device_model') or not device.device_model:
+            raise ValueError("Device must have a valid device_model")
+        self.device_model = device.device_model
+        
+        # Validate host configuration - fail fast if missing
         if not self.host or not self.host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
+        self.host_name = self.host['host_name']
+        
+        print(f"[@navigation_executor] Initialized with host: {self.host_name}, device_id: {self.device_id}, device_model: {self.device_model}, team_id: {self.team_id}")
     
-    def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
+    def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
-        Get available navigation context for AI based on device model and user interface
+        Get available navigation context for AI based on user interface
         
         Args:
-            device_model: Device model (e.g., 'android_mobile', 'android_tv')
             userinterface_name: User interface name for context
             
         Returns:
@@ -62,8 +70,8 @@ class NavigationExecutor:
         if not userinterface_name:
             return {
                 'service_type': 'navigation',
-                'device_id': getattr(self.device, 'device_id', 'device1'),
-                'device_model': device_model,
+                'device_id': self.device_id,
+                'device_model': self.device_model,
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
                 'available_nodes': []
@@ -73,8 +81,8 @@ class NavigationExecutor:
         if not tree_id:
             return {
                 'service_type': 'navigation',
-                'device_id': getattr(self.device, 'device_id', 'device1'),
-                'device_model': device_model,
+                'device_id': self.device_id,
+                'device_model': self.device_model,
                 'userinterface_name': userinterface_name,
                 'tree_id': None,
                 'available_nodes': []
@@ -95,8 +103,8 @@ class NavigationExecutor:
         
         return {
             'service_type': 'navigation',
-            'device_id': getattr(self.device, 'device_id', 'device1'),
-            'device_model': device_model,
+            'device_id': self.device_id,
+            'device_model': self.device_model,
             'userinterface_name': userinterface_name,
             'tree_id': tree_id,
             'available_nodes': available_nodes
@@ -221,7 +229,7 @@ class NavigationExecutor:
                     
                     # Execute per-step verifications (NEW)
                     step_verifications = transition.get('verifications', [])
-                    verification_result = self._execute_step_verifications(step_verifications, transition.get('to_node_id'))
+                    verification_result = self._execute_step_verifications(step_verifications, transition.get('to_node_id'), execution_tree_id)
                     
                     # Store step screenshots
                     step_screenshots.extend([
@@ -289,7 +297,7 @@ class NavigationExecutor:
                 # Initialize verification executor with navigation context
                 verification_executor = VerificationExecutor(
                     host=self.host,
-                    device_id=getattr(self.device, 'device_id', 'device1'),
+                    device_id=self.device_id,
                     tree_id=tree_id,
                     node_id=target_node_id,
                     team_id=self.team_id
@@ -372,15 +380,15 @@ class NavigationExecutor:
                 'execution_time': execution_time
             }
     
-    def _execute_step_verifications(self, verifications: List[Dict[str, Any]], node_id: str) -> Dict[str, Any]:
+    def _execute_step_verifications(self, verifications: List[Dict[str, Any]], node_id: str, tree_id: str) -> Dict[str, Any]:
         """Execute verifications for a single step (not just target node)"""
         if not verifications:
             return {'success': True, 'results': []}
         
         verification_executor = VerificationExecutor(
             host=self.host,
-            device=self.device,
-            tree_id=self.tree_id,
+            device_id=self.device_id,
+            tree_id=tree_id,
             node_id=node_id,
             team_id=self.team_id
         )
