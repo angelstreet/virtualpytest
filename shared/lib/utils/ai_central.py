@@ -46,9 +46,9 @@ class AIContextService:
         print(f"[@ai_context] Loading context for device: {device_id}, model: {device_model}, interface: {userinterface_name}")
         
         # Load context from each service
-        action_context = action_executor.get_available_context(device_model, userinterface_name)
-        verification_context = verification_executor.get_available_context(device_model, userinterface_name)
-        navigation_context = navigation_executor.get_available_context(device_model, userinterface_name)
+        action_context = action_executor.get_available_context(userinterface_name)
+        verification_context = verification_executor.get_available_context(userinterface_name)
+        navigation_context = navigation_executor.get_available_context(userinterface_name)
         
         return {
             'device_model': device_model,

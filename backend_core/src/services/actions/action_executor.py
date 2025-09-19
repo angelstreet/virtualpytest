@@ -21,35 +21,51 @@ class ActionExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, host, device, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
+    def __init__(self, host: Dict[str, Any], device_id: str, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
         """
         Initialize ActionExecutor
         
         Args:
-            host: Real host object (same as original goto_node)
-            device: Real device object (same as original goto_node)
+            host: Host configuration dict with host_name, devices, etc.
+            device_id: Device ID string
             tree_id: Tree ID for navigation context
             edge_id: Edge ID for navigation context
             team_id: Team ID for database context
         """
         self.host = host
-        self.device = device
+        self.device_id = device_id
         self.tree_id = tree_id
         self.edge_id = edge_id
         self.action_set_id = action_set_id
-        
-        # team_id is required
         self.team_id = team_id
+        
+        # Validate required parameters - fail fast if missing
+        if not device_id:
+            raise ValueError("Device ID is required")
+        
+        # Validate host configuration - fail fast if missing
+        if not self.host or not self.host.get('host_name'):
+            raise ValueError("Host configuration with host_name is required")
+        self.host_name = self.host['host_name']
+        
+        # Extract device_model from host configuration
+        from shared.lib.utils.build_url_utils import get_device_by_id
+        device_dict = get_device_by_id(host, device_id)
+        if not device_dict:
+            raise ValueError(f"Device {device_id} not found in host")
+        
+        self.device_model = device_dict.get('device_model')
+        if not self.device_model:
+            raise ValueError(f"Device {device_id} has no device_model")
         
         # Initialize screenshot tracking
         self.action_screenshots = []
     
-    def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
+    def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
-        Get available action context for AI based on device model and user interface
+        Get available action context for AI based on user interface
         
         Args:
-            device_model: Device model (e.g., 'android_mobile', 'android_tv')
             userinterface_name: User interface name for context
             
         Returns:
@@ -59,9 +75,9 @@ class ActionExecutor:
             from shared.lib.utils.host_utils import get_device_by_id, get_controller
             
             device_actions = []
-            device_id = getattr(self.device, 'device_id', 'device1')
+            device_id = self.device_id
             
-            print(f"[@action_executor] Loading action context for device: {device_id}, model: {device_model}")
+            print(f"[@action_executor] Loading action context for device: {device_id}, model: {self.device_model}")
             
             device = get_device_by_id(device_id)
             if device:
@@ -109,7 +125,7 @@ class ActionExecutor:
             print(f"[@action_executor] Error loading action context: {e}")
             return {
                 'service_type': 'actions',
-                'device_id': getattr(self.device, 'device_id', 'device1'),
+                'device_id': self.device_id,
                 'device_model': device_model,
                 'userinterface_name': userinterface_name,
                 'available_actions': []
@@ -340,7 +356,7 @@ class ActionExecutor:
                             'command': action.get('command'),
                             'params': params
                         },
-                        'device_id': getattr(self.device, 'device_id', 'device1')
+                        'device_id': self.device_id
                     }
                 elif action_type == 'web':
                     # Route to web endpoint
@@ -359,7 +375,7 @@ class ActionExecutor:
                     request_data = {
                         'command': action.get('command'),
                         'params': web_params,
-                        'device_id': getattr(self.device, 'device_id', 'device1')
+                        'device_id': self.device_id
                     }
                 elif action_type == 'desktop':
                     # Intelligent routing to correct desktop controller
@@ -381,7 +397,7 @@ class ActionExecutor:
                     request_data = {
                         'command': action.get('command'),
                         'params': params,
-                        'device_id': getattr(self.device, 'device_id', 'device1')
+                        'device_id': self.device_id
                     }
                 else:
                     # Route to remote endpoint (default behavior for remote actions)
@@ -391,7 +407,7 @@ class ActionExecutor:
                     request_data = {
                         'command': action.get('command'),
                         'params': params,
-                        'device_id': getattr(self.device, 'device_id', 'device1')
+                        'device_id': self.device_id
                     }
                 
                 # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
@@ -516,14 +532,14 @@ class ActionExecutor:
         try:
             from shared.lib.utils.host_utils import get_device_by_id, get_controller
             
-            device = get_device_by_id(getattr(self.device, 'device_id', 'device1'))
+            device = get_device_by_id(self.device_id)
             if not device:
                 return 'remote'
             
             # Check each controller type in priority order
             for controller_type in ['remote', 'web', 'desktop', 'av', 'power']:
                 try:
-                    controller = get_controller(getattr(self.device, 'device_id', 'device1'), controller_type)
+                    controller = get_controller(self.device_id, controller_type)
                     if controller and hasattr(controller, 'get_available_actions'):
                         actions = controller.get_available_actions()
                         if self._command_exists_in_actions(command, actions):
@@ -534,7 +550,7 @@ class ActionExecutor:
             # Check verification controllers
             for v_type in ['image', 'text', 'adb', 'appium', 'video', 'audio']:
                 try:
-                    controller = get_controller(getattr(self.device, 'device_id', 'device1'), f'verification_{v_type}')
+                    controller = get_controller(self.device_id, f'verification_{v_type}')
                     if controller and hasattr(controller, 'get_available_verifications'):
                         verifications = controller.get_available_verifications()
                         if self._command_exists_in_actions(command, verifications):
@@ -565,7 +581,7 @@ class ActionExecutor:
         try:
             # Get device configuration from host
             devices = self.host.get('devices', [])
-            device_id = getattr(self.device, 'device_id', 'device1')
+            device_id = self.device_id
             
             for device in devices:
                 if device.get('device_id') == device_id:
@@ -612,7 +628,7 @@ class ActionExecutor:
             
             # Use real host and device objects directly
             host_name = getattr(self.host, 'host_name', 'unknown')
-            device_model = getattr(self.device, 'device_model', 'unknown')
+            device_model = self.device_model
             
             result = record_edge_execution(
                 team_id=self.team_id,

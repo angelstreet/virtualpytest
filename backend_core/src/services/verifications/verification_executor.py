@@ -20,13 +20,13 @@ class VerificationExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, host: Dict[str, Any], device_id: Optional[str] = None, tree_id: str = None, node_id: str = None, team_id: str = None):
+    def __init__(self, host: Dict[str, Any], device_id: str, tree_id: str = None, node_id: str = None, team_id: str = None):
         """
         Initialize VerificationExecutor
         
         Args:
             host: Host configuration dict with host_name, devices, etc.
-            device_id: Optional device ID for multi-device hosts
+            device_id: Device ID string
             tree_id: Tree ID for navigation context
             node_id: Node ID for navigation context
             team_id: Team ID for database context
@@ -35,20 +35,32 @@ class VerificationExecutor:
         self.device_id = device_id
         self.tree_id = tree_id
         self.node_id = node_id
-        
-        # team_id is required
         self.team_id = team_id
         
-        # Validate host configuration
+        # Validate required parameters - fail fast if missing
+        if not device_id:
+            raise ValueError("Device ID is required")
+        
+        # Validate host configuration - fail fast if missing
         if not host or not host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
+        self.host_name = host['host_name']
+        
+        # Extract device_model from host configuration
+        from shared.lib.utils.build_url_utils import get_device_by_id
+        device_dict = get_device_by_id(host, device_id)
+        if not device_dict:
+            raise ValueError(f"Device {device_id} not found in host")
+        
+        self.device_model = device_dict.get('device_model')
+        if not self.device_model:
+            raise ValueError(f"Device {device_id} has no device_model")
     
-    def get_available_context(self, device_model: str = None, userinterface_name: str = None) -> Dict[str, Any]:
+    def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
-        Get available verification context for AI based on device model and user interface
+        Get available verification context for AI based on user interface
         
         Args:
-            device_model: Device model (e.g., 'android_mobile', 'android_tv')
             userinterface_name: User interface name for context
             
         Returns:
@@ -58,17 +70,16 @@ class VerificationExecutor:
             from shared.lib.utils.host_utils import get_device_by_id, get_controller
             
             device_verifications = []
-            device_id = self.device_id or 'device1'
             
-            print(f"[@verification_executor] Loading verification context for device: {device_id}, model: {device_model}")
+            print(f"[@verification_executor] Loading verification context for device: {self.device_id}, model: {self.device_model}")
             
-            device = get_device_by_id(device_id)
+            device = get_device_by_id(self.device_id)
             if device:
                 # Get verification actions from verification controllers
                 verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
                 for v_type in verification_types:
                     try:
-                        controller = get_controller(device_id, f'verification_{v_type}')
+                        controller = get_controller(self.device_id, f'verification_{v_type}')
                         if controller and hasattr(controller, 'get_available_verifications'):
                             verifications = controller.get_available_verifications()
                             if isinstance(verifications, list):
@@ -87,8 +98,8 @@ class VerificationExecutor:
             
             return {
                 'service_type': 'verifications',
-                'device_id': device_id,
-                'device_model': device_model,
+                'device_id': self.device_id,
+                'device_model': self.device_model,
                 'userinterface_name': userinterface_name,
                 'available_verifications': device_verifications
             }
@@ -97,8 +108,8 @@ class VerificationExecutor:
             print(f"[@verification_executor] Error loading verification context: {e}")
             return {
                 'service_type': 'verifications',
-                'device_id': self.device_id or 'device1',
-                'device_model': device_model,
+                'device_id': self.device_id,
+                'device_model': self.device_model,
                 'userinterface_name': userinterface_name,
                 'available_verifications': []
             }
@@ -245,7 +256,7 @@ class VerificationExecutor:
             individual_request = {
                 'verification': verification,
                 'image_source_url': image_source_url,
-                'device_id': self.device_id or 'device1'  # Include device_id in request
+                'device_id': self.device_id
             }
             
             # Dispatch to appropriate host endpoint based on verification type using direct host info (no Flask context needed)
@@ -333,10 +344,8 @@ class VerificationExecutor:
         try:
             from shared.lib.supabase.execution_results_db import record_node_execution
             
-            # Get device_model from host
-            from shared.lib.utils.build_url_utils import get_device_by_id
-            device_dict = get_device_by_id(self.host, self.device_id or 'device1')
-            device_model = device_dict.get('device_model', 'unknown') if device_dict else 'unknown'
+            # Use pre-extracted device_model
+            device_model = self.device_model
             
             record_node_execution(
                 team_id=self.team_id,

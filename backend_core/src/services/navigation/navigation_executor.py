@@ -24,33 +24,38 @@ class NavigationExecutor:
     to provide complete navigation functionality.
     """
     
-    def __init__(self, host, device, team_id: Optional[str] = None):
+    def __init__(self, host: Dict[str, Any], device_id: str, team_id: Optional[str] = None):
         """
         Initialize NavigationExecutor with all required parameters
         
         Args:
-            host: Real host object (same as original goto_node)
-            device: Real device object (same as original goto_node)
+            host: Host configuration dict with host_name, devices, etc.
+            device_id: Device ID string
             team_id: Optional team ID, defaults to system team ID
         """
         self.host = host
-        self.device = device
+        self.device_id = device_id
         self.team_id = team_id or get_team_id()
         
-        # Extract and validate required parameters - fail fast if missing
-        if not hasattr(device, 'device_id') or not device.device_id:
-            raise ValueError("Device must have a valid device_id")
-        self.device_id = device.device_id
-        
-        # Extract device_model if available
-        if not hasattr(device, 'device_model') or not device.device_model:
-            raise ValueError("Device must have a valid device_model")
-        self.device_model = device.device_model
+        # Validate required parameters - fail fast if missing
+        if not device_id:
+            raise ValueError("Device ID is required")
         
         # Validate host configuration - fail fast if missing
         if not self.host or not self.host.get('host_name'):
             raise ValueError("Host configuration with host_name is required")
         self.host_name = self.host['host_name']
+        
+        # Extract device_model from host configuration
+        from shared.lib.utils.build_url_utils import get_device_by_id
+        device_dict = get_device_by_id(host, device_id)
+        if not device_dict:
+            raise ValueError(f"Device {device_id} not found in host")
+        
+        self.device_model = device_dict.get('device_model')
+        if not self.device_model:
+            raise ValueError(f"Device {device_id} has no device_model")
+        
         
         print(f"[@navigation_executor] Initialized with host: {self.host_name}, device_id: {self.device_id}, device_model: {self.device_model}, team_id: {self.team_id}")
     
@@ -185,8 +190,15 @@ class NavigationExecutor:
                 
                 # ALWAYS capture step-start screenshot
                 from shared.lib.utils.action_utils import take_screenshot
+                
+                # Create simple device object for screenshot function
+                class DeviceForScreenshot:
+                    def __init__(self, device_id: str):
+                        self.device_id = device_id
+                
+                device_obj = DeviceForScreenshot(self.device_id)
                 step_start_screenshot = take_screenshot(
-                    self.host, self.device, f"step_{step_num}_{from_node}_{to_node}_start"
+                    self.host, device_obj, f"step_{step_num}_{from_node}_{to_node}_start"
                 )
                 
                 actions = transition.get('actions', [])
@@ -205,7 +217,7 @@ class NavigationExecutor:
                     
                     action_executor = ActionExecutor(
                         host=self.host,
-                        device=self.device,
+                        device_id=self.device_id,
                         tree_id=execution_tree_id,
                         edge_id=edge_id,
                         team_id=self.team_id
@@ -224,7 +236,7 @@ class NavigationExecutor:
                     # ALWAYS capture step-end screenshot
                     success_status = "success" if result.get('success') else "failure"
                     step_end_screenshot = take_screenshot(
-                        self.host, self.device, f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
+                        self.host, device_obj, f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
                     )
                     
                     # Execute per-step verifications (NEW)
