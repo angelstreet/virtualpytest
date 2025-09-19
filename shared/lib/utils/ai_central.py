@@ -102,6 +102,10 @@ class AIPlanGenerator:
         cached_context = self._get_cached_context(context)
         ai_response = self._call_ai(prompt, cached_context)
         
+        # Transform plan structure for frontend compatibility
+        if 'plan' in ai_response:
+            ai_response['steps'] = ai_response.pop('plan')  # Rename 'plan' to 'steps'
+        
         # Add metadata to AI response and return dict directly
         import uuid
         ai_response['id'] = str(uuid.uuid4())
@@ -298,7 +302,7 @@ class AITracker:
         }
         
         # Plan generation log entry
-        plan_steps = plan_dict.get('plan', [])
+        plan_steps = plan_dict.get('steps', [])
         plan_log_entry = {
             'timestamp': time.time(),
             'log_type': 'ai_plan',
@@ -315,6 +319,32 @@ class AITracker:
         
         cls._executions[execution_id]['execution_log'] = [plan_log_entry]
         print(f"[@ai_tracker] Started execution {execution_id} with plan, total tracked: {len(cls._executions)}")
+    
+    @classmethod
+    def update_step_progress(cls, execution_id: str, step_number: int, step_result: Dict[str, Any]):
+        """Update step progress in real-time"""
+        if execution_id in cls._executions:
+            execution = cls._executions[execution_id]
+            execution['current_step'] = step_number
+            execution['step_results'].append(step_result)
+            
+            # Add step log entry
+            step_log_entry = {
+                'timestamp': time.time(),
+                'log_type': 'execution',
+                'action_type': 'step_success' if step_result.get('success') else 'step_failed',
+                'data': {
+                    'step': step_number,
+                    'duration': step_result.get('execution_time_ms', 0) / 1000.0
+                },
+                'description': step_result.get('message', '')
+            }
+            
+            if 'execution_log' not in execution:
+                execution['execution_log'] = []
+            execution['execution_log'].append(step_log_entry)
+            
+            print(f"[@ai_tracker] Step {step_number} {'completed' if step_result.get('success') else 'failed'} for execution {execution_id}")
     
     @classmethod
     def complete_execution(cls, execution_id: str, result: ExecutionResult):
@@ -367,8 +397,8 @@ class AITracker:
             execution_log = [cls._step_to_log_entry(r) for r in execution['step_results']]
         
         # Progress calculation using dict
-        plan_steps = plan.get('plan', [])
-        completed_steps = len([r for r in execution['step_results'] if r.get('success') or not r.get('success')])
+        plan_steps = plan.get('steps', [])
+        completed_steps = len([r for r in execution['step_results'] if r.get('success')])
         progress_percentage = (completed_steps / len(plan_steps)) * 100 if plan_steps else 0
         
         # Current step description
@@ -537,10 +567,14 @@ class AISession:
         start_time = time.time()
         step_results = []
         
-        plan_steps = plan_dict.get('plan', [])
-        for step_data in plan_steps:
+        plan_steps = plan_dict.get('steps', [])
+        for i, step_data in enumerate(plan_steps):
+            step_number = step_data.get('step', i + 1)
             step_result = self._execute_step_dict(step_data, context)
             step_results.append(step_result)
+            
+            # Update real-time step progress
+            AITracker.update_step_progress(self.execution_id, step_number, step_result)
             
             # Stop on first error logic
             if not step_result.get('success'):
