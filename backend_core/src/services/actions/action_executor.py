@@ -507,10 +507,13 @@ class ActionExecutor:
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
         # ALWAYS capture screenshot - success OR failure
-        from shared.lib.utils.action_utils import take_screenshot
-        success_status = "success" if all_iterations_successful else "failure"
-        screenshot_name = f"action_{action_number}_{action.get('command', 'unknown')}_{success_status}"
-        screenshot_path = take_screenshot(self.host, self.device, screenshot_name)
+        from shared.lib.utils.host_utils import get_controller
+        try:
+            av_controller = get_controller(self.device_id, 'av')
+            screenshot_path = av_controller.take_screenshot()
+        except Exception as e:
+            print(f"[@action_executor] Screenshot failed: {e}")
+            screenshot_path = ""
         
         if screenshot_path:
             self.action_screenshots.append(screenshot_path)

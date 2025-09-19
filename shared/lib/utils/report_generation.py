@@ -43,8 +43,13 @@ def capture_and_upload_screenshot(host, device, step_name: str, script_context: 
     
     try:
         # 1. Capture screenshot locally
-        from .action_utils import take_screenshot
-        screenshot_path = take_screenshot(host, device, step_name)
+        from .host_utils import get_controller
+        try:
+            av_controller = get_controller(device.device_id, 'av')
+            screenshot_path = av_controller.take_screenshot()
+        except Exception as e:
+            print(f"[@report_generation] Screenshot failed: {e}")
+            screenshot_path = ""
         result['screenshot_path'] = screenshot_path
         
         if screenshot_path:

@@ -436,22 +436,3 @@ def execute_verification_directly(host, device, verification: Dict[str, Any]) ->
         return {'success': False, 'error': f'Verification execution error: {str(e)}'}
 
 
-def take_screenshot(host, device, name: str) -> str:
-    """
-    Take a screenshot. That's it.
-    
-    Args:
-        host: Host instance
-        device: Device object  
-        name: Screenshot name
-        
-    Returns:
-        Local path to screenshot or empty string if failed
-    """
-    try:
-        av_controller = get_controller(device.device_id, 'av')
-        screenshot_path = av_controller.take_screenshot()
-        return screenshot_path or ""
-    except Exception as e:
-        print(f"[@action_utils] Screenshot failed: {e}")
-        return ""

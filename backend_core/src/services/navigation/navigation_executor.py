@@ -189,17 +189,13 @@ class NavigationExecutor:
                 print(f"[@navigation_executor] Step {step_num}: {from_node} → {to_node}")
                 
                 # ALWAYS capture step-start screenshot
-                from shared.lib.utils.action_utils import take_screenshot
-                
-                # Create simple device object for screenshot function
-                class DeviceForScreenshot:
-                    def __init__(self, device_id: str):
-                        self.device_id = device_id
-                
-                device_obj = DeviceForScreenshot(self.device_id)
-                step_start_screenshot = take_screenshot(
-                    self.host, device_obj, f"step_{step_num}_{from_node}_{to_node}_start"
-                )
+                from shared.lib.utils.host_utils import get_controller
+                try:
+                    av_controller = get_controller(self.device_id, 'av')
+                    step_start_screenshot = av_controller.take_screenshot()
+                except Exception as e:
+                    print(f"[@navigation_executor] Screenshot failed: {e}")
+                    step_start_screenshot = ""
                 
                 actions = transition.get('actions', [])
                 retry_actions = transition.get('retryActions', [])
@@ -234,10 +230,12 @@ class NavigationExecutor:
                         )
                     
                     # ALWAYS capture step-end screenshot
-                    success_status = "success" if result.get('success') else "failure"
-                    step_end_screenshot = take_screenshot(
-                        self.host, device_obj, f"step_{step_num}_{from_node}_{to_node}_end_{success_status}"
-                    )
+                    try:
+                        av_controller = get_controller(self.device_id, 'av')
+                        step_end_screenshot = av_controller.take_screenshot()
+                    except Exception as e:
+                        print(f"[@navigation_executor] Screenshot failed: {e}")
+                        step_end_screenshot = ""
                     
                     # Execute per-step verifications (NEW)
                     step_verifications = transition.get('verifications', [])

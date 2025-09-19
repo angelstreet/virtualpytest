@@ -37,9 +37,6 @@ from shared.lib.utils.script_execution_utils import (
     release_device_control
 )
 from shared.lib.utils.navigation_utils import load_navigation_tree
-from shared.lib.utils.action_utils import (
-    take_screenshot
-)
 
 from shared.lib.utils.navigation_cache import populate_cache
 from shared.lib.utils.report_utils import generate_and_upload_script_report
@@ -240,9 +237,13 @@ class ScriptExecutor:
             
             # 5. Capture initial screenshot
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
-            initial_screenshot = take_screenshot(
-                context.host, context.selected_device, "initial_state"
-            )
+            from shared.lib.utils.host_utils import get_controller
+            try:
+                av_controller = get_controller(context.selected_device.device_id, 'av')
+                initial_screenshot = av_controller.take_screenshot()
+            except Exception as e:
+                print(f"[@script_framework] Screenshot failed: {e}")
+                initial_screenshot = ""
             context.add_screenshot(initial_screenshot)
             
             if initial_screenshot:
@@ -354,9 +355,12 @@ class ScriptExecutor:
                 
                 # Capture step-start screenshot for ALL steps (custom and navigation)
                 step_name = f"step_{step_num}_{from_node}_{to_node}"
-                step_start_screenshot = take_screenshot(
-                    context.host, context.selected_device, f"{step_name}_start"
-                )
+                try:
+                    av_controller = get_controller(context.selected_device.device_id, 'av')
+                    step_start_screenshot = av_controller.take_screenshot()
+                except Exception as e:
+                    print(f"[@script_framework] Screenshot failed: {e}")
+                    step_start_screenshot = ""
                 
                 # Use custom handler if provided, otherwise use default navigation
                 if custom_step_handler:
@@ -375,9 +379,12 @@ class ScriptExecutor:
                         result = {'success': True, 'message': 'No actions to execute'}
                 
                 # Capture step-end screenshot for ALL steps (custom and navigation)
-                step_end_screenshot = take_screenshot(
-                    context.host, context.selected_device, f"{step_name}_end"
-                )
+                try:
+                    av_controller = get_controller(context.selected_device.device_id, 'av')
+                    step_end_screenshot = av_controller.take_screenshot()
+                except Exception as e:
+                    print(f"[@script_framework] Screenshot failed: {e}")
+                    step_end_screenshot = ""
                 if not result.get('step_end_screenshot_path'):
                     result['step_end_screenshot_path'] = step_end_screenshot
                 
@@ -557,9 +564,12 @@ class ScriptExecutor:
             # Capture final screenshot
             print(f"[@script_framework:generate_final_report] DEBUG: Step 1 - Capturing final screenshot...")
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
-            final_screenshot = take_screenshot(
-                context.host, context.selected_device, "final_state"
-            )
+            try:
+                av_controller = get_controller(context.selected_device.device_id, 'av')
+                final_screenshot = av_controller.take_screenshot()
+            except Exception as e:
+                print(f"[@script_framework] Screenshot failed: {e}")
+                final_screenshot = ""
             context.add_screenshot(final_screenshot)
             
             if final_screenshot:
