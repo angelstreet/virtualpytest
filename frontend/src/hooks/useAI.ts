@@ -124,6 +124,41 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     };
   }, [executionStatus?.execution_log, currentPlan?.steps, isExecuting]);
 
+  // Process plan steps with execution status for UI display
+  const processedSteps = useMemo(() => {
+    if (!currentPlan?.steps || !executionStatus?.execution_log) return [];
+
+    const executionLog = executionStatus.execution_log;
+    const currentStepText = executionStatus?.current_step || '';
+
+    return currentPlan.steps.map((step: any, index: number) => {
+      const stepNumber = parseInt(step.step) || index + 1;
+      const completedEntry = executionLog.find(entry => 
+        entry.action_type === 'step_success' && entry.data?.step === stepNumber
+      );
+      const failedEntry = executionLog.find(entry => 
+        entry.action_type === 'step_failed' && entry.data?.step === stepNumber
+      );
+      const isCurrent = currentStepText && currentStepText.includes(`Step ${stepNumber}`);
+      
+      let status: 'pending' | 'current' | 'completed' | 'failed';
+      if (completedEntry) status = 'completed';
+      else if (failedEntry) status = 'failed';
+      else if (isCurrent) status = 'current';
+      else status = 'pending';
+
+      return {
+        ...step,
+        stepNumber,
+        status,
+        completedEntry,
+        failedEntry,
+        isCurrent,
+        duration: completedEntry?.data?.duration || failedEntry?.data?.duration
+      };
+    });
+  }, [currentPlan?.steps, executionStatus?.execution_log, executionStatus?.current_step]);
+
   const analyzeCompatibility = useCallback(async (prompt: string) => {
     try {
       const response = await fetch(buildServerUrl('/server/ai/analyzeCompatibility'), {
@@ -365,6 +400,9 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     currentStep: executionStatus?.current_step || '',
     progressPercentage: executionStatus?.progress_percentage || 0,
     isPlanFeasible: currentPlan?.feasible !== false,
+
+    // Processed data for UI components
+    processedSteps,
 
     // Actions
     analyzeCompatibility,

@@ -122,7 +122,9 @@ const RecHostStreamModalContent: React.FC<{
     executionLog,
     currentStep,
     progressPercentage,
-    isPlanFeasible
+    isPlanFeasible,
+    // Processed data for UI
+    processedSteps
   } = useAI({
     host,
     device: device!,
@@ -1115,26 +1117,17 @@ const RecHostStreamModalContent: React.FC<{
                             Execution Plan ({aiPlan.steps.length} steps):
                           </Typography>
                           
-                          {aiPlan.steps.map((step: any, index: number) => {
-                            const stepNumber = step.step || index + 1;
-                            const completedEntry = executionLog.find(entry => 
-                              entry.action_type === 'step_success' && entry.data?.step === stepNumber
-                            );
-                            const failedEntry = executionLog.find(entry => 
-                              entry.action_type === 'step_failed' && entry.data?.step === stepNumber
-                            );
-                            const isCurrent = currentStep && currentStep.includes(`Step ${stepNumber}`);
-                            
+                          {processedSteps.map((step: any, index: number) => {
                             let statusIcon, bgColor, borderColor;
-                            if (completedEntry) {
+                            if (step.status === 'completed') {
                               statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />;
                               bgColor = 'rgba(76,175,80,0.1)';
                               borderColor = 'rgba(76,175,80,0.3)';
-                            } else if (failedEntry) {
+                            } else if (step.status === 'failed') {
                               statusIcon = <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f44336' }} />;
                               bgColor = 'rgba(244,67,54,0.1)';
                               borderColor = 'rgba(244,67,54,0.3)';
-                            } else if (isCurrent) {
+                            } else if (step.status === 'current') {
                               statusIcon = <CircularProgress size={12} sx={{ color: '#2196f3' }} />;
                               bgColor = 'rgba(33,150,243,0.1)';
                               borderColor = 'rgba(33,150,243,0.3)';
@@ -1143,8 +1136,6 @@ const RecHostStreamModalContent: React.FC<{
                               bgColor = 'rgba(255,255,255,0.05)';
                               borderColor = 'transparent';
                             }
-                            
-                            const duration = completedEntry?.data?.duration || failedEntry?.data?.duration;
                             
                             return (
                               <Box
@@ -1160,8 +1151,8 @@ const RecHostStreamModalContent: React.FC<{
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                                   {statusIcon}
                                   <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                                    {stepNumber}. {step.description}
-                                    {duration && ` (${duration.toFixed(1)}s)`}
+                                    {step.stepNumber}. {step.description}
+                                    {step.duration && ` (${step.duration.toFixed(1)}s)`}
                                   </Typography>
                                 </Box>
                                 <Typography variant="caption" sx={{ color: '#aaa', display: 'block', ml: 2 }}>
