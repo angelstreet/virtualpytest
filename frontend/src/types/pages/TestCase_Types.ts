@@ -3,7 +3,7 @@ export interface TestCase {
   name: string;
   test_type: 'functional' | 'performance' | 'endurance' | 'robustness';
   start_node: string;
-  steps: {
+  steps?: {
     target_node: string;
     verify: {
       type: 'single' | 'compound';

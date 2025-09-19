@@ -129,7 +129,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               ai_plan: result.ai_plan,  // Store complete AIPlan
               userinterface_name: interfaceName,
               feasible: result.ai_plan.feasible,
-              creator: 'ai',  // Mark as AI-generated
+              creator: 'ai' as const,  // Mark as AI-generated
               compatible_userinterfaces: [interfaceName]  // Track compatible interfaces
             });
           }
