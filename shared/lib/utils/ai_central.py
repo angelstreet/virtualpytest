@@ -77,6 +77,12 @@ class ExecutionResult:
 class AIPlanGenerator:
     def __init__(self, team_id: str):
         self.team_id = team_id
+        # Context caching to avoid repeated expensive operations
+        self._context_cache = {}
+        self._action_cache = {}
+        self._verification_cache = {}
+        self._navigation_cache = {}
+        self._cache_ttl = 300  # 5 minutes cache TTL
 
     def generate_plan(self, prompt: str, userinterface_name: str, device_id: str = None) -> AIPlan:
         context = self._load_context(userinterface_name, device_id)
@@ -115,6 +121,18 @@ class AIPlanGenerator:
 
     def _load_context(self, userinterface_name: str, device_id: str = None) -> Dict[str, Any]:
         """Load context for AI planning by asking services for their available context"""
+        import time
+        
+        # Check cache first
+        cache_key = f"{userinterface_name}:{device_id}"
+        current_time = time.time()
+        
+        if cache_key in self._context_cache:
+            cached_data, cache_time = self._context_cache[cache_key]
+            if current_time - cache_time < self._cache_ttl:
+                print(f"[@ai_central] Using cached context for interface: {userinterface_name}, device: {device_id}")
+                return cached_data
+        
         try:
             from shared.lib.utils.host_utils import get_device_by_id
             from backend_core.src.services.actions.action_executor import ActionExecutor
@@ -129,6 +147,11 @@ class AIPlanGenerator:
                 device = get_device_by_id(device_id)
                 if device:
                     device_model = device.get('device_model', 'unknown')
+                    print(f"[@ai_central] Retrieved device model: {device_model} for device: {device_id}")
+                else:
+                    print(f"[@ai_central] Warning: Device not found for device_id: {device_id}")
+            else:
+                print(f"[@ai_central] Warning: No device_id provided for context loading")
             
             # Initialize service executors with minimal host info for context loading
             host_info = {'host_name': 'context_loading'}
@@ -138,10 +161,10 @@ class AIPlanGenerator:
             verification_executor = VerificationExecutor(host=host_info, device_id=device_id, team_id=self.team_id)
             navigation_executor = NavigationExecutor(host=host_info, device_id=device_id, team_id=self.team_id)
             
-            # Load context from each service
-            action_context = action_executor.get_available_context(device_model, userinterface_name)
-            verification_context = verification_executor.get_available_context(device_model, userinterface_name)
-            navigation_context = navigation_executor.get_available_context(device_model, userinterface_name)
+            # Load context from each service with individual caching
+            action_context = self._get_cached_action_context(action_executor, device_model, userinterface_name)
+            verification_context = self._get_cached_verification_context(verification_executor, device_model, userinterface_name)
+            navigation_context = self._get_cached_navigation_context(navigation_executor, device_model, userinterface_name)
             
             # Separate contexts for clean AI prioritization
             available_actions = action_context.get('available_actions', [])
@@ -166,7 +189,8 @@ class AIPlanGenerator:
                 except Exception as e:
                     print(f"[@ai_central] Error checking navigation cache: {e}")
             
-            return {
+            # Create context result
+            context_result = {
                 'userinterface_name': userinterface_name,
                 'tree_id': tree_id,
                 'available_nodes': available_nodes,
@@ -175,6 +199,12 @@ class AIPlanGenerator:
                 'device_id': device_id,
                 'device_model': device_model
             }
+            
+            # Cache the result
+            self._context_cache[cache_key] = (context_result, current_time)
+            print(f"[@ai_central] Context cached for interface: {userinterface_name}, device: {device_id}")
+            
+            return context_result
             
         except Exception as e:
             print(f"[@ai_central] Error loading context from services: {e}")
@@ -187,6 +217,83 @@ class AIPlanGenerator:
                 'device_id': device_id,
                 'device_model': None
             }
+
+    def _get_cached_action_context(self, action_executor, device_model: str, userinterface_name: str) -> Dict[str, Any]:
+        """Get action context with caching per device_model/userinterface"""
+        import time
+        
+        cache_key = f"action:{device_model}:{userinterface_name}"
+        current_time = time.time()
+        
+        if cache_key in self._action_cache:
+            cached_data, cache_time = self._action_cache[cache_key]
+            if current_time - cache_time < self._cache_ttl:
+                print(f"[@ai_central] Using cached action context for model: {device_model}, interface: {userinterface_name}")
+                return cached_data
+        
+        print(f"[@ai_central] Loading fresh action context for model: {device_model}, interface: {userinterface_name}")
+        action_context = action_executor.get_available_context(device_model, userinterface_name)
+        self._action_cache[cache_key] = (action_context, current_time)
+        return action_context
+
+    def _get_cached_verification_context(self, verification_executor, device_model: str, userinterface_name: str) -> Dict[str, Any]:
+        """Get verification context with caching per device_model/userinterface"""
+        import time
+        
+        cache_key = f"verification:{device_model}:{userinterface_name}"
+        current_time = time.time()
+        
+        if cache_key in self._verification_cache:
+            cached_data, cache_time = self._verification_cache[cache_key]
+            if current_time - cache_time < self._cache_ttl:
+                print(f"[@ai_central] Using cached verification context for model: {device_model}, interface: {userinterface_name}")
+                return cached_data
+        
+        print(f"[@ai_central] Loading fresh verification context for model: {device_model}, interface: {userinterface_name}")
+        verification_context = verification_executor.get_available_context(device_model, userinterface_name)
+        self._verification_cache[cache_key] = (verification_context, current_time)
+        return verification_context
+
+    def _get_cached_navigation_context(self, navigation_executor, device_model: str, userinterface_name: str) -> Dict[str, Any]:
+        """Get navigation context with caching per device_model/userinterface"""
+        import time
+        
+        cache_key = f"navigation:{device_model}:{userinterface_name}"
+        current_time = time.time()
+        
+        if cache_key in self._navigation_cache:
+            cached_data, cache_time = self._navigation_cache[cache_key]
+            if current_time - cache_time < self._cache_ttl:
+                print(f"[@ai_central] Using cached navigation context for model: {device_model}, interface: {userinterface_name}")
+                return cached_data
+        
+        print(f"[@ai_central] Loading fresh navigation context for model: {device_model}, interface: {userinterface_name}")
+        navigation_context = navigation_executor.get_available_context(device_model, userinterface_name)
+        self._navigation_cache[cache_key] = (navigation_context, current_time)
+        return navigation_context
+
+    def clear_context_cache(self, device_model: str = None, userinterface_name: str = None):
+        """Clear context caches - optionally for specific device_model/userinterface"""
+        if device_model and userinterface_name:
+            # Clear specific caches
+            action_key = f"action:{device_model}:{userinterface_name}"
+            verification_key = f"verification:{device_model}:{userinterface_name}"
+            navigation_key = f"navigation:{device_model}:{userinterface_name}"
+            context_key = f"{userinterface_name}:{device_model}"
+            
+            self._action_cache.pop(action_key, None)
+            self._verification_cache.pop(verification_key, None)
+            self._navigation_cache.pop(navigation_key, None)
+            self._context_cache.pop(context_key, None)
+            
+            print(f"[@ai_central] Cleared context caches for model: {device_model}, interface: {userinterface_name}")
+        else:
+            # Clear all caches
+            self._action_cache.clear()
+            self._verification_cache.clear()
+            self._navigation_cache.clear()
+            self._context_cache.clear()
+            print(f"[@ai_central] Cleared all context caches")
 
     def _call_ai(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         available_nodes = context.get('available_nodes', [])
@@ -669,6 +776,9 @@ class AICentral:
         
         self.planner = AIPlanGenerator(team_id)
         self.tracker = AITracker()
+        
+        # Track current node like the old system
+        self.current_node_id = None
         self.orchestrator = AIOrchestrator(host, device_id, team_id, self.tracker) if host else None
 
     def analyze_compatibility(self, prompt: str) -> Dict[str, Any]:
@@ -711,6 +821,11 @@ class AICentral:
 
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         return self.tracker.get_status(execution_id)
+    
+    def update_current_node(self, node_id: str):
+        """Update the current node position for navigation context"""
+        self.current_node_id = node_id
+        print(f"[@ai_central] Current node updated to: {node_id}")
 
     def execute_task(self, prompt: str, userinterface_name: str, options: ExecutionOptions) -> str:
         # Generate plan with device context
@@ -719,9 +834,12 @@ class AICentral:
         # Load context to get tree_id for execution
         context = self.planner._load_context(userinterface_name, self.device_id)
         tree_id = context.get('tree_id')
+        device_model = context.get('device_model')
         
-        # Update execution options with the correct tree_id
+        # Update execution options with the correct context
         options.context['tree_id'] = tree_id
-        print(f"[@ai_central] Updated execution context with tree_id: {tree_id}")
+        options.context['device_model'] = device_model
+        options.context['current_node_id'] = self.current_node_id
+        print(f"[@ai_central] Updated execution context with tree_id: {tree_id}, device_model: {device_model}, current_node: {self.current_node_id}")
         
         return self.execute_plan(plan, options)
