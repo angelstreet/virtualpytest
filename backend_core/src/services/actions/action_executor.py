@@ -115,8 +115,8 @@ class ActionExecutor:
             
             return {
                 'service_type': 'actions',
-                'device_id': device_id,
-                'device_model': device_model,
+                'device_id': self.device_id,
+                'device_model': self.device_model,
                 'userinterface_name': userinterface_name,
                 'available_actions': device_actions
             }
@@ -126,7 +126,7 @@ class ActionExecutor:
             return {
                 'service_type': 'actions',
                 'device_id': self.device_id,
-                'device_model': device_model,
+                'device_model': self.device_model,
                 'userinterface_name': userinterface_name,
                 'available_actions': []
             }
