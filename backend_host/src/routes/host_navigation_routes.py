@@ -6,7 +6,6 @@ to the appropriate device's NavigationExecutor.
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from lib.utils.app_utils import get_team_id
 
 # Create blueprint
 host_navigation_bp = Blueprint('host_navigation', __name__, url_prefix='/host/navigation')
@@ -20,14 +19,18 @@ def navigation_execute(tree_id, target_node_id):
         # Get request data
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
         
-        print(f"[@route:host_navigation:navigation_execute] Device: {device_id}, Tree: {tree_id}")
+        print(f"[@route:host_navigation:navigation_execute] Device: {device_id}, Tree: {tree_id}, Team: {team_id}")
         
         # Validate
         if not device_id:
             return jsonify({'success': False, 'error': 'device_id is required'}), 400
+            
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -47,13 +50,12 @@ def navigation_execute(tree_id, target_node_id):
             }), 500
         
         # Execute navigation using device's NavigationExecutor
-        from lib.utils.app_utils import get_team_id
         result = device.navigation_executor.execute_navigation(
             tree_id=tree_id,
             target_node_id=target_node_id,
             current_node_id=current_node_id,
             image_source_url=image_source_url,
-            team_id=get_team_id()
+            team_id=team_id
         )
         
         print(f"[@route:host_navigation:navigation_execute] Execution completed: success={result.get('success')}")

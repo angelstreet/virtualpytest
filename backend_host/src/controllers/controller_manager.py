@@ -445,6 +445,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         from src.services.navigation.navigation_executor import NavigationExecutor
         from src.services.verifications.verification_executor import VerificationExecutor
         from src.services.ai.ai_executor import AIExecutor
+        from src.services.scripts.script_executor import ScriptExecutor
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization
@@ -452,6 +453,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         device.navigation_executor = NavigationExecutor(device)
         device.verification_executor = VerificationExecutor(device)
         device.ai_executor = AIExecutor(device)
+        device.script_executor = ScriptExecutor(device)
         
         print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
         
@@ -459,7 +461,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Host name: {host_name}")
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Device: {device}")
-        print(f"[@controller_manager:_create_device_with_controllers] ❌ Team ID: {team_id}")
         import traceback
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Full traceback: {traceback.format_exc()}")
         # Continue without executors - they can be created later if needed

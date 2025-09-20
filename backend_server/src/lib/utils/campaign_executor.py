@@ -32,7 +32,7 @@ from shared.src.lib.supabase.campaign_executions_db import (
     record_campaign_execution_start,
     update_campaign_execution_result
 )
-from src.lib.utils.script_execution_utils import setup_script_environment
+from src.lib.utils.script_utils import setup_script_environment
 
 
 class CampaignExecutionContext:
@@ -309,25 +309,23 @@ class CampaignExecutor:
                         script_success = output.strip().split("SCRIPT_SUCCESS:", 1)[1].lower() == "true"
                         status_emoji = "✅" if script_success else "❌"
                         print(f"{status_emoji} [Campaign] Script reported success: {script_success}")
-                    elif '[@cloudflare_utils:upload_script_report] INFO: Uploaded script report:' in output:
-                        # Extract report URL from cloudflare upload logs
-                        try:
-                            report_path = output.split('Uploaded script report: ')[1].strip()
-                            base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
-                            report_url = f"{base_url.rstrip('/')}/{report_path}"
-                            print(f"📊 [Campaign] Report URL captured: {report_url}")
-                        except Exception as e:
-                            print(f"⚠️ [Campaign] Failed to extract report URL: {e}")
-                    elif '[@utils:report_utils:generate_and_upload_script_report] Logs uploaded:' in output:
-                        # Extract logs URL from upload logs
-                        try:
-                            logs_url = output.split('Logs uploaded: ')[1].strip()
-                            print(f"📝 [Campaign] Logs URL captured: {logs_url}")
-                        except Exception as e:
-                            print(f"⚠️ [Campaign] Failed to extract logs URL: {e}")
                     else:
-                        # Print with campaign prefix to distinguish from script output
-                        print(f"[Script] {output.rstrip()}")
+                        # Extract URLs from script output using parser utility
+                        from .script_output_parser import extract_report_url_from_output, extract_logs_url_from_output
+                        
+                        extracted_report_url = extract_report_url_from_output(output)
+                        if extracted_report_url:
+                            report_url = extracted_report_url
+                            print(f"📊 [Campaign] Report URL captured: {report_url}")
+                        
+                        extracted_logs_url = extract_logs_url_from_output(output)
+                        if extracted_logs_url:
+                            logs_url = extracted_logs_url
+                            print(f"📝 [Campaign] Logs URL captured: {logs_url}")
+                        
+                        # If no URLs found, print with campaign prefix to distinguish from script output
+                        if not extracted_report_url and not extracted_logs_url:
+                            print(f"[Script] {output.rstrip()}")
                     stdout_lines.append(output)
                 
                 # Check for timeout

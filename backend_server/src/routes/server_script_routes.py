@@ -165,7 +165,7 @@ def analyze_script():
             }), 400
         
         # Use centralized script path logic
-        from src.lib.utils.script_execution_utils import get_script_path
+        from src.lib.utils.script_utils import get_script_path
         
         try:
             script_path = get_script_path(script_name)
@@ -200,7 +200,7 @@ def list_scripts():
     """List all available Python scripts AND AI test cases"""
     try:
         # Get regular Python scripts
-        from src.lib.utils.script_execution_utils import list_available_scripts, get_scripts_directory
+        from src.lib.utils.script_utils import list_available_scripts, get_scripts_directory
         
         regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
@@ -290,6 +290,40 @@ def execute_script():
                 'error': f'Host not found: {host_name}'
             }), 404
         
+        # Check if device is locked by another session
+        from src.lib.utils.lock_utils import get_device_lock_info, lock_device, unlock_device, get_client_ip
+        from flask import session
+        import uuid
+        
+        # Generate session ID if not exists
+        if 'session_id' not in session:
+            session['session_id'] = str(uuid.uuid4())
+        
+        session_id = session['session_id']
+        client_ip = get_client_ip()
+        
+        # Check if device is already locked
+        lock_info = get_device_lock_info(host_name)
+        if lock_info and lock_info.get('lockedBy') != session_id:
+            # Check if same IP can take over
+            if not (client_ip and lock_info.get('lockedIp') == client_ip):
+                return jsonify({
+                    'success': False,
+                    'error': f'Device {host_name} is locked by another session',
+                    'errorType': 'device_locked',
+                    'locked_by': lock_info.get('lockedBy'),
+                    'locked_at': lock_info.get('lockedAt'),
+                    'locked_ip': lock_info.get('lockedIp')
+                }), 423  # HTTP 423 Locked
+        
+        # Lock device for script execution
+        lock_success = lock_device(host_name, session_id, client_ip)
+        if not lock_success:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to lock device {host_name} for script execution'
+            }), 500
+        
         # Create task for async execution
         from src.lib.utils.task_manager import task_manager
         task_id = task_manager.create_task('script_execute', {
@@ -333,18 +367,21 @@ def execute_script():
                 result = response.json()
                 
                 if response.status_code not in [200, 202]:
-                    # Host execution failed, complete task with error
+                    # Host execution failed, complete task with error and unlock device
                     print(f"[@route:server_script:execute_script] Host execution failed for task {task_id}")
+                    unlock_device(host_name, session_id)
                     task_manager.complete_task(task_id, {}, error=result.get('error', 'Host execution failed'))
                 else:
                     print(f"[@route:server_script:execute_script] Host execution started for task {task_id}")
-                    # Task will be completed by the host's callback
+                    # Task will be completed by the host's callback (which will unlock device)
                         
             except Exception as e:
                 print(f"[@route:server_script:execute_script] Background execution error for task {task_id}: {e}")
                 print(f"[@route:server_script:execute_script] Exception type: {type(e).__name__}")
                 import traceback
                 print(f"[@route:server_script:execute_script] Traceback: {traceback.format_exc()}")
+                # Unlock device on error
+                unlock_device(host_name, session_id)
                 task_manager.complete_task(task_id, {}, error=str(e))
         
         threading.Thread(target=execute_async, daemon=True).start()
@@ -382,6 +419,17 @@ def task_complete():
         
         # Update task in manager
         from src.lib.utils.task_manager import task_manager
+        
+        # Get task info to unlock device
+        task_info = task_manager.get_task(task_id)
+        if task_info and task_info.get('data'):
+            host_name = task_info['data'].get('host_name')
+            if host_name:
+                # Unlock device after script completion
+                from src.lib.utils.lock_utils import unlock_device
+                unlock_success = unlock_device(host_name)
+                print(f"[@route:server_script:task_complete] Device unlock for {host_name}: {'success' if unlock_success else 'failed'}")
+        
         task_manager.complete_task(task_id, result, error)
         
         print(f"[@route:server_script:task_complete] Task {task_id} marked as {'failed' if error else 'completed'}")

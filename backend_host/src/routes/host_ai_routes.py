@@ -6,7 +6,6 @@ to the appropriate device's AIExecutor.
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from lib.utils.app_utils import get_team_id
 
 # Create blueprint
 host_ai_bp = Blueprint('host_ai', __name__, url_prefix='/host/ai')
@@ -80,15 +79,22 @@ def ai_execute_plan():
         plan_id = data.get('plan_id', '')
         plan = data.get('plan', {})
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         userinterface_name = data.get('userinterface_name', 'default')
         
-        print(f"[@route:host_ai:ai_execute_plan] Executing plan {plan_id} for device: {device_id}")
+        print(f"[@route:host_ai:ai_execute_plan] Executing plan {plan_id} for device: {device_id}, team: {team_id}")
         
         # Validate
         if not plan_id or not plan:
             return jsonify({
                 'success': False,
                 'error': 'Plan ID and plan data are required'
+            }), 400
+            
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
             }), 400
         
         # Get device from app registry
@@ -109,12 +115,11 @@ def ai_execute_plan():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        from lib.utils.app_utils import get_team_id
         result = device.ai_executor.execute_prompt(
             prompt=f"Execute plan: {plan.get('description', 'AI plan')}",
             userinterface_name=userinterface_name,
             async_execution=False,  # Synchronous for plan execution
-            team_id=get_team_id()
+            team_id=team_id
         )
         
         print(f"[@route:host_ai:ai_execute_plan] Plan execution result: success={result.get('success')}")
@@ -138,10 +143,11 @@ def ai_execute_prompt():
         data = request.get_json() or {}
         prompt = data.get('prompt', '')
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         userinterface_name = data.get('userinterface_name', 'default')
         current_node_id = data.get('current_node_id')
         
-        print(f"[@route:host_ai:ai_execute_prompt] Executing prompt for device: {device_id}")
+        print(f"[@route:host_ai:ai_execute_prompt] Executing prompt for device: {device_id}, team: {team_id}")
         print(f"[@route:host_ai:ai_execute_prompt] Prompt: {prompt[:100]}...")
         
         # Validate
@@ -149,6 +155,12 @@ def ai_execute_prompt():
             return jsonify({
                 'success': False,
                 'error': 'Prompt is required'
+            }), 400
+            
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
             }), 400
         
         # Get device from app registry
@@ -169,13 +181,12 @@ def ai_execute_prompt():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        from lib.utils.app_utils import get_team_id
         result = device.ai_executor.execute_prompt(
             prompt=prompt,
             userinterface_name=userinterface_name,
             current_node_id=current_node_id,
             async_execution=True,  # Async for prompt execution
-            team_id=get_team_id()
+            team_id=team_id
         )
         
         print(f"[@route:host_ai:ai_execute_prompt] Prompt execution result: success={result.get('success')}")
@@ -329,12 +340,16 @@ def ai_execute_test_case():
         data = request.get_json() or {}
         test_case_id = data.get('test_case_id')
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         
-        print(f"[@route:host_ai:ai_execute_test_case] Executing test case {test_case_id} for device: {device_id}")
+        print(f"[@route:host_ai:ai_execute_test_case] Executing test case {test_case_id} for device: {device_id}, team: {team_id}")
         
         # Validate
         if not test_case_id:
             return jsonify({'success': False, 'error': 'test_case_id is required'}), 400
+            
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -353,8 +368,7 @@ def ai_execute_test_case():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        from lib.utils.app_utils import get_team_id
-        result = device.ai_executor.execute_testcase(test_case_id, team_id=get_team_id())
+        result = device.ai_executor.execute_testcase(test_case_id, team_id=team_id)
         
         print(f"[@route:host_ai:ai_execute_test_case] Test case execution result: success={result.get('success')}")
         

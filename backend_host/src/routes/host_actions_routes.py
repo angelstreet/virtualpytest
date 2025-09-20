@@ -6,7 +6,6 @@ to the appropriate device's ActionExecutor.
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from lib.utils.app_utils import get_team_id
 
 # Create blueprint
 host_actions_bp = Blueprint('host_actions', __name__, url_prefix='/host/action')
@@ -22,11 +21,12 @@ def action_execute_batch():
         actions = data.get('actions', [])
         retry_actions = data.get('retry_actions', [])
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         tree_id = data.get('tree_id')
         edge_id = data.get('edge_id')
         action_set_id = data.get('action_set_id')
         
-        print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} actions for device: {device_id}")
+        print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} actions for device: {device_id}, team: {team_id}")
         
         # Validate
         if not actions:
@@ -34,6 +34,9 @@ def action_execute_batch():
         
         if not device_id:
             return jsonify({'success': False, 'error': 'device_id is required'}), 400
+            
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -53,11 +56,10 @@ def action_execute_batch():
             }), 500
         
         # Execute actions using device's ActionExecutor
-        from lib.utils.app_utils import get_team_id
         result = device.action_executor.execute_actions(
             actions=actions,
             retry_actions=retry_actions,
-            team_id=get_team_id()
+            team_id=team_id
         )
         
         print(f"[@route:host_actions:action_execute_batch] Execution completed: success={result.get('success')}")

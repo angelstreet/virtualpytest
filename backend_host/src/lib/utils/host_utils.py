@@ -45,7 +45,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # =====================================================
 
 class HostManager:
-    """Host storage and management (no locking - use lock_utils for that)"""
+    """Host storage and management (device locking is handled by server)"""
     
     def __init__(self):
         # Thread-safe storage for hosts

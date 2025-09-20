@@ -9,7 +9,7 @@ This module contains the host-side verification API endpoints that:
 import os
 import json
 from flask import Blueprint, request, jsonify, current_app
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_verification_bp = Blueprint('host_verification', __name__, url_prefix='/host/verification')
@@ -84,11 +84,12 @@ def verification_execute_batch():
         data = request.get_json() or {}
         verifications = data.get('verifications', [])
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         image_source_url = data.get('image_source_url')
         tree_id = data.get('tree_id')
         node_id = data.get('node_id')
         
-        print(f"[@route:host_verification:verification_execute_batch] Processing {len(verifications)} verifications for device: {device_id}")
+        print(f"[@route:host_verification:verification_execute_batch] Processing {len(verifications)} verifications for device: {device_id}, team: {team_id}")
         
         # Validate
         if not verifications:
@@ -96,6 +97,9 @@ def verification_execute_batch():
         
         if not device_id:
             return jsonify({'success': False, 'error': 'device_id is required'}), 400
+            
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -115,11 +119,10 @@ def verification_execute_batch():
             }), 500
         
         # Execute verifications using device's VerificationExecutor
-        from lib.utils.app_utils import get_team_id
         result = device.verification_executor.execute_verifications(
             verifications=verifications,
             image_source_url=image_source_url,
-            team_id=get_team_id()
+            team_id=team_id
         )
         
         print(f"[@route:host_verification:verification_execute_batch] Execution completed: success={result.get('success')}")

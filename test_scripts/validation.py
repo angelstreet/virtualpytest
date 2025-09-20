@@ -23,7 +23,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
+from backend_host.src.lib.utils.script_utils import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
 from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from datetime import datetime
@@ -438,7 +438,7 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
         execution_time_ms = step.get('execution_time_ms', 0)
         
         # Use the same formatting function as the report to ensure consistency
-        from shared.src.lib.utils.report_utils import format_execution_time
+        from backend_host.src.lib.utils.report_utils import format_execution_time
         execution_time_formatted = format_execution_time(execution_time_ms) if execution_time_ms else "0.0s"
         
         # Extract just the numeric part and unit for our format

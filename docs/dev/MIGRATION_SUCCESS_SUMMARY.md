@@ -22,7 +22,7 @@ The VirtualPyTest microservices migration has been successfully completed. The b
 ### **3. Import Fixes Applied**
 
 #### **Backend Server Routes (60+ route files)**
-- ✅ Updated `from utils.` → `from shared.lib.utils.`
+- ✅ Updated `from src.lib.utils.` → `from shared.lib.utils.`
 - ✅ Updated `from lib.` → `from shared.lib.`
 - ✅ Updated `from controllers.` → `from backend_host.src.controllers.`
 - ✅ Updated `from navigation.` → `from backend_host.src.services.navigation.`
@@ -118,7 +118,7 @@ from backend_host.src.controllers.ai.ai_agent import AIAgentController
 from backend_host.src.services.navigation.navigation_execution import NavigationExecutor
 
 # ❌ OLD - Problematic imports (now fixed)
-from utils.app_utils import get_team_id
+from src.lib.utils.app_utils import get_team_id
 from lib.supabase.actions_db import save_action
 from shared.lib.web.cache.navigation_cache import invalidate_cache  # ❌ Non-existent path
 from src.lib.mcp.mcp_server import MockMCPServer  # ❌ Old monolithic path

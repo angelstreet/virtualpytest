@@ -5,7 +5,7 @@ Host-side AI agent endpoints that execute using instantiated AI agent controller
 """
 
 from flask import Blueprint, request, jsonify
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_aiagent_bp = Blueprint('host_aiagent', __name__, url_prefix='/host/aiagent')

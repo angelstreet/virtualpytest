@@ -97,7 +97,7 @@ source venv/bin/activate
 ```bash
 # Need to update route files to use correct import paths
 # Instead of: from lib.supabase.actions_db import ...
-# Should be: from utils.supabase_utils import ... (or similar)
+# Should be: from src.lib.utils.supabase_utils import ... (or similar)
 ```
 
 ### ⏳ NEXT: Test Basic Startup

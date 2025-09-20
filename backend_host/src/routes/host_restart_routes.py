@@ -5,7 +5,7 @@ Restart video system endpoints for video generation and AI analysis.
 """
 
 from flask import Blueprint, request, jsonify
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import threading
 import time
@@ -263,7 +263,7 @@ def analyze_restart_summary():
         if result and result.get('success'):
             try:
                 from lib.utils.report_generation import generate_and_upload_restart_report
-                from utils.host_utils import get_host_instance
+                from src.lib.utils.host_utils import get_host_instance
                 
                 host = get_host_instance()
                 host_info = {'host_name': host.host_name}
@@ -377,7 +377,7 @@ def generate_restart_report():
             return jsonify({'success': False, 'error': f'No AV controller for {device_id}'}), 404
         
         from lib.utils.report_generation import generate_and_upload_restart_report
-        from utils.host_utils import get_host_instance
+        from src.lib.utils.host_utils import get_host_instance
         
         host = get_host_instance()
         host_info = {'host_name': host.host_name}
@@ -463,7 +463,7 @@ def analyze_restart_video():
             
             try:
                 from lib.utils.report_generation import generate_and_upload_restart_report
-                from utils.host_utils import get_host_instance
+                from src.lib.utils.host_utils import get_host_instance
                 
                 host = get_host_instance()
                 host_info = {'host_name': host.host_name}

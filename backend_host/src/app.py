@@ -32,6 +32,10 @@ project_root = os.path.dirname(backend_host_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Add backend_server to path for src.lib.* imports
+if backend_host_dir not in sys.path:
+    sys.path.insert(0, backend_host_dir)
+
 # Add backend_host/src to path for local imports
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)

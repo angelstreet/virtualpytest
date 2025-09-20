@@ -41,14 +41,15 @@ def start_exploration():
         exploration_id = request_data.get('exploration_id')
         tree_id = request_data.get('tree_id')
         device_id = request_data.get('device_id')
+        team_id = request_data.get('team_id')
         exploration_depth = request_data.get('exploration_depth', 5)
         start_node_id = request_data.get('start_node_id')
         
         # Validate required fields
-        if not exploration_id or not tree_id or not device_id:
+        if not exploration_id or not tree_id or not device_id or not team_id:
             return jsonify({
                 'success': False,
-                'error': 'Missing required fields: exploration_id, tree_id, device_id'
+                'error': 'Missing required fields: exploration_id, tree_id, device_id, team_id'
             }), 400
         
         # Initialize exploration session
@@ -56,6 +57,7 @@ def start_exploration():
             'exploration_id': exploration_id,
             'tree_id': tree_id,
             'device_id': device_id,
+            'team_id': team_id,
             'exploration_depth': exploration_depth,
             'start_node_id': start_node_id,
             'status': 'initializing',
@@ -181,12 +183,11 @@ def run_exploration(exploration_id: str):
         
         # Import simplified AI architecture
         from controllers.controller_manager import get_host
-        from lib.utils.app_utils import get_team_id
         
         # Get session parameters
         device_id = session['device_id']
         tree_id = session['tree_id']
-        team_id = get_team_id()
+        team_id = session['team_id']
         
         # Update progress
         update_progress(exploration_id, "Loading device context...")
@@ -246,12 +247,11 @@ def run_exploration(exploration_id: str):
             
             try:
                 # Execute AI exploration step
-                from lib.utils.app_utils import get_team_id
                 result = device.ai_executor.execute_prompt(
                     exploration_prompt, 
                     userinterface_name,
                     async_execution=False,  # Synchronous for exploration
-                    team_id=get_team_id()
+                    team_id=team_id
                 )
                 
                 step_success = result.get('success', False)

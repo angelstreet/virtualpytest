@@ -9,7 +9,7 @@ import os
 # Add shared library to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../shared'))
 
-from lib.utils.translation_utils import batch_translate_restart_content, translate_text
+from src.lib.utils.translation_utils import batch_translate_restart_content, translate_text, detect_language_from_text
 
 # Create blueprint
 host_translation_bp = Blueprint('host_translation', __name__)
@@ -102,6 +102,28 @@ def translate_text_endpoint():
             'error': f'Host translation error: {str(e)}'
         }), 500
 
+@host_translation_bp.route('/host/translate/detect', methods=['POST'])
+def detect_text_language():
+    """Detect language of text - Host side implementation"""
+    try:
+        data = request.get_json() or {}
+        text = data.get('text', '')
+        
+        if not text.strip():
+            return jsonify({
+                'success': False,
+                'error': 'Empty text provided'
+            }), 400
+        
+        result = detect_language_from_text(text)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Language detection error: {str(e)}'
+        }), 500
+
 @host_translation_bp.route('/host/translate/health', methods=['GET'])
 def translation_health():
     """
@@ -109,7 +131,7 @@ def translation_health():
     """
     try:
         # Test Google Translate availability
-        from lib.utils.translation_utils import GOOGLE_TRANSLATE_AVAILABLE
+        from src.lib.utils.translation_utils import GOOGLE_TRANSLATE_AVAILABLE
         
         return jsonify({
             'success': True,

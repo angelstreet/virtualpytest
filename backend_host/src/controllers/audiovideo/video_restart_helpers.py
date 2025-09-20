@@ -659,7 +659,7 @@ class VideoRestartHelpers:
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
                 # Use the same Google Translate approach as batch translation (which works)
                 # Use AI translation for audio transcript (more accurate than Google Translate)
-                from lib.utils.translation_utils import translate_text
+                from src.lib.utils.translation_utils import translate_text
                 translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
                 print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
                 

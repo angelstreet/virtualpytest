@@ -82,7 +82,7 @@ from lib.utils.supabase_utils import ...
 
 Should be:
 ```python
-from utils.supabase_utils import ...
+from src.lib.utils.supabase_utils import ...
 ```
 
 ### **Phase 3: Test backend_server Startup**
@@ -101,7 +101,7 @@ cd backend_server && python3 src/app.py
 - All other route files with similar patterns
 
 **shared/lib/ internal imports:**
-- `supabase/actions_db.py`: `from lib.utils.supabase_utils` → `from utils.supabase_utils`
+- `supabase/actions_db.py`: `from lib.utils.supabase_utils` → `from src.lib.utils.supabase_utils`
 - All files in supabase/ with `lib.` imports
 - All files in utils/ with `lib.` imports
 

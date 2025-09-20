@@ -521,7 +521,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                             json.dump(metadata, f, indent=2)
                         
                         # Upload to R2
-                        from utils.cloudflare_utils import get_cloudflare_utils
+                        from src.lib.utils.cloudflare_utils import get_cloudflare_utils
                         uploader = get_cloudflare_utils()
                         
                         mosaic_r2_path = f"heatmaps/{timestamp}/mosaic.jpg"
@@ -651,8 +651,8 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
         # Generate ONE comprehensive HTML report with all mosaics
         try:
             if generated_images:  # Only generate HTML if we have successful images
-                from utils.heatmap_report_utils import generate_comprehensive_heatmap_html
-                from utils.cloudflare_utils import upload_heatmap_html
+                from src.lib.utils.heatmap_report_utils import generate_comprehensive_heatmap_html
+                from src.lib.utils.cloudflare_utils import upload_heatmap_html
                 
                 print(f"[@heatmap_utils] Generating comprehensive HTML report for {len(generated_images)} heatmaps")
                 

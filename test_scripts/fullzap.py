@@ -28,7 +28,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
+from backend_host.src.lib.utils.script_utils import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from shared.src.lib.utils.zap_controller import ZapController
 from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from shared.src.lib.utils.audio_menu_analyzer import analyze_audio_menu

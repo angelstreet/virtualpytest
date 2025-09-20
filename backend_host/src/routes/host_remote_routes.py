@@ -5,7 +5,7 @@ Host-side remote control endpoints that execute remote commands using instantiat
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from utils.host_utils import get_controller, get_device_by_id, get_remote_controller_by_type
+from src.lib.utils.host_utils import get_controller, get_device_by_id, get_remote_controller_by_type
 import time
 
 # Create blueprint

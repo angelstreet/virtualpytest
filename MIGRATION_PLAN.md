@@ -120,7 +120,7 @@ This module contains restart video system endpoints for:
 """
 
 from flask import Blueprint, request, jsonify, current_app, send_file
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import threading
 import time
@@ -213,7 +213,7 @@ This module contains monitoring system endpoints for:
 """
 
 from flask import Blueprint, request, jsonify, current_app, send_file
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import re
 
@@ -374,7 +374,7 @@ These endpoints run on the host and use the host's own stored device object.
 """
 
 from flask import Blueprint, request, jsonify, current_app, send_file
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import time
 

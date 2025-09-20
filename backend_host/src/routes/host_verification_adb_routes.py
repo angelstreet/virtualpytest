@@ -10,7 +10,7 @@ This module contains the host-side ADB verification API endpoints that:
 from flask import Blueprint, request, jsonify, current_app
 import os
 import json
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_verification_adb_bp = Blueprint('host_verification_adb', __name__, url_prefix='/host/verification/adb')

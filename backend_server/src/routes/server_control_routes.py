@@ -226,6 +226,35 @@ def release_control():
         print(f"❌ [CONTROL] Error releasing control: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_control_bp.route('/checkLock', methods=['POST'])
+def check_device_lock():
+    """Check if a specific device is locked"""
+    try:
+        data = request.get_json()
+        host_name = data.get('host_name')
+        
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
+        
+        lock_info = get_device_lock_info(host_name)
+        
+        if lock_info:
+            return jsonify({
+                'success': True,
+                'is_locked': True,
+                'lock_info': lock_info
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'is_locked': False,
+                'lock_info': None
+            })
+        
+    except Exception as e:
+        print(f"❌ [CONTROL] Error checking device lock: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_control_bp.route('/lockedDevices', methods=['GET'])
 def get_locked_devices():
     """Get information about all currently locked devices"""

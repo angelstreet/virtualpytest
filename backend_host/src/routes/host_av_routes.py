@@ -10,7 +10,7 @@ These endpoints run on the host and use the host's own stored device object.
 """
 
 from flask import Blueprint, request, jsonify, current_app, send_file
-from utils.host_utils import get_controller, get_device_by_id
+from src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import time
 
@@ -200,8 +200,8 @@ def get_stream_url():
                 'available_capabilities': device.get_capabilities()
             }), 404
         
-        from utils.build_url_utils import buildStreamUrl
-        from utils.host_utils import get_host_instance as get_host
+        from src.lib.utils.build_url_utils import buildStreamUrl
+        from src.lib.utils.host_utils import get_host_instance as get_host
         
         host = get_host()
         stream_url = buildStreamUrl(host.to_dict(), device_id)
@@ -251,8 +251,8 @@ def take_screenshot():
         
         time.sleep(0.5)
         
-        from utils.build_url_utils import buildCaptureUrlFromPath
-        from utils.host_utils import get_host_instance as get_host
+        from src.lib.utils.build_url_utils import buildCaptureUrlFromPath
+        from src.lib.utils.host_utils import get_host_instance as get_host
         
         try:
             host = get_host()
@@ -323,7 +323,7 @@ def save_screenshot():
             }), 500
         
         try:
-            from utils.cloudflare_utils import upload_navigation_screenshot
+            from src.lib.utils.cloudflare_utils import upload_navigation_screenshot
             
             r2_filename = f"{filename}.jpg"
             upload_result = upload_navigation_screenshot(local_screenshot_path, device_model, r2_filename)
@@ -469,7 +469,7 @@ def serve_screenshot(filename):
         return response
         
     try:
-        from utils.build_url_utils import resolveCaptureFilePath
+        from src.lib.utils.build_url_utils import resolveCaptureFilePath
         
         try:
             capture_path = resolveCaptureFilePath(filename)
@@ -508,7 +508,7 @@ def serve_image_by_path():
         
         is_json = file_path and file_path.lower().endswith('.json')
         
-        from utils.build_url_utils import resolveImageFilePath
+        from src.lib.utils.build_url_utils import resolveImageFilePath
         
         try:
             if is_json:

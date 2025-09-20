@@ -9,7 +9,7 @@ import requests
 import sys
 import os
 from src.lib.utils.route_utils import proxy_to_host_with_params
-from src.lib.utils.translation_utils import detect_language_from_text
+# All translation work is now handled by host - server just coordinates
 from shared.src.lib.utils.build_url_utils import buildHostUrl
 
 # Create blueprint
@@ -161,22 +161,34 @@ def translate_restart_batch():
 
 @server_translation_bp.route('/detect', methods=['POST'])
 def detect_text_language():
-    """Detect language of text"""
+    """Detect language of text - proxy to Host"""
     try:
         data = request.get_json() or {}
-        text = data.get('text', '')
         
-        if not text.strip():
+        if not data:
             return jsonify({
                 'success': False,
-                'error': 'Empty text provided'
+                'error': 'No JSON data provided'
             }), 400
         
-        result = detect_language_from_text(text)
-        return jsonify(result)
+        # Get host URL from request data
+        host_name = data.get('host_name')
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name is required'
+            }), 400
+        
+        # Proxy to Host for language detection
+        return proxy_to_host_with_params(
+            host_name=host_name,
+            endpoint='/host/translate/detect',
+            method='POST',
+            data=data
+        )
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': f'Language detection error: {str(e)}'
+            'error': f'Server translation proxy error: {str(e)}'
         }), 500

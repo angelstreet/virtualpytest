@@ -1,9 +1,9 @@
 """
-Host Script Routes - Execute scripts on host device
+Host Script Routes - Execute scripts on host device using device script executor
 """
 import json
 from flask import Blueprint, request, jsonify
-from lib.utils.script_execution_utils import execute_script
+from lib.utils.host_utils import get_device_by_id
 
 host_script_bp = Blueprint('host_script', __name__, url_prefix='/host')
 
@@ -29,13 +29,27 @@ def _execute_script():
         
         print(f"[@route:host_script:_execute_script] Executing {script_name} on {device_id} with parameters: {parameters}")
         
+        # Get device instance and use its script executor
+        device = get_device_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found'
+            }), 404
+        
+        if not hasattr(device, 'script_executor'):
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have script executor'
+            }), 500
+        
         if task_id:
             print(f"[@route:host_script:_execute_script] CALLBACK PREP: Async execution for task {task_id}")
             # Execute async with callback
             import threading
             def execute_async():
                 try:
-                    result = execute_script(script_name, device_id, parameters)
+                    result = device.script_executor.execute_script(script_name, parameters)
                     print(f"[@route:host_script:_execute_script] CALLBACK SEND: Script completed, sending callback")
                     
                     # Send callback to server
@@ -72,7 +86,7 @@ def _execute_script():
         else:
             # Synchronous execution (fallback)
             print(f"[@route:host_script:_execute_script] SYNC: Direct execution (no callback)")
-            result = execute_script(script_name, device_id, parameters)
+            result = device.script_executor.execute_script(script_name, parameters)
             
             print(f"[@route:host_script:_execute_script] Script completed - exit_code: {result.get('exit_code')}")
             print(f"[@route:host_script:_execute_script] Script has report_url: {bool(result.get('report_url'))}")

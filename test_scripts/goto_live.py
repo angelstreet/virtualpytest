@@ -28,7 +28,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.script_framework import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
+from backend_host.src.lib.utils.script_utils import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
 from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
 
 
