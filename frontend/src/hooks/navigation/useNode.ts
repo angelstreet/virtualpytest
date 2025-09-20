@@ -357,7 +357,7 @@ export const useNode = (props?: UseNodeProps) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              host_name: props.selectedHost.host_name,
+              host_name: props.selectedHost?.host_name,
               device_id: currentDeviceId,
               current_node_id: currentNodeId,
             }),

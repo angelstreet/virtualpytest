@@ -235,7 +235,7 @@ export const useVerification = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host_name: currentHost.host_name,  // Single source of truth
+            host_name: currentHost?.host_name,  // Single source of truth
             device_id: currentDeviceId,  // Single source of truth - no fallbacks
             ...batchPayload,
           }),

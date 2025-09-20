@@ -117,7 +117,7 @@ export const usePlaywrightWeb = (host: Host) => {
         if (result.success) {
           setSession({
             connected: true,
-            host_name: host.host_name,
+            host,
             connectionTime: new Date(),
           });
 
