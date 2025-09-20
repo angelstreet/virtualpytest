@@ -174,7 +174,7 @@ export const AndroidMobileOverlay = React.memo(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             x: deviceX,
             y: deviceY,
             device_id: deviceId,
