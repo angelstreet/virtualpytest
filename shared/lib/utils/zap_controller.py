@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from .host_utils import get_controller
 from .report_utils import capture_and_upload_screenshot
 from .audio_menu_analyzer import analyze_audio_menu
@@ -397,7 +397,7 @@ class ZapController:
             context.add_screenshot(step_start_screenshot_path)
         
         # Execute action with timing using ActionExecutor
-        from backend_core.src.services.actions.action_executor import ActionExecutor
+        from backend_host.src.services.actions.action_executor import ActionExecutor
         action_executor = ActionExecutor(context.host, context.selected_device, context.team_id)
         actions = action_edge.get('actions', [])
         action_result = action_executor.execute_actions(actions)
@@ -652,7 +652,7 @@ class ZapController:
             
             # Import and initialize AudioAIHelpers
             try:
-                from backend_core.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                from backend_host.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
             except ImportError as e:
                 print(f"🎤 [ZapController] AudioAIHelpers import failed: {e}")
                 return {"success": False, "message": "AudioAIHelpers not available"}
@@ -838,7 +838,7 @@ class ZapController:
                 device_model = context.selected_device.device_model if context.selected_device else 'unknown'
                 max_images = self._get_max_images_for_device(device_model)
                 
-                from backend_core.src.controllers.verification.video_content_helpers import VideoContentHelpers
+                from backend_host.src.controllers.verification.video_content_helpers import VideoContentHelpers
                 content_helpers = VideoContentHelpers(av_controller, "ZapController")
                 
                 key_release_timestamp = context.last_action_start_time

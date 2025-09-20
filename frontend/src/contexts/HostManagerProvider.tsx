@@ -298,7 +298,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             device_id: effectiveDeviceId,
             session_id: effectiveSessionId,
             user_id: userId,
@@ -398,7 +398,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             device_id: effectiveDeviceId,
             session_id: effectiveSessionId,
             user_id: userId,

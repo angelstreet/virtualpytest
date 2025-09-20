@@ -131,7 +131,7 @@ compatibility_results = ai_agent.analyze_cross_device_compatibility(
 ```python
 def _get_available_actions(self, device_id: str) -> Dict[str, Any]:
     """Get available actions from controller - reuse existing controller system"""
-    from backend_core.src.controllers.controller_config_factory import get_controller_config
+    from backend_host.src.controllers.controller_config_factory import get_controller_config
     controller_config = get_controller_config(device_id)
     return controller_config.get('available_actions', {})
 

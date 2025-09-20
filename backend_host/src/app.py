@@ -28,11 +28,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(current_dir)
 project_root = os.path.dirname(backend_host_dir)
 
-# Add project root to path for clear imports (shared.lib.*, backend_core.*)
+# Add project root to path for clear imports (shared.lib.*, backend_host.*)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Import from shared library and backend_core (using clear import paths)
+# Import from shared library and backend_host (using clear import paths)
 try:
     # Import shared components
     from shared.lib.utils.app_utils import (
@@ -43,12 +43,12 @@ try:
         DEFAULT_TEAM_ID,
         DEFAULT_USER_ID
     )
-    # Import backend_core controllers and services
-    from backend_core.src.controllers import *
-    from backend_core.src.services import *
+    # Import backend_host controllers and services
+    from src.controllers import *
+    from src.services import *
 except ImportError as e:
     print(f"❌ Failed to import dependencies: {e}")
-    print("❌ Please ensure shared library and backend_core are properly installed")
+    print("❌ Please ensure shared library and backend_host are properly installed")
     print("❌ Run: ./setup/local/install_all.sh")
     sys.exit(1)
 
@@ -185,7 +185,7 @@ def main():
         # STEP 2.5: Initialize host devices with executors
         print("[@backend_host:main] Step 2.5: Initializing host devices with executors...")
         try:
-            from backend_core.src.controllers.controller_manager import get_host
+            from src.controllers.controller_manager import get_host
             
             host = get_host()
             

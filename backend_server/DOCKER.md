@@ -93,7 +93,7 @@ services:
 ### **Build Process:**
 1. **Base Image**: `python:3.11-slim`
 2. **Install Dependencies**: System packages + Grafana
-3. **Copy Code**: shared, backend_core, backend_server
+3. **Copy Code**: shared, backend_host, backend_server
 4. **Setup Permissions**: User accounts and file permissions
 5. **Configure Supervisor**: Process management without nginx
 6. **Expose Port**: 10000 for Flask API
@@ -146,7 +146,7 @@ RENDER=true                          # Platform flag
 
 ### **Container Environment:**
 ```bash
-PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
+PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_host/src"
 FLASK_ENV="production"
 PYTHONUNBUFFERED="1"
 GF_PATHS_CONFIG="/app/backend_server/config/grafana/grafana.ini"

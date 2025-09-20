@@ -54,7 +54,7 @@ def execute_task():
         
         # Get model-specific commands for AI generation (same as test case generation)
         try:
-            from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
+            from src.controllers.ai_descriptions import get_commands_for_device_model
             enhanced_data = get_commands_for_device_model(device_model)
             
             if 'error' in enhanced_data:

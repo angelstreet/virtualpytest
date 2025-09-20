@@ -158,7 +158,7 @@ export const useMonitoring = ({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        host: host,
+        host_name: host.host_name,
         device_id: device?.device_id,
         image_source_url: queuedFrame.imageUrl,
         extract_text: true,
@@ -220,7 +220,7 @@ export const useMonitoring = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          host: host,
+          host_name: host.host_name,
           device_id: device?.device_id || 'device1',
         }),
       });
@@ -256,7 +256,7 @@ export const useMonitoring = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          host: host,
+          host_name: host.host_name,
           device_id: device?.device_id || 'device1',
         }),
       });

@@ -33,13 +33,13 @@ Main Actions → Retry Actions → Failure Actions
   - [ ] After line 456: Add failure action execution logic block
   - [ ] Update success calculation to consider failure actions
 
-- [ ] **File**: `backend_core/src/services/actions/action_executor.py`
+- [ ] **File**: `backend_host/src/services/actions/action_executor.py`
   - [ ] Line 49: Add `failure_actions: Optional[List[Dict[str, Any]]] = None` parameter
   - [ ] After line 125: Add failure action execution logic
   - [ ] Lines 126-131: Update overall success calculation logic
   - [ ] Add failure action validation in `_validate_actions` method
 
-- [ ] **File**: `backend_core/src/controllers/base_controller.py`
+- [ ] **File**: `backend_host/src/controllers/base_controller.py`
   - [ ] Line 44: Add `failure_actions: List[Dict[str, Any]]` parameter
   - [ ] After line 114: Add failure action execution block
   - [ ] Update return logic to handle failure action results

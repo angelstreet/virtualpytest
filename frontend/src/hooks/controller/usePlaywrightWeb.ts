@@ -62,7 +62,7 @@ export const usePlaywrightWeb = (host: Host) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             command: command,
             params: params,
           }),
@@ -94,7 +94,7 @@ export const usePlaywrightWeb = (host: Host) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host: host,
+          host_name: host.host_name,
         }),
       });
 
@@ -117,7 +117,7 @@ export const usePlaywrightWeb = (host: Host) => {
         if (result.success) {
           setSession({
             connected: true,
-            host,
+            host_name: host.host_name,
             connectionTime: new Date(),
           });
 

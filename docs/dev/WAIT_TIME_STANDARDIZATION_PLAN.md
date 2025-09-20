@@ -79,7 +79,7 @@ params: { wait_time: 500 },
 'final_wait_time': edge_data.get('final_wait_time', 2000),
 ```
 
-**6. `backend_core/src/services/navigation/navigation_pathfinding.py`**
+**6. `backend_host/src/services/navigation/navigation_pathfinding.py`**
 ```python
 # Lines 181, 309, 632: Change from:
 'finalWaitTime': edge_data.get('finalWaitTime', 2000),
@@ -191,7 +191,7 @@ final_wait_time:
 
 ### Phase 3 (Edge-level):
 - `shared/lib/utils/navigation_graph.py`
-- `backend_core/src/services/navigation/navigation_pathfinding.py`
+- `backend_host/src/services/navigation/navigation_pathfinding.py`
 - 6 frontend files (types, hooks, contexts, utils)
 
 ## Expected Outcome

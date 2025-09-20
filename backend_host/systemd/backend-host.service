@@ -17,7 +17,7 @@ Environment=HOST_NAME=%HOSTNAME%
 Environment=HOST_URL=http://%HOSTNAME%:6109
 Environment=SERVER_URL=https://your-backend_server.onrender.com
 Environment=DEBUG=false
-Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_core/src
+Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_host/src
 
 # Git pull and start service
 ExecStartPre=/usr/bin/git -C %PROJECT_ROOT% pull

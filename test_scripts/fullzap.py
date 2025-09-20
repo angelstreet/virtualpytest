@@ -30,7 +30,7 @@ if project_root not in sys.path:
 
 from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from shared.lib.utils.zap_controller import ZapController
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from shared.lib.utils.audio_menu_analyzer import analyze_audio_menu
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:

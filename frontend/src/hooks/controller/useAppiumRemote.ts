@@ -109,7 +109,7 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
         console.log(`[@hook:useAppiumRemote] Executing command: ${command}`, params);
 
         const requestBody: any = {
-          host: host,
+          host_name: host.host_name,
           command: command,
           params: params,
         };
@@ -151,7 +151,7 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
       setIsDumpingUI(true);
 
       const requestBody: any = {
-        host: host,
+        host_name: host.host_name,
       };
 
       if (deviceId) {
@@ -236,7 +236,7 @@ export const useAppiumRemote = (host: Host, deviceId?: string): UseAppiumRemoteR
         console.log(`[@hook:useAppiumRemote] Clicking overlay element: ${element.id}`);
 
         const requestBody: any = {
-          host: host,
+          host_name: host.host_name,
           command: 'click_element',
           params: {
             element_id: element.id,

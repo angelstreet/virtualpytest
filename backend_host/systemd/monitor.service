@@ -12,7 +12,7 @@ Type=simple
 User=%USER%
 Group=%USER%
 WorkingDirectory=%PROJECT_ROOT%
-Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_core/src
+Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_host/src
 Environment=PATH=%PROJECT_ROOT%/venv/bin:/usr/bin:/usr/local/bin
 ExecStart=%PROJECT_ROOT%/venv/bin/python backend_host/scripts/capture_monitor.py
 Restart=always

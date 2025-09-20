@@ -25,7 +25,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_server_dir = os.path.dirname(current_dir)
 project_root = os.path.dirname(backend_server_dir)
 
-# Add project root to path for clear imports (shared.lib.*, backend_core.*)
+# Add project root to path for clear imports (shared.lib.*, backend_host.*)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 

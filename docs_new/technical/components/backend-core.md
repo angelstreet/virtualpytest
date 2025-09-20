@@ -19,7 +19,7 @@ Backend Core is a **shared Python library** that provides:
 ## 📁 **Structure**
 
 ```
-backend_core/src/
+backend_host/src/
 ├── controllers/             # Device-specific controllers
 │   ├── desktop/            # Desktop automation (PyAutoGUI, Bash)
 │   ├── remote/             # Mobile/TV control (ADB, Appium, IR)
@@ -292,7 +292,7 @@ Device configurations stored in JSON:
 
 ### Direct Controller Usage
 ```python
-from backend_core.controllers.remote.android_mobile import AndroidMobileRemoteController
+from backend_host.controllers.remote.android_mobile import AndroidMobileRemoteController
 
 # Initialize controller
 controller = AndroidMobileRemoteController()
@@ -309,7 +309,7 @@ controller.cleanup()
 
 ### Service-Level Usage
 ```python
-from backend_core.services.actions.action_executor import ActionExecutor
+from backend_host.services.actions.action_executor import ActionExecutor
 
 # Create executor
 executor = ActionExecutor()
@@ -330,7 +330,7 @@ Backend Host imports and uses controllers:
 
 ```python
 # In backend_host/src/routes/remote_routes.py
-from backend_core.controllers import get_controller
+from backend_host.controllers import get_controller
 
 @app.route('/host/remote/executeAction', methods=['POST'])
 def execute_remote_action():
@@ -345,7 +345,7 @@ Backend Server uses business services:
 
 ```python
 # In backend_server/src/services/test_orchestrator.py
-from backend_core.services.navigation.navigation_execution import NavigationExecutor
+from backend_host.services.navigation.navigation_execution import NavigationExecutor
 
 class TestOrchestrator:
     def execute_test(self, test_case):

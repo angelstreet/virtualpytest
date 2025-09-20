@@ -319,7 +319,7 @@ The VirtualPyTest implementation was failing because it switched from a **JSON s
 - **VirtualPyTest Before Fix** (❌ FAILED): `"Look at this image and tell me if you can see any subtitles..."`
 
 ### The Solution
-Implemented a **fallback approach** in `backend_core/src/controllers/verification/video_ai_helpers.py`:
+Implemented a **fallback approach** in `backend_host/src/controllers/verification/video_ai_helpers.py`:
 
 1. **Primary**: Try JSON structured prompt (same as successful direct test)
 2. **Fallback**: If JSON parsing fails, use natural language parsing

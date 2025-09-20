@@ -48,7 +48,7 @@ pip install gTTS
 
 ### Phase 1: Audio Dubbing Helpers (New Component)
 
-**File**: `backend_core/src/controllers/audiovideo/audio_dubbing_helpers.py`
+**File**: `backend_host/src/controllers/audiovideo/audio_dubbing_helpers.py`
 
 ```python
 class AudioDubbingHelpers:
@@ -75,7 +75,7 @@ class AudioDubbingHelpers:
 
 ### Phase 2: Extend VideoRestartHelpers
 
-**File**: `backend_core/src/controllers/audiovideo/video_restart_helpers.py`
+**File**: `backend_host/src/controllers/audiovideo/video_restart_helpers.py`
 
 Add new method:
 ```python

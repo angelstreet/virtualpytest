@@ -772,7 +772,7 @@ This refactoring **revolutionized the AI system** by implementing a unified dict
 
 ### Files Modified:
 - ✅ `shared/lib/utils/ai_central.py` - **Unified dict architecture implemented**
-- ✅ `backend_core/src/controllers/controller_manager.py` - AI controller factory cleaned
+- ✅ `backend_host/src/controllers/controller_manager.py` - AI controller factory cleaned
 - ✅ `backend_server/src/routes/server_ai_routes.py` - **Direct dict responses**
 - ✅ `backend_server/src/routes/server_aitestcase_routes.py` - **Dict-based plan analysis**
 - ✅ `backend_server/src/routes/server_mcp_routes.py` - Fixed undefined variables

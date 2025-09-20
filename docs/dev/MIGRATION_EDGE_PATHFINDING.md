@@ -6,7 +6,7 @@ Fix the pathfinding algorithm to properly handle bidirectional edges with action
 
 ## Files to Modify
 
-### 1. `backend_core/src/services/navigation/navigation_pathfinding.py`
+### 1. `backend_host/src/services/navigation/navigation_pathfinding.py`
 
 **Primary file containing the core pathfinding logic**
 
@@ -107,7 +107,7 @@ Fix the pathfinding algorithm to properly handle bidirectional edges with action
 
 ## Detailed Implementation
 
-### File 1: `backend_core/src/services/navigation/navigation_pathfinding.py`
+### File 1: `backend_host/src/services/navigation/navigation_pathfinding.py`
 
 #### Change A: Fix Edge Mapping
 ```python
@@ -509,7 +509,7 @@ If issues arise:
 
 ### Step 1: Backup Current Implementation
 ```bash
-cp backend_core/src/services/navigation/navigation_pathfinding.py backend_core/src/services/navigation/navigation_pathfinding.py.backup
+cp backend_host/src/services/navigation/navigation_pathfinding.py backend_host/src/services/navigation/navigation_pathfinding.py.backup
 cp shared/lib/utils/navigation_graph.py shared/lib/utils/navigation_graph.py.backup
 ```
 

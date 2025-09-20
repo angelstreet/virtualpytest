@@ -8,7 +8,7 @@ This feature provides AI-powered analysis of language and subtitle menu options 
 
 ### New Method: `analyze_language_menu_ai()`
 
-Located in: `backend_core/src/controllers/verification/video.py`
+Located in: `backend_host/src/controllers/verification/video.py`
 
 ```python
 result = video_controller.analyze_language_menu_ai(image_path)

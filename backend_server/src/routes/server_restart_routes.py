@@ -14,13 +14,13 @@ def generate_restart_video():
     """Generate video only - fast response"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         duration_seconds = request_data.get('duration_seconds', 10)
 
         print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for host: {host}, device: {device_id}, duration: {duration_seconds}s")
 
-        if not host:
+        if not host_name:
             print(f"[SERVER] ❌ [@server_restart_routes:generateRestartVideo] Missing host parameter")
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
@@ -53,9 +53,9 @@ def get_analysis_status(video_id):
     try:
         data = request.get_json()
         device_id = data.get('device_id', 'device1')
-        host = data.get('host')
+        host_name = data.get('host_name')
         
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
         
         response_data, status_code = proxy_to_host_with_params(
@@ -75,10 +75,10 @@ def analyze_restart_audio():
     """Analyze audio transcript"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
@@ -98,10 +98,10 @@ def generate_restart_report():
     """Generate restart report"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
@@ -121,10 +121,10 @@ def analyze_restart_complete():
     """Combined restart analysis: subtitles + summary in single call"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
@@ -144,10 +144,10 @@ def analyze_restart_video():
     """Proxy async AI analysis request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
@@ -167,10 +167,10 @@ def restart_stream():
     """Proxy restart stream request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         query_params = {'device_id': device_id}
@@ -203,13 +203,13 @@ def prepare_dubbing_audio():
     
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         video_id = request_data.get('video_id')
 
         print(f"[SERVER] 🎵 [@server_restart_routes:prepareDubbingAudio] 🔍 OLD ENDPOINT CALLED - Step 1 starting for video_id: {video_id}")
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
@@ -246,7 +246,7 @@ def generate_edge_speech():
     
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         video_id = request_data.get('video_id')
         target_language = request_data.get('target_language', 'es')
@@ -254,7 +254,7 @@ def generate_edge_speech():
 
         print(f"[SERVER] 🤖 [@server_restart_routes:generateEdgeSpeech] Step 2 starting for {target_language}")
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
         if not existing_transcript:
             return jsonify({'success': False, 'error': 'Transcript required for speech generation'}), 400
@@ -292,7 +292,7 @@ def create_dubbed_video():
     
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         video_id = request_data.get('video_id')
         target_language = request_data.get('target_language', 'es')
@@ -300,7 +300,7 @@ def create_dubbed_video():
 
         print(f"[SERVER] 🎬 [@server_restart_routes:createDubbedVideo] Step 3 starting with {voice_choice} voice")
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
 
         response_data, status_code = proxy_to_host_with_params(
@@ -336,7 +336,7 @@ def create_dubbed_video_fast():
     
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         video_id = request_data.get('video_id')
         target_language = request_data.get('target_language', 'es')
@@ -344,7 +344,7 @@ def create_dubbed_video_fast():
 
         print(f"[SERVER] ⚡ [@server_restart_routes:createDubbedVideoFast] 🔍 FAST ENDPOINT CALLED - Fast dubbing starting for {target_language}")
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
         if not existing_transcript:
             return jsonify({'success': False, 'error': 'Transcript required for fast dubbing'}), 400
@@ -382,7 +382,7 @@ def adjust_audio_timing():
     
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         video_url = request_data.get('video_url')
         timing_offset_ms = request_data.get('timing_offset_ms', 0)
@@ -395,14 +395,14 @@ def adjust_audio_timing():
 
         print(f"[SERVER] 🎵 [@server_restart_routes:adjustAudioTiming] Starting timing adjustment: {timing_offset_ms:+d}ms for {language}")
 
-        if not host:
+        if not host_name:
             return jsonify({'success': False, 'error': 'Host required'}), 400
         if not video_url:
             return jsonify({'success': False, 'error': 'Video URL required'}), 400
         if timing_offset_ms == 0:
             return jsonify({'success': False, 'error': 'Timing offset cannot be 0'}), 400
 
-        print(f"[SERVER] 🔄 [@server_restart_routes:adjustAudioTiming] Proxying to host {host.get('host_name', 'unknown')} endpoint: /host/restart/adjustAudioTiming")
+        print(f"[SERVER] 🔄 [@server_restart_routes:adjustAudioTiming] Proxying to host {host_name} endpoint: /host/restart/adjustAudioTiming")
 
         # Include component paths in proxy data
         proxy_params = {

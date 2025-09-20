@@ -37,7 +37,7 @@ CONTROLLER_TYPES = {
 
 ### Basic Remote Controller Template
 ```python
-# backend_core/src/controllers/remote/custom_device.py
+# backend_host/src/controllers/remote/custom_device.py
 """
 Custom Device Remote Controller
 """
@@ -210,7 +210,7 @@ class CustomDeviceRemoteController(RemoteControllerInterface):
 
 ### Custom AV Controller Template
 ```python
-# backend_core/src/controllers/audiovideo/custom_capture.py
+# backend_host/src/controllers/audiovideo/custom_capture.py
 """
 Custom Video Capture Controller
 """
@@ -344,7 +344,7 @@ class CustomCaptureController(AVControllerInterface):
 
 ### Custom Verification Controller Template
 ```python
-# backend_core/src/controllers/verification/custom_verify.py
+# backend_host/src/controllers/verification/custom_verify.py
 """
 Custom Content Verification Controller
 """
@@ -506,7 +506,7 @@ class CustomVerificationController(VerificationControllerInterface):
 
 ### Update Controller Registry
 ```python
-# backend_core/src/controllers/__init__.py
+# backend_host/src/controllers/__init__.py
 # Add your custom controllers to the registry
 
 # Import your custom controllers
@@ -534,7 +534,7 @@ CONTROLLER_REGISTRY = {
 
 ### Update Device Controller Mapping
 ```python
-# backend_core/src/controllers/controller_config_factory.py
+# backend_host/src/controllers/controller_config_factory.py
 # Add your device to the mapping
 
 DEVICE_CONTROLLER_MAP = {
@@ -603,7 +603,7 @@ CUSTOM_CAPTURE_FPS=30
 # tests/test_custom_device_controller.py
 import unittest
 from unittest.mock import Mock, patch
-from backend_core.controllers.remote.custom_device import CustomDeviceRemoteController
+from backend_host.controllers.remote.custom_device import CustomDeviceRemoteController
 
 class TestCustomDeviceController(unittest.TestCase):
     
@@ -652,7 +652,7 @@ if __name__ == '__main__':
 ```python
 # tests/integration/test_custom_device_integration.py
 import unittest
-from backend_core.controllers.remote.custom_device import CustomDeviceRemoteController
+from backend_host.controllers.remote.custom_device import CustomDeviceRemoteController
 
 class TestCustomDeviceIntegration(unittest.TestCase):
     """
@@ -700,7 +700,7 @@ class TestCustomDeviceIntegration(unittest.TestCase):
 """
 Test script using custom controller
 """
-from backend_core.controllers import get_controller
+from backend_host.controllers import get_controller
 
 def test_custom_device():
     """Test custom device functionality"""

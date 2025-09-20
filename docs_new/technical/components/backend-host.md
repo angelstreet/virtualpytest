@@ -99,14 +99,14 @@ class HardwareManager:
 
 ### Controller Integration
 ```python
-from backend_core.controllers import get_controller
+from backend_host.controllers import get_controller
 
 @app.route('/host/remote/executeAction', methods=['POST'])
 def execute_remote_action():
     action = request.json
     device_model = action.get('device_model', 'android_mobile')
     
-    # Get appropriate controller from backend_core
+    # Get appropriate controller from backend_host
     controller = get_controller('remote', device_model)
     
     if not controller:
@@ -296,10 +296,10 @@ RUN apt-get update && apt-get install -y \
 # Copy application code
 COPY backend_host/ /app/backend_host/
 COPY shared/ /app/shared/
-COPY backend_core/ /app/backend_core/
+COPY backend_host/ /app/backend_host/
 
 # Set Python path
-ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
+ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_host/src"
 
 # Install Python dependencies
 RUN pip install -r /app/backend_host/requirements.txt
@@ -325,7 +325,7 @@ backend_host:
   volumes:
     - /dev:/dev      # Hardware device access
     - ../shared:/app/shared:ro
-    - ../backend_core:/app/backend_core:ro
+    - ../backend_host:/app/backend_host:ro
   ports:
     - "6109:6109"    # API
     - "5900:5900"    # VNC
@@ -381,7 +381,7 @@ def check_connected_devices() -> bool:
 ```python
 # Test device connectivity
 python -c "
-from backend_core.controllers.remote.android_mobile import AndroidMobileRemoteController
+from backend_host.controllers.remote.android_mobile import AndroidMobileRemoteController
 controller = AndroidMobileRemoteController()
 print('Controller initialized:', controller.initialize())
 "

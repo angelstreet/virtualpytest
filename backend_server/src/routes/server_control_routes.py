@@ -22,7 +22,7 @@ from shared.lib.utils.app_utils import get_team_id, get_user_id
 from shared.lib.utils.build_url_utils import buildHostUrl
 from shared.lib.utils.host_utils import get_host_manager
 from shared.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
-from backend_core.src.controllers.controller_config_factory import create_controller_configs_from_device_info
+from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')
@@ -36,13 +36,12 @@ def take_control():
     """Take control of a device"""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         device_id = data.get('device_id')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
-        host_name = host['host_name']
         
         # Generate session ID if not exists
         if 'session_id' not in session:
@@ -159,13 +158,12 @@ def release_control():
     """Release control of a device"""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         device_id = data.get('device_id')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
-        host_name = host['host_name']
         session_id = session.get('session_id')
         
         print(f"🔓 [CONTROL] Releasing control of host: {host_name}, device: {device_id} (session: {session_id})")
@@ -249,16 +247,15 @@ def execute_navigation():
     """Execute navigation on a host device."""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         navigation_data = data.get('navigation_data')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
         if not navigation_data:
             return jsonify({'error': 'Navigation data is required'}), 400
         
-        host_name = host['host_name']
         
         print(f"🧭 [NAVIGATION] Executing navigation on host: {host_name}")
         print(f"   Navigation data keys: {list(navigation_data.keys())}")
@@ -304,16 +301,15 @@ def batch_execute_navigation():
     """Execute batch navigation on a host device."""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         batch_data = data.get('batch_data')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
         if not batch_data or not isinstance(batch_data, list):
             return jsonify({'error': 'Batch data must be a list of navigation items'}), 400
         
-        host_name = host['host_name']
         
         print(f"🧭 [BATCH-NAVIGATION] Executing batch navigation on host: {host_name}")
         print(f"   Batch size: {len(batch_data)} items")

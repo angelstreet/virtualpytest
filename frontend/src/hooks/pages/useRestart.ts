@@ -356,7 +356,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host,
+          host_name: host.host_name,
           device_id: device.device_id || 'device1',
           video_url: currentVideoUrl,
           analysis_data: {
@@ -401,7 +401,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         const response = await fetch(buildServerUrl(`/server/restart/analysisStatus/${videoId}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ device_id: device.device_id, host })
+          body: JSON.stringify({ device_id: device.device_id, host_name: host.host_name })
         });
         const data = await response.json();
         
@@ -505,7 +505,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host,
+          host_name: host.host_name,
           device_id: device.device_id || 'device1',
           duration_seconds: 10,
         })
@@ -776,7 +776,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host,
+          host_name: host.host_name,
           content_blocks: contentBlocks,
           target_language: language
         })

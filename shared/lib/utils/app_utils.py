@@ -220,8 +220,8 @@ def validate_core_environment(mode='server'):
 def lazy_load_controllers():
     """Lazy load controllers when first needed"""
     try:
-        from backend_core.src.controllers import ControllerFactory, CONTROLLER_REGISTRY
-        from backend_core.src.controllers.base_controller import (
+        from backend_host.src.controllers import ControllerFactory, CONTROLLER_REGISTRY
+        from backend_host.src.controllers.base_controller import (
             RemoteControllerInterface, 
             AVControllerInterface, 
             VerificationControllerInterface,

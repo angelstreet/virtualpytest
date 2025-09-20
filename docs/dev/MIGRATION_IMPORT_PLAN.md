@@ -39,7 +39,7 @@ shared/lib/supabase/actions_db.py
 The `backend_server/src/app.py` sets up:
 ```python
 sys.path.insert(0, '../../shared/lib')
-sys.path.insert(0, '../../backend_core/src')
+sys.path.insert(0, '../../backend_host/src')
 ```
 
 ## ✅ **Solution Strategy**

@@ -122,7 +122,7 @@ export const useRec = (): UseRecReturn => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              host: host,
+              host_name: host.host_name,
               device_id: device.device_id || 'device1',
             }),
           });

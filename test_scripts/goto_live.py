@@ -29,7 +29,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.lib.utils.script_framework import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
-from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:

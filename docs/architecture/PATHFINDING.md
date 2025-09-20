@@ -78,14 +78,14 @@ For navigation from `live_menu_audio` to `live_menu_subtitles`:
 ## Key Files
 
 - `shared/lib/utils/navigation_graph.py` - Graph construction and bidirectional edge creation
-- `backend_core/src/services/navigation/navigation_pathfinding.py` - Pathfinding algorithms
+- `backend_host/src/services/navigation/navigation_pathfinding.py` - Pathfinding algorithms
 - `shared/lib/utils/navigation_cache.py` - Graph caching for performance
 
 ## Usage Examples
 
 ### Basic Navigation
 ```python
-from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
 
 # Find path to target node
 path = find_shortest_path(tree_id, "live_menu_audio", team_id, start_node_id)

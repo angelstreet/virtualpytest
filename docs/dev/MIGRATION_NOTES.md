@@ -13,7 +13,7 @@ Documentation of the clean migration from monolithic to microservices architectu
 | `config/service/*.service` | `deployment/systemd/*` | ✅ Updated for microservices |
 | `config/remote/appium_remote.json` | `shared/lib/config/devices/` | ✅ Migrated |
 | `config/vnc_lite_*.html` | `frontend/public/` | ✅ Migrated |
-| `test-scripts/*` | `backend_core/examples/` | ✅ Migrated |
+| `test-scripts/*` | `backend_host/examples/` | ✅ Migrated |
 | `scripts/capture_monitor.py` | `backend_host/scripts/` | ✅ Migrated |
 | `scripts/alert_system.py` | `backend_host/scripts/` | ✅ Migrated |
 | `scripts/analyze_audio_video.py` | `backend_host/scripts/` | ✅ Migrated |
@@ -22,10 +22,10 @@ Documentation of the clean migration from monolithic to microservices architectu
 | `scripts/clean_captures.sh` | `backend_host/scripts/` | ✅ Migrated |
 | `scripts/launch_*.sh` | `deployment/scripts/` | ✅ Migrated |
 | `scripts/mac_*.sh` | `deployment/scripts/mac/` | ✅ Migrated |
-| `scripts/test_appium.py` | `backend_core/examples/` | ✅ Migrated |
-| `src/controllers/` | `backend_core/src/controllers/` | ✅ Migrated |
-| `src/lib/actions/` | `backend_core/src/services/actions/` | ✅ Migrated |
-| `src/lib/navigation/` | `backend_core/src/services/navigation/` | ✅ Migrated |
+| `scripts/test_appium.py` | `backend_host/examples/` | ✅ Migrated |
+| `src/controllers/` | `backend_host/src/controllers/` | ✅ Migrated |
+| `src/lib/actions/` | `backend_host/src/services/actions/` | ✅ Migrated |
+| `src/lib/navigation/` | `backend_host/src/services/navigation/` | ✅ Migrated |
 | `src/models/` | `shared/lib/models/` | ✅ Migrated |
 | `src/utils/` | `shared/lib/utils/` | ✅ Migrated |
 | `src/web/routes/host_*` | `backend_host/src/routes/` | ✅ Migrated |
@@ -37,7 +37,7 @@ Documentation of the clean migration from monolithic to microservices architectu
 | **Item** | **Reason** | **Status** |
 |----------|------------|------------|
 | `config/` | Migrated to proper locations | ✅ Deleted |
-| `test-scripts/` | Moved to `backend_core/examples/` | ✅ Deleted |
+| `test-scripts/` | Moved to `backend_host/examples/` | ✅ Deleted |
 | `scripts/` | Migrated to service-specific locations | ✅ Deleted |
 | `setup.py` | Each service has its own setup.py | ✅ Deleted |
 | `requirements.txt` | Renamed to `legacy-requirements.txt` | ✅ Preserved as reference |
@@ -48,7 +48,7 @@ Documentation of the clean migration from monolithic to microservices architectu
 Each service now has its own `requirements.txt`:
 
 - `shared/requirements.txt` - Lightweight shared dependencies
-- `backend_core/requirements.txt` - Hardware control dependencies  
+- `backend_host/requirements.txt` - Hardware control dependencies  
 - `backend_host/requirements.txt` - Host service dependencies
 - `backend_server/requirements.txt` - API server dependencies
 - `frontend/package.json` - React dependencies
@@ -58,11 +58,11 @@ Each service now has its own `requirements.txt`:
 Each service now has comprehensive documentation:
 
 - `shared/README.md` - Shared library usage
-- `backend_core/README.md` - Controllers and business logic
+- `backend_host/README.md` - Controllers and business logic
 - `backend_host/README.md` - Hardware interface service
 - `backend_server/README.md` - API server documentation
 - `frontend/README.md` - React application
-- `backend_core/examples/README.md` - Example scripts
+- `backend_host/examples/README.md` - Example scripts
 - `deployment/README.md` - Deployment configurations
 
 ## 🔄 **Migration Benefits**
@@ -81,7 +81,7 @@ virtualpytest/
 ```
 virtualpytest/
 ├── shared/                 # Common libraries
-├── backend_core/           # Pure business logic
+├── backend_host/           # Pure business logic
 ├── backend_server/         # API service
 ├── backend_host/          # Hardware interface
 ├── frontend/              # React UI
@@ -160,7 +160,7 @@ VITE_SERVER_URL=http://localhost:5109
 ```bash
 # Test each service independently
 cd shared && pip install -e .
-cd backend_core && pip install -r requirements.txt
+cd backend_host && pip install -r requirements.txt
 cd backend_host && pip install -r requirements.txt  
 cd backend_server && pip install -r requirements.txt
 cd frontend && npm install

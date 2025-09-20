@@ -198,7 +198,7 @@ backend_server container:
 ├── Flask application (port 5109)
 ├── Grafana service (port 3001)
 ├── Supervisor process manager
-└── Shared volumes (backend_core, shared)
+└── Shared volumes (backend_host, shared)
 
 backend_host container:
 ├── Flask application (port 6109)
@@ -290,7 +290,7 @@ Project Structure:
 ├── frontend/              # React TypeScript app
 ├── backend_server/        # API orchestration service
 ├── backend_host/          # Hardware interface service
-├── backend_core/          # Shared business logic library
+├── backend_host/          # Shared business logic library
 ├── shared/               # Common utilities library
 ├── docker/               # Container orchestration
 └── docs_new/             # Documentation
@@ -313,7 +313,7 @@ Project Structure:
 - **Fault Isolation**: Service failures don't cascade
 
 ### Shared Library Strategy
-- **Code Reuse**: Common logic in backend_core and shared
+- **Code Reuse**: Common logic in backend_host and shared
 - **Consistency**: Same interfaces across services
 - **Maintainability**: Single source of truth for business logic
 - **Testing**: Isolated unit testing of core functionality

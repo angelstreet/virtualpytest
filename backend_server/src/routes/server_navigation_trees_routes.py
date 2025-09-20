@@ -602,7 +602,7 @@ def get_tree_by_userinterface_id(userinterface_id):
         
         if tree:
             # SAME AS SCRIPT: Load complete hierarchy instead of single tree
-            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+            from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
             from shared.lib.supabase.userinterface_db import get_userinterface
             
             # Get interface name for hierarchy loading

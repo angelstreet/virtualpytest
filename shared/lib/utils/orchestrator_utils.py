@@ -3,8 +3,8 @@ from typing import Dict, Tuple
 from pymongo import MongoClient
 from .interpreter_utils import Interpreter
 from shared.lib.models.navigation_tree import NavigationTree
-# Fixed imports - using correct controller interfaces from backend_core
-from backend_core.src.controllers.base_controller import (
+# Fixed imports - using correct controller interfaces from backend_host
+from backend_host.src.controllers.base_controller import (
     RemoteControllerInterface, 
     AVControllerInterface, 
     VerificationControllerInterface

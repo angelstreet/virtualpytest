@@ -105,7 +105,7 @@ def execute_task():
 
 #### 4. AI Agent Controller (REPLACED)
 ```python
-# backend_core/src/controllers/ai/ai_agent.py (REPLACED by ai_central.py)
+# backend_host/src/controllers/ai/ai_agent.py (REPLACED by ai_central.py)
 class AIAgentController(BaseController):
     def _get_navigation_tree(self, userinterface_name: str) -> Dict[str, Any]:
         """Load navigation tree using unified hierarchy loading"""
@@ -182,7 +182,7 @@ def execute_task():
 
 #### 3. AI Central (ENHANCED BUT NOT INTEGRATED)
 ```python
-# backend_core/src/controllers/ai/ai_central.py
+# backend_host/src/controllers/ai/ai_central.py
 class AICentral:
     def generate_plan(self, prompt: str, userinterface_name: str) -> AIPlan:
         context = self._load_context(userinterface_name)
@@ -216,7 +216,7 @@ Rules:
 
 #### 4. Enhanced Action Context (NEW - NOT INTEGRATED)
 ```python
-# backend_core/src/controllers/ai_descriptions/description_registry.py
+# backend_host/src/controllers/ai_descriptions/description_registry.py
 # ✅ NEW: Comprehensive action descriptions for AI
 def get_enhanced_actions_for_ai(device_id: str) -> Dict[str, Any]:
     """

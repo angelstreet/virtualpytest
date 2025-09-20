@@ -69,7 +69,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             device_id: device_id,
           }),
         });

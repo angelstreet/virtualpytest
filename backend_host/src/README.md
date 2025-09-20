@@ -4,7 +4,7 @@
 
 ## 🎯 **Purpose**
 
-backend_core is a **shared library component** that contains core automation logic and device controllers without any web framework dependencies. It's designed to be imported by other services (backend_server, backend_host) that need device control capabilities.
+backend_host is a **shared library component** that contains core automation logic and device controllers without any web framework dependencies. It's designed to be imported by other services (backend_server, backend_host) that need device control capabilities.
 
 **⚠️ Note**: This is NOT a standalone service - it's a library that gets imported by other components.
 
@@ -17,7 +17,7 @@ backend_core is a **shared library component** that contains core automation log
 
 ## 🔧 **Installation**
 
-**Note**: backend_core is a shared library component. Dependencies are managed by the services that import it.
+**Note**: backend_host is a shared library component. Dependencies are managed by the services that import it.
 
 For local development:
 ```bash
@@ -25,12 +25,12 @@ For local development:
 pip install -e .
 ```
 
-For production, backend_core is included in service Docker containers via PYTHONPATH along with the `shared` library.
+For production, backend_host is included in service Docker containers via PYTHONPATH along with the `shared` library.
 
 ## 📁 **Structure**
 
 ```
-backend_core/src/
+backend_host/src/
 ├── controllers/             # Device controllers
 │   ├── desktop/            # Desktop automation
 │   ├── remote/             # Mobile device control
@@ -50,8 +50,8 @@ backend_core/src/
 
 ### Device Controllers
 ```python
-from backend_core.controllers.desktop.pyautogui import PyAutoGUIController
-from backend_core.controllers.remote.android_mobile import AndroidMobileController
+from backend_host.controllers.desktop.pyautogui import PyAutoGUIController
+from backend_host.controllers.remote.android_mobile import AndroidMobileController
 
 # Desktop automation
 desktop = PyAutoGUIController()
@@ -66,8 +66,8 @@ mobile.swipe(100, 100, 200, 200)
 
 ### Business Services
 ```python
-from backend_core.services.actions.action_executor import ActionExecutor
-from backend_core.services.navigation.navigation_execution import NavigationExecutor
+from backend_host.services.actions.action_executor import ActionExecutor
+from backend_host.services.navigation.navigation_execution import NavigationExecutor
 
 # Execute test actions
 executor = ActionExecutor()
@@ -149,7 +149,7 @@ python validation.py horizon_android_mobile
 
 ## 🔄 **Integration**
 
-backend_core is a **shared library** imported by:
+backend_host is a **shared library** imported by:
 
 - **backend_host**: Direct hardware control service
 - **backend_server**: Test orchestration service  
@@ -157,24 +157,24 @@ backend_core is a **shared library** imported by:
 
 ```python
 # In backend_host service
-from backend_core.controllers import *
-from backend_core.services import *
+from backend_host.controllers import *
+from backend_host.services import *
 
 # In backend_server service
-from backend_core.services.actions import ActionExecutor
+from backend_host.services.actions import ActionExecutor
 
 # In standalone scripts
-from backend_core.controllers.desktop.pyautogui import PyAutoGUIController
+from backend_host.controllers.desktop.pyautogui import PyAutoGUIController
 ```
 
 ### Docker Integration
 
-backend_core is included in other services' Docker containers via PYTHONPATH:
+backend_host is included in other services' Docker containers via PYTHONPATH:
 
 ```dockerfile
 # In backend_server/Dockerfile and backend_host/Dockerfile
-COPY backend_core/ backend_core/
-ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
+COPY backend_host/ backend_host/
+ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_host/src"
 ```
 
 ## 🚀 **Deployment Architecture**
@@ -188,13 +188,13 @@ ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
 │ • Orchestration │    │ • Device Control│    │ • Automation    │
 │                 │    │                 │    │                 │
 │ Imports:        │    │ Imports:        │    │ Imports:        │
-│ backend_core ←──┼────┼─→ backend_core ←─┼────┼─→ backend_core  │
+│ backend_host ←──┼────┼─→ backend_host ←─┼────┼─→ backend_host  │
 │ shared       ←──┼────┼─→ shared       ←─┼────┼─→ shared        │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 **Key Points:**
-- ✅ **backend_core**: Shared library (no Docker container)
+- ✅ **backend_host**: Shared library (no Docker container)
 - ✅ **shared**: Shared library (no Docker container)  
 - 🐳 **backend_server**: Deployable service (has Docker container)
 - 🐳 **backend_host**: Deployable service (has Docker container)
@@ -230,7 +230,7 @@ Different controllers have different requirements:
 
 ## 📋 **Dependencies**
 
-Dependencies are managed by the services that import backend_core. Key dependencies include:
+Dependencies are managed by the services that import backend_host. Key dependencies include:
 
 - **Hardware Control**: pyautogui, pynput, opencv-python
 - **Mobile**: Appium-Python-Client, selenium

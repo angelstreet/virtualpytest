@@ -36,7 +36,7 @@ typing-extensions>=4.0.0
 # File system operations
 watchdog>=3.0.0
 
-# Hardware interface dependencies (from backend_core)
+# Hardware interface dependencies (from backend_host)
 # These are for direct hardware access on the host
 # Fixed versions for numpy binary compatibility
 numpy>=1.24.0,<2.0.0

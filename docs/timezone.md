@@ -104,7 +104,7 @@ file_mtime_utc = datetime.fromtimestamp(os.path.getmtime(f), tz=timezone.utc)
 6. All other database files using `datetime.now()` without timezone
 
 ### **Low Priority** 🟢
-7. `backend_core/src/controllers/base_controller.py` - Keep Zurich for filenames
+7. `backend_host/src/controllers/base_controller.py` - Keep Zurich for filenames
 8. Frontend display formatting
 
 ## **Implementation Strategy**

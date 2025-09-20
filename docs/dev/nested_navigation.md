@@ -252,4 +252,4 @@ def sync_parent_node_to_subtrees(parent_node_id: str, updated_data: Dict, team_i
 - ✅ Test pathfinding after creating new subtrees
 - ✅ Compare edge patterns with working subtrees when debugging
 
-For implementation details, see code in `shared/lib/supabase/navigation_trees_db.py` and `backend_core/src/services/navigation/`.
+For implementation details, see code in `shared/lib/supabase/navigation_trees_db.py` and `backend_host/src/services/navigation/`.

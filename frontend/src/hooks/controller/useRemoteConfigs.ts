@@ -200,7 +200,7 @@ export function useRemoteConfigs({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             stream_x: streamX,
             stream_y: streamY,
             stream_width: streamInfo.size.width,
@@ -244,7 +244,7 @@ export function useRemoteConfigs({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             x: x,
             y: y,
           }),

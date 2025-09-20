@@ -371,10 +371,10 @@ RUN apt-get update && apt-get install -y grafana
 # Copy application code
 COPY backend_server/ /app/backend_server/
 COPY shared/ /app/shared/
-COPY backend_core/ /app/backend_core/
+COPY backend_host/ /app/backend_host/
 
 # Set Python path
-ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_core/src"
+ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_host/src"
 
 # Install Python dependencies
 RUN pip install -r /app/backend_server/requirements.txt

@@ -24,7 +24,7 @@ pip install -r requirements.txt
 python src/app.py
 ```
 
-**Note**: Both `shared` and `backend_core` are included via PYTHONPATH in Docker deployments. For local development, ensure the project structure is maintained.
+**Note**: Both `shared` and `backend_host` are included via PYTHONPATH in Docker deployments. For local development, ensure the project structure is maintained.
 
 ## 🌐 **API Endpoints**
 
@@ -268,7 +268,7 @@ FLASK_SECRET_KEY=your_flask_secret
 
 #### Why Docker is Required:
 - ✅ **System Dependencies**: NoVNC, graphics libraries (libGL, Xvfb)
-- ✅ **Multi-Directory Structure**: Needs `shared/`, `backend_core/`, `backend_server/`
+- ✅ **Multi-Directory Structure**: Needs `shared/`, `backend_host/`, `backend_server/`
 - ✅ **Python Package Management**: Complex dependency resolution
 - ✅ **Consistent Environment**: Same setup across dev/staging/prod
 

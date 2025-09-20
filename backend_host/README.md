@@ -24,7 +24,7 @@ pip install -r requirements.txt
 python src/app.py
 ```
 
-**Note**: Both `shared` and `backend_core` are included via PYTHONPATH in Docker deployments. For local development, ensure the project structure is maintained.
+**Note**: Both `shared` and `backend_host` are included via PYTHONPATH in Docker deployments. For local development, ensure the project structure is maintained.
 
 ## 🌐 **API Endpoints**
 
@@ -70,7 +70,7 @@ python src/app.py
 backend_host Service
 ├── Flask Application (Gunicorn)
 ├── Route Handlers (/host/*)
-├── backend_core Controllers
+├── backend_host Controllers
 ├── Hardware Abstraction Layer
 └── Physical Devices
 ```
@@ -206,7 +206,7 @@ OPENROUTER_API_KEY=your_openrouter_key
 
 #### Why Docker is Required:
 - ✅ **System Dependencies**: Hardware drivers, graphics libraries (libGL, Xvfb)
-- ✅ **Multi-Directory Structure**: Needs `shared/`, `backend_core/`, `backend_host/`
+- ✅ **Multi-Directory Structure**: Needs `shared/`, `backend_host/`, `backend_host/`
 - ✅ **Hardware Access**: Virtual display server and automation tools
 - ✅ **Consistent Environment**: Same setup across dev/staging/prod
 
@@ -427,7 +427,7 @@ sudo systemctl start backend_host
 
 ## 🤝 **Contributing**
 
-1. Add new hardware controllers to backend_core
+1. Add new hardware controllers to backend_host
 2. Create corresponding route handlers
 3. Update API documentation
 4. Add integration tests

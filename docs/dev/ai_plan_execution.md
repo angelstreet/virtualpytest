@@ -482,7 +482,7 @@ const executeTestCase = async (testCaseId: string, deviceId: string) => {
 **How it works:**
 ```python
 # AI Agent delegates to existing navigation service
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 
 # Initialize NavigationExecutor with host configuration
 executor = NavigationExecutor(host=self.host, device_id=self.device_id, team_id=self.team_id)

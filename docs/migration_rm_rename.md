@@ -12,7 +12,7 @@ The timestamp-based file renaming system has been successfully removed and repla
 - **UPDATED**: `backend_host/scripts/run_ffmpeg_and_rename_docker.sh` - removed rename script calls (lines 148-150)
 
 ### 2. ✅ Updated Screenshot Lookup
-**File**: `backend_core/src/controllers/base_controller.py`
+**File**: `backend_host/src/controllers/base_controller.py`
 - **REPLACED**: Complex timestamp generation and exact match logic
 - **WITH**: Simple mtime-based scan:
   ```python
@@ -60,7 +60,7 @@ The timestamp-based file renaming system has been successfully removed and repla
 1. **`shared/lib/utils/build_url_utils.py`** ✅ - Updated URL building for sequential names
 2. **`shared/lib/utils/analysis_utils.py`** ✅ - Updated timestamp extraction logic  
 3. **`shared/lib/utils/zap_controller.py`** ✅ - Updated filename processing
-4. **`backend_core/src/controllers/verification/video_content_helpers.py`** ✅ - Updated video verification
+4. **`backend_host/src/controllers/verification/video_content_helpers.py`** ✅ - Updated video verification
 
 ### **Phase 2 - Frontend/Reporting ✅**
 5. **`shared/lib/utils/report_template_js.py`** ✅ - Updated JavaScript timestamp extraction

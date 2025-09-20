@@ -39,7 +39,7 @@ The AI Agent System has been completely refactored to use a clean service-orient
 
 ### Service Executors
 
-#### ActionExecutor (`backend_core/src/services/actions/action_executor.py`)
+#### ActionExecutor (`backend_host/src/services/actions/action_executor.py`)
 
 **Responsibilities:**
 - Provide available action context for AI
@@ -51,7 +51,7 @@ The AI Agent System has been completely refactored to use a clean service-orient
 - `execute_actions(actions, retry_actions, failure_actions)`: Execute action sequences
 - `_detect_action_type_from_device(command)`: Dynamically detect action type from device controllers
 
-#### VerificationExecutor (`backend_core/src/services/verifications/verification_executor.py`)
+#### VerificationExecutor (`backend_host/src/services/verifications/verification_executor.py`)
 
 **Responsibilities:**
 - Provide available verification context for AI
@@ -62,7 +62,7 @@ The AI Agent System has been completely refactored to use a clean service-orient
 - `get_available_context(device_model, userinterface_name)`: Returns available verifications with descriptions
 - `execute_verifications(verifications, image_source_url)`: Execute verification sequences
 
-#### NavigationExecutor (`backend_core/src/services/navigation/navigation_executor.py`)
+#### NavigationExecutor (`backend_host/src/services/navigation/navigation_executor.py`)
 
 **Responsibilities:**
 - Provide available navigation context for AI

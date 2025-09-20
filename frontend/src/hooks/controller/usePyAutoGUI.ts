@@ -33,7 +33,7 @@ export const usePyAutoGUI = (host: Host, _deviceId: string) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             command: command,
             params: params,
           }),

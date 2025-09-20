@@ -40,7 +40,7 @@ def get_validation_preview(tree_id: str):
                 }), 400
         
         # Use optimal edge validation sequence with unified cache
-        from backend_core.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+        from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
         
         validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
         

@@ -57,7 +57,7 @@ User=$USER
 Group=$USER
 WorkingDirectory=$(pwd)/backend_host/scripts
 Environment=HOST_NAME=$USER
-Environment=PYTHONPATH=$(pwd)/shared/lib:$(pwd)/backend_core/src
+Environment=PYTHONPATH=$(pwd)/shared/lib:$(pwd)/backend_host/src
 Environment=PATH=$(pwd)/venv/bin:/usr/bin:/usr/local/bin
 ExecStart=$(pwd)/venv/bin/python $(pwd)/backend_host/scripts/capture_monitor.py
 TimeoutStopSec=10

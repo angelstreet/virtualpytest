@@ -9,7 +9,7 @@ import time
 from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
-from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+from src.services.navigation.navigation_pathfinding import find_shortest_path
 from shared.lib.utils.app_utils import get_team_id
 from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from shared.lib.utils.navigation_cache import populate_unified_cache

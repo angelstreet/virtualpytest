@@ -52,7 +52,7 @@ Create `.env` in project root:
 # Copy from template
 cp .env.example .env
 
-# Edit with your values - used by backend_server, backend_core, shared:
+# Edit with your values - used by backend_server, backend_host, shared:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 CLOUDFLARE_R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com

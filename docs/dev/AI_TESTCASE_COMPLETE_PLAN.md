@@ -361,7 +361,7 @@ export interface AIGenerationRequest {
 ```python
 from flask import Blueprint, request, jsonify
 import uuid
-from backend_core.src.controllers.ai.ai_agent import AIAgentController
+from backend_host.src.controllers.ai.ai_agent import AIAgentController
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
 from shared.lib.supabase.navigation_trees_db import get_full_tree

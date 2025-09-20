@@ -7,7 +7,7 @@ Fix AI test case compatibility analysis with minimal code changes. No legacy sup
 
 **Problem**: `get_commands_for_device_model()` returns 0 verifications for all models.
 
-**File**: `backend_core/src/controllers/ai_descriptions/description_registry.py`
+**File**: `backend_host/src/controllers/ai_descriptions/description_registry.py`
 
 **Action**: Update `get_commands_for_device_model()` to load verification commands.
 
@@ -64,7 +64,7 @@ def get_commands_for_device_model(device_model: str) -> Dict[str, Any]:
 
 ## 🔧 Step 2: Add Missing Verification Commands
 
-**File**: `backend_core/src/controllers/ai_descriptions/description_registry.py`
+**File**: `backend_host/src/controllers/ai_descriptions/description_registry.py`
 
 **Action**: Add missing audio verification commands to `CONTROLLER_COMMAND_MAP`.
 
@@ -90,7 +90,7 @@ CONTROLLER_COMMAND_MAP = {
 
 ## 🔧 Step 3: Update Controller Factory Verification Map
 
-**File**: `backend_core/src/controllers/controller_config_factory.py`
+**File**: `backend_host/src/controllers/controller_config_factory.py`
 
 **Action**: Add audio verification to device models.
 

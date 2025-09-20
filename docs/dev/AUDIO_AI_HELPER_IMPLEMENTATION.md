@@ -92,12 +92,12 @@ graph TD
 ### File Structure
 
 ```
-backend_core/src/controllers/verification/
+backend_host/src/controllers/verification/
 ├── audio_ai_helpers.py          # NEW: Audio AI analysis class
 ├── video_ai_helpers.py          # Existing: Video AI analysis
 └── ...
 
-backend_core/src/controllers/audiovideo/
+backend_host/src/controllers/audiovideo/
 ├── audio_dubbing_helpers.py     # NEW: Audio dubbing and sync functionality
 ├── video_restart_helpers.py     # Enhanced: Video restart with dubbing integration
 └── ...
@@ -115,7 +115,7 @@ test_scripts/
 
 ### 1. AudioDubbingHelpers Class
 
-**Location**: `backend_core/src/controllers/verification/audio_dubbing_helpers.py`
+**Location**: `backend_host/src/controllers/verification/audio_dubbing_helpers.py`
 
 #### Overview
 
@@ -198,7 +198,7 @@ restart_{lang}_dubbed_video.mp4      # Final dubbed video per language
 
 #### Integration with VideoRestartHelpers
 
-**Location**: `backend_core/src/controllers/audiovideo/video_restart_helpers.py`
+**Location**: `backend_host/src/controllers/audiovideo/video_restart_helpers.py`
 
 The VideoRestartHelpers class has been updated to use AudioDubbingHelpers for all timing adjustments, eliminating duplicate code:
 
@@ -216,7 +216,7 @@ def _sync_using_dubbing_helpers(self, target_timing_ms, language, original_dir, 
 
 ### 2. AudioAIHelpers Class
 
-**Location**: `backend_core/src/controllers/verification/audio_ai_helpers.py`
+**Location**: `backend_host/src/controllers/verification/audio_ai_helpers.py`
 
 #### Key Methods:
 
@@ -484,7 +484,7 @@ language = result.get('language', 'en')
 The AudioAIHelpers automatically uses the global HLS segment duration defined in `AVControllerInterface`:
 
 ```python
-# In backend_core/src/controllers/base_controller.py
+# In backend_host/src/controllers/base_controller.py
 class AVControllerInterface(BaseController):
     # Global configuration for video segments
     HLS_SEGMENT_DURATION = 1  # seconds per segment

@@ -35,7 +35,7 @@ The Restart Video System provides fast 10-second video generation with comprehen
 - **Caching System**: Timing-adjusted videos cached for instant switching
 - **FFmpeg Processing**: Uses `adelay` filter for delays, `atrim` filter for advances
 
-#### Core Implementation (`backend_core/src/controllers/base_controller.py`)
+#### Core Implementation (`backend_host/src/controllers/base_controller.py`)
 - **Global Configuration**: Uses `AVControllerInterface.HLS_SEGMENT_DURATION = 1` consistently
 - **Segment Synchronization**: Video segments and screenshots use same timeline
 - **Audio Segment Merging**: Combines 10-12 second audio for improved Whisper detection

@@ -530,7 +530,7 @@ supabase_client = create_client(
 
 ### Using Data Models
 ```python
-# In backend_core
+# In backend_host
 from shared.lib.models.device import Device, DeviceType, DeviceStatus
 from shared.lib.utils.helpers import generate_id, utc_now
 

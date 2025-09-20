@@ -267,7 +267,7 @@ export function useHdmiStream({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ host: host, device_id: deviceId }),
+        body: JSON.stringify({ host_name: host.host_name, device_id: deviceId }),
       });
 
       const result = await response.json();

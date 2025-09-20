@@ -122,7 +122,7 @@ class AIOrchestrator:
     
     def _execute_navigation_step(self, step: AIStep, options: ExecutionOptions) -> StepResult:
         """Delegate to EXISTING NavigationExecutor"""
-        from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
+        from backend_host.src.services.navigation.navigation_execution import NavigationExecutor
         
         executor = NavigationExecutor(
             host=self.host,
@@ -141,7 +141,7 @@ class AIOrchestrator:
     
     def _execute_action_step(self, step: AIStep, options: ExecutionOptions) -> StepResult:
         """Delegate to EXISTING ActionExecutor"""
-        from backend_core.src.services.actions.action_executor import ActionExecutor
+        from backend_host.src.services.actions.action_executor import ActionExecutor
         
         executor = ActionExecutor(
             host=self.host,
@@ -164,7 +164,7 @@ class AIOrchestrator:
     
     def _execute_verification_step(self, step: AIStep, options: ExecutionOptions) -> StepResult:
         """Delegate to EXISTING VerificationExecutor"""
-        from backend_core.src.services.verifications.verification_executor import VerificationExecutor
+        from backend_host.src.services.verifications.verification_executor import VerificationExecutor
         
         executor = VerificationExecutor(
             host=self.host,

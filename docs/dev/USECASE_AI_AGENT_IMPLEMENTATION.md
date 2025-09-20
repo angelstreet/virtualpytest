@@ -15,7 +15,7 @@ Implement AI-powered test case generation that creates, stores, and executes tes
 ## 🏗️ **Architecture: Server Generates, Host Executes**
 
 ### **Generation Phase: Server-Only**
-- **Server** directly accesses `backend_core` for AI test case generation
+- **Server** directly accesses `backend_host` for AI test case generation
 - **Server** has access to AI agents, navigation trees, device capabilities
 - **No proxy needed** - server handles generation locally for efficiency
 
@@ -342,7 +342,7 @@ const TestCaseGrid: React.FC = () => {
 
 ### **1. Enhanced AI Agent Controller**
 
-**Location**: `backend_core/src/controllers/ai/usecase_ai_agent.py`
+**Location**: `backend_host/src/controllers/ai/usecase_ai_agent.py`
 
 ```python
 class UseCaseAIAgent(AIAgentController):
@@ -538,7 +538,7 @@ class UseCaseAIAgent(AIAgentController):
 
 ```python
 from flask import Blueprint, request, jsonify
-from backend_core.src.controllers.ai.usecase_ai_agent import UseCaseAIAgent
+from backend_host.src.controllers.ai.usecase_ai_agent import UseCaseAIAgent
 
 ai_testcase_bp = Blueprint('ai_testcase', __name__)
 
@@ -589,8 +589,8 @@ def generate_test_case():
             }), 400
         
         # SERVER CAN ACCESS BACKEND_CORE DIRECTLY - No proxy needed for generation
-        from backend_core.src.controllers.ai.ai_agent import AIAgent
-        from backend_core.src.controllers.controller_config_factory import get_device_capabilities
+        from backend_host.src.controllers.ai.ai_agent import AIAgent
+        from backend_host.src.controllers.controller_config_factory import get_device_capabilities
         from shared.lib.utils.navigation_cache import get_cached_unified_graph
         
         # Get device capabilities directly on server
@@ -744,7 +744,7 @@ def execute_test_case():
 
 ### **3. Test Case Executor**
 
-**Location**: `backend_core/src/services/testcase_executor.py`
+**Location**: `backend_host/src/services/testcase_executor.py`
 
 ```python
 class TestCaseExecutor:

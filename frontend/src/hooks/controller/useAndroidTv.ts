@@ -103,7 +103,7 @@ export const useAndroidTv = (
 
         // Use the same routing pattern as Android Mobile remote
         const requestBody: any = {
-          host: host,
+          host_name: host.host_name,
           command: 'press_key',
           params: { key: adbKey },
           remote_type: 'android_tv', // Specify Android TV remote controller

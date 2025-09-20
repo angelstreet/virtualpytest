@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI System
-from backend_core.src.services.ai.ai_executor import AIExecutor
+from backend_host.src.services.ai.ai_executor import AIExecutor
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -231,7 +231,7 @@ def _execute_navigate_to_page(params):
 def _execute_navigation_to_node(params):
     """Execute execute_navigation_to_node MCP tool"""
     try:
-        from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+        from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
         from shared.lib.utils.app_utils import get_team_id
         
         tree_id = params.get("tree_id", "default_tree")
@@ -243,7 +243,7 @@ def _execute_navigation_to_node(params):
         host = {"host_name": "mcp_host", "device_model": "MCP_Interface"}
         
         # Use the new NavigationExecutor - need to get device from host
-        from backend_core.src.controllers.controller_manager import get_host
+        from backend_host.src.controllers.controller_manager import get_host
         host_instance = get_host()
         device = host_instance.get_device(device_id)
         if not device:

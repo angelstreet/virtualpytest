@@ -42,7 +42,7 @@ Video Generation (3s) → Immediate Response
 
 ### Phase 1: Backend Threading System
 
-#### File: `backend_core/src/controllers/audiovideo/video_restart_helpers.py`
+#### File: `backend_host/src/controllers/audiovideo/video_restart_helpers.py`
 
 **New Methods:**
 ```python
@@ -63,7 +63,7 @@ def get_analysis_status(video_id)
 - Real-time status updates for polling
 - Thread completion tracking
 
-#### File: `backend_core/src/controllers/audiovideo/audio_dubbing_helpers.py`
+#### File: `backend_host/src/controllers/audiovideo/audio_dubbing_helpers.py`
 
 **Simplifications:**
 - Remove `generate_gtts_speech_step()` and all gTTS methods

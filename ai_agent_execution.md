@@ -121,7 +121,7 @@ def _convert_step_to_action(self, step: Dict) -> Dict:
 - **Real-time toast notifications**
 
 ## Files Modified
-- `backend_core/src/controllers/ai/ai_agent.py` (backend execution logic)
+- `backend_host/src/controllers/ai/ai_agent.py` (backend execution logic)
 - `frontend/src/hooks/aiagent/useAIAgent.ts` (frontend toast notifications)
 
 ## New Features Added

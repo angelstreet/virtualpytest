@@ -16,12 +16,11 @@ def proxy_screenshot():
     """Proxy screenshot request to appropriate host"""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
-        host_name = host['host_name']
         
         print(f"📸 [PROXY] Screenshot request for host: {host_name}")
         
@@ -59,12 +58,11 @@ def proxy_stream_url():
     """Proxy stream URL request to appropriate host"""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
-        host_name = host['host_name']
         
         print(f"📺 [PROXY] Stream URL request for host: {host_name}")
         
@@ -102,12 +100,11 @@ def proxy_verification():
     """Proxy verification request to appropriate host"""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         
-        if not host or not host.get('host_name'):
-            return jsonify({'error': 'Host data is required'}), 400
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
         
-        host_name = host['host_name']
         
         print(f"✅ [PROXY] Verification request for host: {host_name}")
         

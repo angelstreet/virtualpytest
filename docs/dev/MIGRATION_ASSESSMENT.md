@@ -9,7 +9,7 @@
 - **Direct imports**: All modules could import from each other directly
 
 ### What We Have Now (After Migration)
-- **Microservices architecture**: Split into backend_core, backend_server, backend_host, shared, frontend
+- **Microservices architecture**: Split into backend_host, backend_server, backend_host, shared, frontend
 - **Complex dependency management**: Each service has its own requirements.txt
 - **Import path issues**: Services can't find each other's modules
 - **Virtual environment confusion**: Mixed use of global vs venv installations

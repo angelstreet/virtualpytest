@@ -52,7 +52,7 @@ def get_status():
         if request.method == 'POST':
             request_data = request.get_json() or {}
             device_id = request_data.get('device_id', 'device1')
-            host = request_data.get('host')
+            host_name = request_data.get('host_name')
         else:
             device_id = request.args.get('device_id', 'device1')
             request_data = {}
@@ -80,7 +80,7 @@ def take_screenshot():
     """Proxy take screenshot request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -108,7 +108,7 @@ def save_screenshot():
     """Proxy save screenshot request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -136,7 +136,7 @@ def start_video_capture():
     """Proxy start video capture request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -164,7 +164,7 @@ def stop_video_capture():
     """Proxy stop video capture request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -192,7 +192,7 @@ def take_control():
     """Proxy take control request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -220,7 +220,7 @@ def connect():
     """Proxy connect request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -248,7 +248,7 @@ def disconnect():
     """Proxy disconnect request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:

@@ -9,7 +9,7 @@ This utility provides:
 
 import time
 from typing import Dict, Any
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from .host_utils import get_controller
 from .report_utils import capture_and_upload_screenshot
 

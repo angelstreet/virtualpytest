@@ -9,25 +9,25 @@ import threading
 from typing import Dict, List, Any, Optional
 from shared.lib.models.host import Host
 from shared.lib.models.device import Device
-from backend_core.src.controllers.controller_config_factory import create_controller_configs_from_device_info
+from src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Import controller classes
-from backend_core.src.controllers.audiovideo.hdmi_stream import HDMIStreamController
-from backend_core.src.controllers.verification.vnc_stream import VNCStreamController
-from backend_core.src.controllers.audiovideo.camera_stream import CameraStreamController
-from backend_core.src.controllers.remote.android_mobile import AndroidMobileRemoteController
-from backend_core.src.controllers.remote.android_tv import AndroidTVRemoteController
-from backend_core.src.controllers.remote.appium_remote import AppiumRemoteController
-from backend_core.src.controllers.remote.infrared import IRRemoteController
-from backend_core.src.controllers.desktop.bash import BashDesktopController
-from backend_core.src.controllers.desktop.pyautogui import PyAutoGUIDesktopController
-from backend_core.src.controllers.verification.image import ImageVerificationController
-from backend_core.src.controllers.verification.text import TextVerificationController
-from backend_core.src.controllers.verification.adb import ADBVerificationController
-from backend_core.src.controllers.verification.appium import AppiumVerificationController
-from backend_core.src.controllers.verification.video import VideoVerificationController
-from backend_core.src.controllers.verification.audio import AudioVerificationController
-from backend_core.src.controllers.power.tapo_power import TapoPowerController
+from src.controllers.audiovideo.hdmi_stream import HDMIStreamController
+from src.controllers.verification.vnc_stream import VNCStreamController
+from src.controllers.audiovideo.camera_stream import CameraStreamController
+from src.controllers.remote.android_mobile import AndroidMobileRemoteController
+from src.controllers.remote.android_tv import AndroidTVRemoteController
+from src.controllers.remote.appium_remote import AppiumRemoteController
+from src.controllers.remote.infrared import IRRemoteController
+from src.controllers.desktop.bash import BashDesktopController
+from src.controllers.desktop.pyautogui import PyAutoGUIDesktopController
+from src.controllers.verification.image import ImageVerificationController
+from src.controllers.verification.text import TextVerificationController
+from src.controllers.verification.adb import ADBVerificationController
+from src.controllers.verification.appium import AppiumVerificationController
+from src.controllers.verification.video import VideoVerificationController
+from src.controllers.verification.audio import AudioVerificationController
+from src.controllers.power.tapo_power import TapoPowerController
 
 
 def create_host_from_environment() -> Host:
@@ -271,7 +271,7 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     # Web Controllers
     elif controller_type == 'web':
         if implementation == 'playwright':
-            from backend_core.src.controllers.web.playwright import PlaywrightWebController
+            from src.controllers.web.playwright import PlaywrightWebController
             return PlaywrightWebController(**params)
     
     # Power Controllers
@@ -441,10 +441,10 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
     print(f"[@controller_manager:_create_device_with_controllers] Creating service executors for device: {device_id}")
     
     try:
-        from backend_core.src.services.actions.action_executor import ActionExecutor
-        from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
-        from backend_core.src.services.verifications.verification_executor import VerificationExecutor
-        from backend_core.src.services.ai.ai_executor import AIExecutor
+        from src.services.actions.action_executor import ActionExecutor
+        from src.services.navigation.navigation_executor import NavigationExecutor
+        from src.services.verifications.verification_executor import VerificationExecutor
+        from src.services.ai.ai_executor import AIExecutor
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization

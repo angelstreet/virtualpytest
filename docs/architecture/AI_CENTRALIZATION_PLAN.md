@@ -9,7 +9,7 @@ Centralize AI inference with minimal code changes. Focus on centralizing models,
 
 ```
 virtualpytest/
-├── backend_core/src/controllers/
+├── backend_host/src/controllers/
 │   ├── ai/ai_agent.py                     # ❌ Direct OpenRouter, hardcoded model
 │   └── verification/video_ai_helpers.py   # ❌ Direct OpenRouter, hardcoded model
 ├── shared/lib/utils/
@@ -38,7 +38,7 @@ virtualpytest/
 │   └── prompts.py                         # 🆕 Shared prompts only
 ├── shared/lib/utils/
 │   └── ai_utils.py                        # ✅ ENHANCED: Uses ai_service
-├── backend_core/src/controllers/
+├── backend_host/src/controllers/
 │   ├── ai/ai_agent.py                     # ✅ MINIMAL CHANGE: Uses ai_service
 │   └── verification/video_ai_helpers.py   # ✅ MINIMAL CHANGE: Uses ai_service
 └── config/ai_config.py                    # 🆕 Simple Python config (not YAML)

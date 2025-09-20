@@ -9,7 +9,7 @@ The AI Test Case Generation System provides enhanced command descriptions to imp
 ### File Structure
 
 ```
-backend_core/src/controllers/ai_descriptions/
+backend_host/src/controllers/ai_descriptions/
 ├── __init__.py                    # Public API exports
 ├── description_registry.py        # Main registry and enhancement functions
 ├── remote_descriptions.py         # Remote controller commands (Android, IR, Bluetooth, Appium)
@@ -46,12 +46,12 @@ COMMAND_DESCRIPTIONS = {
 
 ### 1. AI Agent Integration
 
-The AI Agent (`backend_core/src/controllers/ai/ai_agent.py`) automatically loads enhanced descriptions:
+The AI Agent (`backend_host/src/controllers/ai/ai_agent.py`) automatically loads enhanced descriptions:
 
 ```python
 # In generate_test_case() method
 if available_actions is None or available_verifications is None:
-    from backend_core.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
+    from backend_host.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
     enhanced_data = get_enhanced_actions_for_ai(self.device_id)
     
     available_actions = enhanced_data.get('actions', [])
@@ -64,7 +64,7 @@ Server AI test case routes (`backend_server/src/routes/server_aitestcase_routes.
 
 ```python
 # In generate_test_case() route
-from backend_core.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
+from backend_host.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
 enhanced_data = get_enhanced_actions_for_ai('virtual_device')
 available_actions = enhanced_data.get('actions', [])
 available_verifications = enhanced_data.get('verifications', [])
@@ -140,7 +140,7 @@ Each command description includes:
 
 ```python
 # Get enhanced actions for a device
-from backend_core.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
+from backend_host.src.controllers.ai_descriptions import get_enhanced_actions_for_ai
 
 enhanced_data = get_enhanced_actions_for_ai('device1')
 actions = enhanced_data['actions']
@@ -156,7 +156,7 @@ for action in actions:
 ### For Command Discovery
 
 ```python
-from backend_core.src.controllers.ai_descriptions import search_commands_by_keyword
+from backend_host.src.controllers.ai_descriptions import search_commands_by_keyword
 
 # Find all commands related to "video"
 video_commands = search_commands_by_keyword('video')
@@ -167,7 +167,7 @@ for cmd in video_commands:
 ### For Category Browsing
 
 ```python
-from backend_core.src.controllers.ai_descriptions import get_commands_by_category
+from backend_host.src.controllers.ai_descriptions import get_commands_by_category
 
 # Get all verification commands
 verification_commands = get_commands_by_category('verification')

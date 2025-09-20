@@ -144,7 +144,7 @@ def stream_tap():
     """Handle stream tap with device coordinate conversion - mobile control integration"""
     try:
         data = request.get_json()
-        host = data.get('host')
+        host_name = data.get('host_name')
         stream_x = data.get('stream_x')
         stream_y = data.get('stream_y')
         stream_width = data.get('stream_width')

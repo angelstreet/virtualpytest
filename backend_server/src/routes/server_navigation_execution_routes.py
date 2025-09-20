@@ -36,24 +36,25 @@ def execute_navigation(tree_id, node_id):
         print(f"[@route:navigation_execution:execute_navigation] Executing navigation to {node_id} in tree {tree_id}")
         
         data = request.get_json() or {}
-        host = data.get('host')
+        host_name = data.get('host_name')
         device_id = data.get('device_id')
         team_id = get_team_id()
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
         
         # Validate required parameters
-        if not host or not host.get('host_name'):
+        if not host_name:
             return jsonify({
                 'success': False,
-                'error': 'Host configuration with host_name is required'
+                'error': 'host_name is required'
             }), 400
         
         # Proxy to host navigation execution endpoint
         execution_payload = {
             'device_id': device_id,
             'current_node_id': current_node_id,
-            'image_source_url': image_source_url
+            'image_source_url': image_source_url,
+            'host_name': host_name
         }
         
         response_data, status_code = proxy_to_host(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, timeout=120)
@@ -149,16 +150,16 @@ def batch_execute_navigation():
         print(f"[@route:navigation_execution:batch_execute_navigation] Starting batch navigation execution")
         
         data = request.get_json() or {}
-        host = data.get('host')
+        host_name = data.get('host_name')
         device_id = data.get('device_id')
         team_id = get_team_id()
         navigations = data.get('navigations', [])
         
         # Validate required parameters
-        if not host or not host.get('host_name'):
+        if not host_name:
             return jsonify({
                 'success': False,
-                'error': 'Host configuration with host_name is required'
+                'error': 'host_name is required'
             }), 400
         
         if not navigations:

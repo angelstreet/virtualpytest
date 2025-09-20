@@ -36,7 +36,7 @@ def analyze_compatibility():
                     'available_verifications': []
                 }
                 
-                from backend_core.src.services.ai.ai_executor import AIExecutor
+                from backend_host.src.services.ai.ai_executor import AIExecutor
                 
                 # Create a mock device for server-side AI operations
                 class MockDevice:
@@ -125,9 +125,10 @@ def execute_task():
         userinterface_name = data.get('userinterface_name', 'default')
         device_id = data.get('device_id', 'device1')
         current_node_id = data.get('current_node_id')
+        host_name = data.get('host_name')
         
-        if not prompt:
-            return jsonify({'success': False, 'error': 'Prompt is required'}), 400
+        if not prompt or not host_name:
+            return jsonify({'success': False, 'error': 'Prompt and host_name are required'}), 400
         
         print(f"[@route:server_ai:execute_task] Proxying task execution for device: {device_id}")
         
@@ -136,7 +137,8 @@ def execute_task():
             'prompt': prompt,
             'device_id': device_id,
             'userinterface_name': userinterface_name,
-            'current_node_id': current_node_id
+            'current_node_id': current_node_id,
+            'host_name': host_name
         }
         
         response_data, status_code = proxy_to_host('/host/ai/executePrompt', 'POST', task_payload, timeout=300)
@@ -168,9 +170,9 @@ def execute_test_case():
     data = request.get_json()
     test_case_id = data.get('test_case_id')
     device_id = data.get('device_id')
-    host = data.get('host')
+    host_name = data.get('host_name')
     
-    if not all([test_case_id, device_id, host]):
+    if not all([test_case_id, device_id, host_name]):
         return jsonify({'success': False, 'error': 'Missing required fields'}), 400
     
     try:
@@ -187,7 +189,8 @@ def execute_test_case():
         
         execution_payload = {
             'test_case_id': test_case_id,
-            'device_id': device_id
+            'device_id': device_id,
+            'host_name': host_name
         }
         
         response_data, status_code = proxy_to_host('/host/ai/executeTestCase', 'POST', execution_payload, timeout=120)

@@ -23,14 +23,14 @@ from .system_info_utils import get_host_system_stats, get_enhanced_system_stats,
 try:
     import sys
     import os
-    # Try to find backend_core path
+    # Try to find backend_host path
     current_dir = os.path.dirname(os.path.abspath(__file__))
     shared_lib = os.path.dirname(os.path.dirname(current_dir))
     project_root = os.path.dirname(shared_lib)
-    backend_core_path = os.path.join(project_root, 'backend_core', 'src')
-    if backend_core_path not in sys.path:
-        sys.path.insert(0, backend_core_path)
-    from backend_core.src.controllers.controller_manager import get_host
+    backend_host_path = os.path.join(project_root, 'backend_host', 'src')
+    if backend_host_path not in sys.path:
+        sys.path.insert(0, backend_host_path)
+    from backend_host.src.controllers.controller_manager import get_host
 except ImportError as e:
     # No fallback - fail with detailed error message
     raise ImportError(f"Failed to import controller_manager: {e}. Check your Python path and environment setup.")

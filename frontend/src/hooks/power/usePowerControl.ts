@@ -62,7 +62,7 @@ export const usePowerControl = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          host,
+          host_name: host.host_name,
           device_id,
         }),
       });
@@ -99,7 +99,7 @@ export const usePowerControl = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host,
+            host_name: host.host_name,
             device_id,
             command,
             params: {},

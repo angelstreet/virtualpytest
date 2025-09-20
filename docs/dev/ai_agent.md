@@ -8,7 +8,7 @@ The AI Agent system provides intelligent task automation for TV application navi
 
 ### Core Components
 
-1. **AI Agent Split Architecture** (`backend_core/src/controllers/ai/`)
+1. **AI Agent Split Architecture** (`backend_host/src/controllers/ai/`)
    - **AIAgentCore** (`ai_agent_core.py`) - Basic execution and navigation
    - **AIAgentTestCase** (`ai_agent_testcase.py`) - Test case generation
    - **AIAgentAnalysis** (`ai_agent_analysis.py`) - Compatibility analysis

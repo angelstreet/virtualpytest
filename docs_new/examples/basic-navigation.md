@@ -176,7 +176,7 @@ project_root = os.path.dirname(current_dir)
 sys.path.insert(0, project_root)
 
 from shared.lib.utils.script_framework import ScriptExecutor
-from backend_core.src.services.navigation.navigation_pathfinding import find_shortest_path
+from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
 
 def navigate_to_live_and_back():
     """Navigate to live TV and return to home"""
@@ -220,7 +220,7 @@ if __name__ == "__main__":
 Navigation with content verification
 """
 from shared.lib.utils.script_framework import ScriptExecutor
-from backend_core.src.controllers.verification.text import TextVerificationController
+from backend_host.src.controllers.verification.text import TextVerificationController
 
 def navigate_with_verification():
     """Navigate and verify expected content"""
@@ -302,7 +302,7 @@ python test_scripts/goto.py --list_nodes
 
 # Check navigation tree
 python -c "
-from backend_core.src.services.navigation.navigation_pathfinding import get_navigation_tree
+from backend_host.src.services.navigation.navigation_pathfinding import get_navigation_tree
 tree = get_navigation_tree('horizon_android_mobile')
 print('Available nodes:', list(tree.nodes()))
 "

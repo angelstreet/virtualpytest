@@ -138,7 +138,7 @@ export const useInfraredRemote = (
 
         // Use the same server proxy pattern as Android TV remote
         const requestBody: any = {
-          host: host,
+          host_name: host.host_name,
           command: 'press_key',
           params: { key: command, ...params },
           remote_type: 'ir_remote', // Specify IR remote controller

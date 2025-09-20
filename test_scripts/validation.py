@@ -24,8 +24,8 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.lib.utils.script_framework import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from backend_core.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from datetime import datetime
 import time
 
@@ -64,7 +64,7 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
     """Enhanced validation step handler with force navigation recovery on failure"""
     try:
         # Attempt normal navigation execution first using ActionExecutor
-        from backend_core.src.services.actions.action_executor import ActionExecutor
+        from backend_host.src.services.actions.action_executor import ActionExecutor
         actions = step.get('actions', [])
         if actions:
             action_executor = ActionExecutor(context.host, context.selected_device, context.tree_id, step.get('edge_id'), context.team_id)

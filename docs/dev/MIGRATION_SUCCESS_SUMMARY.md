@@ -7,7 +7,7 @@ The VirtualPyTest microservices migration has been successfully completed. The b
 ## 📋 **What Was Accomplished**
 
 ### **1. Folder Structure Standardization**
-- ✅ Renamed `backend-core` → `backend_core` (Python naming conventions)
+- ✅ Renamed `backend-core` → `backend_host` (Python naming conventions)
 - ✅ Renamed `backend-host` → `backend_host` (Python naming conventions)  
 - ✅ Renamed `backend-server` → `backend_server` (Python naming conventions)
 
@@ -16,17 +16,17 @@ The VirtualPyTest microservices migration has been successfully completed. The b
 - ✅ **All imports now use full paths** starting from project root:
   - `from shared.lib.utils.app_utils import ...`
   - `from shared.lib.supabase.actions_db import ...`
-  - `from backend_core.src.controllers.ai.ai_agent import ...`
-  - `from backend_core.src.services.navigation.navigation_execution import ...`
+  - `from backend_host.src.controllers.ai.ai_agent import ...`
+  - `from backend_host.src.services.navigation.navigation_execution import ...`
 
 ### **3. Import Fixes Applied**
 
 #### **Backend Server Routes (60+ route files)**
 - ✅ Updated `from utils.` → `from shared.lib.utils.`
 - ✅ Updated `from lib.` → `from shared.lib.`
-- ✅ Updated `from controllers.` → `from backend_core.src.controllers.`
-- ✅ Updated `from navigation.` → `from backend_core.src.services.navigation.`
-- ✅ Updated `from actions.` → `from backend_core.src.services.actions.`
+- ✅ Updated `from controllers.` → `from backend_host.src.controllers.`
+- ✅ Updated `from navigation.` → `from backend_host.src.services.navigation.`
+- ✅ Updated `from actions.` → `from backend_host.src.services.actions.`
 
 #### **Shared Library (25+ files)**
 - ✅ Updated internal imports to use `shared.lib.` prefix
@@ -34,7 +34,7 @@ The VirtualPyTest microservices migration has been successfully completed. The b
 - ✅ Removed conflicting lib package from site-packages
 
 #### **Backend Core (40+ files)**
-- ✅ Updated all internal imports to use full `backend_core.src.` paths
+- ✅ Updated all internal imports to use full `backend_host.src.` paths
 - ✅ Updated all shared library imports to use `shared.lib.` prefix
 - ✅ Fixed legacy import paths from old monolithic structure
 
@@ -79,7 +79,7 @@ The VirtualPyTest microservices migration has been successfully completed. The b
 - ✅ Clear, explicit import paths from project root
 - ✅ No more ambiguous relative imports
 - ✅ Consistent naming conventions (snake_case)
-- ✅ Proper separation between shared, backend_core, and route modules
+- ✅ Proper separation between shared, backend_host, and route modules
 - ✅ **Runtime import conflicts resolved**
 - ✅ **No package shadowing issues**
 - ✅ **Original functionality preserved**
@@ -114,8 +114,8 @@ from shared.lib.supabase.actions_db import save_action
 from shared.lib.utils.navigation_cache import invalidate_cache
 from shared.lib.utils.navigation_graph import get_entry_points
 from shared.lib.mcp.mcp_server import MockMCPServer  # 🆕 Restored MCP functionality
-from backend_core.src.controllers.ai.ai_agent import AIAgentController
-from backend_core.src.services.navigation.navigation_execution import NavigationExecutor
+from backend_host.src.controllers.ai.ai_agent import AIAgentController
+from backend_host.src.services.navigation.navigation_execution import NavigationExecutor
 
 # ❌ OLD - Problematic imports (now fixed)
 from utils.app_utils import get_team_id

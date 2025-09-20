@@ -33,7 +33,7 @@ export const useBashDesktop = (host: Host, _deviceId: string) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: host,
+            host_name: host.host_name,
             command: 'execute_bash_command',
             params: {
               command: command,

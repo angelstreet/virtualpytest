@@ -21,7 +21,7 @@ This guide provides step-by-step instructions to migrate from the current monoli
 ```bash
 # Create main service directories
 mkdir -p shared/lib/{config,models,utils,exceptions,constants}
-mkdir -p backend_core/src/{controllers,services,interfaces}
+mkdir -p backend_host/src/{controllers,services,interfaces}
 mkdir -p backend_server/src/{routes,middleware,websockets,serializers}
 mkdir -p backend_host/src/{routes,services,agents}
 mkdir -p frontend/src/{components,pages,hooks,contexts,services,types,utils,styles}
@@ -37,19 +37,19 @@ mkdir -p config/environments
 ```bash
 # Create requirements.txt files for each service
 touch shared/requirements.txt
-touch backend_core/requirements.txt
+touch backend_host/requirements.txt
 touch backend_server/requirements.txt
 touch backend_host/requirements.txt
 
 # Create Docker files
-touch backend_core/Dockerfile
+touch backend_host/Dockerfile
 touch backend_server/Dockerfile
 touch backend_host/Dockerfile
 touch frontend/Dockerfile
 
 # Create setup.py files
 touch shared/setup.py
-touch backend_core/setup.py
+touch backend_host/setup.py
 
 # Create Docker Compose files
 touch setup/docker/docker-compose.yml
@@ -176,17 +176,17 @@ EOF
 
 ```bash
 # Move controller files
-cp -r src/controllers/* backend_core/src/controllers/
+cp -r src/controllers/* backend_host/src/controllers/
 
 # Update imports in controller files
-find backend_core/src/controllers -name "*.py" -exec sed -i '' 's/from src\.utils/from shared.lib.utils/g' {} \;
-find backend_core/src/controllers -name "*.py" -exec sed -i '' 's/from src\.models/from shared.lib.models/g' {} \;
+find backend_host/src/controllers -name "*.py" -exec sed -i '' 's/from src\.utils/from shared.lib.utils/g' {} \;
+find backend_host/src/controllers -name "*.py" -exec sed -i '' 's/from src\.models/from shared.lib.models/g' {} \;
 ```
 
 #### Step 3.2: Create Backend Core Requirements
 
 ```bash
-cat > backend_core/requirements.txt << 'EOF'
+cat > backend_host/requirements.txt << 'EOF'
 # Backend Core Dependencies
 -e ../shared
 
@@ -207,11 +207,11 @@ EOF
 #### Step 3.3: Create Backend Core Setup
 
 ```bash
-cat > backend_core/setup.py << 'EOF'
+cat > backend_host/setup.py << 'EOF'
 from setuptools import setup, find_packages
 
 setup(
-    name="virtualpytest-backend_core",
+    name="virtualpytest-backend_host",
     version="1.0.0",
     description="Core backend logic for VirtualPyTest",
     packages=find_packages(where="src"),
@@ -243,7 +243,7 @@ cp src/web/app_host.py backend_host/src/app.py
 
 # Update imports in host routes
 sed -i '' 's/from src\.utils/from shared.lib.utils/g' backend_host/src/routes/*.py
-sed -i '' 's/from src\.controllers/from backend_core.src.controllers/g' backend_host/src/routes/*.py
+sed -i '' 's/from src\.controllers/from backend_host.src.controllers/g' backend_host/src/routes/*.py
 ```
 
 #### Step 4.2: Create Host App Structure
@@ -264,7 +264,7 @@ import os
 
 # Add shared lib to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'backend_core', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'backend_host', 'src'))
 
 from shared.lib.config.settings import get_config
 from routes.host_rec_routes import host_rec_bp
@@ -313,7 +313,7 @@ EOF
 cat > backend_host/requirements.txt << 'EOF'
 # Backend Host Dependencies
 -e ../shared
--e ../backend_core
+-e ../backend_host
 
 # Flask and web framework
 Flask>=2.3.0
@@ -497,14 +497,14 @@ RUN apt-get update && apt-get install -y \
 
 # Copy shared libraries
 COPY shared/ /app/shared/
-COPY backend_core/ /app/backend_core/
+COPY backend_host/ /app/backend_host/
 
 # Copy host service
 COPY backend_host/ /app/backend_host/
 
 # Install Python dependencies
 RUN pip install -e /app/shared
-RUN pip install -e /app/backend_core
+RUN pip install -e /app/backend_host
 RUN pip install -r /app/backend_host/requirements.txt
 
 # Set working directory to host service
@@ -614,7 +614,7 @@ services:
       - "5010:5010"
     volumes:
       - ../shared:/app/shared
-      - ../backend_core:/app/backend_core
+      - ../backend_host:/app/backend_host
       - ../backend_host:/app/backend_host
     environment:
       - FLASK_ENV=development
@@ -665,7 +665,7 @@ EOF
 cd shared && python -m pytest tests/ || echo "No tests yet"
 
 # Test backend core
-cd backend_core && python -c "from src.controllers import *; print('Core imports working')"
+cd backend_host && python -c "from src.controllers import *; print('Core imports working')"
 
 # Test backend host
 cd backend_host && python src/app.py &

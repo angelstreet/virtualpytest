@@ -180,7 +180,7 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import simplified AI architecture
-        from backend_core.src.controllers.controller_manager import get_host
+        from src.controllers.controller_manager import get_host
         from shared.lib.utils.app_utils import get_team_id
         
         # Get session parameters

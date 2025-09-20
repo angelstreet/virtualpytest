@@ -146,7 +146,7 @@ print(f"🧠 [ZapController] Learned detection method: {method_emoji} {self.lear
 ## ✅ **ACTUAL CODE CHANGES**
 
 ### Files Modified:
-1. **`backend_core/src/controllers/verification/video_content_helpers.py`** (~150 lines added)
+1. **`backend_host/src/controllers/verification/video_content_helpers.py`** (~150 lines added)
    - Enhanced `detect_freeze_in_images()` method with sequence detection
    - Added `detect_freeze_zapping_sequence()` method for freeze-based zapping
    - Added freeze sequence analysis helper methods

@@ -264,7 +264,7 @@ class ScriptExecutor:
     def load_navigation_tree(self, context: ScriptExecutionContext, userinterface_name: str) -> bool:
         """Load navigation tree with mandatory unified pathfinding support"""
         try:
-            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+            from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
             from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
             
             print(f"🗺️ [{self.script_name}] Loading unified navigation tree hierarchy...")
@@ -379,7 +379,7 @@ class ScriptExecutor:
                     # Use ActionExecutor for single step execution (like original)
                     actions = step.get('actions', [])
                     if actions:
-                        from backend_core.src.services.actions.action_executor import ActionExecutor
+                        from backend_host.src.services.actions.action_executor import ActionExecutor
                         action_executor = ActionExecutor(context.host, context.selected_device, context.tree_id, step.get('edge_id'), context.team_id)
                         result = action_executor.execute_actions(actions)
                     else:
@@ -537,7 +537,7 @@ class ScriptExecutor:
         context.recovery_attempts += 1
         
         try:
-            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+            from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
             
             recovery_start_time = time.time()
             nav_executor = NavigationExecutor(context.host, context.selected_device, context.team_id)

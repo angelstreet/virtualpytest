@@ -8,7 +8,7 @@ This frontend is part of a microservices architecture:
 - **`frontend/`** - React TypeScript web interface (this package)
 - **`backend_server/`** - Main API server (REST + WebSocket)
 - **`backend_host/`** - Host management service
-- **`backend_core/`** - Core testing logic
+- **`backend_host/`** - Core testing logic
 - **`shared/`** - Shared Python utilities (backend only)
 
 The frontend is **completely self-contained** and only communicates with `backend_server` via HTTP/WebSocket APIs.

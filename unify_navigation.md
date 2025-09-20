@@ -11,12 +11,12 @@ Successfully consolidated duplicate navigation execution systems into a single, 
 1. **`shared/lib/utils/zap_controller.py`** - Updated imports (no actual goto_node usage found)
 2. **`shared/lib/utils/audio_menu_analyzer.py`** - Replaced 4 `goto_node()` calls with NavigationExecutor
 3. **`shared/lib/utils/script_framework.py`** - Replaced navigation execution calls with ActionExecutor
-4. **`backend_core/src/services/navigation/navigation_executor.py`** - Enhanced with screenshots and verifications
+4. **`backend_host/src/services/navigation/navigation_executor.py`** - Enhanced with screenshots and verifications
 5. **`backend_server/src/routes/server_navigation_trees_routes.py`** - No changes needed (uses tree loading only)
 6. **`test_scripts/fullzap.py`** - Replaced `goto_node()` call with NavigationExecutor
 7. **`shared/lib/utils/navigation_validation.py`** - No changes needed (uses utilities only)
 8. **`test_scripts/validation.py`** - Replaced execution function calls with ActionExecutor
-9. **`backend_core/src/services/actions/action_executor.py`** - Enhanced with screenshots and database recording
+9. **`backend_host/src/services/actions/action_executor.py`** - Enhanced with screenshots and database recording
 
 ## ✅ **SOLUTION IMPLEMENTED**
 
@@ -118,7 +118,7 @@ result = goto_node(host, device, target_node_label, tree_id, team_id, context)
 
 ### **After (New System):**
 ```python
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 
 nav_executor = NavigationExecutor(host, device.device_id, team_id)
 result = nav_executor.execute_navigation(tree_id, target_node_label, current_node_id)
@@ -172,7 +172,7 @@ result = nav_executor.execute_navigation(tree_id, target_node_label, current_nod
 ### **Code Verification:**
 ```bash
 # Zero remaining references to deleted functions
-$ grep -r "goto_node\|execute_navigation_with_verifications\|execute_edge_actions" --include="*.py" shared/ backend_core/ test_scripts/
+$ grep -r "goto_node\|execute_navigation_with_verifications\|execute_edge_actions" --include="*.py" shared/ backend_host/ test_scripts/
 # Result: 0 matches found
 ```
 
@@ -201,8 +201,8 @@ $ grep -r "goto_node\|execute_navigation_with_verifications\|execute_edge_action
 ## 📁 **Current File Structure**
 
 ### **Navigation Execution (Unified):**
-- `backend_core/src/services/navigation/navigation_executor.py` - Complete navigation orchestration
-- `backend_core/src/services/actions/action_executor.py` - Complete action execution with screenshots/database
+- `backend_host/src/services/navigation/navigation_executor.py` - Complete navigation orchestration
+- `backend_host/src/services/actions/action_executor.py` - Complete action execution with screenshots/database
 
 ### **Navigation Utilities (Preserved):**
 - `shared/lib/utils/navigation_utils.py` - Tree loading, node finding, validation utilities

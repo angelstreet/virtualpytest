@@ -131,7 +131,7 @@ export function useVncStream({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          host: host,
+          host_name: host.host_name,
           device_id: 'host_vnc', // Use the VNC device ID
         }),
       });

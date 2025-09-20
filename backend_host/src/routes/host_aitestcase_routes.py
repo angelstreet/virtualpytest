@@ -7,8 +7,8 @@ from flask import Blueprint, request, jsonify
 import sys
 import os
 
-# Add backend_core to path for access to controllers
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
+# Add backend_host to path for access to controllers
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
 
 from shared.lib.utils.script_execution_utils import execute_script
 from shared.lib.utils.script_framework import ScriptExecutor

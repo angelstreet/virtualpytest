@@ -168,7 +168,7 @@ source venv/bin/activate
 # Skip shared library installation - using direct imports instead
 echo "📚 Shared library will be used via direct imports..."
 
-# Skip backend_core installation - using direct imports instead
+# Skip backend_host installation - using direct imports instead
 echo "⚙️ Backend_core will be used via direct imports..."
 
 # Install backend_server dependencies

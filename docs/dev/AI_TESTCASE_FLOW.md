@@ -218,7 +218,7 @@ Prompt → AITestCaseAnalyzer → Analysis → Generation → Database → Scrip
 
 ### **NEW Component: AITestCaseAnalyzer**
 
-**Location**: `backend_core/src/controllers/ai/ai_testcase_analyzer.py`
+**Location**: `backend_host/src/controllers/ai/ai_testcase_analyzer.py`
 
 ```python
 class AITestCaseAnalyzer:
@@ -272,7 +272,7 @@ class AITestCaseAnalyzer:
 
 ### **UPDATED Component: AIAgentController**
 
-**Location**: `backend_core/src/controllers/ai/ai_agent.py`
+**Location**: `backend_host/src/controllers/ai/ai_agent.py`
 
 ```python
 class AIAgentController(BaseController):

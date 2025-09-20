@@ -103,7 +103,7 @@ echo "🐍 Activating virtual environment..."
 source venv/bin/activate
 
 # Set up environment variables
-export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend_core/src"
+export PYTHONPATH="$PROJECT_ROOT/shared/lib:$PROJECT_ROOT/backend_host/src"
 
 # Colors for different components
 BLUE='\033[0;34m'

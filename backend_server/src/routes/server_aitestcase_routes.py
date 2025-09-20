@@ -10,10 +10,10 @@ from datetime import datetime
 import sys
 import os
 
-# Add backend_core to path for direct access
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
+# Add backend_host to path for direct access
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
 
-from backend_core.src.services.ai.ai_executor import AIExecutor
+from backend_host.src.services.ai.ai_executor import AIExecutor
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
@@ -76,7 +76,7 @@ def analyze_test_case():
             }), 404
         
         # Load real commands for models used by the selected userinterfaces
-        from backend_core.src.controllers.ai_descriptions import get_commands_for_device_model
+        from backend_host.src.controllers.ai_descriptions import get_commands_for_device_model
         
         print(f"[@route:server_aitestcase:analyze] Loading commands for userinterface models")
         

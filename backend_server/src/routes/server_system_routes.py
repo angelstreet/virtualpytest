@@ -14,7 +14,7 @@ import json
 from typing import TypedDict, Optional, List, Any
 
 # Import using consistent src. prefix (project root is already in sys.path from app startup)
-from backend_core.src.controllers.controller_config_factory import create_controller_configs_from_device_info
+from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 from shared.lib.utils.host_utils import get_host_manager
 from shared.lib.supabase.system_metrics_db import store_system_metrics

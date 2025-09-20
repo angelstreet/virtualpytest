@@ -22,7 +22,7 @@
   - NetworkX graph creation uses action_sets only
   - Enhanced logging for multiple action sets
   - Stores alternatives count and timer actions
-- **Updated** `backend_core/src/services/navigation/navigation_pathfinding.py`
+- **Updated** `backend_host/src/services/navigation/navigation_pathfinding.py`
   - Uses default actions from action_sets for pathfinding
   - Includes action_sets in transition data
   - Enhanced logging for alternatives

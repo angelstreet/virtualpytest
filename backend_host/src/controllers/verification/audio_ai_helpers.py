@@ -64,7 +64,7 @@ class AudioAIHelpers:
         try:
             # Use global HLS segment duration if not specified
             if segment_duration is None:
-                from backend_core.src.controllers.base_controller import AVControllerInterface
+                from src.controllers.base_controller import AVControllerInterface
                 segment_duration = AVControllerInterface.HLS_SEGMENT_DURATION
             
             print(f"AudioAI[{self.device_name}]: Retrieving last {segment_count} audio segments ({segment_duration}s each)...")

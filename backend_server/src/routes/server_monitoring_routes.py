@@ -15,7 +15,7 @@ def list_captures():
     """Proxy list captures request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
@@ -37,7 +37,7 @@ def get_latest_monitoring_json():
     """Get the latest available JSON analysis file from selected host"""
     try:
         request_data = request.get_json() or {}
-        host = request_data.get('host')
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
         if not host:
