@@ -81,8 +81,7 @@ def take_control():
                 response = requests.post(
                     host_url,
                     json=request_payload,
-                    timeout=30,
-                    verify=False
+                    timeout=30
                 )
                     
                 if response.status_code == 200:
@@ -187,8 +186,7 @@ def release_control():
             response = requests.post(
                 host_url,
                 json={'device_id': device_id},
-                timeout=30,
-                verify=False
+                timeout=30
             )
             
             # Always unlock on server side regardless of host response
@@ -302,8 +300,7 @@ def execute_navigation():
         response = requests.post(
             host_url,
             json={'navigation_data': navigation_data},
-            timeout=90,
-            verify=False
+            timeout=90
         )
         
         if response.status_code == 200:
@@ -356,8 +353,7 @@ def batch_execute_navigation():
         response = requests.post(
             host_url,
             json={'batch_data': batch_data},
-            timeout=120,  # Longer timeout for batch operations
-            verify=False
+            timeout=120  # Longer timeout for batch operations
         )
         
         if response.status_code == 200:

@@ -73,7 +73,7 @@ def proxy_monitoring_image(filename):
         file_url = f"http://{host_ip}:{host_port}/host/av/images/screenshot/{filename}?device_id={device_id}"
         
         try:
-            response = requests.get(file_url, stream=True, timeout=30, verify=False)
+            response = requests.get(file_url, stream=True, timeout=30)
             response.raise_for_status()
             
             if is_json:

@@ -38,8 +38,7 @@ def proxy_screenshot():
         response = requests.post(
             host_url,
             json=data,
-            timeout=30,
-            verify=False
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -80,8 +79,7 @@ def proxy_stream_url():
         response = requests.post(
             host_url,
             json=data,
-            timeout=30,
-            verify=False
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -122,8 +120,7 @@ def proxy_verification():
         response = requests.post(
             host_url,
             json=data,
-            timeout=60,  # Longer timeout for verification
-            verify=False
+            timeout=60  # Longer timeout for verification
         )
         
         if response.status_code == 200:

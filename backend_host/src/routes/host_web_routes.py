@@ -70,7 +70,6 @@ def execute_command():
                             callback_url, 
                             json=callback_data, 
                             timeout=30, 
-                            verify=False,
                             allow_redirects=False  # Prevent POST->GET redirects
                         )
                         
@@ -92,7 +91,7 @@ def execute_command():
                     }
                     
                     try:
-                        requests.post(callback_url, json=callback_data, timeout=30, verify=False)
+                        requests.post(callback_url, json=callback_data, timeout=30)
                     except:
                         pass  # Ignore callback errors when already handling an error
             

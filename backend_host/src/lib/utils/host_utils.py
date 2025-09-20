@@ -250,8 +250,7 @@ def register_host_with_server():
         response = requests.post(
             registration_url,
             json=registration_data,
-            timeout=30,
-            verify=False
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -352,7 +351,7 @@ def send_ping_to_server():
         
         ping_url = client_registration_state['urls'].get('ping')
         if ping_url:
-            response = requests.post(ping_url, json=ping_data, timeout=60, verify=False)
+            response = requests.post(ping_url, json=ping_data, timeout=60)
             
             if response.status_code == 200:
                 # Reset failure counter on success
@@ -456,7 +455,7 @@ def unregister_from_server():
         
         unregister_url = client_registration_state['urls'].get('unregister')
         if unregister_url:
-            response = requests.post(unregister_url, json=unregister_data, timeout=10, verify=False)
+            response = requests.post(unregister_url, json=unregister_data, timeout=10)
             
             if response.status_code == 200:
                 print("✅ [HOST] Unregistered successfully")

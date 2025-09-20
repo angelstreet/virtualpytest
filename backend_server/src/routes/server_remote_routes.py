@@ -194,7 +194,6 @@ def tap_coordinates_internal(host, x, y):
             full_url,
             json={'x': x, 'y': y},
             timeout=30,
-            verify=False,
             headers={'Content-Type': 'application/json'}
         )
         
