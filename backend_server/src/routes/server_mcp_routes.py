@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI System
-from shared.lib.utils.ai_central import AISession, ExecutionMode
+from backend_core.src.services.ai.ai_plan_generator import AIPlanGenerator
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -80,20 +80,18 @@ def execute_task():
             }
         ]
         
-        # Generate plan using new AI system
+        # Generate plan using simplified AI system
         try:
-            from shared.lib.utils.ai_central import AIPlanner
-            
             # Create minimal context for MCP interface
             context = {
                 'device_model': 'mcp_device',
                 'userinterface_name': 'mcp_interface',
                 'available_nodes': [],
-                'available_actions': mcp_tools,  # Fixed: use mcp_tools not undefined mcp_actions
+                'available_actions': mcp_tools,
                 'available_verifications': mcp_verifications
             }
             
-            planner = AIPlanner.get_instance("default")
+            planner = AIPlanGenerator("default")
             plan_dict = planner.generate_plan(task, context)
             
             ai_result = {
@@ -110,7 +108,7 @@ def execute_task():
         if ai_result.get('success'):
             # Extract MCP tool execution from AI plan
             plan_dict = ai_result.get('plan')
-            plan_steps = plan_dict.get('plan', [])  # Direct dict access - no conversion
+            plan_steps = plan_dict.get('steps', [])  # Use 'steps' key from new format
             
             # Execute the first MCP tool from the plan
             mcp_result = _execute_mcp_tool_from_plan(plan_steps)

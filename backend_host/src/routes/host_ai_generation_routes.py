@@ -179,8 +179,8 @@ def run_exploration(exploration_id: str):
         session = exploration_sessions[exploration_id]
         session['status'] = 'exploring'
         
-        # Import clean AI architecture
-        from shared.lib.utils.ai_central import AISession, AIContextService, AIPlanner
+        # Import simplified AI architecture
+        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
         from backend_core.src.controllers.controller_manager import get_host
         from shared.lib.utils.app_utils import get_team_id
         
@@ -215,12 +215,9 @@ def run_exploration(exploration_id: str):
         
         print(f"[@run_exploration] Using userinterface: {userinterface_name}")
         
-        # Load context using AI architecture (discovers capabilities automatically)
+        # Create AI plan executor for exploration
         update_progress(exploration_id, "Analyzing device capabilities...")
-        context = AIContextService.load_context(host, device_id, team_id, userinterface_name, device.device_model)
-        
-        # Create AI session for exploration
-        ai_session = AISession(host=host, device_id=device_id, team_id=team_id)
+        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=team_id)
         
         # AI-driven exploration loop
         exploration_steps = session['exploration_depth']
@@ -247,28 +244,21 @@ def run_exploration(exploration_id: str):
             
             try:
                 # Execute AI exploration step
-                execution_id = ai_session.execute_task(
+                result = ai_executor.execute_prompt(
                     exploration_prompt, 
-                    userinterface_name
+                    userinterface_name,
+                    async_execution=False  # Synchronous for exploration
                 )
                 
-                # Wait for step completion and get results
-                import time
-                while True:
-                    from shared.lib.utils.ai_central import AITracker
-                    status = AITracker.get_status(execution_id)
-                    if not status.get('is_executing', False):
-                        step_success = status.get('success', False)
-                        break
-                    time.sleep(0.5)
+                step_success = result.get('success', False)
                 
                 if step_success:
                     # AI successfully executed exploration step
-                    # Extract findings from execution log
-                    execution_log = status.get('execution_log', [])
+                    # Extract findings from execution result
+                    execution_result = result.get('result')
                     
                     # Create nodes and edges based on AI findings
-                    create_exploration_results_from_ai_execution(session, execution_log, step)
+                    create_exploration_results_from_ai_execution(session, execution_result, step)
                     
                     print(f"[@run_exploration] Step {step + 1} completed successfully")
                 else:
@@ -291,42 +281,31 @@ def run_exploration(exploration_id: str):
             exploration_sessions[exploration_id]['error'] = str(e)
             exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {str(e)}"
 
-def create_exploration_results_from_ai_execution(session: dict, execution_log: list, step: int):
+def create_exploration_results_from_ai_execution(session: dict, execution_result, step: int):
     """
     Extract exploration results from AI execution log and create nodes/edges
     """
     try:
-        # Analyze AI execution log to extract discovered navigation
-        for log_entry in execution_log:
-            log_type = log_entry.get('log_type')
-            action_type = log_entry.get('action_type')
-            
-            # Look for successful navigation actions
-            if log_type == 'execution' and action_type == 'step_success':
-                data = log_entry.get('data', {})
-                description = log_entry.get('description', '')
-                
-                # Create nodes based on AI discoveries
-                if 'navigation' in description.lower() or 'screen' in description.lower():
-                    node_id = f"ai_discovered_screen_{step}"
-                    create_proposed_node(
-                        session, 
-                        node_id, 
-                        f"AI Discovered Screen {step}", 
-                        'screen', 
-                        f"Screen discovered by AI during exploration step {step}"
-                    )
-                    
-                    # Create edge if navigation was successful
-                    if step > 0:
-                        source_node = f"ai_discovered_screen_{step-1}" if step > 1 else "home"
-                        create_proposed_edge(
-                            session,
-                            source_node,
-                            node_id,
-                            {"command": "ai_navigation", "step": step},
-                            f"AI navigation step {step}"
-                        )
+        # Create nodes based on AI exploration step
+        node_id = f"ai_discovered_screen_{step}"
+        create_proposed_node(
+            session, 
+            node_id, 
+            f"AI Discovered Screen {step}", 
+            'screen', 
+            f"Screen discovered by AI during exploration step {step}"
+        )
+        
+        # Create edge if navigation was successful
+        if step > 0:
+            source_node = f"ai_discovered_screen_{step-1}" if step > 1 else "home"
+            create_proposed_edge(
+                session,
+                source_node,
+                node_id,
+                {"command": "ai_navigation", "step": step},
+                f"AI navigation step {step}"
+            )
         
         # Update session progress
         session['progress']['screens_analyzed'] += 1

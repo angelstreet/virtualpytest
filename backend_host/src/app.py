@@ -88,7 +88,10 @@ def register_host_routes(app):
         host_verification_audio_routes,
         host_verification_adb_routes,
         host_verification_image_routes,
-        host_verification_video_routes
+        host_verification_video_routes,
+        host_actions_routes,
+        host_navigation_routes,
+        host_ai_routes
     )
     
     # Register all host blueprints
@@ -114,7 +117,10 @@ def register_host_routes(app):
         (host_verification_audio_routes.host_verification_audio_bp, 'Audio verification'),
         (host_verification_adb_routes.host_verification_adb_bp, 'ADB verification'),
         (host_verification_image_routes.host_verification_image_bp, 'Image verification'),
-        (host_verification_video_routes.host_verification_video_bp, 'Video verification')
+        (host_verification_video_routes.host_verification_video_bp, 'Video verification'),
+        (host_actions_routes.host_actions_bp, 'Action execution'),
+        (host_navigation_routes.host_navigation_bp, 'Navigation execution'),
+        (host_ai_routes.host_ai_bp, 'AI execution')
     ]
     
     for blueprint, description in blueprints:
@@ -175,6 +181,35 @@ def main():
     with app.app_context():
         app.default_team_id = DEFAULT_TEAM_ID
         app.default_user_id = DEFAULT_USER_ID
+        
+        # STEP 2.5: Initialize host devices with executors
+        print("[@backend_host:main] Step 2.5: Initializing host devices with executors...")
+        try:
+            from backend_core.src.controllers.controller_manager import get_host
+            
+            host = get_host()
+            
+            # Create device registry for routes to access
+            app.host_devices = {}
+            for device in host.get_devices():
+                app.host_devices[device.device_id] = device
+                print(f"[@backend_host:main] ✓ Registered device: {device.device_id} ({device.device_model})")
+                
+                # Verify executors were created
+                if hasattr(device, 'action_executor') and device.action_executor:
+                    print(f"[@backend_host:main]   ✓ ActionExecutor ready")
+                if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                    print(f"[@backend_host:main]   ✓ NavigationExecutor ready")
+                if hasattr(device, 'verification_executor') and device.verification_executor:
+                    print(f"[@backend_host:main]   ✓ VerificationExecutor ready")
+            
+            print(f"[@backend_host:main] ✅ Initialized {len(app.host_devices)} devices with executors")
+            
+        except Exception as e:
+            print(f"[@backend_host:main] ❌ Failed to initialize host devices: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
     
     # STEP 3: Register Routes
     print("[@backend_host:main] Step 3: Registering hardware interface routes...")

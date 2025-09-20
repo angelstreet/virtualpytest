@@ -9,13 +9,13 @@ from flask import Blueprint, request, jsonify
 from shared.lib.utils.route_utils import proxy_to_host, get_host_from_request
 
 # Create blueprint
-server_verification_common_bp = Blueprint('server_verification_common', __name__, url_prefix='/server/verification')
+server_verification_bp = Blueprint('server_verification', __name__, url_prefix='/server/verification')
 
 # =====================================================
 # VERIFICATION INFORMATION (for frontend compatibility)
 # =====================================================
 
-@server_verification_common_bp.route('/getVerifications', methods=['GET'])
+@server_verification_bp.route('/getVerifications', methods=['GET'])
 def get_verifications():
     """Get available verifications for a device model (for frontend compatibility)."""
     try:
@@ -61,7 +61,7 @@ def get_verifications():
             'message': f'Server error: {str(e)}'
         }), 500
 
-@server_verification_common_bp.route('/getAllReferences', methods=['POST'])
+@server_verification_bp.route('/getAllReferences', methods=['POST'])
 def get_all_references():
     """Get all reference images/data."""
     try:
@@ -97,11 +97,11 @@ def get_all_references():
 # SINGLE VERIFICATION EXECUTION ENDPOINTS (PROXY TO HOST)
 # =====================================================
 
-@server_verification_common_bp.route('/image/execute', methods=['POST'])
+@server_verification_bp.route('/image/execute', methods=['POST'])
 def verification_image_execute():
     """Proxy single image verification to host"""
     try:
-        print("[@route:server_verification_common:verification_image_execute] Proxying image verification request")
+        print("[@route:server_verification:verification_image_execute] Proxying image verification request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -112,14 +112,14 @@ def verification_image_execute():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_image_execute] Error: {e}")
+        print(f"[@route:server_verification:verification_image_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/image/cropImage', methods=['POST'])
+@server_verification_bp.route('/image/cropImage', methods=['POST'])
 def verification_image_crop():
     """Proxy image cropping request to host"""
     try:
-        print("[@route:server_verification_common:verification_image_crop] Proxying image crop request")
+        print("[@route:server_verification:verification_image_crop] Proxying image crop request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -130,14 +130,14 @@ def verification_image_crop():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_image_crop] Error: {e}")
+        print(f"[@route:server_verification:verification_image_crop] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/image/processImage', methods=['POST'])
+@server_verification_bp.route('/image/processImage', methods=['POST'])
 def verification_image_process():
     """Proxy image processing request to host"""
     try:
-        print("[@route:server_verification_common:verification_image_process] Proxying image process request")
+        print("[@route:server_verification:verification_image_process] Proxying image process request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -148,14 +148,14 @@ def verification_image_process():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_image_process] Error: {e}")
+        print(f"[@route:server_verification:verification_image_process] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/image/saveImage', methods=['POST'])
+@server_verification_bp.route('/image/saveImage', methods=['POST'])
 def verification_image_save():
     """Proxy image saving request to host"""
     try:
-        print("[@route:server_verification_common:verification_image_save] Proxying image save request")
+        print("[@route:server_verification:verification_image_save] Proxying image save request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -166,14 +166,14 @@ def verification_image_save():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_image_save] Error: {e}")
+        print(f"[@route:server_verification:verification_image_save] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/text/execute', methods=['POST'])
+@server_verification_bp.route('/text/execute', methods=['POST'])
 def verification_text_execute():
     """Proxy single text verification to host"""
     try:
-        print("[@route:server_verification_common:verification_text_execute] Proxying text verification request")
+        print("[@route:server_verification:verification_text_execute] Proxying text verification request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -184,14 +184,14 @@ def verification_text_execute():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_text_execute] Error: {e}")
+        print(f"[@route:server_verification:verification_text_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/text/detectText', methods=['POST'])
+@server_verification_bp.route('/text/detectText', methods=['POST'])
 def verification_text_detect():
     """Proxy text detection request to host"""
     try:
-        print("[@route:server_verification_common:verification_text_detect] Proxying text detect request")
+        print("[@route:server_verification:verification_text_detect] Proxying text detect request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -202,14 +202,14 @@ def verification_text_detect():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_text_detect] Error: {e}")
+        print(f"[@route:server_verification:verification_text_detect] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/text/saveText', methods=['POST'])
+@server_verification_bp.route('/text/saveText', methods=['POST'])
 def verification_text_save():
     """Proxy text saving request to host"""
     try:
-        print("[@route:server_verification_common:verification_text_save] Proxying text save request")
+        print("[@route:server_verification:verification_text_save] Proxying text save request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -220,14 +220,14 @@ def verification_text_save():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_text_save] Error: {e}")
+        print(f"[@route:server_verification:verification_text_save] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/adb/execute', methods=['POST'])
+@server_verification_bp.route('/adb/execute', methods=['POST'])
 def verification_adb_execute():
     """Proxy single ADB verification to host"""
     try:
-        print("[@route:server_verification_common:verification_adb_execute] Proxying ADB verification request")
+        print("[@route:server_verification:verification_adb_execute] Proxying ADB verification request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -238,14 +238,14 @@ def verification_adb_execute():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_adb_execute] Error: {e}")
+        print(f"[@route:server_verification:verification_adb_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/appium/execute', methods=['POST'])
+@server_verification_bp.route('/appium/execute', methods=['POST'])
 def verification_appium_execute():
     """Proxy single Appium verification to host"""
     try:
-        print("[@route:server_verification_common:verification_appium_execute] Proxying Appium verification request")
+        print("[@route:server_verification:verification_appium_execute] Proxying Appium verification request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -256,14 +256,14 @@ def verification_appium_execute():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_appium_execute] Error: {e}")
+        print(f"[@route:server_verification:verification_appium_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/audio/execute', methods=['POST'])
+@server_verification_bp.route('/audio/execute', methods=['POST'])
 def verification_audio_execute():
     """Proxy single audio verification to host"""
     try:
-        print("[@route:server_verification_common:verification_audio_execute] Proxying audio verification request")
+        print("[@route:server_verification:verification_audio_execute] Proxying audio verification request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -274,14 +274,14 @@ def verification_audio_execute():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_audio_execute] Error: {e}")
+        print(f"[@route:server_verification:verification_audio_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/video/execute', methods=['POST'])
+@server_verification_bp.route('/video/execute', methods=['POST'])
 def verification_video_execute():
     """Proxy single video verification to host"""
     try:
-        print("[@route:server_verification_common:verification_video_execute] Proxying video verification request")
+        print("[@route:server_verification:verification_video_execute] Proxying video verification request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -292,83 +292,40 @@ def verification_video_execute():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_video_execute] Error: {e}")
+        print(f"[@route:server_verification:verification_video_execute] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # =====================================================
-# BATCH VERIFICATION EXECUTION
+# BATCH VERIFICATION EXECUTION - REMOVE EXECUTOR INSTANTIATION
 # =====================================================
 
-@server_verification_common_bp.route('/executeBatch', methods=['POST'])
+@server_verification_bp.route('/executeBatch', methods=['POST'])
 def verification_execute_batch():
-    """Execute batch of verifications using VerificationExecutor directly (same as action execution)"""
+    """Proxy batch verification execution to host"""
     try:
-        print("[@route:server_verification_common:verification_execute_batch] Starting batch verification execution")
+        print("[@route:server_verification:verification_execute_batch] Proxying batch verification to host")
         
-        # Get request data (same pattern as actions)
-        data = request.get_json() or {}
-        verifications = data.get('verifications', [])  # Array of embedded verification objects
-        host = data.get('host', {})
-        device_id = data.get('device_id', 'device1')
-        image_source_url = data.get('image_source_url')
-        tree_id = data.get('tree_id')
-        node_id = data.get('node_id')
+        # Get request data
+        request_data = request.get_json() or {}
         
-        print(f"[@route:server_verification_common:verification_execute_batch] DEBUG - Received data keys: {list(data.keys())}")
-        print(f"[@route:server_verification_common:verification_execute_batch] DEBUG - Device ID from request: {data.get('device_id')} (using: {device_id})")
-        print(f"[@route:server_verification_common:verification_execute_batch] Processing {len(verifications)} verifications")
-        print(f"[@route:server_verification_common:verification_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
+        # Proxy to host verification batch execution endpoint
+        response_data, status_code = proxy_to_host('/host/verification/executeBatch', 'POST', request_data, timeout=120)
         
-        # Validate (same pattern as actions)
-        if not verifications:
-            return jsonify({'success': False, 'error': 'verifications are required'}), 400
-        
-        if not host:
-            return jsonify({'success': False, 'error': 'host is required'}), 400
-        
-        # Use VerificationExecutor directly (same pattern as action execution)
-        try:
-            from backend_core.src.services.verifications.verification_executor import VerificationExecutor
-            from shared.lib.utils.app_utils import get_team_id
-            
-            verification_executor = VerificationExecutor(
-                host=host,
-                device_id=device_id,
-                tree_id=tree_id,
-                node_id=node_id,
-                team_id=get_team_id()
-            )
-            
-            result = verification_executor.execute_verifications(
-                verifications=verifications,
-                image_source_url=image_source_url
-                # Note: removed model parameter as requested
-            )
-            
-            print(f"[@route:server_verification_common:verification_execute_batch] Execution completed: success={result.get('success')}")
-            
-            return jsonify(result)
-            
-        except Exception as executor_error:
-            print(f"[@route:server_verification_common:verification_execute_batch] VerificationExecutor error: {executor_error}")
-            return jsonify({
-                'success': False,
-                'error': f'Verification execution failed: {str(executor_error)}'
-            }), 500
+        return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:verification_execute_batch] Error: {e}")
+        print(f"[@route:server_verification:verification_execute_batch] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # =====================================================
 # VIDEO VERIFICATION SPECIFIC ENDPOINTS (PROXY TO HOST)
 # =====================================================
 
-@server_verification_common_bp.route('/video/detectSubtitles', methods=['POST'])
+@server_verification_bp.route('/video/detectSubtitles', methods=['POST'])
 def video_detect_subtitles():
     """Proxy subtitle detection request to host"""
     try:
-        print("[@route:server_verification_common:video_detect_subtitles] Proxying subtitle detection request")
+        print("[@route:server_verification:video_detect_subtitles] Proxying subtitle detection request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -379,14 +336,14 @@ def video_detect_subtitles():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:video_detect_subtitles] Error: {e}")
+        print(f"[@route:server_verification:video_detect_subtitles] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/video/detectSubtitlesAI', methods=['POST'])
+@server_verification_bp.route('/video/detectSubtitlesAI', methods=['POST'])
 def video_detect_subtitles_ai():
     """Proxy AI subtitle detection request to host"""
     try:
-        print("[@route:server_verification_common:video_detect_subtitles_ai] Proxying AI subtitle detection request")
+        print("[@route:server_verification:video_detect_subtitles_ai] Proxying AI subtitle detection request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -397,14 +354,14 @@ def video_detect_subtitles_ai():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:video_detect_subtitles_ai] Error: {e}")
+        print(f"[@route:server_verification:video_detect_subtitles_ai] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/video/analyzeSubtitles', methods=['POST'])
+@server_verification_bp.route('/video/analyzeSubtitles', methods=['POST'])
 def video_analyze_subtitles():
     """Proxy subtitle analysis request to host AI endpoint"""
     try:
-        print("[@route:server_verification_common:video_analyze_subtitles] Proxying subtitle analysis request")
+        print("[@route:server_verification:video_analyze_subtitles] Proxying subtitle analysis request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -415,14 +372,14 @@ def video_analyze_subtitles():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:video_analyze_subtitles] Error: {e}")
+        print(f"[@route:server_verification:video_analyze_subtitles] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/video/analyzeImageAI', methods=['POST'])
+@server_verification_bp.route('/video/analyzeImageAI', methods=['POST'])
 def video_analyze_image_ai():
     """Proxy AI image analysis request to host"""
     try:
-        print("[@route:server_verification_common:video_analyze_image_ai] Proxying AI image analysis request")
+        print("[@route:server_verification:video_analyze_image_ai] Proxying AI image analysis request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -433,14 +390,14 @@ def video_analyze_image_ai():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:video_analyze_image_ai] Error: {e}")
+        print(f"[@route:server_verification:video_analyze_image_ai] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/video/analyzeImageComplete', methods=['POST'])
+@server_verification_bp.route('/video/analyzeImageComplete', methods=['POST'])
 def video_analyze_image_complete():
     """Combined AI analysis: subtitles + description in single call"""
     try:
-        print("[@route:server_verification_common:video_analyze_image_complete] Proxying combined AI analysis request")
+        print("[@route:server_verification:video_analyze_image_complete] Proxying combined AI analysis request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -451,14 +408,14 @@ def video_analyze_image_complete():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:video_analyze_image_complete] Error: {e}")
+        print(f"[@route:server_verification:video_analyze_image_complete] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_verification_common_bp.route('/video/analyzeLanguageMenu', methods=['POST'])
+@server_verification_bp.route('/video/analyzeLanguageMenu', methods=['POST'])
 def video_analyze_language_menu():
     """Proxy AI language menu analysis request to host"""
     try:
-        print("[@route:server_verification_common:video_analyze_language_menu] Proxying AI language menu analysis request")
+        print("[@route:server_verification:video_analyze_language_menu] Proxying AI language menu analysis request")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -469,14 +426,14 @@ def video_analyze_language_menu():
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_verification_common:video_analyze_language_menu] Error: {e}")
+        print(f"[@route:server_verification:video_analyze_language_menu] Error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # =====================================================
 # HEALTH CHECK
 # =====================================================
 
-@server_verification_common_bp.route('/health', methods=['GET'])
+@server_verification_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for verification execution service"""
     return jsonify({

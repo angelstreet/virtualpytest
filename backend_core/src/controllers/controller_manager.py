@@ -28,7 +28,6 @@ from backend_core.src.controllers.verification.appium import AppiumVerificationC
 from backend_core.src.controllers.verification.video import VideoVerificationController
 from backend_core.src.controllers.verification.audio import AudioVerificationController
 from backend_core.src.controllers.power.tapo_power import TapoPowerController
-# from shared.lib.utils.ai_central import AICentral  # Lazy import to avoid circular import
 
 
 def create_host_from_environment() -> Host:
@@ -434,6 +433,55 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
             device.add_controller(controller_type, controller)
+    
+    # Step 8: Create service executors (ActionExecutor, NavigationExecutor, VerificationExecutor)
+    print(f"[@controller_manager:_create_device_with_controllers] Creating service executors for device: {device_id}")
+    
+    try:
+        from backend_core.src.services.actions.action_executor import ActionExecutor
+        from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
+        from backend_core.src.services.verifications.verification_executor import VerificationExecutor
+        from backend_core.src.services.ai.ai_executor import AIExecutor
+        from shared.lib.utils.app_utils import get_team_id
+        
+        # Create a host dict for executor initialization (they expect dict format)
+        host_dict = {
+            'host_name': device_config.get('host_name', 'unknown-host'),
+            'devices': [device_config]  # Include current device config
+        }
+        
+        team_id = get_team_id()
+        
+        # Create executors
+        device.action_executor = ActionExecutor(
+            host=host_dict,
+            device_id=device_id,
+            team_id=team_id
+        )
+        
+        device.navigation_executor = NavigationExecutor(
+            host=host_dict,
+            device_id=device_id,
+            team_id=team_id
+        )
+        
+        device.verification_executor = VerificationExecutor(
+            host=host_dict,
+            device_id=device_id,
+            team_id=team_id
+        )
+        
+        device.ai_executor = AIExecutor(
+            host=host_dict,
+            device_id=device_id,
+            team_id=team_id
+        )
+        
+        print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
+        
+    except Exception as e:
+        print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")
+        # Continue without executors - they can be created later if needed
     
     print(f"[@controller_manager:_create_device_with_controllers] Device {device_id} created with capabilities: {device.get_capabilities()}")
     return device

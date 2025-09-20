@@ -73,3 +73,60 @@ def verification_status():
             'success': False,
             'error': f'Verification status error: {str(e)}'
         }), 500
+
+@host_verification_bp.route('/executeBatch', methods=['POST'])
+def verification_execute_batch():
+    """Execute batch of verifications using device's VerificationExecutor"""
+    try:
+        print("[@route:host_verification:verification_execute_batch] Starting batch verification execution")
+        
+        # Get request data
+        data = request.get_json() or {}
+        verifications = data.get('verifications', [])
+        device_id = data.get('device_id', 'device1')
+        image_source_url = data.get('image_source_url')
+        tree_id = data.get('tree_id')
+        node_id = data.get('node_id')
+        
+        print(f"[@route:host_verification:verification_execute_batch] Processing {len(verifications)} verifications for device: {device_id}")
+        
+        # Validate
+        if not verifications:
+            return jsonify({'success': False, 'error': 'verifications are required'}), 400
+        
+        if not device_id:
+            return jsonify({'success': False, 'error': 'device_id is required'}), 400
+        
+        # Get host device registry from app context
+        host_devices = getattr(current_app, 'host_devices', {})
+        if device_id not in host_devices:
+            return jsonify({
+                'success': False, 
+                'error': f'Device {device_id} not found in host'
+            }), 404
+        
+        device = host_devices[device_id]
+        
+        # Check if device has verification_executor
+        if not hasattr(device, 'verification_executor') or not device.verification_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have VerificationExecutor initialized'
+            }), 500
+        
+        # Execute verifications using device's VerificationExecutor
+        result = device.verification_executor.execute_verifications(
+            verifications=verifications,
+            image_source_url=image_source_url
+        )
+        
+        print(f"[@route:host_verification:verification_execute_batch] Execution completed: success={result.get('success')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:host_verification:verification_execute_batch] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Host verification execution failed: {str(e)}'
+        }), 500

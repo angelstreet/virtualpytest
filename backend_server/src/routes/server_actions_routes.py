@@ -114,31 +114,29 @@ def action_execute_batch():
         if not host:
             return jsonify({'success': False, 'error': 'host is required'}), 400
         
-        # Use ActionExecutor directly (same pattern as navigation execution)
+        # Proxy to host action execution endpoint
         try:
-            from backend_core.src.services.actions.action_executor import ActionExecutor
-            from shared.lib.utils.app_utils import get_team_id
+            from shared.lib.utils.route_utils import proxy_to_host
             
-            action_executor = ActionExecutor(
-                host=host,
-                device_id=device_id,
-                tree_id=tree_id,  # Include navigation context
-                edge_id=edge_id,  # Include navigation context
-                team_id=get_team_id(),
-                action_set_id=action_set_id  # Include action_set_id for proper metrics
-            )
+            # Prepare execution payload
+            execution_payload = {
+                'actions': actions,
+                'retry_actions': retry_actions,
+                'device_id': device_id,
+                'tree_id': tree_id,
+                'edge_id': edge_id,
+                'action_set_id': action_set_id
+            }
             
-            result = action_executor.execute_actions(
-                actions=actions,
-                retry_actions=retry_actions
-            )
+            # Proxy to host action execution endpoint
+            response_data, status_code = proxy_to_host('/host/action/executeBatch', 'POST', execution_payload, timeout=120)
             
-            print(f"[@route:server_actions:action_execute_batch] Execution completed: success={result.get('success')}")
+            print(f"[@route:server_actions:action_execute_batch] Execution completed: success={response_data.get('success')}")
             
-            return jsonify(result)
+            return jsonify(response_data), status_code
             
         except Exception as e:
-            print(f"[@route:server_actions:action_execute_batch] ActionExecutor error: {e}")
+            print(f"[@route:server_actions:action_execute_batch] Proxy error: {e}")
             return jsonify({
                 'success': False,
                 'error': f'Action execution failed: {str(e)}',

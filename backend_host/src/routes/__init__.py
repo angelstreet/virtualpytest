@@ -22,5 +22,8 @@ from . import (
     host_verification_audio_routes,
     host_verification_adb_routes,
     host_verification_image_routes,
-    host_verification_video_routes
+    host_verification_video_routes,
+    host_actions_routes,
+    host_navigation_routes,
+    host_ai_routes
 ) 

@@ -11,8 +11,8 @@ The endpoints use the same NavigationExecutor that can be used directly in Pytho
 """
 
 from flask import Blueprint, request, jsonify
-from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
 from shared.lib.utils.app_utils import get_team_id
+from shared.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params
 
 # Create blueprint
 server_navigation_execution_bp = Blueprint('server_navigation_execution', __name__, url_prefix='/server/navigation')
@@ -49,13 +49,18 @@ def execute_navigation(tree_id, node_id):
                 'error': 'Host configuration with host_name is required'
             }), 400
         
-        # Use the standardized NavigationExecutor (same as Python direct calls)
-        executor = NavigationExecutor(host, device_id, team_id)
-        result = executor.execute_navigation(tree_id, node_id, current_node_id, image_source_url)
+        # Proxy to host navigation execution endpoint
+        execution_payload = {
+            'device_id': device_id,
+            'current_node_id': current_node_id,
+            'image_source_url': image_source_url
+        }
         
-        print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={result.get('success')}")
+        response_data, status_code = proxy_to_host(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, timeout=120)
         
-        return jsonify(result)
+        print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={response_data.get('success')}")
+        
+        return jsonify(response_data), status_code
         
     except Exception as e:
         print(f"[@route:navigation_execution:execute_navigation] Error: {str(e)}")
@@ -94,13 +99,20 @@ def get_navigation_preview_with_executor(tree_id, node_id):
         # Create minimal host configuration for preview
         host = {'host_name': host_name}
         
-        # Use the standardized NavigationExecutor (same as Python direct calls)
-        executor = NavigationExecutor(host, device_id, team_id)
-        result = executor.get_navigation_preview(tree_id, node_id, current_node_id)
+        # Proxy to host navigation preview endpoint
+        query_params = {
+            'device_id': device_id,
+            'current_node_id': current_node_id
+        }
         
-        print(f"[@route:navigation_execution:get_navigation_preview_with_executor] Preview result: success={result.get('success')}")
+        # Remove None values
+        query_params = {k: v for k, v in query_params.items() if v is not None}
         
-        return jsonify(result)
+        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/preview/{tree_id}/{node_id}', 'GET', None, query_params, timeout=60)
+        
+        print(f"[@route:navigation_execution:get_navigation_preview_with_executor] Preview result: success={response_data.get('success')}")
+        
+        return jsonify(response_data), status_code
         
     except Exception as e:
         print(f"[@route:navigation_execution:get_navigation_preview_with_executor] Error: {str(e)}")

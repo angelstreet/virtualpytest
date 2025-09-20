@@ -103,7 +103,7 @@ def main():
         print(f"[@ai_testcase_executor] Original prompt: {test_case.get('original_prompt', 'N/A')}")
         
         # Test case IS an AI plan - execute the stored plan directly
-        from shared.lib.utils.ai_central import AISession, AITracker, AIContextService
+        from backend_core.src.services.ai import AISession, AITracker, AIContextService
         import uuid
         
         # Execute stored test case directly - AI central handles everything

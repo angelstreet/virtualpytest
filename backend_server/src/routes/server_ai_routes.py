@@ -1,9 +1,9 @@
 """
-Clean AI Routes - Uses New AI Architecture
+Clean AI Routes - Proxy to Host AI Execution
 """
 
 from flask import Blueprint, request, jsonify
-from shared.lib.utils.ai_central import AISession, AIPlanner, AITracker, AIContextService, ExecutionMode
+from shared.lib.utils.route_utils import proxy_to_host, get_host_from_request
 from shared.lib.utils.app_utils import get_team_id
 
 server_ai_bp = Blueprint('server_ai', __name__, url_prefix='/server/ai')
@@ -36,7 +36,8 @@ def analyze_compatibility():
                     'available_verifications': []
                 }
                 
-                planner = AIPlanner.get_instance(get_team_id())
+                from backend_core.src.services.ai.ai_plan_generator import AIPlanGenerator
+                planner = AIPlanGenerator(get_team_id())
                 plan_dict = planner.generate_plan(prompt, context)
                 
                 if plan_dict.get('feasible', True):
@@ -68,79 +69,82 @@ def analyze_compatibility():
 
 @server_ai_bp.route('/generatePlan', methods=['POST'])
 def generate_plan():
-    data = request.get_json()
-    prompt = data.get('prompt')
-    userinterface_name = data.get('userinterface_name')
-    host = data.get('host')
-    device_id = data.get('device_id')
-    
-    if not prompt or not userinterface_name:
-        return jsonify({'success': False, 'error': 'Prompt and userinterface_name required'}), 400
-    
+    """Generate AI plan by proxying to host AI executor"""
     try:
-        # Load context if host and device provided, otherwise use minimal context
-        if host and device_id:
-            # Extract device_model from host for efficiency
-            from shared.lib.utils.build_url_utils import get_device_by_id
-            device_dict = get_device_by_id(host, device_id)
-            device_model = device_dict.get('device_model') if device_dict else 'unknown'
-            context = AIContextService.load_context(host, device_id, get_team_id(), userinterface_name, device_model)
-        else:
-            context = {
-                'device_model': 'unknown',
-                'userinterface_name': userinterface_name,
-                'available_nodes': [],
-                'available_actions': [],
-                'available_verifications': []
-            }
+        print("[@route:server_ai:generate_plan] Starting AI plan generation")
         
-        planner = AIPlanner.get_instance(get_team_id())
-        plan = planner.generate_plan(prompt, context)
+        data = request.get_json() or {}
+        prompt = data.get('prompt')
+        userinterface_name = data.get('userinterface_name', 'default')
+        device_id = data.get('device_id', 'device1')
+        current_node_id = data.get('current_node_id')
         
-        # Return plan dict directly - no conversion needed
-        return jsonify({
-            'success': True,
-            'ai_plan': plan  # plan is already a dict from generate_plan
-        })
+        if not prompt:
+            return jsonify({'success': False, 'error': 'Prompt is required'}), 400
+        
+        print(f"[@route:server_ai:generate_plan] Proxying plan generation for device: {device_id}")
+        
+        # Proxy to host AI execution endpoint
+        plan_payload = {
+            'prompt': prompt,
+            'device_id': device_id,
+            'userinterface_name': userinterface_name,
+            'current_node_id': current_node_id
+        }
+        
+        response_data, status_code = proxy_to_host('/host/ai/generatePlan', 'POST', plan_payload, timeout=120)
+        
+        print(f"[@route:server_ai:generate_plan] Plan generation result: success={response_data.get('success')}")
+        
+        return jsonify(response_data), status_code
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"[@route:server_ai:generate_plan] Error: {str(e)}")
+        return jsonify({'success': False, 'error': f'AI plan generation failed: {str(e)}'}), 500
 
 
 @server_ai_bp.route('/executeTask', methods=['POST'])
 def execute_task():
-    data = request.get_json()
-    prompt = data.get('prompt')
-    userinterface_name = data.get('userinterface_name')
-    host = data.get('host')
-    device_id = data.get('device_id')
-    
-    if not all([prompt, userinterface_name, host, device_id]):
-        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-    
+    """Execute AI task by proxying to host AI executor"""
     try:
-        # Create session for this request
-        session = AISession(
-            host=host,
-            device_id=device_id,
-            team_id=get_team_id()
-        )
+        print("[@route:server_ai:execute_task] Starting AI task execution")
         
-        # Execute task
-        execution_id = session.execute_task(prompt, userinterface_name, ExecutionMode.REAL_TIME)
+        data = request.get_json() or {}
+        prompt = data.get('prompt')
+        userinterface_name = data.get('userinterface_name', 'default')
+        device_id = data.get('device_id', 'device1')
+        current_node_id = data.get('current_node_id')
         
-        return jsonify({
-            'success': True,
-            'execution_id': execution_id
-        })
+        if not prompt:
+            return jsonify({'success': False, 'error': 'Prompt is required'}), 400
+        
+        print(f"[@route:server_ai:execute_task] Proxying task execution for device: {device_id}")
+        
+        # Proxy to host AI execution endpoint (executePrompt combines generate + execute)
+        task_payload = {
+            'prompt': prompt,
+            'device_id': device_id,
+            'userinterface_name': userinterface_name,
+            'current_node_id': current_node_id
+        }
+        
+        response_data, status_code = proxy_to_host('/host/ai/executePrompt', 'POST', task_payload, timeout=300)
+        
+        print(f"[@route:server_ai:execute_task] Task execution result: success={response_data.get('success')}")
+        
+        return jsonify(response_data), status_code
+        
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"[@route:server_ai:execute_task] Error: {str(e)}")
+        return jsonify({'success': False, 'error': f'AI task execution failed: {str(e)}'}), 500
 
 
 @server_ai_bp.route('/status/<execution_id>', methods=['GET'])
 def get_status(execution_id):
     try:
-        status = AITracker.get_status(execution_id)
-        return jsonify(status)
+        # Proxy status request to host
+        response_data, status_code = proxy_to_host(f'/host/ai/status/{execution_id}', 'GET', {})
+        return jsonify(response_data), status_code
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -164,19 +168,18 @@ def execute_test_case():
         if not test_case:
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
-        # Route should NOT reconstruct plans - AI central handles stored plans directly
-        session = AISession(
+        # Use simplified AI plan executor for test case execution
+        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
+        
+        ai_executor = AIPlanExecutor(
             host=host,
             device_id=device_id,
             team_id=get_team_id()
         )
         
-        # Execute stored test case directly - AI central handles everything
-        execution_id = session.execute_stored_testcase(test_case_id)
-        
-        # Return execution status
-        status = AITracker.get_status(execution_id)
-        return jsonify(status)
+        # Execute stored test case directly
+        result = ai_executor.execute_testcase(test_case_id)
+        return jsonify(result)
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
