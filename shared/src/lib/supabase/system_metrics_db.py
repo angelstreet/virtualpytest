@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 
+# Simple cache to track existing open incidents and avoid 409 conflicts
+_open_incidents = set()
 
 def get_supabase():
     """Get the Supabase client instance."""
@@ -28,100 +30,110 @@ def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_statu
         current_time = datetime.now(timezone.utc).isoformat()
         
         # FFmpeg incident handling
+        ffmpeg_key = f"{host_name}:{capture_folder}:ffmpeg"
         if ffmpeg_status in ['stuck', 'stopped']:
-            # Try to INSERT new incident (will fail silently if duplicate due to unique constraints)
-            try:
-                incident_data = {
-                    'host_name': host_name,
-                    'device_id': capture_folder,  # Use capture_folder as device_id
-                    'device_name': device_name,
-                    'capture_folder': capture_folder,
-                    'component': 'ffmpeg',
-                    'incident_type': 'ffmpeg_failure',
-                    'severity': 'critical' if ffmpeg_status == 'stopped' else 'high',
-                    'status': 'open',
-                    'detected_at': current_time,
-                    'description': f'FFmpeg process {ffmpeg_status}'
-                }
-                result = supabase.table('system_incident').insert(incident_data).execute()
-                if result.data:
-                    incidents_created += 1
-            except:
-                pass  # Incident already exists, that's fine
+            # Check cache first to avoid 409 conflicts
+            if ffmpeg_key not in _open_incidents:
+                try:
+                    incident_data = {
+                        'host_name': host_name,
+                        'device_id': capture_folder,  # Use capture_folder as device_id
+                        'device_name': device_name,
+                        'capture_folder': capture_folder,
+                        'component': 'ffmpeg',
+                        'incident_type': 'ffmpeg_failure',
+                        'severity': 'critical' if ffmpeg_status == 'stopped' else 'high',
+                        'status': 'open',
+                        'detected_at': current_time,
+                        'description': f'FFmpeg process {ffmpeg_status}'
+                    }
+                    result = supabase.table('system_incident').insert(incident_data).execute()
+                    if result.data:
+                        incidents_created += 1
+                        _open_incidents.add(ffmpeg_key)  # Cache the incident
+                except:
+                    pass  # Incident already exists, that's fine
                 
         elif ffmpeg_status == 'active':
             # UPDATE any open FFmpeg incidents to resolved with duration calculation
-            try:
-                # First get the open incidents to calculate duration
-                open_incidents = supabase.table('system_incident').select('incident_id, detected_at').eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'ffmpeg').in_('status', ['open', 'in_progress']).execute()
-                
-                if open_incidents.data:
-                    for incident in open_incidents.data:
-                        # Calculate duration in minutes
-                        detected_at = datetime.fromisoformat(incident['detected_at'].replace('Z', '+00:00'))
-                        resolved_at = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
-                        duration_minutes = int((resolved_at - detected_at).total_seconds() / 60)
-                        
-                        # Update with duration
-                        supabase.table('system_incident').update({
-                            'status': 'resolved',
-                            'resolved_at': current_time,
-                            'total_duration_minutes': duration_minutes,
-                            'resolution_notes': 'Auto-resolved: FFmpeg recovered'
-                        }).eq('incident_id', incident['incident_id']).execute()
-                        
-                        incidents_resolved += 1
-            except Exception as e:
-                print(f"⚠️ Error resolving FFmpeg incident: {e}")
-                pass
+            if ffmpeg_key in _open_incidents:
+                try:
+                    # First get the open incidents to calculate duration
+                    open_incidents = supabase.table('system_incident').select('incident_id, detected_at').eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'ffmpeg').in_('status', ['open', 'in_progress']).execute()
+                    
+                    if open_incidents.data:
+                        for incident in open_incidents.data:
+                            # Calculate duration in minutes
+                            detected_at = datetime.fromisoformat(incident['detected_at'].replace('Z', '+00:00'))
+                            resolved_at = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
+                            duration_minutes = int((resolved_at - detected_at).total_seconds() / 60)
+                            
+                            # Update with duration
+                            supabase.table('system_incident').update({
+                                'status': 'resolved',
+                                'resolved_at': current_time,
+                                'total_duration_minutes': duration_minutes,
+                                'resolution_notes': 'Auto-resolved: FFmpeg recovered'
+                            }).eq('incident_id', incident['incident_id']).execute()
+                            
+                            incidents_resolved += 1
+                        _open_incidents.discard(ffmpeg_key)  # Remove from cache
+                except Exception as e:
+                    print(f"⚠️ Error resolving FFmpeg incident: {e}")
+                    pass
         
         # Monitor incident handling  
+        monitor_key = f"{host_name}:{capture_folder}:monitor"
         if monitor_status in ['stuck', 'stopped']:
-            # Try to INSERT new incident (will fail silently if duplicate)
-            try:
-                incident_data = {
-                    'host_name': host_name,
-                    'device_id': capture_folder,  # Use capture_folder as device_id
-                    'device_name': device_name,
-                    'capture_folder': capture_folder,
-                    'component': 'monitor',
-                    'incident_type': 'monitor_failure',
-                    'severity': 'critical' if monitor_status == 'stopped' else 'high',
-                    'status': 'open',
-                    'detected_at': current_time,
-                    'description': f'Monitor process {monitor_status}'
-                }
-                result = supabase.table('system_incident').insert(incident_data).execute()
-                if result.data:
-                    incidents_created += 1
-            except:
-                pass  # Incident already exists, that's fine
+            # Check cache first to avoid 409 conflicts
+            if monitor_key not in _open_incidents:
+                try:
+                    incident_data = {
+                        'host_name': host_name,
+                        'device_id': capture_folder,  # Use capture_folder as device_id
+                        'device_name': device_name,
+                        'capture_folder': capture_folder,
+                        'component': 'monitor',
+                        'incident_type': 'monitor_failure',
+                        'severity': 'critical' if monitor_status == 'stopped' else 'high',
+                        'status': 'open',
+                        'detected_at': current_time,
+                        'description': f'Monitor process {monitor_status}'
+                    }
+                    result = supabase.table('system_incident').insert(incident_data).execute()
+                    if result.data:
+                        incidents_created += 1
+                        _open_incidents.add(monitor_key)  # Cache the incident
+                except:
+                    pass  # Incident already exists, that's fine
                 
         elif monitor_status == 'active':
             # UPDATE any open Monitor incidents to resolved with duration calculation
-            try:
-                # First get the open incidents to calculate duration
-                open_incidents = supabase.table('system_incident').select('incident_id, detected_at').eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'monitor').in_('status', ['open', 'in_progress']).execute()
-                
-                if open_incidents.data:
-                    for incident in open_incidents.data:
-                        # Calculate duration in minutes
-                        detected_at = datetime.fromisoformat(incident['detected_at'].replace('Z', '+00:00'))
-                        resolved_at = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
-                        duration_minutes = int((resolved_at - detected_at).total_seconds() / 60)
-                        
-                        # Update with duration
-                        supabase.table('system_incident').update({
-                            'status': 'resolved',
-                            'resolved_at': current_time,
-                            'total_duration_minutes': duration_minutes,
-                            'resolution_notes': 'Auto-resolved: Monitor recovered'
-                        }).eq('incident_id', incident['incident_id']).execute()
-                        
-                        incidents_resolved += 1
-            except Exception as e:
-                print(f"⚠️ Error resolving Monitor incident: {e}")
-                pass
+            if monitor_key in _open_incidents:
+                try:
+                    # First get the open incidents to calculate duration
+                    open_incidents = supabase.table('system_incident').select('incident_id, detected_at').eq('device_name', device_name).eq('capture_folder', capture_folder).eq('component', 'monitor').in_('status', ['open', 'in_progress']).execute()
+                    
+                    if open_incidents.data:
+                        for incident in open_incidents.data:
+                            # Calculate duration in minutes
+                            detected_at = datetime.fromisoformat(incident['detected_at'].replace('Z', '+00:00'))
+                            resolved_at = datetime.fromisoformat(current_time.replace('Z', '+00:00'))
+                            duration_minutes = int((resolved_at - detected_at).total_seconds() / 60)
+                            
+                            # Update with duration
+                            supabase.table('system_incident').update({
+                                'status': 'resolved',
+                                'resolved_at': current_time,
+                                'total_duration_minutes': duration_minutes,
+                                'resolution_notes': 'Auto-resolved: Monitor recovered'
+                            }).eq('incident_id', incident['incident_id']).execute()
+                            
+                            incidents_resolved += 1
+                        _open_incidents.discard(monitor_key)  # Remove from cache
+                except Exception as e:
+                    print(f"⚠️ Error resolving Monitor incident: {e}")
+                    pass
         
         return {'incidents_created': incidents_created, 'incidents_resolved': incidents_resolved}
         

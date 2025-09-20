@@ -22,12 +22,16 @@ from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="[@cloudflare_utils:%(funcName)s] %(levelname)s: %(message)s"
-)
+# Configure module-specific logging (avoid global basicConfig)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Only add handler if not already present (avoid duplicate handlers)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("[@cloudflare_utils:%(funcName)s] %(levelname)s: %(message)s"))
+    logger.addHandler(handler)
+    logger.propagate = False  # Prevent propagation to root logger
 
 
 class CloudflareUtils:

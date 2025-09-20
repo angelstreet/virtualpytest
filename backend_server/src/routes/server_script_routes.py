@@ -210,10 +210,10 @@ def list_scripts():
         ai_test_cases_info = []
         
         try:
-            from shared.src.lib.utils.testcase_db import get_all_test_cases
+            from shared.src.lib.supabase.testcase_db import get_all_test_cases
             
-            # Get team_id from request
-            team_id = request_data.get('team_id')
+            # Get team_id from request args (GET request)
+            team_id = request.args.get('team_id')
             if not team_id:
                 return jsonify({
                     'success': False,
