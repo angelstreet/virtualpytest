@@ -8,8 +8,6 @@ Handles task execution using AI agent with MCP tool awareness.
 from flask import Blueprint, request, jsonify
 import logging
 
-# Import AI System
-#DISABLED: from backend_host.src.services.ai.ai_executor import AIExecutor
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -231,7 +229,7 @@ def _execute_navigate_to_page(params):
 def _execute_navigation_to_node(params):
     """Execute execute_navigation_to_node MCP tool"""
     try:
-        from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
+        # NavigationExecutor functionality proxied to host
         from shared.src.lib.utils.app_utils import get_team_id
         
         tree_id = params.get("tree_id", "default_tree")
@@ -242,15 +240,22 @@ def _execute_navigation_to_node(params):
         # Create minimal host configuration for MCP execution
         host = {"host_name": "mcp_host", "device_model": "MCP_Interface"}
         
-        # Use the new NavigationExecutor - need to get device from host
-        from backend_host.src.controllers.controller_manager import get_host
-        host_instance = get_host()
-        device = host_instance.get_device(device_id)
-        if not device:
-            return {'success': False, 'error': f'Device {device_id} not found'}
-        
+        # Proxy navigation execution to host
+        from src.lib.utils.route_utils import proxy_to_host
         from shared.src.lib.utils.app_utils import get_team_id
-        result = device.navigation_executor.execute_navigation(tree_id, target_node_id, current_node_id, team_id=get_team_id())
+        
+        proxy_result = proxy_to_host('/host/navigation/execute', 'POST', {
+            'device_id': device_id,
+            'tree_id': tree_id,
+            'target_node_id': target_node_id,
+            'current_node_id': current_node_id,
+            'team_id': get_team_id()
+        })
+        
+        if not proxy_result or not proxy_result.get('success'):
+            return {'success': False, 'error': f'Navigation execution failed: {proxy_result.get("error", "Unknown error")}'}
+        
+        result = proxy_result
         
         return {
             'tool_name': 'execute_navigation_to_node',

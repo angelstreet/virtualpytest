@@ -24,18 +24,6 @@ from src.lib.utils.route_utils import proxy_to_host
 
 server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
 
-def _create_server_ai_executor(team_id: str) -> AIExecutor:
-    """Create AIExecutor for server-side AI operations"""
-    class MockDevice:
-        def __init__(self):
-            self.device_id = "server_aitestcase"
-            self.device_model = "server"
-    
-    return AIExecutor(
-        host={'host_name': 'server_aitestcase'}, 
-        device=MockDevice(), 
-        team_id=team_id
-    )
 
 @server_aitestcase_bp.route('/analyzeTestCase', methods=['POST'])
 def analyze_test_case():
@@ -172,8 +160,13 @@ def analyze_test_case():
                     'available_verifications': []
                 }
                 
-                ai_executor = _create_server_ai_executor(team_id)
-                plan_dict = ai_executor.generate_plan(prompt, context)
+                # Proxy AI plan generation to host
+                plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
+                    'prompt': prompt,
+                    'context': context,
+                    'team_id': team_id
+                })
+                plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
                 
                 if plan_dict.get('feasible', True):
                     compatible.append({
@@ -307,8 +300,13 @@ def generate_test_cases():
                     'available_verifications': []
                 }
                 
-                ai_executor = _create_server_ai_executor(team_id)
-                plan_dict = ai_executor.generate_plan(original_prompt, context)
+                # Proxy AI plan generation to host
+                plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
+                    'prompt': original_prompt,
+                    'context': context,
+                    'team_id': team_id
+                })
+                plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
                 
                 if plan_dict.get('feasible', True):
                     steps = plan_dict.get('plan', [])  # Direct dict access - no conversion
@@ -413,8 +411,13 @@ def generate_test_case():
                 'available_verifications': []
             }
             
-            ai_executor = _create_server_ai_executor(team_id)
-            plan_dict = ai_executor.generate_plan(prompt, context)
+            # Proxy AI plan generation to host
+            plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
+                'prompt': prompt,
+                'context': context,
+                'team_id': team_id
+            })
+            plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
             
             generation_result = {
                 'success': True,
@@ -504,8 +507,13 @@ def quick_feasibility_check():
                 'available_verifications': []
             }
             
-            ai_executor = _create_server_ai_executor(team_id)
-            plan_dict = ai_executor.generate_plan(prompt, context)
+            # Proxy AI plan generation to host
+            plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
+                'prompt': prompt,
+                'context': context,
+                'team_id': team_id
+            })
+            plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
             
             result = {
                 'success': True,

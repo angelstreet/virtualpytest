@@ -255,14 +255,21 @@ def start_server(app):
         
         def collect_server_metrics():
             import time
-            from backend_host.src.lib.utils.system_info_utils import get_host_system_stats
+            # Use server-specific system stats instead of host stats
+            import psutil
+            def get_server_system_stats():
+                return {
+                    'cpu_percent': psutil.cpu_percent(interval=1),
+                    'memory_percent': psutil.virtual_memory().percent,
+                    'disk_percent': psutil.disk_usage('/').percent
+                }
             from shared.src.lib.utils.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup
             while True:
                 try:
-                    # Get server system stats (use consistent function)
-                    server_stats = get_host_system_stats()
+                    # Get server system stats (use server-specific function)
+                    server_stats = get_server_system_stats()
                     
                     # Debug: Show actual metrics values
                     temp_str = f", Temp={server_stats.get('cpu_temperature_celsius', 'N/A')}°C" if 'cpu_temperature_celsius' in server_stats else ""

@@ -36,20 +36,13 @@ def analyze_compatibility():
                     'available_verifications': []
                 }
                 
-                from backend_host.src.services.ai.ai_executor import AIExecutor
-                
-                # Create a mock device for server-side AI operations
-                class MockDevice:
-                    def __init__(self):
-                        self.device_id = "server_ai_compatibility"
-                        self.device_model = "server"
-                
-                ai_executor = AIExecutor(
-                    host={'host_name': 'server_ai_compatibility'}, 
-                    device=MockDevice(), 
-                    team_id=get_team_id()
-                )
-                plan_dict = ai_executor.generate_plan(prompt, context)
+                # Proxy AI plan generation to host
+                plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
+                    'prompt': prompt,
+                    'context': context,
+                    'team_id': get_team_id()
+                })
+                plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
                 
                 if plan_dict.get('feasible', True):
                     compatible.append({

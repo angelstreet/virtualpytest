@@ -602,8 +602,8 @@ def get_tree_by_userinterface_id(userinterface_id):
         
         if tree:
             # SAME AS SCRIPT: Load complete hierarchy instead of single tree
-            from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
             from shared.src.lib.utils.userinterface_db import get_userinterface
+            from src.lib.utils.route_utils import proxy_to_host
             
             # Get interface name for hierarchy loading
             interface = get_userinterface(userinterface_id, team_id)
@@ -620,22 +620,13 @@ def get_tree_by_userinterface_id(userinterface_id):
                     'error': f'Interface name not found for: {userinterface_id}'
                 })
             
-            # Create NavigationExecutor for enhanced hierarchy loading
-            # Use a mock device for server-side navigation operations
-            class MockDevice:
-                def __init__(self):
-                    self.device_id = "server_navigation"
-                    self.device_model = "server"
-            
-            nav_executor = NavigationExecutor(
-                host={'host_name': 'server_navigation'}, 
-                device=MockDevice(), 
-                team_id=team_id
-            )
-            
-            # Load complete hierarchy EXACTLY like script does
+            # Proxy navigation hierarchy loading to host
             print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Loading hierarchy for interface: {interface_name}')
-            hierarchy_result = nav_executor.load_navigation_tree_with_hierarchy(interface_name, 'frontend_navigation_editor')
+            hierarchy_result = proxy_to_host('/host/navigation/load_hierarchy', 'POST', {
+                'interface_name': interface_name,
+                'context': 'frontend_navigation_editor',
+                'team_id': team_id
+            })
             
             if not hierarchy_result['success']:
                 return jsonify({
