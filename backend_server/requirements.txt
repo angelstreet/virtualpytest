@@ -87,7 +87,13 @@ supabase-functions==0.10.1
 storage3==0.12.1
 postgrest==1.1.1
 realtime==2.7.0
+websockets==15.0.1
 googletrans==4.0.2
+deprecation==2.1.0
+strenum==0.4.15
+typing-inspection==0.4.1
+annotated-types==0.7.0
+packaging==25.0
 browser-use>=0.1.0
 
 # Desktop automation and computer vision
