@@ -21,18 +21,17 @@ class NavigationExecutor:
     to provide complete navigation functionality.
     """
     
-    def __init__(self, host: Dict[str, Any], device, device_id: str = None, team_id: Optional[str] = None):
+    def __init__(self, device, device_id: str = None, team_id: Optional[str] = None):
         """Initialize NavigationExecutor"""
         # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
-        if not host or not host.get('host_name'):
-            raise ValueError("Host configuration with host_name is required")
+        if not device.host_name:
+            raise ValueError("Device must have host_name")
         
         # Store instances directly
-        self.host = host
         self.device = device
-        self.host_name = host['host_name']
+        self.host_name = device.host_name
         self.device_id = device_id or device.device_id
         self.device_model = device.device_model
         self.team_id = team_id or get_team_id()

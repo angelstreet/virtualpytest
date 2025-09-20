@@ -41,13 +41,12 @@ class ActionExecutor:
             iterator_count = 1
         return max(1, min(iterator_count, 100))  # Clamp to valid range [1, 100]
     
-    def __init__(self, host: Dict[str, Any], device, device_id: str = None, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
+    def __init__(self, device, device_id: str = None, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
         """
         Initialize ActionExecutor
         
         Args:
-            host: Host configuration dict with host_name, devices, etc.
-            device: Device instance (mandatory)
+            device: Device instance (mandatory, contains host_name)
             device_id: Device ID string (optional, extracted from device if not provided)
             tree_id: Tree ID for navigation context
             edge_id: Edge ID for navigation context
@@ -56,13 +55,12 @@ class ActionExecutor:
         # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
-        if not host or not host.get('host_name'):
-            raise ValueError("Host configuration with host_name is required")
+        if not device.host_name:
+            raise ValueError("Device must have host_name")
         
         # Store instances directly
-        self.host = host
         self.device = device
-        self.host_name = host['host_name']
+        self.host_name = device.host_name
         self.device_id = device_id or device.device_id
         self.device_model = device.device_model
         self.tree_id = tree_id

@@ -95,7 +95,7 @@ def create_host_from_environment() -> Host:
             'host_port': host_port  # Add host port for web controller
         }
         
-        host_device = _create_device_with_controllers(host_device_config)
+        host_device = _create_device_with_controllers(host_device_config, host)
         host.add_device(host_device)
         print(f"[@controller_manager:create_host_from_environment] Added host VNC device: {host_device.device_id} ({host_device.device_name})")
     
@@ -103,7 +103,7 @@ def create_host_from_environment() -> Host:
     devices_config = _get_devices_config_from_environment()
     
     for device_config in devices_config:
-        device = _create_device_with_controllers(device_config)
+        device = _create_device_with_controllers(device_config, host)
         host.add_device(device)
         print(f"[@controller_manager:create_host_from_environment] Added device: {device.device_id} ({device.device_name})")
     
@@ -283,13 +283,14 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     return None
 
 
-def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
+def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host' = None) -> Device:
     """
     Create a device with all its controllers from configuration.
     Handles controller dependencies by creating them in the right order.
     
     Args:
         device_config: Device configuration dictionary
+        host: Host instance (optional, used for executor initialization)
         
     Returns:
         Device instance with controllers
@@ -305,6 +306,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         device_id, 
         device_name, 
         device_model,
+        host.host_name if host else 'unknown-host',
         device_config.get('device_ip'),
         device_config.get('device_port'),
         device_config.get('video_stream_path'),
@@ -444,35 +446,25 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         from backend_core.src.services.ai.ai_executor import AIExecutor
         from shared.lib.utils.app_utils import get_team_id
         
-        # Create a host dict for executor initialization (they expect dict format)
-        host_dict = {
-            'host_name': device_config.get('host_name', 'unknown-host'),
-            'devices': [device_config]  # Include current device config
-        }
-        
         team_id = get_team_id()
         
-        # Create executors - device instance is now mandatory
+        # Create executors - device has everything they need
         device.action_executor = ActionExecutor(
-            host=host_dict,
             device=device,
             team_id=team_id
         )
         
         device.navigation_executor = NavigationExecutor(
-            host=host_dict,
             device=device,
             team_id=team_id
         )
         
         device.verification_executor = VerificationExecutor(
-            host=host_dict,
             device=device,
             team_id=team_id
         )
         
         device.ai_executor = AIExecutor(
-            host=host_dict,
             device=device,
             team_id=team_id
         )
@@ -481,6 +473,11 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         
     except Exception as e:
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")
+        print(f"[@controller_manager:_create_device_with_controllers] ❌ Host dict: {host_dict}")
+        print(f"[@controller_manager:_create_device_with_controllers] ❌ Device: {device}")
+        print(f"[@controller_manager:_create_device_with_controllers] ❌ Team ID: {team_id}")
+        import traceback
+        print(f"[@controller_manager:_create_device_with_controllers] ❌ Full traceback: {traceback.format_exc()}")
         # Continue without executors - they can be created later if needed
     
     print(f"[@controller_manager:_create_device_with_controllers] Device {device_id} created with capabilities: {device.get_capabilities()}")

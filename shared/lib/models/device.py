@@ -19,7 +19,7 @@ class Device:
         verification_controllers = device.get_controllers('verification')
     """
     
-    def __init__(self, device_id: str, device_name: str, device_model: str, device_ip: str = None, device_port: str = None, video_stream_path: str = None, video_capture_path: str = None, video: str = None, ir_type: str = None):
+    def __init__(self, device_id: str, device_name: str, device_model: str, host_name: str = None, device_ip: str = None, device_port: str = None, video_stream_path: str = None, video_capture_path: str = None, video: str = None, ir_type: str = None):
         """
         Initialize a device.
         
@@ -27,6 +27,7 @@ class Device:
             device_id: Device identifier (e.g., 'device1', 'device2')
             device_name: Device name from environment (e.g., 'EOSv1_PROD_Test2')
             device_model: Device model from environment (e.g., 'stb')
+            host_name: Name of the host this device belongs to
             device_ip: Device IP address
             device_port: Device port
             video_stream_path: Video stream path for URL building (e.g., '/host/stream/capture1')
@@ -37,6 +38,7 @@ class Device:
         self.device_id = device_id
         self.device_name = device_name
         self.device_model = device_model
+        self.host_name = host_name
         self.device_ip = device_ip
         self.device_port = device_port
         self.ir_type = ir_type
