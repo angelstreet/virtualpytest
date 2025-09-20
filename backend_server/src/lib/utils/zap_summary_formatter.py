@@ -6,7 +6,7 @@ Formats zap execution data into HTML table for reports.
 
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from shared.src.lib.config.supabase.zap_results_db import get_zap_summary_for_script
+from shared.src.lib.supabase.zap_results_db import get_zap_summary_for_script
 
 
 def format_time_from_timestamp(timestamp_str: str) -> str:

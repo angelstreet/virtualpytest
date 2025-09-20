@@ -18,7 +18,7 @@ def analyze_compatibility():
         return jsonify({'success': False, 'error': 'Prompt required'}), 400
     
     try:
-        from shared.src.lib.config.supabase.userinterface_db import get_all_userinterfaces
+        from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
         
         interfaces = get_all_userinterfaces(get_team_id())
         compatible = []
@@ -170,7 +170,7 @@ def execute_test_case():
     
     try:
         # Load test case from database
-        from shared.src.lib.config.supabase.testcase_db import get_test_case
+        from shared.src.lib.supabase.testcase_db import get_test_case
         import uuid
         
         test_case = get_test_case(test_case_id, get_team_id())

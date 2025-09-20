@@ -20,8 +20,8 @@ from typing import Dict, Any, Optional
 
 from shared.src.lib.utils.app_utils import get_team_id, get_user_id
 from shared.src.lib.utils.build_url_utils import buildHostUrl
-from shared.src.lib.utils.server_utils import get_host_manager
-from shared.src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
+from src.lib.utils.server_utils import get_host_manager
+from backend_host.src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')

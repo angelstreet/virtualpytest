@@ -15,10 +15,10 @@ import time
 import os
 
 # Import database functions and utilities
-from shared.src.lib.config.supabase.heatmap_db import (
+from shared.src.lib.supabase.heatmap_db import (
     get_heatmap_incidents
 )
-from shared.src.lib.utils.heatmap_utils import (
+from src.lib.utils.heatmap_utils import (
     create_heatmap_job,
     get_job_status,
     cancel_job,
@@ -88,7 +88,7 @@ server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/he
 
 def get_hosts_devices():
     """Get hosts and devices from host manager"""
-    from shared.src.lib.utils.server_utils import get_host_manager
+    from src.lib.utils.server_utils import get_host_manager
     host_manager = get_host_manager()
     
     hosts_devices = []
@@ -525,7 +525,7 @@ def get_history():
     try:
         limit = request.args.get('limit', 10, type=int)
         
-        from shared.src.lib.config.supabase.heatmap_db import get_recent_heatmaps
+        from shared.src.lib.supabase.heatmap_db import get_recent_heatmaps
         heatmaps = get_recent_heatmaps(team_id, limit)
         
         # Transform data to match frontend expectations

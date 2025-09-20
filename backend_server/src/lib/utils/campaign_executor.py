@@ -28,7 +28,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.config.supabase.campaign_executions_db import (
+from shared.src.lib.supabase.campaign_executions_db import (
     record_campaign_execution_start,
     update_campaign_execution_result
 )

@@ -15,7 +15,7 @@ import time
 from shared.src.lib.utils.app_utils import get_team_id
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from shared.src.lib.config.supabase.testcase_db import (
+from shared.src.lib.supabase.testcase_db import (
     get_all_test_cases, get_test_case, save_test_case, delete_test_case
 )
 

@@ -6,7 +6,7 @@ Server-side web automation proxy endpoints that forward requests to host web con
 
 from flask import Blueprint, request, jsonify, current_app
 from src.lib.utils.route_utils import proxy_to_host, proxy_to_host_direct, get_host_from_request
-from shared.src.lib.utils.task_manager import task_manager
+from src.lib.utils.task_manager import task_manager
 import threading
 import uuid
 

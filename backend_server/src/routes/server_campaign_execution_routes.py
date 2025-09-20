@@ -14,10 +14,10 @@ from typing import Dict, Any
 
 # Import utility functions
 from shared.src.lib.utils.app_utils import get_team_id
-from shared.src.lib.utils.campaign_executor import CampaignExecutor
+from src.lib.utils.campaign_executor import CampaignExecutor
 
 # Import database functions
-from shared.src.lib.config.supabase.campaign_executions_db import (
+from shared.src.lib.supabase.campaign_executions_db import (
     get_campaign_execution_with_scripts,
     get_campaign_results
 )

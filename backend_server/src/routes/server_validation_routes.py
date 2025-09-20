@@ -5,7 +5,7 @@ Validation Routes - Reuses NavigationExecutor API for sequential edge testing
 from typing import List
 from flask import Blueprint, request, jsonify
 
-from shared.src.lib.utils.navigation_cache import get_cached_graph
+from backend_host.src.lib.utils.navigation_cache import get_cached_graph
 from shared.src.lib.utils.app_utils import get_team_id
 
 
@@ -25,7 +25,7 @@ def get_validation_preview(tree_id: str):
         team_id = get_team_id()
         
         # Ensure unified cache is populated for this tree
-        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
         unified_graph = get_cached_unified_graph(tree_id, team_id)
         
         if not unified_graph:
@@ -97,7 +97,7 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str) -> bool:
         print(f"[@route:ensure_unified_cache_populated] Populating unified cache for tree {tree_id}")
         
         # Get complete tree hierarchy from new normalized tables
-        from shared.src.lib.config.supabase.navigation_trees_db import get_complete_tree_hierarchy
+        from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
         hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
         
         if not hierarchy_result.get('success'):
@@ -113,7 +113,7 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str) -> bool:
             return ensure_single_tree_cache_populated(tree_id, team_id)
         
         # Populate unified cache
-        from shared.src.lib.utils.navigation_cache import populate_unified_cache
+        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
         unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
         
         if unified_graph:
@@ -139,7 +139,7 @@ def ensure_single_tree_cache_populated(tree_id: str, team_id: str) -> bool:
         print(f"[@route:ensure_single_tree_cache_populated] Loading single tree for unified cache: {tree_id}")
         
         # Get single tree data
-        from shared.src.lib.config.supabase.navigation_trees_db import get_full_tree
+        from shared.src.lib.supabase.navigation_trees_db import get_full_tree
         tree_result = get_full_tree(tree_id, team_id)
         
         if not tree_result.get('success'):
@@ -161,7 +161,7 @@ def ensure_single_tree_cache_populated(tree_id: str, team_id: str) -> bool:
         }]
         
         # Populate unified cache with single tree
-        from shared.src.lib.utils.navigation_cache import populate_unified_cache
+        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
         unified_graph = populate_unified_cache(tree_id, team_id, single_tree_data)
         
         if unified_graph:

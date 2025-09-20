@@ -134,7 +134,7 @@ def debug_openrouter():
         print("[@route:server_aiagent:debug] OpenRouter debug request")
         
         # Import here to avoid circular imports
-        from shared.src.lib.utils.ai_utils import call_text_ai
+        from backend_host.src.lib.utils.ai_utils import call_text_ai
         
         # Get request data
         request_data = request.get_json() or {}

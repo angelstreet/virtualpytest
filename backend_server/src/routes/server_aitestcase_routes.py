@@ -10,19 +10,36 @@ from datetime import datetime
 import sys
 import os
 
-# Add backend_host to path for direct access
-#DISABLED: sys.path.append backend_host/src'))
-
-#DISABLED: from backend_host.src.services.ai.ai_executor import AIExecutor
-from controllers.controller_config_factory import get_device_capabilities
-from shared.src.lib.config.supabase.testcase_db import save_test_case, get_test_case
-from shared.src.lib.config.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
-from shared.src.lib.config.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
-from shared.src.lib.config.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
+# Device capabilities are stored during host registration and retrieved from host manager
+from shared.src.lib.supabase.testcase_db import save_test_case, get_test_case
+from shared.src.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
+from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
+from shared.src.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
 from shared.src.lib.utils.app_utils import get_team_id
 from src.lib.utils.route_utils import proxy_to_host
 
 server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
+
+def get_device_capabilities(device_model):
+    """
+    Get device capabilities from stored host registration data
+    Returns the capabilities for the specified device model
+    """
+    from src.lib.utils.server_utils import get_host_manager
+    
+    host_manager = get_host_manager()
+    all_hosts = host_manager.get_all_hosts()
+    
+    # Search through all registered hosts and their devices
+    for host in all_hosts:
+        devices = host.get('devices', [])
+        for device in devices:
+            if device.get('device_model') == device_model:
+                return device.get('device_capabilities', {})
+    
+    # If no device found with that model, return empty capabilities
+    print(f"[@aitestcase] No device found with model '{device_model}' in registered hosts")
+    return {}
 
 
 @server_aitestcase_bp.route('/analyzeTestCase', methods=['POST'])
@@ -146,7 +163,7 @@ def analyze_test_case():
         print(f"[@route:server_aitestcase:analyze] Using AI Planner for compatibility analysis")
         
         # Analyze compatibility using AI Planner
-        from shared.src.lib.config.supabase.userinterface_db import get_all_userinterfaces
+        from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
         
         interfaces = get_all_userinterfaces(team_id)
         compatible = []
