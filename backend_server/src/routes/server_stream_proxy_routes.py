@@ -7,7 +7,7 @@ import requests
 import json
 
 from src.lib.utils.build_url_utils import buildHostUrl
-from src.lib.utils.host_utils import get_host_manager
+from src.lib.utils.server_utils import get_host_manager
 
 server_stream_proxy_bp = Blueprint('server_stream_proxy', __name__, url_prefix='/server/stream')
 

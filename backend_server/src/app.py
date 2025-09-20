@@ -88,47 +88,164 @@ def register_all_server_routes(app):
     print("[@backend_server:routes] Loading server routes...")
     
     try:
-        from routes import (
-            server_system_routes,
-            server_web_routes,
-            server_core_routes,
-            server_control_routes,
-            server_actions_routes,
-            server_device_routes,
-            server_navigation_routes,
-            server_navigation_trees_routes,
-            server_pathfinding_routes,
-            server_alerts_routes,
-            server_verification_routes,
-            server_heatmap_routes,
-            server_navigation_execution_routes,
-            server_devicemodel_routes,
-            server_remote_routes,
-            server_ai_routes,
-            server_aiagent_routes,
-            server_ai_generation_routes,
-            server_aitestcase_routes,
-            server_desktop_bash_routes,
-            server_power_routes,
-            server_desktop_pyautogui_routes,
-            server_stream_proxy_routes,
-            server_validation_routes,
-            server_campaign_routes,
-            server_testcase_routes,
-            server_userinterface_routes,
-            server_mcp_routes,
-            server_av_routes,
-            server_restart_routes,
-            server_monitoring_routes,
-            server_execution_results_routes,
-            server_script_routes,
-            server_script_results_routes,
-            server_metrics_routes,
-            server_campaign_results_routes,
-            server_frontend_routes,
-            server_ai_queue_routes,
-            server_translation_routes
-        )
+        # Import routes one by one with debug prints to identify adb_utils import issue
+        print("[@backend_server:routes] 🔍 Importing server_system_routes...")
+        from routes import server_system_routes
+        print("[@backend_server:routes] ✅ server_system_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_web_routes...")
+        from routes import server_web_routes
+        print("[@backend_server:routes] ✅ server_web_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_core_routes...")
+        from routes import server_core_routes
+        print("[@backend_server:routes] ✅ server_core_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_control_routes...")
+        from routes import server_control_routes
+        print("[@backend_server:routes] ✅ server_control_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_actions_routes...")
+        from routes import server_actions_routes
+        print("[@backend_server:routes] ✅ server_actions_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_device_routes...")
+        from routes import server_device_routes
+        print("[@backend_server:routes] ✅ server_device_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_navigation_routes...")
+        from routes import server_navigation_routes
+        print("[@backend_server:routes] ✅ server_navigation_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_navigation_trees_routes...")
+        from routes import server_navigation_trees_routes
+        print("[@backend_server:routes] ✅ server_navigation_trees_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_pathfinding_routes...")
+        from routes import server_pathfinding_routes
+        print("[@backend_server:routes] ✅ server_pathfinding_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_alerts_routes...")
+        from routes import server_alerts_routes
+        print("[@backend_server:routes] ✅ server_alerts_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_verification_routes...")
+        from routes import server_verification_routes
+        print("[@backend_server:routes] ✅ server_verification_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_heatmap_routes...")
+        from routes import server_heatmap_routes
+        print("[@backend_server:routes] ✅ server_heatmap_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_navigation_execution_routes...")
+        from routes import server_navigation_execution_routes
+        print("[@backend_server:routes] ✅ server_navigation_execution_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_devicemodel_routes...")
+        from routes import server_devicemodel_routes
+        print("[@backend_server:routes] ✅ server_devicemodel_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_remote_routes...")
+        from routes import server_remote_routes
+        print("[@backend_server:routes] ✅ server_remote_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_ai_routes...")
+        from routes import server_ai_routes
+        print("[@backend_server:routes] ✅ server_ai_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_aiagent_routes...")
+        from routes import server_aiagent_routes
+        print("[@backend_server:routes] ✅ server_aiagent_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_ai_generation_routes...")
+        from routes import server_ai_generation_routes
+        print("[@backend_server:routes] ✅ server_ai_generation_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_aitestcase_routes...")
+        from routes import server_aitestcase_routes
+        print("[@backend_server:routes] ✅ server_aitestcase_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_desktop_bash_routes...")
+        from routes import server_desktop_bash_routes
+        print("[@backend_server:routes] ✅ server_desktop_bash_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_power_routes...")
+        from routes import server_power_routes
+        print("[@backend_server:routes] ✅ server_power_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_desktop_pyautogui_routes...")
+        from routes import server_desktop_pyautogui_routes
+        print("[@backend_server:routes] ✅ server_desktop_pyautogui_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_stream_proxy_routes...")
+        from routes import server_stream_proxy_routes
+        print("[@backend_server:routes] ✅ server_stream_proxy_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_validation_routes...")
+        from routes import server_validation_routes
+        print("[@backend_server:routes] ✅ server_validation_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_campaign_routes...")
+        from routes import server_campaign_routes
+        print("[@backend_server:routes] ✅ server_campaign_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_testcase_routes...")
+        from routes import server_testcase_routes
+        print("[@backend_server:routes] ✅ server_testcase_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_userinterface_routes...")
+        from routes import server_userinterface_routes
+        print("[@backend_server:routes] ✅ server_userinterface_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_mcp_routes...")
+        from routes import server_mcp_routes
+        print("[@backend_server:routes] ✅ server_mcp_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_av_routes...")
+        from routes import server_av_routes
+        print("[@backend_server:routes] ✅ server_av_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_restart_routes...")
+        from routes import server_restart_routes
+        print("[@backend_server:routes] ✅ server_restart_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_monitoring_routes...")
+        from routes import server_monitoring_routes
+        print("[@backend_server:routes] ✅ server_monitoring_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_execution_results_routes...")
+        from routes import server_execution_results_routes
+        print("[@backend_server:routes] ✅ server_execution_results_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_script_routes...")
+        from routes import server_script_routes
+        print("[@backend_server:routes] ✅ server_script_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_script_results_routes...")
+        from routes import server_script_results_routes
+        print("[@backend_server:routes] ✅ server_script_results_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_metrics_routes...")
+        from routes import server_metrics_routes
+        print("[@backend_server:routes] ✅ server_metrics_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_campaign_results_routes...")
+        from routes import server_campaign_results_routes
+        print("[@backend_server:routes] ✅ server_campaign_results_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_frontend_routes...")
+        from routes import server_frontend_routes
+        print("[@backend_server:routes] ✅ server_frontend_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_ai_queue_routes...")
+        from routes import server_ai_queue_routes
+        print("[@backend_server:routes] ✅ server_ai_queue_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_translation_routes...")
+        from routes import server_translation_routes
+        print("[@backend_server:routes] ✅ server_translation_routes imported successfully")
+        
+        print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
         blueprints = [

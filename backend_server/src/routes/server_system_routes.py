@@ -12,13 +12,8 @@ import psutil
 from datetime import datetime
 import json
 from typing import TypedDict, Optional, List, Any
-
-# Import using consistent src. prefix (project root is already in sys.path from app startup)
-#DISABLED: from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
-
-from src.lib.utils.host_utils import get_host_manager
+from src.lib.utils.server_utils import get_host_manager
 from shared.src.lib.utils.system_metrics_db import store_system_metrics
-#DISABLED: from backend_host.src.lib.utils.system_info_utils import get_host_system_stats
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 
@@ -331,7 +326,6 @@ def client_ping():
         if not success:
             return jsonify({'error': 'Failed to update host ping'}), 500
         
-        # HOST INDEPENDENCE: Device metrics are now stored by host directly
         # Server only receives device status for monitoring/display purposes
         per_device_metrics = ping_data.get('per_device_metrics', [])
         device_count = len(per_device_metrics) if per_device_metrics else 0
@@ -348,8 +342,6 @@ def client_ping():
     except Exception as e:
         print(f"❌ [PING] Error processing host ping: {e}")
         return jsonify({'error': str(e)}), 500
-
-# Removed get_system_stats() - now using consistent get_host_system_stats() everywhere 
 
 # Define Host type matching Host_Types.ts
 class Host(TypedDict):
@@ -375,6 +367,3 @@ class Host(TypedDict):
     isLocked: bool
     lockedBy: Optional[str]
     lockedAt: Optional[float]
-
-
-

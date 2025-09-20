@@ -43,10 +43,12 @@ def capture_and_upload_screenshot(host, device, step_name: str, script_context: 
     
     try:
         # 1. Capture screenshot locally
-        from .host_utils import get_controller
+        # get_controller functionality proxied to host
         try:
-            av_controller = get_controller(device.device_id, 'av')
-            screenshot_path = av_controller.take_screenshot()
+            # Proxy screenshot capture to host
+            from .route_utils import proxy_to_host
+            proxy_result = proxy_to_host('/host/av/screenshot', 'POST', {'device_id': device.device_id})
+            screenshot_path = proxy_result.get('screenshot_path', '') if proxy_result and proxy_result.get('success') else ''
         except Exception as e:
             print(f"[@report_generation] Screenshot failed: {e}")
             screenshot_path = ""
