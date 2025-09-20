@@ -5,12 +5,6 @@ Validation Routes - Reuses NavigationExecutor API for sequential edge testing
 from typing import List
 from flask import Blueprint, request, jsonify
 
-from backend_host.src.lib.utils.navigation_cache import get_cached_graph
-from shared.src.lib.utils.app_utils import get_team_id
-
-
-# Removed transform_script_results_to_validation_format since we now execute the script directly
-
 
 # Create blueprint
 server_validation_bp = Blueprint('server_validation', __name__, url_prefix='/server/validation')
@@ -24,11 +18,15 @@ def get_validation_preview(tree_id: str):
     try:
         team_id = get_team_id()
         
-        # Ensure unified cache is populated for this tree
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
-        unified_graph = get_cached_unified_graph(tree_id, team_id)
+        # Check if unified cache is populated for this tree via host API
+        from src.lib.utils.route_utils import proxy_to_host
+        cache_check_result = proxy_to_host('/host/navigation/cache/check_unified', 'POST', {
+            'tree_id': tree_id,
+            'team_id': team_id
+        })
+        unified_graph_exists = cache_check_result.get('exists', False) if cache_check_result and cache_check_result.get('success') else False
         
-        if not unified_graph:
+        if not unified_graph_exists:
             print(f"[@route:get_validation_preview] No unified cache found for tree {tree_id}, populating...")
             
             # Populate unified cache for this tree using the new architecture
@@ -112,12 +110,17 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str) -> bool:
             print(f"[@route:ensure_unified_cache_populated] No tree data found, attempting single tree load...")
             return ensure_single_tree_cache_populated(tree_id, team_id)
         
-        # Populate unified cache
-        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
-        unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
+        # Populate unified cache via host API
+        from src.lib.utils.route_utils import proxy_to_host
+        populate_result = proxy_to_host('/host/navigation/cache/populate_unified', 'POST', {
+            'tree_id': tree_id,
+            'team_id': team_id,
+            'all_trees_data': all_trees_data
+        })
+        unified_graph_created = populate_result.get('success', False) if populate_result else False
         
-        if unified_graph:
-            print(f"[@route:ensure_unified_cache_populated] Successfully populated unified cache: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+        if unified_graph_created:
+            print(f"[@route:ensure_unified_cache_populated] Successfully populated unified cache via host API")
             return True
         else:
             print(f"[@route:ensure_unified_cache_populated] Failed to create unified graph, trying single tree...")
@@ -160,12 +163,17 @@ def ensure_single_tree_cache_populated(tree_id: str, team_id: str) -> bool:
             'edges': tree_result['edges']
         }]
         
-        # Populate unified cache with single tree
-        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
-        unified_graph = populate_unified_cache(tree_id, team_id, single_tree_data)
+        # Populate unified cache with single tree via host API
+        from src.lib.utils.route_utils import proxy_to_host
+        populate_result = proxy_to_host('/host/navigation/cache/populate_unified', 'POST', {
+            'tree_id': tree_id,
+            'team_id': team_id,
+            'all_trees_data': single_tree_data
+        })
+        unified_graph_created = populate_result.get('success', False) if populate_result else False
         
-        if unified_graph:
-            print(f"[@route:ensure_single_tree_cache_populated] Successfully populated single-tree unified cache: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+        if unified_graph_created:
+            print(f"[@route:ensure_single_tree_cache_populated] Successfully populated single-tree unified cache via host API")
             return True
         else:
             print(f"[@route:ensure_single_tree_cache_populated] Failed to create single-tree unified graph")

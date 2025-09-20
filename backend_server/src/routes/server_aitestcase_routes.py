@@ -10,7 +10,6 @@ from datetime import datetime
 import sys
 import os
 
-# Device capabilities are stored during host registration and retrieved from host manager
 from shared.src.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.src.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
 from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name

@@ -3,7 +3,7 @@ Translation Utilities - AI-powered text translation using existing AI infrastruc
 """
 
 from typing import Dict, Any, Optional
-from .ai_utils import call_text_ai
+from shared.src.lib.utils.ai_utils import call_text_ai
 
 # Local translation imports (optional)
 try:

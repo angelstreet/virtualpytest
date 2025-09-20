@@ -12,11 +12,13 @@ import psutil
 from datetime import datetime
 import json
 from typing import TypedDict, Optional, List, Any
+print("[@server_system_routes] Importing server_utils")
 from src.lib.utils.server_utils import get_host_manager, get_server_system_stats
+print("[@server_system_routes] Importing system_metrics_db")
 from shared.src.lib.supabase.system_metrics_db import store_system_metrics
-
+print("[@server_system_routes] Importing server_system_bp")
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
-
+print("[@server_system_routes] Server_system_bp imported")
 @server_system_bp.route('/register', methods=['POST'])
 def register_host():
     """Host registers with server"""
@@ -159,7 +161,7 @@ def register_host():
         import traceback
         traceback.print_exc()
         return jsonify({'error': error_msg}), 500
-
+print("[@server_system_routes] Unregister host route imported")
 @server_system_bp.route('/unregister', methods=['POST'])
 def unregister_host():
     """Host unregisters from server"""
@@ -187,6 +189,7 @@ def unregister_host():
     except Exception as e:
         print(f"❌ Error unregistering host: {e}")
         return jsonify({'error': str(e)}), 500
+print("[@server_system_routes] Health check route imported")
 
 @server_system_bp.route('/health', methods=['GET'])
 def health_check():
@@ -200,6 +203,7 @@ def health_check():
         'system_stats': system_stats
     }), 200
 
+print("[@server_system_routes] Get all hosts route imported")
 @server_system_bp.route('/getAllHosts', methods=['GET'])
 def getAllHosts():
     """Return all registered hosts - single REST endpoint for host listing"""
@@ -244,7 +248,7 @@ def getAllHosts():
         print(f"❌ [HOSTS] Error listing hosts: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
+print("[@server_system_routes] Ping route imported")
 @server_system_bp.route('/ping', methods=['POST'])
 def client_ping():
     """Client sends periodic health ping to server"""
@@ -294,7 +298,7 @@ def client_ping():
     except Exception as e:
         print(f"❌ [PING] Error processing host ping: {e}")
         return jsonify({'error': str(e)}), 500
-
+print("[@server_system_routes] Host type imported")
 # Define Host type matching Host_Types.ts
 class Host(TypedDict):
     # === PRIMARY IDENTIFICATION ===
@@ -319,3 +323,4 @@ class Host(TypedDict):
     isLocked: bool
     lockedBy: Optional[str]
     lockedAt: Optional[float]
+print("[@server_system_routes] END")

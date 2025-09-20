@@ -6,7 +6,7 @@ import re
 from flask import Blueprint, request, jsonify
 import requests
 from src.lib.utils.server_utils import get_host_manager
-from src.lib.utils.build_url_utils import buildHostUrl
+from shared.src.lib.utils.build_url_utils import buildHostUrl
 
 server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
 
