@@ -43,19 +43,16 @@ def ai_generate_plan():
         
         device = current_app.host_devices[device_id]
         
-        # Create AI service for this device
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        # Get device with existing AI executor
+        from backend_core.src.controllers.controller_manager import get_device
         
         print(f"[@route:host_ai:ai_generate_plan] Using AI service for device: {device_id}")
         
-        # Get host dict for AI service
-        from backend_core.src.controllers.controller_manager import get_host
-        host = get_host()
-        
-        # Create AI service and generate plan
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=get_team_id())
-        result = ai_executor.execute_prompt(
+        # Get device with existing AI executor
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        result = device.ai_executor.execute_prompt(
             prompt=prompt,
             userinterface_name=userinterface_name,
             current_node_id=current_node_id,
@@ -104,19 +101,17 @@ def ai_execute_plan():
         
         device = current_app.host_devices[device_id]
         
-        # Create AI service for this device
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        # Get device with existing AI executor
+        from backend_core.src.controllers.controller_manager import get_device
         
         print(f"[@route:host_ai:ai_execute_plan] Using AI service for device: {device_id}")
         
-        # Get host dict for AI service
-        from backend_core.src.controllers.controller_manager import get_host
-        host = get_host()
+        # Get device with existing AI executor
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
         
-        # Create AI service and execute plan
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=get_team_id())
-        result = ai_executor.execute_prompt(
+        result = device.ai_executor.execute_prompt(
             prompt=f"Execute plan: {plan.get('description', 'AI plan')}",
             userinterface_name=userinterface_name,
             async_execution=False  # Synchronous for plan execution
@@ -165,19 +160,17 @@ def ai_execute_prompt():
         
         device = current_app.host_devices[device_id]
         
-        # Create AI service for this device
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        # Get device with existing AI executor
+        from backend_core.src.controllers.controller_manager import get_device
         
         print(f"[@route:host_ai:ai_execute_prompt] Using AI service for device: {device_id}")
         
-        # Get host dict for AI service
-        from backend_core.src.controllers.controller_manager import get_host
-        host = get_host()
+        # Get device with existing AI executor
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
         
-        # Create AI service and execute prompt
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=get_team_id())
-        result = ai_executor.execute_prompt(
+        result = device.ai_executor.execute_prompt(
             prompt=prompt,
             userinterface_name=userinterface_name,
             current_node_id=current_node_id,
@@ -215,17 +208,15 @@ def ai_get_device_position():
         
         device = current_app.host_devices[device_id]
         
-        # Create AI service for this device
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        # Get device with existing AI executor
+        from backend_core.src.controllers.controller_manager import get_device
         
-        # Get host dict for AI service
-        from backend_core.src.controllers.controller_manager import get_host
-        host = get_host()
+        # Get device with existing AI executor
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
         
-        # Get position using AI service
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=get_team_id())
-        result = ai_executor.get_device_position()
+        result = device.ai_executor.get_device_position()
         
         print(f"[@route:host_ai:ai_get_device_position] Position result: success={result.get('success')}")
         
@@ -249,6 +240,7 @@ def ai_update_device_position():
         device_id = data.get('device_id', 'device1')
         node_id = data.get('node_id', '')
         node_label = data.get('node_label')
+        tree_id = data.get('tree_id')  # Optional tree_id
         
         print(f"[@route:host_ai:ai_update_device_position] Updating position for device: {device_id} to node: {node_id}")
         
@@ -268,17 +260,15 @@ def ai_update_device_position():
         
         device = current_app.host_devices[device_id]
         
-        # Create AI service for this device
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        # Get device with existing AI executor
+        from backend_core.src.controllers.controller_manager import get_device
         
-        # Get host dict for AI service
-        from backend_core.src.controllers.controller_manager import get_host
-        host = get_host()
+        # Get device with existing AI executor
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
         
-        # Update position using AI service
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=get_team_id())
-        result = ai_executor.update_device_position(node_id, node_label)
+        result = device.ai_executor.update_device_position(node_id, tree_id, node_label)
         
         print(f"[@route:host_ai:ai_update_device_position] Position update result: success={result.get('success')}")
         
@@ -300,14 +290,14 @@ def ai_get_execution_status(execution_id):
         # Get device_id from query params (required for AIPlanExecutor)
         device_id = request.args.get('device_id', 'device1')
         
-        # Create AI service for status check
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from shared.lib.utils.app_utils import get_team_id
-        from backend_core.src.controllers.controller_manager import get_host
+        # Get device with existing AI executor
+        from backend_core.src.controllers.controller_manager import get_device
         
-        host = get_host()
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=get_team_id())
-        result = ai_executor.get_execution_status(execution_id)
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        
+        result = device.ai_executor.get_execution_status(execution_id)
         
         print(f"[@route:host_ai:ai_get_execution_status] Status result: success={result.get('success')}")
         

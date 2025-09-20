@@ -602,7 +602,7 @@ def get_tree_by_userinterface_id(userinterface_id):
         
         if tree:
             # SAME AS SCRIPT: Load complete hierarchy instead of single tree
-            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             from shared.lib.supabase.userinterface_db import get_userinterface
             
             # Get interface name for hierarchy loading
@@ -620,9 +620,22 @@ def get_tree_by_userinterface_id(userinterface_id):
                     'error': f'Interface name not found for: {userinterface_id}'
                 })
             
+            # Create NavigationExecutor for enhanced hierarchy loading
+            # Use a mock device for server-side navigation operations
+            class MockDevice:
+                def __init__(self):
+                    self.device_id = "server_navigation"
+                    self.device_model = "server"
+            
+            nav_executor = NavigationExecutor(
+                host={'host_name': 'server_navigation'}, 
+                device=MockDevice(), 
+                team_id=team_id
+            )
+            
             # Load complete hierarchy EXACTLY like script does
             print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Loading hierarchy for interface: {interface_name}')
-            hierarchy_result = load_navigation_tree_with_hierarchy(interface_name, 'frontend_navigation_editor')
+            hierarchy_result = nav_executor.load_navigation_tree_with_hierarchy(interface_name, 'frontend_navigation_editor')
             
             if not hierarchy_result['success']:
                 return jsonify({

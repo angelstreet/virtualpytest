@@ -263,8 +263,7 @@ def main():
             
             # IMPORTANT: Manually set current node to target since we're assuming we're already there
             # This prevents navigation from going back to home during script execution
-            from shared.lib.utils.navigation_utils import find_node_by_label
-            target_node_obj = find_node_by_label(context.nodes, target_node)
+            target_node_obj = context.selected_device.navigation_executor.find_node_by_label(context.nodes, target_node)
             if target_node_obj:
                 target_node_id = target_node_obj.get('node_id')
                 context.current_node_id = target_node_id
@@ -284,9 +283,8 @@ def main():
         
         # Find the actual action edge from current node to target node
         print(f"🔍 [fullzap] Finding edge for action '{mapped_action}' from current node...")
-        from shared.lib.utils.navigation_utils import find_edge_by_target_label
         
-        action_edge = find_edge_by_target_label(
+        action_edge = context.selected_device.navigation_executor.find_edge_by_target_label(
             context.current_node_id, 
             context.edges, 
             context.all_nodes, 

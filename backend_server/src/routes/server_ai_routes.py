@@ -36,9 +36,20 @@ def analyze_compatibility():
                     'available_verifications': []
                 }
                 
-                from backend_core.src.services.ai.ai_plan_generator import AIPlanGenerator
-                planner = AIPlanGenerator(get_team_id())
-                plan_dict = planner.generate_plan(prompt, context)
+                from backend_core.src.services.ai.ai_executor import AIExecutor
+                
+                # Create a mock device for server-side AI operations
+                class MockDevice:
+                    def __init__(self):
+                        self.device_id = "server_ai_compatibility"
+                        self.device_model = "server"
+                
+                ai_executor = AIExecutor(
+                    host={'host_name': 'server_ai_compatibility'}, 
+                    device=MockDevice(), 
+                    team_id=get_team_id()
+                )
+                plan_dict = ai_executor.generate_plan(prompt, context)
                 
                 if plan_dict.get('feasible', True):
                     compatible.append({
@@ -168,17 +179,15 @@ def execute_test_case():
         if not test_case:
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
-        # Use simplified AI plan executor for test case execution
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
+        # Get device with existing AI executor for test case execution
+        from backend_core.src.controllers.controller_manager import get_device
         
-        ai_executor = AIPlanExecutor(
-            host=host,
-            device_id=device_id,
-            team_id=get_team_id()
-        )
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
         
         # Execute stored test case directly
-        result = ai_executor.execute_testcase(test_case_id)
+        result = device.ai_executor.execute_testcase(test_case_id)
         return jsonify(result)
         
     except Exception as e:

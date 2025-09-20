@@ -180,8 +180,7 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import simplified AI architecture
-        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
-        from backend_core.src.controllers.controller_manager import get_host
+        from backend_core.src.controllers.controller_manager import get_device, get_host
         from shared.lib.utils.app_utils import get_team_id
         
         # Get session parameters
@@ -215,9 +214,12 @@ def run_exploration(exploration_id: str):
         
         print(f"[@run_exploration] Using userinterface: {userinterface_name}")
         
-        # Create AI plan executor for exploration
+        # Get device with existing AI executor for exploration
         update_progress(exploration_id, "Analyzing device capabilities...")
-        ai_executor = AIPlanExecutor(host=host, device_id=device_id, team_id=team_id)
+        device = get_device(device_id)
+        if not device or not hasattr(device, 'ai_executor'):
+            update_progress(exploration_id, "ERROR: Device or AI executor not found", is_error=True)
+            return
         
         # AI-driven exploration loop
         exploration_steps = session['exploration_depth']
@@ -244,7 +246,7 @@ def run_exploration(exploration_id: str):
             
             try:
                 # Execute AI exploration step
-                result = ai_executor.execute_prompt(
+                result = device.ai_executor.execute_prompt(
                     exploration_prompt, 
                     userinterface_name,
                     async_execution=False  # Synchronous for exploration

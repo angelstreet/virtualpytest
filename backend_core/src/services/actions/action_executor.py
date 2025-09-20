@@ -13,6 +13,8 @@ import time
 import requests
 from typing import Dict, List, Optional, Any
 from shared.lib.utils.route_utils import proxy_to_host_direct
+# Removed unused imports - device instance is now passed directly
+from shared.lib.supabase.execution_results_db import record_edge_execution
 
 
 class ActionExecutor:
@@ -21,51 +23,63 @@ class ActionExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, host: Dict[str, Any], device_id: str, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
+    @staticmethod
+    def _parse_wait_time(wait_time) -> int:
+        """Parse and validate wait_time parameter"""
+        try:
+            wait_time = int(wait_time)
+        except (ValueError, TypeError):
+            wait_time = 0
+        return max(0, wait_time)  # Ensure non-negative
+    
+    @staticmethod
+    def _parse_iterator_count(iterator_count) -> int:
+        """Parse and validate iterator count parameter"""
+        try:
+            iterator_count = int(iterator_count)
+        except (ValueError, TypeError):
+            iterator_count = 1
+        return max(1, min(iterator_count, 100))  # Clamp to valid range [1, 100]
+    
+    def __init__(self, host: Dict[str, Any], device, device_id: str = None, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
         """
         Initialize ActionExecutor
         
         Args:
             host: Host configuration dict with host_name, devices, etc.
-            device_id: Device ID string
+            device: Device instance (mandatory)
+            device_id: Device ID string (optional, extracted from device if not provided)
             tree_id: Tree ID for navigation context
             edge_id: Edge ID for navigation context
             team_id: Team ID for database context
         """
+        # Validate required parameters - fail fast if missing
+        if not device:
+            raise ValueError("Device instance is required")
+        if not host or not host.get('host_name'):
+            raise ValueError("Host configuration with host_name is required")
+        
+        # Store instances directly
         self.host = host
-        self.device_id = device_id
+        self.device = device
+        self.host_name = host['host_name']
+        self.device_id = device_id or device.device_id
+        self.device_model = device.device_model
         self.tree_id = tree_id
         self.edge_id = edge_id
         self.action_set_id = action_set_id
         self.team_id = team_id
         
-        # Validate required parameters - fail fast if missing
-        if not device_id:
-            raise ValueError("Device ID is required")
-        
-        # Validate host configuration - fail fast if missing
-        if not self.host or not self.host.get('host_name'):
-            raise ValueError("Host configuration with host_name is required")
-        self.host_name = self.host['host_name']
-        
-        # Extract device_model from host configuration
-        from shared.lib.utils.build_url_utils import get_device_by_id
-        device_dict = get_device_by_id(host, device_id)
-        if not device_dict:
-            raise ValueError(f"Device {device_id} not found in host")
-        
-        self.device_model = device_dict.get('device_model')
-        if not self.device_model:
-            raise ValueError(f"Device {device_id} has no device_model")
-        
-        # Get AV controller during initialization
-        from shared.lib.utils.host_utils import get_controller
-        self.av_controller = get_controller(self.device_id, 'av')
+        # Get AV controller directly from device
+        self.av_controller = device.get_controller('av')
         if not self.av_controller:
             print(f"[@action_executor] Warning: No AV controller found for device {self.device_id}")
         
         # Initialize screenshot tracking
         self.action_screenshots = []
+        
+        # Cache for action type detection to avoid repeated controller lookups
+        self._action_type_cache = {}
     
     def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
@@ -78,44 +92,40 @@ class ActionExecutor:
             Dict with available actions and their descriptions
         """
         try:
-            from shared.lib.utils.host_utils import get_device_by_id, get_controller
-            
             device_actions = []
-            device_id = self.device_id
             
-            print(f"[@action_executor] Loading action context for device: {device_id}, model: {self.device_model}")
+            print(f"[@action_executor] Loading action context for device: {self.device_id}, model: {self.device_model}")
             
-            device = get_device_by_id(device_id)
-            if device:
-                # Get actions from each controller type
-                controller_types = ['remote', 'web', 'desktop_bash', 'desktop_pyautogui', 'av', 'power']
-                
-                for controller_type in controller_types:
-                    try:
-                        controller = get_controller(device_id, controller_type)
-                        if controller and hasattr(controller, 'get_available_actions'):
-                            actions = controller.get_available_actions()
-                            if isinstance(actions, dict):
-                                for category, action_list in actions.items():
-                                    if isinstance(action_list, list):
-                                        for action in action_list:
-                                            device_actions.append({
-                                                'command': action.get('command', ''),
-                                                'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
-                                                'params': action.get('params', {}),
-                                                'description': action.get('description', '')
-                                            })
-                            elif isinstance(actions, list):
-                                for action in actions:
-                                    device_actions.append({
-                                        'command': action.get('command', ''),
-                                        'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
-                                        'params': action.get('params', {}),
-                                        'description': action.get('description', '')
-                                    })
-                    except Exception as e:
-                        print(f"[@action_executor] Could not load {controller_type} actions: {e}")
-                        continue
+            # Get actions from each controller type
+            controller_types = ['remote', 'web', 'desktop_bash', 'desktop_pyautogui', 'av', 'power']
+            
+            for controller_type in controller_types:
+                try:
+                    # Direct controller access from device instance
+                    controller = self.device.get_controller(controller_type)
+                    if controller and hasattr(controller, 'get_available_actions'):
+                        actions = controller.get_available_actions()
+                        if isinstance(actions, dict):
+                            for category, action_list in actions.items():
+                                if isinstance(action_list, list):
+                                    for action in action_list:
+                                        device_actions.append({
+                                            'command': action.get('command', ''),
+                                            'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
+                                            'params': action.get('params', {}),
+                                            'description': action.get('description', '')
+                                        })
+                        elif isinstance(actions, list):
+                            for action in actions:
+                                device_actions.append({
+                                    'command': action.get('command', ''),
+                                    'action_type': action.get('action_type', controller_type.replace('desktop_', 'desktop')),
+                                    'params': action.get('params', {}),
+                                    'description': action.get('description', '')
+                                })
+                except Exception as e:
+                    print(f"[@action_executor] Could not load {controller_type} actions: {e}")
+                    continue
             
             print(f"[@action_executor] Loaded {len(device_actions)} actions from controllers")
             
@@ -153,7 +163,7 @@ class ActionExecutor:
         """
         print(f"[@lib:action_executor:execute_actions] Starting batch action execution")
         print(f"[@lib:action_executor:execute_actions] Processing {len(actions)} main actions, {len(retry_actions or [])} retry actions")
-        print(f"[@lib:action_executor:execute_actions] Host: {self.host.get('host_name')}")
+        print(f"[@lib:action_executor:execute_actions] Host: {self.host_name}")
         
         # Validate inputs
         if not actions:
@@ -310,13 +320,7 @@ class ActionExecutor:
         if action_type == 'verification':
             iterator_count = 1  # Force single execution for verifications
         else:
-            iterator_count = action.get('iterator', 1)
-            try:
-                iterator_count = int(iterator_count)
-            except (ValueError, TypeError):
-                iterator_count = 1
-            if iterator_count < 1 or iterator_count > 100:
-                iterator_count = 1  # Clamp to valid range
+            iterator_count = self._parse_iterator_count(action.get('iterator', 1))
         
         if action_type == 'verification':
             print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} verification {action_number}: {action.get('command')} (verifications always run once)")
@@ -339,11 +343,18 @@ class ActionExecutor:
                 params = action.get('params', {})
                 action_type = action.get('action_type')
                 
-                # Dynamic action_type detection based on device controllers
+                # Dynamic action_type detection based on device controllers (with caching)
                 if not action_type:
-                    action_type = self._detect_action_type_from_device(action.get('command', ''))
-                    if iteration == 0:
-                        print(f"[@lib:action_executor:_execute_single_action] Detected action_type: {action_type}")
+                    command = action.get('command', '')
+                    if command in self._action_type_cache:
+                        action_type = self._action_type_cache[command]
+                        if iteration == 0:
+                            print(f"[@lib:action_executor:_execute_single_action] Using cached action_type: {action_type}")
+                    else:
+                        action_type = self._detect_action_type_from_device(command)
+                        self._action_type_cache[command] = action_type
+                        if iteration == 0:
+                            print(f"[@lib:action_executor:_execute_single_action] Detected and cached action_type: {action_type}")
                 
                 if iteration == 0:  # Only log action type once
                     print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
@@ -456,11 +467,7 @@ class ActionExecutor:
                 
                 # Wait between iterations if there are more iterations (same wait_time)
                 if iteration < iterator_count - 1:
-                    wait_time = params.get('wait_time', 0)
-                    try:
-                        wait_time = int(wait_time)
-                    except (ValueError, TypeError):
-                        wait_time = 0
+                    wait_time = self._parse_wait_time(params.get('wait_time', 0))
                     if wait_time > 0:
                         iter_time = time.strftime("%H:%M:%S", time.localtime())
                         print(f"[@lib:action_executor:_execute_single_action] [{iter_time}] Waiting {wait_time}ms between iterations")
@@ -485,11 +492,7 @@ class ActionExecutor:
                 break
         
         # Wait after successful action execution (once per action, after all iterations)
-        wait_time = params.get('wait_time', 0)
-        try:
-            wait_time = int(wait_time)
-        except (ValueError, TypeError):
-            wait_time = 0
+        wait_time = self._parse_wait_time(params.get('wait_time', 0))
         if all_iterations_successful and wait_time > 0:
             wait_seconds = wait_time / 1000.0
             current_time = time.strftime("%H:%M:%S", time.localtime())
@@ -513,18 +516,14 @@ class ActionExecutor:
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
         # ALWAYS capture screenshot - success OR failure
+        screenshot_path = ""
         try:
-            if self.av_controller:
-                screenshot_path = self.av_controller.take_screenshot()
-            else:
-                screenshot_path = ""
+            screenshot_path = self.av_controller.take_screenshot()
+            if screenshot_path:
+                self.action_screenshots.append(screenshot_path)
+                print(f"[@action_executor] Screenshot captured: {screenshot_path}")
         except Exception as e:
             print(f"[@action_executor] Screenshot failed: {e}")
-            screenshot_path = ""
-        
-        if screenshot_path:
-            self.action_screenshots.append(screenshot_path)
-            print(f"[@action_executor] Screenshot captured: {screenshot_path}")
         
         return {
             'success': all_iterations_successful,
@@ -540,16 +539,11 @@ class ActionExecutor:
     def _detect_action_type_from_device(self, command: str) -> str:
         """Detect action_type by checking which device controller has the command"""
         try:
-            from shared.lib.utils.host_utils import get_device_by_id, get_controller
-            
-            device = get_device_by_id(self.device_id)
-            if not device:
-                return 'remote'
-            
             # Check each controller type in priority order
             for controller_type in ['remote', 'web', 'desktop', 'av', 'power']:
                 try:
-                    controller = get_controller(self.device_id, controller_type)
+                    # Direct controller access from device instance
+                    controller = self.device.get_controller(controller_type)
                     if controller and hasattr(controller, 'get_available_actions'):
                         actions = controller.get_available_actions()
                         if self._command_exists_in_actions(command, actions):
@@ -560,7 +554,8 @@ class ActionExecutor:
             # Check verification controllers
             for v_type in ['image', 'text', 'adb', 'appium', 'video', 'audio']:
                 try:
-                    controller = get_controller(self.device_id, f'verification_{v_type}')
+                    # Direct controller access from device instance
+                    controller = self.device.get_controller(f'verification_{v_type}')
                     if controller and hasattr(controller, 'get_available_verifications'):
                         verifications = controller.get_available_verifications()
                         if self._command_exists_in_actions(command, verifications):
@@ -586,38 +581,16 @@ class ActionExecutor:
                     return True
         return False
 
-    def _get_device_model(self) -> str:
-        """Get device model from host configuration"""
-        try:
-            # Get device configuration from host
-            devices = self.host.get('devices', [])
-            device_id = self.device_id
-            
-            for device in devices:
-                if device.get('device_id') == device_id:
-                    return device.get('device_model', 'unknown')
-            
-            # Fallback: if no device found, return unknown
-            print(f"[@lib:action_executor:_get_device_model] Device {device_id} not found in host config, using 'unknown'")
-            return 'unknown'
-            
-        except Exception as e:
-            print(f"[@lib:action_executor:_get_device_model] Error getting device model: {e}")
-            return 'unknown'
 
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single execution directly to database"""
         try:
-            from shared.lib.supabase.execution_results_db import record_edge_execution
-            
-            device_model = self._get_device_model()
-            
             record_edge_execution(
                 team_id=self.team_id,
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
-                host_name=self.host.get('host_name'),
-                device_model=device_model,  # Add missing device_model parameter
+                host_name=self.host_name,
+                device_model=self.device_model,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,
@@ -634,18 +607,14 @@ class ActionExecutor:
     def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None):
         """Record edge execution to database (same as old system)"""
         try:
-            from shared.lib.supabase.execution_results_db import record_edge_execution
-            
-            # Use real host and device objects directly
-            host_name = getattr(self.host, 'host_name', 'unknown')
-            device_model = self.device_model
+            # Use stored host and device values from initialization
             
             result = record_edge_execution(
                 team_id=self.team_id,
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
-                host_name=host_name,
-                device_model=device_model,
+                host_name=self.host_name,
+                device_model=self.device_model,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message='Navigation actions completed' if success else 'Navigation actions failed',

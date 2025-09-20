@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI System
-from backend_core.src.services.ai.ai_plan_generator import AIPlanGenerator
+from backend_core.src.services.ai.ai_executor import AIExecutor
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')
@@ -91,8 +91,18 @@ def execute_task():
                 'available_verifications': mcp_verifications
             }
             
-            planner = AIPlanGenerator("default")
-            plan_dict = planner.generate_plan(task, context)
+            # Create AIExecutor for MCP operations
+            class MockDevice:
+                def __init__(self):
+                    self.device_id = "server_mcp"
+                    self.device_model = "server"
+            
+            ai_executor = AIExecutor(
+                host={'host_name': 'server_mcp'}, 
+                device=MockDevice(), 
+                team_id="default"
+            )
+            plan_dict = ai_executor.generate_plan(task, context)
             
             ai_result = {
                 'success': plan_dict.get('feasible', True),

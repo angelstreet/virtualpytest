@@ -13,7 +13,7 @@ import os
 # Add backend_core to path for direct access
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-from backend_core.src.services.ai.ai_plan_generator import AIPlanGenerator
+from backend_core.src.services.ai.ai_executor import AIExecutor
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
@@ -23,6 +23,19 @@ from shared.lib.utils.app_utils import get_team_id
 from shared.lib.utils.route_utils import proxy_to_host
 
 server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
+
+def _create_server_ai_executor(team_id: str) -> AIExecutor:
+    """Create AIExecutor for server-side AI operations"""
+    class MockDevice:
+        def __init__(self):
+            self.device_id = "server_aitestcase"
+            self.device_model = "server"
+    
+    return AIExecutor(
+        host={'host_name': 'server_aitestcase'}, 
+        device=MockDevice(), 
+        team_id=team_id
+    )
 
 @server_aitestcase_bp.route('/analyzeTestCase', methods=['POST'])
 def analyze_test_case():
@@ -159,8 +172,8 @@ def analyze_test_case():
                     'available_verifications': []
                 }
                 
-                planner = AIPlanGenerator(team_id)
-                plan_dict = planner.generate_plan(prompt, context)
+                ai_executor = _create_server_ai_executor(team_id)
+                plan_dict = ai_executor.generate_plan(prompt, context)
                 
                 if plan_dict.get('feasible', True):
                     compatible.append({
@@ -294,8 +307,8 @@ def generate_test_cases():
                     'available_verifications': []
                 }
                 
-                planner = AIPlanGenerator(team_id)
-                plan_dict = planner.generate_plan(original_prompt, context)
+                ai_executor = _create_server_ai_executor(team_id)
+                plan_dict = ai_executor.generate_plan(original_prompt, context)
                 
                 if plan_dict.get('feasible', True):
                     steps = plan_dict.get('plan', [])  # Direct dict access - no conversion
@@ -400,8 +413,8 @@ def generate_test_case():
                 'available_verifications': []
             }
             
-            planner = AIPlanGenerator(team_id)
-            plan_dict = planner.generate_plan(prompt, context)
+            ai_executor = _create_server_ai_executor(team_id)
+            plan_dict = ai_executor.generate_plan(prompt, context)
             
             generation_result = {
                 'success': True,
@@ -491,8 +504,8 @@ def quick_feasibility_check():
                 'available_verifications': []
             }
             
-            planner = AIPlanGenerator(team_id)
-            plan_dict = planner.generate_plan(prompt, context)
+            ai_executor = _create_server_ai_executor(team_id)
+            plan_dict = ai_executor.generate_plan(prompt, context)
             
             result = {
                 'success': True,

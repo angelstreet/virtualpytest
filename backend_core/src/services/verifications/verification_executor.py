@@ -11,7 +11,7 @@ The core logic is the same as /server/verification/executeBatch but available as
 
 import time
 from typing import Dict, List, Optional, Any
-from shared.lib.utils.route_utils import proxy_to_host_direct
+from shared.lib.supabase.execution_results_db import record_node_execution
 
 
 class VerificationExecutor:
@@ -20,41 +20,33 @@ class VerificationExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, host: Dict[str, Any], device_id: str, tree_id: str = None, node_id: str = None, team_id: str = None):
+    def __init__(self, host: Dict[str, Any], device, device_id: str = None, tree_id: str = None, node_id: str = None, team_id: str = None):
         """
         Initialize VerificationExecutor
         
         Args:
             host: Host configuration dict with host_name, devices, etc.
-            device_id: Device ID string
+            device: Device instance (mandatory)
+            device_id: Device ID string (optional, extracted from device if not provided)
             tree_id: Tree ID for navigation context
             node_id: Node ID for navigation context
             team_id: Team ID for database context
         """
+        # Validate required parameters - fail fast if missing
+        if not device:
+            raise ValueError("Device instance is required")
+        if not host or not host.get('host_name'):
+            raise ValueError("Host configuration with host_name is required")
+        
+        # Store instances directly
         self.host = host
-        self.device_id = device_id
+        self.device = device
+        self.host_name = host['host_name']
+        self.device_id = device_id or device.device_id
+        self.device_model = device.device_model
         self.tree_id = tree_id
         self.node_id = node_id
         self.team_id = team_id
-        
-        # Validate required parameters - fail fast if missing
-        if not device_id:
-            raise ValueError("Device ID is required")
-        
-        # Validate host configuration - fail fast if missing
-        if not host or not host.get('host_name'):
-            raise ValueError("Host configuration with host_name is required")
-        self.host_name = host['host_name']
-        
-        # Extract device_model from host configuration
-        from shared.lib.utils.build_url_utils import get_device_by_id
-        device_dict = get_device_by_id(host, device_id)
-        if not device_dict:
-            raise ValueError(f"Device {device_id} not found in host")
-        
-        self.device_model = device_dict.get('device_model')
-        if not self.device_model:
-            raise ValueError(f"Device {device_id} has no device_model")
     
     def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
@@ -67,29 +59,25 @@ class VerificationExecutor:
             Dict with available verifications and their descriptions
         """
         try:
-            from shared.lib.utils.host_utils import get_device_by_id, get_controller
-            
             device_verifications = []
             
             print(f"[@verification_executor] Loading verification context for device: {self.device_id}, model: {self.device_model}")
             
-            device = get_device_by_id(self.device_id)
-            if device:
-                # Get verification actions from verification controllers
-                verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
-                for v_type in verification_types:
-                    try:
-                        controller = get_controller(self.device_id, f'verification_{v_type}')
-                        if controller and hasattr(controller, 'get_available_verifications'):
-                            verifications = controller.get_available_verifications()
-                            if isinstance(verifications, list):
-                                for verification in verifications:
-                                    device_verifications.append({
-                                        'command': verification.get('command', ''),
-                                        'action_type': f'verification_{v_type}',
-                                        'params': verification.get('params', {}),
-                                        'description': verification.get('description', '')
-                                    })
+            # Get verification actions from verification controllers - direct device access
+            verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
+            for v_type in verification_types:
+                try:
+                    controller = self.device.get_controller(f'verification_{v_type}')
+                    if controller and hasattr(controller, 'get_available_verifications'):
+                        verifications = controller.get_available_verifications()
+                        if isinstance(verifications, list):
+                            for verification in verifications:
+                                device_verifications.append({
+                                    'command': verification.get('command', ''),
+                                    'action_type': f'verification_{v_type}',
+                                    'params': verification.get('params', {}),
+                                    'description': verification.get('description', '')
+                                })
                     except Exception as e:
                         print(f"[@verification_executor] Could not load verification_{v_type} verifications: {e}")
                         continue
@@ -131,7 +119,7 @@ class VerificationExecutor:
         """
         print(f"[@lib:verification_executor:execute_verifications] Starting batch verification execution")
         print(f"[@lib:verification_executor:execute_verifications] Processing {len(verifications)} verifications")
-        print(f"[@lib:verification_executor:execute_verifications] Host: {self.host.get('host_name')}")
+        print(f"[@lib:verification_executor:execute_verifications] Host: {self.host_name}")
         print(f"[@lib:verification_executor:execute_verifications] Source: {image_source_url}")
         
 
@@ -252,45 +240,26 @@ class VerificationExecutor:
         try:
             verification_type = verification.get('verification_type', 'text')
             
-            # Prepare individual request data
-            individual_request = {
-                'verification': verification,
-                'image_source_url': image_source_url,
-                'device_id': self.device_id
+            # Get verification controller directly from device
+            controller = self.device.get_controller(f'verification_{verification_type}')
+            if not controller:
+                return {
+                    'success': False,
+                    'error': f'No {verification_type} verification controller found for device {self.device_id}',
+                    'verification_type': verification_type,
+                    'resultType': 'FAIL'
+                }
+            
+            # Execute verification directly using controller
+            verification_config = {
+                'command': verification.get('command'),
+                'params': verification.get('params', {}),
+                'verification_type': verification_type,
+                'image_source_url': image_source_url
             }
             
-            # Dispatch to appropriate host endpoint based on verification type using direct host info (no Flask context needed)
-            if verification_type == 'image':
-                result, status = proxy_to_host_direct(self.host, '/host/verification/image/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'text':
-                result, status = proxy_to_host_direct(self.host, '/host/verification/text/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'adb':
-                result, status = proxy_to_host_direct(self.host, '/host/verification/adb/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'appium':
-                result, status = proxy_to_host_direct(self.host, '/host/verification/appium/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'audio':
-                result, status = proxy_to_host_direct(self.host, '/host/verification/audio/execute', 'POST', individual_request, timeout=60)
-            elif verification_type == 'video':
-                result, status = proxy_to_host_direct(self.host, '/host/verification/video/execute', 'POST', individual_request, timeout=60)
-            else:
-                return {
-                    'success': False,
-                    'error': f'Unknown verification type: {verification_type}',
-                    'verification_type': verification_type,
-                    'resultType': 'FAIL'
-                }
-            
-            # Handle proxy errors and flatten verification results
-            if status != 200:
-                return {
-                    'success': False,
-                    'error': f'Host request failed with status {status}',
-                    'verification_type': verification_type,
-                    'resultType': 'FAIL'
-                }
-            
-            # Flatten the result (same logic as API)
-            verification_result = result
+            # Direct controller execution (same pattern as ActionExecutor)
+            verification_result = controller.execute_verification(verification_config)
             
             flattened_result = {
                 'success': verification_result.get('success', False),
@@ -342,17 +311,14 @@ class VerificationExecutor:
     def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
         """Record single verification directly to database"""
         try:
-            from shared.lib.supabase.execution_results_db import record_node_execution
-            
-            # Use pre-extracted device_model
-            device_model = self.device_model
+            # Use stored values from initialization
             
             record_node_execution(
                 team_id=self.team_id,
                 tree_id=self.tree_id,
                 node_id=self.node_id,
-                host_name=self.host.get('host_name'),
-                device_model=device_model,
+                host_name=self.host_name,
+                device_model=self.device_model,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,

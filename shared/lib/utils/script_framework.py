@@ -36,7 +36,7 @@ from shared.lib.utils.script_execution_utils import (
     take_device_control,
     release_device_control
 )
-from shared.lib.utils.navigation_utils import load_navigation_tree
+# Navigation utilities now integrated into NavigationExecutor
 
 from shared.lib.utils.navigation_cache import populate_cache
 from shared.lib.utils.report_utils import generate_and_upload_script_report
@@ -264,13 +264,20 @@ class ScriptExecutor:
     def load_navigation_tree(self, context: ScriptExecutionContext, userinterface_name: str) -> bool:
         """Load navigation tree with mandatory unified pathfinding support"""
         try:
-            from shared.lib.utils.navigation_utils import load_navigation_tree_with_hierarchy
+            from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
             from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
             
             print(f"🗺️ [{self.script_name}] Loading unified navigation tree hierarchy...")
             
+            # Create NavigationExecutor to use its enhanced loading capabilities
+            nav_executor = NavigationExecutor(
+                host={'host_name': 'script_framework'}, 
+                device=context.selected_device, 
+                team_id=context.team_id
+            )
+            
             # Use new unified loading - NO FALLBACK
-            tree_result = load_navigation_tree_with_hierarchy(userinterface_name, self.script_name)
+            tree_result = nav_executor.load_navigation_tree_with_hierarchy(userinterface_name, self.script_name)
             
             # Populate context with hierarchy data
             context.tree_data = tree_result['root_tree']['tree']
