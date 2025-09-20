@@ -26,7 +26,7 @@ def load_environment_variables(mode='server', calling_script_dir=None):
     
     # Find project root (where .env should be)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))  # Go up to project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))  # Go up to project root
     project_env_path = os.path.join(project_root, '.env')
     
     print(f"[@app_utils:load_environment_variables] Current directory: {current_dir}")
