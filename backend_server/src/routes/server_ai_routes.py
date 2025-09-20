@@ -3,7 +3,7 @@ Clean AI Routes - Proxy to Host AI Execution
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
+from shared.src.lib.utils.route_utils import proxy_to_host, get_host_from_request
 from shared.src.lib.utils.app_utils import get_team_id
 
 server_ai_bp = Blueprint('server_ai', __name__, url_prefix='/server/ai')
@@ -18,7 +18,7 @@ def analyze_compatibility():
         return jsonify({'success': False, 'error': 'Prompt required'}), 400
     
     try:
-        from shared.src.lib.utils.userinterface_db import get_all_userinterfaces
+        from shared.src.lib.config.supabase.userinterface_db import get_all_userinterfaces
         
         interfaces = get_all_userinterfaces(get_team_id())
         compatible = []
@@ -170,7 +170,7 @@ def execute_test_case():
     
     try:
         # Load test case from database
-        from shared.src.lib.utils.testcase_db import get_test_case
+        from shared.src.lib.config.supabase.testcase_db import get_test_case
         import uuid
         
         test_case = get_test_case(test_case_id, get_team_id())
@@ -178,7 +178,7 @@ def execute_test_case():
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
         # Proxy to host for test case execution
-        from src.lib.utils.route_utils import proxy_to_host
+        from shared.src.lib.utils.route_utils import proxy_to_host
         
         execution_payload = {
             'test_case_id': test_case_id,

@@ -5,8 +5,8 @@ Server-side web automation proxy endpoints that forward requests to host web con
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from src.lib.utils.route_utils import proxy_to_host, proxy_to_host_direct, get_host_from_request
-from src.lib.utils.task_manager import task_manager
+from shared.src.lib.utils.route_utils import proxy_to_host, proxy_to_host_direct, get_host_from_request
+from shared.src.lib.utils.task_manager import task_manager
 import threading
 import uuid
 
@@ -44,7 +44,7 @@ def execute_command():
             task_id = task_manager.create_task(command, request_data.get('params', {}))
             
             # Add callback URL to host request - use buildServerUrl for consistency
-            from src.lib.utils.build_url_utils import buildServerUrl
+            from shared.src.lib.utils.build_url_utils import buildServerUrl
             callback_url = buildServerUrl('server/web/taskComplete')
             host_request_data['callback_url'] = callback_url
             host_request_data['task_id'] = task_id

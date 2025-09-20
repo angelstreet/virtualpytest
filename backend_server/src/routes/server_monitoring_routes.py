@@ -6,7 +6,7 @@ Server-side monitoring proxy endpoints that forward requests to host monitoring 
 
 from flask import Blueprint, request, jsonify, Response
 import requests
-from src.lib.utils.route_utils import proxy_to_host_with_params
+from shared.src.lib.utils.route_utils import proxy_to_host_with_params
 
 server_monitoring_bp = Blueprint('server_monitoring', __name__, url_prefix='/server/monitoring')
 

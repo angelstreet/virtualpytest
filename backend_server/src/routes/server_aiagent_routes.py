@@ -5,7 +5,7 @@ Handles AI agent execution requests by proxying to selected host
 
 import uuid
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host
+from shared.src.lib.utils.route_utils import proxy_to_host
 
 server_aiagent_bp = Blueprint('server_aiagent', __name__, url_prefix='/server/aiagent')
 
@@ -134,7 +134,7 @@ def debug_openrouter():
         print("[@route:server_aiagent:debug] OpenRouter debug request")
         
         # Import here to avoid circular imports
-        from src.lib.utils.ai_utils import call_text_ai
+        from shared.src.lib.utils.ai_utils import call_text_ai
         
         # Get request data
         request_data = request.get_json() or {}

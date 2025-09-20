@@ -17,7 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Import default team ID from app utils
 from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
-from src.lib.utils.route_utils import proxy_to_host
+from shared.src.lib.utils.route_utils import proxy_to_host
 import requests
 
 # Create blueprint
@@ -116,7 +116,7 @@ def action_execute_batch():
         
         # Proxy to host action execution endpoint
         try:
-            from src.lib.utils.route_utils import proxy_to_host
+            from shared.src.lib.utils.route_utils import proxy_to_host
             
             # Prepare execution payload
             execution_payload = {

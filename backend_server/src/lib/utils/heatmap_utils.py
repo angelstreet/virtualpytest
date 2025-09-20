@@ -682,7 +682,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
                     
                     # Save ONE consolidated database record for the entire job
                     try:
-                        from shared.src.lib.utils.heatmap_db import save_heatmap_to_db
+                        from shared.src.lib.config.supabase.heatmap_db import save_heatmap_to_db
                         
                         # Calculate consolidated stats from all processed images
                         total_hosts_included = len(set(f"{img.get('host_name')}_{img.get('device_id')}" for img in all_processed_images if img.get('image_data')))

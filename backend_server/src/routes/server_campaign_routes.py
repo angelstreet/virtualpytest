@@ -14,7 +14,7 @@ from flask import Blueprint, request, jsonify, current_app
 from shared.src.lib.utils.app_utils import get_team_id
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from shared.src.lib.utils.campaign_executions_db import (
+from shared.src.lib.config.supabase.campaign_executions_db import (
     get_campaign_results
 )
 

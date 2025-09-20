@@ -90,7 +90,7 @@ def execute_task():
             }
             
             # Proxy AI plan generation to host
-            from src.lib.utils.route_utils import proxy_to_host
+            from shared.src.lib.utils.route_utils import proxy_to_host
             
             proxy_result = proxy_to_host('/host/ai/generatePlan', 'POST', {
                 'prompt': task,
@@ -238,7 +238,7 @@ def _execute_navigation_to_node(params):
         host = {"host_name": "mcp_host", "device_model": "MCP_Interface"}
         
         # Proxy navigation execution to host
-        from src.lib.utils.route_utils import proxy_to_host
+        from shared.src.lib.utils.route_utils import proxy_to_host
         from shared.src.lib.utils.app_utils import get_team_id
         
         proxy_result = proxy_to_host('/host/navigation/execute', 'POST', {

@@ -29,6 +29,10 @@ project_root = os.path.dirname(backend_server_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Add backend_server to path for src.lib.* imports
+if backend_server_dir not in sys.path:
+    sys.path.insert(0, backend_server_dir)
+
 # Add backend_server/src to path for local imports
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
@@ -374,7 +378,7 @@ def start_server(app):
             import time
             # Use server-specific system stats instead of host stats
             from src.lib.utils.server_utils import get_server_system_stats
-            from shared.src.lib.utils.system_metrics_db import store_system_metrics
+            from shared.src.lib.supabase.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup
             while True:
