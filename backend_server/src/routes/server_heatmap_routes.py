@@ -15,7 +15,7 @@ import time
 import os
 
 # Import database functions and utilities
-from src.lib.supabase.heatmap_db import (
+from shared.src.lib.utils.heatmap_db import (
     get_heatmap_incidents
 )
 from src.lib.utils.heatmap_utils import (
@@ -525,7 +525,7 @@ def get_history():
     try:
         limit = request.args.get('limit', 10, type=int)
         
-        from src.lib.supabase.heatmap_db import get_recent_heatmaps
+        from shared.src.lib.utils.heatmap_db import get_recent_heatmaps
         heatmaps = get_recent_heatmaps(team_id, limit)
         
         # Transform data to match frontend expectations

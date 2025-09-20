@@ -65,7 +65,7 @@ def get_verifications():
 def get_all_references():
     """Get all reference images/data."""
     try:
-        from src.lib.supabase.verifications_references_db import get_references
+        from shared.src.lib.utils.verifications_references_db import get_references
         from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
         
         print(f'[@route:server_verification:get_all_references] Getting all references for team: {DEFAULT_TEAM_ID}')

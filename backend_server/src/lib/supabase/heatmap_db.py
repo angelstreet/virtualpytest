@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from src.lib.supabase.supabase_utils import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 def get_supabase():
     """Get the Supabase client instance."""

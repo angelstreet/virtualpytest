@@ -34,7 +34,7 @@ try:
 except ImportError as e:
     # No fallback - fail with detailed error message
     raise ImportError(f"Failed to import controller_manager: {e}. Check your Python path and environment setup.")
-from .build_url_utils import buildServerUrl
+from shared.src.lib.utils.build_url_utils import buildServerUrl
 
 # Disable SSL warnings for self-signed certificates
 import urllib3

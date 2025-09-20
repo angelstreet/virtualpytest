@@ -156,7 +156,7 @@ class VideoRestartHelpers:
     def analyze_restart_complete(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
         """Combined restart analysis: subtitles + summary in single optimized call"""
         try:
-            from lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             from controllers.verification.video import VideoVerificationController
             
             local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
@@ -395,7 +395,7 @@ class VideoRestartHelpers:
     def _build_video_url(self, video_filename: str) -> str:
         """Build proper video URL using host URL building utilities"""
         try:
-            from lib.utils.build_url_utils import buildHostImageUrl
+            from shared.src.lib.utils.build_url_utils import buildHostImageUrl
             from lib.utils.host_utils import get_host_instance
             
             local_video_path = os.path.join(self.video_capture_path, video_filename)
@@ -478,7 +478,7 @@ class VideoRestartHelpers:
                     aligned_screenshots.append(found_screenshot)
             
             # Convert to proper host URLs
-            from lib.utils.build_url_utils import buildHostImageUrl
+            from shared.src.lib.utils.build_url_utils import buildHostImageUrl
             from lib.utils.host_utils import get_host_instance
             
             screenshot_urls = []
@@ -761,7 +761,7 @@ class VideoRestartHelpers:
         try:
             
             # Convert URL to local path if needed
-            from lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             if video_url.startswith(('http://', 'https://')):
                 video_file = convertHostUrlToLocalPath(video_url)
             else:

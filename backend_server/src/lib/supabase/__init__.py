@@ -3,5 +3,5 @@
 # This package contains database operation modules.
 # Import specific modules directly:
 #
-# Example: from src.lib.supabase.alerts_db import create_alert_safe
+# Example: from shared.src.lib.utils.alerts_db import create_alert_safe
  

@@ -29,10 +29,10 @@ shared_utils_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname
 if shared_utils_path not in sys.path:
     sys.path.insert(0, shared_utils_path)
 
-from playwright_utils import PlaywrightUtils
-from webkit_utils import WebKitUtils
+from lib.utils.playwright_utils import PlaywrightUtils
+from lib.utils.webkit_utils import WebKitUtils
 # Import browseruse_utils only when needed to avoid browser_use dependency at module load
-# from browseruse_utils import BrowserUseManager
+# from lib.utils.browseruse_utils import BrowserUseManager
 
 
 class PlaywrightWebController(WebControllerInterface):
@@ -1080,7 +1080,7 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Import browseruse_utils only when needed
                 try:
-                    from browseruse_utils import BrowserUseManager
+                    from lib.utils.browseruse_utils import BrowserUseManager
                 except ImportError as e:
                     return {
                         'success': False,

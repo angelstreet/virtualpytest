@@ -93,7 +93,7 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str) -> bool:
         print(f"[@route:ensure_unified_cache_populated] Populating unified cache for tree {tree_id}")
         
         # Get complete tree hierarchy from new normalized tables
-        from src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
+        from shared.src.lib.utils.navigation_trees_db import get_complete_tree_hierarchy
         hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
         
         if not hierarchy_result.get('success'):
@@ -135,7 +135,7 @@ def ensure_single_tree_cache_populated(tree_id: str, team_id: str) -> bool:
         print(f"[@route:ensure_single_tree_cache_populated] Loading single tree for unified cache: {tree_id}")
         
         # Get single tree data
-        from src.lib.supabase.navigation_trees_db import get_full_tree
+        from shared.src.lib.utils.navigation_trees_db import get_full_tree
         tree_result = get_full_tree(tree_id, team_id)
         
         if not tree_result.get('success'):

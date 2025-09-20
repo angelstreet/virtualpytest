@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from src.lib.supabase.supabase_utils import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 def get_supabase():
     """Get the Supabase client instance."""
@@ -301,7 +301,7 @@ def update_script_discard_status(team_id: str, script_result_id: str, discard: b
         return False
 
 def delete_script_result(team_id: str, script_result_id: str) -> bool:
-    """Delete script result from src.lib.supabase."""
+    """Delete script result from shared.src.lib.utils."""
     try:
         print(f"[@db:script_results:delete_script_result] Deleting script result: {script_result_id}")
         

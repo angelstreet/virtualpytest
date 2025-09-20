@@ -16,7 +16,7 @@ import requests
 import time
 
 # Import from specific database modules (direct imports)
-from src.lib.supabase.navigation_trees_db import (
+from shared.src.lib.utils.navigation_trees_db import (
     get_all_trees as get_all_navigation_trees_util,
     delete_tree as delete_navigation_tree,
     get_tree_metadata,
@@ -24,7 +24,7 @@ from src.lib.supabase.navigation_trees_db import (
     save_node,
     save_edge
 )
-from src.lib.supabase.userinterface_db import (
+from shared.src.lib.utils.userinterface_db import (
     get_all_userinterfaces, 
     get_userinterface,
     get_userinterface_by_name

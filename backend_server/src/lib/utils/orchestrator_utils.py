@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from .interpreter_utils import Interpreter
 from shared.src.lib.models.navigation_tree import NavigationTree
 # Fixed imports - using correct controller interfaces from backend_host
-from backend_host.src.controllers.base_controller import (
+#DISABLED: from backend_host.src.controllers.base_controller import (
     RemoteControllerInterface, 
     AVControllerInterface, 
     VerificationControllerInterface

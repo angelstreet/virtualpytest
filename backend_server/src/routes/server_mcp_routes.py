@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 import logging
 
 # Import AI System
-from backend_host.src.services.ai.ai_executor import AIExecutor
+#DISABLED: from backend_host.src.services.ai.ai_executor import AIExecutor
 
 # Create blueprint
 server_mcp_bp = Blueprint('server_mcp', __name__, url_prefix='/server/mcp')

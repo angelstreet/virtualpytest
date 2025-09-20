@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
+#DISABLED: from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from .host_utils import get_controller
 from .report_utils import capture_and_upload_screenshot
 from .audio_menu_analyzer import analyze_audio_menu
@@ -1446,7 +1446,7 @@ class ZapController:
             return  # Skip if no script result ID
         
         try:
-            from src.lib.supabase.zap_results_db import record_zap_iteration
+            from shared.src.lib.utils.zap_results_db import record_zap_iteration
             
             # Extract channel info from zapping analysis
             zapping_details = analysis_result.zapping_details or {}
@@ -1508,7 +1508,7 @@ class ZapController:
             return
         
         try:
-            from src.lib.supabase.zap_results_db import get_zap_summary_for_script
+            from shared.src.lib.utils.zap_results_db import get_zap_summary_for_script
             from src.lib.utils.zap_summary_formatter import generate_zap_summary_text
             
             # Get zap data from database

@@ -91,7 +91,7 @@ def register_all_server_routes(app):
         from routes import (
             server_system_routes,
             server_web_routes,
-            common_core_routes,
+            server_core_routes,
             server_control_routes,
             server_actions_routes,
             server_device_routes,
@@ -134,7 +134,7 @@ def register_all_server_routes(app):
         blueprints = [
             (server_system_routes.server_system_bp, 'System management'),
             (server_web_routes.server_web_bp, 'Web interface'),
-            (common_core_routes.core_bp, 'Common core API'),
+            (server_core_routes.server_core_bp, 'Server core API'),
             (server_control_routes.server_control_bp, 'Device control operations'),
             (server_actions_routes.server_actions_bp, 'Action management'),
             (server_device_routes.server_device_bp, 'Device management'),
@@ -256,7 +256,7 @@ def start_server(app):
         def collect_server_metrics():
             import time
             from backend_host.src.lib.utils.system_info_utils import get_host_system_stats
-            from src.lib.supabase.system_metrics_db import store_system_metrics
+            from shared.src.lib.utils.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup
             while True:

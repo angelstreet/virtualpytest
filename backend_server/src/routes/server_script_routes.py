@@ -211,7 +211,7 @@ def list_scripts():
         
         try:
             from shared.src.lib.utils.app_utils import get_team_id
-            from src.lib.supabase.testcase_db import get_all_test_cases
+            from shared.src.lib.utils.testcase_db import get_all_test_cases
             
             team_id = get_team_id()
             all_test_cases = get_all_test_cases(team_id)

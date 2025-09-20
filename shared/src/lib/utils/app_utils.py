@@ -217,54 +217,6 @@ def validate_core_environment(mode='server'):
 # LAZY LOADING FUNCTIONS
 # =====================================================
 
-def lazy_load_controllers():
-    """Lazy load controllers when first needed"""
-    try:
-        from backend_host.src.controllers import ControllerFactory, CONTROLLER_REGISTRY
-        from backend_host.src.controllers.base_controller import (
-            RemoteControllerInterface, 
-            AVControllerInterface, 
-            VerificationControllerInterface,
-            PowerControllerInterface
-        )
-        print("✅ Controllers loaded successfully (lazy loaded)")
-        return True
-    except Exception as e:
-        print(f"⚠️ Controllers not available: {e}")
-        return False
-
-def lazy_load_adb_utils():
-    """Lazy load ADB utilities when first needed"""
-    try:
-        # Import from current directory since we're already in utils
-        from . import adb_utils
-        print("✅ ADB utilities loaded successfully (lazy loaded)")
-        return adb_utils
-    except Exception as e:
-        print(f"⚠️ ADB utilities not available: {e}")
-        return None
-
-def lazy_load_navigation():
-    """Lazy load navigation utilities when first needed"""
-    try:
-        from . import navigation_cache
-        from . import navigation_graph
-        print("✅ Navigation utilities loaded successfully (placeholder implementation)")
-        return {'cache': navigation_cache, 'graph': navigation_graph}
-    except Exception as e:
-        print(f"⚠️ Navigation utilities not available: {e}")
-        return None
-
-def lazy_load_device_models():
-    """Lazy load device model utilities when first needed"""
-    try:
-        # TODO: These utilities need to be implemented or imported correctly
-        # import devicemodel_utils
-        print("⚠️ Device model utilities not yet implemented")
-        return None
-    except Exception as e:
-        print(f"⚠️ Device model utilities not available: {e}")
-        return None
 
 # =====================================================
 # FLASK-SPECIFIC HELPER FUNCTIONS
@@ -283,15 +235,6 @@ def check_supabase():
         from flask import jsonify
         return jsonify({'error': 'Supabase not available'}), 503
 
-def check_controllers_available():
-    """Helper function to check if controllers are available (lazy loaded)"""
-    try:
-        controllers_available = lazy_load_controllers()
-        if not controllers_available:
-            return jsonify({'error': 'Controllers not available'}), 503
-        return None
-    except Exception:
-        return jsonify({'error': 'Controllers not available'}), 503
 
 def get_team_id():
     """Get team_id from request headers or use default for demo"""

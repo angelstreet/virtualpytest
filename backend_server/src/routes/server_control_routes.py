@@ -22,7 +22,7 @@ from shared.src.lib.utils.app_utils import get_team_id, get_user_id
 from src.lib.utils.build_url_utils import buildHostUrl
 from src.lib.utils.host_utils import get_host_manager
 from src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
-from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
+#DISABLED: from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')

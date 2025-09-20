@@ -7,7 +7,7 @@ Handles step-by-step exploration, image analysis, and node/edge generation.
 
 from flask import Blueprint, request, jsonify
 from src.lib.utils.route_utils import proxy_to_host
-from src.lib.supabase.navigation_trees_db import save_node, save_edge
+from shared.src.lib.utils.navigation_trees_db import save_node, save_edge
 from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
 import uuid
 import time

@@ -18,12 +18,9 @@ from ..base_controller import RemoteControllerInterface
 import sys
 import os
 # Get path to shared/lib/utils (go up to project root)
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-shared_utils_path = os.path.join(project_root, 'shared', 'lib', 'utils')
-if shared_utils_path not in sys.path:
-    sys.path.insert(0, shared_utils_path)
+# Import local utilities
 
-from adb_utils import ADBUtils, AndroidElement, AndroidApp
+from lib.utils.adb_utils import ADBUtils, AndroidElement, AndroidApp
 
 
 class AndroidMobileRemoteController(RemoteControllerInterface):

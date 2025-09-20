@@ -8,7 +8,7 @@ import os
 import json
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from src.lib.supabase.supabase_utils import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 
 def get_supabase():

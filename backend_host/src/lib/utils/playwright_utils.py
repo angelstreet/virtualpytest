@@ -13,16 +13,16 @@ import socket
 import asyncio
 from typing import Dict, Any, Tuple
 
-# Import the cookie utils
+# Import the cookie utils from shared library
 try:
-    from .cookie_utils import CookieManager, auto_accept_cookies
+    from shared.src.lib.utils.cookie_utils import CookieManager, auto_accept_cookies
 except ImportError:
-    # Fallback import for direct usage
-    import sys
-    current_dir = os.path.dirname(__file__)
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
-    from cookie_utils import CookieManager, auto_accept_cookies
+    print("Warning: Cookie utilities not available. Cookie management will be limited.")
+    # Create dummy classes to prevent import errors
+    class CookieManager:
+        def __init__(self, *args, **kwargs): pass
+        def auto_accept_cookies(self, *args, **kwargs): return False
+    def auto_accept_cookies(*args, **kwargs): return False
 
 
 def resolve_user_data_dir(user_data_dir: str) -> str:

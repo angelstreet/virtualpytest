@@ -18,7 +18,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.lib.supabase.supabase_utils import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 
 def get_supabase():

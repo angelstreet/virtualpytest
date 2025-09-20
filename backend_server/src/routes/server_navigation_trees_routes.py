@@ -12,7 +12,7 @@ Clean, scalable REST endpoints without monolithic JSONB operations.
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.supabase.navigation_trees_db import (
+from shared.src.lib.utils.navigation_trees_db import (
     # Tree metadata operations
     get_all_trees, get_tree_metadata, save_tree_metadata, delete_tree,
     # Node operations
@@ -27,7 +27,7 @@ from src.lib.supabase.navigation_trees_db import (
     get_node_sub_trees, create_sub_tree, get_tree_hierarchy, 
     get_tree_breadcrumb, delete_tree_cascade, move_subtree
 )
-from src.lib.supabase.userinterface_db import get_all_userinterfaces
+from shared.src.lib.utils.userinterface_db import get_all_userinterfaces
 from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
 
 server_navigation_trees_bp = Blueprint('server_navigation_trees', __name__, url_prefix='/server')
@@ -603,7 +603,7 @@ def get_tree_by_userinterface_id(userinterface_id):
         if tree:
             # SAME AS SCRIPT: Load complete hierarchy instead of single tree
             from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
-            from src.lib.supabase.userinterface_db import get_userinterface
+            from shared.src.lib.utils.userinterface_db import get_userinterface
             
             # Get interface name for hierarchy loading
             interface = get_userinterface(userinterface_id, team_id)

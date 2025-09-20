@@ -17,7 +17,7 @@ def _execute_script():
         device_id = data.get('device_id')
         parameters = data.get('parameters', '')
         # Build callback URL directly (always points to server)
-        from lib.utils.build_url_utils import buildServerUrl
+        from shared.src.lib.utils.build_url_utils import buildServerUrl
         callback_url = buildServerUrl('server/script/taskComplete')
         task_id = data.get('task_id')
         

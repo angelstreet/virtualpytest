@@ -24,7 +24,7 @@ shared_utils_path = os.path.join(project_root, 'shared', 'lib', 'utils')
 if shared_utils_path not in sys.path:
     sys.path.insert(0, shared_utils_path)
 
-from appium_utils import AppiumUtils, AppiumElement, AppiumApp
+from lib.utils.appium_utils import AppiumUtils, AppiumElement, AppiumApp
 
 
 class AppiumRemoteController(RemoteControllerInterface):

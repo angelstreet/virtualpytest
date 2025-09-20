@@ -11,14 +11,14 @@ import sys
 import os
 
 # Add backend_host to path for direct access
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
+#DISABLED: sys.path.append backend_host/src'))
 
-from backend_host.src.services.ai.ai_executor import AIExecutor
+#DISABLED: from backend_host.src.services.ai.ai_executor import AIExecutor
 from controllers.controller_config_factory import get_device_capabilities
-from src.lib.supabase.testcase_db import save_test_case, get_test_case
-from src.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
-from src.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
-from src.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
+from shared.src.lib.utils.testcase_db import save_test_case, get_test_case
+from shared.src.lib.utils.navigation_trees_db import get_full_tree, get_root_tree_for_interface
+from shared.src.lib.utils.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
+from shared.src.lib.utils.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
 from shared.src.lib.utils.app_utils import get_team_id
 from src.lib.utils.route_utils import proxy_to_host
 
@@ -155,7 +155,7 @@ def analyze_test_case():
         print(f"[@route:server_aitestcase:analyze] Using AI Planner for compatibility analysis")
         
         # Analyze compatibility using AI Planner
-        from src.lib.supabase.userinterface_db import get_all_userinterfaces
+        from shared.src.lib.utils.userinterface_db import get_all_userinterfaces
         
         interfaces = get_all_userinterfaces(team_id)
         compatible = []

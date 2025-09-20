@@ -8,7 +8,7 @@ Device models define the types and capabilities of different device categories.
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from src.lib.supabase.supabase_utils import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 def get_supabase():
     """Get the Supabase client instance."""
