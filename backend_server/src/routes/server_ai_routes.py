@@ -153,8 +153,11 @@ def execute_task():
 @server_ai_bp.route('/status/<execution_id>', methods=['GET'])
 def get_status(execution_id):
     try:
-        # Proxy status request to host
-        response_data, status_code = proxy_to_host(f'/host/ai/status/{execution_id}', 'GET', {})
+        # Get device_id from query params (required by host endpoint)
+        device_id = request.args.get('device_id', 'device1')
+        
+        # Proxy status request to host with device_id as query parameter
+        response_data, status_code = proxy_to_host(f'/host/ai/status/{execution_id}?device_id={device_id}', 'GET', None)
         return jsonify(response_data), status_code
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -249,7 +249,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
             });
           }
           
-          const statusResponse = await fetch(buildServerUrl(`/server/ai/status/${executionId}`));
+          const statusResponse = await fetch(buildServerUrl(`/server/ai/status/${executionId}?device_id=${device.device_id}`));
           const status = await statusResponse.json();
 
           setExecutionStatus(status);
