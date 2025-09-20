@@ -7,6 +7,8 @@ Handles tracking of registered hosts without device controller dependencies.
 
 import threading
 import time
+import os
+import psutil
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
@@ -121,3 +123,29 @@ def get_host_manager() -> HostManager:
     """Get the global host manager instance for server"""
     global _host_manager
     return _host_manager
+
+
+def get_server_system_stats():
+    """Get comprehensive system statistics for the server"""
+    try:
+        stats = {
+            'cpu_percent': psutil.cpu_percent(interval=1),
+            'memory_percent': psutil.virtual_memory().percent,
+            'disk_percent': psutil.disk_usage('/').percent,
+            'uptime_seconds': int(time.time() - psutil.boot_time()),
+            'platform': os.uname().sysname if hasattr(os, 'uname') else 'unknown',
+            'architecture': os.uname().machine if hasattr(os, 'uname') else 'unknown',
+            'timestamp': datetime.now().isoformat()
+        }
+        return stats
+    except Exception as e:
+        print(f"❌ Error getting server system stats: {e}")
+        return {
+            'cpu_percent': 0,
+            'memory_percent': 0,
+            'disk_percent': 0,
+            'uptime_seconds': 0,
+            'platform': 'unknown',
+            'architecture': 'unknown',
+            'timestamp': datetime.now().isoformat()
+        }

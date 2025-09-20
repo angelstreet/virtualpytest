@@ -12,7 +12,7 @@ import psutil
 from datetime import datetime
 import json
 from typing import TypedDict, Optional, List, Any
-from src.lib.utils.server_utils import get_host_manager
+from src.lib.utils.server_utils import get_host_manager, get_server_system_stats
 from shared.src.lib.utils.system_metrics_db import store_system_metrics
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
@@ -127,7 +127,7 @@ def register_host():
             'status': 'online',
             'last_seen': time.time(),
             'registered_at': datetime.now().isoformat(),
-            'system_stats': host_info.get('system_stats', get_host_system_stats()),
+            'system_stats': host_info.get('system_stats', {}),  # Host provides its own stats
             
             # === DEVICE LOCK MANAGEMENT ===
             'isLocked': False,
@@ -191,7 +191,7 @@ def unregister_host():
 @server_system_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for clients"""
-    system_stats = get_host_system_stats()
+    system_stats = get_server_system_stats()
     
     return jsonify({
         'status': 'healthy',

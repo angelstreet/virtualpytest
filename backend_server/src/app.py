@@ -373,13 +373,7 @@ def start_server(app):
         def collect_server_metrics():
             import time
             # Use server-specific system stats instead of host stats
-            import psutil
-            def get_server_system_stats():
-                return {
-                    'cpu_percent': psutil.cpu_percent(interval=1),
-                    'memory_percent': psutil.virtual_memory().percent,
-                    'disk_percent': psutil.disk_usage('/').percent
-                }
+            from src.lib.utils.server_utils import get_server_system_stats
             from shared.src.lib.utils.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup
