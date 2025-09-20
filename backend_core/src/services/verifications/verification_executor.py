@@ -20,31 +20,30 @@ class VerificationExecutor:
     across Python code and API endpoints.
     """
     
-    def __init__(self, device, device_id: str = None, tree_id: str = None, node_id: str = None, team_id: str = None):
+    def __init__(self, device, tree_id: str = None, node_id: str = None):
         """
         Initialize VerificationExecutor
         
         Args:
-            device: Device instance (mandatory, contains host_name)
-            device_id: Device ID string (optional, extracted from device if not provided)
+            device: Device instance (mandatory, contains host_name and device_id)
             tree_id: Tree ID for navigation context
             node_id: Node ID for navigation context
-            team_id: Team ID for database context
         """
         # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
         if not device.host_name:
             raise ValueError("Device must have host_name")
+        if not device.device_id:
+            raise ValueError("Device must have device_id")
         
         # Store instances directly
         self.device = device
         self.host_name = device.host_name
-        self.device_id = device_id or device.device_id
+        self.device_id = device.device_id
         self.device_model = device.device_model
         self.tree_id = tree_id
         self.node_id = node_id
-        self.team_id = team_id
     
     def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
@@ -102,7 +101,8 @@ class VerificationExecutor:
     
     def execute_verifications(self, 
                             verifications: List[Dict[str, Any]], 
-                            image_source_url: Optional[str] = None
+                            image_source_url: Optional[str] = None,
+                            team_id: Optional[str] = None
                            ) -> Dict[str, Any]:
         """
         Execute batch of verifications
@@ -170,7 +170,8 @@ class VerificationExecutor:
                 success=result.get('success', False),
                 execution_time_ms=execution_time,
                 message=result.get('message', ''),
-                error_details={'error': result.get('error')} if result.get('error') else None
+                error_details={'error': result.get('error')} if result.get('error') else None,
+                team_id=team_id
             )
         
 
@@ -306,13 +307,16 @@ class VerificationExecutor:
                 'resultType': 'FAIL'
             }
     
-    def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
+    def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: Optional[str] = None):
         """Record single verification directly to database"""
         try:
-            # Use stored values from initialization
+            # Use provided team_id or fallback to get_team_id() if not provided
+            if team_id is None:
+                from shared.lib.utils.app_utils import get_team_id
+                team_id = get_team_id()
             
             record_node_execution(
-                team_id=self.team_id,
+                team_id=team_id,
                 tree_id=self.tree_id,
                 node_id=self.node_id,
                 host_name=self.host_name,

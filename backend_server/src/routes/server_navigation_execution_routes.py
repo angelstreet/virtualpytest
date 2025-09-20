@@ -187,7 +187,8 @@ def batch_execute_navigation():
             else:
                 print(f"[@route:navigation_execution:batch_execute_navigation] Executing navigation {i+1}/{len(navigations)}: {tree_id} -> {target_node_id}")
                 
-                result = executor.execute_navigation(tree_id, target_node_id, current_node_id)
+                from shared.lib.utils.app_utils import get_team_id
+                result = executor.execute_navigation(tree_id, target_node_id, current_node_id, team_id=get_team_id())
                 result['navigation_index'] = i
                 
                 if result.get('success'):

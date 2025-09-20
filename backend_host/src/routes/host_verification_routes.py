@@ -115,9 +115,11 @@ def verification_execute_batch():
             }), 500
         
         # Execute verifications using device's VerificationExecutor
+        from shared.lib.utils.app_utils import get_team_id
         result = device.verification_executor.execute_verifications(
             verifications=verifications,
-            image_source_url=image_source_url
+            image_source_url=image_source_url,
+            team_id=get_team_id()
         )
         
         print(f"[@route:host_verification:verification_execute_batch] Execution completed: success={result.get('success')}")

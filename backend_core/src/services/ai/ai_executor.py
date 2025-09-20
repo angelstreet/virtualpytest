@@ -28,20 +28,21 @@ class AIExecutor:
     # Class-level storage for execution tracking across all devices
     _executions = {}  # {execution_id: execution_data}
     
-    def __init__(self, device, device_id: str = None, team_id: str = None):
+    def __init__(self, device):
         """Initialize AI executor for a specific device"""
         # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
         if not device.host_name:
             raise ValueError("Device must have host_name")
+        if not device.device_id:
+            raise ValueError("Device must have device_id")
         
         # Store instances directly
         self.device = device
         self.host_name = device.host_name
-        self.device_id = device_id or device.device_id
+        self.device_id = device.device_id
         self.device_model = device.device_model
-        self.team_id = team_id
         
         # Initialize integrated AI plan generation capabilities
         self._context_cache = {}
@@ -56,7 +57,8 @@ class AIExecutor:
                       prompt: str, 
                       userinterface_name: str,
                       current_node_id: Optional[str] = None,
-                      async_execution: bool = True) -> Dict[str, Any]:
+                      async_execution: bool = True,
+                      team_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute AI prompt - generates plan and executes it
         
@@ -139,13 +141,17 @@ class AIExecutor:
                 'execution_time': time.time() - start_time
             }
     
-    def execute_testcase(self, test_case_id: str) -> Dict[str, Any]:
+    def execute_testcase(self, test_case_id: str, team_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute stored test case"""
         try:
             from shared.lib.supabase.testcase_db import get_test_case
             
             # Load test case
-            test_case = get_test_case(test_case_id, self.team_id)
+            if team_id is None:
+                from shared.lib.utils.app_utils import get_team_id
+                team_id = get_team_id()
+            
+            test_case = get_test_case(test_case_id, team_id)
             if not test_case:
                 return {
                     'success': False,

@@ -445,30 +445,13 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
         from backend_core.src.services.verifications.verification_executor import VerificationExecutor
         from backend_core.src.services.ai.ai_executor import AIExecutor
-        from shared.lib.utils.app_utils import get_team_id
-        
-        team_id = get_team_id()
         
         # Create executors - device has everything they need
-        device.action_executor = ActionExecutor(
-            device=device,
-            team_id=team_id
-        )
-        
-        device.navigation_executor = NavigationExecutor(
-            device=device,
-            team_id=team_id
-        )
-        
-        device.verification_executor = VerificationExecutor(
-            device=device,
-            team_id=team_id
-        )
-        
-        device.ai_executor = AIExecutor(
-            device=device,
-            team_id=team_id
-        )
+        # team_id will be provided during actual execution, not during initialization
+        device.action_executor = ActionExecutor(device)
+        device.navigation_executor = NavigationExecutor(device)
+        device.verification_executor = VerificationExecutor(device)
+        device.ai_executor = AIExecutor(device)
         
         print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
         

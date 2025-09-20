@@ -47,11 +47,13 @@ def navigation_execute(tree_id, target_node_id):
             }), 500
         
         # Execute navigation using device's NavigationExecutor
+        from shared.lib.utils.app_utils import get_team_id
         result = device.navigation_executor.execute_navigation(
             tree_id=tree_id,
             target_node_id=target_node_id,
             current_node_id=current_node_id,
-            image_source_url=image_source_url
+            image_source_url=image_source_url,
+            team_id=get_team_id()
         )
         
         print(f"[@route:host_navigation:navigation_execute] Execution completed: success={result.get('success')}")

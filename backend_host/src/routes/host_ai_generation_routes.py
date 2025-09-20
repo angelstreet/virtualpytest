@@ -246,10 +246,12 @@ def run_exploration(exploration_id: str):
             
             try:
                 # Execute AI exploration step
+                from shared.lib.utils.app_utils import get_team_id
                 result = device.ai_executor.execute_prompt(
                     exploration_prompt, 
                     userinterface_name,
-                    async_execution=False  # Synchronous for exploration
+                    async_execution=False,  # Synchronous for exploration
+                    team_id=get_team_id()
                 )
                 
                 step_success = result.get('success', False)

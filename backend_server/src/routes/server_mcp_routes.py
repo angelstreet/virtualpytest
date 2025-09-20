@@ -242,9 +242,15 @@ def _execute_navigation_to_node(params):
         # Create minimal host configuration for MCP execution
         host = {"host_name": "mcp_host", "device_model": "MCP_Interface"}
         
-        # Use the new NavigationExecutor
-        executor = NavigationExecutor(host, None, team_id)
-        result = executor.execute_navigation(tree_id, target_node_id, current_node_id)
+        # Use the new NavigationExecutor - need to get device from host
+        from backend_core.src.controllers.controller_manager import get_host
+        host_instance = get_host()
+        device = host_instance.get_device(device_id)
+        if not device:
+            return {'success': False, 'error': f'Device {device_id} not found'}
+        
+        from shared.lib.utils.app_utils import get_team_id
+        result = device.navigation_executor.execute_navigation(tree_id, target_node_id, current_node_id, team_id=get_team_id())
         
         return {
             'tool_name': 'execute_navigation_to_node',

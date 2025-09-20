@@ -41,32 +41,32 @@ class ActionExecutor:
             iterator_count = 1
         return max(1, min(iterator_count, 100))  # Clamp to valid range [1, 100]
     
-    def __init__(self, device, device_id: str = None, tree_id: str = None, edge_id: str = None, team_id: str = None, action_set_id: Optional[str] = None):
+    def __init__(self, device, tree_id: str = None, edge_id: str = None, action_set_id: Optional[str] = None):
         """
         Initialize ActionExecutor
         
         Args:
-            device: Device instance (mandatory, contains host_name)
-            device_id: Device ID string (optional, extracted from device if not provided)
+            device: Device instance (mandatory, contains host_name and device_id)
             tree_id: Tree ID for navigation context
             edge_id: Edge ID for navigation context
-            team_id: Team ID for database context
+            action_set_id: Action set ID for navigation context
         """
         # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
         if not device.host_name:
             raise ValueError("Device must have host_name")
+        if not device.device_id:
+            raise ValueError("Device must have device_id")
         
         # Store instances directly
         self.device = device
         self.host_name = device.host_name
-        self.device_id = device_id or device.device_id
+        self.device_id = device.device_id
         self.device_model = device.device_model
         self.tree_id = tree_id
         self.edge_id = edge_id
         self.action_set_id = action_set_id
-        self.team_id = team_id
         
         # Get AV controller directly from device
         self.av_controller = device.get_controller('av')
@@ -148,7 +148,8 @@ class ActionExecutor:
     def execute_actions(self, 
                        actions: List[Dict[str, Any]], 
                        retry_actions: Optional[List[Dict[str, Any]]] = None,
-                       failure_actions: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+                       failure_actions: Optional[List[Dict[str, Any]]] = None,
+                       team_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute batch of actions with retry logic
         
@@ -196,7 +197,7 @@ class ActionExecutor:
         main_actions_failed = False
         
         for i, action in enumerate(valid_actions):
-            result = self._execute_single_action(action, execution_order, i+1, 'main')
+            result = self._execute_single_action(action, execution_order, i+1, 'main', team_id)
             results.append(result)
             
             if result.get('success'):
@@ -215,7 +216,7 @@ class ActionExecutor:
         if main_actions_failed and valid_retry_actions:
             print(f"[@lib:action_executor:execute_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
             for i, retry_action in enumerate(valid_retry_actions):
-                result = self._execute_single_action(retry_action, execution_order, i+1, 'retry')
+                result = self._execute_single_action(retry_action, execution_order, i+1, 'retry', team_id)
                 results.append(result)
                 if result.get('success'):
                     retry_actions_passed += 1
@@ -232,7 +233,7 @@ class ActionExecutor:
         if main_actions_failed and retry_actions_failed and valid_failure_actions:
             print(f"[@lib:action_executor:execute_actions] Retry actions failed, executing {len(valid_failure_actions)} failure actions")
             for i, failure_action in enumerate(valid_failure_actions):
-                result = self._execute_single_action(failure_action, execution_order, i+1, 'failure')
+                result = self._execute_single_action(failure_action, execution_order, i+1, 'failure', team_id)
                 results.append(result)
                 if result.get('success'):
                     failure_actions_passed += 1
@@ -276,7 +277,8 @@ class ActionExecutor:
             self._record_edge_execution(
                 success=overall_success,
                 execution_time_ms=total_execution_time,
-                error_details=error_message if not overall_success else None
+                error_details=error_message if not overall_success else None,
+                team_id=team_id
             )
         
         return {
@@ -309,7 +311,7 @@ class ActionExecutor:
         
         return valid_actions
     
-    def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str) -> Dict[str, Any]:
+    def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str, team_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute a single action and return standardized result"""
         
         # Get iterator count (default to 1 if not specified)
@@ -504,7 +506,8 @@ class ActionExecutor:
             success=all_iterations_successful,
             execution_time_ms=total_execution_time,
             message=f"{action.get('command')} ({len(iteration_results)}/{iterator_count} iterations)" if iterator_count > 1 else f"{action.get('command')}",
-            error_details={'iterations': iteration_results} if not all_iterations_successful else None
+            error_details={'iterations': iteration_results} if not all_iterations_successful else None,
+            team_id=team_id
         )
         
         # Return standardized result (same format as API)
@@ -580,11 +583,16 @@ class ActionExecutor:
         return False
 
 
-    def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None):
+    def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: Optional[str] = None):
         """Record single execution directly to database"""
         try:
+            # Use provided team_id or fallback to get_team_id() if not provided
+            if team_id is None:
+                from shared.lib.utils.app_utils import get_team_id
+                team_id = get_team_id()
+            
             record_edge_execution(
-                team_id=self.team_id,
+                team_id=team_id,
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
                 host_name=self.host_name,
@@ -602,13 +610,16 @@ class ActionExecutor:
             print(f"[@lib:action_executor:_record_execution_to_database] Database recording error: {e}")
     
     
-    def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None):
+    def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None, team_id: Optional[str] = None):
         """Record edge execution to database (same as old system)"""
         try:
-            # Use stored host and device values from initialization
+            # Use provided team_id or fallback to get_team_id() if not provided
+            if team_id is None:
+                from shared.lib.utils.app_utils import get_team_id
+                team_id = get_team_id()
             
             result = record_edge_execution(
-                team_id=self.team_id,
+                team_id=team_id,
                 tree_id=self.tree_id,
                 edge_id=self.edge_id,
                 host_name=self.host_name,

@@ -53,9 +53,11 @@ def action_execute_batch():
             }), 500
         
         # Execute actions using device's ActionExecutor
+        from shared.lib.utils.app_utils import get_team_id
         result = device.action_executor.execute_actions(
             actions=actions,
-            retry_actions=retry_actions
+            retry_actions=retry_actions,
+            team_id=get_team_id()
         )
         
         print(f"[@route:host_actions:action_execute_batch] Execution completed: success={result.get('success')}")

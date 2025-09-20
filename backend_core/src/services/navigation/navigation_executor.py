@@ -21,20 +21,21 @@ class NavigationExecutor:
     to provide complete navigation functionality.
     """
     
-    def __init__(self, device, device_id: str = None, team_id: Optional[str] = None):
+    def __init__(self, device):
         """Initialize NavigationExecutor"""
         # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
         if not device.host_name:
             raise ValueError("Device must have host_name")
+        if not device.device_id:
+            raise ValueError("Device must have device_id")
         
         # Store instances directly
         self.device = device
         self.host_name = device.host_name
-        self.device_id = device_id or device.device_id
+        self.device_id = device.device_id
         self.device_model = device.device_model
-        self.team_id = team_id or get_team_id()
         
         # Navigation state tracking
         self.current_node_id = None
@@ -96,12 +97,13 @@ class NavigationExecutor:
                           tree_id: str, 
                           target_node_id: str, 
                           current_node_id: Optional[str] = None,
-                          image_source_url: Optional[str] = None) -> Dict[str, Any]:
+                          image_source_url: Optional[str] = None,
+                          team_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute navigation to target node"""
         start_time = time.time()
         
         # Get preview first (includes pathfinding)
-        preview = self.get_navigation_preview(tree_id, target_node_id, current_node_id)
+        preview = self.get_navigation_preview(tree_id, target_node_id, current_node_id, team_id)
         if not preview['success']:
             return self._build_result(False, preview['error'], tree_id, target_node_id, current_node_id, start_time)
         
@@ -183,9 +185,14 @@ class NavigationExecutor:
             )
     
     def get_navigation_preview(self, tree_id: str, target_node_id: str, 
-                             current_node_id: Optional[str] = None) -> Dict[str, Any]:
+                             current_node_id: Optional[str] = None, team_id: Optional[str] = None) -> Dict[str, Any]:
         """Get navigation preview without executing"""
-        transitions = find_shortest_path(tree_id, target_node_id, self.team_id, current_node_id)
+        # Use provided team_id or fallback to get_team_id() if not provided
+        if team_id is None:
+            from shared.lib.utils.app_utils import get_team_id
+            team_id = get_team_id()
+        
+        transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
         
         success = bool(transitions)
         error_message = 'No navigation path found' if not success else ''
@@ -219,8 +226,10 @@ class NavigationExecutor:
         """
         try:
             from shared.lib.supabase.userinterface_db import get_all_userinterfaces
+            from shared.lib.utils.app_utils import get_team_id
             
-            userinterfaces = get_all_userinterfaces(self.team_id)
+            team_id = get_team_id()
+            userinterfaces = get_all_userinterfaces(team_id)
             if not userinterfaces:
                 return {'success': False, 'error': "No userinterfaces found"}
             
@@ -234,13 +243,13 @@ class NavigationExecutor:
             from shared.lib.supabase.navigation_trees_db import get_root_tree_for_interface, get_full_tree
             
             # Get the root tree for this user interface (same as navigation page)
-            tree = get_root_tree_for_interface(userinterface_id, self.team_id)
+            tree = get_root_tree_for_interface(userinterface_id, team_id)
             
             if not tree:
                 return {'success': False, 'error': f"No root tree found for interface: {userinterface_id}"}
             
             # Get full tree data with nodes and edges (same as navigation page)
-            tree_data = get_full_tree(tree['id'], self.team_id)
+            tree_data = get_full_tree(tree['id'], team_id)
             
             if not tree_data['success']:
                 return {'success': False, 'error': f"Failed to load tree data: {tree_data.get('error', 'Unknown error')}"}
@@ -296,7 +305,9 @@ class NavigationExecutor:
             print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
             
             # 2. Discover complete tree hierarchy
-            hierarchy_data = self.discover_complete_hierarchy(root_tree_id, self.team_id, script_name)
+            from shared.lib.utils.app_utils import get_team_id
+            team_id = get_team_id()
+            hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id, script_name)
             if not hierarchy_data:
                 # If no nested trees, create single-tree hierarchy
                 hierarchy_data = [self.format_tree_for_hierarchy(root_tree_result, is_root=True)]
@@ -311,7 +322,7 @@ class NavigationExecutor:
             
             # 4. Populate unified cache (MANDATORY)
             print(f"🔄 [{script_name}] Populating unified cache...")
-            unified_graph = populate_unified_cache(root_tree_id, self.team_id, all_trees_data)
+            unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
             if not unified_graph:
                 raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
             
@@ -326,7 +337,7 @@ class NavigationExecutor:
                 'unified_graph_nodes': len(unified_graph.nodes),
                 'unified_graph_edges': len(unified_graph.edges),
                 'cross_tree_capabilities': len(hierarchy_data) > 1,
-                'team_id': self.team_id
+                'team_id': team_id
             }
             
         except (NavigationTreeError, UnifiedCacheError) as e:
