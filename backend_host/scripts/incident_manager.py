@@ -75,6 +75,7 @@ INCIDENT = 1
 class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}}}
+        self._load_active_incidents_from_db()
         
     def get_device_state(self, device_id):
         """Get current state for device"""
@@ -84,6 +85,60 @@ class IncidentManager:
                 'active_incidents': {}
             }
         return self.device_states[device_id]
+    
+    def _load_active_incidents_from_db(self):
+        """Load all active incidents from database to initialize state"""
+        try:
+            logger.info("[@incident_manager] Loading active incidents from database...")
+            
+            # Use lazy import to get database functions
+            _lazy_import_db()
+            if not create_alert_safe or create_alert_safe is False:
+                logger.warning("[@incident_manager] Database module not available, starting with empty state")
+                return
+            
+            # Import the get_active_alerts function
+            try:
+                from shared.src.lib.supabase.alerts_db import get_active_alerts
+            except ImportError as e:
+                logger.warning(f"[@incident_manager] Could not import get_active_alerts: {e}")
+                return
+            
+            # Get all active alerts from database
+            result = get_active_alerts()
+            
+            if not result.get('success'):
+                logger.error(f"[@incident_manager] Failed to load active incidents: {result.get('error')}")
+                return
+            
+            active_alerts = result.get('alerts', [])
+            logger.info(f"[@incident_manager] Found {len(active_alerts)} active incidents in database")
+            
+            # Process each active alert and populate device_states
+            for alert in active_alerts:
+                host_name = alert.get('host_name')
+                device_id = alert.get('device_id')
+                incident_type = alert.get('incident_type')
+                alert_id = alert.get('id')
+                
+                if not all([host_name, device_id, incident_type, alert_id]):
+                    logger.warning(f"[@incident_manager] Skipping incomplete alert: {alert}")
+                    continue
+                
+                # Use device_id directly as the key for our local state
+                device_state = self.get_device_state(device_id)
+                
+                # Add the active incident to our state
+                device_state['active_incidents'][incident_type] = alert_id
+                device_state['state'] = INCIDENT
+                
+                logger.info(f"[@incident_manager] Loaded active incident: {device_id} -> {incident_type} (alert_id: {alert_id})")
+            
+            logger.info(f"[@incident_manager] Successfully initialized state with {len(active_alerts)} active incidents")
+            
+        except Exception as e:
+            logger.error(f"[@incident_manager] Error loading active incidents from database: {e}")
+            # Continue with empty state - don't crash the service
     
     def get_device_info_from_capture_folder(self, capture_folder):
         """Get device info from .env by matching capture path"""
@@ -233,7 +288,11 @@ class IncidentManager:
     
     def process_detection(self, capture_folder, detection_result, host_name):
         """Process detection result and update state"""
-        device_state = self.get_device_state(capture_folder)
+        # Get device_id from capture_folder
+        device_info = self.get_device_info_from_capture_folder(capture_folder)
+        device_id = device_info.get('device_id', capture_folder)
+        
+        device_state = self.get_device_state(device_id)
         active_incidents = device_state['active_incidents']
         
         # Check each issue type
@@ -252,7 +311,7 @@ class IncidentManager:
                     
             elif not is_detected and was_active:
                 incident_id = active_incidents[issue_type]
-                self.resolve_incident(capture_folder, incident_id, issue_type)
+                self.resolve_incident(device_id, incident_id, issue_type)
                 del active_incidents[issue_type]
                 
                 if not active_incidents:

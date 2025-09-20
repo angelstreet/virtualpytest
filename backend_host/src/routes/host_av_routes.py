@@ -200,7 +200,7 @@ def get_stream_url():
                 'available_capabilities': device.get_capabilities()
             }), 404
         
-        from src.lib.utils.build_url_utils import buildStreamUrl
+        from shared.src.lib.utils.build_url_utils import buildStreamUrl
         from src.lib.utils.host_utils import get_host_instance as get_host
         
         host = get_host()
@@ -251,7 +251,7 @@ def take_screenshot():
         
         time.sleep(0.5)
         
-        from src.lib.utils.build_url_utils import buildCaptureUrlFromPath
+        from shared.src.lib.utils.build_url_utils import buildCaptureUrlFromPath
         from src.lib.utils.host_utils import get_host_instance as get_host
         
         try:
@@ -469,7 +469,7 @@ def serve_screenshot(filename):
         return response
         
     try:
-        from src.lib.utils.build_url_utils import resolveCaptureFilePath
+        from shared.src.lib.utils.build_url_utils import resolveCaptureFilePath
         
         try:
             capture_path = resolveCaptureFilePath(filename)
@@ -508,7 +508,7 @@ def serve_image_by_path():
         
         is_json = file_path and file_path.lower().endswith('.json')
         
-        from src.lib.utils.build_url_utils import resolveImageFilePath
+        from shared.src.lib.utils.build_url_utils import resolveImageFilePath
         
         try:
             if is_json:

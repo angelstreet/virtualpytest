@@ -125,7 +125,7 @@ def execute_text_verification():
             print(f"[@route:host_verification_text:execute] Image source URL provided: {image_source_url}")
             try:
                 # Use centralized URL conversion function
-                from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
                 source_image_path = convertHostUrlToLocalPath(image_source_url)
                 
                 print(f"[@route:host_verification_text:execute] Converted to local path: {source_image_path}")
@@ -168,7 +168,7 @@ def execute_text_verification():
         
         # Build URLs from file paths if verification generated images
         if result.get('success') and 'source_image_path' in result.get('details', {}):
-            from src.lib.utils.build_url_utils import buildVerificationResultUrl
+            from shared.src.lib.utils.build_url_utils import buildVerificationResultUrl
             
             # Get host info for URL building
             host = get_host()

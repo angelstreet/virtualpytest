@@ -68,7 +68,6 @@ interface UseCampaignReturn {
 }
 
 const CAMPAIGN_API_BASE_URL = buildServerUrl('/server/campaigns');
-const SCRIPT_API_BASE_URL = buildServerUrl('/server/script');
 
 export const useCampaign = (): UseCampaignReturn => {
   // Execution State
@@ -385,7 +384,7 @@ export const useCampaign = (): UseCampaignReturn => {
   const loadAvailableScripts = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${SCRIPT_API_BASE_URL}/list`);
+      const response = await fetch(buildServerUrl('/server/script/list'));
       const data = await response.json();
 
       if (data.success && data.scripts) {
@@ -466,7 +465,7 @@ export const useCampaign = (): UseCampaignReturn => {
     }
 
     try {
-      const response = await fetch(`${SCRIPT_API_BASE_URL}/analyze/${encodeURIComponent(scriptName)}`);
+      const response = await fetch(buildServerUrl(`/server/script/analyze/${encodeURIComponent(scriptName)}`));
       const data = await response.json();
 
       if (data.success && data.analysis) {

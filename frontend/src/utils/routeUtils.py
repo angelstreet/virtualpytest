@@ -55,7 +55,7 @@ def proxy_to_host(endpoint, method='GET', data=None, timeout=30, headers=None):
             }, 400
         
         # Use centralized API URL builder to construct the proper URL
-        from src.lib.utils.build_url_utils import buildHostUrl
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
         full_url = buildHostUrl(host_info, endpoint)
         
         if not full_url:
@@ -151,7 +151,7 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
             }, 400
         
         # Use centralized API URL builder to construct the proper URL
-        from src.lib.utils.build_url_utils import buildHostUrl
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
         full_url = buildHostUrl(host_info, endpoint)
         
         if not full_url:
@@ -252,7 +252,7 @@ def proxy_to_host_direct(host_info, endpoint, method='GET', data=None, timeout=3
             }, 400
         
         # Use centralized API URL builder to construct the proper URL
-        from src.lib.utils.build_url_utils import buildHostUrl
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
         full_url = buildHostUrl(host_info, endpoint)
         
         if not full_url:
