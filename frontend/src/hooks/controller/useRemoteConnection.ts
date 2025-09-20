@@ -232,7 +232,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          host: selectedHost,
+          host_name: selectedHost.host_name,
         }),
       });
 
@@ -319,7 +319,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              host: selectedHost,
+              host_name: selectedHost.host_name,
               command: 'launch_app',
               params: { package: params.package },
             }),
@@ -342,7 +342,7 @@ export function useRemoteConnection(remoteType: RemoteType) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             command: 'press_key',
             params: { key: command },
           }),

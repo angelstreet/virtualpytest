@@ -106,7 +106,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             device_id: deviceId,
             x,
             y,
@@ -134,7 +134,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host: selectedHost,
+          host_name: selectedHost.host_name,
           device_id: deviceId,
         }),
       });
@@ -160,7 +160,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host: selectedHost,
+          host_name: selectedHost.host_name,
           device_id: deviceId,
         }),
       });
@@ -199,7 +199,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host: selectedHost,
+          host_name: selectedHost.host_name,
           device_id: deviceId,
         }),
       });
@@ -237,7 +237,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             device_id: deviceId,
             command: 'click_element_by_id',
             params: { element_id: element.id },
@@ -266,7 +266,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
 
         if (command === 'LAUNCH_APP' && params?.package) {
           requestBody = {
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             device_id: deviceId,
             command: 'launch_app',
             params: { package: params.package },
@@ -274,14 +274,14 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
         } else if (command.startsWith('SWIPE_')) {
           // Handle swipe commands properly - send as command, not key
           requestBody = {
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             device_id: deviceId,
             command: command, // Send swipe commands directly as commands
             params: params || {},
           };
         } else {
           requestBody = {
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             device_id: deviceId,
             command: 'press_key',
             params: { key: command },

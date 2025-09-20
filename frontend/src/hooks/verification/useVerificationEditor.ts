@@ -203,7 +203,7 @@ export const useVerificationEditor = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: selectedHost, // Send full host object
+            host_name: selectedHost.host_name, // Send full host object
             device_id: selectedDeviceId, // Send device ID
             area: selectedArea,
             image_source_url: captureSourcePath,
@@ -221,7 +221,7 @@ export const useVerificationEditor = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: selectedHost, // Send full host object
+            host_name: selectedHost.host_name, // Send full host object
             device_id: selectedDeviceId, // Send device ID
             area: selectedArea,
             image_source_url: captureSourcePath,
@@ -323,7 +323,7 @@ export const useVerificationEditor = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             device_id: selectedDeviceId,
             reference_name: referenceName,
             device_model: deviceModel, // Changed from 'model' to 'device_model'
@@ -389,7 +389,7 @@ export const useVerificationEditor = ({
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              host: selectedHost,
+              host_name: selectedHost.host_name,
               device_id: selectedDeviceId,
               area: selectedArea,
               image_source_url: captureSourcePath,
@@ -407,7 +407,7 @@ export const useVerificationEditor = ({
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              host: selectedHost,
+              host_name: selectedHost.host_name,
               device_id: selectedDeviceId,
               area: selectedArea,
               image_source_url: captureSourcePath,
@@ -430,7 +430,7 @@ export const useVerificationEditor = ({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            host: selectedHost,
+            host_name: selectedHost.host_name,
             reference_name: referenceName,
             device_model: deviceModel,
             area:
@@ -537,7 +537,7 @@ export const useVerificationEditor = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          host: selectedHost, // Send full host object
+          host_name: selectedHost.host_name, // Send full host object
           device_id: selectedDeviceId, // Add missing device_id parameter
           device_model: deviceModel,
           area: selectedArea,
