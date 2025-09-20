@@ -80,12 +80,9 @@ def take_screenshot():
     """Proxy take screenshot request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
@@ -108,12 +105,9 @@ def save_screenshot():
     """Proxy save screenshot request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
@@ -136,12 +130,9 @@ def start_video_capture():
     """Proxy start video capture request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
@@ -164,12 +155,9 @@ def stop_video_capture():
     """Proxy stop video capture request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
@@ -192,12 +180,9 @@ def take_control():
     """Proxy take control request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
@@ -220,12 +205,9 @@ def connect():
     """Proxy connect request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(
@@ -248,12 +230,9 @@ def disconnect():
     """Proxy disconnect request to selected host with device_id"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
-
-        if not host:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         query_params = {'device_id': device_id}
 
         response_data, status_code = proxy_to_host_with_params(

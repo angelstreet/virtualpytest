@@ -18,7 +18,7 @@ def generate_restart_video():
         device_id = request_data.get('device_id', 'device1')
         duration_seconds = request_data.get('duration_seconds', 10)
 
-        print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for host: {host}, device: {device_id}, duration: {duration_seconds}s")
+        print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for host: {host_name}, device: {device_id}, duration: {duration_seconds}s")
 
         if not host_name:
             print(f"[SERVER] ❌ [@server_restart_routes:generateRestartVideo] Missing host parameter")
