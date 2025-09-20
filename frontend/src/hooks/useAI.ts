@@ -225,7 +225,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         body: JSON.stringify({
           prompt,
           userinterface_name,
-          host,
+          host_name: host.host_name,
           device_id: device.device_id
         })
       });
@@ -367,7 +367,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         body: JSON.stringify({
           test_case_id: testCaseId,
           device_id: device.device_id,
-          host
+          host_name: host.host_name
         })
       });
 
