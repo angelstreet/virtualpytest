@@ -13,7 +13,7 @@ import json
 from typing import Dict, List, Optional, Any
 
 from .ai_types import ExecutionResult
-from src.lib.utils.ai_utils import call_text_ai, AI_CONFIG
+from lib.utils.ai_utils import call_text_ai, AI_CONFIG
 
 
 class AIExecutor:
@@ -148,7 +148,7 @@ class AIExecutor:
             
             # Load test case
             if team_id is None:
-                from src.lib.utils.app_utils import get_team_id
+                from lib.utils.app_utils import get_team_id
                 team_id = get_team_id()
             
             test_case = get_test_case(test_case_id, team_id)

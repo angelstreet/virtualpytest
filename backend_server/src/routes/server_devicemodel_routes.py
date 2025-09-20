@@ -17,7 +17,7 @@ from src.lib.supabase.device_models_db import (
     check_device_model_name_exists
 )
 
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_devicemodel_bp = Blueprint('server_devicemodel', __name__, url_prefix='/server/devicemodel')

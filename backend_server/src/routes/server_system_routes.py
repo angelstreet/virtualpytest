@@ -18,7 +18,7 @@ from backend_host.src.controllers.controller_config_factory import create_contro
 
 from src.lib.utils.host_utils import get_host_manager
 from src.lib.supabase.system_metrics_db import store_system_metrics
-from src.lib.utils.system_info_utils import get_host_system_stats
+from backend_host.src.lib.utils.system_info_utils import get_host_system_stats
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 

@@ -25,7 +25,7 @@ from src.lib.utils.heatmap_utils import (
     start_heatmap_generation
 )
 
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 from src.lib.utils.build_url_utils import buildHostImageUrl
 
 def get_device_capture_dir(host_data: dict, device_id: str) -> str:

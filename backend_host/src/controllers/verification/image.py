@@ -729,7 +729,7 @@ class ImageVerificationController:
             if os.path.exists(local_path):
                 print(f"[@controller:ImageVerification] Reference already exists locally: {local_path}")
                 # Also resolve area from database
-                from src.lib.utils.reference_utils import resolve_reference_area_backend
+                from lib.utils.reference_utils import resolve_reference_area_backend
                 resolved_area = resolve_reference_area_backend(base_name, model)
                 return local_path, resolved_area
             
@@ -737,7 +737,7 @@ class ImageVerificationController:
             
             # Download from R2 using CloudflareUtils
             try:
-                from src.lib.utils.cloudflare_utils import get_cloudflare_utils
+                from lib.utils.cloudflare_utils import get_cloudflare_utils
                 
                 # Construct R2 object key using provided device model
                 r2_object_key = f"reference-images/{model}/{reference_name}"
@@ -751,7 +751,7 @@ class ImageVerificationController:
                 if download_result.get('success'):
                     print(f"[@controller:ImageVerification] Successfully downloaded reference from R2: {local_path}")
                     # Also resolve area from database
-                    from src.lib.utils.reference_utils import resolve_reference_area_backend
+                    from lib.utils.reference_utils import resolve_reference_area_backend
                     resolved_area = resolve_reference_area_backend(base_name, model)
                     return local_path, resolved_area
                 else:

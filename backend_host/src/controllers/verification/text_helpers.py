@@ -50,7 +50,7 @@ class TextHelpers:
             
             # Save reference to database
             from shared.src.lib.supabase.verifications_references_db import save_reference
-            from src.lib.utils.app_utils import DEFAULT_TEAM_ID
+            from lib.utils.app_utils import DEFAULT_TEAM_ID
             
             # Create text data structure and merge with area
             text_data = {

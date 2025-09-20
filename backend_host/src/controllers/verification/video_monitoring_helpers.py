@@ -39,7 +39,7 @@ class VideoMonitoringHelpers:
         """Get the capture folder path from the image controller"""
         try:
             # Import here to avoid circular imports
-            from src.lib.utils.host_utils import get_controller
+            from lib.utils.host_utils import get_controller
             
             # Get the device_id from the AV controller if available
             device_id = getattr(self.av_controller, 'device_id', 'device1')
@@ -384,8 +384,8 @@ class VideoMonitoringHelpers:
     def _build_capture_urls(self, capture_files: List[Dict]) -> List[Dict]:
         """Build URLs for capture files using existing URL building utilities"""
         try:
-            from src.lib.utils.build_url_utils import buildCaptureUrlFromPath
-            from src.lib.utils.host_utils import get_host_instance as get_host
+            from lib.utils.build_url_utils import buildCaptureUrlFromPath
+            from lib.utils.host_utils import get_host_instance as get_host
             
             host = get_host()
             host_dict = host.to_dict()
@@ -420,8 +420,8 @@ class VideoMonitoringHelpers:
     def _build_json_url(self, json_filepath: str) -> str:
         """Build URL for JSON file using existing URL building utilities"""
         try:
-            from src.lib.utils.build_url_utils import buildCaptureUrlFromPath
-            from src.lib.utils.host_utils import get_host_instance as get_host
+            from lib.utils.build_url_utils import buildCaptureUrlFromPath
+            from lib.utils.host_utils import get_host_instance as get_host
             
             host = get_host()
             host_dict = host.to_dict()

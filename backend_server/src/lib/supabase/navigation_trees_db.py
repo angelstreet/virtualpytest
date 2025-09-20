@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
-from src.lib.utils.supabase_utils import get_supabase_client
-from src.lib.utils.app_utils import DEFAULT_TEAM_ID
+from src.lib.supabase.supabase_utils import get_supabase_client
+from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
 
 def get_supabase():
     """Get the Supabase client instance."""

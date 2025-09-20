@@ -9,25 +9,25 @@ import threading
 from typing import Dict, List, Any, Optional
 from shared.src.lib.models.host import Host
 from shared.src.lib.models.device import Device
-from src.controllers.controller_config_factory import create_controller_configs_from_device_info
+from controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Import controller classes
-from src.controllers.audiovideo.hdmi_stream import HDMIStreamController
-from src.controllers.verification.vnc_stream import VNCStreamController
-from src.controllers.audiovideo.camera_stream import CameraStreamController
-from src.controllers.remote.android_mobile import AndroidMobileRemoteController
-from src.controllers.remote.android_tv import AndroidTVRemoteController
-from src.controllers.remote.appium_remote import AppiumRemoteController
-from src.controllers.remote.infrared import IRRemoteController
-from src.controllers.desktop.bash import BashDesktopController
-from src.controllers.desktop.pyautogui import PyAutoGUIDesktopController
-from src.controllers.verification.image import ImageVerificationController
-from src.controllers.verification.text import TextVerificationController
-from src.controllers.verification.adb import ADBVerificationController
-from src.controllers.verification.appium import AppiumVerificationController
-from src.controllers.verification.video import VideoVerificationController
-from src.controllers.verification.audio import AudioVerificationController
-from src.controllers.power.tapo_power import TapoPowerController
+from controllers.audiovideo.hdmi_stream import HDMIStreamController
+from controllers.verification.vnc_stream import VNCStreamController
+from controllers.audiovideo.camera_stream import CameraStreamController
+from controllers.remote.android_mobile import AndroidMobileRemoteController
+from controllers.remote.android_tv import AndroidTVRemoteController
+from controllers.remote.appium_remote import AppiumRemoteController
+from controllers.remote.infrared import IRRemoteController
+from controllers.desktop.bash import BashDesktopController
+from controllers.desktop.pyautogui import PyAutoGUIDesktopController
+from controllers.verification.image import ImageVerificationController
+from controllers.verification.text import TextVerificationController
+from controllers.verification.adb import ADBVerificationController
+from controllers.verification.appium import AppiumVerificationController
+from controllers.verification.video import VideoVerificationController
+from controllers.verification.audio import AudioVerificationController
+from controllers.power.tapo_power import TapoPowerController
 
 
 def create_host_from_environment() -> Host:
@@ -271,7 +271,7 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     # Web Controllers
     elif controller_type == 'web':
         if implementation == 'playwright':
-            from src.controllers.web.playwright import PlaywrightWebController
+            from controllers.web.playwright import PlaywrightWebController
             return PlaywrightWebController(**params)
     
     # Power Controllers

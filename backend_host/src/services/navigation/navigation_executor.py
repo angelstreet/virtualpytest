@@ -10,9 +10,9 @@ from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
 from src.services.navigation.navigation_pathfinding import find_shortest_path
-from src.lib.utils.app_utils import get_team_id
-from src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
-from src.lib.utils.navigation_cache import populate_unified_cache
+from lib.utils.app_utils import get_team_id
+from lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
+from lib.utils.navigation_cache import populate_unified_cache
 
 
 class NavigationExecutor:
@@ -189,7 +189,7 @@ class NavigationExecutor:
         """Get navigation preview without executing"""
         # Use provided team_id or fallback to get_team_id() if not provided
         if team_id is None:
-            from src.lib.utils.app_utils import get_team_id
+            from lib.utils.app_utils import get_team_id
             team_id = get_team_id()
         
         transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
@@ -226,7 +226,7 @@ class NavigationExecutor:
         """
         try:
             from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
-            from src.lib.utils.app_utils import get_team_id
+            from lib.utils.app_utils import get_team_id
             
             team_id = get_team_id()
             userinterfaces = get_all_userinterfaces(team_id)
@@ -305,7 +305,7 @@ class NavigationExecutor:
             print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
             
             # 2. Discover complete tree hierarchy
-            from src.lib.utils.app_utils import get_team_id
+            from lib.utils.app_utils import get_team_id
             team_id = get_team_id()
             hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id, script_name)
             if not hierarchy_data:

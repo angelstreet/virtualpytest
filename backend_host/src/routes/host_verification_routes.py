@@ -115,7 +115,7 @@ def verification_execute_batch():
             }), 500
         
         # Execute verifications using device's VerificationExecutor
-        from src.lib.utils.app_utils import get_team_id
+        from lib.utils.app_utils import get_team_id
         result = device.verification_executor.execute_verifications(
             verifications=verifications,
             image_source_url=image_source_url,

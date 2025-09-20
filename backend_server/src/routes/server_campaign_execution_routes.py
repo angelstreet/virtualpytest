@@ -13,7 +13,7 @@ import time
 from typing import Dict, Any
 
 # Import utility functions
-from src.lib.utils.app_utils import get_team_id
+from shared.src.lib.utils.app_utils import get_team_id
 from src.lib.utils.campaign_executor import CampaignExecutor
 
 # Import database functions
@@ -22,7 +22,7 @@ from src.lib.supabase.campaign_executions_db import (
     get_campaign_results
 )
 
-from src.lib.utils.app_utils import check_supabase
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_campaign_execution_bp = Blueprint('server_campaign_execution', __name__, url_prefix='/server/campaigns')

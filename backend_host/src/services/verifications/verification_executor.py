@@ -312,7 +312,7 @@ class VerificationExecutor:
         try:
             # Use provided team_id or fallback to get_team_id() if not provided
             if team_id is None:
-                from src.lib.utils.app_utils import get_team_id
+                from lib.utils.app_utils import get_team_id
                 team_id = get_team_id()
             
             record_node_execution(

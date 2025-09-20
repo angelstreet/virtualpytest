@@ -48,8 +48,8 @@ try:
         DEFAULT_USER_ID
     )
     # Import backend_host controllers and services
-    from src.controllers import *
-    from src.services import *
+    from controllers import *
+    from services import *
 except ImportError as e:
     print(f"❌ Failed to import dependencies: {e}")
     print("❌ Please ensure shared library and backend_host are properly installed")
@@ -58,7 +58,7 @@ except ImportError as e:
 
 # Local route imports  
 try:
-    from src.lib.utils.host_utils import (
+    from lib.utils.host_utils import (
         register_host_with_server,
         start_ping_thread,
         cleanup_on_exit
@@ -189,7 +189,7 @@ def main():
         # STEP 2.5: Initialize host devices with executors
         print("[@backend_host:main] Step 2.5: Initializing host devices with executors...")
         try:
-            from src.controllers.controller_manager import get_host
+            from controllers.controller_manager import get_host
             
             host = get_host()
             

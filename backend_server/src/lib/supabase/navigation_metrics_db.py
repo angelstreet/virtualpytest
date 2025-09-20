@@ -14,7 +14,7 @@ The metrics are automatically updated via PostgreSQL triggers when executions ar
 """
 
 from typing import List, Dict, Optional
-from src.lib.utils.supabase_utils import get_supabase_client
+from src.lib.supabase.supabase_utils import get_supabase_client
 
 def get_supabase():
     """Get the Supabase client instance."""

@@ -18,7 +18,7 @@ import threading
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from src.lib.utils.app_utils import get_team_id, get_user_id
+from shared.src.lib.utils.app_utils import get_team_id, get_user_id
 from src.lib.utils.build_url_utils import buildHostUrl
 from src.lib.utils.host_utils import get_host_manager
 from src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip

@@ -180,8 +180,8 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import simplified AI architecture
-        from src.controllers.controller_manager import get_host
-        from src.lib.utils.app_utils import get_team_id
+        from controllers.controller_manager import get_host
+        from lib.utils.app_utils import get_team_id
         
         # Get session parameters
         device_id = session['device_id']
@@ -246,7 +246,7 @@ def run_exploration(exploration_id: str):
             
             try:
                 # Execute AI exploration step
-                from src.lib.utils.app_utils import get_team_id
+                from lib.utils.app_utils import get_team_id
                 result = device.ai_executor.execute_prompt(
                     exploration_prompt, 
                     userinterface_name,

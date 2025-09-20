@@ -13,7 +13,7 @@ import glob
 import subprocess
 from datetime import datetime, timezone
 from typing import List, Dict, Any
-from src.lib.utils.supabase_utils import get_supabase_client
+from lib.utils.supabase_utils import get_supabase_client
 
 # Global cache for process start times
 _process_start_cache = {}

@@ -29,7 +29,7 @@ from src.lib.supabase.userinterface_db import (
     get_userinterface,
     get_userinterface_by_name
 )
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint with abstract server navigation prefix
 server_navigation_bp = Blueprint('server_navigation', __name__, url_prefix='/server/navigation')

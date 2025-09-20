@@ -15,7 +15,7 @@ from src.lib.supabase.script_results_db import (
     update_script_discard_status
 )
 
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_script_results_bp = Blueprint('server_script_results', __name__, url_prefix='/server/script-results')

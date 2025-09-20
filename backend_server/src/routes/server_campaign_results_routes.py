@@ -13,7 +13,7 @@ from src.lib.supabase.campaign_executions_db import (
     get_campaign_results
 )
 
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_campaign_results_bp = Blueprint('server_campaign_results', __name__, url_prefix='/server/campaign-results')

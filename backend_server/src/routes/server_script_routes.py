@@ -210,7 +210,7 @@ def list_scripts():
         ai_test_cases_info = []
         
         try:
-            from src.lib.utils.app_utils import get_team_id
+            from shared.src.lib.utils.app_utils import get_team_id
             from src.lib.supabase.testcase_db import get_all_test_cases
             
             team_id = get_team_id()

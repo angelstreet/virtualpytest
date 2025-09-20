@@ -13,7 +13,7 @@ NOTE: Navigation execution routes are in server_navigation_routes.py
 import time
 from flask import Blueprint, request, jsonify
 
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_pathfinding_bp = Blueprint('server_pathfinding', __name__, url_prefix='/server/pathfinding')

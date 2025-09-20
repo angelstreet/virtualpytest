@@ -28,7 +28,7 @@ from src.lib.supabase.navigation_trees_db import (
     get_tree_breadcrumb, delete_tree_cascade, move_subtree
 )
 from src.lib.supabase.userinterface_db import get_all_userinterfaces
-from src.lib.utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID, DEFAULT_USER_ID, check_supabase, get_team_id
 
 server_navigation_trees_bp = Blueprint('server_navigation_trees', __name__, url_prefix='/server')
 

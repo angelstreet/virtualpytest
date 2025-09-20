@@ -62,7 +62,7 @@ def populate_cache(tree_id: str, team_id: str, nodes: List[Dict], edges: List[Di
         print(f"[@navigation:cache:populate_cache] Building NetworkX graph for tree: {tree_id}")
         
         try:
-            from src.lib.utils.navigation_graph import create_networkx_graph
+            from lib.utils.navigation_graph import create_networkx_graph
         except ImportError as ie:
             print(f"[@navigation:cache:populate_cache] Failed to import navigation_graph module: {ie}")
             import traceback
@@ -461,7 +461,7 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
     try:
         print(f"[@navigation:cache:populate_unified_cache] Building unified graph for root tree: {root_tree_id}")
         
-        from src.lib.utils.navigation_graph import create_unified_networkx_graph
+        from lib.utils.navigation_graph import create_unified_networkx_graph
         
         if not all_trees_data:
             print(f"[@navigation:cache:populate_unified_cache] No tree data provided for root tree: {root_tree_id}")

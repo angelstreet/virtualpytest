@@ -16,7 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 # Actions are now embedded in navigation edges - no separate database operations needed
 
 # Import default team ID from app utils
-from src.lib.utils.app_utils import DEFAULT_TEAM_ID
+from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
 from src.lib.utils.route_utils import proxy_to_host
 import requests
 

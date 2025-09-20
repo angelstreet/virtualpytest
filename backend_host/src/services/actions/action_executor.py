@@ -12,7 +12,7 @@ The core logic is the same as /server/action/executeBatch but available as a reu
 import time
 import requests
 from typing import Dict, List, Optional, Any
-from src.lib.utils.route_utils import proxy_to_host_direct
+from lib.utils.route_utils import proxy_to_host_direct
 # Removed unused imports - device instance is now passed directly
 from shared.src.lib.supabase.execution_results_db import record_edge_execution
 
@@ -588,7 +588,7 @@ class ActionExecutor:
         try:
             # Use provided team_id or fallback to get_team_id() if not provided
             if team_id is None:
-                from src.lib.utils.app_utils import get_team_id
+                from lib.utils.app_utils import get_team_id
                 team_id = get_team_id()
             
             record_edge_execution(
@@ -615,7 +615,7 @@ class ActionExecutor:
         try:
             # Use provided team_id or fallback to get_team_id() if not provided
             if team_id is None:
-                from src.lib.utils.app_utils import get_team_id
+                from lib.utils.app_utils import get_team_id
                 team_id = get_team_id()
             
             result = record_edge_execution(

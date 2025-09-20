@@ -64,7 +64,7 @@ class AudioAIHelpers:
         try:
             # Use global HLS segment duration if not specified
             if segment_duration is None:
-                from src.controllers.base_controller import AVControllerInterface
+                from controllers.base_controller import AVControllerInterface
                 segment_duration = AVControllerInterface.HLS_SEGMENT_DURATION
             
             print(f"AudioAI[{self.device_name}]: Retrieving last {segment_count} audio segments ({segment_duration}s each)...")
@@ -560,7 +560,7 @@ class AudioAIHelpers:
                 return None
             
             # Import CloudflareUtils
-            from src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            from lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             
             # Generate R2 path with timestamp and device context

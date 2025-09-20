@@ -4,7 +4,7 @@ Clean AI Routes - Proxy to Host AI Execution
 
 from flask import Blueprint, request, jsonify
 from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
-from src.lib.utils.app_utils import get_team_id
+from shared.src.lib.utils.app_utils import get_team_id
 
 server_ai_bp = Blueprint('server_ai', __name__, url_prefix='/server/ai')
 

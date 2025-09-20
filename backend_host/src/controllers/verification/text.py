@@ -234,7 +234,7 @@ class TextVerificationController:
             else:
                 # Local filename case - use URL conversion utility like image verification
                 try:
-                    from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                    from lib.utils.build_url_utils import convertHostUrlToLocalPath
                     # Build a proper URL first if it's just a filename
                     if not image_source_url.startswith('/'):
                         # Assume it's a filename from captures directory
@@ -355,7 +355,7 @@ class TextVerificationController:
             # Resolve area from database if reference_name is provided
             reference_name = params.get('reference_name')
             if reference_name:
-                from src.lib.utils.reference_utils import resolve_reference_area_backend
+                from lib.utils.reference_utils import resolve_reference_area_backend
                 resolved_area = resolve_reference_area_backend(reference_name, self.device_model)
                 if resolved_area:
                     area = resolved_area

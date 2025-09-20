@@ -21,7 +21,7 @@ from src.lib.supabase.navigation_metrics_db import (
     get_verification_execution_history
 )
 from src.lib.supabase.navigation_trees_db import get_tree_nodes, get_tree_edges
-from src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_metrics_bp = Blueprint('server_metrics', __name__, url_prefix='/server/metrics')

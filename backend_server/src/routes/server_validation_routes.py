@@ -6,7 +6,7 @@ from typing import List
 from flask import Blueprint, request, jsonify
 
 from src.lib.utils.navigation_cache import get_cached_graph
-from src.lib.utils.app_utils import get_team_id
+from shared.src.lib.utils.app_utils import get_team_id
 
 
 # Removed transform_script_results_to_validation_format since we now execute the script directly

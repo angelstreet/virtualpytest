@@ -550,7 +550,7 @@ class AudioVerificationController(VerificationControllerInterface):
             device_id = getattr(self.av_controller, 'device_name', 'device1')
             
             # Import shared analysis utility
-            from src.lib.utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
+            from lib.utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
             
             # Load recent analysis data using shared utility (5 minutes timeframe)
             data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)
@@ -724,7 +724,7 @@ class AudioVerificationController(VerificationControllerInterface):
             elif command == 'DetectAudioLanguage':
                 # Use existing AudioAIHelpers for language detection
                 try:
-                    from src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                    from controllers.verification.audio_ai_helpers import AudioAIHelpers
                     audio_ai = AudioAIHelpers(self.av_controller, self.device_name)
                     
                     # Get recent audio segments and analyze
