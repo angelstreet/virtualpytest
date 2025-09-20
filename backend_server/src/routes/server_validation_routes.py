@@ -40,7 +40,6 @@ def get_validation_preview(tree_id: str):
                 }), 400
         
         # Use optimal edge validation sequence with unified cache
-        # Proxy to host for pathfinding logic
         from src.lib.utils.route_utils import proxy_to_host
         
         proxy_result = proxy_to_host('/host/navigation/validation_sequence', 'POST', {
