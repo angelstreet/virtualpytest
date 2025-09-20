@@ -103,14 +103,13 @@ def main():
         print(f"[@ai_testcase_executor] Original prompt: {test_case.get('original_prompt', 'N/A')}")
         
         # Test case IS an AI plan - execute the stored plan directly
-        from backend_core.src.controllers.controller_manager import get_device
         import uuid
         
         # Execute stored test case directly - AI central handles everything
         print(f"[@ai_testcase_executor] Executing stored test case {test_case_id}")
         
-        # Get device with existing AI executor
-        device = get_device(context.selected_device.device_id)
+        # Use the selected device from context (already has ai_executor)
+        device = context.selected_device
         if not device or not hasattr(device, 'ai_executor'):
             print(f"[@ai_testcase_executor] ERROR: Device or AI executor not found")
             return

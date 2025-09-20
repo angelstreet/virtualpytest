@@ -43,15 +43,14 @@ def ai_generate_plan():
         
         device = current_app.host_devices[device_id]
         
-        # Get device with existing AI executor
-        from backend_core.src.controllers.controller_manager import get_device
-        
         print(f"[@route:host_ai:ai_generate_plan] Using AI service for device: {device_id}")
         
-        # Get device with existing AI executor
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
         result = device.ai_executor.execute_prompt(
             prompt=prompt,
             userinterface_name=userinterface_name,
@@ -101,15 +100,14 @@ def ai_execute_plan():
         
         device = current_app.host_devices[device_id]
         
-        # Get device with existing AI executor
-        from backend_core.src.controllers.controller_manager import get_device
-        
         print(f"[@route:host_ai:ai_execute_plan] Using AI service for device: {device_id}")
         
-        # Get device with existing AI executor
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
         
         result = device.ai_executor.execute_prompt(
             prompt=f"Execute plan: {plan.get('description', 'AI plan')}",
@@ -160,15 +158,14 @@ def ai_execute_prompt():
         
         device = current_app.host_devices[device_id]
         
-        # Get device with existing AI executor
-        from backend_core.src.controllers.controller_manager import get_device
-        
         print(f"[@route:host_ai:ai_execute_prompt] Using AI service for device: {device_id}")
         
-        # Get device with existing AI executor
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
         
         result = device.ai_executor.execute_prompt(
             prompt=prompt,
@@ -208,13 +205,12 @@ def ai_get_device_position():
         
         device = current_app.host_devices[device_id]
         
-        # Get device with existing AI executor
-        from backend_core.src.controllers.controller_manager import get_device
-        
-        # Get device with existing AI executor
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
         
         result = device.ai_executor.get_device_position()
         
@@ -260,13 +256,12 @@ def ai_update_device_position():
         
         device = current_app.host_devices[device_id]
         
-        # Get device with existing AI executor
-        from backend_core.src.controllers.controller_manager import get_device
-        
-        # Get device with existing AI executor
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
         
         result = device.ai_executor.update_device_position(node_id, tree_id, node_label)
         
@@ -287,15 +282,25 @@ def ai_get_execution_status(execution_id):
     try:
         print(f"[@route:host_ai:ai_get_execution_status] Getting status for execution: {execution_id}")
         
-        # Get device_id from query params (required for AIPlanExecutor)
+        # Get device_id from query params (required for AIExecutor)
         device_id = request.args.get('device_id', 'device1')
         
-        # Get device with existing AI executor
-        from backend_core.src.controllers.controller_manager import get_device
+        # Get host device registry from app context
+        host_devices = getattr(current_app, 'host_devices', {})
+        if device_id not in host_devices:
+            return jsonify({
+                'success': False, 
+                'error': f'Device {device_id} not found in host'
+            }), 404
         
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        device = host_devices[device_id]
+        
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
         
         result = device.ai_executor.get_execution_status(execution_id)
         
@@ -308,4 +313,51 @@ def ai_get_execution_status(execution_id):
         return jsonify({
             'success': False,
             'error': f'Failed to get execution status: {str(e)}'
+        }), 500
+
+@host_ai_bp.route('/executeTestCase', methods=['POST'])
+def ai_execute_test_case():
+    """Execute test case using device's AIExecutor"""
+    try:
+        print("[@route:host_ai:ai_execute_test_case] Starting test case execution")
+        
+        # Get request data
+        data = request.get_json() or {}
+        test_case_id = data.get('test_case_id')
+        device_id = data.get('device_id', 'device1')
+        
+        print(f"[@route:host_ai:ai_execute_test_case] Executing test case {test_case_id} for device: {device_id}")
+        
+        # Validate
+        if not test_case_id:
+            return jsonify({'success': False, 'error': 'test_case_id is required'}), 400
+        
+        # Get host device registry from app context
+        host_devices = getattr(current_app, 'host_devices', {})
+        if device_id not in host_devices:
+            return jsonify({
+                'success': False, 
+                'error': f'Device {device_id} not found in host'
+            }), 404
+        
+        device = host_devices[device_id]
+        
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
+        
+        result = device.ai_executor.execute_testcase(test_case_id)
+        
+        print(f"[@route:host_ai:ai_execute_test_case] Test case execution result: success={result.get('success')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:host_ai:ai_execute_test_case] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Host AI test case execution failed: {str(e)}'
         }), 500

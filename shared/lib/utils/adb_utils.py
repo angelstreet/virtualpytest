@@ -205,9 +205,10 @@ class ADBUtils:
             # Check if device appears in devices list
             device_lines = [line.strip() for line in stdout.split('\n') 
                           if line.strip() and not line.startswith('List of devices')]
-            
+            print(f"[@lib:adbUtils:connect_device] Device lines: {device_lines}")
             device_found = None
             for line in device_lines:
+                print(f"[@lib:adbUtils:connect_device] Line: {line}")
                 if device_id in line:
                     device_found = line
                     break

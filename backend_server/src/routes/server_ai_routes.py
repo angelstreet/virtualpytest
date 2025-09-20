@@ -179,16 +179,16 @@ def execute_test_case():
         if not test_case:
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
-        # Get device with existing AI executor for test case execution
-        from backend_core.src.controllers.controller_manager import get_device
+        # Proxy to host for test case execution
+        from shared.lib.utils.route_utils import proxy_to_host
         
-        device = get_device(device_id)
-        if not device or not hasattr(device, 'ai_executor'):
-            return jsonify({'success': False, 'error': 'Device or AI executor not found'}), 404
+        execution_payload = {
+            'test_case_id': test_case_id,
+            'device_id': device_id
+        }
         
-        # Execute stored test case directly
-        result = device.ai_executor.execute_testcase(test_case_id)
-        return jsonify(result)
+        response_data, status_code = proxy_to_host('/host/ai/executeTestCase', 'POST', execution_payload, timeout=120)
+        return jsonify(response_data), status_code
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

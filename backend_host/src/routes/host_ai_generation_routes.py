@@ -180,7 +180,7 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import simplified AI architecture
-        from backend_core.src.controllers.controller_manager import get_device, get_host
+        from backend_core.src.controllers.controller_manager import get_host
         from shared.lib.utils.app_utils import get_team_id
         
         # Get session parameters
@@ -193,7 +193,7 @@ def run_exploration(exploration_id: str):
         
         # Get host and device info dynamically (no hardcoding)
         host = get_host()
-        device = host.get_device_by_id(device_id)
+        device = host.get_device(device_id)
         if not device:
             raise Exception(f"Device {device_id} not found")
         
