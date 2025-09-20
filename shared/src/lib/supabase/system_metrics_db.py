@@ -16,7 +16,7 @@ def get_supabase():
     return get_supabase_client()
 
 
-def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_status: str, monitor_status: str) -> dict:
+def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_status: str, monitor_status: str, host_name: str = None) -> dict:
     """Simple, fast incident processing - host knows its own status, just INSERT/UPDATE directly"""
     try:
         supabase = get_supabase()
@@ -32,6 +32,8 @@ def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_statu
             # Try to INSERT new incident (will fail silently if duplicate due to unique constraints)
             try:
                 incident_data = {
+                    'host_name': host_name,
+                    'device_id': capture_folder,  # Use capture_folder as device_id
                     'device_name': device_name,
                     'capture_folder': capture_folder,
                     'component': 'ffmpeg',
@@ -78,6 +80,8 @@ def process_device_incidents(device_name: str, capture_folder: str, ffmpeg_statu
             # Try to INSERT new incident (will fail silently if duplicate)
             try:
                 incident_data = {
+                    'host_name': host_name,
+                    'device_id': capture_folder,  # Use capture_folder as device_id
                     'device_name': device_name,
                     'capture_folder': capture_folder,
                     'component': 'monitor',
@@ -257,7 +261,7 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             
             # Process incidents for THIS device only (fast, non-blocking)
             try:
-                incident_result = process_device_incidents(device_data.get('device_name'), device_data.get('capture_folder'), device_data.get('ffmpeg_status'), device_data.get('monitor_status'))
+                incident_result = process_device_incidents(device_data.get('device_name'), device_data.get('capture_folder'), device_data.get('ffmpeg_status'), device_data.get('monitor_status'), host_name)
                 if incident_result.get('incidents_created', 0) > 0 or incident_result.get('incidents_resolved', 0) > 0:
                     print(f"🚨 Device incidents: +{incident_result.get('incidents_created', 0)} created, +{incident_result.get('incidents_resolved', 0)} resolved")
             except Exception as e:

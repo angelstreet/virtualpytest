@@ -77,12 +77,16 @@ class HostManager:
         with self._lock:
             return self._hosts.copy()
     
-    def update_host_ping(self, host_name: str) -> bool:
+    def update_host_ping(self, host_name: str, ping_data: Dict[str, Any] = None) -> bool:
         """Update host's last seen time (for ping responses)"""
         with self._lock:
             if host_name in self._hosts:
                 self._hosts[host_name]['last_seen'] = time.time()
                 self._hosts[host_name]['status'] = 'online'
+                # Optionally update additional ping data if provided
+                if ping_data:
+                    # Store relevant ping data (system stats, device metrics, etc.)
+                    self._hosts[host_name]['last_ping_data'] = ping_data
                 return True
             return False
     
