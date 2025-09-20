@@ -441,7 +441,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
         from backend_core.src.services.actions.action_executor import ActionExecutor
         from backend_core.src.services.navigation.navigation_executor import NavigationExecutor
         from backend_core.src.services.verifications.verification_executor import VerificationExecutor
-        from backend_core.src.services.ai.ai_executor import AIExecutor
+        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
         from shared.lib.utils.app_utils import get_team_id
         
         # Create a host dict for executor initialization (they expect dict format)
@@ -471,7 +471,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any]) -> Device:
             team_id=team_id
         )
         
-        device.ai_executor = AIExecutor(
+        device.ai_executor = AIPlanExecutor(
             host=host_dict,
             device_id=device_id,
             team_id=team_id

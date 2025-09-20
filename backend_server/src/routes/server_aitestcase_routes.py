@@ -13,7 +13,7 @@ import os
 # Add backend_core to path for direct access
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_core/src'))
 
-from backend_core.src.services.ai import AIPlanner, AIContextService
+from backend_core.src.services.ai.ai_plan_generator import AIPlanGenerator
 from controllers.controller_config_factory import get_device_capabilities
 from shared.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
@@ -159,7 +159,7 @@ def analyze_test_case():
                     'available_verifications': []
                 }
                 
-                planner = AIPlanner.get_instance(team_id)
+                planner = AIPlanGenerator(team_id)
                 plan_dict = planner.generate_plan(prompt, context)
                 
                 if plan_dict.get('feasible', True):
@@ -294,7 +294,7 @@ def generate_test_cases():
                     'available_verifications': []
                 }
                 
-                planner = AIPlanner.get_instance(team_id)
+                planner = AIPlanGenerator(team_id)
                 plan_dict = planner.generate_plan(original_prompt, context)
                 
                 if plan_dict.get('feasible', True):
@@ -400,7 +400,7 @@ def generate_test_case():
                 'available_verifications': []
             }
             
-            planner = AIPlanner.get_instance(team_id)
+            planner = AIPlanGenerator(team_id)
             plan_dict = planner.generate_plan(prompt, context)
             
             generation_result = {
@@ -491,7 +491,7 @@ def quick_feasibility_check():
                 'available_verifications': []
             }
             
-            planner = AIPlanner.get_instance(team_id)
+            planner = AIPlanGenerator(team_id)
             plan_dict = planner.generate_plan(prompt, context)
             
             result = {

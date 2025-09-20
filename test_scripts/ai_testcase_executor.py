@@ -103,30 +103,21 @@ def main():
         print(f"[@ai_testcase_executor] Original prompt: {test_case.get('original_prompt', 'N/A')}")
         
         # Test case IS an AI plan - execute the stored plan directly
-        from backend_core.src.services.ai import AISession, AITracker, AIContextService
+        from backend_core.src.services.ai.ai_plan_executor import AIPlanExecutor
         import uuid
         
         # Execute stored test case directly - AI central handles everything
         print(f"[@ai_testcase_executor] Executing stored test case {test_case_id}")
         
-        # Create AI session
-        ai_session = AISession(
+        # Create AI plan executor
+        ai_executor = AIPlanExecutor(
             host=context.host,
             device_id=context.selected_device.device_id,
             team_id=context.team_id
         )
         
-        # Execute stored test case - AI central handles the stored plan
-        execution_id = ai_session.execute_stored_testcase(test_case_id)
-        
-        # Wait for completion and get results
-        import time
-        while True:
-            status = AITracker.get_status(execution_id)
-            if not status.get('is_executing', False):
-                ai_result = {'success': status.get('success', False)}
-                break
-            time.sleep(0.5)
+        # Execute stored test case directly
+        ai_result = ai_executor.execute_testcase(test_case_id)
         
         success = ai_result.get('success', False)
         context.overall_success = success
