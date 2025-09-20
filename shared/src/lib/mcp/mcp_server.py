@@ -110,11 +110,11 @@ class MockMCPServer:
             sys.path.insert(0, str(project_root))
             
             from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
-            from shared.src.lib.utils.app_utils import get_team_id
-            
             tree_id = params.get("tree_id", "default_tree")
             target_node_id = params.get("target_node_id", "home")
-            team_id = params.get("team_id") or get_team_id()
+            team_id = params.get("team_id")
+            if not team_id:
+                raise ValueError("team_id is required for MCP navigation operations")
             current_node_id = params.get("current_node_id")
             
             # Create minimal host configuration for MCP execution

@@ -43,11 +43,18 @@ def execute_task():
             }), 400
         
         task = data.get('task')
+        team_id = data.get('team_id')
         
         if not task:
             return jsonify({
                 "success": False,
                 "error": "Task parameter is required"
+            }), 400
+        
+        if not team_id:
+            return jsonify({
+                "success": False,
+                "error": "team_id is required"
             }), 400
         
         logger.info(f"[@server_mcp_routes:execute_task] Executing task: {task}")
@@ -95,7 +102,7 @@ def execute_task():
             proxy_result = proxy_to_host('/host/ai/generatePlan', 'POST', {
                 'prompt': task,
                 'context': context,
-                'team_id': "default"
+                'team_id': team_id
             })
             plan_dict = proxy_result.get('plan', {}) if proxy_result and proxy_result.get('success') else {}
             
@@ -116,7 +123,7 @@ def execute_task():
             plan_steps = plan_dict.get('steps', [])  # Use 'steps' key from new format
             
             # Execute the first MCP tool from the plan
-            mcp_result = _execute_mcp_tool_from_plan(plan_steps)
+            mcp_result = _execute_mcp_tool_from_plan(plan_steps, team_id)
             
             return jsonify({
                 "success": True,
@@ -140,12 +147,13 @@ def execute_task():
             "error": f"Internal server error: {str(e)}"
         }), 500
 
-def _execute_mcp_tool_from_plan(plan_steps):
+def _execute_mcp_tool_from_plan(plan_steps, team_id):
     """
     Execute MCP tool based on AI plan
     
     Args:
         plan_steps: List of plan steps from AI agent
+        team_id: Team ID for database operations
         
     Returns:
         Dict with tool execution result
@@ -163,7 +171,7 @@ def _execute_mcp_tool_from_plan(plan_steps):
                 if command == "navigate_to_page":
                     return _execute_navigate_to_page(params)
                 elif command == "execute_navigation_to_node":
-                    return _execute_navigation_to_node(params)
+                    return _execute_navigation_to_node(params, team_id)
                 elif command == "remote_execute_command":
                     return _execute_remote_command(params)
                 else:
@@ -223,15 +231,12 @@ def _execute_navigate_to_page(params):
             'result': {'success': False, 'error': str(e)}
         }
 
-def _execute_navigation_to_node(params):
+def _execute_navigation_to_node(params, team_id):
     """Execute execute_navigation_to_node MCP tool"""
     try:
-        # NavigationExecutor functionality proxied to host
-        from shared.src.lib.utils.app_utils import get_team_id
-        
+        # NavigationExecutor functionality proxied to host        
         tree_id = params.get("tree_id", "default_tree")
         target_node_id = params.get("target_node_id", "home")
-        team_id = params.get("team_id") or get_team_id()
         current_node_id = params.get("current_node_id")
         
         # Create minimal host configuration for MCP execution
@@ -239,14 +244,13 @@ def _execute_navigation_to_node(params):
         
         # Proxy navigation execution to host
         from src.lib.utils.route_utils import proxy_to_host
-        from shared.src.lib.utils.app_utils import get_team_id
         
         proxy_result = proxy_to_host('/host/navigation/execute', 'POST', {
-            'device_id': device_id,
+            'device_id': 'device1',  # Default device for MCP
             'tree_id': tree_id,
             'target_node_id': target_node_id,
             'current_node_id': current_node_id,
-            'team_id': get_team_id()
+            'team_id': team_id
         })
         
         if not proxy_result or not proxy_result.get('success'):

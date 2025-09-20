@@ -164,16 +164,17 @@ def execute_test_case():
     test_case_id = data.get('test_case_id')
     device_id = data.get('device_id')
     host_name = data.get('host_name')
+    team_id = data.get('team_id')
     
-    if not all([test_case_id, device_id, host_name]):
-        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+    if not all([test_case_id, device_id, host_name, team_id]):
+        return jsonify({'success': False, 'error': 'Missing required fields (test_case_id, device_id, host_name, team_id)'}), 400
     
     try:
         # Load test case from database
         from shared.src.lib.supabase.testcase_db import get_test_case
         import uuid
         
-        test_case = get_test_case(test_case_id, get_team_id())
+        test_case = get_test_case(test_case_id, team_id)
         if not test_case:
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
@@ -183,7 +184,8 @@ def execute_test_case():
         execution_payload = {
             'test_case_id': test_case_id,
             'device_id': device_id,
-            'host_name': host_name
+            'host_name': host_name,
+            'team_id': team_id
         }
         
         response_data, status_code = proxy_to_host('/host/ai/executeTestCase', 'POST', execution_payload, timeout=120)

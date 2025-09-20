@@ -77,7 +77,7 @@ const Dashboard: React.FC = () => {
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch(buildServerUrl('/server/campaigns/getAllCampaigns')),
         fetch(buildServerUrl('/server/testcases/getAllTestCases')),
-        fetch(buildServerUrl('/server/navigationTrees')), // Correct endpoint for getting all trees
+        fetch(buildServerUrl('/server/navigationTrees')), // Automatically includes team_id
       ]);
 
       let testCases: TestCase[] = [];

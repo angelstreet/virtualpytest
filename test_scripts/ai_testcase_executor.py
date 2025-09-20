@@ -53,10 +53,12 @@ def main():
     
     # Load test case from database early to get display name
     try:
-        from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
         from shared.src.lib.supabase.testcase_db import get_test_case
         
-        test_case = get_test_case(test_case_id, DEFAULT_TEAM_ID)
+        # Get team_id from environment variable (set by host when executing)
+        team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+        
+        test_case = get_test_case(test_case_id, team_id)
         if not test_case:
             print(f"[@ai_testcase_executor] ERROR: Test case not found: {test_case_id}")
             sys.exit(1)
@@ -115,7 +117,7 @@ def main():
             return
         
         # Execute stored test case directly
-        ai_result = device.ai_executor.execute_testcase(test_case_id)
+        ai_result = device.ai_executor.execute_testcase(test_case_id, team_id)
         
         success = ai_result.get('success', False)
         context.overall_success = success

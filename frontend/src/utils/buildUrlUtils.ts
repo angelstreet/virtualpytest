@@ -29,17 +29,21 @@
  * 
  * Examples:
  * - Development: buildServerUrl('/server/control/lockedDevices') 
- *   → http://localhost:5109/server/control/lockedDevices
+ *   → http://localhost:5109/server/control/lockedDevices?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
  * - Production: buildServerUrl('/server/control/lockedDevices')
- *   → https://virtualpytest.onrender.com/server/control/lockedDevices
+ *   → https://virtualpytest.onrender.com/server/control/lockedDevices?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
  * 
  * @param endpoint - API endpoint (e.g., '/server/control/lockedDevices')
- * @returns Complete URL to backend server endpoint
+ * @returns Complete URL to backend server endpoint with team_id
  */
 export const buildServerUrl = (endpoint: string): string => {
   const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  return `${serverUrl}/${cleanEndpoint}`;
+  const url = `${serverUrl}/${cleanEndpoint}`;
+  
+  // Always add team_id to all server URLs
+  const teamId = "7fdeb4bb-3639-4ec3-959f-b54769a219ce";
+  return `${url}${url.includes('?') ? '&' : '?'}team_id=${teamId}`;
 };
 
 // =====================================================

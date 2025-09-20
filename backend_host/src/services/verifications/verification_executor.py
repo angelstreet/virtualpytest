@@ -102,7 +102,7 @@ class VerificationExecutor:
     def execute_verifications(self, 
                             verifications: List[Dict[str, Any]], 
                             image_source_url: Optional[str] = None,
-                            team_id: Optional[str] = None
+                            team_id: str = None
                            ) -> Dict[str, Any]:
         """
         Execute batch of verifications
@@ -307,13 +307,9 @@ class VerificationExecutor:
                 'resultType': 'FAIL'
             }
     
-    def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: Optional[str] = None):
+    def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):
         """Record single verification directly to database"""
         try:
-            # Use provided team_id or fallback to get_team_id() if not provided
-            if team_id is None:
-                from lib.utils.app_utils import get_team_id
-                team_id = get_team_id()
             
             record_node_execution(
                 team_id=team_id,

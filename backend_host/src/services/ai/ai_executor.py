@@ -13,7 +13,7 @@ import json
 from typing import Dict, List, Optional, Any
 
 from .ai_types import ExecutionResult
-from lib.utils.ai_utils import call_text_ai, AI_CONFIG
+from shared.src.lib.utils.ai_utils import call_text_ai, AI_CONFIG
 
 
 class AIExecutor:
@@ -56,9 +56,9 @@ class AIExecutor:
     def execute_prompt(self, 
                       prompt: str, 
                       userinterface_name: str,
+                      team_id: str,
                       current_node_id: Optional[str] = None,
-                      async_execution: bool = True,
-                      team_id: Optional[str] = None) -> Dict[str, Any]:
+                      async_execution: bool = True) -> Dict[str, Any]:
         """
         Execute AI prompt - generates plan and executes it
         
@@ -87,7 +87,7 @@ class AIExecutor:
                 }
             
             # Load context using device's existing executors
-            context = self._load_context(userinterface_name, current_node_id)
+            context = self._load_context(userinterface_name, current_node_id, team_id)
             
             # Generate plan using integrated plan generation
             plan_dict = self.generate_plan(prompt, context, current_node_id)
@@ -141,15 +141,10 @@ class AIExecutor:
                 'execution_time': time.time() - start_time
             }
     
-    def execute_testcase(self, test_case_id: str, team_id: Optional[str] = None) -> Dict[str, Any]:
+    def execute_testcase(self, test_case_id: str, team_id: str) -> Dict[str, Any]:
         """Execute stored test case"""
         try:
             from shared.src.lib.supabase.testcase_db import get_test_case
-            
-            # Load test case
-            if team_id is None:
-                from lib.utils.app_utils import get_team_id
-                team_id = get_team_id()
             
             test_case = get_test_case(test_case_id, team_id)
             if not test_case:
@@ -172,7 +167,8 @@ class AIExecutor:
             
             # Load minimal context for execution
             userinterface_name = stored_plan.get('userinterface_name', 'horizon_android_mobile')
-            context = self._load_context(userinterface_name)
+            current_node_id = stored_plan.get('current_node_id')
+            context = self._load_context(userinterface_name, current_node_id, team_id)
             
             result = self._execute_plan_sync(stored_plan, context)
             self._complete_execution_tracking(execution_id, result)
@@ -231,19 +227,20 @@ class AIExecutor:
     
     # Private methods
     
-    def _load_context(self, userinterface_name: str, current_node_id: str = None) -> Dict[str, Any]:
+    def _load_context(self, userinterface_name: str, current_node_id: str, team_id: str) -> Dict[str, Any]:
         """Load context using device's existing executors"""
         print(f"[@ai_executor] Loading context for device: {self.device_id}, model: {self.device_model}, interface: {userinterface_name}")
         
         # Use device's existing executors to load context
         action_context = self.device.action_executor.get_available_context(userinterface_name)
         verification_context = self.device.verification_executor.get_available_context(userinterface_name)
-        navigation_context = self.device.navigation_executor.get_available_context(userinterface_name)
+        navigation_context = self.device.navigation_executor.get_available_context(userinterface_name, team_id)
         
         return {
             'device_model': self.device_model,
             'userinterface_name': userinterface_name,
             'current_node_id': current_node_id,
+            'team_id': team_id,
             'tree_id': navigation_context.get('tree_id'),
             'available_nodes': navigation_context.get('available_nodes', []),
             'available_actions': action_context.get('available_actions', []),
@@ -410,7 +407,7 @@ class AIExecutor:
             'action_type': step_data.get('params', {}).get('action_type', 'remote')
         }
         
-        return self.device.action_executor.execute_actions([action])
+        return self.device.action_executor.execute_actions([action], team_id=context.get('team_id'))
     
     def _execute_verification_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
         """Execute verification step via VerificationExecutor"""
@@ -420,7 +417,7 @@ class AIExecutor:
             'params': step_data.get('params', {})
         }
         
-        return self.device.verification_executor.execute_verifications([verification])
+        return self.device.verification_executor.execute_verifications([verification], team_id=context.get('team_id'))
     
     def _execute_wait_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
         """Execute wait step - simple timing operation"""

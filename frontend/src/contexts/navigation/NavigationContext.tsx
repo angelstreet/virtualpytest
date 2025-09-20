@@ -1083,7 +1083,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
                     tree_id: navigationConfig?.actualTreeId || 'unknown',
-                    team_id: 'default' 
+                    team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce' // Use actual default team ID
                   })
                 });
               } catch (cacheError) {

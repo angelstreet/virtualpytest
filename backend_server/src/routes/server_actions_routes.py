@@ -15,8 +15,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Actions are now embedded in navigation edges - no separate database operations needed
 
-# Import default team ID from app utils
-from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
 from src.lib.utils.route_utils import proxy_to_host
 import requests
 
@@ -97,6 +95,7 @@ def action_execute_batch():
         host = data.get('host', {})
         device_id = data.get('device_id', 'device1')
         retry_actions = data.get('retry_actions', [])
+        team_id = data.get('team_id')
         
         # NEW: Navigation context for proper metrics recording
         tree_id = data.get('tree_id')
@@ -114,6 +113,9 @@ def action_execute_batch():
         if not host:
             return jsonify({'success': False, 'error': 'host is required'}), 400
         
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
         # Proxy to host action execution endpoint
         try:
             from src.lib.utils.route_utils import proxy_to_host
@@ -125,7 +127,8 @@ def action_execute_batch():
                 'device_id': device_id,
                 'tree_id': tree_id,
                 'edge_id': edge_id,
-                'action_set_id': action_set_id
+                'action_set_id': action_set_id,
+                'team_id': team_id
             }
             
             # Proxy to host action execution endpoint
@@ -162,6 +165,7 @@ def action_execute_single():
         action = data.get('action', {})  # Single embedded action object
         host = data.get('host', {})
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         
         print(f"[@route:server_actions:action_execute_single] Executing action: {action.get('command', 'unknown_command')}")
         print(f"[@route:server_actions:action_execute_single] Host: {host.get('host_name')}, Device ID: {device_id}")
@@ -173,6 +177,9 @@ def action_execute_single():
         if not host:
             return jsonify({'success': False, 'error': 'host is required'}), 400
         
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
         # Convert single action to batch format
         actions = [action]
         
@@ -183,7 +190,8 @@ def action_execute_single():
         execution_payload = {
             'actions': actions,
             'device_id': device_id,
-            'retry_actions': []
+            'retry_actions': [],
+            'team_id': team_id
         }
         
         print(f"[@route:server_actions:action_execute_single] Proxying to host: {host_url}")

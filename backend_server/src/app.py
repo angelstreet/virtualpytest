@@ -44,7 +44,6 @@ try:
         kill_process_on_port,
         setup_flask_app,
         validate_core_environment,
-        DEFAULT_TEAM_ID,
         DEFAULT_USER_ID
     )
 except ImportError as e:
@@ -78,7 +77,6 @@ def setup_and_cleanup():
     
     # Initialize app context
     with app.app_context():
-        app.default_team_id = DEFAULT_TEAM_ID
         app.default_user_id = DEFAULT_USER_ID
         app.unique_server_id = str(uuid.uuid4())[:8]
     

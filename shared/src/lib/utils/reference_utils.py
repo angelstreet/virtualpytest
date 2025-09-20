@@ -7,26 +7,21 @@ Centralized logic to avoid duplication across frontend and backend.
 from typing import Dict, Optional, Any
 
 
-def resolve_reference_area_backend(reference_name: str, device_model: str, team_id: str = None) -> Optional[Dict[str, Any]]:
+def resolve_reference_area_backend(reference_name: str, device_model: str, team_id: str) -> Optional[Dict[str, Any]]:
     """
     Resolve reference area from database (backend version).
     
     Args:
         reference_name: Name of the reference
         device_model: Device model (e.g., 'android_tv')
-        team_id: Team ID (optional, will get from app_utils if not provided)
+        team_id: Team ID (required)
         
     Returns:
         Dict with area coordinates or None if not found
     """
     try:
-        # Get team_id if not provided - use DEFAULT_TEAM_ID directly for script context
         if not team_id:
-            from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
-            team_id = DEFAULT_TEAM_ID
-            print(f"[@reference_utils:resolve_reference_area_backend] Using DEFAULT_TEAM_ID: {team_id}")
-            
-        if not team_id:
+            print(f"[@reference_utils:resolve_reference_area_backend] ERROR: team_id is required")
             return None
             
         from shared.src.lib.supabase.verifications_references_db import get_references

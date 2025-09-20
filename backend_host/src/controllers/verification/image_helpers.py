@@ -44,7 +44,7 @@ class ImageHelpers:
             print(f"[@image_helpers] Error downloading image from URL: {e}")
             raise
     
-    def save_image_reference(self, image_path: str, reference_name: str, device_model: str, area: Dict[str, Any] = None) -> Dict[str, Any]:
+    def save_image_reference(self, image_path: str, reference_name: str, device_model: str, team_id: str, area: Dict[str, Any] = None) -> Dict[str, Any]:
         """Save image reference with R2 upload and database save."""
         try:
             print(f"[@image_helpers] Uploading reference to R2: {reference_name} for model: {device_model}")
@@ -85,13 +85,12 @@ class ImageHelpers:
             
             # Save reference to database
             from shared.src.lib.supabase.verifications_references_db import save_reference
-            from lib.utils.app_utils import DEFAULT_TEAM_ID
             
             db_result = save_reference(
                 name=reference_name,
                 device_model=device_model,
                 reference_type='reference_image',
-                team_id=DEFAULT_TEAM_ID,
+                team_id=team_id,
                 r2_path=r2_path,
                 r2_url=r2_url,
                 area=area

@@ -169,7 +169,7 @@ class VideoRestartHelpers:
             detected_language = 'unknown'
             
             # Process images in batches using global config
-            from lib.utils.ai_utils import AI_BATCH_CONFIG
+            from shared.src.lib.utils.ai_utils import AI_BATCH_CONFIG
             batch_size = AI_BATCH_CONFIG['batch_size']
             for batch_start in range(0, len(local_paths), batch_size):
                 batch_end = min(batch_start + batch_size, len(local_paths))

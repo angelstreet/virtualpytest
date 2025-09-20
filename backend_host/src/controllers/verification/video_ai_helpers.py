@@ -67,7 +67,7 @@ class VideoAIHelpers:
         """
         try:
             # Use centralized AI utilities
-            from lib.utils.ai_utils import call_vision_ai
+            from shared.src.lib.utils.ai_utils import call_vision_ai
             
             prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
             
@@ -489,7 +489,7 @@ Provide a clear, concise answer in maximum 3 lines.
 Be specific about what you see on the device interface."""
             
             # Use centralized AI service
-            from lib.utils.ai_utils import call_vision_ai
+            from shared.src.lib.utils.ai_utils import call_vision_ai
             
             result = call_vision_ai(prompt, image_path, max_tokens=200, temperature=0.0)
             
@@ -555,7 +555,7 @@ Be specific about what you see on the device interface."""
             print(f"VideoAI[{self.device_name}]: Combined single-call analysis for: {image_path}")
             
             # Use centralized AI utilities for single combined call
-            from lib.utils.ai_utils import call_vision_ai
+            from shared.src.lib.utils.ai_utils import call_vision_ai
             
             # Single combined prompt for both subtitles and description
             prompt = """Analyze this image and provide both subtitle detection and description. Respond with JSON:
@@ -693,7 +693,7 @@ Be specific about what you see on the device interface."""
             print(f"VideoAI[{self.device_name}]: Batch analysis for {len(image_paths)} images")
             
             # Use global batch config
-            from lib.utils.ai_utils import AI_BATCH_CONFIG
+            from shared.src.lib.utils.ai_utils import AI_BATCH_CONFIG
             max_batch_size = AI_BATCH_CONFIG['max_batch_size']
             
             if len(image_paths) > max_batch_size:
@@ -701,7 +701,7 @@ Be specific about what you see on the device interface."""
                 return {'success': False, 'error': f'Maximum {max_batch_size} images per batch'}
             
             # Use centralized batch AI utilities
-            from lib.utils.ai_utils import call_vision_ai_batch
+            from shared.src.lib.utils.ai_utils import call_vision_ai_batch
             
             # Batch prompt for multiple images
             prompt = f"""Analyze these {len(image_paths)} images and provide both subtitle detection and description for each. 
@@ -881,7 +881,7 @@ Respond with JSON array where each element corresponds to one image:
                 return {'success': False, 'error': 'Image file not found'}
             
             # Use centralized AI utilities
-            from lib.utils.ai_utils import analyze_language_menu_ai
+            from shared.src.lib.utils.ai_utils import analyze_language_menu_ai
             
             result = analyze_language_menu_ai(image_path, context_name=f"VideoAI[{self.device_name}]")
             
@@ -1069,7 +1069,7 @@ Respond with JSON array where each element corresponds to one image:
                 prompt = self._create_banner_analysis_prompt()
                 
                 # Use centralized AI service
-                from lib.utils.ai_utils import call_vision_ai
+                from shared.src.lib.utils.ai_utils import call_vision_ai
                 
                 result = call_vision_ai(prompt, temp_path, max_tokens=400, temperature=0.0)
                 

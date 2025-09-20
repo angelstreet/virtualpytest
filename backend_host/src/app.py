@@ -48,7 +48,6 @@ try:
         kill_process_on_port,
         setup_flask_app,
         validate_core_environment,
-        DEFAULT_TEAM_ID,
         DEFAULT_USER_ID
     )
     # Import backend_host controllers and services
@@ -74,33 +73,44 @@ except ImportError as e:
 
 def register_host_routes(app):
     """Register all host routes - Hardware interface endpoints"""
-    from routes import (
-        host_control_routes,
-        host_web_routes,
-        host_aiagent_routes,
-        host_ai_generation_routes,
-        host_aitestcase_routes,
-        host_verification_routes,
-        host_power_routes,
-        host_av_routes,
-        host_restart_routes,
-        host_translation_routes,
-        host_monitoring_routes,
-        host_remote_routes,
-        host_desktop_bash_routes,
-        host_desktop_pyautogui_routes,
-        host_script_routes,
-        host_heatmap_routes,
-        host_verification_appium_routes,
-        host_verification_text_routes,
-        host_verification_audio_routes,
-        host_verification_adb_routes,
-        host_verification_image_routes,
-        host_verification_video_routes,
-        host_actions_routes,
-        host_navigation_routes,
-        host_ai_routes
-    )
+    print("[@backend_host:routes] Loading host routes...")
+    
+    try:
+        from routes import (
+            host_control_routes,
+            host_web_routes,
+            host_aiagent_routes,
+            host_ai_generation_routes,
+            host_aitestcase_routes,
+            host_verification_routes,
+            host_power_routes,
+            host_av_routes,
+            host_restart_routes,
+            host_translation_routes,
+            host_monitoring_routes,
+            host_remote_routes,
+            host_desktop_bash_routes,
+            host_desktop_pyautogui_routes,
+            host_script_routes,
+            host_heatmap_routes,
+            host_verification_appium_routes,
+            host_verification_text_routes,
+            host_verification_audio_routes,
+            host_verification_adb_routes,
+            host_verification_image_routes,
+            host_verification_video_routes,
+            host_actions_routes,
+            host_navigation_routes,
+            host_ai_routes
+        )
+        print("[@backend_host:routes] ✅ All route imports completed successfully!")
+        
+    except ImportError as e:
+        print(f"[@backend_host:routes] ❌ CRITICAL: Cannot import host routes: {e}")
+        print("[@backend_host:routes] ❌ This indicates missing dependencies or import path issues")
+        import traceback
+        traceback.print_exc()
+        return False
     
     # Register all host blueprints
     blueprints = [
@@ -187,7 +197,6 @@ def main():
     
     # Initialize app context
     with app.app_context():
-        app.default_team_id = DEFAULT_TEAM_ID
         app.default_user_id = DEFAULT_USER_ID
         
         # STEP 2.5: Initialize host devices with executors
@@ -222,7 +231,8 @@ def main():
     # STEP 3: Register Routes
     print("[@backend_host:main] Step 3: Registering hardware interface routes...")
     if not register_host_routes(app):
-        print("[@backend_host:main] ❌ Failed to register routes")
+        print("[@backend_host:main] ❌ CRITICAL: Failed to register host routes")
+        print("[@backend_host:main] ❌ Cannot start host without all routes properly loaded")
         sys.exit(1)
     
     # STEP 4: Start Host Services

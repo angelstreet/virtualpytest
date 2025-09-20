@@ -8,7 +8,6 @@ Handles step-by-step exploration, image analysis, and node/edge generation.
 from flask import Blueprint, request, jsonify
 from src.lib.utils.route_utils import proxy_to_host
 from shared.src.lib.supabase.navigation_trees_db import save_node, save_edge
-from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
 import uuid
 import time
 
@@ -196,12 +195,20 @@ def approve_generation():
         nodes_created = 0
         edges_created = 0
         
+        # Get team_id from request
+        team_id = request_data.get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
         # Create approved nodes using existing save_node function
         for node_data in proposed_nodes:
             if node_data['id'] in approved_nodes:
                 try:
                     # Use existing save_node function from navigation_trees_db
-                    result = save_node(tree_id, node_data, DEFAULT_TEAM_ID)
+                    result = save_node(tree_id, node_data, team_id)
                     if result.get('success'):
                         nodes_created += 1
                         print(f"[@route:server_ai_generation:approve_generation] Created node: {node_data['id']}")
@@ -216,7 +223,7 @@ def approve_generation():
             if edge_data['id'] in approved_edges:
                 try:
                     # Use existing save_edge function from navigation_trees_db
-                    result = save_edge(tree_id, edge_data, DEFAULT_TEAM_ID)
+                    result = save_edge(tree_id, edge_data, team_id)
                     if result.get('success'):
                         edges_created += 1
                         print(f"[@route:server_ai_generation:approve_generation] Created edge: {edge_data['id']}")

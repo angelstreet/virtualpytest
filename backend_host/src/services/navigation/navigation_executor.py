@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
 from src.services.navigation.navigation_pathfinding import find_shortest_path
-from lib.utils.app_utils import get_team_id
 from lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from lib.utils.navigation_cache import populate_unified_cache
 
@@ -44,9 +43,9 @@ class NavigationExecutor:
         
         print(f"[@navigation_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
-    def get_available_context(self, userinterface_name: str) -> Dict[str, Any]:
+    def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """Get available navigation context with enhanced hierarchy support"""
-        tree_result = self.load_navigation_tree_with_hierarchy(userinterface_name, "navigation_executor")
+        tree_result = self.load_navigation_tree_with_hierarchy(userinterface_name, team_id, "navigation_executor")
         
         # Fail fast - no fallback
         if not tree_result['success']:
@@ -98,7 +97,7 @@ class NavigationExecutor:
                           target_node_id: str, 
                           current_node_id: Optional[str] = None,
                           image_source_url: Optional[str] = None,
-                          team_id: Optional[str] = None) -> Dict[str, Any]:
+                          team_id: str = None) -> Dict[str, Any]:
         """Execute navigation to target node"""
         start_time = time.time()
         
@@ -131,7 +130,8 @@ class NavigationExecutor:
                 
                 result = self.device.action_executor.execute_actions(
                     actions=actions,
-                    retry_actions=transition.get('retryActions', [])
+                    retry_actions=transition.get('retryActions', []),
+                    team_id=team_id
                 )
                 
                 if not result.get('success'):
@@ -153,7 +153,8 @@ class NavigationExecutor:
                     
                     result = self.device.verification_executor.execute_verifications(
                         verifications=target_verifications,
-                        image_source_url=image_source_url
+                        image_source_url=image_source_url,
+                        team_id=team_id
                     )
                     
                     if not result.get('success'):
@@ -185,12 +186,8 @@ class NavigationExecutor:
             )
     
     def get_navigation_preview(self, tree_id: str, target_node_id: str, 
-                             current_node_id: Optional[str] = None, team_id: Optional[str] = None) -> Dict[str, Any]:
+                             current_node_id: Optional[str] = None, team_id: str = None) -> Dict[str, Any]:
         """Get navigation preview without executing"""
-        # Use provided team_id or fallback to get_team_id() if not provided
-        if team_id is None:
-            from lib.utils.app_utils import get_team_id
-            team_id = get_team_id()
         
         transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
         
@@ -212,13 +209,14 @@ class NavigationExecutor:
     # NAVIGATION TREE MANAGEMENT METHODS
     # ========================================
     
-    def load_navigation_tree(self, userinterface_name: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
+    def load_navigation_tree(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
         """
         Load navigation tree using direct database access (no HTTP requests).
         This populates the cache and is required before calling pathfinding functions.
         
         Args:
             userinterface_name: Interface name (e.g., 'horizon_android_mobile')
+            team_id: Team ID (required)
             script_name: Name of the script for logging
             
         Returns:
@@ -226,9 +224,6 @@ class NavigationExecutor:
         """
         try:
             from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
-            from lib.utils.app_utils import get_team_id
-            
-            team_id = get_team_id()
             userinterfaces = get_all_userinterfaces(team_id)
             if not userinterfaces:
                 return {'success': False, 'error': "No userinterfaces found"}
@@ -277,13 +272,14 @@ class NavigationExecutor:
         except Exception as e:
             return {'success': False, 'error': f"Error loading navigation tree: {str(e)}"}
 
-    def load_navigation_tree_with_hierarchy(self, userinterface_name: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
+    def load_navigation_tree_with_hierarchy(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
         """
         Load complete navigation tree hierarchy and populate unified cache.
         FAIL EARLY: No fallback to single-tree loading.
         
         Args:
             userinterface_name: Interface name (e.g., 'horizon_android_mobile')
+            team_id: Team ID (required)
             script_name: Name of the script for logging
             
         Returns:
@@ -296,7 +292,7 @@ class NavigationExecutor:
             print(f"🗺️ [{script_name}] Loading complete navigation tree hierarchy for '{userinterface_name}'")
             
             # 1. Load root tree (using existing logic)
-            root_tree_result = self.load_navigation_tree(userinterface_name, script_name)
+            root_tree_result = self.load_navigation_tree(userinterface_name, team_id, script_name)
             if not root_tree_result['success']:
                 raise NavigationTreeError(f"Root tree loading failed: {root_tree_result['error']}")
             
@@ -305,8 +301,6 @@ class NavigationExecutor:
             print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
             
             # 2. Discover complete tree hierarchy
-            from lib.utils.app_utils import get_team_id
-            team_id = get_team_id()
             hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id, script_name)
             if not hierarchy_data:
                 # If no nested trees, create single-tree hierarchy

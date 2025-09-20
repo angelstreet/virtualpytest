@@ -61,7 +61,12 @@ def analyze_test_case():
     }
     """
     try:
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         request_data = request.get_json() or {}
         prompt = request_data.get('prompt')
         
@@ -275,7 +280,12 @@ def generate_test_cases():
     }
     """
     try:
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         request_data = request.get_json() or {}
         analysis_id = request_data.get('analysis_id')
         confirmed_interfaces = request_data.get('confirmed_userinterfaces', [])
@@ -401,7 +411,12 @@ def generate_test_case():
     try:
         print("[@route:server_aitestcase:generate_test_case] Starting unified AI test case generation")
         
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         request_data = request.get_json() or {}
         
         prompt = request_data.get('prompt')
@@ -514,8 +529,12 @@ def quick_feasibility_check():
         
         # Use AI Planner for feasibility check
         try:
-            from shared.src.lib.utils.app_utils import get_team_id
-            team_id = get_team_id()
+            team_id = request_data.get('team_id')
+            if not team_id:
+                return jsonify({
+                    'success': False,
+                    'message': 'team_id is required'
+                }), 400
             
             # Create minimal context for feasibility check
             context = {
@@ -562,7 +581,12 @@ def execute_test_case():
     try:
         print("[@route:server_aitestcase:execute_test_case] Proxying test case execution to host")
         
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         request_data = request.get_json() or {}
         
         test_case_id = request_data.get('test_case_id')
@@ -612,7 +636,12 @@ def execute_test_case():
 def validate_compatibility():
     """Validate test case compatibility with specific userinterface"""
     try:
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         request_data = request.get_json() or {}
         
         test_case_id = request_data.get('test_case_id')

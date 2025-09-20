@@ -10,9 +10,7 @@ The core logic is the same as /server/action/executeBatch but available as a reu
 """
 
 import time
-import requests
 from typing import Dict, List, Optional, Any
-from src.lib.utils.route_utils import proxy_to_host_direct
 from shared.src.lib.supabase.execution_results_db import record_edge_execution
 
 
@@ -148,7 +146,7 @@ class ActionExecutor:
                        actions: List[Dict[str, Any]], 
                        retry_actions: Optional[List[Dict[str, Any]]] = None,
                        failure_actions: Optional[List[Dict[str, Any]]] = None,
-                       team_id: Optional[str] = None) -> Dict[str, Any]:
+                       team_id: str = None) -> Dict[str, Any]:
         """
         Execute batch of actions with retry logic
         
@@ -310,7 +308,7 @@ class ActionExecutor:
         
         return valid_actions
     
-    def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str, team_id: Optional[str] = None) -> Dict[str, Any]:
+    def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str, team_id: str = None) -> Dict[str, Any]:
         """Execute a single action and return standardized result"""
         
         # Get iterator count (default to 1 if not specified)
@@ -426,8 +424,62 @@ class ActionExecutor:
                         'device_id': self.device_id
                     }
                 
-                # Proxy to appropriate host endpoint using direct host info (no Flask context needed)
-                response_data, status_code = proxy_to_host_direct(self.host, endpoint, 'POST', request_data)
+                # Execute action using direct controller access (we are the host)
+                if action_type == 'web':
+                    # Use web controller directly
+                    web_controller = self.device.get_controller('web')
+                    if web_controller:
+                        response_data = web_controller.execute_command(
+                            command=request_data['command'],
+                            params=request_data['params']
+                        )
+                        status_code = 200 if response_data.get('success', False) else 500
+                    else:
+                        response_data = {'success': False, 'error': 'Web controller not available'}
+                        status_code = 500
+                        
+                elif action_type == 'desktop':
+                    # Use appropriate desktop controller
+                    command = action.get('command', '')
+                    bash_commands = {'execute_bash_command'}
+                    
+                    if command in bash_commands:
+                        # Use bash desktop controller
+                        bash_controller = self.device.get_controller('desktop')  # Gets first desktop controller
+                        if bash_controller and hasattr(bash_controller, 'execute_bash_command'):
+                            response_data = bash_controller.execute_command(
+                                command=request_data['command'],
+                                params=request_data['params']
+                            )
+                            status_code = 200 if response_data.get('success', False) else 500
+                        else:
+                            response_data = {'success': False, 'error': 'Bash desktop controller not available'}
+                            status_code = 500
+                    else:
+                        # Use pyautogui desktop controller (default)
+                        desktop_controller = self.device.get_controller('desktop')
+                        if desktop_controller:
+                            response_data = desktop_controller.execute_command(
+                                command=request_data['command'],
+                                params=request_data['params']
+                            )
+                            status_code = 200 if response_data.get('success', False) else 500
+                        else:
+                            response_data = {'success': False, 'error': 'Desktop controller not available'}
+                            status_code = 500
+                            
+                else:
+                    # Use remote controller (default for remote actions)
+                    remote_controller = self.device.get_controller('remote')
+                    if remote_controller:
+                        response_data = remote_controller.execute_command(
+                            command=request_data['command'],
+                            params=request_data['params']
+                        )
+                        status_code = 200 if response_data.get('success', False) else 500
+                    else:
+                        response_data = {'success': False, 'error': 'Remote controller not available'}
+                        status_code = 500
                 
                 iteration_execution_time = int((time.time() - iteration_start_time) * 1000)
                 iteration_success = status_code == 200 and response_data.get('success', False)
@@ -582,13 +634,9 @@ class ActionExecutor:
         return False
 
 
-    def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: Optional[str] = None):
+    def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):
         """Record single execution directly to database"""
         try:
-            # Use provided team_id or fallback to get_team_id() if not provided
-            if team_id is None:
-                from lib.utils.app_utils import get_team_id
-                team_id = get_team_id()
             
             record_edge_execution(
                 team_id=team_id,
@@ -609,13 +657,9 @@ class ActionExecutor:
             print(f"[@lib:action_executor:_record_execution_to_database] Database recording error: {e}")
     
     
-    def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None, team_id: Optional[str] = None):
+    def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None, team_id: str = None):
         """Record edge execution to database (same as old system)"""
         try:
-            # Use provided team_id or fallback to get_team_id() if not provided
-            if team_id is None:
-                from lib.utils.app_utils import get_team_id
-                team_id = get_team_id()
             
             result = record_edge_execution(
                 team_id=team_id,

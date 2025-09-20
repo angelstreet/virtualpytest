@@ -44,12 +44,17 @@ class ScriptExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
+        self.current_team_id = None
         
         # Initialize integrated executors
         self.ai_executor = AIExecutor(device)
         self.action_executor = ActionExecutor(device)
         self.verification_executor = VerificationExecutor(device)
         self.navigation_executor = NavigationExecutor(device)
+    
+    def set_team_id(self, team_id: str):
+        """Set team_id for script execution"""
+        self.current_team_id = team_id
         
         print(f"[@script_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
@@ -70,6 +75,10 @@ class ScriptExecutor:
             # Pass the original AI script name via environment so executor can find the test case
             original_env = os.environ.copy()
             os.environ['AI_SCRIPT_NAME'] = script_name
+            
+            # Set team_id if available in parameters (passed from route)
+            if hasattr(self, 'current_team_id') and self.current_team_id:
+                os.environ['TEAM_ID'] = self.current_team_id
             
             try:
                 # DIRECT EXECUTION: Execute the actual script directly without recursive call

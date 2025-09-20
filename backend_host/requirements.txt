@@ -65,13 +65,12 @@ gTTS>=2.4.0          # Google Text-to-Speech (current baseline)
 edge-tts>=6.1.0      # Microsoft Edge TTS (upgrade test)
 
 # Translation engines - Speed optimization
-googletrans==3.1.0a0  # Google Translate API (compatible with newer httpx)
+googletrans  # Google Translate API (compatible with newer httpx)
 # Device communication
 paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices
 selenium>=4.15.0  # Web automation
 browser-use>=0.1.0  # Browser automation
-httpx>=0.24.0  # HTTP client for browser-use dependency (needs HTTPStatusError) 
 
 networkx
 tapo

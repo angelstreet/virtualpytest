@@ -210,10 +210,15 @@ def list_scripts():
         ai_test_cases_info = []
         
         try:
-            from shared.src.lib.utils.app_utils import get_team_id
             from shared.src.lib.utils.testcase_db import get_all_test_cases
             
-            team_id = get_team_id()
+            # Get team_id from request
+            team_id = request_data.get('team_id')
+            if not team_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'team_id is required'
+                }), 400
             all_test_cases = get_all_test_cases(team_id)
             
             # Filter for AI-created test cases and format as script names

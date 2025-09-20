@@ -16,7 +16,12 @@ def get_validation_preview(tree_id: str):
     Uses unified cache system - requires proper cache population
     """
     try:
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         
         # Check if unified cache is populated for this tree via host API
         from src.lib.utils.route_utils import proxy_to_host

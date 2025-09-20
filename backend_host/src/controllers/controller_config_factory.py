@@ -100,7 +100,7 @@ CONTROLLER_VERIFICATION_MAP = {
     'android_tv': [],
     'appium': ['appium'],
     'bash': [],
-    'ai_agent': ['task_execution']
+    'ai_agent': []
 }
 
 def create_controller_configs_from_device_info(device_config: dict) -> dict:
@@ -535,8 +535,5 @@ def _get_verification_params(implementation: str, device_config: dict) -> dict:
             'appium_device_id': device_config.get('appium_device_id'),
             'appium_server_url': device_config.get('appium_server_url', 'http://localhost:4723')
         }
-    elif implementation == 'task_execution':
-        # AI agent verification capabilities
-        return {}
     return {}
 

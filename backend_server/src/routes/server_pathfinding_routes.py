@@ -13,7 +13,7 @@ NOTE: Navigation execution routes are in server_navigation_routes.py
 import time
 from flask import Blueprint, request, jsonify
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_pathfinding_bp = Blueprint('server_pathfinding', __name__, url_prefix='/server/pathfinding')
@@ -67,7 +67,12 @@ def get_navigation_stats(tree_id):
         print(f"[@pathfinding:stats] Request for navigation stats for tree {tree_id}")
         
         # Get team_id from query params or use default
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         
         try:
             from backend_host.src.lib.utils.navigation_cache import get_cached_graph
@@ -139,7 +144,12 @@ def clear_navigation_cache():
         
         data = request.get_json() or {}
         tree_id = data.get('tree_id')
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         
         try:
             from backend_host.src.lib.utils.navigation_cache import invalidate_cache, clear_all_cache
@@ -180,7 +190,12 @@ def refresh_navigation_cache():
         
         data = request.get_json() or {}
         tree_id = data.get('tree_id')
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         
         print(f"[@pathfinding:refresh_cache] Parameters: tree_id={tree_id}, team_id={team_id}")
         
@@ -278,7 +293,12 @@ def toggle_take_control(tree_id):
         print(f"[@pathfinding:take_control] Request to toggle take control for tree {tree_id}")
         
         data = request.get_json() or {}
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         enable = data.get('enable', True)
         user_id = data.get('user_id')
         
@@ -310,7 +330,12 @@ def get_take_control_status(tree_id):
     try:
         print(f"[@pathfinding:take_control_status] Request for take control status for tree {tree_id}")
         
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         is_active = is_take_control_active(tree_id, team_id)
         
         session_key = f"{tree_id}_{team_id}"
@@ -341,7 +366,12 @@ def get_alternative_paths(tree_id, node_id):
     try:
         print(f"[@pathfinding:alternatives] Request for alternative paths to node {node_id} in tree {tree_id}")
         
-        team_id = get_team_id()
+        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
         current_node_id = request.args.get('current_node_id')
         
         # For now, return basic alternative paths

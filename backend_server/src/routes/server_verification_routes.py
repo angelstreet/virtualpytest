@@ -66,12 +66,20 @@ def get_all_references():
     """Get all reference images/data."""
     try:
         from shared.src.lib.supabase.verifications_references_db import get_references
-        from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
         
-        print(f'[@route:server_verification:get_all_references] Getting all references for team: {DEFAULT_TEAM_ID}')
+        # Get team_id from request
+        request_data = request.get_json() or {}
+        team_id = request_data.get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'message': 'team_id is required'
+            }), 400
+        
+        print(f'[@route:server_verification:get_all_references] Getting all references for team: {team_id}')
         
         # Get all references for the team
-        result = get_references(team_id=DEFAULT_TEAM_ID)
+        result = get_references(team_id=team_id)
         
         if result['success']:
             print(f'[@route:server_verification:get_all_references] Found {result["count"]} references')
