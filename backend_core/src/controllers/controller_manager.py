@@ -283,7 +283,7 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     return None
 
 
-def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host' = None) -> Device:
+def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host') -> Device:
     """
     Create a device with all its controllers from configuration.
     Handles controller dependencies by creating them in the right order.
@@ -295,6 +295,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host' 
     Returns:
         Device instance with controllers
     """
+    host_name = host.host_name
     device_id = device_config['device_id']
     device_name = device_config['device_name']
     device_model = device_config['device_model']
@@ -306,7 +307,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host' 
         device_id, 
         device_name, 
         device_model,
-        host.host_name if host else 'unknown-host',
+        host_name,
         device_config.get('device_ip'),
         device_config.get('device_port'),
         device_config.get('video_stream_path'),
@@ -473,7 +474,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host' 
         
     except Exception as e:
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")
-        print(f"[@controller_manager:_create_device_with_controllers] ❌ Host dict: {host_dict}")
+        print(f"[@controller_manager:_create_device_with_controllers] ❌ Host name: {host_name}")
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Device: {device}")
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Team ID: {team_id}")
         import traceback

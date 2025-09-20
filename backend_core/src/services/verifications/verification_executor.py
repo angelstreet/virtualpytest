@@ -76,9 +76,9 @@ class VerificationExecutor:
                                     'params': verification.get('params', {}),
                                     'description': verification.get('description', '')
                                 })
-                    except Exception as e:
-                        print(f"[@verification_executor] Could not load verification_{v_type} verifications: {e}")
-                        continue
+                except Exception as e:
+                    print(f"[@verification_executor] Could not load verification_{v_type} verifications: {e}")
+                    continue
             
             print(f"[@verification_executor] Loaded {len(device_verifications)} verifications from controllers")
             
