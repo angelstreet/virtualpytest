@@ -217,17 +217,21 @@ def getAllHosts():
         
         # Get all hosts from manager
         all_hosts = host_manager.get_all_hosts()
+        print(f"🔍 [HOSTS] Raw hosts from manager: {len(all_hosts)} hosts")
+        for host_name, host_data in all_hosts.items():
+            print(f"   Host key: {host_name}, has host_name: {'host_name' in host_data}, has host_url: {'host_url' in host_data}")
         
         # Verify required fields are present
         valid_hosts = []
         required_fields = ['host_name', 'host_url']
         
-        for host_info in all_hosts:
+        # all_hosts is a dict {host_name: host_data}, so iterate over values
+        for host_info in all_hosts.values():
             # Check required fields
             is_valid = True
             for field in required_fields:
                 if field not in host_info or not host_info[field]:
-                    print(f"⚠️ [HOSTS] Host {host_info.get('host_name', 'unknown')} missing required field: {field}")
+                    print(f"⚠️ [HOSTS] Host {host_info.get('host_name')} missing required field: {field}")
                     is_valid = False
                     break
             
