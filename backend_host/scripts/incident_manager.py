@@ -56,7 +56,7 @@ def _lazy_import_db():
     global create_alert_safe, resolve_alert
     if create_alert_safe is None:
         try:
-            from shared.lib.supabase.alerts_db import create_alert_safe as _create_alert_safe, resolve_alert as _resolve_alert
+            from shared.src.lib.supabase.alerts_db import create_alert_safe as _create_alert_safe, resolve_alert as _resolve_alert
             create_alert_safe = _create_alert_safe
             resolve_alert = _resolve_alert
             logger.info("Database functions imported successfully")
@@ -262,7 +262,7 @@ class IncidentManager:
         """Upload freeze incident frames to R2 storage - EXACT COPY FROM ORIGINAL"""
         try:
             # Import R2 utilities (from shared library) - EXACT COPY
-            from shared.lib.utils.cloudflare_utils import get_cloudflare_utils
+            from src.lib.utils.cloudflare_utils import get_cloudflare_utils
             
             uploader = get_cloudflare_utils()
             if not uploader:

@@ -15,12 +15,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/s
 
 from backend_host.src.services.ai.ai_executor import AIExecutor
 from controllers.controller_config_factory import get_device_capabilities
-from shared.lib.supabase.testcase_db import save_test_case, get_test_case
-from shared.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
-from shared.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
-from shared.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
-from shared.lib.utils.app_utils import get_team_id
-from shared.lib.utils.route_utils import proxy_to_host
+from src.lib.supabase.testcase_db import save_test_case, get_test_case
+from src.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
+from src.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
+from src.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
+from src.lib.utils.app_utils import get_team_id
+from src.lib.utils.route_utils import proxy_to_host
 
 server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
 
@@ -155,7 +155,7 @@ def analyze_test_case():
         print(f"[@route:server_aitestcase:analyze] Using AI Planner for compatibility analysis")
         
         # Analyze compatibility using AI Planner
-        from shared.lib.supabase.userinterface_db import get_all_userinterfaces
+        from src.lib.supabase.userinterface_db import get_all_userinterfaces
         
         interfaces = get_all_userinterfaces(team_id)
         compatible = []
@@ -492,7 +492,7 @@ def quick_feasibility_check():
         
         # Use AI Planner for feasibility check
         try:
-            from shared.lib.utils.app_utils import get_team_id
+            from src.lib.utils.app_utils import get_team_id
             team_id = get_team_id()
             
             # Create minimal context for feasibility check

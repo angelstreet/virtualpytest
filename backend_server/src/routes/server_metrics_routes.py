@@ -15,13 +15,13 @@ No legacy code or backward compatibility - follows the clean embedded architectu
 """
 
 from flask import Blueprint, jsonify, request
-from shared.lib.supabase.navigation_metrics_db import (
+from src.lib.supabase.navigation_metrics_db import (
     get_tree_metrics,
     get_action_execution_history,
     get_verification_execution_history
 )
-from shared.lib.supabase.navigation_trees_db import get_tree_nodes, get_tree_edges
-from shared.lib.utils.app_utils import check_supabase, get_team_id
+from src.lib.supabase.navigation_trees_db import get_tree_nodes, get_tree_edges
+from src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_metrics_bp = Blueprint('server_metrics', __name__, url_prefix='/server/metrics')
@@ -52,7 +52,7 @@ def get_tree_metrics_api(tree_id):
         print(f"[@route:metrics:get_tree_metrics] Fetching metrics for tree: {tree_id}, team: {team_id}")
         
         # Get complete tree hierarchy (root + all nested subtrees)
-        from shared.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
+        from src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
         
         hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
         if not hierarchy_result.get('success', False):
@@ -254,7 +254,7 @@ def get_edge_direction_metrics_api(edge_id, action_set_id, tree_id):
     team_id = get_team_id()
     
     try:
-        from shared.lib.supabase.navigation_metrics_db import get_edge_direction_metrics
+        from src.lib.supabase.navigation_metrics_db import get_edge_direction_metrics
         
         print(f"[@route:metrics:get_edge_direction_metrics] Fetching metrics for edge: {edge_id}, action_set: {action_set_id}, tree: {tree_id}")
         

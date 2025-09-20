@@ -1,0 +1,320 @@
+"""
+Script Results Database Operations
+
+This module provides functions for managing script execution results in the database.
+Script results track validation and test script executions with reports and metrics.
+"""
+
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
+from uuid import uuid4
+
+from src.lib.utils.supabase_utils import get_supabase_client
+
+def get_supabase():
+    """Get the Supabase client instance."""
+    return get_supabase_client()
+
+def record_script_execution_start(
+    team_id: str,
+    script_name: str,
+    script_type: str,
+    host_name: str,
+    device_name: str,
+    userinterface_name: Optional[str] = None,
+    metadata: Optional[Dict] = None
+) -> Optional[str]:
+    """Record script execution start in database."""
+    try:
+        script_result_id = str(uuid4())
+        
+        script_data = {
+            'id': script_result_id,
+            'team_id': team_id,
+            'script_name': script_name,
+            'script_type': script_type,
+            'userinterface_name': userinterface_name,
+            'host_name': host_name,
+            'device_name': device_name,
+            'success': False,  # Will be updated on completion
+            'started_at': datetime.now(timezone.utc).isoformat(),
+            'completed_at': datetime.now(timezone.utc).isoformat(),  # Temporary, will be updated
+            'metadata': metadata
+        }
+        
+        print(f"[@db:script_results:record_script_execution_start] Starting script execution:")
+        print(f"  - script_result_id: {script_result_id}")
+        print(f"  - team_id: {team_id}")
+        print(f"  - script_name: {script_name}")
+        print(f"  - script_type: {script_type}")
+        print(f"  - host_name: {host_name}")
+        print(f"  - device_name: {device_name}")
+        print(f"  - userinterface_name: {userinterface_name}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').insert(script_data).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:record_script_execution_start] Success: {script_result_id}")
+            return script_result_id
+        else:
+            print(f"[@db:script_results:record_script_execution_start] Failed")
+            return None
+            
+    except Exception as e:
+        print(f"[@db:script_results:record_script_execution_start] Error: {str(e)}")
+        return None
+
+def update_script_execution_result(
+    script_result_id: str,
+    success: bool,
+    execution_time_ms: Optional[int] = None,
+    html_report_r2_path: Optional[str] = None,
+    html_report_r2_url: Optional[str] = None,
+    logs_r2_path: Optional[str] = None,
+    logs_r2_url: Optional[str] = None,
+    error_msg: Optional[str] = None,
+    metadata: Optional[Dict] = None
+) -> bool:
+    """Update script execution with final results."""
+    try:
+        update_data = {
+            'success': success,
+            'completed_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        if execution_time_ms is not None:
+            update_data['execution_time_ms'] = execution_time_ms
+        if html_report_r2_path:
+            update_data['html_report_r2_path'] = html_report_r2_path
+        if html_report_r2_url:
+            update_data['html_report_r2_url'] = html_report_r2_url
+        if logs_r2_path:
+            update_data['logs_r2_path'] = logs_r2_path
+        if logs_r2_url:
+            update_data['logs_r2_url'] = logs_r2_url
+        if error_msg:
+            update_data['error_msg'] = error_msg
+        if metadata:
+            update_data['metadata'] = metadata
+        
+        print(f"[@db:script_results:update_script_execution_result] Updating script execution:")
+        print(f"  - script_result_id: {script_result_id}")
+        print(f"  - success: {success}")
+        print(f"  - execution_time_ms: {execution_time_ms}")
+        print(f"  - html_report_r2_url: {html_report_r2_url}")
+        print(f"  - logs_r2_url: {logs_r2_url}")
+        print(f"  - error_msg: {error_msg}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').update(update_data).eq('id', script_result_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:update_script_execution_result] Success")
+            
+            # Add to discard processing queue
+            try:
+                from backend_discard.src.queue_processor import get_queue_processor
+                queue_processor = get_queue_processor()
+                
+                # Simply pass the script_result_id with type - AI service will get data from database directly
+                queue_processor.add_script_to_queue(script_result_id, {
+                    'id': script_result_id,
+                    'type': 'script_result'  # Specify this is from script_results table
+                })
+                print(f"[@db:script_results:update_script_execution_result] Added to discard queue: {script_result_id}")
+            except Exception as e:
+                print(f"[@db:script_results:update_script_execution_result] Warning: Failed to add to discard queue: {e}")
+            
+            return True
+        else:
+            print(f"[@db:script_results:update_script_execution_result] Failed")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:update_script_execution_result] Error: {str(e)}")
+        return False
+
+def get_script_results(
+    team_id: str,
+    script_name: Optional[str] = None,
+    script_type: Optional[str] = None,
+    userinterface_name: Optional[str] = None,
+    include_discarded: bool = False,
+    limit: int = 50
+) -> Dict:
+    """Get script results with filtering."""
+    try:
+        print(f"[@db:script_results:get_script_results] Getting script results:")
+        print(f"  - team_id: {team_id}")
+        print(f"  - script_name: {script_name}")
+        print(f"  - script_type: {script_type}")
+        print(f"  - userinterface_name: {userinterface_name}")
+        print(f"  - include_discarded: {include_discarded}")
+        print(f"  - limit: {limit}")
+        
+        supabase = get_supabase()
+        query = supabase.table('script_results').select('*').eq('team_id', team_id)
+        
+        # Add filters
+        if script_name:
+            query = query.eq('script_name', script_name)
+        if script_type:
+            query = query.eq('script_type', script_type)
+        if userinterface_name:
+            query = query.eq('userinterface_name', userinterface_name)
+        if not include_discarded:
+            query = query.eq('discard', False)
+        
+        # Execute query with ordering and limit
+        result = query.order('created_at', desc=True).limit(limit).execute()
+        
+        print(f"[@db:script_results:get_script_results] Found {len(result.data)} script results")
+        return {
+            'success': True,
+            'script_results': result.data,
+            'count': len(result.data)
+        }
+        
+    except Exception as e:
+        print(f"[@db:script_results:get_script_results] Error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'script_results': [],
+            'count': 0
+        }
+
+def get_script_history(team_id: str, script_name: str, script_type: str, limit: int = 20) -> Dict:
+    """Get execution history for a specific script."""
+    try:
+        print(f"[@db:script_results:get_script_history] Getting history for {script_name} ({script_type})")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').select('*').eq('team_id', team_id).eq('script_name', script_name).eq('script_type', script_type).eq('discard', False).order('created_at', desc=True).limit(limit).execute()
+        
+        print(f"[@db:script_results:get_script_history] Found {len(result.data)} history entries")
+        return {
+            'success': True,
+            'history': result.data,
+            'count': len(result.data)
+        }
+        
+    except Exception as e:
+        print(f"[@db:script_results:get_script_history] Error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'history': [],
+            'count': 0
+        }
+
+def mark_script_discarded(team_id: str, script_result_id: str, discard: bool = True) -> bool:
+    """Mark script result as discarded (false positive)."""
+    try:
+        print(f"[@db:script_results:mark_script_discarded] Marking script {script_result_id} as discarded: {discard}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').update({
+            'discard': discard,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:mark_script_discarded] Success")
+            return True
+        else:
+            print(f"[@db:script_results:mark_script_discarded] Failed - script not found")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:mark_script_discarded] Error: {str(e)}")
+        return False
+
+def update_script_checked_status(team_id: str, script_result_id: str, checked: bool, check_type: str = 'manual') -> bool:
+    """Update script result checked status."""
+    try:
+        print(f"[@db:script_results:update_script_checked_status] Updating script {script_result_id}: checked={checked}, check_type={check_type}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').update({
+            'checked': checked,
+            'check_type': check_type,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }).eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:update_script_checked_status] Success")
+            return True
+        else:
+            print(f"[@db:script_results:update_script_checked_status] Failed - script not found")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:update_script_checked_status] Error: {str(e)}")
+        return False
+
+def update_script_discard_status(team_id: str, script_result_id: str, discard: bool, discard_comment: Optional[str] = None, check_type: str = 'manual') -> bool:
+    """Update script result discard status with optional comment append."""
+    try:
+        print(f"[@db:script_results:update_script_discard_status] Updating script {script_result_id}: discard={discard}")
+        
+        supabase = get_supabase()
+        
+        # Get current record to append to existing comment if needed
+        current_result = supabase.table('script_results').select('discard_comment, check_type').eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        update_data = {
+            'discard': discard,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Handle comment appending
+        if discard_comment:
+            existing_comment = current_result.data[0].get('discard_comment', '') if current_result.data else ''
+            existing_check_type = current_result.data[0].get('check_type', '') if current_result.data else ''
+            
+            if existing_comment and existing_check_type == 'ai':
+                # Append human comment to AI comment
+                update_data['discard_comment'] = f"{existing_comment}\n\nHuman: {discard_comment}"
+                update_data['check_type'] = 'ai_and_human'
+            else:
+                # Replace or set new comment
+                update_data['discard_comment'] = discard_comment
+                update_data['check_type'] = check_type
+        else:
+            # Just update check_type if no comment provided
+            update_data['check_type'] = check_type
+        
+        result = supabase.table('script_results').update(update_data).eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:update_script_discard_status] Success")
+            return True
+        else:
+            print(f"[@db:script_results:update_script_discard_status] Failed - script not found")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:update_script_discard_status] Error: {str(e)}")
+        return False
+
+def delete_script_result(team_id: str, script_result_id: str) -> bool:
+    """Delete script result from src.lib.supabase."""
+    try:
+        print(f"[@db:script_results:delete_script_result] Deleting script result: {script_result_id}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').delete().eq('id', script_result_id).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:script_results:delete_script_result] Success")
+            return True
+        else:
+            print(f"[@db:script_results:delete_script_result] Failed - script not found")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:script_results:delete_script_result] Error: {str(e)}")
+        return False 

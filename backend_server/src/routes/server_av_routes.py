@@ -9,7 +9,7 @@ These endpoints run on the server and forward requests to the appropriate host.
 
 from flask import Blueprint, request, jsonify, Response
 import requests
-from shared.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params, get_host_from_request
 
 # Create blueprint
 server_av_bp = Blueprint('server_av', __name__, url_prefix='/server/av')

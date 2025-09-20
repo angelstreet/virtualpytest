@@ -5,8 +5,8 @@ import os
 import re
 from flask import Blueprint, request, jsonify
 import requests
-from shared.lib.utils.host_utils import get_host_manager
-from shared.lib.utils.build_url_utils import buildHostUrl
+from src.lib.utils.host_utils import get_host_manager
+from src.lib.utils.build_url_utils import buildHostUrl
 
 server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
 
@@ -165,7 +165,7 @@ def analyze_script():
             }), 400
         
         # Use centralized script path logic
-        from shared.lib.utils.script_execution_utils import get_script_path
+        from src.lib.utils.script_execution_utils import get_script_path
         
         try:
             script_path = get_script_path(script_name)
@@ -200,7 +200,7 @@ def list_scripts():
     """List all available Python scripts AND AI test cases"""
     try:
         # Get regular Python scripts
-        from shared.lib.utils.script_execution_utils import list_available_scripts, get_scripts_directory
+        from src.lib.utils.script_execution_utils import list_available_scripts, get_scripts_directory
         
         regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
@@ -210,8 +210,8 @@ def list_scripts():
         ai_test_cases_info = []
         
         try:
-            from shared.lib.utils.app_utils import get_team_id
-            from shared.lib.supabase.testcase_db import get_all_test_cases
+            from src.lib.utils.app_utils import get_team_id
+            from src.lib.supabase.testcase_db import get_all_test_cases
             
             team_id = get_team_id()
             all_test_cases = get_all_test_cases(team_id)
@@ -291,7 +291,7 @@ def execute_script():
             }), 404
         
         # Create task for async execution
-        from shared.lib.utils.task_manager import task_manager
+        from src.lib.utils.task_manager import task_manager
         task_id = task_manager.create_task('script_execute', {
             'script_name': script_name,
             'host_name': host_name,
@@ -381,7 +381,7 @@ def task_complete():
             }), 400
         
         # Update task in manager
-        from shared.lib.utils.task_manager import task_manager
+        from src.lib.utils.task_manager import task_manager
         task_manager.complete_task(task_id, result, error)
         
         print(f"[@route:server_script:task_complete] Task {task_id} marked as {'failed' if error else 'completed'}")
@@ -402,7 +402,7 @@ def task_complete():
 def get_task_status(task_id):
     """Get status of an async script execution task"""
     try:
-        from shared.lib.utils.task_manager import task_manager
+        from src.lib.utils.task_manager import task_manager
         task = task_manager.get_task(task_id)
         
         if not task:

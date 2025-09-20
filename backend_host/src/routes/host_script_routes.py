@@ -3,7 +3,7 @@ Host Script Routes - Execute scripts on host device
 """
 import json
 from flask import Blueprint, request, jsonify
-from shared.lib.utils.script_execution_utils import execute_script
+from src.lib.utils.script_execution_utils import execute_script
 
 host_script_bp = Blueprint('host_script', __name__, url_prefix='/host')
 
@@ -17,7 +17,7 @@ def _execute_script():
         device_id = data.get('device_id')
         parameters = data.get('parameters', '')
         # Build callback URL directly (always points to server)
-        from shared.lib.utils.build_url_utils import buildServerUrl
+        from src.lib.utils.build_url_utils import buildServerUrl
         callback_url = buildServerUrl('server/script/taskComplete')
         task_id = data.get('task_id')
         

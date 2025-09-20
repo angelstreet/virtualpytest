@@ -11,7 +11,7 @@ The core logic is the same as /server/verification/executeBatch but available as
 
 import time
 from typing import Dict, List, Optional, Any
-from shared.lib.supabase.execution_results_db import record_node_execution
+from shared.src.lib.supabase.execution_results_db import record_node_execution
 
 
 class VerificationExecutor:
@@ -312,7 +312,7 @@ class VerificationExecutor:
         try:
             # Use provided team_id or fallback to get_team_id() if not provided
             if team_id is None:
-                from shared.lib.utils.app_utils import get_team_id
+                from src.lib.utils.app_utils import get_team_id
                 team_id = get_team_id()
             
             record_node_execution(

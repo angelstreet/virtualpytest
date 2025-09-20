@@ -27,8 +27,8 @@ if project_root not in sys.path:
 
 # Import shared utilities
 try:
-    from shared.lib.utils.app_utils import load_environment_variables
-    from shared.lib.utils.supabase_utils import get_supabase_client
+    from shared.src.lib.utils.app_utils import load_environment_variables
+    from shared.src.lib.utils.supabase_utils import get_supabase_client
 except ImportError as e:
     print(f"❌ CRITICAL: Cannot import shared utilities: {e}")
     print("   Make sure project structure is correct")

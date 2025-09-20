@@ -16,9 +16,9 @@ from typing import TypedDict, Optional, List, Any
 # Import using consistent src. prefix (project root is already in sys.path from app startup)
 from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
-from shared.lib.utils.host_utils import get_host_manager
-from shared.lib.supabase.system_metrics_db import store_system_metrics
-from shared.lib.utils.system_info_utils import get_host_system_stats
+from src.lib.utils.host_utils import get_host_manager
+from src.lib.supabase.system_metrics_db import store_system_metrics
+from src.lib.utils.system_info_utils import get_host_system_stats
 
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 

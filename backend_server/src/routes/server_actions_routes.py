@@ -16,8 +16,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 # Actions are now embedded in navigation edges - no separate database operations needed
 
 # Import default team ID from app utils
-from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
-from shared.lib.utils.route_utils import proxy_to_host
+from src.lib.utils.app_utils import DEFAULT_TEAM_ID
+from src.lib.utils.route_utils import proxy_to_host
 import requests
 
 # Create blueprint
@@ -116,7 +116,7 @@ def action_execute_batch():
         
         # Proxy to host action execution endpoint
         try:
-            from shared.lib.utils.route_utils import proxy_to_host
+            from src.lib.utils.route_utils import proxy_to_host
             
             # Prepare execution payload
             execution_payload = {

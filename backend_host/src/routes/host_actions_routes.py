@@ -6,7 +6,7 @@ to the appropriate device's ActionExecutor.
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from shared.lib.utils.app_utils import get_team_id
+from src.lib.utils.app_utils import get_team_id
 
 # Create blueprint
 host_actions_bp = Blueprint('host_actions', __name__, url_prefix='/host/action')
@@ -53,7 +53,7 @@ def action_execute_batch():
             }), 500
         
         # Execute actions using device's ActionExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         result = device.action_executor.execute_actions(
             actions=actions,
             retry_actions=retry_actions,

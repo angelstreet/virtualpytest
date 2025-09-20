@@ -232,7 +232,7 @@ def _execute_navigation_to_node(params):
     """Execute execute_navigation_to_node MCP tool"""
     try:
         from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         
         tree_id = params.get("tree_id", "default_tree")
         target_node_id = params.get("target_node_id", "home")
@@ -249,7 +249,7 @@ def _execute_navigation_to_node(params):
         if not device:
             return {'success': False, 'error': f'Device {device_id} not found'}
         
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         result = device.navigation_executor.execute_navigation(tree_id, target_node_id, current_node_id, team_id=get_team_id())
         
         return {

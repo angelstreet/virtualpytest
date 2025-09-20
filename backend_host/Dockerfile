@@ -31,7 +31,7 @@ COPY shared/ shared/
 COPY backend_host/ backend_host/
 
 # Add shared and backend_host to PYTHONPATH instead of installing as packages
-ENV PYTHONPATH="/app/shared:/app/shared/lib:/app/backend_host/src"
+ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_host/src"
 
 # Copy backend_host requirements and install
 COPY backend_host/requirements.txt backend_host/

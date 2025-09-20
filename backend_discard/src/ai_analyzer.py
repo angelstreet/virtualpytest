@@ -47,7 +47,7 @@ class SimpleAIAnalyzer:
     def __init__(self):
         # Check if AI utilities are available
         try:
-            from shared.lib.utils.ai_utils import call_text_ai, call_vision_ai
+            from shared.src.lib.utils.ai_utils import call_text_ai, call_vision_ai
             self.call_text_ai = call_text_ai
             self.call_vision_ai = call_vision_ai
             print(f"[@ai_analyzer] Initialized with centralized AI utilities")
@@ -56,7 +56,7 @@ class SimpleAIAnalyzer:
         
         # Initialize Supabase client for database access
         try:
-            from shared.lib.utils.supabase_utils import get_supabase_client
+            from shared.src.lib.utils.supabase_utils import get_supabase_client
             self.supabase = get_supabase_client()
         except Exception as e:
             print(f"[@ai_analyzer] Warning: Could not initialize Supabase client: {e}")

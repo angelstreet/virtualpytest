@@ -49,8 +49,8 @@ class TextHelpers:
             print(f"[@text_helpers] Saving text reference to database: {reference_name} for model: {device_model}")
             
             # Save reference to database
-            from shared.lib.supabase.verifications_references_db import save_reference
-            from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
+            from shared.src.lib.supabase.verifications_references_db import save_reference
+            from src.lib.utils.app_utils import DEFAULT_TEAM_ID
             
             # Create text data structure and merge with area
             text_data = {

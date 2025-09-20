@@ -19,7 +19,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.lib.utils.script_framework import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
+from shared.src.lib.utils.script_framework import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
 
 def capture_ai_execution_summary(context, userinterface_name: str, test_case: dict, ai_steps: list) -> str:
     """Capture AI execution summary as text for report"""
@@ -53,8 +53,8 @@ def main():
     
     # Load test case from database early to get display name
     try:
-        from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
-        from shared.lib.supabase.testcase_db import get_test_case
+        from shared.src.lib.utils.app_utils import DEFAULT_TEAM_ID
+        from shared.src.lib.supabase.testcase_db import get_test_case
         
         test_case = get_test_case(test_case_id, DEFAULT_TEAM_ID)
         if not test_case:

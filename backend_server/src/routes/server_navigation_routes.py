@@ -16,7 +16,7 @@ import requests
 import time
 
 # Import from specific database modules (direct imports)
-from shared.lib.supabase.navigation_trees_db import (
+from src.lib.supabase.navigation_trees_db import (
     get_all_trees as get_all_navigation_trees_util,
     delete_tree as delete_navigation_tree,
     get_tree_metadata,
@@ -24,12 +24,12 @@ from shared.lib.supabase.navigation_trees_db import (
     save_node,
     save_edge
 )
-from shared.lib.supabase.userinterface_db import (
+from src.lib.supabase.userinterface_db import (
     get_all_userinterfaces, 
     get_userinterface,
     get_userinterface_by_name
 )
-from shared.lib.utils.app_utils import check_supabase, get_team_id
+from src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint with abstract server navigation prefix
 server_navigation_bp = Blueprint('server_navigation', __name__, url_prefix='/server/navigation')
@@ -280,7 +280,7 @@ def refresh_navigation_cache():
             }), 400
         
         try:
-            from shared.lib.utils.navigation_cache import force_refresh_cache
+            from src.lib.utils.navigation_cache import force_refresh_cache
             
             refresh_success = force_refresh_cache(tree_id, team_id)
             

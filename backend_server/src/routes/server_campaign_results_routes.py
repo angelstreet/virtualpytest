@@ -9,11 +9,11 @@ This module contains the campaign results management API endpoints for:
 from flask import Blueprint, jsonify
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from shared.lib.supabase.campaign_executions_db import (
+from src.lib.supabase.campaign_executions_db import (
     get_campaign_results
 )
 
-from shared.lib.utils.app_utils import check_supabase, get_team_id
+from src.lib.utils.app_utils import check_supabase, get_team_id
 
 # Create blueprint
 server_campaign_results_bp = Blueprint('server_campaign_results', __name__, url_prefix='/server/campaign-results')

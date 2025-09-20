@@ -10,9 +10,9 @@ from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
 from src.services.navigation.navigation_pathfinding import find_shortest_path
-from shared.lib.utils.app_utils import get_team_id
-from shared.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
-from shared.lib.utils.navigation_cache import populate_unified_cache
+from src.lib.utils.app_utils import get_team_id
+from src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
+from src.lib.utils.navigation_cache import populate_unified_cache
 
 
 class NavigationExecutor:
@@ -189,7 +189,7 @@ class NavigationExecutor:
         """Get navigation preview without executing"""
         # Use provided team_id or fallback to get_team_id() if not provided
         if team_id is None:
-            from shared.lib.utils.app_utils import get_team_id
+            from src.lib.utils.app_utils import get_team_id
             team_id = get_team_id()
         
         transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
@@ -225,8 +225,8 @@ class NavigationExecutor:
             Dictionary with success status and tree data or error
         """
         try:
-            from shared.lib.supabase.userinterface_db import get_all_userinterfaces
-            from shared.lib.utils.app_utils import get_team_id
+            from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
+            from src.lib.utils.app_utils import get_team_id
             
             team_id = get_team_id()
             userinterfaces = get_all_userinterfaces(team_id)
@@ -240,7 +240,7 @@ class NavigationExecutor:
             userinterface_id = userinterface['id']
             
             # Use the same approach as NavigationEditor - call the working API endpoint
-            from shared.lib.supabase.navigation_trees_db import get_root_tree_for_interface, get_full_tree
+            from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface, get_full_tree
             
             # Get the root tree for this user interface (same as navigation page)
             tree = get_root_tree_for_interface(userinterface_id, team_id)
@@ -305,7 +305,7 @@ class NavigationExecutor:
             print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
             
             # 2. Discover complete tree hierarchy
-            from shared.lib.utils.app_utils import get_team_id
+            from src.lib.utils.app_utils import get_team_id
             team_id = get_team_id()
             hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id, script_name)
             if not hierarchy_data:
@@ -360,7 +360,7 @@ class NavigationExecutor:
             List of tree data dictionaries for the complete hierarchy
         """
         try:
-            from shared.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
+            from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
             
             print(f"🔍 [{script_name}] Discovering complete tree hierarchy using enhanced database function...")
             
@@ -555,7 +555,7 @@ class NavigationExecutor:
 
     def get_node_sub_trees_with_actions(self, node_id: str, tree_id: str, team_id: str) -> Dict:
         """Get all sub-trees for a node and return their nodes and edges for action checking."""
-        from shared.lib.supabase.navigation_trees_db import get_node_sub_trees, get_full_tree
+        from shared.src.lib.supabase.navigation_trees_db import get_node_sub_trees, get_full_tree
         
         # Get sub-trees for this node
         sub_trees_result = get_node_sub_trees(tree_id, node_id, team_id)

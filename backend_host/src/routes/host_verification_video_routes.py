@@ -8,7 +8,7 @@ This module contains host-side video verification endpoints that:
 """
 
 from flask import Blueprint, request, jsonify
-from shared.lib.utils.host_utils import get_controller, get_device_by_id, get_host
+from src.lib.utils.host_utils import get_controller, get_device_by_id, get_host
 import time
 import traceback
 
@@ -117,7 +117,7 @@ def detect_blackscreen():
         
         # Convert URLs to local paths if needed
         if final_image_paths and any(path.startswith(('http://', 'https://')) for path in final_image_paths):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_paths = [convertHostUrlToLocalPath(path) if path.startswith(('http://', 'https://')) else path for path in final_image_paths]
         
         # Get video verification controller
@@ -176,7 +176,7 @@ def detect_freeze():
         
         # Convert URLs to local paths if needed
         if final_image_paths and any(path.startswith(('http://', 'https://')) for path in final_image_paths):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_paths = [convertHostUrlToLocalPath(path) if path.startswith(('http://', 'https://')) else path for path in final_image_paths]
         
         # Get video verification controller
@@ -235,7 +235,7 @@ def detect_subtitles():
         
         # Convert URLs to local paths if needed
         if final_image_paths and any(path.startswith(('http://', 'https://')) for path in final_image_paths):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_paths = [convertHostUrlToLocalPath(path) if path.startswith(('http://', 'https://')) else path for path in final_image_paths]
         
         # Get video verification controller
@@ -294,7 +294,7 @@ def detect_subtitles_ai():
         
         # Convert URLs to local paths if needed
         if final_image_paths and any(path.startswith(('http://', 'https://')) for path in final_image_paths):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_paths = [convertHostUrlToLocalPath(path) if path.startswith(('http://', 'https://')) else path for path in final_image_paths]
         
         # Get video verification controller
@@ -352,7 +352,7 @@ def analyze_image_ai():
         # Convert URL to local path if needed
         final_image_path = image_source_url
         if image_source_url.startswith(('http://', 'https://')):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_path = convertHostUrlToLocalPath(image_source_url)
         
         # Get video verification controller
@@ -402,7 +402,7 @@ def analyze_image_complete():
         # Convert URL to local path if needed
         final_image_path = image_source_url
         if image_source_url.startswith(('http://', 'https://')):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_path = convertHostUrlToLocalPath(image_source_url)
         
         # Get video verification controller
@@ -453,7 +453,7 @@ def analyze_language_menu():
         # Convert URL to local path if needed
         final_image_path = image_source_url
         if image_source_url.startswith(('http://', 'https://')):
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             final_image_path = convertHostUrlToLocalPath(image_source_url)
         
         # Get video verification controller

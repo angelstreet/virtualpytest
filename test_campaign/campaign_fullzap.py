@@ -34,7 +34,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.lib.utils.campaign_executor import CampaignExecutor, handle_keyboard_interrupt, handle_unexpected_error
+from shared.src.lib.utils.campaign_executor import CampaignExecutor, handle_keyboard_interrupt, handle_unexpected_error
 
 
 def create_campaign_config(userinterface_name: str, host: str = "auto", device: str = "auto", max_iteration: int = 2, max_execution: int = 1, timeout_minutes: int = 60) -> dict:

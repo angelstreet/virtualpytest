@@ -21,7 +21,7 @@ def _ensure_environment_loaded():
     
     try:
         # Load project environment only (no service-specific .env for Redis vars)
-        from shared.lib.utils.app_utils import load_environment_variables
+        from shared.src.lib.utils.app_utils import load_environment_variables
         load_environment_variables(mode='discard', calling_script_dir=None)
     except Exception as e:
         # Fallback: try loading project .env directly

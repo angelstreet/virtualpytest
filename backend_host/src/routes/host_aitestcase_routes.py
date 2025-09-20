@@ -10,8 +10,8 @@ import os
 # Add backend_host to path for access to controllers
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../backend_host/src'))
 
-from shared.lib.utils.script_execution_utils import execute_script
-from shared.lib.utils.script_framework import ScriptExecutor
+from src.lib.utils.script_execution_utils import execute_script
+from src.lib.utils.script_framework import ScriptExecutor
 
 host_aitestcase_bp = Blueprint('host_aitestcase', __name__)
 

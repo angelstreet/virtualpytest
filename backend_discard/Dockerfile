@@ -10,7 +10,7 @@ WORKDIR /app
 # Copy shared library
 COPY shared/ shared/
 # Add shared to PYTHONPATH instead of installing as package
-ENV PYTHONPATH="/app/shared:/app/shared/lib"
+ENV PYTHONPATH="/app/shared:/app/shared/src/lib"
 
 # Copy backend_discard requirements and install
 COPY backend_discard/requirements.txt backend_discard/

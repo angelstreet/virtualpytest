@@ -13,7 +13,7 @@ import json
 from typing import Dict, List, Optional, Any
 
 from .ai_types import ExecutionResult
-from shared.lib.utils.ai_utils import call_text_ai, AI_CONFIG
+from src.lib.utils.ai_utils import call_text_ai, AI_CONFIG
 
 
 class AIExecutor:
@@ -144,11 +144,11 @@ class AIExecutor:
     def execute_testcase(self, test_case_id: str, team_id: Optional[str] = None) -> Dict[str, Any]:
         """Execute stored test case"""
         try:
-            from shared.lib.supabase.testcase_db import get_test_case
+            from shared.src.lib.supabase.testcase_db import get_test_case
             
             # Load test case
             if team_id is None:
-                from shared.lib.utils.app_utils import get_team_id
+                from src.lib.utils.app_utils import get_team_id
                 team_id = get_team_id()
             
             test_case = get_test_case(test_case_id, team_id)

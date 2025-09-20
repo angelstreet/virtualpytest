@@ -35,7 +35,7 @@ if project_root not in sys.path:
 # Import from shared library and backend_host (using clear import paths)
 try:
     # Import shared components
-    from shared.lib.utils.app_utils import (
+    from src.lib.utils.app_utils import (
         load_environment_variables,
         kill_process_on_port,
         setup_flask_app,
@@ -54,7 +54,7 @@ except ImportError as e:
 
 # Local route imports  
 try:
-    from shared.lib.utils.host_utils import (
+    from src.lib.utils.host_utils import (
         register_host_with_server,
         start_ping_thread,
         cleanup_on_exit

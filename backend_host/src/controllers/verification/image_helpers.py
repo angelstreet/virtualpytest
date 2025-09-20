@@ -50,7 +50,7 @@ class ImageHelpers:
             print(f"[@image_helpers] Uploading reference to R2: {reference_name} for model: {device_model}")
             
             # Upload to R2 using cloudflare utils
-            from shared.lib.utils.cloudflare_utils import upload_reference_image
+            from src.lib.utils.cloudflare_utils import upload_reference_image
             
             # Use reference name with .jpg extension for R2
             r2_filename = f"{reference_name}.jpg"
@@ -84,8 +84,8 @@ class ImageHelpers:
                 upload_reference_image(binary_path, device_model, binary_filename)
             
             # Save reference to database
-            from shared.lib.supabase.verifications_references_db import save_reference
-            from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
+            from shared.src.lib.supabase.verifications_references_db import save_reference
+            from src.lib.utils.app_utils import DEFAULT_TEAM_ID
             
             db_result = save_reference(
                 name=reference_name,

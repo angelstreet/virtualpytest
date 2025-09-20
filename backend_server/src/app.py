@@ -31,7 +31,7 @@ if project_root not in sys.path:
 
 # Import from shared library (using clear import paths)
 try:
-    from shared.lib.utils.app_utils import (
+    from src.lib.utils.app_utils import (
         load_environment_variables,
         kill_process_on_port,
         setup_flask_app,
@@ -251,8 +251,8 @@ def start_server(app):
         
         def collect_server_metrics():
             import time
-            from shared.lib.utils.system_info_utils import get_host_system_stats
-            from shared.lib.supabase.system_metrics_db import store_system_metrics
+            from src.lib.utils.system_info_utils import get_host_system_stats
+            from src.lib.supabase.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup
             while True:

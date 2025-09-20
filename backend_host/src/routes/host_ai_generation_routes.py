@@ -181,7 +181,7 @@ def run_exploration(exploration_id: str):
         
         # Import simplified AI architecture
         from src.controllers.controller_manager import get_host
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         
         # Get session parameters
         device_id = session['device_id']
@@ -201,7 +201,7 @@ def run_exploration(exploration_id: str):
         userinterface_name = None
         if tree_id:
             try:
-                from shared.lib.supabase.navigation_trees_db import get_tree_info
+                from shared.src.lib.supabase.navigation_trees_db import get_tree_info
                 tree_info = get_tree_info(tree_id, team_id)
                 if tree_info and tree_info.get('userinterface_name'):
                     userinterface_name = tree_info['userinterface_name']
@@ -246,7 +246,7 @@ def run_exploration(exploration_id: str):
             
             try:
                 # Execute AI exploration step
-                from shared.lib.utils.app_utils import get_team_id
+                from src.lib.utils.app_utils import get_team_id
                 result = device.ai_executor.execute_prompt(
                     exploration_prompt, 
                     userinterface_name,

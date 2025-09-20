@@ -70,7 +70,7 @@ class VideoRestartHelpers:
                 return None
             
             # Compress to MP4
-            from shared.lib.utils.video_compression_utils import VideoCompressionUtils
+            from src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
             video_filename = "restart_original_video.mp4"
@@ -156,7 +156,7 @@ class VideoRestartHelpers:
     def analyze_restart_complete(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
         """Combined restart analysis: subtitles + summary in single optimized call"""
         try:
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             from src.controllers.verification.video import VideoVerificationController
             
             local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
@@ -169,7 +169,7 @@ class VideoRestartHelpers:
             detected_language = 'unknown'
             
             # Process images in batches using global config
-            from shared.lib.utils.ai_utils import AI_BATCH_CONFIG
+            from src.lib.utils.ai_utils import AI_BATCH_CONFIG
             batch_size = AI_BATCH_CONFIG['batch_size']
             for batch_start in range(0, len(local_paths), batch_size):
                 batch_end = min(batch_start + batch_size, len(local_paths))
@@ -291,7 +291,7 @@ class VideoRestartHelpers:
                 return None
             
             # Compress HLS segments to MP4
-            from shared.lib.utils.video_compression_utils import VideoCompressionUtils
+            from src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
             video_filename = "restart_original_video.mp4"
@@ -395,8 +395,8 @@ class VideoRestartHelpers:
     def _build_video_url(self, video_filename: str) -> str:
         """Build proper video URL using host URL building utilities"""
         try:
-            from shared.lib.utils.build_url_utils import buildHostImageUrl
-            from shared.lib.utils.host_utils import get_host_instance
+            from src.lib.utils.build_url_utils import buildHostImageUrl
+            from src.lib.utils.host_utils import get_host_instance
             
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             host = get_host_instance()
@@ -478,8 +478,8 @@ class VideoRestartHelpers:
                     aligned_screenshots.append(found_screenshot)
             
             # Convert to proper host URLs
-            from shared.lib.utils.build_url_utils import buildHostImageUrl
-            from shared.lib.utils.host_utils import get_host_instance
+            from src.lib.utils.build_url_utils import buildHostImageUrl
+            from src.lib.utils.host_utils import get_host_instance
             
             screenshot_urls = []
             try:
@@ -659,7 +659,7 @@ class VideoRestartHelpers:
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
                 # Use the same Google Translate approach as batch translation (which works)
                 # Use AI translation for audio transcript (more accurate than Google Translate)
-                from shared.lib.utils.translation_utils import translate_text
+                from src.lib.utils.translation_utils import translate_text
                 translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
                 print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
                 
@@ -761,7 +761,7 @@ class VideoRestartHelpers:
         try:
             
             # Convert URL to local path if needed
-            from shared.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            from src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             if video_url.startswith(('http://', 'https://')):
                 video_file = convertHostUrlToLocalPath(video_url)
             else:

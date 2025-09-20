@@ -11,8 +11,8 @@ The endpoints use the same NavigationExecutor that can be used directly in Pytho
 """
 
 from flask import Blueprint, request, jsonify
-from shared.lib.utils.app_utils import get_team_id
-from shared.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params
+from src.lib.utils.app_utils import get_team_id
+from src.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params
 
 # Create blueprint
 server_navigation_execution_bp = Blueprint('server_navigation_execution', __name__, url_prefix='/server/navigation')
@@ -188,7 +188,7 @@ def batch_execute_navigation():
             else:
                 print(f"[@route:navigation_execution:batch_execute_navigation] Executing navigation {i+1}/{len(navigations)}: {tree_id} -> {target_node_id}")
                 
-                from shared.lib.utils.app_utils import get_team_id
+                from src.lib.utils.app_utils import get_team_id
                 result = executor.execute_navigation(tree_id, target_node_id, current_node_id, team_id=get_team_id())
                 result['navigation_index'] = i
                 

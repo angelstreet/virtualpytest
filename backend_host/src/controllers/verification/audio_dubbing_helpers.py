@@ -107,8 +107,8 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Step 3 completed in {duration:.1f}s")
             
             # Build URLs for preview
-            from shared.lib.utils.build_url_utils import buildHostImageUrl
-            from shared.lib.utils.host_utils import get_host_instance
+            from src.lib.utils.build_url_utils import buildHostImageUrl
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
@@ -155,8 +155,8 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Step 3 completed in {duration:.1f}s")
             
             # Build URLs for final video and audio preview
-            from shared.lib.utils.build_url_utils import buildHostImageUrl
-            from shared.lib.utils.host_utils import get_host_instance
+            from src.lib.utils.build_url_utils import buildHostImageUrl
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
@@ -213,8 +213,8 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Complete dubbing finished in {duration:.1f}s")
             
             # Build URLs for final video and audio preview
-            from shared.lib.utils.build_url_utils import buildHostImageUrl
-            from shared.lib.utils.host_utils import get_host_instance
+            from src.lib.utils.build_url_utils import buildHostImageUrl
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
@@ -353,8 +353,8 @@ class AudioDubbingHelpers:
             print(f"Dubbing[{self.device_name}]: Sync completed in {duration:.1f}s")
             
             # Build URLs for synced video
-            from shared.lib.utils.build_url_utils import buildHostImageUrl
-            from shared.lib.utils.host_utils import get_host_instance
+            from src.lib.utils.build_url_utils import buildHostImageUrl
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()

@@ -42,7 +42,7 @@ else:
 
 try:
     from ai_analyzer import SimpleAIAnalyzer
-    from shared.lib.utils.supabase_utils import get_supabase_client
+    from shared.src.lib.utils.supabase_utils import get_supabase_client
 except ImportError as e:
     print(f"❌ Cannot import required modules: {e}")
     sys.exit(1)

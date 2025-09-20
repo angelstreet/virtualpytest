@@ -6,7 +6,7 @@ to the appropriate device's AIExecutor.
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from shared.lib.utils.app_utils import get_team_id
+from src.lib.utils.app_utils import get_team_id
 
 # Create blueprint
 host_ai_bp = Blueprint('host_ai', __name__, url_prefix='/host/ai')
@@ -109,7 +109,7 @@ def ai_execute_plan():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         result = device.ai_executor.execute_prompt(
             prompt=f"Execute plan: {plan.get('description', 'AI plan')}",
             userinterface_name=userinterface_name,
@@ -169,7 +169,7 @@ def ai_execute_prompt():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         result = device.ai_executor.execute_prompt(
             prompt=prompt,
             userinterface_name=userinterface_name,
@@ -353,7 +353,7 @@ def ai_execute_test_case():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        from shared.lib.utils.app_utils import get_team_id
+        from src.lib.utils.app_utils import get_team_id
         result = device.ai_executor.execute_testcase(test_case_id, team_id=get_team_id())
         
         print(f"[@route:host_ai:ai_execute_test_case] Test case execution result: success={result.get('success')}")

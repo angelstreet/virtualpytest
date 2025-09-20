@@ -11,14 +11,14 @@ This module contains the campaign management endpoints for:
 from flask import Blueprint, request, jsonify, current_app
 
 # Import utility functions
-from shared.lib.utils.app_utils import get_team_id
+from src.lib.utils.app_utils import get_team_id
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from shared.lib.supabase.campaign_executions_db import (
+from src.lib.supabase.campaign_executions_db import (
     get_campaign_results
 )
 
-from shared.lib.utils.app_utils import check_supabase
+from src.lib.utils.app_utils import check_supabase
 
 # Create blueprint with abstract server campaign prefix
 server_campaign_bp = Blueprint('server_campaign', __name__, url_prefix='/server/campaigns')

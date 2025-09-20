@@ -6,7 +6,7 @@ Verifications are now embedded directly in navigation nodes, so no database CRUD
 """
 
 from flask import Blueprint, request, jsonify
-from shared.lib.utils.route_utils import proxy_to_host, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
 
 # Create blueprint
 server_verification_bp = Blueprint('server_verification', __name__, url_prefix='/server/verification')
@@ -65,8 +65,8 @@ def get_verifications():
 def get_all_references():
     """Get all reference images/data."""
     try:
-        from shared.lib.supabase.verifications_references_db import get_references
-        from shared.lib.utils.app_utils import DEFAULT_TEAM_ID
+        from src.lib.supabase.verifications_references_db import get_references
+        from src.lib.utils.app_utils import DEFAULT_TEAM_ID
         
         print(f'[@route:server_verification:get_all_references] Getting all references for team: {DEFAULT_TEAM_ID}')
         
