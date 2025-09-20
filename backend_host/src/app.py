@@ -28,14 +28,18 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(current_dir)
 project_root = os.path.dirname(backend_host_dir)
 
-# Add project root to path for clear imports (shared.lib.*, backend_host.*)
+# Add project root to path for clear imports (shared.src.lib.*, backend_host.*)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# Add backend_host/src to path for local imports
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 # Import from shared library and backend_host (using clear import paths)
 try:
     # Import shared components
-    from src.lib.utils.app_utils import (
+    from shared.src.lib.utils.app_utils import (
         load_environment_variables,
         kill_process_on_port,
         setup_flask_app,
