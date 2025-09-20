@@ -168,8 +168,9 @@ def batch_execute_navigation():
                 'error': 'navigations array is required'
             }), 400
         
-        # Use the standardized NavigationExecutor (same as Python direct calls)
-        executor = NavigationExecutor(host, device_id, team_id)
+        # Proxy navigation execution to host
+        from src.lib.utils.route_utils import proxy_to_host
+        from shared.src.lib.utils.app_utils import get_team_id
         
         results = []
         successful_navigations = 0
@@ -188,8 +189,16 @@ def batch_execute_navigation():
             else:
                 print(f"[@route:navigation_execution:batch_execute_navigation] Executing navigation {i+1}/{len(navigations)}: {tree_id} -> {target_node_id}")
                 
-                from shared.src.lib.utils.app_utils import get_team_id
-                result = executor.execute_navigation(tree_id, target_node_id, current_node_id, team_id=get_team_id())
+                # Proxy to host for actual navigation execution
+                proxy_result = proxy_to_host('/host/navigation/execute', 'POST', {
+                    'device_id': device_id,
+                    'tree_id': tree_id,
+                    'target_node_id': target_node_id,
+                    'current_node_id': current_node_id,
+                    'team_id': get_team_id()
+                })
+                
+                result = proxy_result if proxy_result else {'success': False, 'error': 'Host proxy failed'}
                 result['navigation_index'] = i
                 
                 if result.get('success'):

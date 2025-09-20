@@ -64,7 +64,8 @@ def analyze_test_case():
             }), 404
         
         # Load real commands for models used by the selected userinterfaces
-        from backend_host.src.controllers.ai_descriptions import get_commands_for_device_model
+        # Proxy to host for device model commands
+        from src.lib.utils.route_utils import proxy_to_host
         
         print(f"[@route:server_aitestcase:analyze] Loading commands for userinterface models")
         
@@ -80,7 +81,9 @@ def analyze_test_case():
         
         model_commands = {}
         for model in interface_models:
-            model_commands[model] = get_commands_for_device_model(model)
+            # Proxy to host to get device model commands
+            proxy_result = proxy_to_host('/host/device/commands', 'GET', {'device_model': model})
+            model_commands[model] = proxy_result if proxy_result else {'error': 'Failed to get commands from host'}
             if 'error' not in model_commands[model]:
                 actions_count = len(model_commands[model].get('actions', []))
                 verifications_count = len(model_commands[model].get('verifications', []))

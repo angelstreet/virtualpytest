@@ -89,18 +89,15 @@ def execute_task():
                 'available_verifications': mcp_verifications
             }
             
-            # Create AIExecutor for MCP operations
-            class MockDevice:
-                def __init__(self):
-                    self.device_id = "server_mcp"
-                    self.device_model = "server"
+            # Proxy AI plan generation to host
+            from src.lib.utils.route_utils import proxy_to_host
             
-            ai_executor = AIExecutor(
-                host={'host_name': 'server_mcp'}, 
-                device=MockDevice(), 
-                team_id="default"
-            )
-            plan_dict = ai_executor.generate_plan(task, context)
+            proxy_result = proxy_to_host('/host/ai/generatePlan', 'POST', {
+                'prompt': task,
+                'context': context,
+                'team_id': "default"
+            })
+            plan_dict = proxy_result.get('plan', {}) if proxy_result and proxy_result.get('success') else {}
             
             ai_result = {
                 'success': plan_dict.get('feasible', True),

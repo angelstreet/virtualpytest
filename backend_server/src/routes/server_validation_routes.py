@@ -40,9 +40,14 @@ def get_validation_preview(tree_id: str):
                 }), 400
         
         # Use optimal edge validation sequence with unified cache
-        from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+        # Proxy to host for pathfinding logic
+        from src.lib.utils.route_utils import proxy_to_host
         
-        validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
+        proxy_result = proxy_to_host('/host/navigation/validation_sequence', 'POST', {
+            'tree_id': tree_id,
+            'team_id': team_id
+        })
+        validation_sequence = proxy_result.get('sequence') if proxy_result and proxy_result.get('success') else None
         
         if not validation_sequence:
             return jsonify({
