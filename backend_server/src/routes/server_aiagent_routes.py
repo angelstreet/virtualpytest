@@ -5,7 +5,7 @@ Handles AI agent execution requests by proxying to selected host
 
 import uuid
 from flask import Blueprint, request, jsonify
-from shared.src.lib.utils.route_utils import proxy_to_host
+from src.lib.utils.route_utils import proxy_to_host
 
 server_aiagent_bp = Blueprint('server_aiagent', __name__, url_prefix='/server/aiagent')
 

@@ -603,7 +603,7 @@ def get_tree_by_userinterface_id(userinterface_id):
         if tree:
             # SAME AS SCRIPT: Load complete hierarchy instead of single tree
             from shared.src.lib.config.supabase.userinterface_db import get_userinterface
-            from shared.src.lib.utils.route_utils import proxy_to_host
+            from src.lib.utils.route_utils import proxy_to_host
             
             # Get interface name for hierarchy loading
             interface = get_userinterface(userinterface_id, team_id)

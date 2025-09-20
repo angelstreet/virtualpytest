@@ -20,7 +20,7 @@ from shared.src.lib.config.supabase.navigation_trees_db import get_full_tree, ge
 from shared.src.lib.config.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
 from shared.src.lib.config.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
 from shared.src.lib.utils.app_utils import get_team_id
-from shared.src.lib.utils.route_utils import proxy_to_host
+from src.lib.utils.route_utils import proxy_to_host
 
 server_aitestcase_bp = Blueprint('server_aitestcase', __name__, url_prefix='/server/aitestcase')
 
@@ -65,7 +65,7 @@ def analyze_test_case():
         
         # Load real commands for models used by the selected userinterfaces
         # Proxy to host for device model commands
-        from shared.src.lib.utils.route_utils import proxy_to_host
+        from src.lib.utils.route_utils import proxy_to_host
         
         print(f"[@route:server_aitestcase:analyze] Loading commands for userinterface models")
         

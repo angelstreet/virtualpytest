@@ -3,7 +3,7 @@ Clean AI Routes - Proxy to Host AI Execution
 """
 
 from flask import Blueprint, request, jsonify
-from shared.src.lib.utils.route_utils import proxy_to_host, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
 from shared.src.lib.utils.app_utils import get_team_id
 
 server_ai_bp = Blueprint('server_ai', __name__, url_prefix='/server/ai')
@@ -178,7 +178,7 @@ def execute_test_case():
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
         
         # Proxy to host for test case execution
-        from shared.src.lib.utils.route_utils import proxy_to_host
+        from src.lib.utils.route_utils import proxy_to_host
         
         execution_payload = {
             'test_case_id': test_case_id,

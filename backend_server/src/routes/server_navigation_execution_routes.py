@@ -12,7 +12,7 @@ The endpoints use the same NavigationExecutor that can be used directly in Pytho
 
 from flask import Blueprint, request, jsonify
 from shared.src.lib.utils.app_utils import get_team_id
-from shared.src.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params
+from src.lib.utils.route_utils import proxy_to_host, proxy_to_host_with_params
 
 # Create blueprint
 server_navigation_execution_bp = Blueprint('server_navigation_execution', __name__, url_prefix='/server/navigation')
@@ -169,7 +169,7 @@ def batch_execute_navigation():
             }), 400
         
         # Proxy navigation execution to host
-        from shared.src.lib.utils.route_utils import proxy_to_host
+        from src.lib.utils.route_utils import proxy_to_host
         from shared.src.lib.utils.app_utils import get_team_id
         
         results = []

@@ -12,7 +12,7 @@ import os
 # Add shared lib to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'shared'))
 
-from shared.src.lib.utils.route_utils import proxy_to_host_with_params
+from src.lib.utils.route_utils import proxy_to_host_with_params
 from lib.utils.translation_utils import detect_language_from_text
 from lib.utils.build_url_utils import buildHostUrl
 

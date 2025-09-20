@@ -5,7 +5,7 @@ Server-side restart video proxy endpoints that forward requests to host restart 
 """
 
 from flask import Blueprint, request, jsonify
-from shared.src.lib.utils.route_utils import proxy_to_host_with_params
+from src.lib.utils.route_utils import proxy_to_host_with_params
 
 server_restart_bp = Blueprint('server_restart', __name__, url_prefix='/server/restart')
 

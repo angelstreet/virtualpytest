@@ -12,8 +12,7 @@ The core logic is the same as /server/action/executeBatch but available as a reu
 import time
 import requests
 from typing import Dict, List, Optional, Any
-from lib.utils.route_utils import proxy_to_host_direct
-# Removed unused imports - device instance is now passed directly
+from src.lib.utils.route_utils import proxy_to_host_direct
 from shared.src.lib.supabase.execution_results_db import record_edge_execution
 
 
