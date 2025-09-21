@@ -31,161 +31,17 @@ def execute_task():
                 'error': f'Device {device_id} not found'
             }), 404
         
-        # Check if device has ai_executor
-        if not hasattr(device, 'ai_executor') or not device.ai_executor:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} does not have AI executor initialized',
-                'available_capabilities': device.get_capabilities()
-            }), 404
-        
         print(f"[@route:host_aiagent:execute_task] Using AI executor for device: {device_id}")
         
         device_model = device.device_model
         print(f"[@route:host_aiagent:execute_task] Device model: {device_model}")
         
-        # Get model-specific commands for AI generation (same as test case generation)
-        try:
-            from controllers.ai_descriptions import get_commands_for_device_model
-            enhanced_data = get_commands_for_device_model(device_model)
-            
-            if 'error' in enhanced_data:
-                print(f"[@route:host_aiagent:execute_task] WARNING: Device model not supported: {enhanced_data['error']}")
-                # Fallback to generic device actions
-                device_action_types = device.get_available_action_types()
-                available_actions = []
-            else:
-                # Use model-specific commands (preferred path)
-                available_actions = enhanced_data.get('actions', [])
-                available_verifications = enhanced_data.get('verifications', [])
-                print(f"[@route:host_aiagent:execute_task] Model {device_model}: Loaded {len(available_actions)} actions, {len(available_verifications)} verifications")
-                
-                # Convert to AI agent format
-                formatted_actions = []
-                for action in available_actions:
-                    formatted_actions.append({
-                        'command': action.get('command', ''),
-                        'ai_name': action.get('command', ''),
-                        'description': action.get('ai_description', action.get('description', '')),
-                        'action_type': action.get('category', 'unknown'),
-                        'params': action.get('params', {}),
-                        'category': action.get('category', 'unknown')
-                    })
-                
-                available_actions = formatted_actions
-                
-        except Exception as e:
-            print(f"[@route:host_aiagent:execute_task] ERROR: Failed to get model-specific commands: {e}")
-            # Fallback to generic device actions
-            device_action_types = device.get_available_action_types()
-            available_actions = []
-            
-            # Enhanced action flattening with better AI context
-            for category, actions in device_action_types.items():
-                if isinstance(actions, list):
-                    for action in actions:
-                        # Build enhanced action description for AI
-                        base_command = action.get('command', '')
-                        base_params = action.get('params', {})
-                        original_description = action.get('description', '')
-                        action_id = action.get('id', '')
-                        # Create AI-friendly action name and description
-                        ai_action_name = base_command
-                        ai_description = original_description
-                        
-                        # Enhance specific actions with common user task mappings
-                        if base_command == 'press_key' and base_params.get('key') == 'BACK':
-                            ai_action_name = "go_back_button"
-                            ai_description = "Go back to previous screen (use for: 'go back', 'navigate back', 'return to previous page')"
-                            
-                        elif base_command == 'press_key' and base_params.get('key') == 'HOME':
-                            ai_action_name = "go_home_button"
-                            ai_description = "Go to home screen (use for: 'go home', 'navigate to home', 'return to home')"
-                            
-                        elif base_command == 'input_text':
-                            ai_action_name = "type_text"
-                            ai_description = "Type text into current input field (use for: 'enter text', 'type', 'input', 'write')"
-                            
-                        elif base_command == 'click_element':
-                            ai_action_name = "click_ui_element"
-                            ai_description = "Click on UI element by text/ID (use for: 'click [element]', 'tap [element]', 'select [item]')"
-                            
-                        elif base_command == 'tap_coordinates':
-                            ai_action_name = "tap_screen_coordinates"
-                            ai_description = "Tap at specific screen coordinates (use for: 'tap at position', 'click coordinates')"
-                            
-                        elif base_command == 'launch_app':
-                            ai_action_name = "open_application"
-                            ai_description = "Launch/open an Android application (use for: 'open app', 'start app', 'launch')"
-                            
-                        elif base_command == 'close_app':
-                            ai_action_name = "close_application"
-                            ai_description = "Close/stop an Android application (use for: 'close app', 'stop app', 'exit app')"
-                        
-                        # Build comprehensive action context for AI
-                        ai_action = {
-                            'command': base_command,
-                            'ai_name': ai_action_name,
-                            'description': ai_description,
-                            'action_type': action.get('action_type', category),
-                            'params': base_params,
-                            'category': category,
-                            'full_context': {
-                                'original_id': action_id,
-                                'original_command': base_command,
-                                'requires_input': action.get('requiresInput', False),
-                                'input_example': action.get('inputPlaceholder', ''),
-                                'common_use_cases': []
-                            }
-                        }
-                        
-                        # Add common use cases for better AI understanding
-                        if 'back' in ai_action_name.lower():
-                            ai_action['full_context']['common_use_cases'] = [
-                                "go back", "navigate back", "previous screen", "return", "back button"
-                            ]
-                        elif 'home' in ai_action_name.lower():
-                            ai_action['full_context']['common_use_cases'] = [
-                                "go home", "home screen", "main screen", "home button"
-                            ]
-                        elif 'text' in ai_action_name.lower():
-                            ai_action['full_context']['common_use_cases'] = [
-                                "type text", "enter text", "input text", "write", "fill field"
-                            ]
-                        elif 'click' in ai_action_name.lower():
-                            ai_action['full_context']['common_use_cases'] = [
-                                "click [element]", "tap [element]", "select [item]", "press [element]"
-                            ]
-                        
-                        available_actions.append(ai_action)
-        
-        print(f"[@route:host_aiagent:execute_task] Available actions: {len(available_actions)} actions from device capabilities")
-        
-        # Handle verifications - use model-specific if available, otherwise fallback
-        available_verifications = []
-        if 'enhanced_data' in locals() and 'error' not in enhanced_data:
-            # Use model-specific verifications
-            available_verifications = enhanced_data.get('verifications', [])
-            print(f"[@route:host_aiagent:execute_task] Using model-specific verifications: {len(available_verifications)}")
-        else:
-            # Fallback to generic device verifications
-            device_verification_types = device.get_available_verification_types()
-            
-            # Flatten all verification categories into a single list for AI
-            for category, verifications in device_verification_types.items():
-                if isinstance(verifications, list):
-                    for verification in verifications:
-                        available_verifications.append({
-                            'verification_type': verification.get('verification_type', ''),
-                            'description': verification.get('description', f"{verification.get('verification_type', '')} verification"),
-                            'params': verification.get('params', {}),
-                            'category': category
-                        })
-        
-        print(f"[@route:host_aiagent:execute_task] Available verifications: {len(available_verifications)} verifications from device capabilities")
-        
         # Get userinterface_name from request or use default
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
+        team_id = data.get('team_id', 'default')
+        
+        print(f"[@route:host_aiagent:execute_task] Using AI executor for task execution")
+        print(f"[@route:host_aiagent:execute_task] Interface: {userinterface_name}, Team: {team_id}")
         
         # Check if this is async execution (has task_id)
         task_id = data.get('task_id')
@@ -193,63 +49,38 @@ def execute_task():
         if task_id:
             print(f"[@route:host_aiagent:execute_task] 2-PHASE: Starting AI task for {task_id}")
             
-            # Phase 1: Generate plan synchronously using AI executor
-            print(f"[@route:host_aiagent:execute_task] Phase 1: Generating plan synchronously")
-            plan_result = device.ai_executor.generate_plan(
-                task_description, 
-                {
-                    'device_model': device_model,
-                    'userinterface_name': userinterface_name,
-                    'available_actions': available_actions,
-                    'available_verifications': available_verifications
-                }
+            # Use AI executor for both plan generation and execution
+            result = device.ai_executor.execute_prompt(
+                task_description,
+                userinterface_name,
+                team_id=team_id,
+                async_execution=True
             )
             
-            if not plan_result.get('success'):
+            if not result.get('success'):
                 return jsonify({
                     'success': False,
-                    'error': plan_result.get('error', 'Failed to generate plan'),
-                    'execution_log': plan_result.get('execution_log', []),
+                    'error': result.get('error', 'Failed to execute AI task'),
+                    'execution_id': result.get('execution_id'),
                     'device_id': device_id
                 }), 400
             
-            # Phase 2: Execute plan asynchronously in background using AI executor
-            print(f"[@route:host_aiagent:execute_task] Phase 2: Starting async execution for {task_id}")
-            import threading
-            def execute_plan_async():
-                try:
-                    # Use AI executor's execute_prompt for async execution
-                    execution_result = device.ai_executor.execute_prompt(
-                        task_description,
-                        userinterface_name,
-                        team_id=data.get('team_id', 'default'),
-                        async_execution=True
-                    )
-                    print(f"[@route:host_aiagent:execute_task] ASYNC: Plan execution completed for {task_id}")
-                    
-                except Exception as e:
-                    print(f"[@route:host_aiagent:execute_task] ASYNC: Error in plan execution: {e}")
-            
-            # Start async execution
-            threading.Thread(target=execute_plan_async, daemon=True).start()
-            
-            # Return immediately with the generated plan
+            # Return immediately with execution started
             return jsonify({
                 'success': True,
-                'message': 'AI plan generated and execution started',
+                'message': result.get('message', 'AI execution started'),
                 'task_id': task_id,
+                'execution_id': result.get('execution_id'),
                 'device_id': device_id,
-                'plan': plan_result.get('plan'),
-                'execution_log': plan_result.get('execution_log', []),
-                'current_step': plan_result.get('current_step', 'Plan ready')
+                'plan_steps': result.get('plan_steps', 0)
             }), 202
         else:
-            # Synchronous execution using AI executor (fallback for compatibility)
+            # Synchronous execution using AI executor
             print(f"[@route:host_aiagent:execute_task] SYNC: Direct AI execution (no task_id)")
             result = device.ai_executor.execute_prompt(
                 task_description,
                 userinterface_name,
-                team_id=data.get('team_id', 'default'),
+                team_id=team_id,
                 async_execution=False
             )
             
@@ -261,10 +92,10 @@ def execute_task():
                 'success': success,
                 'message': result.get('message', ''),
                 'error': result.get('error'),
-                'execution_log': result.get('execution_log', []),
-                'current_step': result.get('current_step', ''),
-                'suggested_action': result.get('suggested_action'),
-                'suggested_verification': result.get('suggested_verification'),
+                'execution_id': result.get('execution_id'),
+                'steps_executed': result.get('steps_executed', 0),
+                'total_steps': result.get('total_steps', 0),
+                'execution_time': result.get('execution_time', 0),
                 'device_id': device_id
             }), status_code
         
