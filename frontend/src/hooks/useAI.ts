@@ -258,6 +258,12 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           });
           const status = await statusResponse.json();
 
+          // If execution not found, treat as still running
+          if (!status.success && status.error && status.error.includes('not found')) {
+            await new Promise(resolve => setTimeout(resolve, AI_CONSTANTS.POLL_INTERVAL));
+            continue;
+          }
+
           setExecutionStatus(status);
 
           // Extract and set plan if available from status.plan (new backend format)

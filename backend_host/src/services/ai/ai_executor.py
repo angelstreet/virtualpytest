@@ -195,7 +195,8 @@ class AIExecutor:
             print(f"[@ai_executor] Execution {execution_id} not found in tracking")
             return {
                 'success': False,
-                'error': f'Execution {execution_id} not found'
+                'error': f'Execution {execution_id} not found',
+                'is_executing': False  # Explicitly set to prevent frontend confusion
             }
         
         execution = self._executions[execution_id]
