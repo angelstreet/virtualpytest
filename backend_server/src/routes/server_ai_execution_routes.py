@@ -28,14 +28,16 @@ def execute_task():
         print(f"[@server_ai_execution] Task description: {request_data.get('task_description', 'N/A')}")
         print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
         print(f"[@server_ai_execution] Host name: {request_data.get('host_name', 'N/A')}")
-        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
         
         # Extract parameters for query string
         query_params = {}
         if 'device_id' in request_data:
             query_params['device_id'] = request_data['device_id']
-        if 'team_id' in request_data:
-            query_params['team_id'] = request_data['team_id']
+        if team_id:
+            query_params['team_id'] = team_id
         
         # Proxy to host with parameters
         response_data, status_code = proxy_to_host_with_params(
@@ -65,14 +67,16 @@ def generate_plan():
         
         print(f"[@server_ai_execution] Generating AI plan for prompt: {request_data.get('prompt', 'N/A')}")
         print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
-        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
         
         # Extract parameters for query string
         query_params = {}
         if 'device_id' in request_data:
             query_params['device_id'] = request_data['device_id']
-        if 'team_id' in request_data:
-            query_params['team_id'] = request_data['team_id']
+        if team_id:
+            query_params['team_id'] = team_id
         
         # Proxy to host with parameters
         response_data, status_code = proxy_to_host_with_params(
@@ -100,14 +104,16 @@ def get_status():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         print(f"[@server_ai_execution] Getting AI status for device: {request_data.get('device_id', 'N/A')}")
-        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
         
         # Extract parameters for query string
         query_params = {}
         if 'device_id' in request_data:
             query_params['device_id'] = request_data['device_id']
-        if 'team_id' in request_data:
-            query_params['team_id'] = request_data['team_id']
+        if team_id:
+            query_params['team_id'] = team_id
         
         # Proxy to host with parameters
         response_data, status_code = proxy_to_host_with_params(
@@ -135,14 +141,16 @@ def stop_execution():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         print(f"[@server_ai_execution] Stopping AI execution for device: {request_data.get('device_id', 'N/A')}")
-        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
         
         # Extract parameters for query string
         query_params = {}
         if 'device_id' in request_data:
             query_params['device_id'] = request_data['device_id']
-        if 'team_id' in request_data:
-            query_params['team_id'] = request_data['team_id']
+        if team_id:
+            query_params['team_id'] = team_id
         
         # Proxy to host with parameters
         response_data, status_code = proxy_to_host_with_params(
@@ -171,14 +179,16 @@ def analyze_compatibility():
         
         print(f"[@server_ai_execution] Analyzing AI compatibility for prompt: {request_data.get('prompt', 'N/A')}")
         print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
-        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
         
         # Extract parameters for query string
         query_params = {}
         if 'device_id' in request_data:
             query_params['device_id'] = request_data['device_id']
-        if 'team_id' in request_data:
-            query_params['team_id'] = request_data['team_id']
+        if team_id:
+            query_params['team_id'] = team_id
         
         # Proxy to host with parameters
         response_data, status_code = proxy_to_host_with_params(
