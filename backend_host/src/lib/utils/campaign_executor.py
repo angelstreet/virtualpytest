@@ -32,7 +32,8 @@ from shared.src.lib.supabase.campaign_executions_db import (
     record_campaign_execution_start,
     update_campaign_execution_result
 )
-from  backend_host.src.lib.utils.script_utils import setup_script_environment
+from shared.src.lib.utils.app_utils import load_environment_variables
+from  backend_host.src.lib.utils.host_utils import get_host_instance
 
 
 class CampaignExecutionContext:
@@ -218,15 +219,26 @@ class CampaignExecutor:
     def _setup_campaign_environment(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any]) -> bool:
         """Setup campaign execution environment at host level"""
         try:
-            # Setup script environment to get team_id and host info
-            env_result = setup_script_environment("campaign")
+            # Load environment variables first
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend_host/src/lib/utils
+            lib_dir = os.path.dirname(current_dir)                    # /backend_host/src/lib
+            backend_host_src = os.path.dirname(lib_dir)               # /backend_host/src
             
-            if not env_result["success"]:
-                context.error_message = f"Environment setup failed: {env_result.get('error')}"
+            print(f"🔧 [Campaign] Loading environment variables...")
+            load_environment_variables(calling_script_dir=backend_host_src)
+            
+            # Create host instance and get team_id
+            print(f"🏗️ [Campaign] Creating host instance...")
+            context.host = get_host_instance()
+            device_count = context.host.get_device_count()
+            print(f"✅ [Campaign] Host created with {device_count} devices")
+            
+            if device_count == 0:
+                context.error_message = "No devices configured"
                 return False
             
-            context.team_id = env_result["team_id"]
-            context.host = env_result["host"]
+            # Get team_id from environment (should be loaded by now)
+            context.team_id = os.getenv('TEAM_ID', 'default-team')
             
             print(f"🏗️ [Campaign] Environment setup completed")
             print(f"👥 Team ID: {context.team_id}")

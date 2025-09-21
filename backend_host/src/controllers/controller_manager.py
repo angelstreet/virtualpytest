@@ -271,7 +271,7 @@ def _create_controller_instance(controller_type: str, implementation: str, param
     # Web Controllers
     elif controller_type == 'web':
         if implementation == 'playwright':
-            from controllers.web.playwright import PlaywrightWebController
+            from backend_host.src.controllers.web.playwright import PlaywrightWebController
             return PlaywrightWebController(**params)
     
     # Power Controllers

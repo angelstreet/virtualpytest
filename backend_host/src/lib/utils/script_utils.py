@@ -55,7 +55,6 @@ from  backend_host.src.lib.utils.host_utils import get_host_instance, list_avail
 from  backend_host.src.lib.utils.navigation_cache import populate_cache
 from  backend_host.src.lib.utils.report_utils import generate_and_upload_script_report
 from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
-from  backend_host.src.lib.utils.ai_utils import setup_script_environment, select_device, execute_script
 
 
 # =====================================================
@@ -290,30 +289,59 @@ class ScriptExecutor:
         print(f"🎯 [{self.script_name}] Starting execution for: {args.userinterface_name}")
         
         try:
-            # 1. Setup script environment
-            setup_result = setup_script_environment(self.script_name)
-            if not setup_result['success']:
-                context.error_message = f"Setup failed: {setup_result['error']}"
+            # 1. Load environment variables first
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend_host/src/lib/utils
+            lib_dir = os.path.dirname(current_dir)                    # /backend_host/src/lib
+            backend_host_src = os.path.dirname(lib_dir)               # /backend_host/src
+            
+            print(f"🔧 [{self.script_name}] Loading environment variables...")
+            load_environment_variables(calling_script_dir=backend_host_src)
+            
+            # 2. Create host instance
+            print(f"🏗️ [{self.script_name}] Creating host instance...")
+            try:
+                context.host = get_host_instance()
+                device_count = context.host.get_device_count()
+                print(f"✅ [{self.script_name}] Host created with {device_count} devices")
+                
+                if device_count == 0:
+                    context.error_message = "No devices configured"
+                    print(f"❌ [{self.script_name}] {context.error_message}")
+                    return context
+                
+                # Get team_id from environment (should be loaded by now)
+                context.team_id = os.getenv('TEAM_ID', 'default-team')
+                
+            except Exception as e:
+                context.error_message = f"Failed to create host: {str(e)}"
                 print(f"❌ [{self.script_name}] {context.error_message}")
                 return context
             
-            context.host = setup_result['host']
-            context.team_id = setup_result['team_id']
-            
-            # 2. Select device from host instance
+            # 3. Select device from host instance
             device_id_to_use = args.device or "device1"
-            device_result = select_device(context.host, device_id_to_use, self.script_name)
-            if not device_result['success']:
-                context.error_message = f"Device selection failed: {device_result['error']}"
-                print(f"❌ [{self.script_name}] {context.error_message}")
-                return context
+            print(f"🔍 [{self.script_name}] Selecting device: {device_id_to_use}")
             
-            context.selected_device = device_result['device']
+            available_devices = [d.device_id for d in context.host.get_devices()]
+            print(f"📱 [{self.script_name}] Available devices: {available_devices}")
             
-            # 3. Set team_id on device script executor for proper execution context
+            if device_id_to_use != "device1":  # Specific device requested
+                context.selected_device = next((d for d in context.host.get_devices() if d.device_id == device_id_to_use), None)
+                if not context.selected_device:
+                    context.error_message = f"Device {device_id_to_use} not found. Available: {available_devices}"
+                    print(f"❌ [{self.script_name}] {context.error_message}")
+                    return context
+            else:  # Use first available device
+                devices = context.host.get_devices()
+                if not devices:
+                    context.error_message = "No devices available"
+                    print(f"❌ [{self.script_name}] {context.error_message}")
+                    return context
+                context.selected_device = devices[0]
+            
+            print(f"✅ [{self.script_name}] Selected device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+            
+            # 4. Set team_id on device script executor for proper execution context
             context.selected_device.script_executor.set_team_id(context.team_id)
-            
-            print(f"✅ [{self.script_name}] Device selected: {context.selected_device.device_name} ({context.selected_device.device_model})")
             
             # 3. Record script execution start in database (if enabled)
             if enable_db_tracking:
