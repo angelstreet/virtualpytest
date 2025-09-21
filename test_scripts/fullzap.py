@@ -246,7 +246,7 @@ def main():
         if args.goto_live:
             print(f"🗺️ [fullzap] Navigating to {target_node} node...")
             nav_executor = context.selected_device.navigation_executor
-            live_result = nav_executor.execute_navigation(context.tree_id, target_node, context.current_node_id)
+            live_result = nav_executor.execute_navigation(context.tree_id, target_node, context.current_node_id, team_id=context.team_id)
             
             if not live_result.get('success'):
                 context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"

@@ -647,7 +647,7 @@ class ScriptExecutor:
             nav_executor = context.selected_device.navigation_executor
             # Set script context for dependency tracking
             nav_executor.script_result_id = context.script_result_id
-            result = nav_executor.execute_navigation(context.tree_id, recovery_target, context.current_node_id)
+            result = nav_executor.execute_navigation(context.tree_id, recovery_target, context.current_node_id, team_id=context.team_id)
             recovery_time = int((time.time() - recovery_start_time) * 1000)
             
             if result.get('success'):
