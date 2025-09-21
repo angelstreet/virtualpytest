@@ -241,7 +241,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Returns:
             Tuple of (success, elements_list, error_message)
         """
-, [], "Not connected to device"
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Dumping UI elements")
