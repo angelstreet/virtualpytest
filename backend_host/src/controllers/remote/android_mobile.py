@@ -85,7 +85,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             # Connect to Android device via ADB
             if not self.adb_utils.connect_device(self.android_device_id):
                 print(f"Remote[{self.device_type.upper()}]: Failed to connect to Android device {self.android_device_id}")
-                self.disconnect()
                 return False
                 
             print(f"Remote[{self.device_type.upper()}]: Successfully connected to Android device {self.android_device_id}")
@@ -100,7 +99,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Connection error: {e}")
-            self.disconnect()
             return False
             
     def disconnect(self) -> bool:
@@ -125,9 +123,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Args:
             key: Key name (e.g., "UP", "DOWN", "HOME", "BACK", "VOLUME_UP", "VOLUME_DOWN")
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Pressing key '{key}'")
@@ -152,9 +147,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Args:
             text: Text to input
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Inputting text: '{text}'")
@@ -181,9 +173,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Args:
             package_name: Android package name (e.g., "com.android.settings")
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Launching app: {package_name}")
@@ -208,9 +197,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Args:
             package_name: Android package name (e.g., "com.android.settings")
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Closing app: {package_name}")
@@ -235,9 +221,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Returns:
             List of AndroidApp objects
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return []
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Getting installed apps")
@@ -258,9 +241,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Returns:
             Tuple of (success, elements_list, error_message)
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False, [], "Not connected to device"
+, [], "Not connected to device"
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Dumping UI elements")
@@ -325,9 +306,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Returns:
             bool: True if click successful
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Clicking element ID={element.id}, text='{element.text}'")
@@ -355,11 +333,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Returns:
             bool: True if click successful
         """
-        if not self.is_connected or not self.adb_utils:
-            error_msg = "Not connected to device"
-            print(f"Remote[{self.device_type.upper()}]: ERROR - {error_msg}")
-            self.last_error = error_msg
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Direct click on element: '{element_identifier}'")
@@ -471,8 +444,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         Returns:
             tuple: (success, base64_screenshot_data, error_message)
         """
-        if not self.is_connected or not self.adb_utils:
-            return False, "", "Not connected to device"
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Taking screenshot")
@@ -537,9 +508,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             x: X coordinate
             y: Y coordinate  
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Tapping at coordinates ({x}, {y})")
@@ -568,9 +536,6 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             to_y: Ending Y coordinate
             duration: Swipe duration in milliseconds (default: 300)
         """
-        if not self.is_connected or not self.adb_utils:
-            print(f"Remote[{self.device_type.upper()}]: ERROR - Not connected to device")
-            return False
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Swiping from ({from_x}, {from_y}) to ({to_x}, {to_y}) in {duration}ms")
