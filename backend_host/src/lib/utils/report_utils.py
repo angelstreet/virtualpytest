@@ -8,7 +8,7 @@ Moved from backend_server since host executes scripts and generates reports.
 import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from shared.shared.src.lib.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs
+from shared.src.lib.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs
 
 
 def capture_and_upload_screenshot(device, step_name: str, script_context: str = "action") -> Dict[str, Any]:
@@ -51,7 +51,7 @@ def capture_and_upload_screenshot(device, step_name: str, script_context: str = 
         
         if screenshot_path:
             # 2. Upload to Cloudflare R2 for report display
-            from shared.shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             remote_path = f"{script_context}-screenshots/{device.device_id}/{step_name}.png"
             file_mappings = [{'local_path': screenshot_path, 'remote_path': remote_path}]
