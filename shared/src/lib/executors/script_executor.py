@@ -1,8 +1,8 @@
 """
-Script Executor Per Device
+Shared Script Executor
 
-Unified script executor that integrates AI executor, action executor, and verification executor
-for complete script execution capabilities per device.
+Core script execution logic that can be used by both server and host.
+Handles Python script execution with real-time output streaming.
 """
 
 import time
@@ -14,30 +14,19 @@ import threading
 from typing import Dict, List, Optional, Any, Tuple
 
 
-
 class ScriptExecutor:
     """
-    Script executor per device that handles Python script execution:
+    Shared script executor that handles Python script execution:
     - Script execution with real-time output streaming
     - AI test case redirection
     - Report generation integration
     """
     
-    def __init__(self, device):
-        """Initialize script executor for a specific device"""
-        # Validate required parameters - fail fast if missing
-        if not device:
-            raise ValueError("Device instance is required")
-        if not device.host_name:
-            raise ValueError("Device must have host_name")
-        if not device.device_id:
-            raise ValueError("Device must have device_id")
-        
-        # Store device instance
-        self.device = device
-        self.host_name = device.host_name
-        self.device_id = device.device_id
-        self.device_model = device.device_model
+    def __init__(self, host_name: str = None, device_id: str = None, device_model: str = None):
+        """Initialize script executor with optional device context"""
+        self.host_name = host_name or "unknown-host"
+        self.device_id = device_id or "unknown-device"
+        self.device_model = device_model or "unknown-model"
         self.current_team_id = None
         
         print(f"[@script_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
@@ -106,13 +95,12 @@ class ScriptExecutor:
                 'report_url': ""
             }
     
-    
     def get_device_info_for_report(self) -> Dict[str, Any]:
         """Get device information for report generation"""
         return {
-            'device_name': self.device.device_name,
-            'device_model': self.device.device_model,
-            'device_id': self.device.device_id
+            'device_name': self.device_id,  # Use device_id as name if no device object
+            'device_model': self.device_model,
+            'device_id': self.device_id
         }
     
     def get_host_info_for_report(self) -> Dict[str, Any]:
@@ -140,11 +128,11 @@ class ScriptExecutor:
     
     def _get_scripts_directory(self) -> str:
         """Get the scripts directory path - single source of truth"""
-        current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend_host/src/services/scripts
-        services_dir = os.path.dirname(current_dir)  # /backend_host/src/services
-        src_dir = os.path.dirname(services_dir)  # /backend_host/src
-        backend_host_dir = os.path.dirname(src_dir)  # /backend_host
-        project_root = os.path.dirname(backend_host_dir)  # /virtualpytest
+        current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/src/lib/executors
+        lib_dir = os.path.dirname(current_dir)                    # /shared/src/lib
+        src_dir = os.path.dirname(lib_dir)                        # /shared/src
+        shared_dir = os.path.dirname(src_dir)                     # /shared
+        project_root = os.path.dirname(shared_dir)                # /virtualpytest
         
         # Use test_scripts folder as the primary scripts location
         return os.path.join(project_root, 'test_scripts')

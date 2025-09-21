@@ -33,7 +33,8 @@ from shared.src.lib.supabase.campaign_executions_db import (
     update_campaign_execution_result
 )
 from shared.src.lib.utils.app_utils import load_environment_variables
-from  backend_host.src.lib.utils.host_utils import get_host_instance
+from backend_host.src.lib.utils.host_utils import get_host_instance
+from backend_host.src.lib.utils.script_utils import DEFAULT_TEAM_ID
 
 
 class CampaignExecutionContext:
@@ -238,7 +239,7 @@ class CampaignExecutor:
                 return False
             
             # Get team_id from environment (should be loaded by now)
-            context.team_id = os.getenv('TEAM_ID', 'default-team')
+            context.team_id = os.getenv('TEAM_ID', DEFAULT_TEAM_ID)
             
             print(f"🏗️ [Campaign] Environment setup completed")
             print(f"👥 Team ID: {context.team_id}")
@@ -262,16 +263,17 @@ class CampaignExecutor:
             # Use host-level script execution via device script executor
             print(f"🚀 [Campaign] Executing script via host device script executor")
             
-            # Get device for script execution
-            from  backend_host.src.lib.utils.host_utils import get_device_by_id
+            # Use shared script executor instead of device-specific one
+            from .script_executor import ScriptExecutor
             device_id = campaign_config.get("device", "device1")
-            device = get_device_by_id(device_id)
             
-            if not device:
-                raise ValueError(f"Device {device_id} not found on host")
-            
-            if not hasattr(device, 'script_executor'):
-                raise ValueError(f"Device {device_id} does not have script executor")
+            # Create script executor with device context
+            script_executor = ScriptExecutor(
+                host_name=context.host.host_name,
+                device_id=device_id,
+                device_model="unknown"  # Could be enhanced to get actual device model
+            )
+            script_executor.set_team_id(context.team_id)
             
             # Build parameters string for script executor
             param_parts = []
@@ -297,8 +299,8 @@ class CampaignExecutor:
             print(f"📋 [Campaign] Starting real-time script output:")
             print("=" * 80)
             
-            # Execute script using device script executor
-            result = device.script_executor.execute_script(script_name, parameters_string)
+            # Execute script using shared script executor
+            result = script_executor.execute_script(script_name, parameters_string)
             
             print("=" * 80)
             print(f"📋 [Campaign] Script output ended")

@@ -504,17 +504,17 @@ class FFmpegCaptureController(AVControllerInterface):
             # Use configured segment duration consistently
             print(f"{self.capture_source}[{self.capture_source}]: Using configured segment duration: {self.HLS_SEGMENT_DURATION}s")
             
-            # Get recent HLS segments for compression
-            segment_files = self._get_recent_segments(duration_seconds)
+            # Get recent HLS segments for compression using restart helpers
+            segment_files = self.restart_helpers._get_recent_segments(duration_seconds)
             if not segment_files:
                 print(f"{self.capture_source}[{self.capture_source}]: No HLS segments found for compression")
                 return None
             
-            # Compress segments to MP4
+            # Compress segments to MP4 using restart helpers
             video_filename = "restart_original_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
-            success = self._compress_segments_to_mp4(segment_files, local_video_path, duration_seconds)
+            success = self.restart_helpers._compress_segments_to_mp4(segment_files, local_video_path, duration_seconds)
             if not success:
                 return None
             

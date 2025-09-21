@@ -445,7 +445,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         from  backend_host.src.services.navigation.navigation_executor import NavigationExecutor
         from  backend_host.src.services.verifications.verification_executor import VerificationExecutor
         from  backend_host.src.services.ai.ai_executor import AIExecutor
-        from  backend_host.src.services.scripts.script_executor import ScriptExecutor
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization
@@ -461,11 +460,8 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         print(f"[@controller_manager:_create_device_with_controllers] Creating AIExecutor for device: {device_id}")
         device.ai_executor = AIExecutor(device)
         
-        print(f"[@controller_manager:_create_device_with_controllers] Creating ScriptExecutor for device: {device_id}")
-        device.script_executor = ScriptExecutor(device)
-        
         print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
-        print(f"[@controller_manager:_create_device_with_controllers] ✓ Device {device_id} has script_executor: {hasattr(device, 'script_executor')}")
+        print(f"[@controller_manager:_create_device_with_controllers] ✓ Script execution now handled by shared executors")
         
     except Exception as e:
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")

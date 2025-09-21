@@ -11,8 +11,8 @@ import time
 import requests
 from typing import Dict, Any
 
-# Import campaign executor (moved to host level)
-from  backend_host.src.lib.utils.campaign_executor import CampaignExecutor
+# Import campaign executor (moved to shared level)
+from shared.src.lib.executors.campaign_executor import CampaignExecutor
 
 # Create blueprint
 host_campaign_bp = Blueprint('host_campaign', __name__, url_prefix='/host/campaigns')

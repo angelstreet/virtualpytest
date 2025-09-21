@@ -56,6 +56,7 @@ from  backend_host.src.lib.utils.navigation_cache import populate_cache
 from  backend_host.src.lib.utils.report_utils import generate_and_upload_script_report
 from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
+DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
 
 # =====================================================
 # BASIC SCRIPT EXECUTION UTILITIES
@@ -310,7 +311,7 @@ class ScriptExecutor:
                     return context
                 
                 # Get team_id from environment (should be loaded by now)
-                context.team_id = os.getenv('TEAM_ID', 'default-team')
+                context.team_id = os.getenv('TEAM_ID', DEFAULT_TEAM_ID)
                 
             except Exception as e:
                 context.error_message = f"Failed to create host: {str(e)}"
@@ -346,8 +347,14 @@ class ScriptExecutor:
             
             print(f"✅ [{self.script_name}] Selected device: {context.selected_device.device_name} ({context.selected_device.device_model})")
             
-            # 4. Set team_id on device script executor for proper execution context
-            context.selected_device.script_executor.set_team_id(context.team_id)
+            # 4. Create shared script executor for this execution context
+            from shared.src.lib.executors.script_executor import ScriptExecutor as SharedScriptExecutor
+            context.script_executor = SharedScriptExecutor(
+                host_name=context.host.host_name,
+                device_id=context.selected_device.device_id,
+                device_model=context.selected_device.device_model
+            )
+            context.script_executor.set_team_id(context.team_id)
             
             # 3. Record script execution start in database (if enabled)
             if enable_db_tracking:

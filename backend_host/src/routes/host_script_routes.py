@@ -29,18 +29,21 @@ def _execute_script():
         
         print(f"[@route:host_script:_execute_script] Executing {script_name} on {device_id} with parameters: {parameters}")
         
-        # Get device instance and use its script executor
-        device = get_device_by_id(device_id)
-        if not device:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} not found'
-            }), 404
+        # Create shared script executor with device context
+        from shared.src.lib.executors.script_executor import ScriptExecutor
+        from backend_host.src.lib.utils.host_utils import get_host_instance
         
-        if not hasattr(device, 'script_executor'):
+        try:
+            host = get_host_instance()
+            script_executor = ScriptExecutor(
+                host_name=host.host_name,
+                device_id=device_id,
+                device_model="unknown"  # Could be enhanced to get actual device model
+            )
+        except Exception as e:
             return jsonify({
                 'success': False,
-                'error': f'Device {device_id} does not have script executor'
+                'error': f'Failed to create script executor: {str(e)}'
             }), 500
         
         if task_id:
@@ -49,7 +52,7 @@ def _execute_script():
             import threading
             def execute_async():
                 try:
-                    result = device.script_executor.execute_script(script_name, parameters)
+                    result = script_executor.execute_script(script_name, parameters)
                     print(f"[@route:host_script:_execute_script] CALLBACK SEND: Script completed, sending callback")
                     
                     # Send callback to server
@@ -86,7 +89,7 @@ def _execute_script():
         else:
             # Synchronous execution (fallback)
             print(f"[@route:host_script:_execute_script] SYNC: Direct execution (no callback)")
-            result = device.script_executor.execute_script(script_name, parameters)
+            result = script_executor.execute_script(script_name, parameters)
             
             print(f"[@route:host_script:_execute_script] Script completed - exit_code: {result.get('exit_code')}")
             print(f"[@route:host_script:_execute_script] Script has report_url: {bool(result.get('report_url'))}")
