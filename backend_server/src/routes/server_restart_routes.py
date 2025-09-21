@@ -94,12 +94,9 @@ def generate_restart_report():
     """Generate restart report"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
 
-        if not host_name:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         response_data, status_code = proxy_to_host_with_params(
             '/host/restart/generateReport',
             'POST',
@@ -378,7 +375,6 @@ def adjust_audio_timing():
     
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         video_url = request_data.get('video_url')
         timing_offset_ms = request_data.get('timing_offset_ms', 0)
@@ -391,14 +387,13 @@ def adjust_audio_timing():
 
         print(f"[SERVER] 🎵 [@server_restart_routes:adjustAudioTiming] Starting timing adjustment: {timing_offset_ms:+d}ms for {language}")
 
-        if not host_name:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
         if not video_url:
             return jsonify({'success': False, 'error': 'Video URL required'}), 400
         if timing_offset_ms == 0:
             return jsonify({'success': False, 'error': 'Timing offset cannot be 0'}), 400
 
-        print(f"[SERVER] 🔄 [@server_restart_routes:adjustAudioTiming] Proxying to host {host_name} endpoint: /host/restart/adjustAudioTiming")
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
+        print(f"[SERVER] 🔄 [@server_restart_routes:adjustAudioTiming] Proxying to host endpoint: /host/restart/adjustAudioTiming")
 
         # Include component paths in proxy data
         proxy_params = {

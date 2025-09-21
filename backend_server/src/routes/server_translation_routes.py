@@ -109,15 +109,17 @@ def translate_restart_batch():
                 'error': 'No content blocks provided'
             }), 400
         
-        # Get host URL from request data (should be provided by frontend)
-        host_data = data.get('host', {})
-        if not host_data:
+        # Get host information using standard pattern
+        from src.lib.utils.route_utils import get_host_from_request
+        host_info, error = get_host_from_request()
+        if not host_info:
             return jsonify({
                 'success': False,
-                'error': 'Host information required for translation'
+                'error': error or 'Host information required for translation'
             }), 400
         
-        host_url = buildHostUrl(host_data, '')
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
+        host_url = buildHostUrl(host_info, '')
         
         print(f"[SERVER_TRANSLATION] 🌐 Proxying batch translation to host: {host_url}")
         

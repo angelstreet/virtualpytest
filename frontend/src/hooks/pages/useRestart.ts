@@ -998,7 +998,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       }
       
       const requestBody: any = {
-        host,
+        host_name: host.host_name,
         device_id: device.device_id,
         video_url: originalVideoUrl,
         timing_offset_ms: offsetMs,
