@@ -124,9 +124,22 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   // Process plan steps with execution status for UI display
   const processedSteps = useMemo(() => {
-    // Return empty array if no plan or no execution status
-    if (!currentPlan?.steps || !executionStatus?.execution_log) {
+    // Return empty array if no plan
+    if (!currentPlan?.steps) {
       return [];
+    }
+
+    // If no execution log yet, return plan steps with pending status
+    if (!executionStatus?.execution_log) {
+      return currentPlan.steps.map((step: any, index: number) => ({
+        ...step,
+        stepNumber: parseInt(step.step) || index + 1,
+        status: 'pending' as const,
+        completedEntry: null,
+        failedEntry: null,
+        isCurrent: false,
+        duration: undefined
+      }));
     }
 
     const executionLog = executionStatus.execution_log;

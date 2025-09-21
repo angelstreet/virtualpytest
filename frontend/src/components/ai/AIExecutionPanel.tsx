@@ -53,20 +53,12 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     mode: 'real-time'
   });
 
-  // Reset local UI state when a new execution starts
+  // Reset local state when new execution starts (simple reset)
   useEffect(() => {
     if (isAIExecuting && !aiPlan) {
-      // New execution starting - reset local state
       setIsAnalysisExpanded(false);
     }
   }, [isAIExecuting, aiPlan]);
-
-  // Reset analysis expansion when plan changes (new execution)
-  useEffect(() => {
-    if (!aiPlan) {
-      setIsAnalysisExpanded(false);
-    }
-  }, [aiPlan]);
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -173,7 +165,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           </Button>
         </Box>
 
-        {/* Enhanced AI Plan Display */}
+        {/* AI Plan Display */}
         {(aiPlan || isAIExecuting) && (
           <Box
             key={aiPlan?.id || `executing-${isAIExecuting}`} // Force re-render on plan change
@@ -290,7 +282,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             )}
 
             {/* PHASE 2: Plan Steps Display (Only for feasible plans) */}
-            {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && processedSteps.length > 0 && (
+            {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && (
               <>
                 <Box sx={{ mt: 0.5 }}>
                   {processedSteps.map((step: any, index: number) => {
