@@ -212,23 +212,23 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
                 print(f"[AI_UTILS] OpenRouter API error - Status: {response.status_code}")
                 print(f"[AI_UTILS] Error response: {error_text}")
                 return {'success': False, 'error': f'OpenRouter API error (HTTP {response.status_code}): {error_text}', 'content': '', 'initial_prompt': prompt}
-            
-    except requests.exceptions.Timeout as e:
-        error_msg = f'OpenRouter API timeout after {AI_CONFIG["defaults"]["timeout"]} seconds'
-        print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
-    except requests.exceptions.ConnectionError as e:
-        error_msg = f'OpenRouter API connection error: {str(e)}'
-        print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
-    except requests.exceptions.RequestException as e:
-        error_msg = f'OpenRouter API request error: {str(e)}'
-        print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
-    except Exception as e:
-        error_msg = f'OpenRouter unexpected error: {str(e)}'
-        print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
+                
+        except requests.exceptions.Timeout as e:
+            error_msg = f'OpenRouter API timeout after {AI_CONFIG["defaults"]["timeout"]} seconds'
+            print(f"[AI_UTILS] {error_msg}")
+            return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
+        except requests.exceptions.ConnectionError as e:
+            error_msg = f'OpenRouter API connection error: {str(e)}'
+            print(f"[AI_UTILS] {error_msg}")
+            return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
+        except requests.exceptions.RequestException as e:
+            error_msg = f'OpenRouter API request error: {str(e)}'
+            print(f"[AI_UTILS] {error_msg}")
+            return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
+        except Exception as e:
+            error_msg = f'OpenRouter unexpected error: {str(e)}'
+            print(f"[AI_UTILS] {error_msg}")
+            return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
 
 def _huggingface_call(prompt: str, model: str, image: Union[str, bytes] = None,
                      max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:
