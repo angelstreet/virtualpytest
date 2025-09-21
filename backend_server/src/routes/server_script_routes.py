@@ -274,6 +274,10 @@ def execute_script():
     try:
         data = request.get_json()
         
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_script:execute_script] Team ID: {team_id or 'N/A'}")
+        
         host_name = data.get('host_name')
         device_id = data.get('device_id')
         script_name = data.get('script_name')

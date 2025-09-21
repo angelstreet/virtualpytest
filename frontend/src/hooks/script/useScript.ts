@@ -41,8 +41,7 @@ interface UseScriptReturn {
   error: string | null;
 }
 
-// Simple constant for the API base URL
-const SCRIPT_API_BASE_URL = buildServerUrl('/server/script');
+// Build script API URLs properly - don't append paths to URLs with query params
 
 export const useScript = (): UseScriptReturn => {
   const [isExecuting, setIsExecuting] = useState(false);
@@ -77,7 +76,7 @@ export const useScript = (): UseScriptReturn => {
         }
 
         // Start async script execution
-        const response = await fetch(`${SCRIPT_API_BASE_URL}/execute`, {
+        const response = await fetch(buildServerUrl('/server/script/execute'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -103,7 +102,7 @@ export const useScript = (): UseScriptReturn => {
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
             try {
-              const statusResponse = await fetch(`${SCRIPT_API_BASE_URL}/status/${taskId}`);
+              const statusResponse = await fetch(buildServerUrl(`/server/script/status/${taskId}`));
               const statusResult = await statusResponse.json();
 
               if (statusResult.success && statusResult.task) {
@@ -172,7 +171,7 @@ export const useScript = (): UseScriptReturn => {
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
       try {
-        const statusResponse = await fetch(`${SCRIPT_API_BASE_URL}/status/${taskId}`);
+        const statusResponse = await fetch(buildServerUrl(`/server/script/status/${taskId}`));
         const statusResult = await statusResponse.json();
 
         if (statusResult.success && statusResult.task) {
@@ -255,7 +254,7 @@ export const useScript = (): UseScriptReturn => {
           requestBody.parameters = execution.parameters.trim();
         }
 
-        const response = await fetch(`${SCRIPT_API_BASE_URL}/execute`, {
+        const response = await fetch(buildServerUrl('/server/script/execute'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),

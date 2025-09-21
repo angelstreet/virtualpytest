@@ -67,7 +67,7 @@ interface UseCampaignReturn {
   error: string | null;
 }
 
-const CAMPAIGN_API_BASE_URL = buildServerUrl('/server/campaigns');
+// Build campaign API URLs properly - don't append paths to URLs with query params
 
 export const useCampaign = (): UseCampaignReturn => {
   // Execution State
@@ -214,7 +214,7 @@ export const useCampaign = (): UseCampaignReturn => {
     });
 
     try {
-      const response = await fetch(`${CAMPAIGN_API_BASE_URL}/execute`, {
+      const response = await fetch(buildServerUrl('/server/campaigns/execute'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -321,7 +321,7 @@ export const useCampaign = (): UseCampaignReturn => {
       await new Promise(resolve => setTimeout(resolve, pollInterval));
 
       try {
-        const response = await fetch(`${CAMPAIGN_API_BASE_URL}/status/${executionId}`);
+        const response = await fetch(buildServerUrl(`/server/campaigns/status/${executionId}`));
         const statusResult = await response.json();
 
         if (statusResult.success && statusResult.execution) {
