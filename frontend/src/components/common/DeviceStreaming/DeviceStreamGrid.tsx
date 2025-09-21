@@ -5,7 +5,7 @@
  * This component displays multiple device streams in a responsive grid layout.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { HLSVideoPlayer } from '../HLSVideoPlayer';
 import { useStream } from '../../../hooks/controller/useStream';
@@ -17,26 +17,44 @@ export interface DeviceStreamGridProps {
   allHosts: any[];
   getDevicesFromHost: (hostName: string) => any[];
   maxColumns?: number;
+  isActive?: boolean; // Add prop to control stream lifecycle
 }
 
 interface DeviceStreamItemProps {
   device: {hostName: string, deviceId: string};
   allHosts: any[];
   getDevicesFromHost: (hostName: string) => any[];
+  isActive?: boolean; // Add prop to control stream lifecycle
 }
 
 // Move previewHeight to top level
 const PREVIEW_HEIGHT = 120; // Consistent preview box height
 
 // Individual device stream component
-const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, getDevicesFromHost }) => {
+const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, getDevicesFromHost, isActive = true }) => {
   const hostObject = allHosts.find((host) => host.host_name === device.hostName);
+  
+  // Stream lifecycle management
+  const [isStreamActive, setIsStreamActive] = useState(isActive);
   
   // Use stream hook to get device stream
   const { streamUrl, isLoadingUrl, urlError } = useStream({
     host: hostObject!,
     device_id: device.deviceId || '',
   });
+
+  // Update stream active state when parent isActive prop changes
+  useEffect(() => {
+    setIsStreamActive(isActive);
+  }, [isActive]);
+
+  // Cleanup stream when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log(`[@component:DeviceStreamItem] Component unmounting, stopping stream for ${device.hostName}:${device.deviceId}`);
+      setIsStreamActive(false);
+    };
+  }, [device.hostName, device.deviceId]);
 
   // Get device model
   const deviceObject = getDevicesFromHost(device.hostName).find(
@@ -111,7 +129,7 @@ const DeviceStreamItem: React.FC<DeviceStreamItemProps> = ({ device, allHosts, g
             <Box sx={{ position: 'absolute', inset: 0 }}>
               <HLSVideoPlayer
                 streamUrl={streamUrl}
-                isStreamActive={true}
+                isStreamActive={isStreamActive}
                 isCapturing={false}
                 model={deviceModel}
                 layoutConfig={{
@@ -175,7 +193,8 @@ export const DeviceStreamGrid: React.FC<DeviceStreamGridProps> = ({
   devices, 
   allHosts, 
   getDevicesFromHost,
-  maxColumns = 3 
+  maxColumns = 3,
+  isActive = true
 }) => {
   return (
     <Box
@@ -193,6 +212,7 @@ export const DeviceStreamGrid: React.FC<DeviceStreamGridProps> = ({
           device={device}
           allHosts={allHosts}
           getDevicesFromHost={getDevicesFromHost}
+          isActive={isActive}
         />
       ))}
     </Box>

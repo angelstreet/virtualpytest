@@ -80,6 +80,7 @@ const RecHostStreamModalContent: React.FC<{
   const [restartMode, setRestartMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false); // Analysis collapsed by default
+  const [isStreamActive, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
 
   // Set global modal state when component mounts/unmounts
   useEffect(() => {
@@ -88,6 +89,14 @@ const RecHostStreamModalContent: React.FC<{
       setAnyModalOpen(false);
     };
   }, [setAnyModalOpen]);
+
+  // Cleanup stream when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log('[@component:RecHostStreamModal] Component unmounting, stopping stream');
+      setIsStreamActive(false);
+    };
+  }, []);
 
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
@@ -361,6 +370,9 @@ const RecHostStreamModalContent: React.FC<{
   // Handle modal close
   const handleClose = useCallback(async () => {
     console.log('[@component:RecHostStreamModal] Closing modal');
+
+    // Stop stream before closing
+    setIsStreamActive(false);
 
     // Clear AI error on modal close
     clearAIError();
@@ -711,7 +723,7 @@ const RecHostStreamModalContent: React.FC<{
               ) : (
                 <HLSVideoPlayer
                     streamUrl={streamUrl}
-                    isStreamActive={true}
+                    isStreamActive={isStreamActive}
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{

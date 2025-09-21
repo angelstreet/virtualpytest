@@ -86,6 +86,7 @@ const RunTests: React.FC = () => {
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
   const [executions, setExecutions] = useState<ExecutionRecord[]>([]);
+  const [streamsActive, setStreamsActive] = useState<boolean>(true);
   
   // Ref to prevent duplicate API calls in React Strict Mode
   const isLoadingScriptsRef = useRef<boolean>(false);
@@ -265,6 +266,25 @@ const RunTests: React.FC = () => {
       handlePreSelection();
     }
   }, [availableScripts, showSuccess]);
+
+  // Cleanup streams when component unmounts or wizard closes
+  useEffect(() => {
+    return () => {
+      console.log('[@RunTests] Component unmounting, stopping all streams');
+      setStreamsActive(false);
+    };
+  }, []);
+
+  // Stop streams when wizard closes
+  useEffect(() => {
+    if (!showWizard) {
+      console.log('[@RunTests] Wizard closed, stopping streams');
+      setStreamsActive(false);
+    } else {
+      console.log('[@RunTests] Wizard opened, activating streams');
+      setStreamsActive(true);
+    }
+  }, [showWizard]);
 
 
 
@@ -854,6 +874,8 @@ const RunTests: React.FC = () => {
                     <Button
                       variant="outlined"
                       onClick={() => {
+                        console.log('[@RunTests] Cancel clicked, stopping streams and closing wizard');
+                        setStreamsActive(false);
                         setShowWizard(false);
                         setSelectedHost('');
                         setSelectedDevice('');
@@ -881,7 +903,7 @@ const RunTests: React.FC = () => {
                   Device Streams ({getAllSelectedDevices().length})
                 </Typography>
                 
-                <DeviceStreamGrid devices={getAllSelectedDevices()} allHosts={allHosts} getDevicesFromHost={getDevicesFromHost} />
+                <DeviceStreamGrid devices={getAllSelectedDevices()} allHosts={allHosts} getDevicesFromHost={getDevicesFromHost} isActive={streamsActive} />
               </CardContent>
             </Card>
           </Grid>

@@ -1,6 +1,6 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useStream } from '../../hooks/controller';
@@ -32,6 +32,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // States
   const [error] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
+  const [isStreamActive, setIsStreamActive] = useState(true);
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -51,6 +52,14 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Hook for notifications only
   const { showError } = useToast();
+
+  // Cleanup stream when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log('[@component:RecHostPreview] Component unmounting, stopping stream');
+      setIsStreamActive(false);
+    };
+  }, []);
 
 
 
@@ -218,7 +227,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
               >
                 <HLSVideoPlayer
                     streamUrl={streamUrl}
-                    isStreamActive={true}
+                    isStreamActive={isStreamActive}
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
                     layoutConfig={{
