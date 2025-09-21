@@ -514,7 +514,7 @@ class FFmpegCaptureController(AVControllerInterface):
             from backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
-            video_filename = "restart_original_video.mp4"
+            video_filename = "test_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
             # Create M3U8 path (required by compression utils)
@@ -531,14 +531,9 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"{self.capture_source}[{self.capture_source}]: Video compression failed")
                 return None
             
-            # Build video URL for access
-            if self.video_stream_path.startswith('http'):
-                video_url = f"{self.video_stream_path}/{video_filename}"
-            else:
-                video_url = self.video_stream_path + "/" + video_filename
-            
-            print(f"{self.capture_source}[{self.capture_source}]: Video available at: {video_url}")
-            return video_url
+            # Return local file path for upload to R2 (not stream URL)
+            print(f"{self.capture_source}[{self.capture_source}]: Video created at local path: {local_video_path}")
+            return local_video_path
             
         except Exception as e:
             print(f"{self.capture_source}[{self.capture_source}]: Error creating video: {e}")
