@@ -144,101 +144,267 @@ class NavigationExecutor:
     
     def execute_navigation(self, 
                           tree_id: str, 
-                          target_node_id: str, 
+                          target_node_label: str, 
                           current_node_id: Optional[str] = None,
                           image_source_url: Optional[str] = None,
-                          team_id: str = None) -> Dict[str, Any]:
-        """Execute navigation to target node"""
+                          team_id: str = None,
+                          context=None) -> Dict[str, Any]:
+        """
+        Execute navigation to target node using ONLY unified pathfinding with nested tree support.
+        Enhanced with all capabilities from old goto_node method.
+        
+        Args:
+            tree_id: Navigation tree ID
+            target_node_label: Label of the target node (e.g., 'home', 'live', 'settings')
+            current_node_id: Optional current node ID for starting point
+            image_source_url: Optional image source URL
+            team_id: Team ID for security
+            context: Optional ScriptExecutionContext for tracking step results
+            
+        Returns:
+            Dict with success status and navigation details
+        """
         start_time = time.time()
         
-        # Get preview first (includes pathfinding)
-        preview = self.get_navigation_preview(tree_id, target_node_id, current_node_id, team_id)
-        if not preview['success']:
-            return self._build_result(False, preview['error'], tree_id, target_node_id, current_node_id, start_time)
-        
-        # Execute using preview data
-        transitions = preview['transitions']
-        
         try:
-            # Execute transitions
+            from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
+            from shared.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
+            
+            # Determine starting node from context or current position
+            start_node_id = None
+            if context and hasattr(context, 'current_node_id') and context.current_node_id:
+                start_node_id = context.current_node_id
+                print(f"[@navigation_executor:execute_navigation] Starting from current location: {start_node_id}")
+            elif current_node_id:
+                start_node_id = current_node_id
+                print(f"[@navigation_executor:execute_navigation] Starting from provided location: {start_node_id}")
+            else:
+                print(f"[@navigation_executor:execute_navigation] Starting from default entry point (no current location)")
+            
+            print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label}' using unified pathfinding")
+            
+            # Use unified pathfinding with current location as starting point
+            navigation_path = find_shortest_path(tree_id, target_node_label, team_id, start_node_id)
+            
+            if not navigation_path:
+                return self._build_result(
+                    False, 
+                    f"No unified path found to '{target_node_label}'",
+                    tree_id, target_node_label, current_node_id, start_time,
+                    unified_pathfinding_used=True
+                )
+            
+            print(f"[@navigation_executor:execute_navigation] Found path with {len(navigation_path)} steps")
+            
+            # Execute navigation sequence with early stopping for navigation functions
             transitions_executed = 0
             actions_executed = 0
-            total_actions = preview['total_actions']
-            success = True
-            error_message = ""
+            total_actions = sum(len(step.get('actions', [])) for step in navigation_path)
             
-            for i, transition in enumerate(transitions):
-                actions = transition.get('actions', [])
-                if not actions:
-                    transitions_executed += 1
-                    continue
+            for i, step in enumerate(navigation_path):
+                step_num = i + 1
+                from_node = step.get('from_node_label', 'unknown')
+                to_node = step.get('to_node_label', 'unknown')
+                
+                print(f"[@navigation_executor:execute_navigation] Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
+                
+                # Step start screenshot - capture BEFORE action execution (like old goto_node)
+                step_start_screenshot_path = ""
+                if context:
+                    from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+                    step_name = f"step_{step_num}_{from_node}_{to_node}"
+                    step_start_screenshot_result = capture_and_upload_screenshot(self.device.host, self.device, f"{step_name}_start", "navigation")
+                    step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
+                    
+                    if step_start_screenshot_path:
+                        print(f"📸 [@navigation_executor:execute_navigation] Step-start screenshot captured: {step_start_screenshot_path}")
+                        context.add_screenshot(step_start_screenshot_path)
+                
+                step_start_time = time.time()
                 
                 # Execute actions using device's existing executor
-                # Update context for this navigation
-                self.device.action_executor.tree_id = tree_id
-                self.device.action_executor.edge_id = transition.get('edge_id')
-                # Pass script context if available
-                if hasattr(self, 'script_result_id'):
-                    self.device.action_executor.script_result_id = self.script_result_id
-                
-                result = self.device.action_executor.execute_actions(
-                    actions=actions,
-                    retry_actions=transition.get('retryActions', []),
-                    team_id=team_id
-                )
-                
-                if not result.get('success'):
-                    success = False
-                    error_message = f'Action failed: {result.get("error", "Unknown error")}'
-                    break
-                
-                actions_executed += result.get('passed_count', 0)
-                transitions_executed += 1
-            
-            # Execute target verifications if actions succeeded
-            if success and transitions:
-                target_verifications = transitions[-1].get('target_verifications', [])
-                if target_verifications:
-                    # Execute verifications using device's existing executor
-                    # Update context for this navigation
-                    self.device.verification_executor.tree_id = tree_id
-                    self.device.verification_executor.node_id = target_node_id
+                actions = step.get('actions', [])
+                if actions:
+                    # Update context for this navigation step
+                    self.device.action_executor.tree_id = tree_id
+                    self.device.action_executor.edge_id = step.get('edge_id')
                     # Pass script context if available
                     if hasattr(self, 'script_result_id'):
-                        self.device.verification_executor.script_result_id = self.script_result_id
+                        self.device.action_executor.script_result_id = self.script_result_id
                     
-                    result = self.device.verification_executor.execute_verifications(
-                        verifications=target_verifications,
-                        image_source_url=image_source_url,
+                    result = self.device.action_executor.execute_actions(
+                        actions=actions,
+                        retry_actions=step.get('retryActions', []),
                         team_id=team_id
                     )
                     
-                    if not result.get('success'):
-                        success = False
-                        error_message = f'Verification failed: {result.get("error", "Unknown error")}'
+                    actions_executed += result.get('passed_count', 0)
+                else:
+                    # No actions to execute, just mark as successful
+                    result = {'success': True}
+                
+                step_execution_time = int((time.time() - step_start_time) * 1000)
+                
+                # Main action screenshot (existing)
+                main_screenshot_path = ""
+                if context:
+                    from backend_host.src.lib.utils.action_utils import capture_validation_screenshot
+                    step_screenshot = capture_validation_screenshot(self.device.host, self.device, f"navigation_step_{step_num}", "navigation")
+                    main_screenshot_path = step_screenshot
+                    context.add_screenshot(step_screenshot)
+                
+                # Step end screenshot - capture AFTER action execution (like old goto_node)
+                step_end_screenshot_path = ""
+                if context:
+                    step_end_screenshot_result = capture_and_upload_screenshot(self.device.host, self.device, f"{step_name}_end", "navigation")
+                    step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
+                    
+                    if step_end_screenshot_path:
+                        print(f"📸 [@navigation_executor:execute_navigation] Step-end screenshot captured: {step_end_screenshot_path}")
+                        context.add_screenshot(step_end_screenshot_path)
+                
+                # If context is provided, record the step result (like old goto_node)
+                if context:
+                    from datetime import datetime
+                    step_start_timestamp = datetime.fromtimestamp(step_start_time).strftime('%H:%M:%S')
+                    step_end_timestamp = datetime.now().strftime('%H:%M:%S')
+                    
+                    # Extract action name for labeling (like old goto_node)
+                    action_name = "navigation_step"  # Default fallback
+                    step_actions = step.get('actions', [])
+                    if step_actions and len(step_actions) > 0:
+                        first_action = step_actions[0]
+                        if isinstance(first_action, dict) and first_action.get('command'):
+                            action_name = first_action.get('command')
+                    
+                    step_result = {
+                        'success': result.get('success', False),
+                        'screenshot_path': main_screenshot_path,
+                        'screenshot_url': result.get('screenshot_url'),
+                        'step_start_screenshot_path': step_start_screenshot_path,
+                        'step_end_screenshot_path': step_end_screenshot_path,
+                        'message': f"Navigation step: {from_node} → {to_node}",  # Will be updated with step number
+                        'execution_time_ms': step_execution_time,
+                        'start_time': step_start_timestamp,
+                        'end_time': step_end_timestamp,
+                        'from_node': from_node,
+                        'to_node': to_node,
+                        'action_name': action_name,  # Store action name like old goto_node
+                        'actions': step.get('actions', []),
+                        'verifications': step.get('verifications', []),
+                        'verification_results': result.get('verification_results', []),
+                        'error': result.get('error'),  # Store actual error message from action execution
+                        'step_category': 'navigation'
+                    }
+                    
+                    # Record step immediately - step number shown in table
+                    context.record_step_immediately(step_result)
+                    # Simple message without redundant step number
+                    step_result['message'] = f"{from_node} → {to_node}"
+                
+                if not result.get('success', False):
+                    error_msg = result.get('error', 'Unknown error')
+                    error_details = result.get('error_details', {})
+                    
+                    print(f"[@navigation_executor:execute_navigation] NAVIGATION STEP FAILED:")
+                    print(f"[@navigation_executor:execute_navigation]   Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
+                    print(f"[@navigation_executor:execute_navigation]   Error: {error_msg}")
+                    print(f"[@navigation_executor:execute_navigation]   Execution time: {step_execution_time}ms")
+                    
+                    # Log additional error details if available
+                    if error_details:
+                        if error_details.get('edge_id'):
+                            print(f"[@navigation_executor:execute_navigation]   Edge ID: {error_details.get('edge_id')}")
+                        if error_details.get('actions_count'):
+                            print(f"[@navigation_executor:execute_navigation]   Actions attempted: {error_details.get('actions_count')}")
+                        if error_details.get('retry_actions_count'):
+                            print(f"[@navigation_executor:execute_navigation]   Retry actions attempted: {error_details.get('retry_actions_count')}")
+                        if error_details.get('failure_actions_count'):
+                            print(f"[@navigation_executor:execute_navigation]   Failure actions attempted: {error_details.get('failure_actions_count')}")
+                        
+                        # Log specific actions that failed
+                        failed_actions = error_details.get('actions', [])
+                        if failed_actions:
+                            print(f"[@navigation_executor:execute_navigation]   Failed actions:")
+                            for j, action in enumerate(failed_actions):
+                                cmd = action.get('command', 'unknown')
+                                params = action.get('params', {})
+                                print(f"[@navigation_executor:execute_navigation]     {j+1}. {cmd}: {params}")
+                    
+                    # NAVIGATION FUNCTIONS: Stop immediately on ANY step failure (no recovery attempts)
+                    print(f"🛑 [@navigation_executor:execute_navigation] STOPPING navigation - navigation functions do not recover from failures")
+                    detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {error_msg}"
+                    return self._build_result(
+                        False, 
+                        detailed_error_msg,
+                        tree_id, target_node_label, current_node_id, start_time,
+                        transitions_executed=transitions_executed,
+                        total_transitions=len(navigation_path),
+                        actions_executed=actions_executed,
+                        total_actions=total_actions,
+                        error_details={
+                            'step_number': step_num,
+                            'total_steps': len(navigation_path),
+                            'from_node': from_node,
+                            'to_node': to_node,
+                            'execution_time_ms': step_execution_time,
+                            'original_error': error_msg,
+                            'action_details': error_details
+                        }
+                    )
+                
+                print(f"[@navigation_executor:execute_navigation] Step {step_num} completed successfully in {step_execution_time}ms")
+                transitions_executed += 1
+            
+            print(f"[@navigation_executor:execute_navigation] Successfully navigated to '{target_node_label}'!")
+            
+            # Update current location in context after successful navigation
+            if context and hasattr(context, 'current_node_id') and navigation_path:
+                # Get the final destination node ID from the last step
+                final_step = navigation_path[-1]
+                target_node_id = final_step.get('to_node_id')
+                if target_node_id:
+                    context.current_node_id = target_node_id
+                    print(f"[@navigation_executor:execute_navigation] Updated current location to: {target_node_id}")
             
             # Update position if navigation succeeded
-            if success:
-                self.update_current_position(target_node_id, tree_id)
+            if navigation_path:
+                final_step = navigation_path[-1]
+                final_node_id = final_step.get('to_node_id', target_node_label)
+                self.update_current_position(final_node_id, tree_id, target_node_label)
             
-            # Build result once
-            message = f'Navigation to {target_node_id} completed' if success else error_message
-            extra_kwargs = {'final_position_node_id': target_node_id} if success else {}
+            # Count cross-tree transitions
+            cross_tree_transitions = len([step for step in navigation_path if step.get('tree_context_change')])
             
             return self._build_result(
-                success, message, tree_id, target_node_id, current_node_id, start_time,
+                True,
+                f"Successfully navigated to '{target_node_label}' in {len(navigation_path)} steps",
+                tree_id, target_node_label, current_node_id, start_time,
                 transitions_executed=transitions_executed,
-                total_transitions=preview['total_transitions'],
+                total_transitions=len(navigation_path),
                 actions_executed=actions_executed,
                 total_actions=total_actions,
-                **extra_kwargs
+                path_length=len(navigation_path),
+                cross_tree_transitions=cross_tree_transitions,
+                unified_pathfinding_used=True
             )
             
-        except Exception as e:
+        except (UnifiedCacheError, PathfindingError) as e:
+            print(f"❌ [@navigation_executor:execute_navigation] Unified navigation failed: {str(e)}")
             return self._build_result(
                 False,
-                f'Navigation error: {str(e)}',
-                tree_id, target_node_id, current_node_id, start_time
+                str(e),
+                tree_id, target_node_label, current_node_id, start_time,
+                unified_pathfinding_required=True
+            )
+        except Exception as e:
+            error_msg = f"Unexpected navigation error to '{target_node_label}': {str(e)}"
+            print(f"❌ [@navigation_executor:execute_navigation] ERROR: {error_msg}")
+            return self._build_result(
+                False,
+                error_msg,
+                tree_id, target_node_label, current_node_id, start_time,
+                unified_pathfinding_used=True
             )
     
     def get_navigation_preview(self, tree_id: str, target_node_id: str, 
@@ -325,21 +491,191 @@ class NavigationExecutor:
             return {'success': False, 'error': f"Error loading navigation tree: {str(e)}"}
 
     def load_navigation_tree_with_hierarchy(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
-        """Load navigation tree - exactly like main branch."""
-        # Just load main tree and populate cache
-        root_tree_result = self.load_navigation_tree(userinterface_name, team_id, script_name)
-        if not root_tree_result['success']:
-            return root_tree_result
+        """
+        Load complete navigation tree hierarchy and populate unified cache.
+        FAIL EARLY: No fallback to single-tree loading.
         
-        # Populate cache with main tree only
-        from backend_host.src.lib.utils.navigation_cache import populate_cache
-        populate_cache(root_tree_result['tree_id'], team_id, root_tree_result['nodes'], root_tree_result['edges'])
+        Args:
+            userinterface_name: Interface name (e.g., 'horizon_android_mobile')
+            team_id: Team ID (required)
+            script_name: Name of the script for logging
+            
+        Returns:
+            Dictionary with success status and complete hierarchy data
+            
+        Raises:
+            NavigationTreeError: If any part of the hierarchy loading fails
+        """
+        try:
+            print(f"🗺️ [{script_name}] Loading complete navigation tree hierarchy for '{userinterface_name}'")
+            
+            # 1. Load root tree (using existing logic)
+            root_tree_result = self.load_navigation_tree(userinterface_name, team_id, script_name)
+            if not root_tree_result['success']:
+                raise NavigationTreeError(f"Root tree loading failed: {root_tree_result['error']}")
+            
+            root_tree_id = root_tree_result['tree_id']
+            
+            print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
+            
+            # 2. Discover complete tree hierarchy
+            hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id, script_name)
+            if not hierarchy_data:
+                # If no nested trees, create single-tree hierarchy
+                hierarchy_data = [self.format_tree_for_hierarchy(root_tree_result, is_root=True)]
+                print(f"📋 [{script_name}] No nested trees found, using single root tree")
+            else:
+                print(f"📋 [{script_name}] Found {len(hierarchy_data)} trees in hierarchy")
+            
+            # 3. Build unified tree data structure
+            all_trees_data = self.build_unified_tree_data(hierarchy_data, script_name)
+            if not all_trees_data:
+                raise NavigationTreeError("Failed to build unified tree data structure")
+            
+            # 4. Populate unified cache (MANDATORY)
+            print(f"🔄 [{script_name}] Populating unified cache...")
+            unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
+            if not unified_graph:
+                raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
+            
+            print(f"✅ [{script_name}] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+            
+            # 5. Return enhanced result with hierarchy info
+            return {
+                'success': True,
+                'tree_id': root_tree_id,
+                'root_tree': root_tree_result,
+                'hierarchy': hierarchy_data,
+                'unified_graph_nodes': len(unified_graph.nodes),
+                'unified_graph_edges': len(unified_graph.edges),
+                'cross_tree_capabilities': len(hierarchy_data) > 1,
+                'team_id': team_id
+            }
+            
+        except (NavigationTreeError, UnifiedCacheError) as e:
+            # Re-raise navigation-specific errors
+            raise e
+        except Exception as e:
+            # FAIL EARLY - no fallback
+            raise NavigationTreeError(f"Unified tree loading failed: {str(e)}")
+
+    def discover_complete_hierarchy(self, root_tree_id: str, team_id: str, script_name: str = "navigation_executor") -> List[Dict]:
+        """
+        Discover all nested trees in hierarchy using enhanced database functions.
         
-        return {
-            'success': True,
-            'tree_id': root_tree_result['tree_id'],
-            'root_tree': root_tree_result
-        }
+        Args:
+            root_tree_id: Root tree ID
+            team_id: Team ID
+            script_name: Script name for logging
+            
+        Returns:
+            List of tree data dictionaries for the complete hierarchy
+        """
+        try:
+            from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
+            
+            print(f"🔍 [{script_name}] Discovering complete tree hierarchy using enhanced database function...")
+            
+            # Use the new enhanced database function
+            hierarchy_result = get_complete_tree_hierarchy(root_tree_id, team_id)
+            if not hierarchy_result['success']:
+                print(f"⚠️ [{script_name}] Failed to get complete hierarchy: {hierarchy_result.get('error', 'Unknown error')}")
+                return []
+            
+            hierarchy_data = hierarchy_result['hierarchy']
+            if not hierarchy_data:
+                print(f"📋 [{script_name}] Empty hierarchy returned from database")
+                return []
+            
+            total_trees = hierarchy_result.get('total_trees', len(hierarchy_data))
+            max_depth = hierarchy_result.get('max_depth', 0)
+            has_nested = hierarchy_result.get('has_nested_trees', False)
+            
+            print(f"✅ [{script_name}] Complete hierarchy discovered:")
+            print(f"   • Total trees: {total_trees}")
+            print(f"   • Maximum depth: {max_depth}")
+            print(f"   • Has nested trees: {has_nested}")
+            
+            # The data is already in the correct format from the database function
+            return hierarchy_data
+            
+        except Exception as e:
+            print(f"❌ [{script_name}] Error discovering hierarchy: {str(e)}")
+            return []
+
+    def format_tree_for_hierarchy(self, tree_data: Dict, tree_info: Dict = None, is_root: bool = False) -> Dict:
+        """
+        Format tree data for unified hierarchy structure.
+        
+        Args:
+            tree_data: Tree data from database
+            tree_info: Optional hierarchy metadata
+            is_root: Whether this is the root tree
+            
+        Returns:
+            Formatted tree data for unified processing
+        """
+        if is_root:
+            # Root tree from load_navigation_tree
+            return {
+                'tree_id': tree_data['tree_id'],
+                'tree_info': {
+                    'name': tree_data['tree']['name'],
+                    'is_root_tree': True,
+                    'tree_depth': 0,
+                    'parent_tree_id': None,
+                    'parent_node_id': None
+                },
+                'nodes': tree_data['nodes'],
+                'edges': tree_data['edges']
+            }
+        else:
+            # Nested tree from hierarchy
+            return {
+                'tree_id': tree_info['tree_id'],
+                'tree_info': {
+                    'name': tree_info.get('tree_name', ''),
+                    'is_root_tree': tree_info.get('depth', 0) == 0,
+                    'tree_depth': tree_info.get('depth', 0),
+                    'parent_tree_id': tree_info.get('parent_tree_id'),
+                    'parent_node_id': tree_info.get('parent_node_id')
+                },
+                'nodes': tree_data['nodes'],
+                'edges': tree_data['edges']
+            }
+
+    def build_unified_tree_data(self, hierarchy_data: List[Dict], script_name: str = "navigation_executor") -> List[Dict]:
+        """
+        Build unified data structure for cache population.
+        
+        Args:
+            hierarchy_data: List of formatted tree data
+            script_name: Script name for logging
+            
+        Returns:
+            Data structure ready for create_unified_networkx_graph()
+        """
+        try:
+            if not hierarchy_data:
+                print(f"⚠️ [{script_name}] No hierarchy data to build unified structure")
+                return []
+            
+            print(f"🔧 [{script_name}] Building unified data structure from {len(hierarchy_data)} trees")
+            
+            # The hierarchy_data is already in the correct format for create_unified_networkx_graph
+            # Just validate and return
+            for tree_data in hierarchy_data:
+                required_keys = ['tree_id', 'tree_info', 'nodes', 'edges']
+                for key in required_keys:
+                    if key not in tree_data:
+                        raise NavigationTreeError(f"Missing required key '{key}' in tree data")
+            
+            print(f"✅ [{script_name}] Unified data structure validated")
+            return hierarchy_data
+            
+        except Exception as e:
+            print(f"❌ [{script_name}] Error building unified data: {str(e)}")
+            return []
 
 
     # ========================================
