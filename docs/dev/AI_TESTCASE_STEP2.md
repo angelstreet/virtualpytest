@@ -153,7 +153,7 @@ def analyze_test_case():
     for ui in userinterfaces:
         ui_name = ui.get('name')
         # Get navigation nodes for this interface
-        root_tree = get_root_tree_for_interface(ui.get('userinterface_id'), team_id)
+        root_tree = get_root_tree_for_interface(ui.get('id'), team_id)
         if root_tree:
             tree_data = get_full_tree(root_tree.get('tree_id'), team_id)
             if tree_data.get('success'):

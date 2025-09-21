@@ -55,7 +55,7 @@ class NavigationExecutor:
         if not interface_info:
             raise ValueError(f"Interface '{userinterface_name}' not found")
             
-        root_tree_info = get_root_tree_for_interface(interface_info['userinterface_id'], team_id)
+        root_tree_info = get_root_tree_for_interface(interface_info['id'], team_id)
         if not root_tree_info:
             raise ValueError(f"No root tree found for interface '{userinterface_name}'")
             

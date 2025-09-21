@@ -455,7 +455,7 @@ def _analyze_single_interface_compatibility(test_case, interface_name, team_id):
             }
         
         # Get navigation graph
-        root_tree = get_root_tree_for_interface(userinterface_info.get('userinterface_id'), team_id)
+        root_tree = get_root_tree_for_interface(userinterface_info.get('id'), team_id)
         unified_graph = get_full_tree(root_tree.get('tree_id'), team_id) if root_tree else None
         
         if not unified_graph:
