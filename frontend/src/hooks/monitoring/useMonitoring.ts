@@ -267,7 +267,6 @@ export const useMonitoring = ({
           const rawJsonUrl = result.latest_json_url;
           const sequenceMatch = rawJsonUrl.match(/capture_(\d+)/);
           const sequence = sequenceMatch ? sequenceMatch[1] : '';
-          const filename = `capture_${sequence}`;
           
           const imageUrl = buildCaptureUrl(host, sequence, device?.device_id);
           const jsonUrl = imageUrl.replace('.jpg', '.json');
