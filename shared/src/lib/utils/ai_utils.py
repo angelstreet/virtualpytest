@@ -132,86 +132,86 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
     for retry in range(4):
         try:
             print(f"[AI_UTILS] OpenRouter call starting - model: {model}, max_tokens: {max_tokens}, temperature: {temperature}")
-        
-        # Get API key
-        api_key = os.getenv(AI_CONFIG['providers']['openrouter']['api_key_env'])
-        if not api_key:
-            error_msg = 'OpenRouter API key not found in environment variables'
-            print(f"[AI_UTILS] ERROR: {error_msg}")
-            return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
-        
-        print(f"[AI_UTILS] API key found, length: {len(api_key)} characters")
-        
-        # Prepare headers
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-            **AI_CONFIG['providers']['openrouter']['headers']
-        }
-        
-        print(f"[AI_UTILS] Headers prepared: {list(headers.keys())}")
-        
-        # Prepare message content
-        if image:
-            # Vision request
-            image_b64 = _process_image_input(image)
-            if not image_b64:
-                return {'success': False, 'error': 'Failed to process image', 'content': '', 'initial_prompt': prompt}
             
-            content = [
-                {'type': 'text', 'text': prompt},
-                {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}}
-            ]
-        else:
-            # Text request
-            content = prompt
-        
-        # Prepare request payload
-        payload = {
-            'model': model,
-            'messages': [{'role': 'user', 'content': content}],
-            'max_tokens': max_tokens,
-            'temperature': temperature
-        }
-        
-        print(f"[AI_UTILS] Making API call to: {AI_CONFIG['providers']['openrouter']['base_url']}")
-        print(f"[AI_UTILS] Payload keys: {list(payload.keys())}")
-        print(f"[AI_UTILS] Prompt length: {len(prompt)} characters")
-        
-        # Make API call
-        response = requests.post(
-            AI_CONFIG['providers']['openrouter']['base_url'],
-            headers=headers,
-            json=payload,
-            timeout=AI_CONFIG['defaults']['timeout']
-        )
-        
-        print(f"[AI_UTILS] API response status: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            print(f"[AI_UTILS] Full OpenRouter response: {json.dumps(result, indent=2)}")
+            # Get API key
+            api_key = os.getenv(AI_CONFIG['providers']['openrouter']['api_key_env'])
+            if not api_key:
+                error_msg = 'OpenRouter API key not found in environment variables'
+                print(f"[AI_UTILS] ERROR: {error_msg}")
+                return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
             
-            # Extract content safely
-            try:
-                content = result['choices'][0]['message']['content']
-                # Handle None or empty content
-                if content is None or content == "" or result.get('usage', {}).get('completion_tokens', 0) == 0:
-                    if retry < 3: 
-                        sleep(10)
-                        continue
-                    return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': '', 'initial_prompt': prompt}
+            print(f"[AI_UTILS] API key found, length: {len(api_key)} characters")
+            
+            # Prepare headers
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                **AI_CONFIG['providers']['openrouter']['headers']
+            }
+            
+            print(f"[AI_UTILS] Headers prepared: {list(headers.keys())}")
+            
+            # Prepare message content
+            if image:
+                # Vision request
+                image_b64 = _process_image_input(image)
+                if not image_b64:
+                    return {'success': False, 'error': 'Failed to process image', 'content': '', 'initial_prompt': prompt}
                 
-                return {'success': True, 'content': content, 'initial_prompt': prompt}
-            except (KeyError, IndexError, TypeError) as e:
-                print(f"[AI_UTILS] Error extracting content: {e}")
-                print(f"[AI_UTILS] Response structure: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
-                return {'success': False, 'error': f'Invalid OpenRouter response structure: {e}', 'content': '', 'initial_prompt': prompt}
-        else:
-            error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
-            print(f"[AI_UTILS] OpenRouter API error - Status: {response.status_code}")
-            print(f"[AI_UTILS] Error response: {error_text}")
-            return {'success': False, 'error': f'OpenRouter API error (HTTP {response.status_code}): {error_text}', 'content': '', 'initial_prompt': prompt}
+                content = [
+                    {'type': 'text', 'text': prompt},
+                    {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_b64}'}}
+                ]
+            else:
+                # Text request
+                content = prompt
+            
+            # Prepare request payload
+            payload = {
+                'model': model,
+                'messages': [{'role': 'user', 'content': content}],
+                'max_tokens': max_tokens,
+                'temperature': temperature
+            }
+            
+            print(f"[AI_UTILS] Making API call to: {AI_CONFIG['providers']['openrouter']['base_url']}")
+            print(f"[AI_UTILS] Payload keys: {list(payload.keys())}")
+            print(f"[AI_UTILS] Prompt length: {len(prompt)} characters")
+            
+            # Make API call
+            response = requests.post(
+                AI_CONFIG['providers']['openrouter']['base_url'],
+                headers=headers,
+                json=payload,
+                timeout=AI_CONFIG['defaults']['timeout']
+            )
+            
+            print(f"[AI_UTILS] API response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"[AI_UTILS] Full OpenRouter response: {json.dumps(result, indent=2)}")
+                
+                # Extract content safely
+                try:
+                    content = result['choices'][0]['message']['content']
+                    # Handle None or empty content
+                    if content is None or content == "" or result.get('usage', {}).get('completion_tokens', 0) == 0:
+                        if retry < 3: 
+                            sleep(10)
+                            continue
+                        return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': '', 'initial_prompt': prompt}
+                    
+                    return {'success': True, 'content': content, 'initial_prompt': prompt}
+                except (KeyError, IndexError, TypeError) as e:
+                    print(f"[AI_UTILS] Error extracting content: {e}")
+                    print(f"[AI_UTILS] Response structure: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                    return {'success': False, 'error': f'Invalid OpenRouter response structure: {e}', 'content': '', 'initial_prompt': prompt}
+            else:
+                error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
+                print(f"[AI_UTILS] OpenRouter API error - Status: {response.status_code}")
+                print(f"[AI_UTILS] Error response: {error_text}")
+                return {'success': False, 'error': f'OpenRouter API error (HTTP {response.status_code}): {error_text}', 'content': '', 'initial_prompt': prompt}
             
     except requests.exceptions.Timeout as e:
         error_msg = f'OpenRouter API timeout after {AI_CONFIG["defaults"]["timeout"]} seconds'
