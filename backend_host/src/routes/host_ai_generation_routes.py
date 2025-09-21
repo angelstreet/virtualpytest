@@ -318,14 +318,25 @@ def generate_plan():
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         team_id = request.args.get('team_id')
         
-        # Generate plan using AI executor - use execute_prompt for plan generation
+        # Generate plan using AI executor's existing capabilities
+        # execute_prompt with async_execution=False returns the generated plan
         result = device.ai_executor.execute_prompt(
             prompt,
             userinterface_name,
             team_id=team_id,
-            async_execution=False,  # Synchronous for plan generation
-            generate_plan_only=True  # Only generate plan, don't execute
+            async_execution=False  # Synchronous mode returns plan + execution result
         )
+        
+        # Extract just the plan part for the generation endpoint
+        if result.get('success'):
+            # Return plan-focused response
+            plan_result = {
+                'success': True,
+                'plan': result.get('result', {}).get('plan', {}),
+                'analysis': result.get('result', {}).get('analysis', ''),
+                'feasible': result.get('success', True)
+            }
+            result = plan_result
         
         # Determine appropriate status code based on plan generation result
         success = result.get('success', False)
@@ -373,14 +384,25 @@ def analyze_compatibility():
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         team_id = request.args.get('team_id')
         
-        # Analyze compatibility using AI executor - use execute_prompt with analysis mode
+        # Analyze compatibility using AI executor's existing plan generation
+        # The plan generation already includes feasibility analysis
         result = device.ai_executor.execute_prompt(
             f"Analyze compatibility for task: {prompt}",
             userinterface_name,
             team_id=team_id,
-            async_execution=False,  # Synchronous for analysis
-            analyze_only=True  # Only analyze, don't execute
+            async_execution=False  # Synchronous mode includes analysis
         )
+        
+        # Extract compatibility analysis from the result
+        if result.get('success'):
+            # Return compatibility-focused response
+            compatibility_result = {
+                'success': True,
+                'compatible': result.get('success', True),
+                'analysis': result.get('result', {}).get('analysis', ''),
+                'reasoning': result.get('result', {}).get('analysis', '')
+            }
+            result = compatibility_result
         
         # Determine appropriate status code based on analysis result
         success = result.get('success', False)
