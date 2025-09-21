@@ -690,9 +690,9 @@ class ScriptExecutor:
                 print(f"⚠️ [{self.script_name}] Video capture failed: {e}")
                 context.test_video_url = ""
             
-            # Generate and upload report using device script executor info
-            device_info = context.selected_device.script_executor.get_device_info_for_report()
-            host_info = context.selected_device.script_executor.get_host_info_for_report()
+            # Generate and upload report using shared script executor info
+            device_info = context.script_executor.get_device_info_for_report()
+            host_info = context.script_executor.get_host_info_for_report()
             
             # Stop stdout capture before generating report
             context.stop_stdout_capture()

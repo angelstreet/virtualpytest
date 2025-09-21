@@ -510,12 +510,25 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"{self.capture_source}[{self.capture_source}]: No HLS segments found for compression")
                 return None
             
-            # Compress segments to MP4 using restart helpers
+            # Compress segments to MP4 using VideoCompressionUtils directly
+            from backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
+            compressor = VideoCompressionUtils()
+            
             video_filename = "restart_original_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
-            success = self.restart_helpers._compress_segments_to_mp4(segment_files, local_video_path, duration_seconds)
-            if not success:
+            # Create M3U8 path (required by compression utils)
+            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            
+            compression_result = compressor.compress_hls_to_mp4(
+                m3u8_path=m3u8_path,
+                segment_files=segment_files,
+                output_path=local_video_path,
+                compression_level="medium"
+            )
+            
+            if not compression_result.get('success', False):
+                print(f"{self.capture_source}[{self.capture_source}]: Video compression failed")
                 return None
             
             # Build video URL for access
