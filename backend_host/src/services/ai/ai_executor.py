@@ -51,9 +51,8 @@ class AIExecutor:
         self._navigation_cache = {}
         self._cache_ttl = 86400  # 24 hours
         
-        # Initialize AI plan cache
-        from .ai_plan_cache import AIExecutorCache
-        self.plan_cache = AIExecutorCache()
+        # Initialize AI plan cache (loaded on demand)
+        self.plan_cache = None
         
         print(f"[@ai_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
@@ -96,6 +95,11 @@ class AIExecutor:
             # Check cache first (only if use_cache=True)
             cached_plan = None
             if use_cache:
+                # Load cache on demand
+                if self.plan_cache is None:
+                    from .ai_plan_cache import AIExecutorCache
+                    self.plan_cache = AIExecutorCache()
+                
                 cached_plan = self.plan_cache.find_cached_plan(prompt, context, team_id)
                 if cached_plan:
                     print(f"[@ai_executor] Using cached plan: {cached_plan['fingerprint']}")
@@ -417,7 +421,11 @@ class AIExecutor:
         plan_dict = cached_plan['plan']
         result = self._execute_plan_sync(plan_dict, context)
         
-        # Update cache metrics
+        # Update cache metrics (load cache if needed)
+        if self.plan_cache is None:
+            from .ai_plan_cache import AIExecutorCache
+            self.plan_cache = AIExecutorCache()
+        
         self.plan_cache.update_plan_metrics(
             cached_plan['fingerprint'], 
             result.success, 
@@ -459,6 +467,11 @@ class AIExecutor:
         )
         
         if should_store:
+            # Load cache on demand for storage
+            if self.plan_cache is None:
+                from .ai_plan_cache import AIExecutorCache
+                self.plan_cache = AIExecutorCache()
+            
             success = self.plan_cache.store_successful_plan(prompt, context, plan_dict, result, team_id)
             if success:
                 print("[@ai_executor] Stored successful plan in cache")

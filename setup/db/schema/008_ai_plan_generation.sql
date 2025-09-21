@@ -1,4 +1,5 @@
--- Migration: Create AI Plan Generation Cache Table
+-- 008_ai_plan_generation.sql
+-- AI Plan Generation Cache System
 -- Clean implementation with no backward compatibility
 
 -- Create the ai_plan_generation table
@@ -46,11 +47,9 @@ CREATE INDEX idx_ai_plan_generation_plan ON ai_plan_generation USING GIN(plan);
 -- Enable Row Level Security
 ALTER TABLE ai_plan_generation ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Users can only access plans from their team
-CREATE POLICY "Team members can access team plans" ON ai_plan_generation
-    FOR ALL USING (team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-    ));
+-- RLS Policy: Match existing table pattern
+CREATE POLICY "ai_plan_generation_access_policy" ON ai_plan_generation
+    FOR ALL USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
 -- Function to update plan metrics after execution
 CREATE OR REPLACE FUNCTION update_ai_plan_metrics(
@@ -95,3 +94,13 @@ $$ LANGUAGE plpgsql;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ai_plan_generation TO authenticated;
 GRANT EXECUTE ON FUNCTION update_ai_plan_metrics TO authenticated;
 GRANT EXECUTE ON FUNCTION cleanup_ai_plan_generation TO authenticated;
+
+-- Add comments for documentation
+COMMENT ON TABLE ai_plan_generation IS 'AI Plan Generation Cache - stores successful AI-generated plans for reuse';
+COMMENT ON COLUMN ai_plan_generation.fingerprint IS 'MD5 hash of normalized prompt + context signature for fast lookups';
+COMMENT ON COLUMN ai_plan_generation.normalized_prompt IS 'Standardized prompt format for semantic matching';
+COMMENT ON COLUMN ai_plan_generation.available_nodes IS 'JSON array of navigation nodes available during plan generation';
+COMMENT ON COLUMN ai_plan_generation.plan IS 'Complete AI-generated plan with steps and metadata';
+COMMENT ON COLUMN ai_plan_generation.success_rate IS 'Calculated success rate (success_count / execution_count)';
+COMMENT ON FUNCTION update_ai_plan_metrics IS 'Updates plan performance metrics after execution';
+COMMENT ON FUNCTION cleanup_ai_plan_generation IS 'Removes old plans with poor performance';

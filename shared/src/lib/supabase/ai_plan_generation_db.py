@@ -7,7 +7,6 @@ Clean database operations for AI plan caching with no fallbacks or legacy suppor
 import json
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from .supabase_client import get_supabase_client
 
 
 def store_plan(fingerprint: str, original_prompt: str, normalized_prompt: str, 
@@ -30,6 +29,7 @@ def store_plan(fingerprint: str, original_prompt: str, normalized_prompt: str,
         True if stored successfully, False otherwise
     """
     try:
+        from .supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         plan_data = {
@@ -74,6 +74,7 @@ def get_plan_by_fingerprint(fingerprint: str, team_id: str) -> Optional[Dict]:
         Plan dictionary or None if not found
     """
     try:
+        from .supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         result = supabase.table('ai_plan_generation')\
@@ -115,6 +116,7 @@ def find_compatible_plans(normalized_prompt: str, device_model: str,
         List of compatible plans ordered by success rate
     """
     try:
+        from .supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Find plans with matching prompt and context
@@ -177,6 +179,7 @@ def update_plan_metrics(fingerprint: str, success: bool, execution_time_ms: int,
         True if updated successfully, False otherwise
     """
     try:
+        from .supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Get current metrics
@@ -232,6 +235,7 @@ def invalidate_plan(fingerprint: str, team_id: str) -> bool:
         True if invalidated successfully, False otherwise
     """
     try:
+        from .supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         result = supabase.table('ai_plan_generation')\
@@ -264,6 +268,7 @@ def cleanup_old_plans(team_id: str, days_old: int = 90, min_success_rate: float 
         Number of plans removed
     """
     try:
+        from .supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Calculate cutoff date

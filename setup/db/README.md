@@ -14,6 +14,7 @@ setup/db/
 │   ├── 005_monitoring_analytics.sql  # Alerts and metrics (simplified)
 │   ├── (system_metrics table created via MCP) # System monitoring metrics (CREATED)
 │   ├── 007_parent_node_sync_triggers.sql # Parent node sync triggers
+│   ├── 008_ai_plan_generation.sql    # AI plan generation cache system
 │   ├── auto_sync_nested_node.md      # Documentation for nested node sync
 │   └── CURRENT_DATABASE_BACKUP.sql   # Complete backup of current schema
 └── README.md                  # This file
@@ -52,18 +53,21 @@ Copy and paste the entire contents of `005_monitoring_analytics.sql` and run it.
 #### Step 7: Parent Node Sync Triggers
 Copy and paste the entire contents of `007_parent_node_sync_triggers.sql` and run it.
 
+#### Step 8: AI Plan Generation Cache
+Copy and paste the entire contents of `008_ai_plan_generation.sql` and run it.
+
 ## ✅ Verification
 
-After running all 7 schema files, verify your setup:
+After running all 8 schema files, verify your setup:
 
 1. Go to **Database** → **Tables** in your Supabase dashboard
-2. You should see **23+ tables** created
+2. You should see **24+ tables** created
 3. All tables should have the correct relationships and indexes
 
 ### Expected Tables:
 
 **Core Tables:**
-- `teams`, `device_models`, `device`, `environment_profiles`, `campaign_executions`, `ai_analysis_cache`, `zap_results`
+- `teams`, `device_models`, `device`, `environment_profiles`, `campaign_executions`, `ai_analysis_cache`, `zap_results`, `ai_plan_generation`
 
 **UI & Navigation:**
 - `userinterfaces`, `navigation_trees`, `navigation_nodes`, `navigation_edges`, `navigation_trees_history`
@@ -81,6 +85,7 @@ After running all 7 schema files, verify your setup:
 - ✅ **Nested Navigation Trees**: Support for multi-level navigation with automatic parent-child sync
 - ✅ **Bidirectional Edges**: Action sets for forward/reverse navigation paths
 - ✅ **AI Test Generation**: AI analysis cache and test case generation support
+- ✅ **AI Plan Caching**: Intelligent caching of successful AI-generated plans with performance metrics
 - ✅ **Zap Results**: Detailed media analysis and monitoring data
 - ✅ **System Monitoring**: Real-time host and server performance metrics
 - ✅ **Automatic Triggers**: Parent node sync and edge label management
@@ -108,6 +113,7 @@ The VirtualPyTest database schema supports:
 - **Test Automation**: Controllers and execution engines  
 - **UI Testing**: Navigation trees and interface definitions
 - **Test Execution**: Test cases, results, and campaign management
+- **AI Plan Caching**: Intelligent storage and reuse of successful AI-generated plans
 - **Monitoring**: Performance metrics, alerts, analytics, and system monitoring
 - **Verification**: Reference data for automated testing
 
