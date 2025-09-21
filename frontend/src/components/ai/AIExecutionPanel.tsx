@@ -186,79 +186,75 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             {/* PHASE 1: Analysis Display (Always show first when available) */}
             {aiPlan && aiPlan.analysis && (
               <Box sx={{ mb: 0.5 }}>
-                <Typography variant="subtitle2" sx={{ 
-                  color: isPlanFeasible ? '#4caf50' : '#f44336', 
-                  mb: 0.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1
-                }}>
-                  {isPlanFeasible ? '✅' : '❌'} Task Analysis
-                  {!isPlanFeasible && (
-                    <Typography variant="caption" sx={{ color: '#f44336', ml: 0 }}>
-                      (Not Feasible)
-                    </Typography>
-                  )}
-                </Typography>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    cursor: 'pointer',
+                    '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
+                    borderRadius: 0.5,
+                    p: 0.5,
+                    mb: 0.5
+                  }}
+                  onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+                >
+                  <Typography variant="subtitle2" sx={{ 
+                    color: isPlanFeasible ? '#4caf50' : '#f44336', 
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    {isPlanFeasible ? '✅' : '❌'} Task Analysis
+                    {!isPlanFeasible && (
+                      <Typography variant="caption" sx={{ color: '#f44336', ml: 0 }}>
+                        (Not Feasible)
+                      </Typography>
+                    )}
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    sx={{ color: '#aaa', p: 0.25 }}
+                    aria-label={isAnalysisExpanded ? 'Collapse analysis' : 'Expand analysis'}
+                  >
+                    {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
                 
-                {/* Always show analysis prominently for non-feasible plans */}
-                {!isPlanFeasible ? (
+                {isAnalysisExpanded && (
                   <Box
                     sx={{
                       p: 1,
-                      backgroundColor: 'rgba(244,67,54,0.1)',
+                      backgroundColor: !isPlanFeasible ? 'rgba(244,67,54,0.1)' : 'rgba(76,175,80,0.1)',
                       borderRadius: 0.5,
-                      border: '1px solid rgba(244,67,54,0.3)',
+                      border: !isPlanFeasible ? '1px solid rgba(244,67,54,0.3)' : '1px solid rgba(76,175,80,0.3)',
+                      mb: 1
                     }}
                   >
-                    <Typography variant="body2" sx={{ color: '#ffffff' }}>
+                    <Typography variant="body2" sx={{ color: !isPlanFeasible ? '#ffffff' : '#cccccc' }}>
                       {aiPlan.analysis}
                     </Typography>
                   </Box>
-                ) : (
-                  /* Expandable analysis for feasible plans */
-                  <>
-                    <Box 
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        cursor: 'pointer',
-                        '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                        borderRadius: 0.5,
-                        p: 0.5,
-                        mb: 0.5
-                      }}
-                      onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
-                    >
-                      <Typography variant="caption" sx={{ color: '#aaa', flex: 1 }}>
-                        {isAnalysisExpanded ? 'Hide Analysis' : 'Show Analysis'}
-                      </Typography>
-                      <IconButton 
-                        size="small" 
-                        sx={{ color: '#aaa', p: 0.25 }}
-                        aria-label={isAnalysisExpanded ? 'Collapse analysis' : 'Expand analysis'}
-                      >
-                        {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                      </IconButton>
-                    </Box>
-                    
-                    {isAnalysisExpanded && (
-                      <Box
-                        sx={{
-                          p: 1,
-                          backgroundColor: 'rgba(76,175,80,0.1)',
-                          borderRadius: 0.5,
-                          border: '1px solid rgba(76,175,80,0.3)',
-                          mb: 1
-                        }}
-                      >
-                        <Typography variant="body2" sx={{ color: '#cccccc' }}>
-                          {aiPlan.analysis}
-                        </Typography>
-                      </Box>
-                    )}
-                  </>
                 )}
+              </Box>
+            )}
+
+            {/* Task Execution Status Header */}
+            {(aiPlan || taskResult) && (
+              <Box sx={{ mt: 0.5, mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" sx={{ color: '#aaa' }}>
+                    Task Execution:
+                  </Typography>
+                  {taskResult && !isAIExecuting && (
+                    <Typography variant="caption" sx={{ 
+                      color: taskResult.success ? '#4caf50' : '#f44336',
+                      fontWeight: 'bold'
+                    }}>
+                      {taskResult.success ? '🎉 Success' : '⚠️ Failed'}
+                    </Typography>
+                  )}
+                </Box>
               </Box>
             )}
 
@@ -320,9 +316,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                 {/* PHASE 3: Execution Summary (Show during/after execution) */}
                 {(isAIExecuting || executionSummary || taskResult) && (
                   <Box sx={{ mt: 1, p: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 0.5 }}>
-                    <Typography variant="caption" sx={{ color: '#aaa', mb: 1, display: 'block' }}>
-                      Execution Status:
-                    </Typography>
                     
                     {/* Progress Bar */}
                     <Box sx={{ mb: 1 }}>
@@ -395,46 +388,9 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                       </Box>
                     )}
 
-                    {/* Task Result */}
-                    {taskResult && !isAIExecuting && (
-                      <Typography variant="caption" sx={{ 
-                        color: taskResult.success ? '#4caf50' : '#f44336',
-                        display: 'block',
-                        mt: 1,
-                        fontWeight: 'bold'
-                      }}>
-                        {taskResult.success ? '🎉' : '⚠️'} {taskResult.message}
-                      </Typography>
-                    )}
                   </Box>
                 )}
 
-                {/* Plan Summary Info */}
-                <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="caption" sx={{
-                    color: '#4caf50',
-                    backgroundColor: 'rgba(76,175,80,0.1)',
-                    px: 1, py: 0.5, borderRadius: 0.5,
-                  }}>
-                    📋 {aiPlan.steps?.length || 0} steps
-                  </Typography>
-                  <Typography variant="caption" sx={{
-                    color: aiPlan.feasible ? '#4caf50' : '#f44336',
-                    backgroundColor: aiPlan.feasible ? 'rgba(76,175,80,0.1)' : 'rgba(244,67,54,0.1)',
-                    px: 1, py: 0.5, borderRadius: 0.5,
-                  }}>
-                    {aiPlan.feasible ? '✅ Feasible' : '❌ Not Feasible'}
-                  </Typography>
-                  {aiPlan.id && (
-                    <Typography variant="caption" sx={{
-                      color: '#9c27b0',
-                      backgroundColor: 'rgba(156,39,176,0.1)',
-                      px: 1, py: 0.5, borderRadius: 0.5,
-                    }}>
-                      🆔 {aiPlan.id.substring(0, 8)}...
-                    </Typography>
-                  )}
-                </Box>
               </>
             )}
           </Box>
