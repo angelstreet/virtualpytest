@@ -9,25 +9,25 @@ import threading
 from typing import Dict, List, Any, Optional
 from shared.src.lib.models.host import Host
 from shared.src.lib.models.device import Device
-from controllers.controller_config_factory import create_controller_configs_from_device_info
+from backend_host.src.controllers.controller_config_factory import create_controller_configs_from_device_info
 
 # Import controller classes
-from controllers.audiovideo.hdmi_stream import HDMIStreamController
-from controllers.verification.vnc_stream import VNCStreamController
-from controllers.audiovideo.camera_stream import CameraStreamController
-from controllers.remote.android_mobile import AndroidMobileRemoteController
-from controllers.remote.android_tv import AndroidTVRemoteController
-from controllers.remote.appium_remote import AppiumRemoteController
-from controllers.remote.infrared import IRRemoteController
-from controllers.desktop.bash import BashDesktopController
-from controllers.desktop.pyautogui import PyAutoGUIDesktopController
-from controllers.verification.image import ImageVerificationController
-from controllers.verification.text import TextVerificationController
-from controllers.verification.adb import ADBVerificationController
-from controllers.verification.appium import AppiumVerificationController
-from controllers.verification.video import VideoVerificationController
-from controllers.verification.audio import AudioVerificationController
-from controllers.power.tapo_power import TapoPowerController
+from backend_host.src.controllers.audiovideo.hdmi_stream import HDMIStreamController
+from backend_host.src.controllers.verification.vnc_stream import VNCStreamController
+from backend_host.src.controllers.audiovideo.camera_stream import CameraStreamController
+from backend_host.src.controllers.remote.android_mobile import AndroidMobileRemoteController
+from backend_host.src.controllers.remote.android_tv import AndroidTVRemoteController
+from backend_host.src.controllers.remote.appium_remote import AppiumRemoteController
+from backend_host.src.controllers.remote.infrared import IRRemoteController
+from backend_host.src.controllers.desktop.bash import BashDesktopController
+from backend_host.src.controllers.desktop.pyautogui import PyAutoGUIDesktopController
+from backend_host.src.controllers.verification.image import ImageVerificationController
+from backend_host.src.controllers.verification.text import TextVerificationController
+from backend_host.src.controllers.verification.adb import ADBVerificationController
+from backend_host.src.controllers.verification.appium import AppiumVerificationController
+from backend_host.src.controllers.verification.video import VideoVerificationController
+from backend_host.src.controllers.verification.audio import AudioVerificationController
+from backend_host.src.controllers.power.tapo_power import TapoPowerController
 
 
 def create_host_from_environment() -> Host:
