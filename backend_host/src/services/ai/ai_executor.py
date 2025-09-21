@@ -60,21 +60,21 @@ class AIExecutor:
                       prompt: str, 
                       userinterface_name: str,
                       team_id: str,
-                      use_cache: bool,
-                      debug_mode: bool,
                       current_node_id: Optional[str] = None,
-                      async_execution: bool = True) -> Dict[str, Any]:
+                      async_execution: bool = True,
+                      use_cache: bool = False,
+                      debug_mode: bool = False) -> Dict[str, Any]:
         """
-        Execute AI prompt with explicit cache control
+        Execute AI prompt with optional cache control
         
         Args:
             prompt: User prompt
             userinterface_name: Interface name
             team_id: Team ID
-            use_cache: True to use/store cache, False to skip entirely
-            debug_mode: True prevents storage even if successful
             current_node_id: Current navigation position
             async_execution: Whether to execute asynchronously
+            use_cache: True to use/store cache, False for fresh generation (default: False)
+            debug_mode: True prevents storage even if successful (default: False)
         
         Returns:
         - For async: {'success': True, 'execution_id': str}

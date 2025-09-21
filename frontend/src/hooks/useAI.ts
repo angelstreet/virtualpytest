@@ -214,7 +214,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     }
   }, []);
 
-  const executeTask = useCallback(async (prompt: string, userinterface_name: string, useCache: boolean, debugMode: boolean = false) => {
+  const executeTask = useCallback(async (prompt: string, userinterface_name: string, useCache: boolean = false, debugMode: boolean = false) => {
     if (isExecuting) return;
 
     // Clear previous state

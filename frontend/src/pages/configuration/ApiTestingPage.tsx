@@ -2,10 +2,12 @@ import {
   Api as ApiIcon,
   PlayArrow as RunIcon,
   Speed as QuickIcon,
-  Download as DownloadIcon,
+  OpenInNew as OpenInNewIcon,
   Clear as ClearIcon,
   SelectAll as SelectAllIcon,
   DeselectOutlined as DeselectIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -21,28 +23,32 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Chip,
   Checkbox,
   FormControlLabel,
   Divider,
+  Collapse,
+  IconButton,
 } from '@mui/material';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { useApiTesting, TestResult } from '../../hooks/useApiTesting';
+import { useApiTesting, TestResult, TestReport } from '../../hooks/useApiTesting';
 
 const ApiTestingPage: React.FC = () => {
+  const [isRoutesExpanded, setIsRoutesExpanded] = useState(true);
+  
   const {
     isRunning,
     currentTest,
-    progress,
     lastReport,
     error,
     availableEndpoints,
     selectedEndpoints,
+    liveResults,
+    totalTests,
+    completedTests,
     runAllTests,
     runQuickTest,
-    downloadHtmlReport,
     clearResults,
     getTestConfig,
     toggleEndpoint,
@@ -54,6 +60,118 @@ const ApiTestingPage: React.FC = () => {
   useEffect(() => {
     getTestConfig();
   }, [getTestConfig]);
+
+  // Auto-collapse routes when tests start running
+  useEffect(() => {
+    if (isRunning) {
+      setIsRoutesExpanded(false);
+    }
+  }, [isRunning]);
+
+  const handleRunAllTests = async () => {
+    setIsRoutesExpanded(false); // Collapse before running
+    await runAllTests();
+  };
+
+  const handleRunQuickTest = async () => {
+    setIsRoutesExpanded(false); // Collapse before running
+    await runQuickTest();
+  };
+
+  const openReportInNewTab = (report: TestReport) => {
+    // Generate HTML content
+    const htmlContent = generateHtmlReport(report);
+    
+    // Create blob and URL
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    // Open in new tab
+    window.open(url, '_blank');
+    
+    // Clean up URL after a delay
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const generateHtmlReport = (report: TestReport) => {
+    const passed = report.passed;
+    const failed = report.failed;
+    const percentage = Math.round((passed / report.total_tests) * 100);
+    
+    return `<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test Report - ${report.timestamp}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .summary { background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #007bff; }
+        .pass { color: #28a745; font-weight: bold; }
+        .fail { color: #dc3545; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .status-pass { background-color: #d4edda; }
+        .status-fail { background-color: #f8d7da; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-success { background: #28a745; color: white; }
+        .badge-danger { background: #dc3545; color: white; }
+        h1 { color: #333; margin-bottom: 10px; }
+        .meta { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="summary">
+            <h1>🧪 API Test Report</h1>
+            <div class="meta">
+                <p><strong>Git Commit:</strong> <code>${report.git_commit}</code></p>
+                <p><strong>Timestamp:</strong> ${new Date(report.timestamp).toLocaleString()}</p>
+                <p><strong>Test Type:</strong> ${(report as any).quick_test ? 'Quick Test (Critical Routes)' : 'Full Test (All Routes)'}</p>
+                <p><strong>Results:</strong> 
+                    <span class="pass">${passed} passed</span>, 
+                    <span class="fail">${failed} failed</span> 
+                    <strong>(${percentage}% success rate)</strong>
+                </p>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Route</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>Status Code</th>
+                    <th>Response Time</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${report.results.map((result: TestResult) => `
+                    <tr class="status-${result.status}">
+                        <td><strong>${result.endpoint}</strong><br><small style="color: #666;">${result.url}</small></td>
+                        <td><span class="badge ${result.method === 'GET' ? 'badge-success' : 'badge-info'}">${result.method}</span></td>
+                        <td>
+                            <span class="badge ${result.status === 'pass' ? 'badge-success' : 'badge-danger'}">
+                                ${result.status === 'pass' ? '✅ PASS' : '❌ FAIL'}
+                            </span>
+                        </td>
+                        <td><code>${result.status_code || 'N/A'}</code></td>
+                        <td>${result.response_time}ms</td>
+                        <td style="max-width: 300px; word-break: break-word;">${result.error || ''}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 30px; padding: 15px; background: #e9ecef; border-radius: 5px; text-align: center;">
+            <small>Generated by VirtualPyTest API Testing System</small>
+        </div>
+    </div>
+</body>
+</html>`;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -96,7 +214,7 @@ const ApiTestingPage: React.FC = () => {
             <Button
               variant="contained"
               startIcon={isRunning ? <CircularProgress size={20} /> : <RunIcon />}
-              onClick={runAllTests}
+              onClick={handleRunAllTests}
               disabled={isRunning || selectedEndpoints.length === 0}
               sx={{ minWidth: 140 }}
             >
@@ -106,7 +224,7 @@ const ApiTestingPage: React.FC = () => {
             <Button
               variant="outlined"
               startIcon={<QuickIcon />}
-              onClick={runQuickTest}
+              onClick={handleRunQuickTest}
               disabled={isRunning}
             >
               Quick Test
@@ -115,11 +233,11 @@ const ApiTestingPage: React.FC = () => {
             {lastReport && (
               <Button
                 variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={() => downloadHtmlReport(lastReport)}
+                startIcon={<OpenInNewIcon />}
+                onClick={() => openReportInNewTab(lastReport)}
                 disabled={isRunning}
               >
-                Download HTML
+                Open Report
               </Button>
             )}
 
@@ -137,9 +255,16 @@ const ApiTestingPage: React.FC = () => {
           {isRunning && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {currentTest}
+                {currentTest} ({completedTests}/{totalTests})
               </Typography>
-              <LinearProgress variant="indeterminate" />
+              <LinearProgress 
+                variant="determinate" 
+                value={totalTests > 0 ? (completedTests / totalTests) * 100 : 0}
+                sx={{ mb: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {Math.round(totalTests > 0 ? (completedTests / totalTests) * 100 : 0)}% complete
+              </Typography>
             </Box>
           )}
 
@@ -154,71 +279,104 @@ const ApiTestingPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Endpoint Selection */}
+      {/* Route Selection - Always in same position, just collapses */}
       {availableEndpoints.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Select Endpoints to Test ({selectedEndpoints.length}/{availableEndpoints.length} selected)
-            </Typography>
-
-            {/* Select All/None Controls */}
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<SelectAllIcon />}
-                onClick={selectAllEndpoints}
-                disabled={isRunning || selectedEndpoints.length === availableEndpoints.length}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6">
+                Select Routes ({selectedEndpoints.length}/{availableEndpoints.length} selected)
+              </Typography>
+              <IconButton
+                onClick={() => setIsRoutesExpanded(!isRoutesExpanded)}
+                sx={{ ml: 1 }}
               >
-                Select All
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<DeselectIcon />}
-                onClick={deselectAllEndpoints}
-                disabled={isRunning || selectedEndpoints.length === 0}
-              >
-                Deselect All
-              </Button>
+                {isRoutesExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
             </Box>
 
-            <Divider sx={{ mb: 2 }} />
-
-            {/* Endpoint Checkboxes */}
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 1 }}>
-              {availableEndpoints.map((endpoint) => (
-                <FormControlLabel
-                  key={endpoint.name}
-                  control={
-                    <Checkbox
-                      checked={selectedEndpoints.includes(endpoint.name)}
-                      onChange={() => toggleEndpoint(endpoint.name)}
-                      disabled={isRunning}
-                    />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">
-                        {endpoint.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {endpoint.method} {endpoint.url}
-                      </Typography>
-                    </Box>
-                  }
-                />
-              ))}
-            </Box>
-
-            {selectedEndpoints.length === 0 && (
-              <Box sx={{ p: 2, backgroundColor: '#fff3e0', borderRadius: 1, mt: 2 }}>
-                <Typography color="warning.main" variant="body2">
-                  <strong>Warning:</strong> No endpoints selected. Please select at least one endpoint to test.
-                </Typography>
+            <Collapse in={isRoutesExpanded}>
+              {/* Select All/None Controls */}
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<SelectAllIcon />}
+                  onClick={selectAllEndpoints}
+                  disabled={isRunning || selectedEndpoints.length === availableEndpoints.length}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<DeselectIcon />}
+                  onClick={deselectAllEndpoints}
+                  disabled={isRunning || selectedEndpoints.length === 0}
+                >
+                  Deselect All
+                </Button>
               </Box>
-            )}
+
+              <Divider sx={{ mb: 2 }} />
+
+              {/* Route Checkboxes - Compact 2-column layout */}
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
+                {availableEndpoints.map((endpoint) => (
+                  <FormControlLabel
+                    key={endpoint.name}
+                    control={
+                      <Checkbox
+                        checked={selectedEndpoints.includes(endpoint.name)}
+                        onChange={() => toggleEndpoint(endpoint.name)}
+                        disabled={isRunning}
+                        size="small"
+                      />
+                    }
+                    label={
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            fontSize: '0.75rem',
+                            lineHeight: 1.3,
+                            display: 'block',
+                            wordBreak: 'break-word',
+                            maxWidth: '100%'
+                          }}
+                        >
+                        <Box component="span" sx={{ fontWeight: 'medium' }}>
+                          {endpoint.name}
+                        </Box>
+                        <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>
+                          - {endpoint.method} {endpoint.url}
+                        </Box>
+                      </Typography>
+                    }
+                    sx={{ 
+                      margin: 0,
+                      alignItems: 'center',
+                      '& .MuiCheckbox-root': {
+                        padding: '4px',
+                        alignSelf: 'flex-start',
+                        marginTop: '1px'
+                      },
+                      '& .MuiFormControlLabel-label': {
+                        paddingLeft: '4px',
+                        marginTop: 0
+                      }
+                    }}
+                  />
+                ))}
+              </Box>
+
+              {selectedEndpoints.length === 0 && (
+                <Box sx={{ p: 2, backgroundColor: '#fff3e0', borderRadius: 1, mt: 2 }}>
+                  <Typography color="warning.main" variant="body2">
+                    <strong>Warning:</strong> No routes selected. Please select at least one route to test.
+                  </Typography>
+                </Box>
+              )}
+            </Collapse>
           </CardContent>
         </Card>
       )}
@@ -279,19 +437,31 @@ const ApiTestingPage: React.FC = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Detailed Results ({lastReport.results.length} endpoints)
+              Detailed Results ({lastReport.results.length} routes)
             </Typography>
 
-            <TableContainer component={Paper} variant="outlined">
+            <TableContainer sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Endpoint</TableCell>
-                    <TableCell>Method</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Code</TableCell>
-                    <TableCell>Time</TableCell>
-                    <TableCell>Error</TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Route</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Method</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Status</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Code</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Time</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Error</Typography>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -299,50 +469,81 @@ const ApiTestingPage: React.FC = () => {
                     <TableRow
                       key={index}
                       sx={{
-                        backgroundColor: result.status === 'pass' ? '#e8f5e8' : '#ffeaea',
+                        backgroundColor: 'transparent',
+                        '&:hover': {
+                          backgroundColor: 'transparent',
+                        },
                       }}
                     >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          {result.endpoint}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {result.url}
+                      <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            fontSize: '0.75rem',
+                            lineHeight: 1.2,
+                            display: 'block',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '300px'
+                          }}
+                        >
+                          <Box component="span" sx={{ fontWeight: 'medium' }}>
+                            {result.endpoint}
+                          </Box>
+                          <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>
+                            - {result.url}
+                          </Box>
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
                         <Chip
                           label={result.method}
                           size="small"
                           variant="outlined"
+                          sx={{ 
+                            backgroundColor: 'transparent',
+                            fontSize: '0.7rem',
+                            height: '20px'
+                          }}
                         />
                       </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <span>{getStatusIcon(result.status)}</span>
+                      <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <span style={{ fontSize: '0.8rem' }}>{getStatusIcon(result.status)}</span>
                           <Chip
                             label={result.status.toUpperCase()}
                             color={getStatusColor(result.status)}
                             size="small"
+                            sx={{ 
+                              backgroundColor: 'transparent',
+                              fontSize: '0.7rem',
+                              height: '20px'
+                            }}
                           />
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontFamily="monospace">
+                      <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                        <Typography variant="caption" fontFamily="monospace" sx={{ fontSize: '0.75rem' }}>
                           {result.status_code || 'N/A'}
                         </Typography>
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
+                      <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
                           {result.response_time}ms
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ backgroundColor: 'transparent', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
                         {result.error && (
                           <Typography
-                            variant="body2"
+                            variant="caption"
                             color="error"
-                            sx={{ maxWidth: 200, wordBreak: 'break-word' }}
+                            sx={{ 
+                              maxWidth: 200, 
+                              wordBreak: 'break-word',
+                              fontSize: '0.75rem',
+                              lineHeight: 1.2
+                            }}
                           >
                             {result.error}
                           </Typography>

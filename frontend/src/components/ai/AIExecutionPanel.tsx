@@ -35,7 +35,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   // Local state
   const [taskInput, setTaskInput] = useState('');
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false);
-  const [useCacheEnabled, setUseCacheEnabled] = useState(true);
+  const [useCacheEnabled, setUseCacheEnabled] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
 
   // AI Agent hook
@@ -213,9 +213,9 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             }
             sx={{ margin: 0 }}
           />
-          {!useCacheEnabled && (
-            <Typography variant="caption" sx={{ color: '#ff9800', ml: 1 }}>
-              (Fresh generation)
+          {useCacheEnabled && (
+            <Typography variant="caption" sx={{ color: '#4caf50', ml: 1 }}>
+              (Cache enabled)
             </Typography>
           )}
           {debugMode && (

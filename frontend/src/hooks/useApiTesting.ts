@@ -39,6 +39,9 @@ export interface ApiTestingState {
   error: string | null;
   availableEndpoints: EndpointConfig[];
   selectedEndpoints: string[];
+  liveResults: TestResult[];
+  totalTests: number;
+  completedTests: number;
 }
 
 export const useApiTesting = () => {
@@ -50,53 +53,139 @@ export const useApiTesting = () => {
     error: null,
     availableEndpoints: [],
     selectedEndpoints: [],
+    liveResults: [],
+    totalTests: 0,
+    completedTests: 0,
   });
 
   const toast = useToast();
 
-  const runAllTests = useCallback(async () => {
+  const runTestsWithProgress = useCallback(async (endpoints: string[], generateReport: boolean = true) => {
+    const selectedTests = state.availableEndpoints.filter(ep => endpoints.includes(ep.name));
+    
     setState(prev => ({
       ...prev,
       isRunning: true,
       currentTest: 'Initializing...',
       progress: 0,
       error: null,
+      liveResults: [],
+      totalTests: selectedTests.length,
+      completedTests: 0,
     }));
 
     try {
-      const response = await fetch(buildServerUrl('server/api-testing/run'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          selected_endpoints: state.selectedEndpoints.length > 0 ? state.selectedEndpoints : undefined
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
+      // Simulate running tests one by one with live updates
+      for (let i = 0; i < selectedTests.length; i++) {
+        const endpoint = selectedTests[i];
+        
         setState(prev => ({
+          ...prev,
+          currentTest: `Testing: ${endpoint.name}`,
+          progress: Math.round((i / selectedTests.length) * 100),
+        }));
+
+        // Make individual test request
+        try {
+          const testResponse = await fetch(buildServerUrl('server/api-testing/run'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              selected_endpoints: [endpoint.name]
+            }),
+          });
+
+          const testResult = await testResponse.json();
+          
+          if (testResponse.ok && testResult.success && testResult.report?.results?.[0]) {
+            const result = testResult.report.results[0];
+            
+            setState(prev => ({
+              ...prev,
+              liveResults: [...prev.liveResults, result],
+              completedTests: prev.completedTests + 1,
+            }));
+          } else {
+            // Add failed result
+            const failedResult: TestResult = {
+              endpoint: endpoint.name,
+              method: endpoint.method,
+              url: endpoint.url,
+              status: 'fail',
+              response_time: 0,
+              error: testResult.error || 'Test failed'
+            };
+            
+            setState(prev => ({
+              ...prev,
+              liveResults: [...prev.liveResults, failedResult],
+              completedTests: prev.completedTests + 1,
+            }));
+          }
+        } catch (testError) {
+          // Add error result
+          const errorResult: TestResult = {
+            endpoint: endpoint.name,
+            method: endpoint.method,
+            url: endpoint.url,
+            status: 'fail',
+            response_time: 0,
+            error: testError instanceof Error ? testError.message : 'Network error'
+          };
+          
+          setState(prev => ({
+            ...prev,
+            liveResults: [...prev.liveResults, errorResult],
+            completedTests: prev.completedTests + 1,
+          }));
+        }
+
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Final state update
+      setState(prev => {
+        const passed = prev.liveResults.filter(r => r.status === 'pass').length;
+        const percentage = Math.round((passed / prev.liveResults.length) * 100);
+        
+        // Create report only for normal tests, not quick tests
+        let finalReport = null;
+        if (generateReport) {
+          finalReport = {
+            id: `test-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            git_commit: 'local-test',
+            total_tests: prev.liveResults.length,
+            passed: passed,
+            failed: prev.liveResults.length - passed,
+            results: prev.liveResults
+          };
+        }
+
+        return {
           ...prev,
           isRunning: false,
           currentTest: null,
           progress: 100,
-          lastReport: result.report,
+          lastReport: finalReport,
           error: null,
-        }));
+        };
+      });
 
-        const { passed, total_tests } = result.report;
-        const percentage = Math.round((passed / total_tests) * 100);
-        
-        if (percentage === 100) {
-          toast.showSuccess(`All ${total_tests} tests passed! 🎉`);
-        } else {
-          toast.showWarning(`${passed}/${total_tests} tests passed (${percentage}%)`);
-        }
+      // Show completion message
+      const passed = state.liveResults.filter(r => r.status === 'pass').length;
+      const total = state.liveResults.length;
+      const percentage = Math.round((passed / total) * 100);
+      
+      if (percentage === 100) {
+        toast.showSuccess(`All ${total} tests passed! 🎉`);
       } else {
-        throw new Error(result.error || 'Test execution failed');
+        toast.showWarning(`${passed}/${total} tests passed (${percentage}%)`);
       }
+
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setState(prev => ({
@@ -108,59 +197,21 @@ export const useApiTesting = () => {
       }));
       toast.showError(`Test failed: ${errorMsg}`);
     }
-  }, [toast]);
+  }, [state.availableEndpoints, toast]);
+
+  const runAllTests = useCallback(async () => {
+    const selectedEndpoints = state.selectedEndpoints.length > 0 ? state.selectedEndpoints : state.availableEndpoints.map(ep => ep.name);
+    await runTestsWithProgress(selectedEndpoints, true); // Generate report for normal tests
+  }, [state.selectedEndpoints, state.availableEndpoints, runTestsWithProgress]);
 
   const runQuickTest = useCallback(async () => {
-    setState(prev => ({
-      ...prev,
-      isRunning: true,
-      currentTest: 'Running quick test...',
-      progress: 0,
-      error: null,
-    }));
-
-    try {
-      const response = await fetch(buildServerUrl('server/api-testing/quick'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setState(prev => ({
-          ...prev,
-          isRunning: false,
-          currentTest: null,
-          progress: 100,
-          error: null,
-        }));
-
-        const { passed, total } = result;
-        const percentage = Math.round((passed / total) * 100);
-        
-        if (percentage === 100) {
-          toast.showSuccess(`Quick test passed! ${passed}/${total} critical endpoints working`);
-        } else {
-          toast.showWarning(`Quick test: ${passed}/${total} critical endpoints working (${percentage}%)`);
-        }
-      } else {
-        throw new Error(result.error || 'Quick test failed');
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setState(prev => ({
-        ...prev,
-        isRunning: false,
-        currentTest: null,
-        progress: 0,
-        error: errorMsg,
-      }));
-      toast.showError(`Quick test failed: ${errorMsg}`);
-    }
-  }, [toast]);
+    // Get critical endpoints for quick test
+    const criticalEndpoints = state.availableEndpoints
+      .filter(ep => ep.category === 'critical')
+      .map(ep => ep.name);
+    
+    await runTestsWithProgress(criticalEndpoints, false); // Don't generate report for quick tests
+  }, [state.availableEndpoints, runTestsWithProgress]);
 
   const getTestConfig = useCallback(async () => {
     try {
@@ -289,6 +340,9 @@ export const useApiTesting = () => {
       lastReport: null,
       error: null,
       progress: 0,
+      liveResults: [],
+      totalTests: 0,
+      completedTests: 0,
     }));
   }, []);
 

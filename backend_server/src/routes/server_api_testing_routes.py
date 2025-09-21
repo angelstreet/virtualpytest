@@ -541,13 +541,27 @@ def quick_test():
             results.append(result)
         
         passed = sum(1 for r in results if r['status'] == 'pass')
+        failed = len(results) - passed
+        
+        # Create a proper report structure like the full test
+        report = {
+            'id': f"quick-{int(time.time())}",
+            'timestamp': datetime.now().isoformat(),
+            'git_commit': get_git_commit(),
+            'total_tests': len(results),
+            'passed': passed,
+            'failed': failed,
+            'results': results,
+            'quick_test': True
+        }
         
         return jsonify({
             'success': True,
             'quick_test': True,
             'passed': passed,
             'total': len(results),
-            'results': results
+            'results': results,
+            'report': report
         })
         
     except Exception as e:
