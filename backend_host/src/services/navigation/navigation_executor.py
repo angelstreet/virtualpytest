@@ -65,8 +65,15 @@ class NavigationExecutor:
         cached_graph = get_cached_unified_graph(tree_id, team_id)
         if cached_graph:
             print(f"[@navigation_executor] Using cached unified graph for '{userinterface_name}' (tree: {tree_id})")
-            # Extract available nodes from cached graph
-            available_nodes = [node for node in cached_graph.nodes() if node != 'root']
+            # Extract available nodes from cached graph - use labels, not node IDs
+            available_nodes = []
+            for node_id, node_data in cached_graph.nodes(data=True):
+                if node_id != 'root':  # Skip root node
+                    label = node_data.get('label', node_id)  # Use label if available, fallback to node_id
+                    if label:  # Only add non-empty labels
+                        available_nodes.append(label)
+            
+            print(f"[@navigation_executor] Extracted {len(available_nodes)} node labels: {available_nodes}")
             
             return {
                 'service_type': 'navigation',
@@ -90,7 +97,14 @@ class NavigationExecutor:
         
         root_tree = tree_result['root_tree']
         nodes = root_tree['nodes']
-        available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
+        # Extract node labels (not node_name) for consistency with cached path
+        available_nodes = []
+        for node in nodes:
+            label = node.get('label') or node.get('node_name')  # Try label first, fallback to node_name
+            if label:
+                available_nodes.append(label)
+        
+        print(f"[@navigation_executor] Extracted {len(available_nodes)} node labels from tree result: {available_nodes}")
         
         return {
             'service_type': 'navigation',

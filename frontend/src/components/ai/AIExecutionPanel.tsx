@@ -42,7 +42,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     executionSummary,
     executeTask: executeAITask,
     // Direct access to computed values
-    executionLog,
     currentStep,
     progressPercentage,
     isPlanFeasible,
@@ -68,19 +67,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       setIsAnalysisExpanded(false);
     }
   }, [aiPlan]);
-
-  // Debug logging for state changes
-  useEffect(() => {
-    console.log('[AIExecutionPanel] State update:', {
-      isAIExecuting,
-      hasPlan: !!aiPlan,
-      planSteps: aiPlan?.steps?.length || 0,
-      processedStepsCount: processedSteps.length,
-      executionLogCount: executionLog.length,
-      currentStep,
-      progressPercentage
-    });
-  }, [isAIExecuting, aiPlan, processedSteps.length, executionLog.length, currentStep, progressPercentage]);
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -190,6 +176,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
         {/* Enhanced AI Plan Display */}
         {(aiPlan || isAIExecuting) && (
           <Box
+            key={aiPlan?.id || `executing-${isAIExecuting}`} // Force re-render on plan change
             sx={{
               mt: 1,
               p: 1,
@@ -303,7 +290,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             )}
 
             {/* PHASE 2: Plan Steps Display (Only for feasible plans) */}
-            {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && (
+            {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && processedSteps.length > 0 && (
               <>
                 <Box sx={{ mt: 0.5 }}>
                   {processedSteps.map((step: any, index: number) => {
@@ -328,7 +315,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                     
                     return (
                       <Box
-                        key={index}
+                        key={`${aiPlan?.id || 'current'}-step-${step.stepNumber}-${index}`}
                         sx={{
                           mb: 1,
                           p: 1,
