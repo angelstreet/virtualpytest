@@ -214,7 +214,7 @@ def generate_and_upload_script_report(
         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - device_info: {device_info}")
         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Parameters - screenshot_paths length: {len(screenshot_paths) if screenshot_paths else 0}")
         
-        from .cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs
+        from .cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs, upload_test_video
         from datetime import datetime
         
         execution_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -309,6 +309,31 @@ def generate_and_upload_script_report(
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] No stdout provided, skipping log upload")
         
+        # Upload test video to R2 if test_video_url is provided and points to a local file
+        uploaded_test_video_url = test_video_url
+        if test_video_url and test_video_url.strip():
+            # Check if it's a local file path that needs to be uploaded
+            import os
+            if os.path.exists(test_video_url) and test_video_url.endswith('.mp4'):
+                print(f"[@utils:report_utils:generate_and_upload_script_report] Uploading test video: {test_video_url}")
+                video_upload_result = upload_test_video(
+                    local_video_path=test_video_url,
+                    device_model=device_info.get('device_model', 'unknown'),
+                    script_name=script_name.replace('.py', ''),
+                    timestamp=execution_timestamp
+                )
+                
+                if video_upload_result['success']:
+                    uploaded_test_video_url = video_upload_result['video_url']
+                    print(f"[@utils:report_utils:generate_and_upload_script_report] Test video uploaded: {uploaded_test_video_url}")
+                else:
+                    print(f"[@utils:report_utils:generate_and_upload_script_report] Test video upload failed: {video_upload_result.get('error', 'Unknown error')}")
+                    # Keep original URL as fallback
+            else:
+                print(f"[@utils:report_utils:generate_and_upload_script_report] Test video URL provided but not a local file, using as-is: {test_video_url}")
+        else:
+            print(f"[@utils:report_utils:generate_and_upload_script_report] No test video provided")
+        
         # Calculate proper start and end times based on actual script execution
         # execution_timestamp is when report is generated (end time)
         # start_time should be execution_timestamp - execution_time
@@ -355,7 +380,7 @@ def generate_and_upload_script_report(
             'passed_verifications': passed_verifications,
             'failed_verifications': failed_verifications,
             'execution_summary': execution_summary,
-            'test_video_url': test_video_url,
+            'test_video_url': uploaded_test_video_url,
             'script_result_id': script_result_id,
             'custom_data': custom_data or {}  # Pass zap data from memory
         }
