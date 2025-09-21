@@ -9,9 +9,9 @@ import time
 from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
-from src.services.navigation.navigation_pathfinding import find_shortest_path
-from src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
-from src.lib.utils.navigation_cache import populate_unified_cache
+from  backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
+from  backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
+from  backend_host.src.lib.utils.navigation_cache import populate_unified_cache
 
 
 class NavigationExecutor:
@@ -48,7 +48,7 @@ class NavigationExecutor:
         # First check if we have a cached unified graph for this interface
         from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
         from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
-        from src.lib.utils.navigation_cache import get_cached_unified_graph
+        from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
         
         # Get interface and root tree ID
         interface_info = get_userinterface_by_name(userinterface_name, team_id)

@@ -1329,7 +1329,7 @@ class ZapController:
             capture_folder = f"{av_controller.video_capture_path}/captures"
             
             # Load the 3 most recent analysis files using the same method as motion detection
-            from src.lib.utils.analysis_utils import load_recent_analysis_data_from_path
+            from  backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data_from_path
             data_result = load_recent_analysis_data_from_path(av_controller.video_capture_path, timeframe_minutes=5, max_count=3)
             
             if data_result['success'] and data_result['analysis_data']:
@@ -1517,7 +1517,7 @@ class ZapController:
         
         try:
             from shared.src.lib.supabase.zap_results_db import get_zap_summary_for_script
-            from src.lib.utils.zap_summary_formatter import generate_zap_summary_text
+            from  backend_host.src.lib.utils.zap_summary_formatter import generate_zap_summary_text
             
             # Get zap data from database
             summary_data = get_zap_summary_for_script(context.script_result_id)

@@ -729,7 +729,7 @@ class ImageVerificationController:
             if os.path.exists(local_path):
                 print(f"[@controller:ImageVerification] Reference already exists locally: {local_path}")
                 # Also resolve area from database
-                from src.lib.utils.reference_utils import resolve_reference_area_backend
+                from  backend_host.src.lib.utils.reference_utils import resolve_reference_area_backend
                 resolved_area = resolve_reference_area_backend(base_name, model)
                 return local_path, resolved_area
             
@@ -751,7 +751,7 @@ class ImageVerificationController:
                 if download_result.get('success'):
                     print(f"[@controller:ImageVerification] Successfully downloaded reference from R2: {local_path}")
                     # Also resolve area from database
-                    from src.lib.utils.reference_utils import resolve_reference_area_backend
+                    from  backend_host.src.lib.utils.reference_utils import resolve_reference_area_backend
                     resolved_area = resolve_reference_area_backend(base_name, model)
                     return local_path, resolved_area
                 else:

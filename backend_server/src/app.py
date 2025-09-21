@@ -376,7 +376,7 @@ def start_server(app):
         def collect_server_metrics():
             import time
             # Use server-specific system stats instead of host stats
-            from src.lib.utils.server_utils import get_server_system_stats
+            from  backend_server.src.lib.utils.server_utils import get_server_system_stats
             from shared.src.lib.supabase.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup

@@ -441,11 +441,11 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
     print(f"[@controller_manager:_create_device_with_controllers] Creating service executors for device: {device_id}")
     
     try:
-        from src.services.actions.action_executor import ActionExecutor
-        from src.services.navigation.navigation_executor import NavigationExecutor
-        from src.services.verifications.verification_executor import VerificationExecutor
-        from src.services.ai.ai_executor import AIExecutor
-        from src.services.scripts.script_executor import ScriptExecutor
+        from  backend_host.src.services.actions.action_executor import ActionExecutor
+        from  backend_host.src.services.navigation.navigation_executor import NavigationExecutor
+        from  backend_host.src.services.verifications.verification_executor import VerificationExecutor
+        from  backend_host.src.services.ai.ai_executor import AIExecutor
+        from  backend_host.src.services.scripts.script_executor import ScriptExecutor
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization

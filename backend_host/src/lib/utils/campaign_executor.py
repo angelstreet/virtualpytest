@@ -6,7 +6,7 @@ This module provides functionality to execute test campaigns that consist of
 multiple script executions with proper tracking and reporting at the host level.
 
 Usage:
-    from src.lib.utils.campaign_executor import CampaignExecutor
+    from  backend_host.src.lib.utils.campaign_executor import CampaignExecutor
     
     executor = CampaignExecutor()
     result = executor.execute_campaign(campaign_config)
@@ -32,7 +32,7 @@ from shared.src.lib.supabase.campaign_executions_db import (
     record_campaign_execution_start,
     update_campaign_execution_result
 )
-from src.lib.utils.script_utils import setup_script_environment
+from  backend_host.src.lib.utils.script_utils import setup_script_environment
 
 
 class CampaignExecutionContext:
@@ -251,7 +251,7 @@ class CampaignExecutor:
             print(f"🚀 [Campaign] Executing script via host device script executor")
             
             # Get device for script execution
-            from src.lib.utils.host_utils import get_device_by_id
+            from  backend_host.src.lib.utils.host_utils import get_device_by_id
             device_id = campaign_config.get("device", "device1")
             device = get_device_by_id(device_id)
             

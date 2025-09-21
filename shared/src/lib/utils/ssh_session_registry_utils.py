@@ -6,7 +6,7 @@ remote control and verification systems to avoid multiple connections to the sam
 """
 
 from typing import Optional
-from src.lib.utils.sshUtils import SSHConnection
+from  shared.src.lib.utils.sshUtils import SSHConnection
 
 
 class SSHSessionRegistry:

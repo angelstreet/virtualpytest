@@ -70,7 +70,7 @@ class VideoRestartHelpers:
                 return None
             
             # Compress to MP4
-            from src.lib.utils.video_compression_utils import VideoCompressionUtils
+            from  backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
             video_filename = "restart_original_video.mp4"
@@ -291,7 +291,7 @@ class VideoRestartHelpers:
                 return None
             
             # Compress HLS segments to MP4
-            from src.lib.utils.video_compression_utils import VideoCompressionUtils
+            from  backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
             video_filename = "restart_original_video.mp4"
@@ -396,7 +396,7 @@ class VideoRestartHelpers:
         """Build proper video URL using host URL building utilities"""
         try:
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from src.lib.utils.host_utils import get_host_instance
+            from  backend_host.src.lib.utils.host_utils import get_host_instance
             
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             host = get_host_instance()
@@ -479,7 +479,7 @@ class VideoRestartHelpers:
             
             # Convert to proper host URLs
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from src.lib.utils.host_utils import get_host_instance
+            from  backend_host.src.lib.utils.host_utils import get_host_instance
             
             screenshot_urls = []
             try:
@@ -659,7 +659,7 @@ class VideoRestartHelpers:
                 # For audio dubbing, translate the clean transcript directly (no frame structure)
                 # Use the same Google Translate approach as batch translation (which works)
                 # Use AI translation for audio transcript (more accurate than Google Translate)
-                from src.lib.utils.translation_utils import translate_text
+                from  backend_host.src.lib.utils.translation_utils import translate_text
                 translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
                 print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
                 

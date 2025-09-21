@@ -17,7 +17,7 @@ shared_utils_path = os.path.join(project_root, 'shared', 'lib', 'utils')
 if shared_utils_path not in sys.path:
     sys.path.insert(0, shared_utils_path)
 
-from src.lib.utils.appium_utils import AppiumUtils, AppiumElement
+from  backend_host.src.lib.utils.appium_utils import AppiumUtils, AppiumElement
 from ..base_controller import VerificationControllerInterface
 
 

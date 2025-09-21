@@ -5,7 +5,7 @@ Uses NetworkX for cross-tree shortest path calculations with fail-early behavior
 
 import networkx as nx
 from typing import List, Dict, Optional, Tuple
-from src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
+from  backend_host.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
 
 
 def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_node_id: str = None) -> List[Dict]:
@@ -55,8 +55,8 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     print(f"[@navigation:pathfinding:find_shortest_path_unified] Finding unified path to node {target_node_id}")
     
     # Get unified cached graph - MANDATORY
-    from src.lib.utils.navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
-    from src.lib.utils.navigation_graph import get_entry_points, get_node_info
+    from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
+    from  backend_host.src.lib.utils.navigation_graph import get_entry_points, get_node_info
     
     unified_graph = get_cached_unified_graph(root_tree_id, team_id)
     if not unified_graph:
@@ -288,7 +288,7 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
     """
     print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Finding optimal validation sequence for tree {tree_id}")
     
-    from src.lib.utils.navigation_cache import get_cached_unified_graph
+    from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
     
     G = get_cached_unified_graph(tree_id, team_id)
     if not G:
@@ -328,7 +328,7 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
     Returns:
         List of validation steps ordered by depth-first traversal
     """
-    from src.lib.utils.navigation_graph import get_entry_points, get_node_info
+    from  backend_host.src.lib.utils.navigation_graph import get_entry_points, get_node_info
     
     print(f"[@navigation:pathfinding:_create_reachability_based_validation_sequence] Creating depth-first validation sequence")
     
@@ -624,7 +624,7 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     Returns:
         Tuple of (forced_steps, validation_step)
     """
-    from src.lib.utils.navigation_graph import get_node_info
+    from  backend_host.src.lib.utils.navigation_graph import get_node_info
     
     # SYSTEMATIC CHECK: Insert forced transition if needed
     forced_steps = []

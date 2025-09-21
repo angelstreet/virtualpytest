@@ -355,7 +355,7 @@ class TextVerificationController:
             # Resolve area from database if reference_name is provided
             reference_name = params.get('reference_name')
             if reference_name:
-                from src.lib.utils.reference_utils import resolve_reference_area_backend
+                from  backend_host.src.lib.utils.reference_utils import resolve_reference_area_backend
                 resolved_area = resolve_reference_area_backend(reference_name, self.device_model)
                 if resolved_area:
                     area = resolved_area

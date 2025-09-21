@@ -18,7 +18,7 @@ try:
     backend_host_path = os.path.join(project_root, 'backend_host', 'src')
     if backend_host_path not in sys.path:
         sys.path.insert(0, backend_host_path)
-    from src.lib.utils.ai_utils import setup_script_environment
+    from  backend_server.src.lib.utils.ai_utils import setup_script_environment
 except ImportError:
     # Fallback if host utils not available
     def setup_script_environment(script_name: str = "script"):

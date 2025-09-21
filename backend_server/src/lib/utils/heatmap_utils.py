@@ -651,7 +651,7 @@ def process_heatmap_generation(job_id: str, images_by_timestamp: Dict[str, List[
         # Generate ONE comprehensive HTML report with all mosaics
         try:
             if generated_images:  # Only generate HTML if we have successful images
-                from src.lib.utils.heatmap_report_utils import generate_comprehensive_heatmap_html
+                from  backend_server.src.lib.utils.heatmap_report_utils import generate_comprehensive_heatmap_html
                 from shared.src.lib.utils.cloudflare_utils import upload_heatmap_html
                 
                 print(f"[@heatmap_utils] Generating comprehensive HTML report for {len(generated_images)} heatmaps")

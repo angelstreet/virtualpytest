@@ -727,7 +727,7 @@ class VideoContentHelpers:
         """
         try:
             # Import shared analysis utility
-            from src.lib.utils.analysis_utils import load_recent_analysis_data_from_path, analyze_motion_from_loaded_data
+            from  backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data_from_path, analyze_motion_from_loaded_data
             
             # Load recent analysis data using direct capture path (5 minutes timeframe)
             data_result = load_recent_analysis_data_from_path(capture_path, timeframe_minutes=5, max_count=json_count)

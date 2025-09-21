@@ -12,9 +12,9 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from shared.src.lib.utils.app_utils import load_environment_variables
-from src.lib.utils.host_utils import get_host_instance, list_available_devices, get_controller
-from src.lib.utils.navigation_cache import populate_cache
-from src.lib.utils.report_utils import generate_and_upload_script_report
+from  backend_host.src.lib.utils.host_utils import get_host_instance, list_available_devices, get_controller
+from  backend_host.src.lib.utils.navigation_cache import populate_cache
+from  backend_host.src.lib.utils.report_utils import generate_and_upload_script_report
 from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
 
@@ -129,7 +129,7 @@ def execute_script(script_name: str, device_id: str, parameters: str = "") -> Di
     start_time = time.time()
     
     # Get device instance and use its script executor
-    from src.lib.host_utils import get_device_by_id
+    from  backend_host.src.lib.host_utils import get_device_by_id
     device = get_device_by_id(device_id)
     if not device:
         return {

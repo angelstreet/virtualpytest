@@ -550,7 +550,7 @@ class AudioVerificationController(VerificationControllerInterface):
             device_id = getattr(self.av_controller, 'device_name', 'device1')
             
             # Import shared analysis utility
-            from src.lib.utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
+            from  backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data, analyze_motion_from_loaded_data
             
             # Load recent analysis data using shared utility (5 minutes timeframe)
             data_result = load_recent_analysis_data(device_id, timeframe_minutes=5, max_count=json_count)

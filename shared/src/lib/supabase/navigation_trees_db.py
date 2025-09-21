@@ -498,7 +498,7 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         Dictionary with complete hierarchy data ready for unified pathfinding
     """
     try:
-        from src.lib.utils.navigation_exceptions import DatabaseError
+        from  shared.src.lib.utils.navigation_exceptions import DatabaseError
         
         print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Building complete hierarchy for root tree: {root_tree_id}")
         

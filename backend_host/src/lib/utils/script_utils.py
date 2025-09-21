@@ -11,10 +11,10 @@ Unified script execution utilities and framework that provides:
 
 Usage:
     # Basic script execution
-    from src.lib.utils.script_utils import execute_script, setup_script_environment, select_device
+    from  backend_host.src.lib.utils.script_utils import execute_script, setup_script_environment, select_device
     
     # Framework usage
-    from src.lib.utils.script_utils import ScriptExecutor
+    from  backend_host.src.lib.utils.script_utils import ScriptExecutor
     
     executor = ScriptExecutor("script_name", "Script description")
     result = executor.execute_navigation_script(
@@ -36,11 +36,11 @@ from datetime import datetime
 from typing import Tuple, Dict, Any, Optional, List, Callable
 
 from shared.src.lib.utils.app_utils import load_environment_variables
-from src.lib.utils.host_utils import get_host_instance, list_available_devices, get_controller
-from src.lib.utils.navigation_cache import populate_cache
-from src.lib.utils.report_utils import generate_and_upload_script_report
+from  backend_host.src.lib.utils.host_utils import get_host_instance, list_available_devices, get_controller
+from  backend_host.src.lib.utils.navigation_cache import populate_cache
+from  backend_host.src.lib.utils.report_utils import generate_and_upload_script_report
 from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
-from src.lib.utils.ai_utils import setup_script_environment, select_device, execute_script
+from  backend_host.src.lib.utils.ai_utils import setup_script_environment, select_device, execute_script
 
 
 # =====================================================
@@ -363,7 +363,7 @@ class ScriptExecutor:
             context.nodes = tree_result['root_tree']['nodes']
             
             # Load unified graph edges for cross-tree action resolution
-            from src.lib.utils.navigation_cache import get_cached_unified_graph
+            from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
             unified_graph = get_cached_unified_graph(tree_result['tree_id'], context.team_id)
             if unified_graph:
                 # Convert NetworkX graph edges to dictionary format for script usage
