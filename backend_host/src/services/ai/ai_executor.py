@@ -51,16 +51,31 @@ class AIExecutor:
         self._navigation_cache = {}
         self._cache_ttl = 86400  # 24 hours
         
+        # Initialize AI plan cache
+        from .ai_plan_cache import AIExecutorCache
+        self.plan_cache = AIExecutorCache()
+        
         print(f"[@ai_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
     def execute_prompt(self, 
                       prompt: str, 
                       userinterface_name: str,
                       team_id: str,
+                      use_cache: bool,
+                      debug_mode: bool,
                       current_node_id: Optional[str] = None,
                       async_execution: bool = True) -> Dict[str, Any]:
         """
-        Execute AI prompt - generates plan and executes it
+        Execute AI prompt with explicit cache control
+        
+        Args:
+            prompt: User prompt
+            userinterface_name: Interface name
+            team_id: Team ID
+            use_cache: True to use/store cache, False to skip entirely
+            debug_mode: True prevents storage even if successful
+            current_node_id: Current navigation position
+            async_execution: Whether to execute asynchronously
         
         Returns:
         - For async: {'success': True, 'execution_id': str}
@@ -75,21 +90,45 @@ class AIExecutor:
                 position = self.device.navigation_executor.get_current_position()
                 current_node_id = position.get('current_node_id')
             
-            # Check if already at target (quick optimization)
-            target_node = self._extract_target_from_prompt(prompt)
-            if target_node and target_node == current_node_id:
-                print(f"[@ai_executor] Already at target node '{target_node}' - no execution needed")
-                return {
-                    'success': True,
-                    'execution_id': execution_id,
-                    'message': 'Already at target location',
-                    'execution_time': time.time() - start_time
-                }
-            
             # Load context using device's existing executors
             context = self._load_context(userinterface_name, current_node_id, team_id)
             
-            # Generate plan using integrated plan generation
+            # Check cache first (only if use_cache=True)
+            cached_plan = None
+            if use_cache:
+                cached_plan = self.plan_cache.find_cached_plan(prompt, context, team_id)
+                if cached_plan:
+                    print(f"[@ai_executor] Using cached plan: {cached_plan['fingerprint']}")
+                    plan_dict = cached_plan['plan']
+                    
+                    # Execute cached plan
+                    if async_execution:
+                        self._start_execution_tracking(execution_id, plan_dict)
+                        threading.Thread(
+                            target=self._execute_cached_plan_async, 
+                            args=(execution_id, cached_plan, context, team_id)
+                        ).start()
+                        
+                        return {
+                            'success': True,
+                            'execution_id': execution_id,
+                            'message': 'Executing cached plan',
+                            'cached': True,
+                            'execution_time': time.time() - start_time
+                        }
+                    else:
+                        result = self._execute_cached_plan_sync(cached_plan, context, team_id)
+                        return {
+                            'success': result.success,
+                            'execution_id': execution_id,
+                            'message': 'Cached plan executed',
+                            'cached': True,
+                            'result': result,
+                            'execution_time': time.time() - start_time
+                        }
+            
+            # Generate new plan
+            print(f"[@ai_executor] Generating new plan (cache {'disabled' if not use_cache else 'miss'})")
             plan_dict = self.generate_plan(prompt, context, current_node_id)
             
             if not plan_dict.get('feasible', True):
@@ -106,8 +145,8 @@ class AIExecutor:
                 # Start async execution
                 self._start_execution_tracking(execution_id, plan_dict)
                 threading.Thread(
-                    target=self._execute_plan_async, 
-                    args=(execution_id, plan_dict, context)
+                    target=self._execute_new_plan_async, 
+                    args=(execution_id, plan_dict, context, prompt, use_cache, debug_mode, team_id)
                 ).start()
                 
                 return {
@@ -115,6 +154,7 @@ class AIExecutor:
                     'execution_id': execution_id,
                     'message': 'Execution started',
                     'plan_steps': len(plan_dict.get('steps', [])),
+                    'cached': False,
                     'execution_time': time.time() - start_time
                 }
             else:
@@ -123,12 +163,16 @@ class AIExecutor:
                 result = self._execute_plan_sync(plan_dict, context)
                 self._complete_execution_tracking(execution_id, result)
                 
+                # Store plan if successful and conditions met
+                self._store_plan_if_conditions_met(prompt, context, plan_dict, result, use_cache, debug_mode, team_id)
+                
                 return {
                     'success': result.success,
                     'execution_id': execution_id,
                     'message': 'Execution completed' if result.success else result.error,
                     'steps_executed': len([r for r in result.step_results if r.get('success')]),
                     'total_steps': len(result.step_results),
+                    'cached': False,
                     'execution_time': time.time() - start_time,
                     'result': result
                 }
@@ -353,12 +397,45 @@ class AIExecutor:
                 print(f"[@ai_executor] Step {step_number} {'completed' if success else 'failed'} for execution {exec_id}")
                 break
     
-    def _execute_plan_async(self, execution_id: str, plan_dict: Dict, context: Dict):
-        """Execute plan asynchronously"""
+    def _execute_cached_plan_async(self, execution_id: str, cached_plan: Dict, context: Dict, team_id: str):
+        """Execute cached plan asynchronously"""
+        try:
+            result = self._execute_cached_plan_sync(cached_plan, context, team_id)
+            self._complete_execution_tracking(execution_id, result)
+        except Exception as e:
+            error_result = ExecutionResult(
+                plan_id=cached_plan.get('plan', {}).get('id', 'unknown'),
+                success=False,
+                step_results=[],
+                total_time_ms=0,
+                error=str(e)
+            )
+            self._complete_execution_tracking(execution_id, error_result)
+    
+    def _execute_cached_plan_sync(self, cached_plan: Dict, context: Dict, team_id: str) -> ExecutionResult:
+        """Execute cached plan synchronously and update metrics"""
+        plan_dict = cached_plan['plan']
+        result = self._execute_plan_sync(plan_dict, context)
+        
+        # Update cache metrics
+        self.plan_cache.update_plan_metrics(
+            cached_plan['fingerprint'], 
+            result.success, 
+            result.total_time_ms, 
+            team_id
+        )
+        
+        return result
+    
+    def _execute_new_plan_async(self, execution_id: str, plan_dict: Dict, context: Dict, 
+                              prompt: str, use_cache: bool, debug_mode: bool, team_id: str):
+        """Execute new plan asynchronously with cache storage"""
         try:
             result = self._execute_plan_sync(plan_dict, context)
             self._complete_execution_tracking(execution_id, result)
-
+            
+            # Store plan if conditions met
+            self._store_plan_if_conditions_met(prompt, context, plan_dict, result, use_cache, debug_mode, team_id)
                     
         except Exception as e:
             error_result = ExecutionResult(
@@ -369,6 +446,32 @@ class AIExecutor:
                 error=str(e)
             )
             self._complete_execution_tracking(execution_id, error_result)
+    
+    def _store_plan_if_conditions_met(self, prompt: str, context: Dict, plan_dict: Dict, 
+                                    result: ExecutionResult, use_cache: bool, debug_mode: bool, team_id: str):
+        """Store plan only if all conditions are met"""
+        should_store = (
+            result.success and                    # Must be successful
+            use_cache and                         # User allows caching
+            not debug_mode and                    # Not in debug mode
+            len(result.step_results) > 0 and      # Has actual steps
+            all(r.get('success') for r in result.step_results)  # All steps succeeded
+        )
+        
+        if should_store:
+            success = self.plan_cache.store_successful_plan(prompt, context, plan_dict, result, team_id)
+            if success:
+                print("[@ai_executor] Stored successful plan in cache")
+            else:
+                print("[@ai_executor] Failed to store plan in cache")
+        else:
+            reasons = []
+            if not result.success: reasons.append("execution failed")
+            if not use_cache: reasons.append("caching disabled")
+            if debug_mode: reasons.append("debug mode active")
+            if not len(result.step_results): reasons.append("no steps executed")
+            if not all(r.get('success') for r in result.step_results): reasons.append("some steps failed")
+            print(f"[@ai_executor] NOT storing plan: {', '.join(reasons)}")
     
     def _execute_plan_sync(self, plan_dict: Dict, context: Dict) -> ExecutionResult:
         """Execute plan synchronously using device's existing executors"""

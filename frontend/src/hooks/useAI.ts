@@ -214,7 +214,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     }
   }, []);
 
-  const executeTask = useCallback(async (prompt: string, userinterface_name: string) => {
+  const executeTask = useCallback(async (prompt: string, userinterface_name: string, useCache: boolean, debugMode: boolean = false) => {
     if (isExecuting) return;
 
     // Clear previous state
@@ -235,14 +235,17 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       // Show start notification (only major state changes)
       toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
-      const response = await fetch(buildServerUrl('/server/ai-execution/executeTask'), {
+      const response = await fetch(buildServerUrl('/host/ai/executePrompt'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          task_description: prompt,
+          prompt,
           userinterface_name,
-          host_name: host.host_name,
-          device_id: device.device_id
+          device_id: device.device_id,
+          team_id: 'default',
+          use_cache: useCache,
+          debug_mode: debugMode,
+          async_execution: true
         })
       });
 

@@ -6,6 +6,8 @@ import {
   Button,
   CircularProgress,
   IconButton,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   SmartToy as AIIcon,
@@ -33,6 +35,8 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   // Local state
   const [taskInput, setTaskInput] = useState('');
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false);
+  const [useCacheEnabled, setUseCacheEnabled] = useState(true);
+  const [debugMode, setDebugMode] = useState(false);
 
   // AI Agent hook
   const {
@@ -115,7 +119,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                executeAITask(taskInput, 'horizon_android_mobile');
+                executeAITask(taskInput, 'horizon_android_mobile', useCacheEnabled, debugMode);
               }
             }}
             disabled={isAIExecuting}
@@ -145,7 +149,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           <Button
             variant="contained"
             size="small"
-            onClick={() => executeAITask(taskInput, 'horizon_android_mobile')}
+            onClick={() => executeAITask(taskInput, 'horizon_android_mobile', useCacheEnabled, debugMode)}
             disabled={!taskInput.trim() || isAIExecuting || !isControlActive}
             startIcon={isAIExecuting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : undefined}
             sx={{
@@ -163,6 +167,62 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           >
             {isAIExecuting ? 'Executing...' : 'Execute'}
           </Button>
+        </Box>
+
+        {/* Cache Controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={useCacheEnabled}
+                onChange={(e) => setUseCacheEnabled(e.target.checked)}
+                size="small"
+                sx={{
+                  color: '#888',
+                  '&.Mui-checked': {
+                    color: '#2196f3',
+                  },
+                }}
+              />
+            }
+            label={
+              <Typography variant="caption" sx={{ color: '#aaa' }}>
+                Use Cache
+              </Typography>
+            }
+            sx={{ margin: 0 }}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={debugMode}
+                onChange={(e) => setDebugMode(e.target.checked)}
+                size="small"
+                sx={{
+                  color: '#888',
+                  '&.Mui-checked': {
+                    color: '#ff9800',
+                  },
+                }}
+              />
+            }
+            label={
+              <Typography variant="caption" sx={{ color: '#aaa' }}>
+                Debug Mode
+              </Typography>
+            }
+            sx={{ margin: 0 }}
+          />
+          {!useCacheEnabled && (
+            <Typography variant="caption" sx={{ color: '#ff9800', ml: 1 }}>
+              (Fresh generation)
+            </Typography>
+          )}
+          {debugMode && (
+            <Typography variant="caption" sx={{ color: '#ff9800', ml: 1 }}>
+              (No storage)
+            </Typography>
+          )}
         </Box>
 
         {/* AI Plan Display */}

@@ -42,15 +42,80 @@ The AI Plan Generation Cache System is designed to intelligently store, reuse, a
 ### Flow Diagram
 
 ```
-User Request → Prompt Normalization → Cache Lookup → Plan Execution
-     ↓                                      ↓              ↓
-Generate Fingerprint              Found Compatible?    Update Metrics
-     ↓                                      ↓              ↓
-Check Server Cache                    Reuse Plan      Store in Database
-     ↓                                      ↓
-Generate New Plan ←────────────────── Cache Miss
-     ↓
-Store & Execute
+User Request → Check use_cache flag → Prompt Normalization → Cache Lookup
+     ↓                    ↓                      ↓                ↓
+     ↓              use_cache=false       Generate Fingerprint   Found Compatible?
+     ↓                    ↓                      ↓                ↓
+     ↓              Skip Cache Entirely   Check Server Cache     Reuse Plan
+     ↓                    ↓                      ↓                ↓
+     ↓              Generate New Plan     Cache Miss       Plan Execution
+     ↓                    ↓                      ↓                ↓
+     ↓              Execute Plan          Generate New Plan      Success?
+     ↓                    ↓                      ↓                ↓
+     ↓              DON'T STORE           Execute Plan           Update Metrics
+     ↓                                          ↓                ↓
+     ↓                                    Success + use_cache    Store ONLY if:
+     ↓                                    + !debug_mode?         - Success = true
+     ↓                                          ↓                - use_cache = true  
+     ↓                                     Store in Database     - debug_mode = false
+     ↓                                                           - All steps completed
+     └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation Logic
+
+```python
+def execute_prompt_with_cache(self, prompt: str, userinterface_name: str, team_id: str,
+                             use_cache: bool = True, debug_mode: bool = False, **kwargs):
+    """Enhanced execute_prompt with safety controls"""
+    
+    # 1. Early exit if caching disabled
+    if not use_cache:
+        print("[@ai_executor] Cache disabled by user - generating fresh plan")
+        plan_dict = self.generate_plan(prompt, context, current_node_id)
+        result = self._execute_plan_sync(plan_dict, context)
+        # DON'T STORE - user explicitly disabled caching
+        return result
+    
+    # 2. Try cache lookup (only if use_cache=True)
+    context = self._load_context(userinterface_name, current_node_id, team_id)
+    cached_plans = self.plan_cache.find_matching_plans(prompt, context)
+    
+    if cached_plans and self.plan_cache.should_reuse_plan(cached_plans[0], context):
+        print("[@ai_executor] Using cached plan")
+        cached_plan = cached_plans[0]
+        result = self._execute_plan_sync(cached_plan.plan, context)
+        
+        # Update metrics for cached plan
+        self.plan_cache.update_metrics(cached_plan.fingerprint, result.success, result.total_time_ms)
+        return result
+    
+    # 3. Generate new plan
+    print("[@ai_executor] Generating new plan")
+    plan_dict = self.generate_plan(prompt, context, current_node_id)
+    result = self._execute_plan_sync(plan_dict, context)
+    
+    # 4. CONDITIONAL STORAGE - only store if ALL conditions met
+    should_store = (
+        result.success and                    # Must be successful
+        use_cache and                         # User allows caching
+        not debug_mode and                    # Not in debug mode
+        len(result.step_results) > 0 and      # Has actual steps
+        all(r.get('success') for r in result.step_results)  # All steps succeeded
+    )
+    
+    if should_store:
+        fingerprint = generate_task_fingerprint(prompt, context)
+        self.plan_cache.store_successful_plan(fingerprint, prompt, context, plan_dict, result)
+        print("[@ai_executor] Stored successful plan in cache")
+    else:
+        reasons = []
+        if not result.success: reasons.append("execution failed")
+        if not use_cache: reasons.append("caching disabled")
+        if debug_mode: reasons.append("debug mode active")
+        print(f"[@ai_executor] NOT storing plan: {', '.join(reasons)}")
+    
+    return result
 ```
 
 ## Database Schema
