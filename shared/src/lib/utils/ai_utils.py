@@ -131,7 +131,7 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
     """OpenRouter API call with enhanced error handling and logging"""
     for retry in range(4):
         try:
-        print(f"[AI_UTILS] OpenRouter call starting - model: {model}, max_tokens: {max_tokens}, temperature: {temperature}")
+            print(f"[AI_UTILS] OpenRouter call starting - model: {model}, max_tokens: {max_tokens}, temperature: {temperature}")
         
         # Get API key
         api_key = os.getenv(AI_CONFIG['providers']['openrouter']['api_key_env'])
