@@ -136,7 +136,7 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
         if not api_key:
             error_msg = 'OpenRouter API key not found in environment variables'
             print(f"[AI_UTILS] ERROR: {error_msg}")
-            return {'success': False, 'error': error_msg, 'content': ''}
+            return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
         
         print(f"[AI_UTILS] API key found, length: {len(api_key)} characters")
         
@@ -154,7 +154,7 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             # Vision request
             image_b64 = _process_image_input(image)
             if not image_b64:
-                return {'success': False, 'error': 'Failed to process image', 'content': ''}
+                return {'success': False, 'error': 'Failed to process image', 'content': '', 'initial_prompt': prompt}
             
             content = [
                 {'type': 'text', 'text': prompt},
@@ -195,35 +195,35 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
                 content = result['choices'][0]['message']['content']
                 # Handle None or empty content
                 if content is None or content == "":
-                    return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': ''}
+                    return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': '', 'initial_prompt': prompt}
                 
-                return {'success': True, 'content': content}
+                return {'success': True, 'content': content, 'initial_prompt': prompt}
             except (KeyError, IndexError, TypeError) as e:
                 print(f"[AI_UTILS] Error extracting content: {e}")
                 print(f"[AI_UTILS] Response structure: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
-                return {'success': False, 'error': f'Invalid OpenRouter response structure: {e}', 'content': ''}
+                return {'success': False, 'error': f'Invalid OpenRouter response structure: {e}', 'content': '', 'initial_prompt': prompt}
         else:
             error_text = response.text[:500] if response.text else f"HTTP {response.status_code}"
             print(f"[AI_UTILS] OpenRouter API error - Status: {response.status_code}")
             print(f"[AI_UTILS] Error response: {error_text}")
-            return {'success': False, 'error': f'OpenRouter API error (HTTP {response.status_code}): {error_text}', 'content': ''}
+            return {'success': False, 'error': f'OpenRouter API error (HTTP {response.status_code}): {error_text}', 'content': '', 'initial_prompt': prompt}
             
     except requests.exceptions.Timeout as e:
         error_msg = f'OpenRouter API timeout after {AI_CONFIG["defaults"]["timeout"]} seconds'
         print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': ''}
+        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
     except requests.exceptions.ConnectionError as e:
         error_msg = f'OpenRouter API connection error: {str(e)}'
         print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': ''}
+        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
     except requests.exceptions.RequestException as e:
         error_msg = f'OpenRouter API request error: {str(e)}'
         print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': ''}
+        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
     except Exception as e:
         error_msg = f'OpenRouter unexpected error: {str(e)}'
         print(f"[AI_UTILS] {error_msg}")
-        return {'success': False, 'error': error_msg, 'content': ''}
+        return {'success': False, 'error': error_msg, 'content': '', 'initial_prompt': prompt}
 
 def _huggingface_call(prompt: str, model: str, image: Union[str, bytes] = None,
                      max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:
@@ -248,7 +248,7 @@ def _huggingface_call(prompt: str, model: str, image: Union[str, bytes] = None,
             # Vision task
             image_b64 = _process_image_input(image)
             if not image_b64:
-                return {'success': False, 'error': 'Failed to process image', 'content': ''}
+                return {'success': False, 'error': 'Failed to process image', 'content': '', 'initial_prompt': prompt}
             
             payload = {'inputs': image_b64}
         else:

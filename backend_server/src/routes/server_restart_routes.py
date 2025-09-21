@@ -14,17 +14,13 @@ def generate_restart_video():
     """Generate video only - fast response"""
     try:
         request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
         duration_seconds = request_data.get('duration_seconds', 10)
 
-        print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for host: {host_name}, device: {device_id}, duration: {duration_seconds}s")
+        print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for device: {device_id}, duration: {duration_seconds}s")
 
-        if not host_name:
-            print(f"[SERVER] ❌ [@server_restart_routes:generateRestartVideo] Missing host parameter")
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
-        print(f"[SERVER] 🔄 [@server_restart_routes:generateRestartVideo] Proxying to host {host} endpoint: /host/restart/generateVideo")
+        # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
+        print(f"[SERVER] 🔄 [@server_restart_routes:generateRestartVideo] Proxying to host endpoint: /host/restart/generateVideo")
 
         response_data, status_code = proxy_to_host_with_params(
             '/host/restart/generateVideo',
