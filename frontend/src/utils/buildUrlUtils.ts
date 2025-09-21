@@ -302,7 +302,13 @@ const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
       }
 
       // Convert local path to URL path by removing '/var/www/html' prefix
-      const urlPath = capturePath.replace('/var/www/html', '').replace(/^\/+/, '/');
+      let urlPath = capturePath.replace('/var/www/html', '').replace(/^\/+/, '/');
+      
+      // Add /captures suffix if not already present
+      if (!urlPath.endsWith('/captures')) {
+        urlPath = `${urlPath}/captures`;
+      }
+      
       return urlPath;
     }
   }
