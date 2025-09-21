@@ -5,7 +5,7 @@ Host-side PyAutoGUI desktop endpoints that execute using instantiated PyAutoGUI 
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.host_utils import get_controller, get_device_by_id
+from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_desktop_pyautogui_bp = Blueprint('host_desktop_pyautogui', __name__, url_prefix='/host/desktop/pyautogui')
@@ -22,7 +22,7 @@ def get_desktop_controller(device_id: str, controller_type: str, check_device: b
     Returns:
         Tuple of (controller, device, error_response) where error_response is None if successful
     """
-    from src.lib.utils.host_utils import get_host
+    from  backend_host.src.lib.utils.host_utils import get_host
     host = get_host()
     host_device = host.get_device(device_id or 'host')
     

@@ -5,7 +5,7 @@ import os
 import re
 from flask import Blueprint, request, jsonify
 import requests
-from src.lib.utils.server_utils import get_host_manager
+from  backend_server.src.lib.utils.server_utils import get_host_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl
 
 server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
@@ -165,7 +165,7 @@ def analyze_script():
             }), 400
         
         # Use centralized script path logic
-        from src.lib.utils.script_utils import get_script_path
+        from  backend_server.src.lib.utils.script_utils import get_script_path
         
         try:
             script_path = get_script_path(script_name)
@@ -200,7 +200,7 @@ def list_scripts():
     """List all available Python scripts AND AI test cases"""
     try:
         # Get regular Python scripts
-        from src.lib.utils.script_utils import list_available_scripts, get_scripts_directory
+        from  backend_server.src.lib.utils.script_utils import list_available_scripts, get_scripts_directory
         
         regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
@@ -300,7 +300,7 @@ def execute_script():
             }), 404
         
         # Check if device is locked by another session
-        from src.lib.utils.lock_utils import get_device_lock_info, lock_device, unlock_device, get_client_ip
+        from  backend_server.src.lib.utils.lock_utils import get_device_lock_info, lock_device, unlock_device, get_client_ip
         from flask import session
         import uuid
         
@@ -334,7 +334,7 @@ def execute_script():
             }), 500
         
         # Create task for async execution
-        from src.lib.utils.task_manager import task_manager
+        from  backend_server.src.lib.utils.task_manager import task_manager
         task_id = task_manager.create_task('script_execute', {
             'script_name': script_name,
             'host_name': host_name,
@@ -427,7 +427,7 @@ def task_complete():
             }), 400
         
         # Update task in manager
-        from src.lib.utils.task_manager import task_manager
+        from  backend_server.src.lib.utils.task_manager import task_manager
         
         # Get task info to unlock device
         task_info = task_manager.get_task(task_id)
@@ -435,7 +435,7 @@ def task_complete():
             host_name = task_info['data'].get('host_name')
             if host_name:
                 # Unlock device after script completion
-                from src.lib.utils.lock_utils import unlock_device
+                from  backend_server.src.lib.utils.lock_utils import unlock_device
                 unlock_success = unlock_device(host_name)
                 print(f"[@route:server_script:task_complete] Device unlock for {host_name}: {'success' if unlock_success else 'failed'}")
         
@@ -459,7 +459,7 @@ def task_complete():
 def get_task_status(task_id):
     """Get status of an async script execution task"""
     try:
-        from src.lib.utils.task_manager import task_manager
+        from  backend_server.src.lib.utils.task_manager import task_manager
         task = task_manager.get_task(task_id)
         
         if not task:

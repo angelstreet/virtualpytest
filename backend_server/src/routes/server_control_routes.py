@@ -19,8 +19,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from shared.src.lib.utils.build_url_utils import buildHostUrl
-from src.lib.utils.server_utils import get_host_manager
-from src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
+from  backend_server.src.lib.utils.server_utils import get_host_manager
+from  backend_server.src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')

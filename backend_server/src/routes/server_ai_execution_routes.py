@@ -7,7 +7,7 @@ Consolidates AI agent execution functionality with modern host_name pattern.
 
 import uuid
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host_with_params
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 
 # Create blueprint
 server_ai_execution_bp = Blueprint('server_ai_execution', __name__, url_prefix='/server/ai-execution')

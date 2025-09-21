@@ -15,8 +15,8 @@ from typing import Dict, Any
 
 # Import utility functions
 
-from src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
-from src.lib.utils.task_manager import task_manager
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
+from  backend_server.src.lib.utils.task_manager import task_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl, buildServerUrl
 
 # Import database functions
@@ -305,7 +305,7 @@ def get_campaign_execution_status(execution_id: str):
                     print(f"[@server_campaign:get_status] Checking host status: {host_name}/{host_execution_id}")
                     
                     # Build host status URL
-                    from src.lib.utils.server_utils import get_host_manager
+                    from  backend_server.src.lib.utils.server_utils import get_host_manager
                     host_manager = get_host_manager()
                     host_data = host_manager.get_host(host_name)
                     

@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify
 import requests
 import sys
 import os
-from src.lib.utils.route_utils import proxy_to_host_with_params
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 # All translation work is now handled by host - server just coordinates
 from shared.src.lib.utils.build_url_utils import buildHostUrl
 
@@ -110,7 +110,7 @@ def translate_restart_batch():
             }), 400
         
         # Get host information using standard pattern
-        from src.lib.utils.route_utils import get_host_from_request
+        from  backend_server.src.lib.utils.route_utils import get_host_from_request
         host_info, error = get_host_from_request()
         if not host_info:
             return jsonify({

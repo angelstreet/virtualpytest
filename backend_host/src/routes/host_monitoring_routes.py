@@ -5,7 +5,7 @@ Monitoring system endpoints for capture frame listing and JSON analysis file ret
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.host_utils import get_controller, get_device_by_id
+from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import re
 

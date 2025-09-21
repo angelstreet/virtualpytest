@@ -7,7 +7,7 @@ Consolidates MCP routes and debug endpoints with modern host_name pattern.
 
 from flask import Blueprint, request, jsonify
 import logging
-from src.lib.utils.route_utils import proxy_to_host
+from  backend_server.src.lib.utils.route_utils import proxy_to_host
 
 # Create blueprint
 server_ai_tools_bp = Blueprint('server_ai_tools', __name__, url_prefix='/server/ai-tools')
@@ -243,7 +243,7 @@ def debug_capabilities():
         device_model = request_data.get('device_model', 'unknown')
         
         # Get device capabilities from host manager
-        from src.lib.utils.server_utils import get_host_manager
+        from  backend_server.src.lib.utils.server_utils import get_host_manager
         
         host_manager = get_host_manager()
         all_hosts = host_manager.get_all_hosts()

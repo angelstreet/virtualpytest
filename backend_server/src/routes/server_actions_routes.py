@@ -15,7 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Actions are now embedded in navigation edges - no separate database operations needed
 
-from src.lib.utils.route_utils import proxy_to_host_with_params
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 import requests
 
 # Create blueprint
@@ -118,7 +118,7 @@ def action_execute_batch():
         
         # Proxy to host action execution endpoint
         try:
-            from src.lib.utils.route_utils import proxy_to_host_with_params
+            from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
             
             # Prepare execution payload
             execution_payload = {

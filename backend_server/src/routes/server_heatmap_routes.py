@@ -18,7 +18,7 @@ import os
 from shared.src.lib.supabase.heatmap_db import (
     get_heatmap_incidents
 )
-from src.lib.utils.heatmap_utils import (
+from  backend_server.src.lib.utils.heatmap_utils import (
     create_heatmap_job,
     get_job_status,
     cancel_job,
@@ -88,7 +88,7 @@ server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/he
 
 def get_hosts_devices():
     """Get hosts and devices from host manager"""
-    from src.lib.utils.server_utils import get_host_manager
+    from  backend_server.src.lib.utils.server_utils import get_host_manager
     host_manager = get_host_manager()
     
     hosts_devices = []

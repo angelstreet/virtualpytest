@@ -12,7 +12,7 @@ import requests
 from typing import Dict, Any
 
 # Import campaign executor (moved to host level)
-from src.lib.utils.campaign_executor import CampaignExecutor
+from  backend_host.src.lib.utils.campaign_executor import CampaignExecutor
 
 # Create blueprint
 host_campaign_bp = Blueprint('host_campaign', __name__, url_prefix='/host/campaigns')

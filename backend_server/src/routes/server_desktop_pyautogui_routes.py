@@ -5,7 +5,7 @@ Server-side PyAutoGUI desktop endpoints that proxy requests to host PyAutoGUI de
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host
+from  backend_server.src.lib.utils.route_utils import proxy_to_host
 
 # Create blueprint
 server_desktop_pyautogui_bp = Blueprint('server_desktop_pyautogui', __name__, url_prefix='/server/desktop/pyautogui')

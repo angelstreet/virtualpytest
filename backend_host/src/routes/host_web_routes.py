@@ -5,7 +5,7 @@ Host-side web automation endpoints that execute commands using instantiated web 
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.host_utils import get_controller, get_device_by_id
+from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 import threading
 import requests
 import time

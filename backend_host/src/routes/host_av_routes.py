@@ -10,7 +10,7 @@ These endpoints run on the host and use the host's own stored device object.
 """
 
 from flask import Blueprint, request, jsonify, current_app, send_file
-from src.lib.utils.host_utils import get_controller, get_device_by_id
+from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
 import time
 
@@ -201,7 +201,7 @@ def get_stream_url():
             }), 404
         
         from shared.src.lib.utils.build_url_utils import buildStreamUrl
-        from src.lib.utils.host_utils import get_host_instance as get_host
+        from  backend_host.src.lib.utils.host_utils import get_host_instance as get_host
         
         host = get_host()
         stream_url = buildStreamUrl(host.to_dict(), device_id)
@@ -252,7 +252,7 @@ def take_screenshot():
         time.sleep(0.5)
         
         from shared.src.lib.utils.build_url_utils import buildCaptureUrlFromPath
-        from src.lib.utils.host_utils import get_host_instance as get_host
+        from  backend_host.src.lib.utils.host_utils import get_host_instance as get_host
         
         try:
             host = get_host()

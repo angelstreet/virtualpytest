@@ -6,7 +6,7 @@ Matches the server AI execution route organization.
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.host_utils import get_controller, get_device_by_id
+from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint - matches server AI execution organization
 host_ai_execution_bp = Blueprint('host_ai_execution', __name__, url_prefix='/host/ai-execution')

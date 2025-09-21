@@ -96,7 +96,7 @@ def get_host_from_request():
         if not host_name:
             return None, 'host_name required in request body'
             
-        from src.lib.utils.server_utils import get_host_manager
+        from  backend_host.src.lib.utils.server_utils import get_host_manager
         host_manager = get_host_manager()
         host_info = host_manager.get_host(host_name)
         

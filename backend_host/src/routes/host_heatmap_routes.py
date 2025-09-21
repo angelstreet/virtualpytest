@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify
 import os
 import time
 import json
-from src.lib.utils.analysis_utils import load_recent_analysis_data
+from  backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data
 
 # Create blueprint
 host_heatmap_bp = Blueprint('host_heatmap', __name__, url_prefix='/host/heatmap')

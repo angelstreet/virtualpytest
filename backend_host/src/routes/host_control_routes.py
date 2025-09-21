@@ -9,7 +9,7 @@ This module contains host-side control endpoints that:
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from src.lib.utils.host_utils import get_controller, get_device_by_id, list_available_devices
+from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id, list_available_devices
 
 # Create blueprint
 host_control_bp = Blueprint('host_control', __name__, url_prefix='/host')

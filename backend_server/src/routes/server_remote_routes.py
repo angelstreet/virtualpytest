@@ -5,7 +5,7 @@ Server-side remote control proxy endpoints that forward requests to host remote 
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
 import requests
 
 # Create blueprint

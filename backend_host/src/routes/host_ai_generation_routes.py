@@ -289,7 +289,7 @@ def run_exploration(exploration_id: str):
 def generate_plan():
     """Generate AI execution plan using device AI executor."""
     try:
-        from src.lib.utils.host_utils import get_device_by_id
+        from  backend_host.src.lib.utils.host_utils import get_device_by_id
         
         # Get device_id from request (defaults to device1)
         data = request.get_json() or {}
@@ -355,7 +355,7 @@ def generate_plan():
 def analyze_compatibility():
     """Analyze AI task compatibility using device AI executor."""
     try:
-        from src.lib.utils.host_utils import get_device_by_id
+        from  backend_host.src.lib.utils.host_utils import get_device_by_id
         
         # Get device_id from request (defaults to device1)
         data = request.get_json() or {}
