@@ -141,7 +141,8 @@ class ScriptExecutor:
     def _get_scripts_directory(self) -> str:
         """Get the scripts directory path - single source of truth"""
         current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend_host/src/services/scripts
-        src_dir = os.path.dirname(current_dir)  # /backend_host/src
+        services_dir = os.path.dirname(current_dir)  # /backend_host/src/services
+        src_dir = os.path.dirname(services_dir)  # /backend_host/src
         backend_host_dir = os.path.dirname(src_dir)  # /backend_host
         project_root = os.path.dirname(backend_host_dir)  # /virtualpytest
         

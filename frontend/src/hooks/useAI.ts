@@ -214,7 +214,20 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     }
   }, []);
 
-  const executeTask = useCallback(async (prompt: string, userinterface_name: string, useCache: boolean = false, debugMode: boolean = false) => {
+  /**
+   * Execute an AI task with optional plan caching
+   * 
+   * @param prompt - The task description
+   * @param userinterface_name - The UI context
+   * @param useCache - Whether to use cached AI plans for similar tasks. 
+   *                   When false, always generates fresh plans but successful plans are still stored.
+   *                   When true, attempts to reuse compatible cached plans.
+   */
+  const executeTask = useCallback(async (
+    prompt: string, 
+    userinterface_name: string, 
+    useCache: boolean = false
+  ) => {
     if (isExecuting) return;
 
     // Clear previous state
@@ -244,7 +257,6 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           device_id: device.device_id,
           team_id: 'default',
           use_cache: useCache,
-          debug_mode: debugMode,
           async_execution: true
         })
       });

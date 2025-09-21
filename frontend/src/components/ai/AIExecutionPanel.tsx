@@ -35,8 +35,8 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   // Local state
   const [taskInput, setTaskInput] = useState('');
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false);
-  const [useCacheEnabled, setUseCacheEnabled] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  // Controls whether to use cached AI plans for similar tasks (does not affect plan storage)
+  const [useAIPlanCache, setUseAIPlanCache] = useState(false);
 
   // AI Agent hook
   const {
@@ -119,7 +119,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                executeAITask(taskInput, 'horizon_android_mobile', useCacheEnabled, debugMode);
+                executeAITask(taskInput, 'horizon_android_mobile', useAIPlanCache);
               }
             }}
             disabled={isAIExecuting}
@@ -149,7 +149,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           <Button
             variant="contained"
             size="small"
-            onClick={() => executeAITask(taskInput, 'horizon_android_mobile', useCacheEnabled, debugMode)}
+            onClick={() => executeAITask(taskInput, 'horizon_android_mobile', useAIPlanCache)}
             disabled={!taskInput.trim() || isAIExecuting || !isControlActive}
             startIcon={isAIExecuting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : undefined}
             sx={{
@@ -169,13 +169,13 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           </Button>
         </Box>
 
-        {/* Cache Controls */}
+        {/* AI Execution Controls */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
           <FormControlLabel
             control={
               <Checkbox
-                checked={useCacheEnabled}
-                onChange={(e) => setUseCacheEnabled(e.target.checked)}
+                checked={useAIPlanCache}
+                onChange={(e) => setUseAIPlanCache(e.target.checked)}
                 size="small"
                 sx={{
                   color: '#888',
@@ -187,40 +187,14 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             }
             label={
               <Typography variant="caption" sx={{ color: '#aaa' }}>
-                Use Cache
+                Use AI Plan Cache
               </Typography>
             }
             sx={{ margin: 0 }}
           />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={debugMode}
-                onChange={(e) => setDebugMode(e.target.checked)}
-                size="small"
-                sx={{
-                  color: '#888',
-                  '&.Mui-checked': {
-                    color: '#ff9800',
-                  },
-                }}
-              />
-            }
-            label={
-              <Typography variant="caption" sx={{ color: '#aaa' }}>
-                Debug Mode
-              </Typography>
-            }
-            sx={{ margin: 0 }}
-          />
-          {useCacheEnabled && (
+          {useAIPlanCache && (
             <Typography variant="caption" sx={{ color: '#4caf50', ml: 1 }}>
-              (Cache enabled)
-            </Typography>
-          )}
-          {debugMode && (
-            <Typography variant="caption" sx={{ color: '#ff9800', ml: 1 }}>
-              (No storage)
+              (Plan cache enabled)
             </Typography>
           )}
         </Box>

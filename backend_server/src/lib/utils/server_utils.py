@@ -90,16 +90,18 @@ class HostManager:
                 return True
             return False
     
-    def cleanup_stale_hosts(self, timeout_seconds: int = 120) -> int:
-        """Remove hosts that haven't been seen for timeout_seconds"""
+    def cleanup_stale_hosts(self, timeout_seconds: int = 300) -> int:
+        """Remove hosts that haven't been seen for timeout_seconds (default 5 minutes)"""
         with self._lock:
             current_time = time.time()
             stale_hosts = []
             
             for host_name, host_data in self._hosts.items():
                 last_seen = host_data.get('last_seen', 0)
-                if current_time - last_seen > timeout_seconds:
+                time_since_seen = current_time - last_seen
+                if time_since_seen > timeout_seconds:
                     stale_hosts.append(host_name)
+                    print(f"🧹 [HostManager] Host '{host_name}' is stale (last seen {time_since_seen:.1f}s ago, timeout {timeout_seconds}s)")
             
             # Remove stale hosts
             for host_name in stale_hosts:

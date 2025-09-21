@@ -136,16 +136,40 @@ const ApiTestingPage: React.FC = () => {
         .status-pass { background-color: #d4edda; }
         .status-fail { background-color: #f8d7da; }
         .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-grey { background: #6c757d; color: white; }
         .badge-success { background: #28a745; color: white; }
         .badge-danger { background: #dc3545; color: white; }
         h1 { color: #333; margin-bottom: 10px; }
         .meta { color: #666; font-size: 14px; }
+        .expandable-row { cursor: pointer; }
+        .expandable-row:hover { background-color: #f8f9fa; }
+        .expand-icon { display: inline-block; width: 20px; text-align: center; transition: transform 0.2s; }
+        .expand-icon.expanded { transform: rotate(90deg); }
+        .response-details { display: none; background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; }
+        .response-details.show { display: block; }
+        .response-body { background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
     </style>
+    <script>
+        function toggleResponse(index) {
+            const icon = document.getElementById('icon-' + index);
+            const details = document.getElementById('details-' + index);
+            
+            if (details.classList.contains('show')) {
+                details.classList.remove('show');
+                icon.classList.remove('expanded');
+                icon.textContent = '▶';
+            } else {
+                details.classList.add('show');
+                icon.classList.add('expanded');
+                icon.textContent = '▼';
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="container">
         <div class="summary">
-            <h1>🧪 API Test Report</h1>
+            <h1>API Test Report</h1>
             <div class="meta">
                 <p><strong>Git Commit:</strong> <code>${report.git_commit}</code></p>
                 <p><strong>Timestamp:</strong> ${new Date(report.timestamp).toLocaleString()}</p>
@@ -161,6 +185,7 @@ const ApiTestingPage: React.FC = () => {
         <table>
             <thead>
                 <tr>
+                    <th style="width: 30px;"></th>
                     <th>Route</th>
                     <th>Method</th>
                     <th>Status</th>
@@ -170,18 +195,39 @@ const ApiTestingPage: React.FC = () => {
                 </tr>
             </thead>
             <tbody>
-                ${report.results.map((result: TestResult) => `
-                    <tr class="status-${result.status}">
+                ${report.results.map((result: TestResult, index: number) => `
+                    <tr class="expandable-row status-${result.status}" onclick="toggleResponse(${index})">
+                        <td><span id="icon-${index}" class="expand-icon">▶</span></td>
                         <td><strong>${result.endpoint}</strong><br><small style="color: #666;">${result.url}</small></td>
-                        <td><span class="badge ${result.method === 'GET' ? 'badge-success' : 'badge-info'}">${result.method}</span></td>
+                        <td><span class="badge badge-grey">${result.method}</span></td>
                         <td>
                             <span class="badge ${result.status === 'pass' ? 'badge-success' : 'badge-danger'}">
-                                ${result.status === 'pass' ? '✅ PASS' : '❌ FAIL'}
+                                ${result.status === 'pass' ? 'PASS' : 'FAIL'}
                             </span>
                         </td>
                         <td><code>${result.status_code || 'N/A'}</code></td>
                         <td>${result.response_time}ms</td>
                         <td style="max-width: 300px; word-break: break-word;">${result.error || ''}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="7" style="padding: 0;">
+                            <div id="details-${index}" class="response-details">
+                                <h4 style="margin-top: 0;">Response Details</h4>
+                                <p><strong>Status Code:</strong> ${result.status_code || 'N/A'}</p>
+                                <p><strong>Response Time:</strong> ${result.response_time}ms</p>
+                                ${result.error ? `<p><strong>Error:</strong> <span style="color: #dc3545;">${result.error}</span></p>` : ''}
+                                <div>
+                                    <strong>Response Body:</strong>
+                                    <div class="response-body">${
+                                        result.response_body 
+                                            ? (typeof result.response_body === 'string' 
+                                                ? result.response_body 
+                                                : JSON.stringify(result.response_body, null, 2))
+                                            : 'No response data available'
+                                    }</div>
+                                </div>
+                            </div>
+                        </td>
                     </tr>
                 `).join('')}
             </tbody>
