@@ -125,12 +125,13 @@ def get_exploration_status(exploration_id):
                 'error': 'Missing host_ip parameter'
             }), 400
         
-        # Proxy to host
-        response_data, status_code = proxy_to_host(
+        # Proxy to host with parameters
+        query_params = {'host_ip': host_ip} if host_ip else {}
+        response_data, status_code = proxy_to_host_with_params(
             f'/host/ai-generation/exploration-status/{exploration_id}',
             'GET',
             {},
-            host_ip=host_ip
+            query_params
         )
         
         return jsonify(response_data), status_code
@@ -184,11 +185,12 @@ def approve_generation():
             }), 400
         
         # Get proposed changes from host exploration status
-        changes_response, changes_status = proxy_to_host(
+        query_params = {'host_ip': host_ip} if host_ip else {}
+        changes_response, changes_status = proxy_to_host_with_params(
             f'/host/ai-generation/exploration-status/{exploration_id}',
             'GET',
             {},
-            host_ip=host_ip
+            query_params
         )
         
         if changes_status != 200 or not changes_response.get('success'):
@@ -280,19 +282,96 @@ def cancel_exploration():
                 'error': 'Missing required fields: exploration_id, host_ip'
             }), 400
         
-        # Proxy to host
-        response_data, status_code = proxy_to_host(
+        # Proxy to host with parameters
+        query_params = {'host_ip': host_ip} if host_ip else {}
+        response_data, status_code = proxy_to_host_with_params(
             '/host/ai-generation/cancel-exploration',
             'POST',
             {'exploration_id': exploration_id},
-            host_ip=host_ip
+            query_params
         )
         
         return jsonify(response_data), status_code
         
     except Exception as e:
-        print(f"[@route:server_ai_generation:cancel_exploration] Error: {str(e)}")
+        print(f"[@server_ai_generation] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+@server_ai_generation_bp.route('/generatePlan', methods=['POST'])
+def generate_plan():
+    """Generate AI execution plan using modern host_name pattern"""
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+        
+        print(f"[@server_ai_generation] Generating AI plan for prompt: {request_data.get('prompt', 'N/A')}")
+        print(f"[@server_ai_generation] Device ID: {request_data.get('device_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_generation] Team ID: {team_id or 'N/A'}")
+        
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if team_id:
+            query_params['team_id'] = team_id
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-generation/generatePlan',
+            'POST',
+            request_data,
+            query_params
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@server_ai_generation] Error generating AI plan: {e}")
+        return jsonify({
+            'success': False, 
+            'error': f'Server error: {str(e)}'
+        }), 500
+
+@server_ai_generation_bp.route('/analyzeCompatibility', methods=['POST'])
+def analyze_compatibility():
+    """Analyze AI task compatibility using modern host_name pattern"""
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+        
+        print(f"[@server_ai_generation] Analyzing AI compatibility for prompt: {request_data.get('prompt', 'N/A')}")
+        print(f"[@server_ai_generation] Device ID: {request_data.get('device_id', 'N/A')}")
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
+        print(f"[@server_ai_generation] Team ID: {team_id or 'N/A'}")
+        
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if team_id:
+            query_params['team_id'] = team_id
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-generation/analyzeCompatibility',
+            'POST',
+            request_data,
+            query_params
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@server_ai_generation] Error analyzing AI compatibility: {e}")
+        return jsonify({
+            'success': False, 
+            'error': f'Server error: {str(e)}'
         }), 500

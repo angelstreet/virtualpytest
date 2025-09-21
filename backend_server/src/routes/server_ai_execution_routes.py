@@ -57,43 +57,7 @@ def execute_task():
             'error': f'Server error: {str(e)}'
         }), 500
 
-@server_ai_execution_bp.route('/generatePlan', methods=['POST'])
-def generate_plan():
-    """Generate AI execution plan using modern host_name pattern"""
-    try:
-        request_data = request.get_json()
-        if not request_data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
-        
-        print(f"[@server_ai_execution] Generating AI plan for prompt: {request_data.get('prompt', 'N/A')}")
-        print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
-        # Get team_id from query params (standardized pattern)
-        team_id = request.args.get('team_id')
-        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
-        
-        # Extract parameters for query string
-        query_params = {}
-        if 'device_id' in request_data:
-            query_params['device_id'] = request_data['device_id']
-        if team_id:
-            query_params['team_id'] = team_id
-        
-        # Proxy to host with parameters
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/ai-execution/generatePlan',
-            'POST',
-            request_data,
-            query_params
-        )
-        
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        print(f"[@server_ai_execution] Error generating AI plan: {e}")
-        return jsonify({
-            'success': False, 
-            'error': f'Server error: {str(e)}'
-        }), 500
+# Plan generation moved to server_ai_generation_routes.py to match host structure
 
 @server_ai_execution_bp.route('/getStatus', methods=['POST'])
 def get_status():
@@ -169,40 +133,4 @@ def stop_execution():
             'error': f'Server error: {str(e)}'
         }), 500
 
-@server_ai_execution_bp.route('/analyzeCompatibility', methods=['POST'])
-def analyze_compatibility():
-    """Analyze AI task compatibility using modern host_name pattern"""
-    try:
-        request_data = request.get_json()
-        if not request_data:
-            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
-        
-        print(f"[@server_ai_execution] Analyzing AI compatibility for prompt: {request_data.get('prompt', 'N/A')}")
-        print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
-        # Get team_id from query params (standardized pattern)
-        team_id = request.args.get('team_id')
-        print(f"[@server_ai_execution] Team ID: {team_id or 'N/A'}")
-        
-        # Extract parameters for query string
-        query_params = {}
-        if 'device_id' in request_data:
-            query_params['device_id'] = request_data['device_id']
-        if team_id:
-            query_params['team_id'] = team_id
-        
-        # Proxy to host with parameters
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/ai-execution/analyzeCompatibility',
-            'POST',
-            request_data,
-            query_params
-        )
-        
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        print(f"[@server_ai_execution] Error analyzing AI compatibility: {e}")
-        return jsonify({
-            'success': False, 
-            'error': f'Server error: {str(e)}'
-        }), 500
+# Compatibility analysis moved to server_ai_generation_routes.py to match host structure

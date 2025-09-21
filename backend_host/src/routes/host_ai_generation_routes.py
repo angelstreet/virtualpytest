@@ -34,7 +34,7 @@ def start_exploration():
     }
     """
     try:
-        print("[@route:host_ai_generation:start_exploration] Starting AI interface exploration")
+        print("[@host_ai_generation] Starting AI interface exploration")
         
         # Get request data
         request_data = request.get_json() or {}
@@ -92,7 +92,7 @@ def start_exploration():
         }), 200
         
     except Exception as e:
-        print(f"[@route:host_ai_generation:start_exploration] Error: {str(e)}")
+        print(f"[@host_ai_generation] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -128,7 +128,7 @@ def get_exploration_status(exploration_id):
         return jsonify(response_data), 200
         
     except Exception as e:
-        print(f"[@route:host_ai_generation:get_exploration_status] Error: {str(e)}")
+        print(f"[@host_ai_generation] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -159,7 +159,7 @@ def cancel_exploration():
         }), 200
         
     except Exception as e:
-        print(f"[@route:host_ai_generation:cancel_exploration] Error: {str(e)}")
+        print(f"[@host_ai_generation] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -176,7 +176,7 @@ def run_exploration(exploration_id: str):
     4. AI learns from results and adapts exploration strategy
     """
     try:
-        print(f"[@host_ai_generation:run_exploration] Starting AI-driven exploration {exploration_id}")
+        print(f"[@host_ai_generation] Starting AI-driven exploration {exploration_id}")
         
         session = exploration_sessions[exploration_id]
         session['status'] = 'exploring'
@@ -276,14 +276,124 @@ def run_exploration(exploration_id: str):
         session['status'] = 'completed'
         session['current_step'] = f"AI exploration completed. Found {len(session['proposed_nodes'])} screens and {len(session['proposed_edges'])} navigation paths."
         
-        print(f"[@host_ai_generation:run_exploration] AI-driven exploration {exploration_id} completed successfully")
+        print(f"[@host_ai_generation] AI-driven exploration {exploration_id} completed successfully")
         
     except Exception as e:
-        print(f"[@host_ai_generation:run_exploration] Error in exploration {exploration_id}: {str(e)}")
+        print(f"[@host_ai_generation] Error in exploration {exploration_id}: {str(e)}")
         if exploration_id in exploration_sessions:
             exploration_sessions[exploration_id]['status'] = 'failed'
             exploration_sessions[exploration_id]['error'] = str(e)
             exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {str(e)}"
+
+@host_ai_generation_bp.route('/generatePlan', methods=['POST'])
+def generate_plan():
+    """Generate AI execution plan using device AI executor."""
+    try:
+        from src.lib.utils.host_utils import get_device_by_id
+        
+        # Get device_id from request (defaults to device1)
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        prompt = data.get('prompt', '')
+        
+        print(f"[@host_ai_generation] Generating AI plan for device: {device_id}")
+        print(f"[@host_ai_generation] Prompt: {prompt[:100]}...")
+        
+        # Get device and check AI executor
+        device = get_device_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found'
+            }), 404
+        
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AI executor initialized'
+            }), 404
+        
+        # Get userinterface_name from request or use default
+        userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
+        team_id = request.args.get('team_id')
+        
+        # Generate plan using AI executor - use execute_prompt for plan generation
+        result = device.ai_executor.execute_prompt(
+            prompt,
+            userinterface_name,
+            team_id=team_id,
+            async_execution=False,  # Synchronous for plan generation
+            generate_plan_only=True  # Only generate plan, don't execute
+        )
+        
+        # Determine appropriate status code based on plan generation result
+        success = result.get('success', False)
+        status_code = 200 if success else 400
+        
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        print(f"[@host_ai_generation] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'AI plan generation error: {str(e)}'
+        }), 500
+
+@host_ai_generation_bp.route('/analyzeCompatibility', methods=['POST'])
+def analyze_compatibility():
+    """Analyze AI task compatibility using device AI executor."""
+    try:
+        from src.lib.utils.host_utils import get_device_by_id
+        
+        # Get device_id from request (defaults to device1)
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        prompt = data.get('prompt', '')
+        
+        print(f"[@host_ai_generation] Analyzing AI compatibility for device: {device_id}")
+        print(f"[@host_ai_generation] Prompt: {prompt[:100]}...")
+        
+        # Get device and check AI executor
+        device = get_device_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found'
+            }), 404
+        
+        # Check if device has ai_executor
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AI executor initialized'
+            }), 404
+        
+        # Get userinterface_name from request or use default
+        userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
+        team_id = request.args.get('team_id')
+        
+        # Analyze compatibility using AI executor - use execute_prompt with analysis mode
+        result = device.ai_executor.execute_prompt(
+            f"Analyze compatibility for task: {prompt}",
+            userinterface_name,
+            team_id=team_id,
+            async_execution=False,  # Synchronous for analysis
+            analyze_only=True  # Only analyze, don't execute
+        )
+        
+        # Determine appropriate status code based on analysis result
+        success = result.get('success', False)
+        status_code = 200 if success else 400
+        
+        return jsonify(result), status_code
+        
+    except Exception as e:
+        print(f"[@host_ai_generation] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'AI compatibility analysis error: {str(e)}'
+        }), 500
 
 def create_exploration_results_from_ai_execution(session: dict, execution_result, step: int):
     """

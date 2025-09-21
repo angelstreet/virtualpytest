@@ -44,14 +44,50 @@ class NavigationExecutor:
         print(f"[@navigation_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
-        """Get available navigation context with enhanced hierarchy support"""
+        """Get available navigation context using cache when possible"""
+        # First check if we have a cached unified graph for this interface
+        from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
+        from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+        from src.lib.utils.navigation_cache import get_cached_unified_graph
+        
+        # Get interface and root tree ID
+        interface_info = get_userinterface_by_name(userinterface_name, team_id)
+        if not interface_info:
+            raise ValueError(f"Interface '{userinterface_name}' not found")
+            
+        root_tree_info = get_root_tree_for_interface(interface_info['userinterface_id'], team_id)
+        if not root_tree_info:
+            raise ValueError(f"No root tree found for interface '{userinterface_name}'")
+            
+        tree_id = root_tree_info['tree_id']
+        
+        # Check cache first - avoid reloading if already cached
+        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        if cached_graph:
+            print(f"[@navigation_executor] Using cached unified graph for '{userinterface_name}' (tree: {tree_id})")
+            # Extract available nodes from cached graph
+            available_nodes = [node for node in cached_graph.nodes() if node != 'root']
+            
+            return {
+                'service_type': 'navigation',
+                'device_id': self.device_id,
+                'device_model': self.device_model,
+                'userinterface_name': userinterface_name,
+                'tree_id': tree_id,
+                'available_nodes': available_nodes,
+                'cross_tree_capabilities': len(cached_graph.nodes()) > 10,  # Estimate based on graph size
+                'unified_graph_nodes': len(cached_graph.nodes()),
+                'unified_graph_edges': len(cached_graph.edges())
+            }
+        
+        # Cache miss - load tree hierarchy and populate cache
+        print(f"[@navigation_executor] Cache miss for '{userinterface_name}' - loading tree hierarchy")
         tree_result = self.load_navigation_tree_with_hierarchy(userinterface_name, team_id, "navigation_executor")
         
         # Fail fast - no fallback
         if not tree_result['success']:
             raise ValueError(f"Failed to load navigation tree: {tree_result['error']}")
         
-        tree_id = tree_result['tree_id']
         root_tree = tree_result['root_tree']
         nodes = root_tree['nodes']
         available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]

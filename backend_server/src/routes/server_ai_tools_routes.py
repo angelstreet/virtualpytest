@@ -97,11 +97,16 @@ def mcp_execute_task():
             }
             
             # Proxy AI plan generation to host
-            proxy_result = proxy_to_host('/host/ai/generatePlan', 'POST', {
-                'prompt': task,
-                'context': context,
-                'team_id': team_id
-            })
+            proxy_result, _ = proxy_to_host_with_params(
+                '/host/ai/generatePlan', 
+                'POST', 
+                {
+                    'prompt': task,
+                    'context': context,
+                    'team_id': team_id
+                },
+                {}
+            )
             plan_dict = proxy_result.get('plan', {}) if proxy_result and proxy_result.get('success') else {}
             
             ai_result = {

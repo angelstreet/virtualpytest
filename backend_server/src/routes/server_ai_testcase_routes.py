@@ -80,11 +80,16 @@ def analyze_test_case():
                 }
                 
                 # Proxy AI plan generation to host
-                plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
-                    'prompt': prompt,
-                    'context': context,
-                    'team_id': team_id
-                })
+                plan_response, _ = proxy_to_host_with_params(
+                    '/host/ai/generatePlan', 
+                    'POST', 
+                    {
+                        'prompt': prompt,
+                        'context': context,
+                        'team_id': team_id
+                    },
+                    {}
+                )
                 plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
                 
                 if plan_dict.get('feasible', True):
@@ -213,11 +218,16 @@ def generate_test_cases():
                 }
                 
                 # Proxy AI plan generation to host
-                plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
-                    'prompt': original_prompt,
-                    'context': context,
-                    'team_id': team_id
-                })
+                plan_response, _ = proxy_to_host_with_params(
+                    '/host/ai/generatePlan', 
+                    'POST', 
+                    {
+                        'prompt': original_prompt,
+                        'context': context,
+                        'team_id': team_id
+                    },
+                    {}
+                )
                 plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
                 
                 if plan_dict.get('feasible', True):
@@ -304,10 +314,12 @@ def execute_test_case():
             'team_id': team_id
         }
         
-        response_data, status_code = proxy_to_host(
-            '/host/aitestcase/executeTestCase',
+        query_params = {'team_id': team_id}
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai/executeTestCase',
             'POST',
-            host_request
+            host_request,
+            query_params
         )
         
         return jsonify(response_data), status_code
@@ -406,11 +418,16 @@ def quick_feasibility_check():
         }
         
         # Proxy AI plan generation to host
-        plan_response = proxy_to_host('/host/ai/generatePlan', 'POST', {
-            'prompt': prompt,
-            'context': context,
-            'team_id': team_id
-        })
+        plan_response, _ = proxy_to_host_with_params(
+            '/host/ai/generatePlan', 
+            'POST', 
+            {
+                'prompt': prompt,
+                'context': context,
+                'team_id': team_id
+            },
+            {}
+        )
         plan_dict = plan_response.get('plan', {}) if plan_response.get('success') else {}
         
         return jsonify({

@@ -20,8 +20,8 @@ def execute_task():
         device_id = data.get('device_id', 'device1')
         task_description = data.get('task_description', '')
         
-        print(f"[@route:host_aiagent:execute_task] Executing AI task for device: {device_id}")
-        print(f"[@route:host_aiagent:execute_task] Task: {task_description}")
+        print(f"[@host_ai_execution] Executing AI task for device: {device_id}")
+        print(f"[@host_ai_execution] Task: {task_description}")
         
         # Get device and check AI executor
         device = get_device_by_id(device_id)
@@ -31,24 +31,24 @@ def execute_task():
                 'error': f'Device {device_id} not found'
             }), 404
         
-        print(f"[@route:host_aiagent:execute_task] Using AI executor for device: {device_id}")
+        print(f"[@host_ai_execution] Using AI executor for device: {device_id}")
         
         device_model = device.device_model
-        print(f"[@route:host_aiagent:execute_task] Device model: {device_model}")
+        print(f"[@host_ai_execution] Device model: {device_model}")
         
         # Get userinterface_name from request or use default
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         # Get team_id from query params or request body (frontend adds it to query params)
         team_id = request.args.get('team_id') 
         
-        print(f"[@route:host_aiagent:execute_task] Using AI executor for task execution")
-        print(f"[@route:host_aiagent:execute_task] Interface: {userinterface_name}, Team: {team_id}")
+        print(f"[@host_ai_execution] Using AI executor for task execution")
+        print(f"[@host_ai_execution] Interface: {userinterface_name}, Team: {team_id}")
         
         # Check if this is async execution (has task_id)
         task_id = data.get('task_id')
         
         if task_id:
-            print(f"[@route:host_aiagent:execute_task] 2-PHASE: Starting AI task for {task_id}")
+            print(f"[@host_ai_execution] 2-PHASE: Starting AI task for {task_id}")
             
             # Use AI executor for both plan generation and execution
             result = device.ai_executor.execute_prompt(
@@ -77,7 +77,7 @@ def execute_task():
             }), 202
         else:
             # Synchronous execution using AI executor
-            print(f"[@route:host_aiagent:execute_task] SYNC: Direct AI execution (no task_id)")
+            print(f"[@host_ai_execution] SYNC: Direct AI execution (no task_id)")
             result = device.ai_executor.execute_prompt(
                 task_description,
                 userinterface_name,
@@ -101,7 +101,7 @@ def execute_task():
             }), status_code
         
     except Exception as e:
-        print(f"[@route:host_aiagent:execute_task] Error: {str(e)}")
+        print(f"[@host_ai_execution] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'AI task execution error: {str(e)}'
@@ -116,7 +116,7 @@ def get_status():
         device_id = data.get('device_id', 'device1')
         execution_id = data.get('execution_id')
         
-        print(f"[@route:host_aiagent:get_status] Getting AI status for device: {device_id}, execution: {execution_id}")
+        print(f"[@host_ai_execution] Getting AI status for device: {device_id}, execution: {execution_id}")
         
         if not execution_id:
             return jsonify({
@@ -142,12 +142,12 @@ def get_status():
         # Get actual execution status from AI executor
         status = device.ai_executor.get_execution_status(execution_id)
         
-        print(f"[@route:host_aiagent:get_status] Execution status: success={status.get('success')}, is_executing={status.get('is_executing')}")
+        print(f"[@host_ai_execution] Execution status: success={status.get('success')}, is_executing={status.get('is_executing')}")
         
         return jsonify(status)
         
     except Exception as e:
-        print(f"[@route:host_aiagent:get_status] Error: {str(e)}")
+        print(f"[@host_ai_execution] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'AI status error: {str(e)}'
@@ -161,7 +161,7 @@ def stop_execution():
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         
-        print(f"[@route:host_aiagent:stop_execution] Stopping AI execution for device: {device_id}")
+        print(f"[@host_ai_execution] Stopping AI execution for device: {device_id}")
         
         # Get device and check AI executor
         device = get_device_by_id(device_id)
@@ -197,8 +197,8 @@ def stop_execution():
         }), status_code
         
     except Exception as e:
-        print(f"[@route:host_aiagent:stop_execution] Error: {str(e)}")
+        print(f"[@host_ai_execution] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'AI stop execution error: {str(e)}'
-        }), 500 
+        }), 500

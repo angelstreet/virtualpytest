@@ -14,7 +14,7 @@ host_ai_bp = Blueprint('host_ai', __name__, url_prefix='/host/ai')
 def ai_generate_plan():
     """Generate AI plan using device's AIExecutor"""
     try:
-        print("[@route:host_ai:ai_generate_plan] Starting AI plan generation")
+        print("[@host_ai] Starting AI plan generation")
         
         # Get request data
         data = request.get_json() or {}
@@ -23,8 +23,8 @@ def ai_generate_plan():
         userinterface_name = data.get('userinterface_name', 'default')
         current_node_id = data.get('current_node_id')
         
-        print(f"[@route:host_ai:ai_generate_plan] Generating plan for device: {device_id}")
-        print(f"[@route:host_ai:ai_generate_plan] Prompt: {prompt[:100]}...")
+        print(f"[@host_ai] Generating plan for device: {device_id}")
+        print(f"[@host_ai] Prompt: {prompt[:100]}...")
         
         # Validate
         if not prompt:
@@ -42,7 +42,7 @@ def ai_generate_plan():
         
         device = current_app.host_devices[device_id]
         
-        print(f"[@route:host_ai:ai_generate_plan] Using AI service for device: {device_id}")
+        print(f"[@host_ai] Using AI service for device: {device_id}")
         
         # Check if device has ai_executor
         if not hasattr(device, 'ai_executor') or not device.ai_executor:
@@ -57,12 +57,12 @@ def ai_generate_plan():
             async_execution=False  # Synchronous for plan generation
         )
         
-        print(f"[@route:host_ai:ai_generate_plan] Plan generation result: success={result.get('success')}")
+        print(f"[@host_ai] Plan generation result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_generate_plan] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'AI plan generation failed: {str(e)}'
@@ -72,7 +72,7 @@ def ai_generate_plan():
 def ai_execute_plan():
     """Execute AI plan using device's AIExecutor"""
     try:
-        print("[@route:host_ai:ai_execute_plan] Starting AI plan execution")
+        print("[@host_ai] Starting AI plan execution")
         
         # Get request data
         data = request.get_json() or {}
@@ -82,7 +82,7 @@ def ai_execute_plan():
         team_id = data.get('team_id')
         userinterface_name = data.get('userinterface_name', 'default')
         
-        print(f"[@route:host_ai:ai_execute_plan] Executing plan {plan_id} for device: {device_id}, team: {team_id}")
+        print(f"[@host_ai] Executing plan {plan_id} for device: {device_id}, team: {team_id}")
         
         # Validate
         if not plan_id or not plan:
@@ -106,7 +106,7 @@ def ai_execute_plan():
         
         device = current_app.host_devices[device_id]
         
-        print(f"[@route:host_ai:ai_execute_plan] Using AI service for device: {device_id}")
+        print(f"[@host_ai] Using AI service for device: {device_id}")
         
         # Check if device has ai_executor
         if not hasattr(device, 'ai_executor') or not device.ai_executor:
@@ -122,12 +122,12 @@ def ai_execute_plan():
             team_id=team_id
         )
         
-        print(f"[@route:host_ai:ai_execute_plan] Plan execution result: success={result.get('success')}")
+        print(f"[@host_ai] Plan execution result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_execute_plan] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'AI plan execution failed: {str(e)}'
@@ -137,7 +137,7 @@ def ai_execute_plan():
 def ai_execute_prompt():
     """Generate and execute AI plan in one call using device's AIExecutor"""
     try:
-        print("[@route:host_ai:ai_execute_prompt] Starting AI prompt execution")
+        print("[@host_ai] Starting AI prompt execution")
         
         # Get request data
         data = request.get_json() or {}
@@ -147,8 +147,8 @@ def ai_execute_prompt():
         userinterface_name = data.get('userinterface_name', 'default')
         current_node_id = data.get('current_node_id')
         
-        print(f"[@route:host_ai:ai_execute_prompt] Executing prompt for device: {device_id}, team: {team_id}")
-        print(f"[@route:host_ai:ai_execute_prompt] Prompt: {prompt[:100]}...")
+        print(f"[@host_ai] Executing prompt for device: {device_id}, team: {team_id}")
+        print(f"[@host_ai] Prompt: {prompt[:100]}...")
         
         # Validate
         if not prompt:
@@ -172,7 +172,7 @@ def ai_execute_prompt():
         
         device = current_app.host_devices[device_id]
         
-        print(f"[@route:host_ai:ai_execute_prompt] Using AI service for device: {device_id}")
+        print(f"[@host_ai] Using AI service for device: {device_id}")
         
         # Check if device has ai_executor
         if not hasattr(device, 'ai_executor') or not device.ai_executor:
@@ -189,12 +189,12 @@ def ai_execute_prompt():
             team_id=team_id
         )
         
-        print(f"[@route:host_ai:ai_execute_prompt] Prompt execution result: success={result.get('success')}")
+        print(f"[@host_ai] Prompt execution result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_execute_prompt] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'AI prompt execution failed: {str(e)}'
@@ -204,12 +204,12 @@ def ai_execute_prompt():
 def ai_get_device_position():
     """Get device position using device's AIExecutor"""
     try:
-        print("[@route:host_ai:ai_get_device_position] Getting device position")
+        print("[@host_ai] Getting device position")
         
         # Get device_id from query params
         device_id = request.args.get('device_id', 'device1')
         
-        print(f"[@route:host_ai:ai_get_device_position] Getting position for device: {device_id}")
+        print(f"[@host_ai] Getting position for device: {device_id}")
         
         # Get device from app registry
         if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
@@ -229,12 +229,12 @@ def ai_get_device_position():
         
         result = device.ai_executor.get_device_position()
         
-        print(f"[@route:host_ai:ai_get_device_position] Position result: success={result.get('success')}")
+        print(f"[@host_ai] Position result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_get_device_position] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get device position: {str(e)}'
@@ -244,7 +244,7 @@ def ai_get_device_position():
 def ai_update_device_position():
     """Update device position using device's AIExecutor"""
     try:
-        print("[@route:host_ai:ai_update_device_position] Updating device position")
+        print("[@host_ai] Updating device position")
         
         # Get request data
         data = request.get_json() or {}
@@ -253,7 +253,7 @@ def ai_update_device_position():
         node_label = data.get('node_label')
         tree_id = data.get('tree_id')  # Optional tree_id
         
-        print(f"[@route:host_ai:ai_update_device_position] Updating position for device: {device_id} to node: {node_id}")
+        print(f"[@host_ai] Updating position for device: {device_id} to node: {node_id}")
         
         # Validate
         if not node_id:
@@ -280,12 +280,12 @@ def ai_update_device_position():
         
         result = device.ai_executor.update_device_position(node_id, tree_id, node_label)
         
-        print(f"[@route:host_ai:ai_update_device_position] Position update result: success={result.get('success')}")
+        print(f"[@host_ai] Position update result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_update_device_position] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to update device position: {str(e)}'
@@ -295,7 +295,7 @@ def ai_update_device_position():
 def ai_get_execution_status(execution_id):
     """Get execution status using AIPlanExecutor"""
     try:
-        print(f"[@route:host_ai:ai_get_execution_status] Getting status for execution: {execution_id}")
+        print(f"[@host_ai] Getting status for execution: {execution_id}")
         
         # Get device_id from query params (required for AIExecutor)
         device_id = request.args.get('device_id', 'device1')
@@ -319,12 +319,12 @@ def ai_get_execution_status(execution_id):
         
         result = device.ai_executor.get_execution_status(execution_id)
         
-        print(f"[@route:host_ai:ai_get_execution_status] Status result: success={result.get('success')}")
+        print(f"[@host_ai] Status result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_get_execution_status] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get execution status: {str(e)}'
@@ -334,7 +334,7 @@ def ai_get_execution_status(execution_id):
 def ai_execute_test_case():
     """Execute test case using device's AIExecutor"""
     try:
-        print("[@route:host_ai:ai_execute_test_case] Starting test case execution")
+        print("[@host_ai] Starting test case execution")
         
         # Get request data
         data = request.get_json() or {}
@@ -342,7 +342,7 @@ def ai_execute_test_case():
         device_id = data.get('device_id', 'device1')
         team_id = data.get('team_id')
         
-        print(f"[@route:host_ai:ai_execute_test_case] Executing test case {test_case_id} for device: {device_id}, team: {team_id}")
+        print(f"[@host_ai] Executing test case {test_case_id} for device: {device_id}, team: {team_id}")
         
         # Validate
         if not test_case_id:
@@ -370,12 +370,12 @@ def ai_execute_test_case():
         
         result = device.ai_executor.execute_testcase(test_case_id, team_id=team_id)
         
-        print(f"[@route:host_ai:ai_execute_test_case] Test case execution result: success={result.get('success')}")
+        print(f"[@host_ai] Test case execution result: success={result.get('success')}")
         
         return jsonify(result)
         
     except Exception as e:
-        print(f"[@route:host_ai:ai_execute_test_case] Error: {str(e)}")
+        print(f"[@host_ai] Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Host AI test case execution failed: {str(e)}'
