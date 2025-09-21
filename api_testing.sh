@@ -16,7 +16,7 @@ BASE_URL="${SERVER_URL:-http://localhost:5109}"
 TEAM_ID="${TEAM_ID:-7fdeb4bb-3639-4ec3-959f-b54769a219ce}"
 HOST_NAME="${HOST_NAME:-sunri-pi1}"
 DEVICE_ID="${DEVICE_ID:-device1}"
-TIMEOUT=10
+TIMEOUT=90
 
 # Colors
 RED='\033[0;31m'

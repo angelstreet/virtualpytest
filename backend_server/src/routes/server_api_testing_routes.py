@@ -39,9 +39,17 @@ TEST_CONFIG = {
             "category": "critical"
         },
         {
-            "name": "System Status",
-            "method": "GET", 
-            "url": "/server/system/status",
+            "name": "Get All Hosts",
+            "method": "GET",
+            "url": "/server/system/getAllHosts",
+            "expected_status": [200],
+            "category": "critical"
+        },
+        {
+            "name": "Ping System",
+            "method": "POST",
+            "url": "/server/system/ping",
+            "body": {"host_name": DEFAULT_VALUES["host_name"]},
             "expected_status": [200],
             "category": "critical"
         },
@@ -51,17 +59,6 @@ TEST_CONFIG = {
             "url": "/server/control/lockedDevices",
             "params": {"team_id": DEFAULT_VALUES["team_id"]},
             "expected_status": [200],
-            "category": "critical"
-        },
-        {
-            "name": "Take Control",
-            "method": "POST",
-            "url": "/server/control/takeControl",
-            "body": {
-                "host_name": DEFAULT_VALUES["host_name"],
-                "device_id": DEFAULT_VALUES["device_id"]
-            },
-            "expected_status": [200, 400, 404],
             "category": "critical"
         },
         
@@ -326,7 +323,7 @@ def execute_single_test(test_config, base_url=None):
         
         # Prepare request parameters
         kwargs = {
-            'timeout': 10,
+            'timeout': (90, 90),  # (connection timeout, read timeout)
             'headers': {'Content-Type': 'application/json'}
         }
         

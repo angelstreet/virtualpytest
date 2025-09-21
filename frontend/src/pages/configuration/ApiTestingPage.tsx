@@ -392,7 +392,7 @@ const ApiTestingPage: React.FC = () => {
               </Box>
 
               {selectedEndpoints.length === 0 && (
-                <Box sx={{ p: 2, backgroundColor: '#fff3e0', borderRadius: 1, mt: 2 }}>
+                <Box sx={{ p: 2, backgroundColor: '#fff3e0', borderRadius: 1, mt: 0.5 }}>
                   <Typography color="warning.main" variant="body2">
                     <strong>Warning:</strong> No routes selected. Please select at least one route to test.
                   </Typography>
@@ -466,7 +466,7 @@ const ApiTestingPage: React.FC = () => {
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
-                              maxWidth: '200px'
+                              maxWidth: '300px'
                             }}
                           >
                             <Box component="span" sx={{ fontWeight: 'medium' }}>
@@ -552,119 +552,41 @@ const ApiTestingPage: React.FC = () => {
                             }}
                           >
                             <Box sx={{ maxWidth: '100%', overflow: 'auto' }}>
-                              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold', mb: 0.5, display: 'block' }}>
-                                API Response Details:
-                              </Typography>
-                              
                               {/* Status Code */}
-                              {result.status_code && (
-                                <Box sx={{ mb: 0.5 }}>
-                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium' }}>
-                                    Status Code: <Box component="span" sx={{ fontFamily: 'monospace' }}>{result.status_code}</Box>
-                                  </Typography>
-                                </Box>
-                              )}
+                              <Box sx={{ mb: 1 }}>
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium' }}>
+                                  Status Code: <Box component="span" sx={{ fontFamily: 'monospace' }}>{result.status_code || 'N/A'}</Box>
+                                </Typography>
+                              </Box>
                               
-                              {/* Request Body */}
-                              {result.request_body && (
-                                <Box sx={{ mb: 0.5 }}>
-                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium', display: 'block', mb: 0.5 }}>
-                                    Request Body:
-                                  </Typography>
-                                  <Box 
+                              {/* Raw Response */}
+                              {result.response_body ? (
+                                <Box 
+                                  sx={{ 
+                                    backgroundColor: 'background.paper', 
+                                    p: 1, 
+                                    borderRadius: 1, 
+                                    border: '1px solid', 
+                                    borderColor: 'divider',
+                                    maxHeight: '200px',
+                                    overflow: 'auto'
+                                  }}
+                                >
+                                  <Typography 
+                                    variant="caption" 
                                     sx={{ 
-                                      backgroundColor: 'background.paper', 
-                                      p: 1, 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
-                                      borderColor: 'divider',
-                                      maxHeight: '150px',
-                                      overflow: 'auto'
+                                      fontSize: '0.65rem', 
+                                      fontFamily: 'monospace',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-all'
                                     }}
                                   >
-                                    <Typography 
-                                      variant="caption" 
-                                      sx={{ 
-                                        fontSize: '0.65rem', 
-                                        fontFamily: 'monospace',
-                                        whiteSpace: 'pre-wrap',
-                                        wordBreak: 'break-all'
-                                      }}
-                                    >
-                                      {typeof result.request_body === 'string' ? result.request_body : JSON.stringify(result.request_body, null, 2)}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              )}
-                              
-                              {/* Response Body */}
-                              {result.response_body && (
-                                <Box sx={{ mb: 0.5 }}>
-                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium', display: 'block', mb: 0.5 }}>
-                                    Response Body:
+                                    {typeof result.response_body === 'string' ? result.response_body : JSON.stringify(result.response_body, null, 2)}
                                   </Typography>
-                                  <Box 
-                                    sx={{ 
-                                      backgroundColor: 'background.paper', 
-                                      p: 1, 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
-                                      borderColor: 'divider',
-                                      maxHeight: '200px',
-                                      overflow: 'auto'
-                                    }}
-                                  >
-                                    <Typography 
-                                      variant="caption" 
-                                      sx={{ 
-                                        fontSize: '0.65rem', 
-                                        fontFamily: 'monospace',
-                                        whiteSpace: 'pre-wrap',
-                                        wordBreak: 'break-all'
-                                      }}
-                                    >
-                                      {typeof result.response_body === 'string' ? result.response_body : JSON.stringify(result.response_body, null, 2)}
-                                    </Typography>
-                                  </Box>
                                 </Box>
-                              )}
-                              
-                              {/* Headers */}
-                              {result.headers && (
-                                <Box>
-                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium', display: 'block', mb: 0.5 }}>
-                                    Response Headers:
-                                  </Typography>
-                                  <Box 
-                                    sx={{ 
-                                      backgroundColor: 'background.paper', 
-                                      p: 1, 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
-                                      borderColor: 'divider',
-                                      maxHeight: '150px',
-                                      overflow: 'auto'
-                                    }}
-                                  >
-                                    <Typography 
-                                      variant="caption" 
-                                      sx={{ 
-                                        fontSize: '0.65rem', 
-                                        fontFamily: 'monospace',
-                                        whiteSpace: 'pre-wrap',
-                                        wordBreak: 'break-all'
-                                      }}
-                                    >
-                                      {typeof result.headers === 'string' ? result.headers : JSON.stringify(result.headers, null, 2)}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              )}
-                              
-                              {/* Show message if no additional data */}
-                              {!result.response_body && !result.request_body && !result.headers && (
+                              ) : (
                                 <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                                  No additional response data available
+                                  No response data available
                                 </Typography>
                               )}
                             </Box>
@@ -679,7 +601,7 @@ const ApiTestingPage: React.FC = () => {
 
             {/* Summary for completed tests */}
             {!isRunning && liveResults.length > 0 && (
-              <Box sx={{ mt: 2, p: 2, backgroundColor: 'background.default', borderRadius: 1 }}>
+              <Box sx={{ mt: 0.5, p: 2, backgroundColor: 'background.default', borderRadius: 1 }}>
                 <Typography variant="body2">
                   <strong>Summary:</strong> {(() => {
                     const passed = liveResults.filter(r => r.status === 'pass').length;
