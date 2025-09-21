@@ -59,7 +59,7 @@ class NavigationExecutor:
         if not root_tree_info:
             raise ValueError(f"No root tree found for interface '{userinterface_name}'")
             
-        tree_id = root_tree_info['tree_id']
+        tree_id = root_tree_info['id']
         
         # Check cache first - avoid reloading if already cached
         cached_graph = get_cached_unified_graph(tree_id, team_id)
