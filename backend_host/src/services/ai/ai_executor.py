@@ -199,6 +199,48 @@ class AIExecutor:
         plan_steps = execution['plan'].get('steps', [])
         completed_steps = len([r for r in execution['step_results'] if r.get('success')])
         
+        # Convert step_results to execution_log format for frontend compatibility
+        execution_log = []
+        for i, step_result in enumerate(execution['step_results']):
+            if step_result.get('success'):
+                execution_log.append({
+                    'action_type': 'step_success',
+                    'data': {
+                        'step': step_result.get('step_id', i + 1),
+                        'duration': step_result.get('execution_time_ms', 0) / 1000.0,
+                        'message': step_result.get('message', '')
+                    }
+                })
+            else:
+                execution_log.append({
+                    'action_type': 'step_failed',
+                    'data': {
+                        'step': step_result.get('step_id', i + 1),
+                        'duration': step_result.get('execution_time_ms', 0) / 1000.0,
+                        'error': step_result.get('message', 'Step failed')
+                    }
+                })
+        
+        # Add task completion entry if execution is finished
+        if execution['status'] in ['completed', 'failed']:
+            total_duration = (execution.get('end_time', time.time()) - execution['start_time'])
+            if execution['status'] == 'completed':
+                execution_log.append({
+                    'action_type': 'task_completed',
+                    'data': {
+                        'duration': total_duration,
+                        'message': 'Task completed successfully'
+                    }
+                })
+            else:
+                execution_log.append({
+                    'action_type': 'task_failed',
+                    'data': {
+                        'duration': total_duration,
+                        'message': 'Task failed'
+                    }
+                })
+
         return {
             'success': True,
             'execution_id': execution_id,
@@ -207,13 +249,15 @@ class AIExecutor:
             'progress_percentage': (completed_steps / len(plan_steps)) * 100 if plan_steps else 0,
             'plan': execution['plan'],
             'step_results': execution['step_results'],
+            'execution_log': execution_log,  # Add execution_log for frontend compatibility
             'is_executing': execution['status'] == 'executing',
             'execution_summary': {
                 'total_steps': len(plan_steps),
                 'completed_steps': completed_steps,
                 'failed_steps': len([r for r in execution['step_results'] if not r.get('success')]),
                 'start_time': execution['start_time'],
-                'end_time': execution.get('end_time')
+                'end_time': execution.get('end_time'),
+                'total_duration': (execution.get('end_time', time.time()) - execution['start_time']) if execution['status'] in ['completed', 'failed'] else 0
             }
         }
     

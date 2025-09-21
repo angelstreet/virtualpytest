@@ -111,11 +111,18 @@ def execute_task():
 def get_status():
     """Get AI execution status."""
     try:
-        # Get device_id from request (defaults to device1)
+        # Get device_id and execution_id from request
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
+        execution_id = data.get('execution_id')
         
-        print(f"[@route:host_aiagent:get_status] Getting AI status for device: {device_id}")
+        print(f"[@route:host_aiagent:get_status] Getting AI status for device: {device_id}, execution: {execution_id}")
+        
+        if not execution_id:
+            return jsonify({
+                'success': False,
+                'error': 'execution_id is required'
+            }), 400
         
         # Get device and check AI executor
         device = get_device_by_id(device_id)
@@ -132,12 +139,10 @@ def get_status():
                 'error': f'Device {device_id} does not have AI executor initialized'
             }), 404
         
-        # Get status from AI executor (placeholder - AI executor doesn't have get_status method)
-        status = {
-            'success': True,
-            'message': 'AI executor is available',
-            'device_id': device_id
-        }
+        # Get actual execution status from AI executor
+        status = device.ai_executor.get_execution_status(execution_id)
+        
+        print(f"[@route:host_aiagent:get_status] Execution status: success={status.get('success')}, is_executing={status.get('is_executing')}")
         
         return jsonify(status)
         
