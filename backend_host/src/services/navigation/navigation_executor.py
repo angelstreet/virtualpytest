@@ -223,12 +223,8 @@ class NavigationExecutor:
             Dictionary with success status and tree data or error
         """
         try:
-            from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
-            userinterfaces = get_all_userinterfaces(team_id)
-            if not userinterfaces:
-                return {'success': False, 'error': "No userinterfaces found"}
-            
-            userinterface = next((ui for ui in userinterfaces if ui['name'] == userinterface_name), None)
+            from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
+            userinterface = get_userinterface_by_name(userinterface_name, team_id)
             if not userinterface:
                 return {'success': False, 'error': f"User interface '{userinterface_name}' not found"}
             

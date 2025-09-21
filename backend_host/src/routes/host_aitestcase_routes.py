@@ -25,7 +25,7 @@ def execute_test_case():
         test_case = request_data.get('test_case')
         device_id = request_data.get('device_id')
         interface_name = request_data.get('interface_name')
-        team_id = request_data.get('team_id')
+        team_id = request.args.get('team_id')
         
         if not all([test_case, device_id, team_id]):
             return jsonify({

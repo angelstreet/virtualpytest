@@ -38,7 +38,8 @@ def execute_task():
         
         # Get userinterface_name from request or use default
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
-        team_id = data.get('team_id', 'default')
+        # Get team_id from query params or request body (frontend adds it to query params)
+        team_id = request.args.get('team_id') 
         
         print(f"[@route:host_aiagent:execute_task] Using AI executor for task execution")
         print(f"[@route:host_aiagent:execute_task] Interface: {userinterface_name}, Team: {team_id}")

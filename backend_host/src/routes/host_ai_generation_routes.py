@@ -41,7 +41,7 @@ def start_exploration():
         exploration_id = request_data.get('exploration_id')
         tree_id = request_data.get('tree_id')
         device_id = request_data.get('device_id')
-        team_id = request_data.get('team_id')
+        team_id = request.args.get('team_id')
         exploration_depth = request_data.get('exploration_depth', 5)
         start_node_id = request_data.get('start_node_id')
         
