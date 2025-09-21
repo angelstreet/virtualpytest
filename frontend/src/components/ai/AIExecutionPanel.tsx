@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -41,7 +41,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     taskResult,
     executionSummary,
     executeTask: executeAITask,
-    clearError: clearAIError,
     // Direct access to computed values
     executionLog,
     currentStep,
@@ -54,6 +53,34 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     device,
     mode: 'real-time'
   });
+
+  // Reset local UI state when a new execution starts
+  useEffect(() => {
+    if (isAIExecuting && !aiPlan) {
+      // New execution starting - reset local state
+      setIsAnalysisExpanded(false);
+    }
+  }, [isAIExecuting, aiPlan]);
+
+  // Reset analysis expansion when plan changes (new execution)
+  useEffect(() => {
+    if (!aiPlan) {
+      setIsAnalysisExpanded(false);
+    }
+  }, [aiPlan]);
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('[AIExecutionPanel] State update:', {
+      isAIExecuting,
+      hasPlan: !!aiPlan,
+      planSteps: aiPlan?.steps?.length || 0,
+      processedStepsCount: processedSteps.length,
+      executionLogCount: executionLog.length,
+      currentStep,
+      progressPercentage
+    });
+  }, [isAIExecuting, aiPlan, processedSteps.length, executionLog.length, currentStep, progressPercentage]);
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -279,10 +306,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && (
               <>
                 <Box sx={{ mt: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: '#aaa', mb: 1, display: 'block' }}>
-                    Execution Plan ({aiPlan.steps.length} steps):
-                  </Typography>
-                  
                   {processedSteps.map((step: any, index: number) => {
                     let statusIcon, bgColor, borderColor;
                     if (step.status === 'completed') {
@@ -393,15 +416,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                         }}>
                           ⏱️ {executionSummary.totalDuration.toFixed(1)}s total
                         </Typography>
-                        {executionSummary.averageStepDuration > 0 && (
-                          <Typography variant="caption" sx={{
-                            color: '#ff9800',
-                            backgroundColor: 'rgba(255,152,0,0.1)',
-                            px: 1, py: 0.5, borderRadius: 0.5,
-                          }}>
-                            📊 {executionSummary.averageStepDuration.toFixed(1)}s avg
-                          </Typography>
-                        )}
                       </Box>
                     )}
 

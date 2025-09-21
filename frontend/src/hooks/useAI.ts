@@ -124,12 +124,25 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   // Process plan steps with execution status for UI display
   const processedSteps = useMemo(() => {
-    if (!currentPlan?.steps || !executionStatus?.execution_log) return [];
+    console.log('[useAI] processedSteps calculation:', {
+      hasPlan: !!currentPlan?.steps,
+      planStepsCount: currentPlan?.steps?.length || 0,
+      hasExecutionLog: !!executionStatus?.execution_log,
+      executionLogCount: executionStatus?.execution_log?.length || 0,
+      currentStepText: executionStatus?.current_step || '',
+      isExecuting
+    });
+    
+    // Return empty array if no plan or no execution status
+    if (!currentPlan?.steps || !executionStatus?.execution_log) {
+      console.log('[useAI] processedSteps: returning empty array - missing plan or execution log');
+      return [];
+    }
 
     const executionLog = executionStatus.execution_log;
     const currentStepText = executionStatus?.current_step || '';
 
-    return currentPlan.steps.map((step: any, index: number) => {
+    const processed = currentPlan.steps.map((step: any, index: number) => {
       const stepNumber = parseInt(step.step) || index + 1;
       const completedEntry = executionLog.find(entry => 
         entry.action_type === 'step_success' && entry.data?.step === stepNumber
@@ -155,7 +168,14 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         duration: completedEntry?.data?.duration || failedEntry?.data?.duration
       };
     });
-  }, [currentPlan?.steps, executionStatus?.execution_log, executionStatus?.current_step]);
+    
+    console.log('[useAI] processedSteps result:', {
+      processedCount: processed.length,
+      statuses: processed.map(s => ({ step: s.stepNumber, status: s.status }))
+    });
+    
+    return processed;
+  }, [currentPlan?.steps, executionStatus?.execution_log, executionStatus?.current_step, isExecuting]);
 
   const analyzeCompatibility = useCallback(async (prompt: string) => {
     try {
@@ -199,6 +219,8 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const executeTask = useCallback(async (prompt: string, userinterface_name: string) => {
     if (isExecuting) return;
 
+    console.log('[useAI] Starting new execution - clearing previous state');
+    
     // Clear previous state
     setCurrentPlan(null);
     setExecutionStatus(null);
@@ -212,6 +234,8 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     shownToasts.current.clear();
 
     setIsExecuting(true);
+    
+    console.log('[useAI] State cleared, starting execution');
 
     try {
       // Show start notification (only major state changes)
