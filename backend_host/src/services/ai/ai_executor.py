@@ -462,7 +462,8 @@ class AIExecutor:
         result = self.device.navigation_executor.execute_navigation(
             tree_id=context.get('tree_id'),
             target_node_id=params.get('target_node'),
-            current_node_id=context.get('current_node_id')
+            current_node_id=context.get('current_node_id'),
+            team_id=context.get('team_id')
         )
         
         # Update context with position changes
