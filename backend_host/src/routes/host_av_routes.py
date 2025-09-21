@@ -323,7 +323,7 @@ def save_screenshot():
             }), 500
         
         try:
-            from src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
             
             r2_filename = f"{filename}.jpg"
             upload_result = upload_navigation_screenshot(local_screenshot_path, device_model, r2_filename)

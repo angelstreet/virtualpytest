@@ -50,7 +50,7 @@ class ImageHelpers:
             print(f"[@image_helpers] Uploading reference to R2: {reference_name} for model: {device_model}")
             
             # Upload to R2 using cloudflare utils
-            from src.lib.utils.cloudflare_utils import upload_reference_image
+            from shared.src.lib.utils.cloudflare_utils import upload_reference_image
             
             # Use reference name with .jpg extension for R2
             r2_filename = f"{reference_name}.jpg"

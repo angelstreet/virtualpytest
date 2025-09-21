@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 
 try:
     from .restart_video_template import create_restart_video_template
-    from shared.src.lib.utils.cloudflare_utils import upload_restart_report, upload_restart_video
+    from shared.shared.src.lib.utils.cloudflare_utils import upload_restart_report, upload_restart_video
 except ImportError as e:
     print(f"Warning: Import error in report_generation.py: {e}")
     # Define fallback functions for testing

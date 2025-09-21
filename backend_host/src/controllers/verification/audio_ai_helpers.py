@@ -560,7 +560,7 @@ class AudioAIHelpers:
                 return None
             
             # Import CloudflareUtils
-            from src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             
             # Generate R2 path with timestamp and device context
