@@ -9,8 +9,25 @@ import { useMemo } from 'react';
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-// Simple cache to prevent duplicate requests
-const userInterfaceCache = new Map<string, Promise<UserInterface>>();
+
+// 24-hour cache for userinterfaces
+const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCachedInterface(name: string) {
+  const cached = userInterfaceCache.get(name);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
+  if (cached) {
+    userInterfaceCache.delete(name); // Remove expired
+  }
+  return null;
+}
+
+function setCachedInterface(name: string, data: Promise<UserInterface>) {
+  userInterfaceCache.set(name, {data, timestamp: Date.now()});
+}
 
 export const useUserInterface = () => {
   /**
@@ -131,13 +148,13 @@ export const useUserInterface = () => {
   const getUserInterfaceByName = useMemo(
     () =>
       async (name: string): Promise<UserInterface> => {
-        // Check cache first
-        const cacheKey = `name:${name}`;
-        if (userInterfaceCache.has(cacheKey)) {
+        // Check 24-hour cache first
+        const cached = getCachedInterface(name);
+        if (cached) {
           console.log(
-            `[@hook:useUserInterface:getUserInterfaceByName] Using cached user interface for name: ${name}`,
+            `[@hook:useUserInterface:getUserInterfaceByName] Using 24h cached user interface for name: ${name}`,
           );
-          return userInterfaceCache.get(cacheKey)!;
+          return cached;
         }
 
         // Create and cache the promise
@@ -163,8 +180,6 @@ export const useUserInterface = () => {
             );
             return userInterface;
           } catch (error) {
-            // Remove from cache on error so we can retry
-            userInterfaceCache.delete(cacheKey);
             console.error(
               `[@hook:useUserInterface:getUserInterfaceByName] Error fetching user interface by name ${name}:`,
               error,
@@ -173,7 +188,8 @@ export const useUserInterface = () => {
           }
         })();
 
-        userInterfaceCache.set(cacheKey, fetchPromise);
+        // Cache for 24 hours
+        setCachedInterface(name, fetchPromise);
         return fetchPromise;
       },
     [],

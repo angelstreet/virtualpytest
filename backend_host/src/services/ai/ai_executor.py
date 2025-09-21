@@ -49,7 +49,7 @@ class AIExecutor:
         self._action_cache = {}
         self._verification_cache = {}
         self._navigation_cache = {}
-        self._cache_ttl = 300  # 5 minutes
+        self._cache_ttl = 86400  # 24 hours
         
         print(f"[@ai_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     

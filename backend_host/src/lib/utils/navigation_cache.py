@@ -9,6 +9,9 @@ from typing import Dict, Optional, List
 import sys
 import os
 
+# Cache TTL in seconds (24 hours)
+CACHE_TTL = 86400
+
 # Global cache storage
 _navigation_graphs_cache: Dict[str, nx.DiGraph] = {}
 _cache_timestamps: Dict[str, datetime] = {}
@@ -34,10 +37,19 @@ def get_cached_graph(tree_id: str, team_id: str, force_rebuild: bool = False) ->
     """
     cache_key = f"{tree_id}_{team_id}"
     
-    # Return cached graph if available
+    # Return cached graph if available and not expired
     if cache_key in _navigation_graphs_cache and not force_rebuild:
-        print(f"[@navigation:cache:get_cached_graph] Using cached NetworkX graph for tree: {tree_id}")
-        return _navigation_graphs_cache[cache_key]
+        # Check if cache is still valid (24-hour TTL)
+        cache_time = _cache_timestamps.get(cache_key)
+        if cache_time and (datetime.now() - cache_time).total_seconds() < CACHE_TTL:
+            print(f"[@navigation:cache:get_cached_graph] Using 24h cached NetworkX graph for tree: {tree_id}")
+            return _navigation_graphs_cache[cache_key]
+        else:
+            # Cache expired - remove it
+            print(f"[@navigation:cache:get_cached_graph] Cache expired for tree: {tree_id}, removing")
+            _navigation_graphs_cache.pop(cache_key, None)
+            _cache_timestamps.pop(cache_key, None)
+            _resolved_tree_data_cache.pop(cache_key, None)
     
     # If not cached, return None - no database calls during navigation
     print(f"[@navigation:cache:get_cached_graph] No cached graph found for tree: {tree_id}")
@@ -438,8 +450,19 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
     cache_key = f"unified_{root_tree_id}_{team_id}"
     
     if cache_key in _unified_graphs_cache:
-        print(f"[@navigation:cache:get_cached_unified_graph] Using cached unified graph for root tree: {root_tree_id}")
-        return _unified_graphs_cache[cache_key]
+        # Check if cache is still valid (24-hour TTL)
+        cache_time = _unified_cache_timestamps.get(cache_key)
+        if cache_time and (datetime.now() - cache_time).total_seconds() < CACHE_TTL:
+            print(f"[@navigation:cache:get_cached_unified_graph] Using 24h cached unified graph for root tree: {root_tree_id}")
+            return _unified_graphs_cache[cache_key]
+        else:
+            # Cache expired - remove it
+            print(f"[@navigation:cache:get_cached_unified_graph] Cache expired for root tree: {root_tree_id}, removing")
+            _unified_graphs_cache.pop(cache_key, None)
+            _unified_cache_timestamps.pop(cache_key, None)
+            # Also clear related hierarchy cache
+            hierarchy_key = f"hierarchy_{root_tree_id}_{team_id}"
+            _tree_hierarchy_cache.pop(hierarchy_key, None)
     
     print(f"[@navigation:cache:get_cached_unified_graph] No cached unified graph found for root tree: {root_tree_id}")
     return None

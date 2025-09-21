@@ -19,6 +19,25 @@ def get_supabase():
     """Get the Supabase client instance."""
     return get_supabase_client()
 
+def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
+    """Clear cache when tree is modified"""
+    try:
+        from backend_host.src.lib.utils.navigation_cache import force_refresh_cache
+        # Get interface name for this tree
+        tree_result = get_tree_metadata(tree_id, team_id)
+        if tree_result['success']:
+            userinterface_id = tree_result['tree'].get('userinterface_id')
+            if userinterface_id:
+                from shared.src.lib.supabase.userinterface_db import get_userinterface
+                interface = get_userinterface(userinterface_id, team_id)
+                if interface:
+                    interface_name = interface.get('name')
+                    print(f"[@cache_invalidation] Clearing cache for interface: {interface_name}")
+                    # Clear existing cache
+                    force_refresh_cache(tree_id, team_id)
+    except Exception as e:
+        print(f"[@cache_invalidation] Error: {e}")
+
 # ============================================================================
 # TREE METADATA OPERATIONS
 # ============================================================================
@@ -180,6 +199,9 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
             result = supabase.table('navigation_nodes').insert(node_data).execute()
             print(f"[@db:navigation_trees:save_node] Created new node: {node_data['node_id']}")
         
+        # Invalidate cache after successful save
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        
         return {'success': True, 'node': result.data[0]}
     except Exception as e:
         print(f"[@db:navigation_trees:save_node] Error: {e}")
@@ -217,6 +239,10 @@ def delete_node(tree_id: str, node_id: str, team_id: str) -> Dict:
             .execute()
         
         print(f"[@db:navigation_trees:delete_node] Deleted node: {node_id}")
+        
+        # Invalidate cache after successful delete
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        
         return {'success': True}
     except Exception as e:
         print(f"[@db:navigation_trees:delete_node] Error: {e}")
@@ -330,6 +356,9 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
             result = supabase.table('navigation_edges').insert(edge_data).execute()
             print(f"[@db:navigation_trees:save_edge] Created new edge: {edge_data['edge_id']}")
         
+        # Invalidate cache after successful save
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        
         return {'success': True, 'edge': result.data[0]}
     except Exception as e:
         print(f"[@db:navigation_trees:save_edge] Error: {e}")
@@ -346,6 +375,10 @@ def delete_edge(tree_id: str, edge_id: str, team_id: str) -> Dict:
             .execute()
         
         print(f"[@db:navigation_trees:delete_edge] Deleted edge: {edge_id}")
+        
+        # Invalidate cache after successful delete
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        
         return {'success': True}
     except Exception as e:
         print(f"[@db:navigation_trees:delete_edge] Error: {e}")
@@ -690,6 +723,10 @@ def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: 
         
         deleted_count = len(deleted_node_ids or []) + len(deleted_edge_ids or [])
         print(f"[@db:navigation_trees:save_tree_data] Deleted {deleted_count} items, saved {len(saved_nodes)} nodes and {len(saved_edges)} edges for tree {tree_id}")
+        
+        # Invalidate cache after successful save
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        
         return {
             'success': True,
             'nodes': saved_nodes,
