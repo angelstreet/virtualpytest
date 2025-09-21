@@ -324,19 +324,25 @@ class ScriptExecutor:
             available_devices = [d.device_id for d in context.host.get_devices()]
             print(f"📱 [{self.script_name}] Available devices: {available_devices}")
             
-            if device_id_to_use != "device1":  # Specific device requested
-                context.selected_device = next((d for d in context.host.get_devices() if d.device_id == device_id_to_use), None)
-                if not context.selected_device:
-                    context.error_message = f"Device {device_id_to_use} not found. Available: {available_devices}"
-                    print(f"❌ [{self.script_name}] {context.error_message}")
-                    return context
-            else:  # Use first available device
-                devices = context.host.get_devices()
-                if not devices:
-                    context.error_message = "No devices available"
-                    print(f"❌ [{self.script_name}] {context.error_message}")
-                    return context
-                context.selected_device = devices[0]
+            # Try to find the specific device by ID
+            context.selected_device = next((d for d in context.host.get_devices() if d.device_id == device_id_to_use), None)
+            
+            if not context.selected_device:
+                # If specific device not found, try to find first non-host device
+                devices = [d for d in context.host.get_devices() if d.device_id != 'host']
+                if devices:
+                    context.selected_device = devices[0]
+                    print(f"⚠️ [{self.script_name}] Device {device_id_to_use} not found, using first non-host device: {context.selected_device.device_id}")
+                else:
+                    # Fall back to any device if no non-host devices available
+                    all_devices = context.host.get_devices()
+                    if all_devices:
+                        context.selected_device = all_devices[0]
+                        print(f"⚠️ [{self.script_name}] No non-host devices found, using: {context.selected_device.device_id}")
+                    else:
+                        context.error_message = "No devices available"
+                        print(f"❌ [{self.script_name}] {context.error_message}")
+                        return context
             
             print(f"✅ [{self.script_name}] Selected device: {context.selected_device.device_name} ({context.selected_device.device_model})")
             
@@ -390,7 +396,7 @@ class ScriptExecutor:
             nav_executor = context.selected_device.navigation_executor
             
             # Load navigation tree with hierarchy
-            tree_result = nav_executor.load_navigation_tree_with_hierarchy(userinterface_name, self.script_name)
+            tree_result = nav_executor.load_navigation_tree_with_hierarchy(userinterface_name, context.team_id, self.script_name)
             
             # Populate context with hierarchy data
             context.tree_data = tree_result['root_tree']['tree']
