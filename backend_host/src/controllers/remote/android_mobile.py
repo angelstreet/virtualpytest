@@ -20,7 +20,7 @@ import os
 # Get path to shared/lib/utils (go up to project root)
 # Import local utilities
 
-from lib.utils.adb_utils import ADBUtils, AndroidElement, AndroidApp
+from src.lib.utils.adb_utils import ADBUtils, AndroidElement, AndroidApp
 
 
 class AndroidMobileRemoteController(RemoteControllerInterface):

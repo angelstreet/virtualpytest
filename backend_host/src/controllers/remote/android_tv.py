@@ -20,7 +20,7 @@ import os
 # Import local utilities
 
 try:
-    from lib.utils.adb_utils import ADBUtils
+    from src.lib.utils.adb_utils import ADBUtils
     ADB_AVAILABLE = True
 except ImportError:
     print("Warning: ADB utilities not available. ADB functionality will be limited.")
