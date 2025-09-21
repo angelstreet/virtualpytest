@@ -7,7 +7,7 @@ Consolidates AI agent execution functionality with modern host_name pattern.
 
 import uuid
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host
+from src.lib.utils.route_utils import proxy_to_host_with_params
 
 # Create blueprint
 server_ai_execution_bp = Blueprint('server_ai_execution', __name__, url_prefix='/server/ai-execution')
@@ -28,9 +28,22 @@ def execute_task():
         print(f"[@server_ai_execution] Task description: {request_data.get('task_description', 'N/A')}")
         print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
         print(f"[@server_ai_execution] Host name: {request_data.get('host_name', 'N/A')}")
+        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
         
-        # Proxy to host - uses modern host_name pattern via proxy_to_host
-        response_data, status_code = proxy_to_host('/host/ai-execution/executeTask', 'POST', request_data)
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if 'team_id' in request_data:
+            query_params['team_id'] = request_data['team_id']
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-execution/executeTask',
+            'POST',
+            request_data,
+            query_params
+        )
         
         print(f"[@server_ai_execution] Host response status: {status_code}")
         return jsonify(response_data), status_code
@@ -51,9 +64,23 @@ def generate_plan():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         print(f"[@server_ai_execution] Generating AI plan for prompt: {request_data.get('prompt', 'N/A')}")
+        print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
+        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
         
-        # Proxy to host
-        response_data, status_code = proxy_to_host('/host/ai-execution/generatePlan', 'POST', request_data)
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if 'team_id' in request_data:
+            query_params['team_id'] = request_data['team_id']
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-execution/generatePlan',
+            'POST',
+            request_data,
+            query_params
+        )
         
         return jsonify(response_data), status_code
         
@@ -73,9 +100,22 @@ def get_status():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         print(f"[@server_ai_execution] Getting AI status for device: {request_data.get('device_id', 'N/A')}")
+        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
         
-        # Proxy to host
-        response_data, status_code = proxy_to_host('/host/ai-execution/getStatus', 'POST', request_data)
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if 'team_id' in request_data:
+            query_params['team_id'] = request_data['team_id']
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-execution/getStatus',
+            'POST',
+            request_data,
+            query_params
+        )
         
         return jsonify(response_data), status_code
         
@@ -95,9 +135,22 @@ def stop_execution():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         print(f"[@server_ai_execution] Stopping AI execution for device: {request_data.get('device_id', 'N/A')}")
+        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
         
-        # Proxy to host
-        response_data, status_code = proxy_to_host('/host/ai-execution/stopExecution', 'POST', request_data)
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if 'team_id' in request_data:
+            query_params['team_id'] = request_data['team_id']
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-execution/stopExecution',
+            'POST',
+            request_data,
+            query_params
+        )
         
         return jsonify(response_data), status_code
         
@@ -117,9 +170,23 @@ def analyze_compatibility():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         print(f"[@server_ai_execution] Analyzing AI compatibility for prompt: {request_data.get('prompt', 'N/A')}")
+        print(f"[@server_ai_execution] Device ID: {request_data.get('device_id', 'N/A')}")
+        print(f"[@server_ai_execution] Team ID: {request_data.get('team_id', 'N/A')}")
         
-        # Proxy to host
-        response_data, status_code = proxy_to_host('/host/ai-execution/analyzeCompatibility', 'POST', request_data)
+        # Extract parameters for query string
+        query_params = {}
+        if 'device_id' in request_data:
+            query_params['device_id'] = request_data['device_id']
+        if 'team_id' in request_data:
+            query_params['team_id'] = request_data['team_id']
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/ai-execution/analyzeCompatibility',
+            'POST',
+            request_data,
+            query_params
+        )
         
         return jsonify(response_data), status_code
         

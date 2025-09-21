@@ -15,7 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Actions are now embedded in navigation edges - no separate database operations needed
 
-from src.lib.utils.route_utils import proxy_to_host
+from src.lib.utils.route_utils import proxy_to_host_with_params
 import requests
 
 # Create blueprint
@@ -118,7 +118,7 @@ def action_execute_batch():
         
         # Proxy to host action execution endpoint
         try:
-            from src.lib.utils.route_utils import proxy_to_host
+            from src.lib.utils.route_utils import proxy_to_host_with_params
             
             # Prepare execution payload
             execution_payload = {
@@ -131,8 +131,21 @@ def action_execute_batch():
                 'team_id': team_id
             }
             
-            # Proxy to host action execution endpoint
-            response_data, status_code = proxy_to_host('/host/action/executeBatch', 'POST', execution_payload, timeout=120)
+            # Extract parameters for query string
+            query_params = {}
+            if device_id:
+                query_params['device_id'] = device_id
+            if team_id:
+                query_params['team_id'] = team_id
+            
+            # Proxy to host action execution endpoint with parameters
+            response_data, status_code = proxy_to_host_with_params(
+                '/host/action/executeBatch', 
+                'POST', 
+                execution_payload, 
+                query_params, 
+                timeout=120
+            )
             
             print(f"[@route:server_actions:action_execute_batch] Execution completed: success={response_data.get('success')}")
             
@@ -183,34 +196,39 @@ def action_execute_single():
         # Convert single action to batch format
         actions = [action]
         
-        # Proxy execution to host
-        host_url = host.get('host_url', f"http://{host.get('host_name')}:6109")
-        
         # Prepare execution payload
         execution_payload = {
             'actions': actions,
             'device_id': device_id,
             'retry_actions': [],
-            'team_id': team_id
+            'team_id': team_id,
+            'host_name': host.get('host_name')  # Add host_name for proxy_to_host_with_params
         }
         
-        print(f"[@route:server_actions:action_execute_single] Proxying to host: {host_url}")
+        # Extract parameters for query string
+        query_params = {}
+        if device_id:
+            query_params['device_id'] = device_id
+        if team_id:
+            query_params['team_id'] = team_id
         
-        # Proxy to host
-        response = proxy_to_host(
-            host_url=host_url,
-            endpoint='/host/action/executeBatch',
-            method='POST',
-            data=execution_payload,
+        print(f"[@route:server_actions:action_execute_single] Proxying to host: {host.get('host_name')}")
+        
+        # Proxy to host with parameters
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/action/executeBatch',
+            'POST',
+            execution_payload,
+            query_params,
             timeout=90  # 1 minute timeout for single action
         )
         
-        if response.get('success'):
+        if response_data.get('success'):
             print(f"[@route:server_actions:action_execute_single] Single action execution completed successfully")
-            return jsonify(response)
+            return jsonify(response_data), status_code
         else:
-            print(f"[@route:server_actions:action_execute_single] Single action execution failed: {response.get('error', 'Unknown error')}")
-            return jsonify(response), 400
+            print(f"[@route:server_actions:action_execute_single] Single action execution failed: {response_data.get('error', 'Unknown error')}")
+            return jsonify(response_data), status_code
             
     except Exception as e:
         print(f"[@route:server_actions:action_execute_single] Error: {e}")

@@ -5,7 +5,7 @@ Server-side remote control proxy endpoints that forward requests to host remote 
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
 import requests
 
 # Create blueprint
@@ -25,7 +25,7 @@ def take_screenshot():
         request_data = request.get_json() or {}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/takeScreenshot', 'POST', request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/takeScreenshot', 'POST', request_data, {})
         
         return jsonify(response_data), status_code
         
@@ -47,7 +47,7 @@ def screenshot_and_dump():
         request_data = request.get_json() or {}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/screenshotAndDump', 'POST', request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/screenshotAndDump', 'POST', request_data, {})
         
         return jsonify(response_data), status_code
         
@@ -67,7 +67,7 @@ def get_apps():
         request_data = request.get_json() or {}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/getApps', 'POST', request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/getApps', 'POST', request_data, {})
         
         return jsonify(response_data), status_code
         
@@ -98,7 +98,7 @@ def click_element():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/clickElement', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/clickElement', 'POST', host_request_data, {})
         
         return jsonify(response_data), status_code
         
@@ -129,7 +129,7 @@ def tap_coordinates():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/tapCoordinates', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/tapCoordinates', 'POST', host_request_data, {})
         
         return jsonify(response_data), status_code
         
@@ -232,7 +232,7 @@ def execute_command():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/executeCommand', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/executeCommand', 'POST', host_request_data, {})
         
         return jsonify(response_data), status_code
         
@@ -252,7 +252,7 @@ def dump_ui():
         request_data = request.get_json() or {}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/remote/dumpUi', 'POST', request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/remote/dumpUi', 'POST', request_data, {})
         
         return jsonify(response_data), status_code
         

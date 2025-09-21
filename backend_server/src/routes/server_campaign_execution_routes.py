@@ -15,7 +15,7 @@ from typing import Dict, Any
 
 # Import utility functions
 from shared.src.lib.utils.app_utils import get_team_id
-from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
 from src.lib.utils.task_manager import task_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl, buildServerUrl
 
@@ -234,7 +234,7 @@ def execute_campaign():
             proxy_config['async'] = False
             
             # Proxy to host
-            response_data, status_code = proxy_to_host('/host/campaigns/execute', 'POST', proxy_config)
+            response_data, status_code = proxy_to_host_with_params('/host/campaigns/execute', 'POST', proxy_config, {})
             
             print(f"[@server_campaign:execute_campaign] Sync proxy execution completed")
             

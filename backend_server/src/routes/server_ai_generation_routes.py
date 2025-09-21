@@ -6,7 +6,7 @@ Handles step-by-step exploration, image analysis, and node/edge generation.
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host
+from src.lib.utils.route_utils import proxy_to_host_with_params
 from shared.src.lib.supabase.navigation_trees_db import save_node, save_edge
 import uuid
 import time
@@ -62,15 +62,23 @@ def start_exploration():
             'tree_id': tree_id,
             'device_id': device_id,
             'exploration_depth': exploration_depth,
-            'start_node_id': start_node_id
+            'start_node_id': start_node_id,
+            'host_name': host_ip  # Add host_name for proxy_to_host_with_params
         }
         
+        # Extract parameters for query string
+        query_params = {}
+        if device_id:
+            query_params['device_id'] = device_id
+        if tree_id:
+            query_params['tree_id'] = tree_id
+        
         # Proxy to host AI agent
-        response_data, status_code = proxy_to_host(
+        response_data, status_code = proxy_to_host_with_params(
             '/host/ai-generation/start-exploration', 
             'POST', 
             host_request,
-            host_ip=host_ip
+            query_params
         )
         
         return jsonify(response_data), status_code

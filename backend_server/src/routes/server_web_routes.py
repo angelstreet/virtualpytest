@@ -5,7 +5,7 @@ Server-side web automation proxy endpoints that forward requests to host web con
 """
 
 from flask import Blueprint, request, jsonify, current_app
-from src.lib.utils.route_utils import proxy_to_host, proxy_to_host_direct, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host_with_params, proxy_to_host_direct, get_host_from_request
 from src.lib.utils.task_manager import task_manager
 import threading
 import uuid
@@ -86,7 +86,7 @@ def execute_command():
         else:
             # Handle other commands synchronously as before
             timeout = 30
-            response_data, status_code = proxy_to_host('/host/web/executeCommand', 'POST', host_request_data, timeout=timeout)
+            response_data, status_code = proxy_to_host_with_params('/host/web/executeCommand', 'POST', host_request_data, timeout=timeout)
             return jsonify(response_data), status_code
         
     except Exception as e:
@@ -160,7 +160,7 @@ def navigate_to_url():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/web/navigateToUrl', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/web/navigateToUrl', 'POST', host_request_data)
         
         return jsonify(response_data), status_code
         
@@ -191,7 +191,7 @@ def get_page_info():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/web/getPageInfo', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/web/getPageInfo', 'POST', host_request_data)
         
         return jsonify(response_data), status_code
         
@@ -222,7 +222,7 @@ def open_browser():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/web/openBrowser', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/web/openBrowser', 'POST', host_request_data)
         
         return jsonify(response_data), status_code
         
@@ -253,7 +253,7 @@ def close_browser():
         host_request_data = {k: v for k, v in request_data.items() if k != 'host'}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/web/closeBrowser', 'POST', host_request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/web/closeBrowser', 'POST', host_request_data)
         
         return jsonify(response_data), status_code
         
@@ -273,7 +273,7 @@ def get_status():
         request_data = request.get_json() or {}
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/web/getStatus', 'POST', request_data)
+        response_data, status_code = proxy_to_host_with_params('/host/web/getStatus', 'POST', request_data, {})
         
         return jsonify(response_data), status_code
         

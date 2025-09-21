@@ -6,7 +6,7 @@ Verifications are now embedded directly in navigation nodes, so no database CRUD
 """
 
 from flask import Blueprint, request, jsonify
-from src.lib.utils.route_utils import proxy_to_host, get_host_from_request
+from src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
 
 # Create blueprint
 server_verification_bp = Blueprint('server_verification', __name__, url_prefix='/server/verification')
@@ -115,7 +115,7 @@ def verification_image_execute():
         request_data = request.get_json() or {}
         
         # Proxy to host image verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/image/execute', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/image/execute', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -133,7 +133,7 @@ def verification_image_crop():
         request_data = request.get_json() or {}
         
         # Proxy to host image verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/image/cropImage', 'POST', request_data, timeout=30)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/image/cropImage', 'POST', request_data, {}, timeout=30)
         
         return jsonify(response_data), status_code
         
@@ -151,7 +151,7 @@ def verification_image_process():
         request_data = request.get_json() or {}
         
         # Proxy to host image verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/image/processImage', 'POST', request_data, timeout=30)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/image/processImage', 'POST', request_data, {}, timeout=30)
         
         return jsonify(response_data), status_code
         
@@ -169,7 +169,7 @@ def verification_image_save():
         request_data = request.get_json() or {}
         
         # Proxy to host image verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/image/saveImage', 'POST', request_data, timeout=30)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/image/saveImage', 'POST', request_data, {}, timeout=30)
         
         return jsonify(response_data), status_code
         
@@ -187,7 +187,7 @@ def verification_text_execute():
         request_data = request.get_json() or {}
         
         # Proxy to host text verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/text/execute', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/text/execute', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -205,7 +205,7 @@ def verification_text_detect():
         request_data = request.get_json() or {}
         
         # Proxy to host text verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/text/detectText', 'POST', request_data, timeout=30)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/text/detectText', 'POST', request_data, {}, timeout=30)
         
         return jsonify(response_data), status_code
         
@@ -223,7 +223,7 @@ def verification_text_save():
         request_data = request.get_json() or {}
         
         # Proxy to host text verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/text/saveText', 'POST', request_data, timeout=30)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/text/saveText', 'POST', request_data, {}, timeout=30)
         
         return jsonify(response_data), status_code
         
@@ -241,7 +241,7 @@ def verification_adb_execute():
         request_data = request.get_json() or {}
         
         # Proxy to host ADB verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/adb/execute', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/adb/execute', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -259,7 +259,7 @@ def verification_appium_execute():
         request_data = request.get_json() or {}
         
         # Proxy to host Appium verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/appium/execute', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/appium/execute', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -277,7 +277,7 @@ def verification_audio_execute():
         request_data = request.get_json() or {}
         
         # Proxy to host audio verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/audio/execute', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/audio/execute', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -295,7 +295,7 @@ def verification_video_execute():
         request_data = request.get_json() or {}
         
         # Proxy to host video verification endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/video/execute', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/execute', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -317,7 +317,7 @@ def verification_execute_batch():
         request_data = request.get_json() or {}
         
         # Proxy to host verification batch execution endpoint
-        response_data, status_code = proxy_to_host('/host/verification/executeBatch', 'POST', request_data, timeout=120)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/executeBatch', 'POST', request_data, {}, timeout=120)
         
         return jsonify(response_data), status_code
         
@@ -339,7 +339,7 @@ def video_detect_subtitles():
         request_data = request.get_json() or {}
         
         # Proxy to host video subtitle detection endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/video/detectSubtitles', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/detectSubtitles', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -357,7 +357,7 @@ def video_detect_subtitles_ai():
         request_data = request.get_json() or {}
         
         # Proxy to host video AI subtitle detection endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/video/detectSubtitlesAI', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/detectSubtitlesAI', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -375,7 +375,7 @@ def video_analyze_subtitles():
         request_data = request.get_json() or {}
         
         # Proxy to host video AI subtitle detection endpoint
-        response_data, status_code = proxy_to_host('/host/verification/video/detectSubtitlesAI', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/detectSubtitlesAI', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -393,7 +393,7 @@ def video_analyze_image_ai():
         request_data = request.get_json() or {}
         
         # Proxy to host video AI image analysis endpoint (original working pattern)
-        response_data, status_code = proxy_to_host('/host/verification/video/analyzeImageAI', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/analyzeImageAI', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -411,7 +411,7 @@ def video_analyze_image_complete():
         request_data = request.get_json() or {}
         
         # Proxy to host combined analysis endpoint
-        response_data, status_code = proxy_to_host('/host/verification/video/analyzeImageComplete', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/analyzeImageComplete', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
@@ -429,7 +429,7 @@ def video_analyze_language_menu():
         request_data = request.get_json() or {}
         
         # Proxy to host video AI language menu analysis endpoint
-        response_data, status_code = proxy_to_host('/host/verification/video/analyzeLanguageMenu', 'POST', request_data, timeout=60)
+        response_data, status_code = proxy_to_host_with_params('/host/verification/video/analyzeLanguageMenu', 'POST', request_data, {}, timeout=60)
         
         return jsonify(response_data), status_code
         
