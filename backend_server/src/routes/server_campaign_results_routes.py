@@ -6,7 +6,7 @@ This module contains the campaign results management API endpoints for:
 - Campaign results filtering
 """
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, request, jsonify
 
 # Import database functions from src/lib/supabase (uses absolute import)
 from shared.src.lib.supabase.campaign_executions_db import (
