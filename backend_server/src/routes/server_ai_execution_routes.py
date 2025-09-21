@@ -30,7 +30,7 @@ def execute_task():
         print(f"[@server_ai_execution] Host name: {request_data.get('host_name', 'N/A')}")
         
         # Proxy to host - uses modern host_name pattern via proxy_to_host
-        response_data, status_code = proxy_to_host('/host/aiagent/executeTask', 'POST', request_data)
+        response_data, status_code = proxy_to_host('/host/ai-execution/executeTask', 'POST', request_data)
         
         print(f"[@server_ai_execution] Host response status: {status_code}")
         return jsonify(response_data), status_code
@@ -53,7 +53,7 @@ def generate_plan():
         print(f"[@server_ai_execution] Generating AI plan for prompt: {request_data.get('prompt', 'N/A')}")
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/aiagent/generatePlan', 'POST', request_data)
+        response_data, status_code = proxy_to_host('/host/ai-execution/generatePlan', 'POST', request_data)
         
         return jsonify(response_data), status_code
         
@@ -75,7 +75,7 @@ def get_status():
         print(f"[@server_ai_execution] Getting AI status for device: {request_data.get('device_id', 'N/A')}")
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/aiagent/getStatus', 'POST', request_data)
+        response_data, status_code = proxy_to_host('/host/ai-execution/getStatus', 'POST', request_data)
         
         return jsonify(response_data), status_code
         
@@ -97,7 +97,7 @@ def stop_execution():
         print(f"[@server_ai_execution] Stopping AI execution for device: {request_data.get('device_id', 'N/A')}")
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/aiagent/stopExecution', 'POST', request_data)
+        response_data, status_code = proxy_to_host('/host/ai-execution/stopExecution', 'POST', request_data)
         
         return jsonify(response_data), status_code
         
@@ -119,7 +119,7 @@ def analyze_compatibility():
         print(f"[@server_ai_execution] Analyzing AI compatibility for prompt: {request_data.get('prompt', 'N/A')}")
         
         # Proxy to host
-        response_data, status_code = proxy_to_host('/host/aiagent/analyzeCompatibility', 'POST', request_data)
+        response_data, status_code = proxy_to_host('/host/ai-execution/analyzeCompatibility', 'POST', request_data)
         
         return jsonify(response_data), status_code
         

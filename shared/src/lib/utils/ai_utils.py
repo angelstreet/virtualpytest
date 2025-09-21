@@ -13,6 +13,7 @@ import cv2
 import requests
 from datetime import datetime
 from typing import Dict, Any, Optional, Union
+from time import sleep
 
 # =============================================================================
 # AI Configuration - Centralized Models and Providers
@@ -128,7 +129,8 @@ def _call_ai(prompt: str, task_type: str = 'text', image: Union[str, bytes] = No
 def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None, 
                     max_tokens: int = 1000, temperature: float = 0.0) -> Dict[str, Any]:
     """OpenRouter API call with enhanced error handling and logging"""
-    try:
+    for retry in range(4):
+        try:
         print(f"[AI_UTILS] OpenRouter call starting - model: {model}, max_tokens: {max_tokens}, temperature: {temperature}")
         
         # Get API key
@@ -194,7 +196,10 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             try:
                 content = result['choices'][0]['message']['content']
                 # Handle None or empty content
-                if content is None or content == "":
+                if content is None or content == "" or result.get('usage', {}).get('completion_tokens', 0) == 0:
+                    if retry < 3: 
+                        sleep(10)
+                        continue
                     return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': '', 'initial_prompt': prompt}
                 
                 return {'success': True, 'content': content, 'initial_prompt': prompt}

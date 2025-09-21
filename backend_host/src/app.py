@@ -79,7 +79,7 @@ def register_host_routes(app):
         from routes import (
             host_control_routes,
             host_web_routes,
-            host_aiagent_routes,
+            host_ai_execution_routes,
             host_ai_generation_routes,
             host_aitestcase_routes,
             host_verification_routes,
@@ -117,7 +117,7 @@ def register_host_routes(app):
     blueprints = [
         (host_control_routes.host_control_bp, 'Device control'),
         (host_web_routes.host_web_bp, 'Web automation'),
-        (host_aiagent_routes.host_aiagent_bp, 'AI agent execution'),
+        (host_ai_execution_routes.host_ai_execution_bp, 'AI execution'),
         (host_ai_generation_routes.host_ai_generation_bp, 'AI interface generation'),
         (host_aitestcase_routes.host_aitestcase_bp, 'AI test case execution'),
         (host_verification_routes.host_verification_bp, 'Verification services'),
