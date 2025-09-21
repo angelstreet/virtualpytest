@@ -14,7 +14,7 @@ from shared.src.lib.supabase.execution_results_db import (
     get_tree_metrics
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_execution_results_bp = Blueprint('server_execution_results', __name__, url_prefix='/server/execution-results')
@@ -30,7 +30,7 @@ def get_all_execution_results():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         # Get execution results from database

@@ -104,7 +104,7 @@ def create_empty_navigation_config(interface_name):
     try:
         from uuid import uuid4
         data = request.get_json() or {}
-        team_id = get_team_id()
+        team_id = request.args.get('team_id')
         
         print(f"[@route:create_empty_navigation_config] Creating navigation config for interface: {interface_name}")
         
@@ -271,7 +271,7 @@ def refresh_navigation_cache():
         
         data = request.get_json() or {}
         tree_id = data.get('tree_id')
-        team_id = get_team_id()
+        team_id = request.args.get('team_id')
         
         if not tree_id:
             return jsonify({

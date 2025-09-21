@@ -17,7 +17,7 @@ from shared.src.lib.supabase.device_models_db import (
     check_device_model_name_exists
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_devicemodel_bp = Blueprint('server_devicemodel', __name__, url_prefix='/server/devicemodel')
@@ -33,7 +33,7 @@ def get_device_models():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         models = get_all_device_models(team_id)
@@ -48,7 +48,7 @@ def create_device_model_endpoint():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         model_data = request.json
@@ -80,7 +80,7 @@ def get_device_model_endpoint(model_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         model = get_device_model(model_id, team_id)
@@ -98,7 +98,7 @@ def update_device_model_endpoint(model_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         model_data = request.json
@@ -130,7 +130,7 @@ def delete_device_model_endpoint(model_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         success = delete_device_model(model_id, team_id)

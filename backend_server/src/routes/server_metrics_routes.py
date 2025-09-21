@@ -21,7 +21,7 @@ from shared.src.lib.supabase.navigation_metrics_db import (
     get_verification_execution_history
 )
 from shared.src.lib.supabase.navigation_trees_db import get_tree_nodes, get_tree_edges
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_metrics_bp = Blueprint('server_metrics', __name__, url_prefix='/server/metrics')
@@ -46,7 +46,7 @@ def get_tree_metrics_api(tree_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         print(f"[@route:metrics:get_tree_metrics] Fetching metrics for tree: {tree_id}, team: {team_id}")
@@ -188,7 +188,7 @@ def get_node_metrics_api(node_id, tree_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         print(f"[@route:metrics:get_node_metrics] Fetching metrics for node: {node_id}, tree: {tree_id}")
@@ -217,7 +217,7 @@ def get_edge_metrics_api(edge_id, tree_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         print(f"[@route:metrics:get_edge_metrics] Fetching metrics for edge: {edge_id}, tree: {tree_id}")
@@ -251,7 +251,7 @@ def get_edge_direction_metrics_api(edge_id, action_set_id, tree_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         from shared.src.lib.supabase.navigation_metrics_db import get_edge_direction_metrics
@@ -284,7 +284,7 @@ def get_action_history_api(edge_id, tree_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         limit = request.args.get('limit', 100, type=int)
@@ -310,7 +310,7 @@ def get_verification_history_api(node_id, tree_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         limit = request.args.get('limit', 100, type=int)

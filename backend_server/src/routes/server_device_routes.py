@@ -15,7 +15,7 @@ from shared.src.lib.supabase.devices_db import (
     delete_device
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # =====================================================
 # HELPER FUNCTIONS
@@ -65,7 +65,7 @@ def get_devices():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         devices = get_all_devices(team_id)
@@ -80,7 +80,7 @@ def create_device_endpoint():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         device_data = request.json
@@ -110,7 +110,7 @@ def get_device_endpoint(device_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         device = get_device(device_id, team_id)
@@ -128,7 +128,7 @@ def update_device_endpoint(device_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         device_data = request.json
@@ -157,7 +157,7 @@ def delete_device_endpoint(device_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         success = delete_device(device_id, team_id)

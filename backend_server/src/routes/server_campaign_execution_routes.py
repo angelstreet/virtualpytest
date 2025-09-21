@@ -14,7 +14,7 @@ import requests
 from typing import Dict, Any
 
 # Import utility functions
-from shared.src.lib.utils.app_utils import get_team_id
+
 from src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
 from src.lib.utils.task_manager import task_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl, buildServerUrl

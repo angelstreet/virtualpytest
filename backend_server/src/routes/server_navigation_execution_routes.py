@@ -38,7 +38,7 @@ def execute_navigation(tree_id, node_id):
         data = request.get_json() or {}
         host_name = data.get('host_name')
         device_id = data.get('device_id')
-        team_id = get_team_id()
+        team_id = request.args.get('team_id')
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
         
@@ -88,7 +88,7 @@ def get_navigation_preview_with_executor(tree_id, node_id):
         current_node_id = request.args.get('current_node_id')
         host_name = request.args.get('host_name')
         device_id = request.args.get('device_id')
-        team_id = request.args.get('team_id') or get_team_id()
+        team_id = request.args.get('team_id')
         
         # Validate required parameters
         if not host_name:
@@ -152,7 +152,7 @@ def batch_execute_navigation():
         data = request.get_json() or {}
         host_name = data.get('host_name')
         device_id = data.get('device_id')
-        team_id = get_team_id()
+        team_id = request.args.get('team_id')
         navigations = data.get('navigations', [])
         
         # Validate required parameters
@@ -195,7 +195,7 @@ def batch_execute_navigation():
                     'tree_id': tree_id,
                     'target_node_id': target_node_id,
                     'current_node_id': current_node_id,
-                    'team_id': get_team_id()
+                    'team_id': request.args.get('team_id')
                 })
                 
                 result = proxy_result if proxy_result else {'success': False, 'error': 'Host proxy failed'}

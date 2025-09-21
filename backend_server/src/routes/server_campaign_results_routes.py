@@ -13,7 +13,7 @@ from shared.src.lib.supabase.campaign_executions_db import (
     get_campaign_results
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_campaign_results_bp = Blueprint('server_campaign_results', __name__, url_prefix='/server/campaign-results')
@@ -29,7 +29,7 @@ def get_all_campaign_results():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         # Get campaign results from database

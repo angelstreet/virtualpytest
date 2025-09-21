@@ -22,7 +22,7 @@ from shared.src.lib.supabase.navigation_trees_db import (
     get_root_tree_for_interface
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix='/server/userinterface')
@@ -38,7 +38,7 @@ def get_userinterfaces():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         interfaces = get_all_userinterfaces(team_id)
@@ -63,7 +63,7 @@ def create_userinterface_route():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         interface_data = request.json
@@ -95,7 +95,7 @@ def get_userinterface_route(interface_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         interface = get_userinterface(interface_id, team_id)
@@ -117,7 +117,7 @@ def get_userinterface_by_name_route(interface_name):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         interface = get_userinterface_by_name(interface_name, team_id)
@@ -135,7 +135,7 @@ def update_userinterface_route(interface_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         interface_data = request.json
@@ -167,7 +167,7 @@ def delete_userinterface_route(interface_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         success = delete_userinterface(interface_id, team_id)

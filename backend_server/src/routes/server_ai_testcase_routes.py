@@ -14,7 +14,7 @@ from shared.src.lib.supabase.testcase_db import save_test_case, get_test_case
 from shared.src.lib.supabase.navigation_trees_db import get_full_tree, get_root_tree_for_interface
 from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
 from shared.src.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
-from shared.src.lib.utils.app_utils import get_team_id
+
 from src.lib.utils.route_utils import proxy_to_host
 
 # Create blueprint

@@ -61,7 +61,7 @@ def get_all_test_cases_route():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         test_cases = get_all_test_cases(team_id)
@@ -76,7 +76,7 @@ def get_test_case_route(test_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         test_case = get_test_case(test_id, team_id)
@@ -91,7 +91,7 @@ def create_test_case_route():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     user_id = get_user_id()
     
     try:
@@ -108,7 +108,7 @@ def update_test_case_route(test_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     user_id = get_user_id()
     
     try:
@@ -126,7 +126,7 @@ def delete_test_case_route(test_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         success = delete_test_case(test_id, team_id)

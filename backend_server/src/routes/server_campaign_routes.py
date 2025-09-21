@@ -52,7 +52,7 @@ def get_all_campaigns_route():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         # Campaign templates are not stored in database - they are just configurations
@@ -68,7 +68,7 @@ def get_campaign_route(campaign_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         # Campaign templates are not stored in database - they are just configurations
@@ -84,7 +84,7 @@ def create_campaign_route():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     user_id = get_user_id()
     
     try:
@@ -102,7 +102,7 @@ def update_campaign_route(campaign_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     user_id = get_user_id()
     
     try:
@@ -120,7 +120,7 @@ def delete_campaign_route(campaign_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         # Campaign templates are not stored in database - they are just configurations

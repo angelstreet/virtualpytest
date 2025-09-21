@@ -20,8 +20,8 @@ import {
 } from '@mui/material';
 import React, { useState, useRef, useEffect } from 'react';
 
-import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { useToast } from '../../hooks/useToast';
+import { buildServerUrl } from '../utils/buildUrlUtils';
+import { useToast } from '../hooks/useToast';
 
 interface LogEntry {
   timestamp: string;

@@ -25,20 +25,112 @@ DEFAULT_VALUES = {
     "userinterface_name": "horizon_android_mobile"
 }
 
-# Test configuration - comprehensive server endpoints
-TEST_CONFIG = {
-    "endpoints": [
-        # ========================================
-        # CRITICAL ENDPOINTS (Must always work)
-        # ========================================
-        {
-            "name": "System Health",
-            "method": "GET",
-            "url": "/server/system/health",
-            "expected_status": [200],
-            "category": "critical"
-        },
-        {
+def auto_discover_routes():
+    """Automatically discover all registered Flask routes and generate test configuration"""
+    from flask import current_app
+    
+    routes = []
+    
+    for rule in current_app.url_map.iter_rules():
+        # Skip static files and non-server routes
+        if '/static/' in rule.rule or not rule.rule.startswith('/server/'):
+            continue
+            
+        # Get HTTP methods (exclude OPTIONS, HEAD)
+        methods = [m for m in rule.methods if m not in ['OPTIONS', 'HEAD']]
+        
+        for method in methods:
+            route_config = auto_generate_route_config(rule.rule, method)
+            if route_config:
+                routes.append(route_config)
+    
+    return {"endpoints": routes}
+
+def auto_generate_route_config(url, method):
+    """Generate test configuration for a route automatically"""
+    
+    # Skip routes with path parameters for now (too complex to auto-test)
+    if '<' in url and '>' in url:
+        return None
+    
+    config = {
+        "name": f"{method} {url}",
+        "method": method,
+        "url": url,
+        "expected_status": [200] if method == 'GET' else [200, 201, 202],
+        "category": "auto"
+    }
+    
+    # Auto-detect common parameters based on URL patterns
+    if method == 'GET':
+        # Most GET routes need team_id
+        config["params"] = {"team_id": DEFAULT_VALUES["team_id"]}
+        
+        # Device-related routes need device info
+        if any(keyword in url for keyword in ['/device', '/remote', '/action', '/verification']):
+            config["params"]["device_model"] = DEFAULT_VALUES["device_model"]
+            
+    elif method == 'POST':
+        # Auto-generate minimal POST body based on URL patterns
+        body = {}
+        
+        # AI routes
+        if '/ai-' in url:
+            body.update({
+                "host_name": DEFAULT_VALUES["host_name"],
+                "device_id": DEFAULT_VALUES["device_id"]
+            })
+            if 'execution' in url:
+                body["task_description"] = "test task"
+            if 'generation' in url:
+                body["prompt"] = "test prompt"
+                
+        # Navigation routes  
+        elif '/navigation' in url:
+            body.update({
+                "host_name": DEFAULT_VALUES["host_name"],
+                "device_id": DEFAULT_VALUES["device_id"]
+            })
+            
+        # Action routes
+        elif '/action' in url:
+            body.update({
+                "host_name": DEFAULT_VALUES["host_name"],
+                "device_id": DEFAULT_VALUES["device_id"]
+            })
+            if 'execute' in url:
+                body["actions"] = [{"command": "test", "params": {}}]
+                
+        # Script routes
+        elif '/script' in url:
+            body.update({
+                "host_name": DEFAULT_VALUES["host_name"],
+                "device_id": DEFAULT_VALUES["device_id"]
+            })
+            if 'execute' in url:
+                body["script_name"] = "test_script"
+        
+        # System routes
+        elif '/system' in url:
+            if 'ping' in url:
+                body["host_name"] = DEFAULT_VALUES["host_name"]
+                
+        if body:
+            config["body"] = body
+            config["params"] = {"team_id": DEFAULT_VALUES["team_id"]}
+    
+    return config
+
+# Fallback static config for critical routes that must always work
+CRITICAL_ROUTES = [
+    {
+        "name": "System Health",
+        "method": "GET", 
+        "url": "/server/system/health",
+        "expected_status": [200],
+        "category": "critical"
+    },
+    {
             "name": "Get All Hosts",
             "method": "GET",
             "url": "/server/system/getAllHosts",
@@ -126,7 +218,7 @@ TEST_CONFIG = {
         {
             "name": "Get Navigation Trees",
             "method": "GET",
-            "url": "/server/navigationTrees/getNavigationTrees",
+            "url": "/server/navigationTrees",
             "params": {"team_id": DEFAULT_VALUES["team_id"]},
             "expected_status": [200],
             "category": "core"
@@ -296,8 +388,7 @@ TEST_CONFIG = {
             "expected_status": [200, 400, 404],
             "category": "remote"
         }
-    ]
-}
+]
 
 def get_git_commit():
     """Get current git commit hash"""
@@ -526,11 +617,31 @@ def get_html_report(report_id):
 @server_api_testing_bp.route('/config', methods=['GET'])
 def get_test_config():
     """Get current test configuration"""
-    return jsonify({
-        'success': True,
-        'config': TEST_CONFIG,
-        'total_endpoints': len(TEST_CONFIG['endpoints'])
-    })
+    try:
+        # Auto-discover all routes
+        auto_config = auto_discover_routes()
+        
+        # Add critical routes that must always be tested
+        all_routes = CRITICAL_ROUTES + auto_config["endpoints"]
+        
+        return jsonify({
+            'success': True,
+            'config': {"endpoints": all_routes},
+            'total_endpoints': len(all_routes),
+            'stats': {
+                "auto_discovered": len(auto_config["endpoints"]),
+                "critical_routes": len(CRITICAL_ROUTES)
+            }
+        })
+    except Exception as e:
+        # Fallback to critical routes only if auto-discovery fails
+        return jsonify({
+            'success': False,
+            'config': {"endpoints": CRITICAL_ROUTES},
+            'total_endpoints': len(CRITICAL_ROUTES),
+            'error': f"Auto-discovery failed: {str(e)}",
+            'fallback': True
+        })
 
 @server_api_testing_bp.route('/quick', methods=['POST'])
 def quick_test():

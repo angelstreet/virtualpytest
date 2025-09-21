@@ -15,7 +15,7 @@ from shared.src.lib.supabase.script_results_db import (
     update_script_discard_status
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_script_results_bp = Blueprint('server_script_results', __name__, url_prefix='/server/script-results')
@@ -31,7 +31,7 @@ def get_all_script_results():
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         # Get script results from database (include all records for complete view)
@@ -52,7 +52,7 @@ def update_script_checked_status_route(script_result_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         data = request.json
@@ -76,7 +76,7 @@ def update_script_discard_status_route(script_result_id):
     if error:
         return error
         
-    team_id = get_team_id()
+    team_id = request.args.get('team_id')
     
     try:
         data = request.json

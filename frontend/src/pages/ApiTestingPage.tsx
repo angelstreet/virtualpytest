@@ -34,7 +34,7 @@ import {
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 
-import { useApiTesting, TestResult, TestReport } from '../../hooks/useApiTesting';
+import { useApiTesting, TestResult, TestReport } from '../hooks/useApiTesting';
 
 const ApiTestingPage: React.FC = () => {
   const [isRoutesExpanded, setIsRoutesExpanded] = useState(true);

@@ -32,5 +32,5 @@ def health():
     return jsonify({
         'status': 'ok',
         'supabase': supabase_status,
-        'team_id': get_team_id()
+        'team_id': request.args.get('team_id')
     })

@@ -18,7 +18,7 @@ from shared.src.lib.supabase.alerts_db import (
     update_alert_discard_status
 )
 
-from shared.src.lib.utils.app_utils import check_supabase, get_team_id
+from shared.src.lib.utils.app_utils import check_supabase
 
 # Create blueprint
 server_alerts_bp = Blueprint('server_alerts', __name__, url_prefix='/server/alerts')
