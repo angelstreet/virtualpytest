@@ -497,7 +497,6 @@ class ScriptExecutor:
                         action_executor.edge_id = step.get('edge_id')
                         # Set script context for dependency tracking
                         action_executor.script_result_id = context.script_result_id
-                        action_executor.script_context = 'script'
                         result = action_executor.execute_actions(actions, team_id=context.team_id)
                     else:
                         result = {'success': True, 'message': 'No actions to execute'}
@@ -648,7 +647,6 @@ class ScriptExecutor:
             nav_executor = context.selected_device.navigation_executor
             # Set script context for dependency tracking
             nav_executor.script_result_id = context.script_result_id
-            nav_executor.script_context = 'script'
             result = nav_executor.execute_navigation(context.tree_id, recovery_target, context.current_node_id)
             recovery_time = int((time.time() - recovery_start_time) * 1000)
             

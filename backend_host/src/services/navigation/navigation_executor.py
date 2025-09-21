@@ -177,6 +177,9 @@ class NavigationExecutor:
                 # Update context for this navigation
                 self.device.action_executor.tree_id = tree_id
                 self.device.action_executor.edge_id = transition.get('edge_id')
+                # Pass script context if available
+                if hasattr(self, 'script_result_id'):
+                    self.device.action_executor.script_result_id = self.script_result_id
                 
                 result = self.device.action_executor.execute_actions(
                     actions=actions,
@@ -200,6 +203,9 @@ class NavigationExecutor:
                     # Update context for this navigation
                     self.device.verification_executor.tree_id = tree_id
                     self.device.verification_executor.node_id = target_node_id
+                    # Pass script context if available
+                    if hasattr(self, 'script_result_id'):
+                        self.device.verification_executor.script_result_id = self.script_result_id
                     
                     result = self.device.verification_executor.execute_verifications(
                         verifications=target_verifications,

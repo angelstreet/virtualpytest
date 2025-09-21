@@ -336,6 +336,9 @@ class VerificationExecutor:
     def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):
         """Record single verification directly to database"""
         try:
+            # Auto-derive script_context from script_result_id
+            script_result_id = getattr(self, 'script_result_id', None)
+            script_context = 'script' if script_result_id else 'direct'
             
             record_node_execution(
                 team_id=team_id,
@@ -347,8 +350,8 @@ class VerificationExecutor:
                 execution_time_ms=execution_time_ms,
                 message=message,
                 error_details=error_details,
-                script_result_id=getattr(self, 'script_result_id', None),
-                script_context=getattr(self, 'script_context', 'direct')
+                script_result_id=script_result_id,
+                script_context=script_context
             )
             
         except Exception as e:
