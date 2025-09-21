@@ -221,10 +221,6 @@ def main():
                     print(f"[@backend_host:main]   ✓ VerificationExecutor ready")
                 if hasattr(device, 'ai_executor') and device.ai_executor:
                     print(f"[@backend_host:main]   ✓ AIExecutor ready")
-                if hasattr(device, 'script_executor') and device.script_executor:
-                    print(f"[@backend_host:main]   ✓ ScriptExecutor ready")
-                else:
-                    print(f"[@backend_host:main]   ❌ ScriptExecutor NOT ready")
             
             print(f"[@backend_host:main] ✅ Initialized {len(app.host_devices)} devices with executors")
             
