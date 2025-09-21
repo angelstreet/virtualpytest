@@ -189,10 +189,13 @@ class AIExecutor:
     
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         """Get execution status - simplified tracking"""
+        print(f"[@ai_executor] Looking for execution {execution_id}, available executions: {list(self._executions.keys())}")
+        
         if execution_id not in self._executions:
+            print(f"[@ai_executor] Execution {execution_id} not found in tracking")
             return {
                 'success': False,
-                'error': 'Execution not found'
+                'error': f'Execution {execution_id} not found'
             }
         
         execution = self._executions[execution_id]
@@ -306,14 +309,18 @@ class AIExecutor:
     
     def _start_execution_tracking(self, execution_id: str, plan_dict: Dict):
         """Start tracking execution"""
+        plan_steps = plan_dict.get('steps', [])
+        initial_step_msg = f"Starting execution with {len(plan_steps)} steps..." if plan_steps else "Starting execution..."
+        
         self._executions[execution_id] = {
             'plan': plan_dict,
             'status': 'executing',
-            'current_step': 0,
+            'current_step': initial_step_msg,
             'step_results': [],
             'start_time': time.time()
         }
-        print(f"[@ai_executor] Started tracking execution {execution_id}")
+        print(f"[@ai_executor] Started tracking execution {execution_id} with {len(plan_steps)} steps")
+        print(f"[@ai_executor] Total executions now tracked: {len(self._executions)}, keys: {list(self._executions.keys())}")
     
     def _complete_execution_tracking(self, execution_id: str, result: ExecutionResult):
         """Complete execution tracking"""
@@ -323,6 +330,27 @@ class AIExecutor:
             execution['result'] = result
             execution['end_time'] = time.time()
             print(f"[@ai_executor] Completed execution {execution_id}: {'success' if result.success else 'failed'}")
+    
+    def _update_current_step_tracking(self, plan_id: str, step_number: int, step_description: str):
+        """Update current step in real-time tracking"""
+        for exec_id, exec_data in self._executions.items():
+            if exec_data.get('plan', {}).get('id') == plan_id:
+                exec_data['current_step'] = step_description
+                print(f"[@ai_executor] Step {step_number} started for execution {exec_id}: {step_description}")
+                break
+    
+    def _update_step_result_tracking(self, plan_id: str, step_number: int, step_result: Dict[str, Any], all_step_results: List[Dict[str, Any]]):
+        """Update step result in real-time tracking"""
+        for exec_id, exec_data in self._executions.items():
+            if exec_data.get('plan', {}).get('id') == plan_id:
+                exec_data['step_results'] = all_step_results
+                success = step_result.get('success', False)
+                status_msg = f"Step {step_number} {'completed' if success else 'failed'}"
+                if not success and step_result.get('message'):
+                    status_msg += f": {step_result.get('message')}"
+                exec_data['current_step'] = status_msg
+                print(f"[@ai_executor] Step {step_number} {'completed' if success else 'failed'} for execution {exec_id}")
+                break
     
     def _execute_plan_async(self, execution_id: str, plan_dict: Dict, context: Dict):
         """Execute plan asynchronously"""
@@ -348,16 +376,16 @@ class AIExecutor:
         
         plan_steps = plan_dict.get('steps', [])
         for i, step_data in enumerate(plan_steps):
+            step_number = step_data.get('step', i + 1)
+            
+            # Update current step in tracking BEFORE execution
+            self._update_current_step_tracking(plan_dict.get('id'), step_number, f"Executing step {step_number}: {step_data.get('description', step_data.get('command', 'Unknown step'))}")
+            
             step_result = self._execute_step(step_data, context)
             step_results.append(step_result)
             
-            # Update tracking
-            if hasattr(self, '_executions'):
-                for exec_id, exec_data in self._executions.items():
-                    if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
-                        exec_data['current_step'] = i + 1
-                        exec_data['step_results'] = step_results
-                        break
+            # Update tracking with step result
+            self._update_step_result_tracking(plan_dict.get('id'), step_number, step_result, step_results)
             
             # Stop on first failure
             if not step_result.get('success'):
