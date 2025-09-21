@@ -385,6 +385,19 @@ class AIExecutor:
             step_result = self._execute_step(step_data, context)
             step_results.append(step_result)
             
+            # Handle step injection from reassessment
+            if step_result.get('requires_step_injection') and step_result.get('updated_steps'):
+                injected_steps = step_result.get('updated_steps', [])
+                print(f"[@ai_executor] Injecting {len(injected_steps)} steps from reassessment")
+                
+                # Insert new steps after current position
+                for j, injected_step in enumerate(injected_steps):
+                    # Adjust step numbers to continue sequence
+                    injected_step['step'] = step_number + j + 1
+                    plan_steps.insert(i + j + 1, injected_step)
+                
+                print(f"[@ai_executor] Plan now has {len(plan_steps)} total steps")
+            
             # Update tracking with step result
             self._update_step_result_tracking(plan_dict.get('id'), step_number, step_result, step_results)
             
@@ -412,6 +425,8 @@ class AIExecutor:
             # Pure orchestration - delegate to appropriate executor
             if step_type == 'navigation':
                 result = self._execute_navigation_step(step_data, context)
+            elif step_type == 'navigation_reassessment':
+                result = self._execute_navigation_reassessment_step(step_data, context)
             elif step_type == 'action':
                 result = self._execute_action_step(step_data, context)
             elif step_type == 'verification':
@@ -444,6 +459,8 @@ class AIExecutor:
         """Determine step type from command - simple classification"""
         if command == 'execute_navigation':
             return 'navigation'
+        elif command == 'navigation_reassessment':
+            return 'navigation_reassessment'
         elif command in ['press_key', 'click_element', 'input_text', 'tap_coordinates']:
             return 'action'
         elif command.startswith('verify_') or command.startswith('check_'):
@@ -472,6 +489,114 @@ class AIExecutor:
             context['final_position_node_id'] = result.get('final_position_node_id')
         
         return result
+    
+    def _execute_navigation_reassessment_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
+        """Execute navigation reassessment step - take screenshot and find target"""
+        start_time = time.time()
+        
+        try:
+            # Take screenshot using verification executor
+            success, screenshot_b64, error = self.device.verification_executor.take_screenshot()
+            if not success:
+                return {
+                    'success': False, 
+                    'error': f'Screenshot failed: {error}',
+                    'execution_time_ms': int((time.time() - start_time) * 1000)
+                }
+            
+            # Get reassessment parameters
+            params = step_data.get('params', {})
+            original_target = params.get('original_target', '')
+            remaining_goal = params.get('remaining_goal', '')
+            
+            print(f"[@ai_executor] Navigation reassessment: looking for '{original_target}' with goal '{remaining_goal}'")
+            
+            # Call AI with screenshot for navigation reassessment
+            reassessment_result = self._navigation_reassess_with_visual(
+                original_target=original_target,
+                remaining_goal=remaining_goal,
+                screenshot=screenshot_b64,
+                context=context
+            )
+            
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            if not reassessment_result.get('success'):
+                return {
+                    'success': False, 
+                    'error': f'Cannot find {original_target} on current screen: {reassessment_result.get("error", "Visual analysis failed")}',
+                    'execution_time_ms': execution_time_ms,
+                    'reassessment_failed': True
+                }
+            
+            # Get updated steps from reassessment
+            updated_steps = reassessment_result.get('steps', [])
+            
+            return {
+                'success': True,
+                'message': f'Found {original_target} on screen, generated {len(updated_steps)} follow-up steps',
+                'execution_time_ms': execution_time_ms,
+                'updated_steps': updated_steps,
+                'requires_step_injection': True,
+                'analysis': reassessment_result.get('analysis', '')
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Navigation reassessment error: {str(e)}',
+                'execution_time_ms': int((time.time() - start_time) * 1000)
+            }
+    
+    def _navigation_reassess_with_visual(self, original_target: str, remaining_goal: str, 
+                                       screenshot: str, context: Dict) -> Dict[str, Any]:
+        """Call AI with screenshot to find navigation target and generate next steps"""
+        
+        prompt = f"""You are looking at a screenshot of a TV interface. 
+        
+Original goal: {remaining_goal}
+Target you're looking for: "{original_target}"
+Current screen: You've navigated to the closest available node and now need to find "{original_target}".
+
+Analyze the screenshot and:
+1. Can you see "{original_target}" or something similar on the screen?
+2. If yes, provide the exact steps to reach it (click coordinates, press keys, etc.)
+3. If no, respond with feasible=false
+
+Available actions you can use:
+- click_element: Click on UI element by text/ID
+- tap_coordinates: Tap at specific screen coordinates  
+- press_key: Press remote control keys (BACK, HOME, UP, DOWN, LEFT, RIGHT, OK, etc.)
+- swipe_up, swipe_down, swipe_left, swipe_right: Swipe gestures
+
+Respond with JSON only:
+{{"analysis": "I can see...", "feasible": true/false, "steps": [{{"step": 1, "command": "tap_coordinates", "params": {{"x": 100, "y": 200, "action_type": "remote"}}, "description": "Tap on replay button"}}]}}
+
+If feasible=false, the navigation will fail. Only return feasible=true if you can clearly see the target."""
+
+        from shared.src.lib.utils.ai_utils import call_vision_ai
+        
+        try:
+            result = call_vision_ai(prompt, screenshot, max_tokens=500, temperature=0.0)
+            
+            if not result.get('success'):
+                return {'success': False, 'error': f'AI vision call failed: {result.get("error", "Unknown error")}'}
+            
+            # Parse AI response
+            import json
+            ai_response = json.loads(result['content'].strip())
+            
+            return {
+                'success': ai_response.get('feasible', False),
+                'steps': ai_response.get('steps', []),
+                'analysis': ai_response.get('analysis', ''),
+                'error': None if ai_response.get('feasible', False) else ai_response.get('analysis', 'Target not found')
+            }
+            
+        except json.JSONDecodeError as e:
+            return {'success': False, 'error': f'Invalid AI response format: {str(e)}'}
+        except Exception as e:
+            return {'success': False, 'error': f'Vision analysis error: {str(e)}'}
     
     def _execute_action_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
         """Execute action step via ActionExecutor"""
@@ -596,20 +721,33 @@ Navigation System: Each node in the navigation list is a DIRECT destination you 
 
 Rules:
 - If already at target node, respond with feasible=true, plan=[]
-- "go to node X" → execute_navigation, target_node="X" (use EXACT node name from navigation list)
+- If exact node exists → navigate directly: execute_navigation, target_node="X"
+- If exact node NOT exists → find closest node + plan reassessment:
+  1. Navigate to closest/most relevant node
+  2. Add navigation_reassessment step to visually find target
 - "click X" → click_element, element_id="X"  
 - "press X" → press_key, key="X"
 - NEVER break down node names (e.g., "home_replay" is ONE node, not "home" + "replay")
 - PRIORITIZE navigation over manual actions
 - ALWAYS specify action_type in params
 
+Navigation Reassessment Format:
+When target node doesn't exist, use this pattern:
+{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}}},
+{{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "target_name", "remaining_goal": "find and click target_name", "action_type": "navigation"}}}}
+
 CRITICAL: You MUST include an "analysis" field explaining your reasoning.
 
-Example response format:
+Example response formats:
+
+Direct navigation (exact node exists):
 {{"analysis": "Task requires navigating to home_replay. Since 'home_replay' node is available in the navigation list, I'll navigate there directly in one step.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate directly to home_replay"}}]}}
 
+Navigation with reassessment (exact node doesn't exist):
+{{"analysis": "Task requires finding 'replay' but only 'home_replay' node exists. I'll navigate to 'home_replay' as the closest match, then use visual reassessment to locate the specific 'replay' element.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate to closest node home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "Visually locate replay on screen"}}]}}
+
 If task is not possible:
-{{"analysis": "Task cannot be completed because the requested node does not exist in the navigation tree.", "feasible": false, "plan": []}}
+{{"analysis": "Task cannot be completed because no relevant navigation nodes exist and no visual reassessment can help.", "feasible": false, "plan": []}}
 
 RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED"""
 

@@ -44,6 +44,32 @@ class VerificationExecutor:
         self.device_model = device.device_model
         self.tree_id = tree_id
         self.node_id = node_id
+        
+        print(f"[@verification_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
+    
+    def take_screenshot(self) -> tuple[bool, str, str]:
+        """
+        Take a screenshot and return base64 data for AI analysis.
+        
+        Returns:
+            tuple: (success, base64_screenshot_data, error_message)
+        """
+        try:
+            # Use remote controller for base64 screenshot data
+            remote_controller = self.device.get_controller('remote')
+            if not remote_controller:
+                return False, "", "No remote controller available"
+            
+            if not hasattr(remote_controller, 'take_screenshot'):
+                return False, "", "Remote controller does not support screenshots"
+            
+            print(f"[@verification_executor] Taking screenshot using remote controller: {type(remote_controller).__name__}")
+            return remote_controller.take_screenshot()
+            
+        except Exception as e:
+            error_msg = f"Screenshot error: {str(e)}"
+            print(f"[@verification_executor] {error_msg}")
+            return False, "", error_msg
     
     def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
