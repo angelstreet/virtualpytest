@@ -11,10 +11,10 @@ Unified script execution utilities and framework that provides:
 
 Usage:
     # Basic script execution
-    from lib.utils.script_utils import execute_script, setup_script_environment, select_device
+    from src.lib.utils.script_utils import execute_script, setup_script_environment, select_device
     
     # Framework usage
-    from lib.utils.script_utils import ScriptExecutor
+    from src.lib.utils.script_utils import ScriptExecutor
     
     executor = ScriptExecutor("script_name", "Script description")
     result = executor.execute_navigation_script(
@@ -363,7 +363,7 @@ class ScriptExecutor:
             context.nodes = tree_result['root_tree']['nodes']
             
             # Load unified graph edges for cross-tree action resolution
-            from lib.utils.navigation_cache import get_cached_unified_graph
+            from src.lib.utils.navigation_cache import get_cached_unified_graph
             unified_graph = get_cached_unified_graph(tree_result['tree_id'], context.team_id)
             if unified_graph:
                 # Convert NetworkX graph edges to dictionary format for script usage

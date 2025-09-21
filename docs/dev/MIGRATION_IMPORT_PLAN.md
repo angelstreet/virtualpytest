@@ -77,7 +77,7 @@ from shared.lib.supabase.actions_db import ...
 
 Files in `shared/lib/` currently have imports like:
 ```python
-from lib.utils.supabase_utils import ...
+from src.lib.utils.supabase_utils import ...
 ```
 
 Should be:
@@ -101,7 +101,7 @@ cd backend_server && python3 src/app.py
 - All other route files with similar patterns
 
 **shared/lib/ internal imports:**
-- `supabase/actions_db.py`: `from lib.utils.supabase_utils` → `from src.lib.utils.supabase_utils`
+- `supabase/actions_db.py`: `from src.lib.utils.supabase_utils` → `from src.lib.utils.supabase_utils`
 - All files in supabase/ with `lib.` imports
 - All files in utils/ with `lib.` imports
 

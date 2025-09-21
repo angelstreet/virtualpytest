@@ -3,7 +3,7 @@ Host Script Routes - Execute scripts on host device using device script executor
 """
 import json
 from flask import Blueprint, request, jsonify
-from lib.utils.host_utils import get_device_by_id
+from src.lib.utils.host_utils import get_device_by_id
 
 host_script_bp = Blueprint('host_script', __name__, url_prefix='/host')
 

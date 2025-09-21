@@ -10,8 +10,8 @@ from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
 from src.services.navigation.navigation_pathfinding import find_shortest_path
-from lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
-from lib.utils.navigation_cache import populate_unified_cache
+from src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
+from src.lib.utils.navigation_cache import populate_unified_cache
 
 
 class NavigationExecutor:

@@ -108,7 +108,7 @@ class AudioDubbingHelpers:
             
             # Build URLs for preview
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from lib.utils.host_utils import get_host_instance
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
@@ -156,7 +156,7 @@ class AudioDubbingHelpers:
             
             # Build URLs for final video and audio preview
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from lib.utils.host_utils import get_host_instance
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
@@ -214,7 +214,7 @@ class AudioDubbingHelpers:
             
             # Build URLs for final video and audio preview
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from lib.utils.host_utils import get_host_instance
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()
@@ -354,7 +354,7 @@ class AudioDubbingHelpers:
             
             # Build URLs for synced video
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from lib.utils.host_utils import get_host_instance
+            from src.lib.utils.host_utils import get_host_instance
             
             try:
                 host = get_host_instance()

@@ -61,7 +61,7 @@ except ImportError as e:
 
 # Local route imports  
 try:
-    from lib.utils.host_utils import (
+    from src.lib.utils.host_utils import (
         register_host_with_server,
         start_ping_thread,
         cleanup_on_exit
