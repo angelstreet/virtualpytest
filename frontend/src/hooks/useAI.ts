@@ -16,8 +16,6 @@ interface UseAIProps {
   mode: 'real-time' | 'test-case';
 }
 
-// Remove local interfaces - using imported types now
-
 export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<AIPlan | null>(null);
