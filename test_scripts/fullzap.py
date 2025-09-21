@@ -30,7 +30,7 @@ if project_root not in sys.path:
 
 from backend_host.src.lib.utils.script_utils import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from backend_host.src.lib.utils.zap_controller import ZapController
-from shared.src.lib.utils.navigation_utils import goto_node
+from shared.lib.utils.navigation_utils import goto_node
 from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:

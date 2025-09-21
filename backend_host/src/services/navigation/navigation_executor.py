@@ -224,6 +224,15 @@ class NavigationExecutor:
                 
                 # Execute actions using device's existing executor
                 actions = step.get('actions', [])
+                retry_actions = step.get('retryActions', [])
+                failure_actions = step.get('failureActions', [])
+                
+                # Debug logging for action counts
+                print(f"[@navigation_executor:execute_navigation] Step {step_num} action counts:")
+                print(f"[@navigation_executor:execute_navigation]   Main actions: {len(actions)}")
+                print(f"[@navigation_executor:execute_navigation]   Retry actions: {len(retry_actions)}")
+                print(f"[@navigation_executor:execute_navigation]   Failure actions: {len(failure_actions)}")
+                
                 if actions:
                     # Update context for this navigation step
                     self.device.action_executor.tree_id = tree_id
@@ -234,7 +243,8 @@ class NavigationExecutor:
                     
                     result = self.device.action_executor.execute_actions(
                         actions=actions,
-                        retry_actions=step.get('retryActions', []),
+                        retry_actions=retry_actions,
+                        failure_actions=failure_actions,
                         team_id=team_id
                     )
                     

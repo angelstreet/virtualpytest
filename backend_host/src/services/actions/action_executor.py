@@ -158,8 +158,16 @@ class ActionExecutor:
             Dict with success status, results, and execution statistics
         """
         print(f"[@lib:action_executor:execute_actions] Starting batch action execution")
-        print(f"[@lib:action_executor:execute_actions] Processing {len(actions)} main actions, {len(retry_actions or [])} retry actions")
+        print(f"[@lib:action_executor:execute_actions] Processing {len(actions)} main actions, {len(retry_actions or [])} retry actions, {len(failure_actions or [])} failure actions")
         print(f"[@lib:action_executor:execute_actions] Host: {self.host_name}")
+        
+        # Debug: Show actual retry/failure actions if they exist
+        if retry_actions:
+            retry_commands = [action.get('command', 'unknown') for action in retry_actions]
+            print(f"[@lib:action_executor:execute_actions] Retry actions available: {retry_commands}")
+        if failure_actions:
+            failure_commands = [action.get('command', 'unknown') for action in failure_actions]
+            print(f"[@lib:action_executor:execute_actions] Failure actions available: {failure_commands}")
         
         # Validate inputs
         if not actions:

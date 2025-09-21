@@ -177,6 +177,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             forward_set = action_sets[0]
             actions_list = forward_set.get('actions', [])
             retry_actions_list = forward_set.get('retry_actions') or []
+            failure_actions_list = forward_set.get('failure_actions') or []
             verifications_list = to_node_info.get('verifications', [])
             
             # Debug logging
@@ -184,6 +185,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Using forward set: {forward_set.get('id')}")
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Actions found: {len(actions_list)}")
             print(f"[@navigation:pathfinding:find_shortest_path_unified]   Retry actions found: {len(retry_actions_list)}")
+            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Failure actions found: {len(failure_actions_list)}")
             
             # Check for cross-tree transition
             transition_type = edge_data.get('edge_type', 'NORMAL')
@@ -213,6 +215,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
                 'tree_context_change': tree_context_change,
                 'actions': actions_list,
                 'retryActions': retry_actions_list,
+                'failureActions': failure_actions_list,
                 'action_set_id': forward_set.get('id'),  # Track forward action set used
                 'original_edge_data': edge_data,  # Preserve original edge structure
                 'verifications': verifications_list,
@@ -664,12 +667,14 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         print(f"[@navigation:pathfinding] Warning: No action sets found for edge {from_node} → {to_node}")
         actions = []
         retry_actions = []
+        failure_actions = []
         action_set_used = None
     elif 'return' in step_type and len(action_sets) >= 2:
         # For return steps, use reverse action set (index 1)
         reverse_set = action_sets[1]
         actions = reverse_set.get('actions', [])
         retry_actions = reverse_set.get('retry_actions') or []
+        failure_actions = reverse_set.get('failure_actions') or []
         action_set_used = reverse_set['id']
         print(f"[@navigation:pathfinding] Using reverse action set: {action_set_used}")
     else:
@@ -677,6 +682,7 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         forward_set = action_sets[0]
         actions = forward_set.get('actions', [])
         retry_actions = forward_set.get('retry_actions') or []
+        failure_actions = forward_set.get('failure_actions') or []
         action_set_used = forward_set['id']
         print(f"[@navigation:pathfinding] Using forward action set: {action_set_used}")
     
@@ -694,11 +700,13 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         'to_node_label': to_info.get('label', to_node),
         'actions': actions,
         'retryActions': retry_actions,
+        'failureActions': failure_actions,
         'action_set_id': action_set_used,  # Track which action set was used
         'original_edge_data': edge_data,  # Pass the original edge with all action sets
         'verifications': verifications,
         'total_actions': len(actions),
         'total_retry_actions': len(retry_actions),
+        'total_failure_actions': len(failure_actions),
         'total_verifications': len(verifications),
         'finalWaitTime': edge_data.get('finalWaitTime', 2000),
         'edge_id': edge_data.get('edge_id', 'unknown'),
