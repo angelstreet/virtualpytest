@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Campaign Execution Framework for VirtualPyTest
+Campaign Execution Framework for VirtualPyTest - Host Level
 
 This module provides functionality to execute test campaigns that consist of
-multiple script executions with proper tracking and reporting.
+multiple script executions with proper tracking and reporting at the host level.
 
 Usage:
     from src.lib.utils.campaign_executor import CampaignExecutor
@@ -66,14 +66,14 @@ class CampaignExecutionContext:
 
 
 class CampaignExecutor:
-    """Campaign execution orchestrator"""
+    """Campaign execution orchestrator for host-level execution"""
     
     def __init__(self):
         self.project_root = project_root
     
     def execute_campaign(self, campaign_config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute a test campaign with multiple scripts.
+        Execute a test campaign with multiple scripts at host level.
         
         Args:
             campaign_config: Campaign configuration dictionary
@@ -122,7 +122,7 @@ class CampaignExecutor:
             print(f"🚀 [Campaign] Starting campaign: {context.campaign_name}")
             print(f"📋 [Campaign] Execution ID: {context.campaign_execution_id}")
             
-            # Setup environment
+            # Setup environment at host level
             if not self._setup_campaign_environment(context, campaign_config):
                 return self._build_failure_result(context, "Failed to setup campaign environment")
             
@@ -216,7 +216,7 @@ class CampaignExecutor:
             return self._build_failure_result(context, context.error_message)
     
     def _setup_campaign_environment(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any]) -> bool:
-        """Setup campaign execution environment"""
+        """Setup campaign execution environment at host level"""
         try:
             # Setup script environment to get team_id and host info
             env_result = setup_script_environment("campaign")
@@ -238,136 +238,84 @@ class CampaignExecutor:
             context.error_message = f"Environment setup error: {str(e)}"
             return False
     
-
-    
     def _execute_single_script(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any], 
                              script_config: Dict[str, Any], execution_order: int) -> Dict[str, Any]:
-        """Execute a single script within the campaign"""
+        """Execute a single script within the campaign using host-level script execution"""
         script_start_time = time.time()
         script_name = script_config.get("script_name")
         script_type = script_config.get("script_type", script_name)
         parameters = script_config.get("parameters", {})
         
         try:
-            # Build script command
-            script_path = os.path.join(self.project_root, "test_scripts", script_name)
-            if not os.path.exists(script_path):
-                raise FileNotFoundError(f"Script not found: {script_path}")
+            # Use host-level script execution via device script executor
+            print(f"🚀 [Campaign] Executing script via host device script executor")
             
-            # Build command arguments
-            cmd = ["python", script_path]
+            # Get device for script execution
+            from src.lib.utils.host_utils import get_device_by_id
+            device_id = campaign_config.get("device", "device1")
+            device = get_device_by_id(device_id)
+            
+            if not device:
+                raise ValueError(f"Device {device_id} not found on host")
+            
+            if not hasattr(device, 'script_executor'):
+                raise ValueError(f"Device {device_id} does not have script executor")
+            
+            # Build parameters string for script executor
+            param_parts = []
             
             # Add userinterface_name as positional argument
             if campaign_config.get("userinterface_name"):
-                cmd.append(campaign_config["userinterface_name"])
+                param_parts.append(campaign_config["userinterface_name"])
             
             # Add host and device if specified
             if campaign_config.get("host") and campaign_config["host"] != "auto":
-                cmd.extend(["--host", campaign_config["host"]])
+                param_parts.extend(["--host", campaign_config["host"]])
             
             if campaign_config.get("device") and campaign_config["device"] != "auto":
-                cmd.extend(["--device", campaign_config["device"]])
+                param_parts.extend(["--device", campaign_config["device"]])
             
             # Add script-specific parameters
             for param_name, param_value in parameters.items():
-                cmd.extend([f"--{param_name}", str(param_value)])
+                param_parts.extend([f"--{param_name}", str(param_value)])
             
-            print(f"🚀 [Campaign] Executing command: {' '.join(cmd)}")
+            parameters_string = " ".join(param_parts)
+            
+            print(f"🚀 [Campaign] Executing: {script_name} {parameters_string}")
             print(f"📋 [Campaign] Starting real-time script output:")
             print("=" * 80)
             
-            # Execute script with real-time output streaming
-            process = subprocess.Popen(
-                cmd,
-                cwd=self.project_root,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Merge stderr into stdout
-                text=True,
-                bufsize=1,  # Line buffered
-                universal_newlines=True
-            )
-            
-            # Stream output in real-time with timeout
-            stdout_lines = []
-            script_result_id = None
-            script_success = None
-            report_url = None
-            logs_url = None
-            timeout_seconds = 3600  # 1 hour timeout
-            start_time_for_timeout = time.time()
-            
-            while True:
-                output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    break
-                if output:
-                    # Check for campaign-relevant information from script
-                    if output.strip().startswith("SCRIPT_RESULT_ID:"):
-                        script_result_id = output.strip().split("SCRIPT_RESULT_ID:", 1)[1]
-                        print(f"🔗 [Campaign] Captured script result ID: {script_result_id}")
-                    elif output.strip().startswith("SCRIPT_SUCCESS:"):
-                        script_success = output.strip().split("SCRIPT_SUCCESS:", 1)[1].lower() == "true"
-                        status_emoji = "✅" if script_success else "❌"
-                        print(f"{status_emoji} [Campaign] Script reported success: {script_success}")
-                    else:
-                        # Extract URLs from script output using parser utility
-                        from .script_output_parser import extract_report_url_from_output, extract_logs_url_from_output
-                        
-                        extracted_report_url = extract_report_url_from_output(output)
-                        if extracted_report_url:
-                            report_url = extracted_report_url
-                            print(f"📊 [Campaign] Report URL captured: {report_url}")
-                        
-                        extracted_logs_url = extract_logs_url_from_output(output)
-                        if extracted_logs_url:
-                            logs_url = extracted_logs_url
-                            print(f"📝 [Campaign] Logs URL captured: {logs_url}")
-                        
-                        # If no URLs found, print with campaign prefix to distinguish from script output
-                        if not extracted_report_url and not extracted_logs_url:
-                            print(f"[Script] {output.rstrip()}")
-                    stdout_lines.append(output)
-                
-                # Check for timeout
-                if time.time() - start_time_for_timeout > timeout_seconds:
-                    print(f"⏰ [Campaign] Script timeout after {timeout_seconds}s, terminating...")
-                    process.terminate()
-                    try:
-                        process.wait(timeout=10)  # Give it 10 seconds to terminate gracefully
-                    except subprocess.TimeoutExpired:
-                        process.kill()  # Force kill if it doesn't terminate
-                    break
-            
-            # Wait for process to complete and get return code
-            return_code = process.poll()
+            # Execute script using device script executor
+            result = device.script_executor.execute_script(script_name, parameters_string)
             
             print("=" * 80)
             print(f"📋 [Campaign] Script output ended")
             
-            # Create a result object similar to subprocess.run
-            class ProcessResult:
-                def __init__(self, returncode, stdout):
-                    self.returncode = returncode
-                    self.stdout = ''.join(stdout)
-                    self.stderr = ""  # We merged stderr into stdout
-            
-            result = ProcessResult(return_code, stdout_lines)
-            
             execution_time_ms = int((time.time() - script_start_time) * 1000)
             
-            # Use script-reported success if available, otherwise fall back to return code
+            # Determine success from script executor result
+            # Check for script-reported success first, then fall back to exit code
+            script_success = result.get('script_success')
             if script_success is not None:
                 success = script_success
                 print(f"📊 [Campaign] Using script-reported success status: {success}")
             else:
-                success = result.returncode == 0
-                print(f"📊 [Campaign] Using return code for success status: {success} (code: {result.returncode})")
+                success = result.get('exit_code', 1) == 0
+                print(f"📊 [Campaign] Using exit code for success status: {success} (code: {result.get('exit_code')})")
             
-            # Simply store the script result ID - no complex linking needed
-            if script_result_id:
-                print(f"🔗 [Campaign] Captured script result ID: {script_result_id}")
-            else:
-                print(f"⚠️ [Campaign] No script result ID captured - script may not have database tracking enabled")
+            # Extract script result ID from stdout if available
+            script_result_id = None
+            stdout = result.get('stdout', '')
+            if stdout and 'SCRIPT_RESULT_ID:' in stdout:
+                import re
+                result_id_match = re.search(r'SCRIPT_RESULT_ID:([^\s\n]+)', stdout)
+                if result_id_match:
+                    script_result_id = result_id_match.group(1)
+                    print(f"🔗 [Campaign] Captured script result ID: {script_result_id}")
+            
+            # Extract URLs from script executor result
+            report_url = result.get('report_url', '')
+            logs_url = result.get('logs_url', '')
             
             if success:
                 print(f"✅ [Campaign] Script completed successfully in {execution_time_ms}ms")
@@ -376,15 +324,15 @@ class CampaignExecutor:
                     "script_name": script_name,
                     "script_result_id": script_result_id,
                     "execution_time_ms": execution_time_ms,
-                    "stdout": result.stdout,
+                    "stdout": stdout,
                     "execution_order": execution_order,
                     "report_url": report_url,
                     "logs_url": logs_url
                 }
             else:
-                error_msg = f"Script failed with return code {result.returncode}"
+                error_msg = f"Script failed with exit code {result.get('exit_code', 1)}"
                 print(f"❌ [Campaign] {error_msg}")
-                print(f"📝 [Campaign] STDERR: {result.stderr}")
+                print(f"📝 [Campaign] STDERR: {result.get('stderr', '')}")
                 
                 return {
                     "success": False,
@@ -392,28 +340,13 @@ class CampaignExecutor:
                     "script_result_id": script_result_id,
                     "execution_time_ms": execution_time_ms,
                     "error": error_msg,
-                    "stderr": result.stderr,
-                    "stdout": result.stdout,
+                    "stderr": result.get('stderr', ''),
+                    "stdout": stdout,
                     "execution_order": execution_order,
                     "report_url": report_url,
                     "logs_url": logs_url
                 }
                 
-        except subprocess.TimeoutExpired:
-            error_msg = "Script execution timed out"
-            execution_time_ms = int((time.time() - script_start_time) * 1000)
-            
-            return {
-                "success": False,
-                "script_name": script_name,
-                "script_result_id": None,
-                "execution_time_ms": execution_time_ms,
-                "error": error_msg,
-                "execution_order": execution_order,
-                "report_url": None,
-                "logs_url": None
-            }
-            
         except Exception as e:
             error_msg = f"Script execution error: {str(e)}"
             execution_time_ms = int((time.time() - script_start_time) * 1000)

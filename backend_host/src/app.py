@@ -101,7 +101,8 @@ def register_host_routes(app):
             host_verification_video_routes,
             host_actions_routes,
             host_navigation_routes,
-            host_ai_routes
+            host_ai_routes,
+            host_campaign_routes
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
@@ -138,7 +139,8 @@ def register_host_routes(app):
         (host_verification_video_routes.host_verification_video_bp, 'Video verification'),
         (host_actions_routes.host_actions_bp, 'Action execution'),
         (host_navigation_routes.host_navigation_bp, 'Navigation execution'),
-        (host_ai_routes.host_ai_bp, 'AI execution')
+        (host_ai_routes.host_ai_bp, 'AI execution'),
+        (host_campaign_routes.host_campaign_bp, 'Campaign execution')
     ]
     
     for blueprint, description in blueprints:

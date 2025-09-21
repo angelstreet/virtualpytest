@@ -25,5 +25,6 @@ from . import (
     host_verification_video_routes,
     host_actions_routes,
     host_navigation_routes,
-    host_ai_routes
+    host_ai_routes,
+    host_campaign_routes
 ) 
