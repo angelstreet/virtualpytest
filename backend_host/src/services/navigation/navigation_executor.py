@@ -44,80 +44,29 @@ class NavigationExecutor:
         print(f"[@navigation_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
-        """Get available navigation context with enhanced hierarchy support and fallback"""
-        try:
-            # Try to load with hierarchy first
-            tree_result = self.load_navigation_tree_with_hierarchy(userinterface_name, team_id, "navigation_executor")
-            
-            if tree_result['success']:
-                tree_id = tree_result['tree_id']
-                root_tree = tree_result['root_tree']
-                nodes = root_tree['nodes']
-                available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
-                
-                return {
-                    'service_type': 'navigation',
-                    'device_id': self.device_id,
-                    'device_model': self.device_model,
-                    'userinterface_name': userinterface_name,
-                    'tree_id': tree_id,
-                    'available_nodes': available_nodes,
-                    'cross_tree_capabilities': tree_result.get('cross_tree_capabilities', False),
-                    'unified_graph_nodes': tree_result.get('unified_graph_nodes', 0),
-                    'unified_graph_edges': tree_result.get('unified_graph_edges', 0)
-                }
-        except Exception as hierarchy_error:
-            print(f"[@navigation_executor] Hierarchy loading failed: {hierarchy_error}")
-            print(f"[@navigation_executor] Attempting fallback to single tree loading with unified cache...")
+        """Get available navigation context with enhanced hierarchy support"""
+        tree_result = self.load_navigation_tree_with_hierarchy(userinterface_name, team_id, "navigation_executor")
         
-        # Fallback: Load single tree and populate unified cache
-        try:
-            single_tree_result = self.load_navigation_tree(userinterface_name, team_id, "navigation_executor_fallback")
-            
-            if not single_tree_result['success']:
-                raise ValueError(f"Failed to load navigation tree (fallback): {single_tree_result['error']}")
-            
-            tree_id = single_tree_result['tree_id']
-            nodes = single_tree_result['nodes']
-            edges = single_tree_result['edges']
-            available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
-            
-            # Manually populate unified cache for single tree
-            tree_data_for_unified = [{
-                'tree_id': tree_id,
-                'tree_info': {
-                    'name': single_tree_result.get('name', tree_id),
-                    'is_root_tree': True,
-                    'tree_depth': 0,
-                    'parent_tree_id': None,
-                    'parent_node_id': None
-                },
-                'nodes': nodes,
-                'edges': edges
-            }]
-            
-            print(f"[@navigation_executor] Populating unified cache for single tree: {tree_id}")
-            unified_graph = populate_unified_cache(tree_id, team_id, tree_data_for_unified)
-            
-            if unified_graph:
-                print(f"[@navigation_executor] Unified cache populated successfully: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
-            else:
-                print(f"[@navigation_executor] Warning: Failed to populate unified cache")
-            
-            return {
-                'service_type': 'navigation',
-                'device_id': self.device_id,
-                'device_model': self.device_model,
-                'userinterface_name': userinterface_name,
-                'tree_id': tree_id,
-                'available_nodes': available_nodes,
-                'cross_tree_capabilities': False,
-                'unified_graph_nodes': len(unified_graph.nodes) if unified_graph else 0,
-                'unified_graph_edges': len(unified_graph.edges) if unified_graph else 0
-            }
-            
-        except Exception as fallback_error:
-            raise ValueError(f"Both hierarchy and fallback loading failed. Hierarchy: {hierarchy_error}. Fallback: {fallback_error}")
+        # Fail fast - no fallback
+        if not tree_result['success']:
+            raise ValueError(f"Failed to load navigation tree: {tree_result['error']}")
+        
+        tree_id = tree_result['tree_id']
+        root_tree = tree_result['root_tree']
+        nodes = root_tree['nodes']
+        available_nodes = [node.get('node_name') for node in nodes if node.get('node_name')]
+        
+        return {
+            'service_type': 'navigation',
+            'device_id': self.device_id,
+            'device_model': self.device_model,
+            'userinterface_name': userinterface_name,
+            'tree_id': tree_id,
+            'available_nodes': available_nodes,
+            'cross_tree_capabilities': tree_result.get('cross_tree_capabilities', False),
+            'unified_graph_nodes': tree_result.get('unified_graph_nodes', 0),
+            'unified_graph_edges': tree_result.get('unified_graph_edges', 0)
+        }
     
     def _build_result(self, success: bool, message: str, tree_id: str, target_node_id: str, 
                      current_node_id: Optional[str], start_time: float, **kwargs) -> Dict[str, Any]:

@@ -61,44 +61,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     unified_graph = get_cached_unified_graph(root_tree_id, team_id)
     if not unified_graph:
         print(f"[@navigation:pathfinding:find_shortest_path_unified] No unified graph cached for root tree {root_tree_id}")
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] Attempting emergency unified cache population...")
-        
-        # Emergency fallback: Try to populate unified cache from single tree
-        try:
-            from shared.src.lib.supabase.navigation_trees_db import get_full_tree
-            from src.lib.utils.navigation_cache import populate_unified_cache
-            
-            # Get the root tree data
-            tree_data = get_full_tree(root_tree_id, team_id)
-            if tree_data['success']:
-                # Create single-tree hierarchy data for unified cache
-                tree_data_for_unified = [{
-                    'tree_id': root_tree_id,
-                    'tree_info': {
-                        'name': tree_data['tree'].get('name', root_tree_id),
-                        'is_root_tree': True,
-                        'tree_depth': 0,
-                        'parent_tree_id': None,
-                        'parent_node_id': None
-                    },
-                    'nodes': tree_data['nodes'],
-                    'edges': tree_data['edges']
-                }]
-                
-                print(f"[@navigation:pathfinding:find_shortest_path_unified] Emergency populating unified cache for tree: {root_tree_id}")
-                unified_graph = populate_unified_cache(root_tree_id, team_id, tree_data_for_unified)
-                
-                if unified_graph:
-                    print(f"[@navigation:pathfinding:find_shortest_path_unified] Emergency cache population successful: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
-                else:
-                    print(f"[@navigation:pathfinding:find_shortest_path_unified] Emergency cache population failed")
-            
-        except Exception as e:
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] Emergency cache population error: {e}")
-        
-        # Final check - if still no unified graph, fail
-        if not unified_graph:
-            raise UnifiedCacheError(f"No unified graph cached for root tree {root_tree_id}. Emergency cache population also failed. Unified pathfinding is required - no fallback available.")
+        raise UnifiedCacheError(f"No unified graph cached for root tree {root_tree_id}. Unified pathfinding is required - no fallback available.")
     
     print(f"[@navigation:pathfinding:find_shortest_path_unified] Using unified graph with {len(unified_graph.nodes)} nodes and {len(unified_graph.edges)} edges")
     

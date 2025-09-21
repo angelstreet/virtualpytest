@@ -239,8 +239,25 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               </Box>
             )}
 
-            {/* Task Execution Status Header */}
-            {(aiPlan || taskResult) && (
+            {/* Non-feasible task message */}
+            {aiPlan && !isPlanFeasible && (
+              <Box sx={{ mt: 0.5, mb: 1 }}>
+                <Typography variant="body2" sx={{ 
+                  color: '#f44336',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  p: 1,
+                  backgroundColor: 'rgba(244,67,54,0.1)',
+                  borderRadius: 0.5,
+                  border: '1px solid rgba(244,67,54,0.3)'
+                }}>
+                  ❌ Task not feasible
+                </Typography>
+              </Box>
+            )}
+
+            {/* Task Execution Status Header - Only for feasible plans */}
+            {aiPlan && isPlanFeasible && (
               <Box sx={{ mt: 0.5, mb: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Typography variant="caption" sx={{ color: '#aaa' }}>
