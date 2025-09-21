@@ -10,6 +10,9 @@ export interface TestResult {
   status_code?: number;
   response_time: number;
   error?: string;
+  response_body?: any;
+  request_body?: any;
+  headers?: any;
 }
 
 export interface TestReport {
@@ -175,16 +178,25 @@ export const useApiTesting = () => {
         };
       });
 
-      // Show completion message
-      const passed = state.liveResults.filter(r => r.status === 'pass').length;
-      const total = state.liveResults.length;
-      const percentage = Math.round((passed / total) * 100);
-      
-      if (percentage === 100) {
-        toast.showSuccess(`All ${total} tests passed! 🎉`);
-      } else {
-        toast.showWarning(`${passed}/${total} tests passed (${percentage}%)`);
-      }
+      // Show completion message after a small delay to ensure state is updated
+      setTimeout(() => {
+        setState(prev => {
+          const passed = prev.liveResults.filter(r => r.status === 'pass').length;
+          const total = prev.liveResults.length;
+          
+          if (total > 0) {
+            const percentage = Math.round((passed / total) * 100);
+            
+            if (percentage === 100) {
+              toast.showSuccess(`All ${total} tests passed! 🎉`);
+            } else {
+              toast.showWarning(`${passed}/${total} tests passed (${percentage}%)`);
+            }
+          }
+          
+          return prev; // Don't change state, just show message
+        });
+      }, 100);
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

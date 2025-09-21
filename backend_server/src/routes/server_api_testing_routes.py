@@ -344,6 +344,13 @@ def execute_single_test(test_config, base_url=None):
         expected_statuses = test_config.get('expected_status', [200])
         status = 'pass' if response.status_code in expected_statuses else 'fail'
         
+        # Capture response data
+        response_body = None
+        try:
+            response_body = response.json()
+        except:
+            response_body = response.text if response.text else None
+        
         return {
             'endpoint': test_config['name'],
             'method': method,
@@ -351,7 +358,10 @@ def execute_single_test(test_config, base_url=None):
             'status': status,
             'status_code': response.status_code,
             'response_time': response_time,
-            'error': None if status == 'pass' else f"Expected {expected_statuses}, got {response.status_code}"
+            'error': None if status == 'pass' else f"Expected {expected_statuses}, got {response.status_code}",
+            'response_body': response_body,
+            'request_body': test_config.get('body', None),
+            'headers': dict(response.headers) if response.headers else None
         }
         
     except Exception as e:
@@ -363,7 +373,10 @@ def execute_single_test(test_config, base_url=None):
             'status': 'fail',
             'status_code': None,
             'response_time': response_time,
-            'error': str(e)
+            'error': str(e),
+            'response_body': None,
+            'request_body': test_config.get('body', None),
+            'headers': None
         }
 
 def generate_html_report(report_data):

@@ -8,6 +8,8 @@ import {
   DeselectOutlined as DeselectIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  KeyboardArrowDown as ArrowDownIcon,
+  KeyboardArrowRight as ArrowRightIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -36,6 +38,7 @@ import { useApiTesting, TestResult, TestReport } from '../../hooks/useApiTesting
 
 const ApiTestingPage: React.FC = () => {
   const [isRoutesExpanded, setIsRoutesExpanded] = useState(true);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   
   const {
     isRunning,
@@ -67,6 +70,25 @@ const ApiTestingPage: React.FC = () => {
       setIsRoutesExpanded(false);
     }
   }, [isRunning]);
+
+  // Clear expanded rows when new tests start
+  useEffect(() => {
+    if (isRunning) {
+      setExpandedRows(new Set());
+    }
+  }, [isRunning]);
+
+  const toggleRowExpansion = (index: number) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   const handleRunAllTests = async () => {
     setIsRoutesExpanded(false); // Collapse before running
@@ -206,11 +228,11 @@ const ApiTestingPage: React.FC = () => {
       {/* Control Panel */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 0.5 }}>
             Test Controls
           </Typography>
 
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 0.5 }}>
             <Button
               variant="contained"
               startIcon={isRunning ? <CircularProgress size={20} /> : <RunIcon />}
@@ -253,14 +275,14 @@ const ApiTestingPage: React.FC = () => {
 
           {/* Progress */}
           {isRunning && (
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            <Box sx={{ mb: 0.5 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                 {currentTest} ({completedTests}/{totalTests})
               </Typography>
               <LinearProgress 
                 variant="determinate" 
                 value={totalTests > 0 ? (completedTests / totalTests) * 100 : 0}
-                sx={{ mb: 1 }}
+                sx={{ mb: 0.5 }}
               />
               <Typography variant="caption" color="text.secondary">
                 {Math.round(totalTests > 0 ? (completedTests / totalTests) * 100 : 0)}% complete
@@ -270,7 +292,7 @@ const ApiTestingPage: React.FC = () => {
 
           {/* Error Display */}
           {error && (
-            <Box sx={{ p: 2, backgroundColor: '#ffebee', borderRadius: 1, mb: 2 }}>
+            <Box sx={{ p: 2, backgroundColor: '#ffebee', borderRadius: 1, mb: 0.5 }}>
               <Typography color="error" variant="body2">
                 <strong>Error:</strong> {error}
               </Typography>
@@ -283,7 +305,7 @@ const ApiTestingPage: React.FC = () => {
       {availableEndpoints.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="h6">
                 Select Routes ({selectedEndpoints.length}/{availableEndpoints.length} selected)
               </Typography>
@@ -297,7 +319,7 @@ const ApiTestingPage: React.FC = () => {
 
             <Collapse in={isRoutesExpanded}>
               {/* Select All/None Controls */}
-              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, mb: 0.5 }}>
                 <Button
                   variant="outlined"
                   size="small"
@@ -318,7 +340,7 @@ const ApiTestingPage: React.FC = () => {
                 </Button>
               </Box>
 
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 0.5 }} />
 
               {/* Route Checkboxes - Compact 2-column layout */}
               <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
@@ -381,15 +403,307 @@ const ApiTestingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Results Summary */}
-      {lastReport && (
+      {/* Live Results - Show during and after testing */}
+      {(isRunning || liveResults.length > 0) && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>
+              {isRunning ? 'Test Progress' : 'Test Results'} ({liveResults.length} {liveResults.length === 1 ? 'route' : 'routes'})
+            </Typography>
+
+            <TableContainer sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, maxHeight: 400, overflow: 'auto' }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow sx={{ '&:hover': { backgroundColor: 'transparent !important' }, '&:hover td': { backgroundColor: 'transparent !important' } }}>
+                    <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1, width: '40px' }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}></Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Route</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Method</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Status</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Time</Typography>
+                    </TableCell>
+                    <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Error</Typography>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {liveResults.map((result: TestResult, index: number) => (
+                    <React.Fragment key={index}>
+                      <TableRow
+                        sx={{
+                          backgroundColor: 'transparent !important',
+                          '&:hover': {
+                            backgroundColor: 'transparent !important',
+                          },
+                          '&:hover td': {
+                            backgroundColor: 'transparent !important',
+                          },
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => toggleRowExpansion(index)}
+                      >
+                        <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                          <IconButton size="small" sx={{ p: 0 }}>
+                            {expandedRows.has(index) ? <ArrowDownIcon fontSize="small" /> : <ArrowRightIcon fontSize="small" />}
+                          </IconButton>
+                        </TableCell>
+                        <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              fontSize: '0.75rem',
+                              lineHeight: 1.2,
+                              display: 'block',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '200px'
+                            }}
+                          >
+                            <Box component="span" sx={{ fontWeight: 'medium' }}>
+                              {result.endpoint}
+                            </Box>
+                            <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>
+                              - {result.url}
+                            </Box>
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                          <Chip
+                            label={result.method}
+                            size="small"
+                            variant="outlined"
+                            sx={{ 
+                              backgroundColor: 'transparent !important',
+                              fontSize: '0.7rem',
+                              height: '20px'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <span style={{ fontSize: '0.8rem' }}>{getStatusIcon(result.status)}</span>
+                            <Chip
+                              label={result.status.toUpperCase()}
+                              color={getStatusColor(result.status)}
+                              size="small"
+                              sx={{ 
+                                backgroundColor: 'transparent !important',
+                                fontSize: '0.7rem',
+                                height: '20px'
+                              }}
+                            />
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                            {result.response_time}ms
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
+                          {result.error && (
+                            <Typography
+                              variant="caption"
+                              color="error"
+                              sx={{ 
+                                maxWidth: 150, 
+                                wordBreak: 'break-word',
+                                fontSize: '0.75rem',
+                                lineHeight: 1.2
+                              }}
+                            >
+                              {result.error}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      
+                      {/* Expanded Row Content */}
+                      {expandedRows.has(index) && (
+                        <TableRow
+                          sx={{
+                            backgroundColor: 'transparent !important',
+                            '&:hover': {
+                              backgroundColor: 'transparent !important',
+                            },
+                            '&:hover td': {
+                              backgroundColor: 'background.default !important',
+                            },
+                          }}
+                        >
+                          <TableCell sx={{ backgroundColor: 'transparent !important', border: 'none', py: 0 }} />
+                          <TableCell 
+                            colSpan={5} 
+                            sx={{ 
+                              backgroundColor: 'background.default !important', 
+                              border: 'none', 
+                              borderBottom: '1px solid', 
+                              borderColor: 'divider',
+                              py: 2
+                            }}
+                          >
+                            <Box sx={{ maxWidth: '100%', overflow: 'auto' }}>
+                              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 'bold', mb: 0.5, display: 'block' }}>
+                                API Response Details:
+                              </Typography>
+                              
+                              {/* Status Code */}
+                              {result.status_code && (
+                                <Box sx={{ mb: 0.5 }}>
+                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium' }}>
+                                    Status Code: <Box component="span" sx={{ fontFamily: 'monospace' }}>{result.status_code}</Box>
+                                  </Typography>
+                                </Box>
+                              )}
+                              
+                              {/* Request Body */}
+                              {result.request_body && (
+                                <Box sx={{ mb: 0.5 }}>
+                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium', display: 'block', mb: 0.5 }}>
+                                    Request Body:
+                                  </Typography>
+                                  <Box 
+                                    sx={{ 
+                                      backgroundColor: 'background.paper', 
+                                      p: 1, 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: 'divider',
+                                      maxHeight: '150px',
+                                      overflow: 'auto'
+                                    }}
+                                  >
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        fontSize: '0.65rem', 
+                                        fontFamily: 'monospace',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-all'
+                                      }}
+                                    >
+                                      {typeof result.request_body === 'string' ? result.request_body : JSON.stringify(result.request_body, null, 2)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              )}
+                              
+                              {/* Response Body */}
+                              {result.response_body && (
+                                <Box sx={{ mb: 0.5 }}>
+                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium', display: 'block', mb: 0.5 }}>
+                                    Response Body:
+                                  </Typography>
+                                  <Box 
+                                    sx={{ 
+                                      backgroundColor: 'background.paper', 
+                                      p: 1, 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: 'divider',
+                                      maxHeight: '200px',
+                                      overflow: 'auto'
+                                    }}
+                                  >
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        fontSize: '0.65rem', 
+                                        fontFamily: 'monospace',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-all'
+                                      }}
+                                    >
+                                      {typeof result.response_body === 'string' ? result.response_body : JSON.stringify(result.response_body, null, 2)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              )}
+                              
+                              {/* Headers */}
+                              {result.headers && (
+                                <Box>
+                                  <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'medium', display: 'block', mb: 0.5 }}>
+                                    Response Headers:
+                                  </Typography>
+                                  <Box 
+                                    sx={{ 
+                                      backgroundColor: 'background.paper', 
+                                      p: 1, 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: 'divider',
+                                      maxHeight: '150px',
+                                      overflow: 'auto'
+                                    }}
+                                  >
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        fontSize: '0.65rem', 
+                                        fontFamily: 'monospace',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-all'
+                                      }}
+                                    >
+                                      {typeof result.headers === 'string' ? result.headers : JSON.stringify(result.headers, null, 2)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              )}
+                              
+                              {/* Show message if no additional data */}
+                              {!result.response_body && !result.request_body && !result.headers && (
+                                <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                                  No additional response data available
+                                </Typography>
+                              )}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            {/* Summary for completed tests */}
+            {!isRunning && liveResults.length > 0 && (
+              <Box sx={{ mt: 2, p: 2, backgroundColor: 'background.default', borderRadius: 1 }}>
+                <Typography variant="body2">
+                  <strong>Summary:</strong> {(() => {
+                    const passed = liveResults.filter(r => r.status === 'pass').length;
+                    const failed = liveResults.filter(r => r.status === 'fail').length;
+                    const total = liveResults.length;
+                    const percentage = total > 0 ? Math.round((passed / total) * 100) : 0;
+                    return `${passed} passed, ${failed} failed (${percentage}% success rate)`;
+                  })()}
+                </Typography>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results Summary - Only show if there's a report (normal tests) and no live results */}
+      {lastReport && !liveResults.length && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>
               Test Results Summary
             </Typography>
 
-            <Box sx={{ display: 'flex', gap: 3, mb: 2 }}>
+            <Box sx={{ display: 'flex', gap: 3, mb: 0.5 }}>
               <Box>
                 <Typography variant="body2" color="text.secondary">
                   Git Commit
@@ -432,11 +746,11 @@ const ApiTestingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Detailed Results */}
-      {lastReport && lastReport.results.length > 0 && (
+      {/* Detailed Results - Only show if there's a report (normal tests) and no live results */}
+      {lastReport && lastReport.results.length > 0 && !liveResults.length && (
         <Card>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>
               Detailed Results ({lastReport.results.length} routes)
             </Typography>
 
@@ -558,12 +872,12 @@ const ApiTestingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* Empty State */}
-      {!lastReport && !isRunning && (
+      {/* Empty State - Only show if no results at all */}
+      {!lastReport && !isRunning && liveResults.length === 0 && (
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <ApiIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+            <ApiIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 0.5 }} />
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
               No test results yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
