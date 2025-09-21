@@ -2,26 +2,41 @@
 """
 Script Utilities for VirtualPyTest
 
-Unified script execution utilities and framework that provides:
-- Script environment setup and device management
-- Script execution with real-time output streaming  
-- Unified framework for navigation and validation scripts
-- Device script executor integration
-- No device locking (handled by server)
+Unified script execution framework that provides:
+- Device-integrated script execution
+- Navigation and action execution via device executors
+- Screenshot and video capture
+- Report generation and database tracking
 
 Usage:
-    # Basic script execution
-    from  backend_host.src.lib.utils.script_utils import execute_script, setup_script_environment, select_device
+    from backend_host.src.lib.utils.script_utils import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
     
-    # Framework usage
-    from  backend_host.src.lib.utils.script_utils import ScriptExecutor
-    
-    executor = ScriptExecutor("script_name", "Script description")
-    result = executor.execute_navigation_script(
-        userinterface_name="horizon_android_mobile",
-        target_node="live_fullscreen",
-        custom_execution_func=my_custom_function
-    )
+    def main():
+        executor = ScriptExecutor("script_name", "Script description")
+        
+        # Parse arguments
+        parser = executor.create_argument_parser()
+        args = parser.parse_args()
+        
+        # Setup execution context with device
+        context = executor.setup_execution_context(args, enable_db_tracking=True)
+        if context.error_message:
+            executor.cleanup_and_exit(context, args.userinterface_name)
+            return
+        
+        try:
+            # Your script logic here
+            # Device is available as context.selected_device
+            # All executors are available: script_executor, action_executor, navigation_executor, etc.
+            
+            context.overall_success = True  # Set based on your logic
+            
+        except KeyboardInterrupt:
+            handle_keyboard_interrupt("script_name")
+        except Exception as e:
+            handle_unexpected_error("script_name", e)
+        finally:
+            executor.cleanup_and_exit(context, args.userinterface_name)
 """
 
 import sys
@@ -285,7 +300,7 @@ class ScriptExecutor:
             context.host = setup_result['host']
             context.team_id = setup_result['team_id']
             
-            # 2. Select device
+            # 2. Select device from host instance
             device_id_to_use = args.device or "device1"
             device_result = select_device(context.host, device_id_to_use, self.script_name)
             if not device_result['success']:
@@ -294,6 +309,11 @@ class ScriptExecutor:
                 return context
             
             context.selected_device = device_result['device']
+            
+            # 3. Set team_id on device script executor for proper execution context
+            context.selected_device.script_executor.set_team_id(context.team_id)
+            
+            print(f"✅ [{self.script_name}] Device selected: {context.selected_device.device_name} ({context.selected_device.device_model})")
             
             # 3. Record script execution start in database (if enabled)
             if enable_db_tracking:
@@ -315,23 +335,15 @@ class ScriptExecutor:
                     # Output script result ID in a format that campaign executor can parse
                     print(f"SCRIPT_RESULT_ID:{context.script_result_id}")
             
-            # 4. Capture initial screenshot using device script executor
+            # 4. Capture initial screenshot using device AV controller
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
             try:
-                # Use device's AV controller directly
                 av_controller = context.selected_device.get_controller('av')
-                if av_controller:
-                    initial_screenshot = av_controller.take_screenshot()
-                    context.add_screenshot(initial_screenshot)
-                    if initial_screenshot:
-                        print(f"✅ [{self.script_name}] Initial screenshot captured")
-                    else:
-                        print(f"⚠️ [{self.script_name}] Failed to capture initial screenshot, continuing...")
-                else:
-                    print(f"⚠️ [{self.script_name}] No AV controller found, continuing without screenshot...")
+                initial_screenshot = av_controller.take_screenshot()
+                context.add_screenshot(initial_screenshot)
+                print(f"✅ [{self.script_name}] Initial screenshot captured")
             except Exception as e:
-                print(f"[@script_utils] Screenshot failed: {e}")
-                print(f"⚠️ [{self.script_name}] Failed to capture initial screenshot, continuing...")
+                print(f"⚠️ [{self.script_name}] Screenshot failed: {e}, continuing...")
             
             print(f"✅ [{self.script_name}] Execution context setup completed")
             
@@ -347,11 +359,6 @@ class ScriptExecutor:
             print(f"🗺️ [{self.script_name}] Loading unified navigation tree hierarchy...")
             
             # Use device's navigation executor
-            if not hasattr(context.selected_device, 'navigation_executor'):
-                context.error_message = "Device does not have navigation executor"
-                print(f"❌ [{self.script_name}] {context.error_message}")
-                return False
-            
             nav_executor = context.selected_device.navigation_executor
             
             # Load navigation tree with hierarchy
@@ -426,10 +433,9 @@ class ScriptExecutor:
                 step_start_timestamp = datetime.now().strftime('%H:%M:%S')
                 
                 # Capture step-start screenshot
-                step_name = f"step_{step_num}_{from_node}_{to_node}"
                 try:
                     av_controller = context.selected_device.get_controller('av')
-                    step_start_screenshot = av_controller.take_screenshot() if av_controller else ""
+                    step_start_screenshot = av_controller.take_screenshot()
                 except Exception as e:
                     print(f"[@script_utils] Screenshot failed: {e}")
                     step_start_screenshot = ""
@@ -455,7 +461,7 @@ class ScriptExecutor:
                 # Capture step-end screenshot
                 try:
                     av_controller = context.selected_device.get_controller('av')
-                    step_end_screenshot = av_controller.take_screenshot() if av_controller else ""
+                    step_end_screenshot = av_controller.take_screenshot()
                 except Exception as e:
                     print(f"[@script_utils] Screenshot failed: {e}")
                     step_end_screenshot = ""
@@ -613,71 +619,39 @@ class ScriptExecutor:
     def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> Dict[str, str]:
         """Generate and upload final execution report using device info"""
         try:
-            print(f"[@script_utils:generate_final_report] DEBUG: Starting final report generation...")
-            
             # Capture execution time BEFORE any additional processing
             actual_execution_time_ms = context.get_execution_time_ms()
             actual_test_duration_seconds = actual_execution_time_ms / 1000.0
             # Store in context for use in cleanup_and_exit
             context.baseline_execution_time_ms = actual_execution_time_ms
-            print(f"[@script_utils:generate_final_report] DEBUG: Captured baseline execution time: {actual_test_duration_seconds:.1f}s ({actual_execution_time_ms}ms)")
             
             # Capture final screenshot using device AV controller
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 1 - Capturing final screenshot...")
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
             try:
                 av_controller = context.selected_device.get_controller('av')
-                final_screenshot = av_controller.take_screenshot() if av_controller else ""
+                final_screenshot = av_controller.take_screenshot()
                 context.add_screenshot(final_screenshot)
-                if final_screenshot:
-                    print(f"✅ [{self.script_name}] Final screenshot captured")
+                print(f"✅ [{self.script_name}] Final screenshot captured")
             except Exception as e:
-                print(f"[@script_utils] Screenshot failed: {e}")
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 1 completed")
+                print(f"⚠️ [{self.script_name}] Screenshot failed: {e}")
             
             # Capture test execution video using device AV controller
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 2 - Capturing video...")
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
-            context.test_video_url = ""  # Initialize with empty string
             try:
                 av_controller = context.selected_device.get_controller('av')
                 
-                if av_controller and hasattr(av_controller, 'take_video'):
-                    # Use the captured baseline execution time
-                    test_start_time = context.start_time
-                    current_time = time.time()
-                    
-                    # Video size logic: same size or more, never less
-                    video_duration = max(10.0, actual_test_duration_seconds)
-                    
-                    print(f"🎥 [{self.script_name}] Test duration: {actual_test_duration_seconds:.1f}s, capturing {video_duration:.1f}s of video")
-                    print(f"🕐 [{self.script_name}] Test started: {test_start_time}, current: {current_time}")
-                    
-                    # Pass both duration and start time for synchronized capture
-                    test_video_url = av_controller.take_video(video_duration, test_start_time)
-                    if test_video_url:
-                        context.test_video_url = test_video_url
-                        print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
-                    else:
-                        print(f"⚠️ [{self.script_name}] Failed to capture test video, continuing with report generation...")
-                        context.test_video_url = ""
-                else:
-                    print(f"⚠️ [{self.script_name}] AV controller doesn't support video capture, continuing with report generation...")
-                    context.test_video_url = ""
+                # Use the captured baseline execution time
+                video_duration = max(10.0, actual_test_duration_seconds)
+                test_video_url = av_controller.take_video(video_duration, context.start_time)
+                context.test_video_url = test_video_url
+                print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
             except Exception as e:
-                print(f"⚠️ [{self.script_name}] Error capturing test video: {e}, continuing with report generation...")
+                print(f"⚠️ [{self.script_name}] Video capture failed: {e}")
                 context.test_video_url = ""
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 2 completed")
             
             # Generate and upload report using device script executor info
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 3 - Preparing report data...")
             device_info = context.selected_device.script_executor.get_device_info_for_report()
             host_info = context.selected_device.script_executor.get_host_info_for_report()
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 3 completed")
-            
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 4 - Calling generate_and_upload_script_report...")
-            print(f"[@script_utils:generate_final_report] DEBUG: Screenshot count: {len(context.screenshot_paths)}")
-            print(f"[@script_utils:generate_final_report] DEBUG: Step results count: {len(context.step_results)}")
             
             # Stop stdout capture before generating report
             context.stop_stdout_capture()
@@ -728,22 +702,14 @@ class ScriptExecutor:
                 except Exception as e:
                     print(f"[@script_utils] Failed to extract logs URL: {e}")
             
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 4 completed - generate_and_upload_script_report returned")
-            print(f"[@script_utils:generate_final_report] DEBUG: Report result keys: {list(report_result.keys()) if report_result else 'None'}")
-            
             if report_result.get('success') and report_result.get('report_url'):
                 print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
-                # Display log URL right after report URL
                 if report_result.get('logs_url'):
                     print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
             
-            print(f"[@script_utils:generate_final_report] DEBUG: Step 5 - About to return report_result")
             return report_result
             
         except Exception as e:
-            print(f"[@script_utils:generate_final_report] ERROR: Exception in generate_final_report: {e}")
-            import traceback
-            print(f"[@script_utils:generate_final_report] ERROR: Traceback: {traceback.format_exc()}")
             print(f"⚠️ [{self.script_name}] Error in report generation: {e}")
             return {
                 'success': False,
@@ -756,13 +722,9 @@ class ScriptExecutor:
         try:
             # Output results for execution system FIRST
             success_str = str(context.overall_success).lower()
-            print(f"[@script_utils:cleanup_and_exit] DEBUG: About to output SCRIPT_SUCCESS marker")
-            print(f"[@script_utils:cleanup_and_exit] DEBUG: context.overall_success = {context.overall_success}")
-            print(f"[@script_utils:cleanup_and_exit] DEBUG: success_str = {success_str}")
             print(f"SCRIPT_SUCCESS:{success_str}")
             import sys
             sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
-            print(f"[@script_utils:cleanup_and_exit] DEBUG: SCRIPT_SUCCESS marker printed and flushed")
             
             # Generate report AFTER outputting success marker
             report_result = None
@@ -787,9 +749,7 @@ class ScriptExecutor:
             if context.script_result_id:
                 if context.overall_success:
                     print(f"📝 [{self.script_name}] Recording success in database...")
-                    # Use baseline execution time if available, otherwise current time
                     execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
-                    print(f"[@script_utils:cleanup_and_exit] DEBUG: Using execution time for DB: {execution_time_for_db}ms ({execution_time_for_db/1000:.1f}s)")
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=True,
