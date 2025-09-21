@@ -32,6 +32,7 @@ export interface EndpointConfig {
   expected_status: number[];
   body?: any;
   params?: any;
+  category?: string;
 }
 
 export interface ApiTestingState {
@@ -152,7 +153,6 @@ export const useApiTesting = () => {
       // Final state update
       setState(prev => {
         const passed = prev.liveResults.filter(r => r.status === 'pass').length;
-        const percentage = Math.round((passed / prev.liveResults.length) * 100);
         
         // Create report only for normal tests, not quick tests
         let finalReport = null;
