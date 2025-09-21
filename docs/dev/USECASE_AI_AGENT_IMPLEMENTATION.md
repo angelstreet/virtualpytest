@@ -534,7 +534,7 @@ class UseCaseAIAgent(AIAgentController):
 
 ### **2. API Routes**
 
-**Location**: `backend_server/src/routes/server_aitestcase_routes.py` (following your naming pattern)
+**Location**: `backend_server/src/routes/server_ai_testcase_routes.py` (following your naming pattern)
 
 ```python
 from flask import Blueprint, request, jsonify

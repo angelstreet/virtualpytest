@@ -109,7 +109,7 @@ CONTROLLER_VERIFICATION_MAP = {
 
 ## 🔧 Step 4: Add Comprehensive Server Logging
 
-**File**: `backend_server/src/routes/server_aitestcase_routes.py`
+**File**: `backend_server/src/routes/server_ai_testcase_routes.py`
 
 **Action**: Add detailed logging in `analyze_test_case()` function.
 

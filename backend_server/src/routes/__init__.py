@@ -16,10 +16,10 @@
 # from . import server_navigation_execution_routes
 # from . import server_devicemodel_routes
 # from . import server_remote_routes
-# from . import server_ai_routes
-# from . import server_aiagent_routes
+# from . import server_ai_execution_routes
+# from . import server_ai_testcase_routes
 # from . import server_ai_generation_routes
-# from . import server_aitestcase_routes
+# from . import server_ai_tools_routes
 # from . import server_desktop_bash_routes
 # from . import server_power_routes
 # from . import server_desktop_pyautogui_routes
@@ -28,7 +28,6 @@
 # from . import server_campaign_routes
 # from . import server_testcase_routes
 # from . import server_userinterface_routes
-# from . import server_mcp_routes
 # from . import server_av_routes
 # from . import server_restart_routes
 # from . import server_monitoring_routes

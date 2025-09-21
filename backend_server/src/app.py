@@ -151,21 +151,21 @@ def register_all_server_routes(app):
         from routes import server_remote_routes
         print("[@backend_server:routes] ✅ server_remote_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_ai_routes...")
-        from routes import server_ai_routes
-        print("[@backend_server:routes] ✅ server_ai_routes imported successfully")
+        print("[@backend_server:routes] 🔍 Importing server_ai_execution_routes...")
+        from routes import server_ai_execution_routes
+        print("[@backend_server:routes] ✅ server_ai_execution_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_aiagent_routes...")
-        from routes import server_aiagent_routes
-        print("[@backend_server:routes] ✅ server_aiagent_routes imported successfully")
+        print("[@backend_server:routes] 🔍 Importing server_ai_testcase_routes...")
+        from routes import server_ai_testcase_routes
+        print("[@backend_server:routes] ✅ server_ai_testcase_routes imported successfully")
         
         print("[@backend_server:routes] 🔍 Importing server_ai_generation_routes...")
         from routes import server_ai_generation_routes
         print("[@backend_server:routes] ✅ server_ai_generation_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_aitestcase_routes...")
-        from routes import server_aitestcase_routes
-        print("[@backend_server:routes] ✅ server_aitestcase_routes imported successfully")
+        print("[@backend_server:routes] 🔍 Importing server_ai_tools_routes...")
+        from routes import server_ai_tools_routes
+        print("[@backend_server:routes] ✅ server_ai_tools_routes imported successfully")
         
         print("[@backend_server:routes] 🔍 Importing server_desktop_bash_routes...")
         from routes import server_desktop_bash_routes
@@ -199,9 +199,6 @@ def register_all_server_routes(app):
         from routes import server_userinterface_routes
         print("[@backend_server:routes] ✅ server_userinterface_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_mcp_routes...")
-        from routes import server_mcp_routes
-        print("[@backend_server:routes] ✅ server_mcp_routes imported successfully")
         
         print("[@backend_server:routes] 🔍 Importing server_av_routes...")
         from routes import server_av_routes
@@ -266,10 +263,10 @@ def register_all_server_routes(app):
             (server_navigation_execution_routes.server_navigation_execution_bp, 'Navigation execution'),
             (server_devicemodel_routes.server_devicemodel_bp, 'Device model management'),
             (server_remote_routes.server_remote_bp, 'Remote control operations'),
-            (server_ai_routes.server_ai_bp, 'AI operations'),
-            (server_aiagent_routes.server_aiagent_bp, 'AI agent operations (proxy to host)'),
+            (server_ai_execution_routes.server_ai_execution_bp, 'AI execution operations'),
+            (server_ai_testcase_routes.server_ai_testcase_bp, 'AI test case operations'),
             (server_ai_generation_routes.server_ai_generation_bp, 'AI interface generation'),
-            (server_aitestcase_routes.server_aitestcase_bp, 'AI test case generation'),
+            (server_ai_tools_routes.server_ai_tools_bp, 'AI tools and debugging'),
             (server_desktop_bash_routes.server_desktop_bash_bp, 'Desktop bash control'),
             (server_power_routes.server_power_bp, 'Power management'),
             (server_desktop_pyautogui_routes.server_desktop_pyautogui_bp, 'Desktop automation'),
@@ -278,7 +275,6 @@ def register_all_server_routes(app):
             (server_campaign_routes.server_campaign_bp, 'Campaign management'),
             (server_testcase_routes.server_testcase_bp, 'Test case management'),
             (server_userinterface_routes.server_userinterface_bp, 'User interface management'),
-            (server_mcp_routes.server_mcp_bp, 'MCP operations'),
             (server_av_routes.server_av_bp, 'Audio/Video operations'),
             (server_restart_routes.server_restart_bp, 'Restart video system'),
             (server_monitoring_routes.server_monitoring_bp, 'Monitoring system'),

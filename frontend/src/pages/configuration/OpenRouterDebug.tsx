@@ -207,7 +207,7 @@ RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED`
 
     try {
       // Call the AI utils directly through the debug endpoint
-      const response = await fetch(buildServerUrl('/server/aiagent/debug'), {
+      const response = await fetch(buildServerUrl('/server/ai-tools/debug/openrouter'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -66,7 +66,7 @@ export const useMCPTask = (): UseMCPTaskReturn => {
     setLastResponse(null);
 
     try {
-      const response = await fetch(buildServerUrl('/server/mcp/execute-task'), {
+      const response = await fetch(buildServerUrl('/server/ai-tools/mcp/execute-task'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

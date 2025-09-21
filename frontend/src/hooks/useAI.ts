@@ -161,7 +161,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   const analyzeCompatibility = useCallback(async (prompt: string) => {
     try {
-      const response = await fetch(buildServerUrl('/server/ai/analyzeCompatibility'), {
+      const response = await fetch(buildServerUrl('/server/ai-execution/analyzeCompatibility'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
@@ -180,7 +180,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   const generatePlan = useCallback(async (prompt: string, userinterface_name: string) => {
     try {
-      const response = await fetch(buildServerUrl('/server/ai/generatePlan'), {
+      const response = await fetch(buildServerUrl('/server/ai-execution/generatePlan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, userinterface_name })
@@ -219,11 +219,11 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       // Show start notification (only major state changes)
       toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
-      const response = await fetch(buildServerUrl('/server/ai/executeTask'), {
+      const response = await fetch(buildServerUrl('/server/ai-execution/executeTask'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt,
+          task_description: prompt,
           userinterface_name,
           host_name: host.host_name,
           device_id: device.device_id
@@ -249,7 +249,15 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
             });
           }
           
-          const statusResponse = await fetch(buildServerUrl(`/server/ai/status/${executionId}?device_id=${device.device_id}`));
+          const statusResponse = await fetch(buildServerUrl(`/server/ai-execution/getStatus`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              execution_id: executionId,
+              device_id: device.device_id,
+              host_name: host.host_name
+            })
+          });
           const status = await statusResponse.json();
 
           setExecutionStatus(status);
@@ -361,7 +369,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   const executeTestCase = useCallback(async (testCaseId: string) => {
     try {
-      const response = await fetch(buildServerUrl('/server/ai/executeTestCase'), {
+      const response = await fetch(buildServerUrl('/server/ai-testcase/execute'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

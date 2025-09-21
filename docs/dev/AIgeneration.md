@@ -60,7 +60,7 @@ if available_actions is None or available_verifications is None:
 
 ### 2. Server Route Integration
 
-Server AI test case routes (`backend_server/src/routes/server_aitestcase_routes.py`) use enhanced descriptions:
+Server AI test case routes (`backend_server/src/routes/server_ai_testcase_routes.py`) use enhanced descriptions:
 
 ```python
 # In generate_test_case() route
