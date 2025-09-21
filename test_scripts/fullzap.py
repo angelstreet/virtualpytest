@@ -245,7 +245,7 @@ def main():
         nav_success = True
         if args.goto_live:
             print(f"🗺️ [fullzap] Navigating to {target_node} node...")
-            nav_executor = NavigationExecutor(context.selected_device)
+            nav_executor = context.selected_device.navigation_executor
             live_result = nav_executor.execute_navigation(context.tree_id, target_node, context.current_node_id)
             
             if not live_result.get('success'):
