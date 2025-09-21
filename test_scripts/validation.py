@@ -43,8 +43,8 @@ def get_node_label_from_id(node_id: str, tree_id: str, team_id: str) -> str:
         Node label if found, otherwise returns the node_id with (unknown) suffix
     """
     try:
-        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
-        from shared.src.lib.utils.navigation_graph import get_node_info
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+        from backend_host.src.lib.utils.navigation_graph import get_node_info
         
         unified_graph = get_cached_unified_graph(tree_id, team_id)
         if unified_graph:
@@ -609,8 +609,8 @@ def main():
             return
         
         # Initialize current position to entry point for pathfinding
-        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
-        from shared.src.lib.utils.navigation_graph import get_entry_points
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+        from backend_host.src.lib.utils.navigation_graph import get_entry_points
         
         unified_graph = get_cached_unified_graph(context.tree_id, context.team_id)
         if unified_graph:

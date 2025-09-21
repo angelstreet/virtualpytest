@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 #DISABLED: from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 # get_controller functionality proxied to host
-from .route_utils import proxy_to_host
+# Removed unused import: from .route_utils import proxy_to_host
 from .report_utils import capture_and_upload_screenshot
 from .audio_menu_analyzer import analyze_audio_menu
 

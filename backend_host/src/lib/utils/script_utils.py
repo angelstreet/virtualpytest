@@ -53,7 +53,7 @@ from typing import Tuple, Dict, Any, Optional, List, Callable
 from shared.src.lib.utils.app_utils import load_environment_variables
 from  backend_host.src.lib.utils.host_utils import get_host_instance, list_available_devices, get_controller
 from  backend_host.src.lib.utils.navigation_cache import populate_cache
-from  backend_host.src.lib.utils.report_utils import generate_and_upload_script_report
+from shared.src.lib.utils.report_generation_utils import generate_and_upload_script_report
 from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
 
 DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
