@@ -30,7 +30,7 @@ if project_root not in sys.path:
 
 from backend_host.src.lib.utils.script_utils import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from backend_host.src.lib.utils.zap_controller import ZapController
-from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
+from shared.src.lib.utils.navigation_utils import goto_node
 from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
@@ -245,8 +245,7 @@ def main():
         nav_success = True
         if args.goto_live:
             print(f"🗺️ [fullzap] Navigating to {target_node} node...")
-            nav_executor = context.selected_device.navigation_executor
-            live_result = nav_executor.execute_navigation(context.tree_id, target_node, context.current_node_id, team_id=context.team_id)
+            live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
             
             if not live_result.get('success'):
                 context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
@@ -263,7 +262,8 @@ def main():
             
             # IMPORTANT: Manually set current node to target since we're assuming we're already there
             # This prevents navigation from going back to home during script execution
-            target_node_obj = context.selected_device.navigation_executor.find_node_by_label(context.nodes, target_node)
+            from shared.lib.utils.navigation_utils import find_node_by_label
+            target_node_obj = find_node_by_label(context.nodes, target_node)
             if target_node_obj:
                 target_node_id = target_node_obj.get('node_id')
                 context.current_node_id = target_node_id
@@ -283,8 +283,9 @@ def main():
         
         # Find the actual action edge from current node to target node
         print(f"🔍 [fullzap] Finding edge for action '{mapped_action}' from current node...")
+        from shared.lib.utils.navigation_utils import find_edge_by_target_label
         
-        action_edge = context.selected_device.navigation_executor.find_edge_by_target_label(
+        action_edge = find_edge_by_target_label(
             context.current_node_id, 
             context.edges, 
             context.all_nodes, 

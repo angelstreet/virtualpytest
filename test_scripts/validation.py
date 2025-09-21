@@ -63,14 +63,39 @@ def get_node_label_from_id(node_id: str, tree_id: str, team_id: str) -> str:
 def custom_validation_step_handler(context: ScriptExecutionContext, step, step_num):
     """Enhanced validation step handler with force navigation recovery on failure"""
     try:
+        # Step start screenshot - capture BEFORE action execution (like ZapController)
+        from_node = step.get('from_node_label', 'unknown')
+        to_node = step.get('to_node_label', 'unknown')
+        step_name = f"validation_step_{step_num}_{from_node}_{to_node}"
+        
+        from shared.src.lib.utils.report_generation_utils import capture_and_upload_screenshot
+        step_start_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"{step_name}_start", "validation")
+        step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
+        
+        if step_start_screenshot_path:
+            print(f"📸 [validation] Step-start screenshot captured: {step_start_screenshot_path}")
+            context.add_screenshot(step_start_screenshot_path)
+
         # Attempt normal navigation execution first using ActionExecutor
         from backend_host.src.services.actions.action_executor import ActionExecutor
         actions = step.get('actions', [])
         if actions:
             action_executor = ActionExecutor(context.selected_device, context.tree_id, step.get('edge_id'))
-            result = action_executor.execute_actions(actions)
+            result = action_executor.execute_actions(actions, team_id=context.team_id)
         else:
             result = {'success': True, 'message': 'No actions to execute'}
+
+        # Step end screenshot - capture AFTER action execution (like ZapController)
+        step_end_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"{step_name}_end", "validation")
+        step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
+        
+        if step_end_screenshot_path:
+            print(f"📸 [validation] Step-end screenshot captured: {step_end_screenshot_path}")
+            context.add_screenshot(step_end_screenshot_path)
+
+        # Add step screenshots to result (like ZapController)
+        result['step_start_screenshot_path'] = step_start_screenshot_path
+        result['step_end_screenshot_path'] = step_end_screenshot_path
         
         # Update global verification counter for next step
         counter_increment = result.get('global_verification_counter_increment', 0)
