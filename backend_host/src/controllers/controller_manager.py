@@ -449,13 +449,23 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization
+        print(f"[@controller_manager:_create_device_with_controllers] Creating ActionExecutor for device: {device_id}")
         device.action_executor = ActionExecutor(device)
+        
+        print(f"[@controller_manager:_create_device_with_controllers] Creating NavigationExecutor for device: {device_id}")
         device.navigation_executor = NavigationExecutor(device)
+        
+        print(f"[@controller_manager:_create_device_with_controllers] Creating VerificationExecutor for device: {device_id}")
         device.verification_executor = VerificationExecutor(device)
+        
+        print(f"[@controller_manager:_create_device_with_controllers] Creating AIExecutor for device: {device_id}")
         device.ai_executor = AIExecutor(device)
+        
+        print(f"[@controller_manager:_create_device_with_controllers] Creating ScriptExecutor for device: {device_id}")
         device.script_executor = ScriptExecutor(device)
         
         print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
+        print(f"[@controller_manager:_create_device_with_controllers] ✓ Device {device_id} has script_executor: {hasattr(device, 'script_executor')}")
         
     except Exception as e:
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")

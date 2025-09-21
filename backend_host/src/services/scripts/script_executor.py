@@ -13,20 +13,14 @@ import select
 import threading
 from typing import Dict, List, Optional, Any, Tuple
 
-from src.services.ai.ai_executor import AIExecutor
-from src.services.actions.action_executor import ActionExecutor
-from src.services.verifications.verification_executor import VerificationExecutor
-from src.services.navigation.navigation_executor import NavigationExecutor
 
 
 class ScriptExecutor:
     """
-    Unified script executor per device that orchestrates all execution capabilities:
+    Script executor per device that handles Python script execution:
     - Script execution with real-time output streaming
-    - AI plan generation and execution via AIExecutor
-    - Action execution via ActionExecutor
-    - Verification execution via VerificationExecutor
-    - Navigation execution via NavigationExecutor
+    - AI test case redirection
+    - Report generation integration
     """
     
     def __init__(self, device):
@@ -46,17 +40,11 @@ class ScriptExecutor:
         self.device_model = device.device_model
         self.current_team_id = None
         
-        # Initialize integrated executors
-        self.ai_executor = AIExecutor(device)
-        self.action_executor = ActionExecutor(device)
-        self.verification_executor = VerificationExecutor(device)
-        self.navigation_executor = NavigationExecutor(device)
+        print(f"[@script_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
     def set_team_id(self, team_id: str):
         """Set team_id for script execution"""
         self.current_team_id = team_id
-        
-        print(f"[@script_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
     def execute_script(self, script_name: str, parameters: str = "") -> Dict[str, Any]:
         """Execute a script with parameters and real-time output streaming"""
@@ -118,66 +106,6 @@ class ScriptExecutor:
                 'report_url': ""
             }
     
-    def execute_ai_prompt(self, 
-                         prompt: str, 
-                         userinterface_name: str,
-                         current_node_id: Optional[str] = None,
-                         async_execution: bool = True,
-                         team_id: Optional[str] = None) -> Dict[str, Any]:
-        """Execute AI prompt via integrated AI executor"""
-        return self.ai_executor.execute_prompt(
-            prompt=prompt,
-            userinterface_name=userinterface_name,
-            current_node_id=current_node_id,
-            async_execution=async_execution,
-            team_id=team_id
-        )
-    
-    def execute_actions(self, 
-                       actions: List[Dict[str, Any]], 
-                       retry_actions: Optional[List[Dict[str, Any]]] = None,
-                       failure_actions: Optional[List[Dict[str, Any]]] = None,
-                       team_id: Optional[str] = None) -> Dict[str, Any]:
-        """Execute batch of actions via integrated action executor"""
-        return self.action_executor.execute_actions(
-            actions=actions,
-            retry_actions=retry_actions,
-            failure_actions=failure_actions,
-            team_id=team_id
-        )
-    
-    def execute_verifications(self, 
-                             verifications: List[Dict[str, Any]], 
-                             team_id: Optional[str] = None) -> Dict[str, Any]:
-        """Execute batch of verifications via integrated verification executor"""
-        return self.verification_executor.execute_verifications(
-            verifications=verifications,
-            team_id=team_id
-        )
-    
-    def execute_navigation(self, 
-                          tree_id: str,
-                          target_node_id: str,
-                          current_node_id: Optional[str] = None,
-                          team_id: Optional[str] = None) -> Dict[str, Any]:
-        """Execute navigation via integrated navigation executor"""
-        return self.navigation_executor.execute_navigation(
-            tree_id=tree_id,
-            target_node_id=target_node_id,
-            current_node_id=current_node_id
-        )
-    
-    def get_device_position(self) -> Dict[str, Any]:
-        """Get current device position from navigation executor"""
-        return self.navigation_executor.get_current_position()
-    
-    def update_device_position(self, node_id: str, tree_id: str = None, node_label: str = None) -> Dict[str, Any]:
-        """Update device position via navigation executor"""
-        return self.navigation_executor.update_current_position(node_id, tree_id, node_label)
-    
-    def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
-        """Get AI execution status via AI executor"""
-        return self.ai_executor.get_execution_status(execution_id)
     
     def get_device_info_for_report(self) -> Dict[str, Any]:
         """Get device information for report generation"""

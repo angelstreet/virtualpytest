@@ -37,6 +37,7 @@ const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
 const AIQueueMonitor = React.lazy(() => import('./pages/AIQueueMonitor'));
 const HLSDebugPage = React.lazy(() => import('./pages/HLSDebugPage'));
 const OpenRouterDebug = React.lazy(() => import('./pages/configuration/OpenRouterDebug'));
+const ApiTestingPage = React.lazy(() => import('./pages/configuration/ApiTestingPage'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -201,6 +202,7 @@ const App: React.FC = () => {
                   <Route path="/configuration/library" element={<Library />} />
                   <Route path="/configuration/environment" element={<Environment />} />
                   <Route path="/configuration/openrouter" element={<OpenRouterDebug />} />
+                  <Route path="/configuration/api-testing" element={<ApiTestingPage />} />
 
                   {/* Navigation Editor Route */}
                   <Route

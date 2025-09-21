@@ -18,6 +18,7 @@ import {
   Notifications as NotificationsIcon,
   Dashboard as DashboardIcon,
   SmartToy as AIIcon,
+  Api as ApiIcon,
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -126,6 +127,11 @@ const NavigationBar: React.FC = () => {
       label: 'OpenRouter Debug',
       path: '/configuration/openrouter',
       icon: <AIIcon fontSize="small" />,
+    },
+    {
+      label: 'API Testing',
+      path: '/configuration/api-testing',
+      icon: <ApiIcon fontSize="small" />,
     },
   ];
 

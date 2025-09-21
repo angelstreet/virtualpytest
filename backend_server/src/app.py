@@ -244,6 +244,10 @@ def register_all_server_routes(app):
         from routes import server_translation_routes
         print("[@backend_server:routes] ✅ server_translation_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_api_testing_routes...")
+        from routes import server_api_testing_routes
+        print("[@backend_server:routes] ✅ server_api_testing_routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -285,7 +289,8 @@ def register_all_server_routes(app):
             (server_campaign_results_routes.server_campaign_results_bp, 'Campaign results'),
             (server_frontend_routes.server_frontend_bp, 'Frontend control'),
             (server_ai_queue_routes.server_ai_queue_bp, 'AI queue monitoring'),
-            (server_translation_routes.server_translation_bp, 'Translation services')
+            (server_translation_routes.server_translation_bp, 'Translation services'),
+            (server_api_testing_routes.server_api_testing_bp, 'API testing system')
         ]
         
         for blueprint, description in blueprints:
