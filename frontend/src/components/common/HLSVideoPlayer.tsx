@@ -81,9 +81,28 @@ export function HLSVideoPlayer({
   }, [videoElementRef]);
 
   const cleanupStream = useCallback(() => {
+    console.log('[@component:HLSVideoPlayer] Starting aggressive stream cleanup');
+    
     if (hlsRef.current) {
       try {
-        hlsRef.current.destroy();
+        // More aggressive HLS cleanup
+        const hls = hlsRef.current;
+        
+        // Stop loading and detach media first
+        hls.stopLoad();
+        
+        // Remove all event listeners to prevent callbacks
+        hls.removeAllListeners();
+        
+        // Detach media source
+        if (videoRef.current) {
+          hls.detachMedia();
+        }
+        
+        // Finally destroy the instance
+        hls.destroy();
+        
+        console.log('[@component:HLSVideoPlayer] HLS instance destroyed successfully');
       } catch (error) {
         console.warn('[@component:HLSVideoPlayer] Error destroying HLS instance:', error);
       }
@@ -91,15 +110,34 @@ export function HLSVideoPlayer({
     }
 
     if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.src = '';
-      videoRef.current.load();
+      const video = videoRef.current;
+      
+      // Pause and clear video
+      video.pause();
+      
+      // Remove all event listeners from video element
+      video.removeAttribute('src');
+      video.removeAttribute('srcObject');
+      
+      // Clear any media source
+      if (video.srcObject) {
+        video.srcObject = null;
+      }
+      
+      // Force reload to clear any cached data
+      video.load();
+      
+      console.log('[@component:HLSVideoPlayer] Video element cleaned up');
     }
 
+    // Reset all state
     setStreamLoaded(false);
     setStreamError(null);
     setSegmentFailureCount(0);
     setFfmpegStuck(false);
+    setCurrentStreamUrl(null);
+    
+    console.log('[@component:HLSVideoPlayer] Stream cleanup completed');
   }, []);
 
   const attemptPlay = useCallback(() => {
@@ -461,10 +499,9 @@ export function HLSVideoPlayer({
     }
 
     return () => {
-      // Only cleanup when component unmounts or stream becomes inactive
-      if (!isStreamActive) {
-        cleanupStream();
-      }
+      // Always cleanup when component unmounts
+      console.log('[@component:HLSVideoPlayer] Component unmounting or effect cleanup, forcing stream cleanup');
+      cleanupStream();
     };
   }, [streamUrl, isStreamActive, currentStreamUrl, ffmpegStuck]); // Added ffmpegStuck dependency
 
@@ -476,6 +513,25 @@ export function HLSVideoPlayer({
       console.log('[@component:HLSVideoPlayer] Video ready state changed:', ready);
     }
   }, [streamLoaded, isVideoReady]);
+
+  // Dedicated cleanup effect for component unmount - always runs
+  useEffect(() => {
+    return () => {
+      console.log('[@component:HLSVideoPlayer] Component unmounting - final cleanup');
+      // Force cleanup regardless of any conditions
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.stopLoad();
+          hlsRef.current.removeAllListeners();
+          hlsRef.current.detachMedia();
+          hlsRef.current.destroy();
+        } catch (error) {
+          console.warn('[@component:HLSVideoPlayer] Final cleanup error:', error);
+        }
+        hlsRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   return (
     <Box
