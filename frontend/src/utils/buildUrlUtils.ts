@@ -76,11 +76,6 @@ const internalBuildHostUrl = (host: any, endpoint: string): string => {
     return `${hostUrl}/${cleanEndpoint}`;
   }
 
-  // Fallback: construct from host_ip and host_port
-  if (host.host_ip && host.host_port) {
-    return `https://${host.host_ip}:${host.host_port}/${cleanEndpoint}`;
-  }
-
   throw new Error('Host must have either host_url or both host_ip and host_port');
 };
 

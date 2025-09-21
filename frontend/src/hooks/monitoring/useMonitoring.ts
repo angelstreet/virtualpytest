@@ -7,7 +7,7 @@ import {
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
 
-import { buildServerUrl, buildHostImageUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
 interface FrameRef {
   timestamp: string;
   imageUrl: string;
@@ -228,8 +228,7 @@ export const useMonitoring = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.screenshot_url) {
-          // Use centralized URL builder for base pattern
-          const basePattern = buildHostImageUrl(host, 'stream/capture2/captures/capture_{sequence}.jpg');
+          const basePattern = buildCaptureUrl(host, '{sequence}', device?.device_id);
           
           setAutonomousBaseUrlPattern(basePattern);
           console.log(`[useMonitoring] Autonomous base URL pattern initialized: ${basePattern}`);
@@ -270,9 +269,8 @@ export const useMonitoring = ({
           const sequence = sequenceMatch ? sequenceMatch[1] : '';
           const filename = `capture_${sequence}`;
           
-          // Use centralized URL builders
-          const imageUrl = buildHostImageUrl(host, `stream/capture2/captures/${filename}.jpg`);
-          const jsonUrl = buildHostImageUrl(host, `stream/capture2/captures/${filename}.json`);
+          const imageUrl = buildCaptureUrl(host, sequence, device?.device_id);
+          const jsonUrl = imageUrl.replace('.jpg', '.json');
           const timestamp = result.timestamp || new Date().toISOString();
           
           console.log(`[useMonitoring] Latest JSON: ${jsonUrl} -> Image: ${imageUrl}`);
