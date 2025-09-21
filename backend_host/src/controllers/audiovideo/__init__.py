@@ -9,15 +9,13 @@ Available Controllers:
 - CameraStreamController: Camera stream controller with calibration capabilities
 
 Available Helpers:
-- VideoRestartHelpers: Restart video generation and analysis functionality
+(VideoRestartHelpers moved to verification package)
 """
 
 from .hdmi_stream import HDMIStreamController
 from .camera_stream import CameraStreamController
-from .video_restart_helpers import VideoRestartHelpers
 
 __all__ = [
     'HDMIStreamController',
-    'CameraStreamController',
-    'VideoRestartHelpers'
+    'CameraStreamController'
 ]

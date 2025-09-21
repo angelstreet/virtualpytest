@@ -314,7 +314,7 @@ class FFmpegCaptureController(AVControllerInterface):
     def restart_helpers(self):
         """Lazy initialization of restart helpers"""
         if self._restart_helpers is None:
-            from .audiovideo.video_restart_helpers import VideoRestartHelpers
+            from .verification.video_restart_helpers import VideoRestartHelpers
             self._restart_helpers = VideoRestartHelpers(self, self.real_device_name)
         return self._restart_helpers
     
