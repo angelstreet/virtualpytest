@@ -67,7 +67,7 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         from backend_host.src.services.actions.action_executor import ActionExecutor
         actions = step.get('actions', [])
         if actions:
-            action_executor = ActionExecutor(context.host, context.selected_device, context.tree_id, step.get('edge_id'), context.team_id)
+            action_executor = ActionExecutor(context.selected_device, context.tree_id, step.get('edge_id'))
             result = action_executor.execute_actions(actions)
         else:
             result = {'success': True, 'message': 'No actions to execute'}
