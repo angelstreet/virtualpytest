@@ -33,6 +33,7 @@ import React, { useState, useEffect } from 'react';
 import { useExecutionResults } from '../hooks/pages/useExecutionResults';
 import { useScriptResults } from '../hooks/pages/useScriptResults';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
+import { useNavigationConfig } from '../contexts/navigation/NavigationConfigContext';
 
 interface ScriptNodeDependency {
   script_result_id: string;
@@ -92,6 +93,7 @@ const DependencyReport: React.FC = () => {
   const { getAllScriptResults } = useScriptResults();
   const { getAllExecutionResults } = useExecutionResults();
   const { getAllUserInterfaces } = useUserInterface();
+  const navigationConfig = useNavigationConfig();
 
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -120,6 +122,38 @@ const DependencyReport: React.FC = () => {
       newExpanded.add(rowId);
     }
     setExpandedRows(newExpanded);
+  };
+
+  // Helper function to get proper labels for nodes and edges
+  const getElementLabel = async (elementId: string, elementType: 'node' | 'edge', treeId: string, fallbackName?: string): Promise<string> => {
+    // First, use the fallback name if available (this should be element_name from execution results)
+    if (fallbackName) {
+      return fallbackName;
+    }
+
+    try {
+      // If no fallback, try to fetch from navigation data
+      const treeData = await navigationConfig.loadTreeData(treeId);
+      
+      if (treeData.success) {
+        if (elementType === 'node') {
+          const node = treeData.nodes?.find((n: any) => n.node_id === elementId);
+          if (node?.label) {
+            return node.label;
+          }
+        } else if (elementType === 'edge') {
+          const edge = treeData.edges?.find((e: any) => e.edge_id === elementId);
+          if (edge?.label) {
+            return edge.label;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[@component:DependencyReport] Failed to fetch ${elementType} label for ${elementId}:`, error);
+    }
+
+    // Last resort fallback
+    return elementType === 'node' ? 'Unnamed Node' : 'Unnamed Edge';
   };
 
   // Load data on component mount
@@ -192,19 +226,25 @@ const DependencyReport: React.FC = () => {
             nodeMap.get(exec.node_id!)!.push({ success: exec.success });
           });
 
-          const nodes = Array.from(nodeMap.entries()).map(([nodeId, executions]) => {
-            const successCount = executions.filter((e) => e.success).length;
-            const nodeName =
-              data.nodeExecutions.find((e) => e.node_id === nodeId)?.element_name ||
-              'Unnamed Node';
+          const nodes = await Promise.all(
+            Array.from(nodeMap.entries()).map(async ([nodeId, executions]) => {
+              const successCount = executions.filter((e) => e.success).length;
+              const execution = data.nodeExecutions.find((e) => e.node_id === nodeId);
+              const nodeName = await getElementLabel(
+                nodeId,
+                'node',
+                execution?.tree_id || '',
+                execution?.element_name
+              );
 
-            return {
-              node_id: nodeId,
-              node_name: nodeName,
-              execution_count: executions.length,
-              success_rate: (successCount / executions.length) * 100,
-            };
-          });
+              return {
+                node_id: nodeId,
+                node_name: nodeName,
+                execution_count: executions.length,
+                success_rate: (successCount / executions.length) * 100,
+              };
+            })
+          );
 
           if (nodes.length > 0) {
             scriptNodeDeps.push({
@@ -263,19 +303,25 @@ const DependencyReport: React.FC = () => {
             edgeMap.get(exec.edge_id!)!.push({ success: exec.success });
           });
 
-          const edges = Array.from(edgeMap.entries()).map(([edgeId, executions]) => {
-            const successCount = executions.filter((e) => e.success).length;
-            const edgeName =
-              data.edgeExecutions.find((e) => e.edge_id === edgeId)?.element_name ||
-              'Unnamed Edge';
+          const edges = await Promise.all(
+            Array.from(edgeMap.entries()).map(async ([edgeId, executions]) => {
+              const successCount = executions.filter((e) => e.success).length;
+              const execution = data.edgeExecutions.find((e) => e.edge_id === edgeId);
+              const edgeName = await getElementLabel(
+                edgeId,
+                'edge',
+                execution?.tree_id || '',
+                execution?.element_name
+              );
 
-            return {
-              edge_id: edgeId,
-              edge_name: edgeName,
-              execution_count: executions.length,
-              success_rate: (successCount / executions.length) * 100,
-            };
-          });
+              return {
+                edge_id: edgeId,
+                edge_name: edgeName,
+                execution_count: executions.length,
+                success_rate: (successCount / executions.length) * 100,
+              };
+            })
+          );
 
           if (edges.length > 0) {
             scriptEdgeDeps.push({
@@ -302,12 +348,23 @@ const DependencyReport: React.FC = () => {
           }
         >();
 
+        // First, collect all unique nodes and their basic info
+        const nodePromises = new Map<string, Promise<string>>();
+        
         executionResults
           .filter((exec) => exec.execution_type === 'verification' && exec.node_id)
           .forEach((exec) => {
             if (!nodeMap.has(exec.node_id!)) {
+              // Create a promise for the node name if we haven't already
+              if (!nodePromises.has(exec.node_id!)) {
+                nodePromises.set(
+                  exec.node_id!,
+                  getElementLabel(exec.node_id!, 'node', exec.tree_id, exec.element_name)
+                );
+              }
+              
               nodeMap.set(exec.node_id!, {
-                node_name: exec.element_name || 'Unnamed Node',
+                node_name: '', // Will be filled later
                 tree_name: treeMap[exec.tree_id] || exec.tree_name,
                 script_executions: [],
               });
@@ -323,6 +380,22 @@ const DependencyReport: React.FC = () => {
               });
             }
           });
+
+        // Resolve all node name promises
+        const nodeNameResults = await Promise.all(
+          Array.from(nodePromises.entries()).map(async ([nodeId, namePromise]) => ({
+            nodeId,
+            name: await namePromise,
+          }))
+        );
+
+        // Update nodeMap with resolved names
+        nodeNameResults.forEach(({ nodeId, name }) => {
+          const nodeData = nodeMap.get(nodeId);
+          if (nodeData) {
+            nodeData.node_name = name;
+          }
+        });
 
         const nodeScriptDeps: NodeScriptDependency[] = Array.from(nodeMap.entries()).map(
           ([nodeId, data]) => {
@@ -389,12 +462,23 @@ const DependencyReport: React.FC = () => {
           }
         >();
 
+        // First, collect all unique edges and their basic info
+        const edgePromises = new Map<string, Promise<string>>();
+        
         executionResults
           .filter((exec) => exec.execution_type === 'action' && exec.edge_id)
           .forEach((exec) => {
             if (!edgeMap.has(exec.edge_id!)) {
+              // Create a promise for the edge name if we haven't already
+              if (!edgePromises.has(exec.edge_id!)) {
+                edgePromises.set(
+                  exec.edge_id!,
+                  getElementLabel(exec.edge_id!, 'edge', exec.tree_id, exec.element_name)
+                );
+              }
+              
               edgeMap.set(exec.edge_id!, {
-                edge_name: exec.element_name || `Edge ${exec.edge_id!.slice(0, 8)}`,
+                edge_name: '', // Will be filled later
                 tree_name: treeMap[exec.tree_id] || exec.tree_name,
                 script_executions: [],
               });
@@ -410,6 +494,22 @@ const DependencyReport: React.FC = () => {
               });
             }
           });
+
+        // Resolve all edge name promises
+        const edgeNameResults = await Promise.all(
+          Array.from(edgePromises.entries()).map(async ([edgeId, namePromise]) => ({
+            edgeId,
+            name: await namePromise,
+          }))
+        );
+
+        // Update edgeMap with resolved names
+        edgeNameResults.forEach(({ edgeId, name }) => {
+          const edgeData = edgeMap.get(edgeId);
+          if (edgeData) {
+            edgeData.edge_name = name;
+          }
+        });
 
         const edgeScriptDeps: EdgeScriptDependency[] = Array.from(edgeMap.entries()).map(
           ([edgeId, data]) => {
