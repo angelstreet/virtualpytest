@@ -6,7 +6,6 @@ Contains functions for creating HTML sections, formatting data, and handling ima
 """
 
 import json
-import html
 from typing import Dict, List, Optional, Any
 from .report_step_formatter import create_compact_step_results_section
 
@@ -96,8 +95,11 @@ def get_thumbnail_screenshot_html(screenshot_path: Optional[str], label: str = N
         'current_index': current_index
     }
     
-    # Encode modal data as JSON for JavaScript with proper HTML escaping
-    modal_data_json = html.escape(json.dumps(modal_data), quote=True)
+    # Encode modal data as JSON for JavaScript with proper escaping
+    # First ensure JSON is valid by handling control characters
+    json_str = json.dumps(modal_data, ensure_ascii=True)
+    # Then escape for HTML embedding
+    modal_data_json = json_str.replace('"', '&quot;').replace("'", "&#x27;")
     
     display_url = screenshot_path if screenshot_path.startswith('http') else screenshot_path
     
@@ -225,7 +227,10 @@ def create_verification_image_modal_data(source_image: str, reference_image: str
         })
     
     # Convert to JSON and escape for embedding in HTML
-    return html.escape(json.dumps(modal_data), quote=True)
+    # First ensure JSON is valid by handling control characters
+    json_str = json.dumps(modal_data, ensure_ascii=True)
+    # Then escape for HTML embedding
+    return json_str.replace('"', '&quot;').replace("'", "&#x27;")
 
 
 def create_error_report(error_message: str) -> str:
