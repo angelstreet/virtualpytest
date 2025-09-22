@@ -442,7 +442,7 @@ class NavigationExecutor:
     # NAVIGATION TREE MANAGEMENT METHODS
     # ========================================
     
-    def load_navigation_tree(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
+    def load_navigation_tree(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """
         Load navigation tree using direct database access (no HTTP requests).
         This populates the cache and is required before calling pathfinding functions.

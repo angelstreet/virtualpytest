@@ -129,16 +129,11 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
     """
     devices_config = []
     
-    print("[@controller_manager:_get_devices_config_from_environment] DEBUG: Starting device configuration extraction")
-    
     # Look for DEVICE1, DEVICE2, DEVICE3, DEVICE4
     for i in range(1, 5):
         device_name = os.getenv(f'DEVICE{i}_NAME')
         
-        print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_NAME = {device_name}")
-        
         if device_name:
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: Found device {i}, extracting all environment variables...")
             
             # Extract all environment variables for this device
             device_model = os.getenv(f'DEVICE{i}_MODEL', 'unknown')
@@ -159,24 +154,8 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
             appium_device_id = os.getenv(f'DEVICE{i}_APPIUM_DEVICE_ID')
             appium_server_url = os.getenv(f'DEVICE{i}_APPIUM_SERVER_URL')
             
-            # Print all extracted values
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_MODEL = {device_model}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_VIDEO = {video}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_VIDEO_STREAM_PATH = {video_stream_path}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_VIDEO_CAPTURE_PATH = {video_capture_path}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_IP = {device_ip}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_PORT = {device_port}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_IR_PATH = {ir_path}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_IR_TYPE = {ir_type}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_bluetooth_device = {bluetooth_device}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_power_device = {power_device}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_POWER_NAME = {power_name}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_POWER_IP = {power_ip}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_POWER_EMAIL = {power_email}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_POWER_PWD = {'***' if power_pwd else None}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_APPIUM_PLATFORM_NAME = {appium_platform_name}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_APPIUM_DEVICE_ID = {appium_device_id}")
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: DEVICE{i}_APPIUM_SERVER_URL = {appium_server_url}")
+            # Show only configured devices
+            print(f"[@controller_manager] Found device{i}: {device_name} ({device_model})")
             
             device_config = {
                 'device_id': f'device{i}',
@@ -213,9 +192,6 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
             # Remove None values
             device_config = {k: v for k, v in device_config.items() if v is not None}
             
-            print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG: Final device_config for DEVICE{i}:")
-            for key, value in device_config.items():
-                print(f"[@controller_manager:_get_devices_config_from_environment] DEBUG:   {key} = {value}")
             
             devices_config.append(device_config)
     

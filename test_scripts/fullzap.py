@@ -246,8 +246,13 @@ def main():
         # Create ZapController for execution and analysis
         zap_controller = create_zap_controller(context)
         
-        # Load navigation tree
-        if not executor.load_navigation_tree(context, args.userinterface_name):
+        # Load navigation tree using NavigationExecutor
+        nav_result = context.selected_device.navigation_executor.load_navigation_tree(
+            args.userinterface_name, 
+            context.team_id
+        )
+        if not nav_result['success']:
+            context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
             executor.cleanup_and_exit(context, args.userinterface_name)
             return
         

@@ -1,8 +1,8 @@
-# Script Steps Refactoring Plan - SIMPLIFIED
+# Script Steps Refactoring Plan - ULTRA SIMPLIFIED
 
-## 🎯 **Goal: Clean Step Architecture - Minimal Files, Maximum Impact**
+## 🎯 **Goal: Dead Simple Script Architecture**
 
-Refactor all test scripts to use a unified, clean step architecture that preserves exact reporting functionality while eliminating duplicate code and inconsistencies. **KEEP IT SIMPLE** - minimal file creation, minimal code changes.
+Create a **dead simple** script architecture where scripts just call high-level methods and everything else is handled automatically. **ZERO manual step management** - ScriptExecutor handles navigation, step creation, and recording as atomic operations.
 
 ## 📋 **Current State Analysis**
 
@@ -19,41 +19,36 @@ Refactor all test scripts to use a unified, clean step architecture that preserv
 - **validation.py**: Complex validation summary with recovery stats, verification counts
 - **fullzap.py**: Complex zap summary + database table + rich HTML reports with analysis
 
-## 🏗️ **Simplified Architecture**
+## 🏗️ **Ultra Simple Architecture**
 
-### **Core Principle: Single Responsibility + Minimal Changes**
-- **Executors**: Execute actions, return standardized results (lightweight wrapper)
-- **Scripts**: Orchestrate steps, manage screenshots, handle reporting (enhanced existing)
-- **Steps**: Simple data containers (just dict with helper methods)
+### **Core Principle: High-Level Automation**
+- **ScriptExecutor**: Handles everything automatically (navigation + step recording as atomic operations)
+- **Scripts**: Just call high-level methods like `executor.navigate_to()` and `executor.test_success()`
+- **Zero Manual Management**: No manual step creation, no manual recording, no orchestration needed
 
-## 📁 **Files to Create/Edit - MINIMAL APPROACH**
+## 📁 **Files Modified - ULTRA MINIMAL**
 
-### **1. Only 2 New Files Needed**
+### **1. Enhanced ScriptExecutor (1 file)**
 ```
 shared/src/lib/executors/
-├── script_executor.py     # Enhanced (existing file - add step methods)
-└── step_executor.py       # New simple wrapper (lightweight)
+└── script_executor.py     # Add high-level methods: navigate_to(), test_success(), test_fail()
 ```
 
-### **2. Update Existing Controllers (Minimal Changes)**
-```
-backend_host/src/lib/utils/
-└── zap_controller.py      # Remove step recording, return data only
-```
-
-### **3. Update Existing Scripts (Minimal Changes)**
+### **2. Simplified Scripts (5 files)**
 ```
 test_scripts/
-├── fullzap.py            # Use StepExecutor wrapper
-├── goto_live.py          # Use StepExecutor wrapper
-├── goto.py              # Use StepExecutor wrapper  
-└── validation.py        # Use StepExecutor wrapper
+├── goto_live.py          # Now: executor.navigate_to() + executor.test_success()
+├── goto.py              # Now: executor.navigate_to() + executor.test_success()
+├── validation.py        # Now: executor.validate() + executor.test_success()
+├── fullzap.py           # Now: executor.execute_zaps() + executor.test_success()
+└── ai_testcase_executor.py # Now: executor.execute_ai_plan() + executor.test_success()
 ```
 
-### **4. No New Reporting System Needed**
-- Reuse existing reporting code
-- Steps convert to existing dict format
-- Zero breaking changes to reports
+### **3. What We DON'T Need Anymore**
+- ❌ StepExecutor wrapper (too complex)
+- ❌ Manual step creation
+- ❌ Manual step recording
+- ❌ Context orchestration in scripts
 
 ## 🔧 **Required Executor Modifications**
 
@@ -110,71 +105,42 @@ return {
 ### **Key Insight: Executors Are Already Standardized!**
 All three executors already return consistent, standardized dictionary formats. The StepExecutor wrapper will simply convert these existing formats to step dictionaries without requiring any executor changes.
 
-## 🔄 **Simplified Migration Steps**
+## 🔄 **Ultra Simple Migration**
 
-### **Phase 1: Create Simple StepExecutor Wrapper**
+### **New Script Pattern (DEAD SIMPLE):**
 
-#### **Step 1.1: Create StepExecutor** 
-**File**: `shared/src/lib/executors/step_executor.py` (NEW - 50 lines max)
 ```python
-"""
-Simple Step Executor Wrapper
-Lightweight wrapper that standardizes step creation without changing existing executors.
-"""
-
-class StepExecutor:
-    """Simple wrapper that creates standardized steps from existing executor results"""
+def main():
+    executor = ScriptExecutor(name="goto_live", description="Navigate to live node")
+    context = executor.setup_execution_context(args, enable_db_tracking=True)
     
-    def __init__(self, context):
-        self.context = context
-    
-    def create_navigation_step(self, nav_result: dict, from_node: str, to_node: str) -> dict:
-        """Convert NavigationExecutor result to standardized step dict"""
-        return {
-            'success': nav_result.get('success', False),
-            'from_node': from_node,
-            'to_node': to_node,
-            'execution_time_ms': nav_result.get('execution_time', 0) * 1000,
-            'transitions_executed': nav_result.get('transitions_executed', 0),
-            'actions_executed': nav_result.get('actions_executed', 0),
-            'step_category': 'navigation',
-            'error': nav_result.get('error'),
-            'screenshots': []  # Populated by script
-        }
-    
-    def create_zap_step(self, iteration: int, action_command: str, analysis_result: dict) -> dict:
-        """Convert ZapController analysis to standardized step dict"""
-        return {
-            'success': analysis_result.get('success', False),
-            'iteration': iteration,
-            'action_command': action_command,
-            'from_node': 'live',
-            'to_node': 'live',
-            'step_category': 'zap_action',
-            'motion_analysis': analysis_result.get('motion_details', {}),
-            'subtitle_analysis': analysis_result.get('subtitle_details', {}),
-            'audio_analysis': analysis_result.get('audio_details', {}),
-            'zapping_analysis': analysis_result.get('zapping_details', {}),
-            'error': analysis_result.get('error'),
-            'screenshots': []  # Populated by script
-        }
-    
-    def create_validation_step(self, validation_result: dict, from_node: str, to_node: str) -> dict:
-        """Convert validation result to standardized step dict"""
-        return {
-            'success': validation_result.get('success', False),
-            'from_node': from_node,
-            'to_node': to_node,
-            'step_category': 'validation',
-            'actions': validation_result.get('actions', []),
-            'verifications': validation_result.get('verifications', []),
-            'verification_results': validation_result.get('verification_results', []),
-            'recovered': validation_result.get('recovered', False),
-            'recovery_used': validation_result.get('recovery_used', False),
-            'error': validation_result.get('error'),
-            'screenshots': []  # Populated by script
-        }
+    try:
+        # Determine target based on device
+        device = context.selected_device
+        target_node = "live_fullscreen" if "mobile" in device.model.lower() else "live"
+        
+        # Navigate (auto-loads tree, executes, records step)
+        success = executor.navigate_to(context, target_node, args.userinterface_name)
+        
+        if success:
+            executor.test_success(context)
+        else:
+            executor.test_fail(context)
+            
+    except KeyboardInterrupt:
+        handle_keyboard_interrupt("goto_live")
+    except Exception as e:
+        handle_unexpected_error("goto_live", e)
+    finally:
+        executor.cleanup_and_exit(context, args.userinterface_name)
 ```
+
+### **What ScriptExecutor.navigate_to() Does Internally:**
+1. ✅ Loads navigation tree automatically
+2. ✅ Executes navigation with retry/failure actions  
+3. ✅ Creates step from navigation result
+4. ✅ Records step automatically
+5. ✅ Returns simple success/failure boolean
 
 ### **Phase 2: Enhance ScriptExecutor (Minimal Changes)**
 

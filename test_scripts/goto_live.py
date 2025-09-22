@@ -28,8 +28,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from shared.src.lib.executors.step_executor import StepExecutor
-# Navigation is now handled entirely by the navigation executor - no direct pathfinding needed
+# Navigation is now handled entirely by the script executor - high-level methods with auto-recording
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
@@ -67,52 +66,28 @@ def main():
         return
     
     try:
-        # Load navigation tree
-        if not executor.load_navigation_tree(context, args.userinterface_name):
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
         # Determine target node based on device model
-        if "mobile" in context.selected_device.device_model.lower():
+        device = context.selected_device
+        if "mobile" in device.device_model.lower():
             target_node = "live_fullscreen"
         else:
             target_node = "live"
         
-        print(f"🎯 [{script_name}] Device model: {context.selected_device.device_model}")
+        print(f"🎯 [{script_name}] Device model: {device.device_model}")
         print(f"🎯 [{script_name}] Target node: {target_node}")
         
-        # Navigation will be handled entirely by the navigation executor
-        print(f"🗺️ [{script_name}] Navigating to {target_node} using proper navigation executor...")
-        
-        # Execute navigation using proper navigation executor (with retry/failure actions)
-        navigation_result = context.selected_device.navigation_executor.execute_navigation(
-            tree_id=context.tree_id,
-            target_node_label=target_node,
-            team_id=context.team_id,
-            context=context
-        )
-        success = navigation_result['success']
-        context.overall_success = success
-        
-        # Create and record navigation step using StepExecutor
-        step_executor = StepExecutor(context)
-        nav_step = step_executor.create_navigation_step(navigation_result, "entry", target_node)
-        context.record_step_dict(nav_step)
-        
-        if not success:
-            context.error_message = navigation_result.get('error', 'Navigation failed')
-        
-        # Capture summary for report
-        path_length = navigation_result.get('total_transitions', 0)
-        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, path_length)
-        
-        # Store custom summary in custom_data for display in final summary
-        if not hasattr(context, 'custom_data'):
-            context.custom_data = {}
-        context.custom_data['execution_summary'] = summary_text
+        # Navigate using high-level method (auto-loads tree, executes, records step)
+        success = executor.navigate_to(context, target_node, args.userinterface_name)
         
         if success:
-            print(f"🎉 [{script_name}] Successfully navigated to {target_node}!")
+            executor.test_success(context)
+            # Capture summary for report
+            summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
+            if not hasattr(context, 'custom_data'):
+                context.custom_data = {}
+            context.custom_data['execution_summary'] = summary_text
+        else:
+            executor.test_fail(context)
         
     except KeyboardInterrupt:
         handle_keyboard_interrupt(script_name)

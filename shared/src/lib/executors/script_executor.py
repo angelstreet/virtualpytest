@@ -153,6 +153,7 @@ class ScriptExecutor:
     """
     Unified script executor that handles:
     - Context preparation (device setup, navigation loading)
+    - High-level navigation with automatic step recording
     - Script execution with real-time output streaming
     - AI test case redirection
     - Report generation integration
@@ -798,6 +799,64 @@ class ScriptExecutor:
                     print(f"logs_url: {context.logs_url}")
         
         print("="*60)
+    
+    # =====================================================
+    # HIGH-LEVEL NAVIGATION METHODS (Auto-record steps)
+    # =====================================================
+    
+    def navigate_to(self, context: ScriptExecutionContext, target_node: str, userinterface_name: str) -> bool:
+        """
+        High-level navigation that handles everything automatically:
+        - Loads navigation tree if needed
+        - Executes navigation
+        - Creates and records step automatically
+        - Returns success/failure
+        """
+        try:
+            # Load navigation tree if not already loaded
+            nav_result = context.selected_device.navigation_executor.load_navigation_tree(
+                userinterface_name, 
+                context.team_id
+            )
+            if not nav_result['success']:
+                context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
+                return False
+            
+            # Execute navigation
+            navigation_result = context.selected_device.navigation_executor.execute_navigation(
+                tree_id=context.tree_id,
+                target_node_label=target_node,
+                team_id=context.team_id,
+                context=context
+            )
+            
+            # Auto-create and record navigation step
+            from .step_executor import StepExecutor
+            step_executor = StepExecutor(context)
+            nav_step = step_executor.create_navigation_step(navigation_result, "entry", target_node)
+            context.record_step_dict(nav_step)
+            
+            success = navigation_result['success']
+            if not success:
+                context.error_message = navigation_result.get('error', 'Navigation failed')
+            
+            return success
+            
+        except Exception as e:
+            context.error_message = f"Navigation error: {str(e)}"
+            return False
+    
+    def test_success(self, context: ScriptExecutionContext):
+        """Mark test as successful"""
+        context.overall_success = True
+        print(f"🎉 [{self.script_name}] Test completed successfully!")
+    
+    def test_fail(self, context: ScriptExecutionContext, error_message: str = None):
+        """Mark test as failed with optional error message"""
+        context.overall_success = False
+        if error_message:
+            context.error_message = error_message
+        print(f"❌ [{self.script_name}] Test failed: {context.error_message}")
 
 
 # =====================================================
