@@ -6,6 +6,7 @@ Handles the formatting of individual step results for HTML reports.
 
 import os
 import json
+import html
 from typing import Dict, List
 from datetime import datetime
 
@@ -563,7 +564,7 @@ def format_analysis_results(step: Dict) -> str:
                 'title': 'Motion Analysis - 3 Recent Captures',
                 'images': images
             }
-            modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+            modal_data_json = html.escape(json.dumps(modal_data), quote=True)
             
             thumbnails_html = "<div class='motion-analysis-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
             
@@ -607,7 +608,7 @@ def format_analysis_results(step: Dict) -> str:
                 'title': 'Subtitle Analysis Screenshot',
                 'images': [{'url': analyzed_screenshot, 'label': 'Analyzed for Subtitles'}]
             }
-            modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+            modal_data_json = html.escape(json.dumps(modal_data), quote=True)
             
             # Use single function to format screenshot display name
             formatted_display = format_screenshot_display_name(analyzed_screenshot)
@@ -704,7 +705,7 @@ def format_analysis_results(step: Dict) -> str:
                 'title': 'Audio Menu Analysis Screenshot',
                 'images': [{'url': analyzed_screenshot, 'label': 'Analyzed for Audio Menu'}]
             }
-            modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;")
+            modal_data_json = html.escape(json.dumps(modal_data), quote=True)
             
             # Use single function to format screenshot display name
             formatted_display = format_screenshot_display_name(analyzed_screenshot)
@@ -791,7 +792,7 @@ def format_analysis_results(step: Dict) -> str:
                         'title': 'Complete Zapping Sequence Analysis',
                         'images': images
                     }
-                    modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;").replace(":", "&#58;")
+                    modal_data_json = html.escape(json.dumps(modal_data), quote=True)
                     
                     thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
                     
@@ -830,7 +831,7 @@ def format_analysis_results(step: Dict) -> str:
                     'images': [{'url': failure_mosaic_path, 'label': f'Analysis Mosaic ({zapping_analysis.get("mosaic_images_count", 0)} images)'}],
                     'analysis_log': analysis_log
                 }
-                modal_data_json = json.dumps(modal_data).replace('"', '&quot;').replace("'", "&#x27;").replace(":", "&#58;")
+                modal_data_json = html.escape(json.dumps(modal_data), quote=True)
                 
                 thumbnails_html = "<div class='zapping-failure-mosaic' style='margin-top: 4px;'>"
                 thumbnails_html += f"""

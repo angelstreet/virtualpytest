@@ -223,7 +223,12 @@ let currentScreenshotIndex = 0;
 
 function openScreenshotModal(modalDataJson) {{
     try {{
-        currentModalData = JSON.parse(modalDataJson.replace(/&quot;/g, '"').replace(/&#x27;/g, "'"));
+        // Decode HTML entities properly
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = modalDataJson;
+        const decodedJson = textarea.value;
+        
+        currentModalData = JSON.parse(decodedJson);
         currentScreenshotIndex = currentModalData.current_index || 0;
         
         updateModalContent();
