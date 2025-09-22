@@ -22,7 +22,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, validate, get_context, get_args, capture_validation_summary
+from shared.src.lib.executors.script_decorators import script, get_context, get_args
 from datetime import datetime
 import time
 
@@ -608,6 +608,53 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
         print(f"SCRIPT_REPORT_URL:{context.script_report_url}")
 
 
+def validate_with_recovery(max_iterations: int = None) -> bool:
+    """Execute validation with recovery - validation-specific logic"""
+    from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+    from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+    from backend_host.src.lib.utils.navigation_graph import get_entry_points
+    
+    context = get_context()
+    
+    # Initialize current position to entry point for pathfinding
+    unified_graph = get_cached_unified_graph(context.tree_id, context.team_id)
+    if unified_graph:
+        entry_points = get_entry_points(unified_graph)
+        if entry_points:
+            context.current_node_id = entry_points[0]
+            print(f"📍 [validation] Starting validation from entry point: {context.current_node_id}")
+    
+    # Get validation sequence
+    print("📋 [validation] Getting validation sequence...")
+    validation_sequence = find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
+    
+    if not validation_sequence:
+        context.error_message = "No validation sequence found"
+        print(f"❌ [validation] {context.error_message}")
+        return False
+    
+    print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
+    
+    # Execute validation sequence (using existing complex logic)
+    from shared.src.lib.executors.script_decorators import get_executor
+    success = execute_validation_sequence_with_force_recovery(
+        get_executor(), context, validation_sequence, custom_validation_step_handler, max_iterations
+    )
+    
+    # Calculate validation success based on executed step results only
+    successful_steps = sum(1 for step in context.step_results if step.get('success', False))
+    executed_steps = len(context.step_results)
+    
+    # Validation is successful if ALL EXECUTED steps pass
+    context.overall_success = successful_steps == executed_steps and executed_steps > 0
+    
+    if context.overall_success:
+        print(f"🎉 [validation] All {successful_steps}/{executed_steps} executed validation steps passed successfully!")
+    else:
+        print(f"❌ [validation] Validation failed: {successful_steps}/{executed_steps} executed steps passed")
+    
+    return context.overall_success
+
 @script("validation", "Validate navigation tree transitions")
 def main():
     """Main validation function with report generation"""
@@ -615,11 +662,11 @@ def main():
     context = get_context()
     
     # Execute validation with recovery
-    success = validate(args.max_iteration)
+    success = validate_with_recovery(args.max_iteration)
     
     if success:
         # Capture and store summary for report
-        summary_text = capture_validation_summary(args.userinterface_name, args.max_iteration)
+        summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
         context.execution_summary = summary_text
         
         # Calculate validation-specific stats for custom_data

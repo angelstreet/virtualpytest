@@ -18,8 +18,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from shared.src.lib.executors.step_executor import StepExecutor
+from shared.src.lib.executors.script_decorators import script, get_context, get_args
 
 def capture_ai_execution_summary(context, userinterface_name: str, test_case: dict, ai_steps: list) -> str:
     """Capture AI execution summary as text for report"""
@@ -40,100 +39,52 @@ def capture_ai_execution_summary(context, userinterface_name: str, test_case: di
     
     return "\n".join(lines)
 
-def main():
-    """Main execution function"""
-    # Extract test case ID from script name (passed via environment)
-    script_name_env = os.environ.get('AI_SCRIPT_NAME', '')
-    if not script_name_env.startswith('ai_testcase_'):
-        print(f"[@ai_testcase_executor] ERROR: Invalid AI script name: {script_name_env}")
-        sys.exit(1)
-        
-    test_case_id = script_name_env.replace('ai_testcase_', '')
-    script_name = f"ai_testcase_{test_case_id}"
+def execute_ai_test_case(test_case_id: str, team_id: str) -> bool:
+    """Execute AI test case - ai_testcase-specific logic"""
+    context = get_context()
     
-    # Load test case from database early to get display name
+    # Load test case from database
     try:
         from shared.src.lib.supabase.testcase_db import get_test_case
         
-        # Get team_id from environment variable (set by host when executing)
-        team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
-        
         test_case = get_test_case(test_case_id, team_id)
         if not test_case:
-            print(f"[@ai_testcase_executor] ERROR: Test case not found: {test_case_id}")
-            sys.exit(1)
-            
-        script_display_name = test_case.get('name', f"AI Test Case {test_case_id}")
+            context.error_message = f"Test case not found: {test_case_id}"
+            print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+            return False
         
-    except Exception as e:
-        print(f"[@ai_testcase_executor] ERROR loading test case: {str(e)}")
-        sys.exit(1)
-    
-    # Initialize ScriptExecutor following the standard pattern
-    executor = ScriptExecutor(script_name, script_display_name)
-    
-    # Create argument parser using ScriptExecutor framework
-    parser = executor.create_argument_parser()
-    args = parser.parse_args()
-    
-    print(f"[@ai_testcase_executor] Starting AI test case executor")
-    print(f"[@ai_testcase_executor] Test Case: {script_display_name}")
-    print(f"[@ai_testcase_executor] User Interface: {args.userinterface_name}")
-    print(f"[@ai_testcase_executor] Host: {args.host}")
-    print(f"[@ai_testcase_executor] Device: {args.device}")
-    
-    # Setup execution context with database tracking enabled
-    context = executor.setup_execution_context(args, enable_db_tracking=True)
-    if context.error_message:
-        executor.cleanup_and_exit(context, args.userinterface_name)
-        return
-    # Ensure AI display name is available to report generator
-    try:
+        script_display_name = test_case.get('name', f"AI Test Case {test_case_id}")
+        print(f"[@ai_testcase_executor] Test Case: {script_display_name}")
+        print(f"[@ai_testcase_executor] Original prompt: {test_case.get('original_prompt', 'N/A')}")
+        
+        # Store AI display name for report generator
         if not hasattr(context, 'custom_data') or context.custom_data is None:
             context.custom_data = {}
         context.custom_data['ai_testcase_name'] = script_display_name
-    except Exception:
-        pass
+        
+    except Exception as e:
+        context.error_message = f"Error loading test case: {str(e)}"
+        print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+        return False
     
+    # Execute stored test case using AI executor
     try:
-        # Load navigation tree using NavigationExecutor
-        nav_result = context.selected_device.navigation_executor.load_navigation_tree(
-            args.userinterface_name, 
-            context.team_id
-        )
-        if not nav_result['success']:
-            context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        print(f"[@ai_testcase_executor] Loaded navigation tree for {args.userinterface_name}")
-        print(f"[@ai_testcase_executor] Original prompt: {test_case.get('original_prompt', 'N/A')}")
-        
-        # Test case IS an AI plan - execute the stored plan directly
-        import uuid
-        
-        # Execute stored test case directly - AI central handles everything
-        print(f"[@ai_testcase_executor] Executing stored test case {test_case_id}")
-        
-        # Use the selected device from context (already has ai_executor)
         device = context.selected_device
         if not device or not hasattr(device, 'ai_executor'):
-            print(f"[@ai_testcase_executor] ERROR: Device or AI executor not found")
-            return
+            context.error_message = "Device or AI executor not found"
+            print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+            return False
         
-        # Execute stored test case directly
+        print(f"[@ai_testcase_executor] Executing stored test case {test_case_id}")
         ai_result = device.ai_executor.execute_testcase(test_case_id, team_id)
         
         success = ai_result.get('success', False)
-        context.overall_success = success
-        
         print(f"[@ai_testcase_executor] AIAgentController execution result: {'SUCCESS' if success else 'FAILED'}")
         
         if not success:
-            # Prefer detailed AI error surfaced by controller execution
+            # Extract detailed error message
             error_msg = ai_result.get('error')
             if not error_msg:
-                # Try to extract a specific message from action/verification results
                 ar = ai_result.get('action_result', {})
                 vr = ai_result.get('verification_result', {})
                 error_msg = ar.get('error') or vr.get('error')
@@ -149,23 +100,58 @@ def main():
                             break
             if not error_msg:
                 error_msg = 'AI plan execution failed'
+            
             context.error_message = error_msg
             print(f"[@ai_testcase_executor] AI execution error: {error_msg}")
-        
-        # Capture summary for report
-        stored_plan = test_case.get('ai_plan', {})
-        summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case, stored_plan.get('steps', []))
-        context.execution_summary = summary_text
-        
-        if success:
+        else:
             print(f"🎉 [@ai_testcase_executor] Successfully executed AI test case: {script_display_name}")
         
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt(script_name)
+        return success
+        
     except Exception as e:
-        handle_unexpected_error(script_name, e)
-    finally:
-        executor.cleanup_and_exit(context, args.userinterface_name)
+        context.error_message = f"AI execution error: {str(e)}"
+        print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
+        return False
+
+@script("ai_testcase", "Execute AI-generated test case")
+def main():
+    """Main execution function"""
+    # Extract test case ID from script name (passed via environment)
+    script_name_env = os.environ.get('AI_SCRIPT_NAME', '')
+    if not script_name_env.startswith('ai_testcase_'):
+        print(f"[@ai_testcase_executor] ERROR: Invalid AI script name: {script_name_env}")
+        return False
+        
+    test_case_id = script_name_env.replace('ai_testcase_', '')
+    
+    # Get team_id from environment variable (set by host when executing)
+    team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+    
+    args = get_args()
+    context = get_context()
+    
+    print(f"[@ai_testcase_executor] Starting AI test case executor")
+    print(f"[@ai_testcase_executor] User Interface: {args.userinterface_name}")
+    print(f"[@ai_testcase_executor] Host: {args.host}")
+    print(f"[@ai_testcase_executor] Device: {args.device}")
+    
+    print(f"[@ai_testcase_executor] Loaded navigation tree for {args.userinterface_name}")
+    
+    # Execute AI test case using script-specific function
+    success = execute_ai_test_case(test_case_id, team_id)
+    
+    if success:
+        # Capture summary for report (need to reload test case for summary)
+        try:
+            from shared.src.lib.supabase.testcase_db import get_test_case
+            test_case = get_test_case(test_case_id, team_id)
+            stored_plan = test_case.get('ai_plan', {}) if test_case else {}
+            summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case or {}, stored_plan.get('steps', []))
+            context.execution_summary = summary_text
+        except Exception:
+            pass  # Summary is optional
+    
+    return success
 
 
 if __name__ == "__main__":

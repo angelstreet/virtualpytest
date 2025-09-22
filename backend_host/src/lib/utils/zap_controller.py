@@ -1493,8 +1493,109 @@ class ZapController:
             summary_text = generate_zap_summary_text(zap_iterations)
             print(f"\n{summary_text}")
             
+            # Also capture fullzap summary
+            self._capture_fullzap_summary(context, context.userinterface_name)
+            
         except Exception as e:
             print(f"❌ [ZapController] Failed to generate summary table: {e}")
+    
+    def _capture_fullzap_summary(self, context, userinterface_name: str):
+        """Capture fullzap summary and store in context - moved from fullzap.py"""
+        lines = []
+        data = context.custom_data
+        
+        action_command = data.get('action_command', 'unknown')
+        max_iteration = data.get('max_iteration', 0)
+        successful_iterations = data.get('successful_iterations', 0)
+        motion_detected_count = data.get('motion_detected_count', 0)
+        subtitles_detected_count = data.get('subtitles_detected_count', 0)
+        audio_speech_detected_count = data.get('audio_speech_detected_count', 0)
+        zapping_detected_count = data.get('zapping_detected_count', 0)
+        total_action_time = data.get('total_action_time', 0)
+        
+        zapping_durations = data.get('zapping_durations', [])
+        blackscreen_durations = data.get('blackscreen_durations', [])
+        detected_channels = data.get('detected_channels', [])
+        channel_info_results = data.get('channel_info_results', [])
+        detected_languages = data.get('detected_languages', [])
+        audio_languages = data.get('audio_languages', [])
+        
+        if max_iteration > 0:
+            lines.append("📊 [ZapController] Action execution summary:")
+            lines.append(f"   • Total iterations: {max_iteration}")
+            lines.append(f"   • Successful: {successful_iterations}")
+            success_rate = (successful_iterations / max_iteration * 100) if max_iteration > 0 else 0
+            lines.append(f"   • Success rate: {success_rate:.1f}%")
+            avg_time = total_action_time / max_iteration if max_iteration > 0 else 0
+            lines.append(f"   • Average time per iteration: {avg_time:.0f}ms")
+            lines.append(f"   • Total action time: {total_action_time}ms")
+            motion_rate = (motion_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+            lines.append(f"   • Motion detected: {motion_detected_count}/{max_iteration} ({motion_rate:.1f}%)")
+            subtitle_rate = (subtitles_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+            lines.append(f"   • Subtitles detected: {subtitles_detected_count}/{max_iteration} ({subtitle_rate:.1f}%)")
+            audio_speech_rate = (audio_speech_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+            lines.append(f"   • Audio speech detected: {audio_speech_detected_count}/{max_iteration} ({audio_speech_rate:.1f}%)")
+            zapping_rate = (zapping_detected_count / max_iteration * 100) if max_iteration > 0 else 0
+            lines.append(f"   • Zapping detected: {zapping_detected_count}/{max_iteration} ({zapping_rate:.1f}%)")
+            
+            if zapping_durations:
+                avg_zap_duration = sum(zapping_durations) / len(zapping_durations)
+                avg_blackscreen_duration = sum(blackscreen_durations) / len(blackscreen_durations) if blackscreen_durations else 0.0
+                lines.append(f"   ⚡ Average zapping duration: {avg_zap_duration:.2f}s")
+                lines.append(f"   ⬛ Average blackscreen/freeze duration: {avg_blackscreen_duration:.2f}s")
+                
+                min_zap = min(zapping_durations)
+                max_zap = max(zapping_durations)
+                lines.append(f"   📊 Zapping duration range: {min_zap:.2f}s - {max_zap:.2f}s")
+            
+            if detected_channels:
+                lines.append(f"   📺 Channels detected: {', '.join(detected_channels)}")
+                
+                successful_channel_info = [info for info in channel_info_results if info.get('channel_name')]
+                if successful_channel_info:
+                    lines.append(f"   🎬 Channel details:")
+                    for i, info in enumerate(successful_channel_info, 1):
+                        channel_display = info['channel_name']
+                        if info.get('channel_number'):
+                            channel_display += f" ({info['channel_number']})"
+                        if info.get('program_name'):
+                            channel_display += f" - {info['program_name']}"
+                        if info.get('program_start_time') and info.get('program_end_time'):
+                            channel_display += f" [{info['program_start_time']}-{info['program_end_time']}]"
+                        
+                        lines.append(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
+            
+            if detected_languages:
+                lines.append(f"   🌐 Subtitle languages detected: {', '.join(detected_languages)}")
+            
+            if audio_languages:
+                lines.append(f"   🎤 Audio languages detected: {', '.join(audio_languages)}")
+            
+            no_motion_count = max_iteration - motion_detected_count
+            if no_motion_count > 0:
+                lines.append(f"   ⚠️  {no_motion_count} zap(s) did not show content change")
+            
+            if successful_iterations == max_iteration:
+                lines.append(f"✅ [fullzap] All {max_iteration} iterations of action '{action_command}' completed successfully!")
+            else:
+                lines.append(f"❌ [fullzap] Only {successful_iterations}/{max_iteration} iterations of action '{action_command}' completed successfully!")
+            
+            lines.append("")
+        
+        lines.append("🎯 [FULLZAP] EXECUTION SUMMARY")
+        lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+        lines.append(f"🖥️  Host: {context.host.host_name}")
+        lines.append(f"📋 Interface: {userinterface_name}")
+        lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+        lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+        lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
+        
+        if context.error_message:
+            lines.append(f"❌ Error: {context.error_message}")
+        
+        lines.append("✅ [fullzap] Fullzap execution completed successfully!")
+        
+        context.execution_summary = "\n".join(lines)
     
     def _format_timestamp_to_time(self, timestamp_str: str) -> str:
         """Format timestamp string to HH:MM:SS format."""
