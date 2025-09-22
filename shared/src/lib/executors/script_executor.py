@@ -477,8 +477,9 @@ class ScriptExecutor:
             print(f"🔧 [{self.script_name}] Loading environment variables...")
             load_environment_variables(calling_script_dir=backend_host_src)
             
-            # 2. Create host instance
-            print(f"🏗️ [{self.script_name}] Creating host instance...")
+            # 2. Create host instance with specific device
+            device_id_to_use = args.device or "device1"
+            print(f"🏗️ [{self.script_name}] Creating host instance with device: {device_id_to_use}...")
             try:
                 # Import dynamically to avoid circular dependencies
                 import importlib.util
@@ -486,7 +487,7 @@ class ScriptExecutor:
                 spec = importlib.util.spec_from_file_location("host_utils", host_utils_path)
                 host_utils = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(host_utils)
-                context.host = host_utils.get_host_instance()
+                context.host = host_utils.get_host_instance(device_ids=[device_id_to_use])
                 device_count = context.host.get_device_count()
                 print(f"✅ [{self.script_name}] Host created with {device_count} devices")
                 

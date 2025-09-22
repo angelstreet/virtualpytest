@@ -30,12 +30,15 @@ from backend_host.src.controllers.verification.audio import AudioVerificationCon
 from backend_host.src.controllers.power.tapo_power import TapoPowerController
 
 
-def create_host_from_environment() -> Host:
+def create_host_from_environment(device_ids: List[str] = None) -> Host:
     """
-    Create a Host with all its devices and controllers from environment variables.
+    Create a Host with devices and controllers from environment variables.
+    
+    Args:
+        device_ids: List of specific device IDs to create (None = all devices)
     
     Returns:
-        Host instance with all devices and controllers configured
+        Host instance with specified devices and controllers configured
     """
     
     # Get host info from environment
@@ -101,6 +104,12 @@ def create_host_from_environment() -> Host:
     
     # Create devices from environment variables
     devices_config = _get_devices_config_from_environment()
+    
+    # Filter devices if specific device_ids requested
+    if device_ids is not None:
+        print(f"[@controller_manager:create_host_from_environment] Creating ONLY devices: {device_ids}")
+        devices_config = [config for config in devices_config 
+                         if config['device_id'] in device_ids]
     
     for device_config in devices_config:
         device = _create_device_with_controllers(device_config, host)
@@ -480,10 +489,13 @@ _host_instance: Optional[Host] = None
 _host_creation_lock = threading.Lock()
 
 
-def get_host() -> Host:
+def get_host(device_ids: List[str] = None) -> Host:
     """
     Get the global host instance, creating it if necessary.
     Thread-safe singleton pattern.
+    
+    Args:
+        device_ids: List of specific device IDs to create (None = all devices)
     
     Returns:
         Host instance
@@ -495,7 +507,7 @@ def get_host() -> Host:
             # Double-check pattern
             if _host_instance is None:
                 print("[@controller_manager:get_host] Creating new host instance")
-                _host_instance = create_host_from_environment()
+                _host_instance = create_host_from_environment(device_ids)
             else:
                 print("[@controller_manager:get_host] Using existing host instance (race condition avoided)")
     

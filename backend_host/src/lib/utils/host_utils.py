@@ -537,9 +537,9 @@ def setup_host_signal_handlers():
 # CLEAN CONTROLLER ACCESS FUNCTIONS
 # =====================================================
 
-def get_host_instance():
+def get_host_instance(device_ids: List[str] = None):
     """Get the host instance."""
-    return get_host()
+    return get_host(device_ids)
 
 
 def get_device_by_id(device_id: str):
