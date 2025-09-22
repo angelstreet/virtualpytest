@@ -27,8 +27,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-# Navigation is now handled entirely by the script executor - high-level methods with auto-recording
+from shared.src.lib.executors.script_decorators import script, is_mobile_device, navigate_to, get_context, get_args
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
@@ -50,51 +49,30 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
+@script("goto_live", "Navigate to live node")
 def main():
     """Main navigation function to goto live"""
-    script_name = "goto_live"
-    executor = ScriptExecutor(script_name, "Navigate to live node")
+    # Determine target node based on device model
+    target_node = "live_fullscreen" if is_mobile_device() else "live"
     
-    # Create argument parser
-    parser = executor.create_argument_parser()
-    args = parser.parse_args()
+    context = get_context()
+    args = get_args()
+    device = context.selected_device
     
-    # Setup execution context with database tracking enabled
-    context = executor.setup_execution_context(args, enable_db_tracking=True)
-    if context.error_message:
-        executor.cleanup_and_exit(context, args.userinterface_name)
-        return
+    print(f"🎯 [goto_live] Device model: {device.device_model}")
+    print(f"🎯 [goto_live] Target node: {target_node}")
     
-    try:
-        # Determine target node based on device model
-        device = context.selected_device
-        if "mobile" in device.device_model.lower():
-            target_node = "live_fullscreen"
-        else:
-            target_node = "live"
-        
-        print(f"🎯 [{script_name}] Device model: {device.device_model}")
-        print(f"🎯 [{script_name}] Target node: {target_node}")
-        
-        # Navigate using high-level method (auto-loads tree, executes, records step)
-        success = executor.navigate_to(context, target_node, args.userinterface_name)
-        
-        if success:
-            executor.test_success(context)
-            # Capture summary for report
-            summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
-            if not hasattr(context, 'custom_data'):
-                context.custom_data = {}
-            context.custom_data['execution_summary'] = summary_text
-        else:
-            executor.test_fail(context)
-        
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt(script_name)
-    except Exception as e:
-        handle_unexpected_error(script_name, e)
-    finally:
-        executor.cleanup_and_exit(context, args.userinterface_name)
+    # Navigate using high-level method (auto-loads tree, executes, records step)
+    success = navigate_to(target_node)
+    
+    if success:
+        # Capture summary for report
+        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
+        if not hasattr(context, 'custom_data'):
+            context.custom_data = {}
+        context.custom_data['execution_summary'] = summary_text
+    
+    return success
 
 
 if __name__ == "__main__":

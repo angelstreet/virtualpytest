@@ -27,11 +27,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from shared.src.lib.executors.step_executor import StepExecutor
-from backend_host.src.lib.utils.zap_controller import ZapController
-from shared.lib.utils.navigation_utils import goto_node
-from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
+from shared.src.lib.executors.script_decorators import script, execute_zaps, get_context, get_args, capture_fullzap_summary
 
 def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     """Create a ZapController with direct Python video analysis capabilities"""
@@ -213,301 +209,43 @@ def print_fullzap_summary(context: ScriptExecutionContext, userinterface_name: s
     
     print("="*60)
 
+@script("fullzap", "Execute zap iterations with analysis")
 def main():
     """Main function to optionally navigate to live and execute zap action multiple times"""
-    script_name = "fullzap"
-    executor = ScriptExecutor(script_name, "Optionally navigate to live and execute zap action multiple times")
-    
-    # Create argument parser with custom fullzap arguments
-    parser = executor.create_argument_parser()
-    parser.add_argument('--action', type=str, default='live_chup',
-                       help='Action command to execute (default: live_chup)')
-    parser.add_argument('--max_iteration', type=int, default=1,
-                       help='Number of times to execute the action (default: 1)')
-    parser.add_argument('--goto_live', type=lambda x: x.lower() == 'true', default=True,
-                       help='Navigate to live node before executing actions: true or false (default: true)')
-    parser.add_argument('--audio_analysis', type=lambda x: x.lower() == 'true', default=False,
-                       help='Enable audio/subtitle menu language detection: true or false (default: false)')
-    args = parser.parse_args()
+    args = get_args()
+    context = get_context()
     
     nav_msg = "with navigation to live" if args.goto_live else "without navigation to live"
     print(f"🎯 [fullzap] Starting execution of action '{args.action}' {args.max_iteration} times {nav_msg} for: {args.userinterface_name}")
     
-    # Setup execution context with database tracking enabled
-    context = executor.setup_execution_context(args, enable_db_tracking=True)
-    if context.error_message:
-        executor.cleanup_and_exit(context, args.userinterface_name)
-        return
-    
     # Set userinterface_name in context for zap database recording
     context.userinterface_name = args.userinterface_name
     
-    try:
-        # Create ZapController for execution and analysis
-        zap_controller = create_zap_controller(context)
-        
-        # Load navigation tree using NavigationExecutor
-        nav_result = context.selected_device.navigation_executor.load_navigation_tree(
-            args.userinterface_name, 
-            context.team_id
-        )
-        if not nav_result['success']:
-            context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        print(f"🔢 [fullzap] Max iterations: {args.max_iteration}")
-        print(f"🗺️ [fullzap] Goto live: {args.goto_live}")
-        print(f"📱 [fullzap] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
-        
-        # Determine target node based on device model - same logic as goto_live.py
-        if "mobile" in context.selected_device.device_model.lower():
-            target_node = "live_fullscreen"
-            print(f"📱 [fullzap] Mobile device detected - using live_fullscreen as base node")
-        else:
-            target_node = "live"
-        
-        # Map action command to be node-specific
-        if target_node == "live_fullscreen" and args.action == "live_chup":
-            mapped_action = "live_fullscreen_chup"
-            print(f"🔄 [fullzap] Mapped action '{args.action}' to '{mapped_action}' for {target_node} node")
-        elif target_node == "live_fullscreen" and args.action == "live_chdown":
-            mapped_action = "live_fullscreen_chdown"
-            print(f"🔄 [fullzap] Mapped action '{args.action}' to '{mapped_action}' for {target_node} node")
-        else:
-            mapped_action = args.action
-        
-        print(f"🎯 [fullzap] Device model: {context.selected_device.device_model}")
-        print(f"🎯 [fullzap] Target node: {target_node}")
-        
-        
-        # Conditionally navigate to target node based on parameter
-        nav_success = True
-        if args.goto_live:
-            print(f"🗺️ [fullzap] Navigating to {target_node} node...")
-            live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
-            
-            if not live_result.get('success'):
-                context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
-                print(f"❌ [fullzap] {context.error_message}")
-                # Capture execution summary even on navigation failure
-                summary_text = capture_fullzap_summary(context, args.userinterface_name)
-                context.execution_summary = summary_text
-                executor.cleanup_and_exit(context, args.userinterface_name)
-                return
-            
-            print(f"🎉 [fullzap] Successfully navigated to {target_node}!")
-        else:
-            print(f"⏭️ [fullzap] Skipping navigation to {target_node} node (--goto_live false specified)")
-            
-            # IMPORTANT: Manually set current node to target since we're assuming we're already there
-            # This prevents navigation from going back to home during script execution
-            from shared.lib.utils.navigation_utils import find_node_by_label
-            target_node_obj = find_node_by_label(context.nodes, target_node)
-            if target_node_obj:
-                target_node_id = target_node_obj.get('node_id')
-                context.current_node_id = target_node_id
-                print(f"🎯 [fullzap] Manually set current position to {target_node} node: {target_node_id}")
-            else:
-                print(f"⚠️ [fullzap] Warning: Could not find {target_node} node in navigation tree - navigation context may be incorrect")
-        
-        # Store mapped action in context for summary display
-        context.custom_data['action_command'] = mapped_action
-        
-        # For mobile devices, determine correct audio menu node and pass to zap_controller
-        if "mobile" in context.selected_device.device_model.lower():
-            context.audio_menu_node = "live_fullscreen_audiomenu"
-            print(f"🎧 [fullzap] Set mobile audio menu target: {context.audio_menu_node}")
-        else:
-            context.audio_menu_node = "live_audiomenu"
-        
-        # Find the actual action edge from current node to target node
-        print(f"🔍 [fullzap] Finding edge for action '{mapped_action}' from current node...")
-        from shared.lib.utils.navigation_utils import find_edge_by_target_label
-        
-        action_edge = find_edge_by_target_label(
-            context.current_node_id, 
-            context.edges, 
-            context.all_nodes, 
-            mapped_action  # e.g., 'live_fullscreen_chup'
-        )
-        
-        if not action_edge:
-            context.error_message = f"No edge found from current node to '{mapped_action}'"
-            print(f"❌ [fullzap] {context.error_message}")
-            print(f"📋 [fullzap] Current node: {context.current_node_id}")
-            print(f"📋 [fullzap] Available edges: {len(context.edges)}")
-            # Capture execution summary even on edge finding failure
-            summary_text = capture_fullzap_summary(context, args.userinterface_name)
-            context.execution_summary = summary_text
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        print(f"✅ [fullzap] Found edge for action '{mapped_action}'")
-        
-        # Execute zap actions multiple times with comprehensive analysis
-        location_msg = f"from {target_node} node" if args.goto_live else "from current location"
-        print(f"⚡ [fullzap] Executing action '{mapped_action}' {location_msg}...")
-        try:
-            zap_success = execute_zap_actions(context, action_edge, mapped_action, args.max_iteration, zap_controller, args.goto_live)
-        except Exception as e:
-            print(f"⚠️ [fullzap] ZapController error (continuing anyway): {e}")
-            zap_success = True  # Navigation worked, so consider it success
-        
-        context.overall_success = nav_success and zap_success
-        
-        if context.overall_success:
-            print(f"✅ [fullzap] All {args.max_iteration} iterations of action '{mapped_action}' completed successfully!")
-        else:
-            if not zap_success:
-                context.error_message = f"Some zap actions failed"
-            elif not nav_success:
-                context.error_message = f"Failed to navigate to live node"
-        
+    print(f"🔢 [fullzap] Max iterations: {args.max_iteration}")
+    print(f"🗺️ [fullzap] Goto live: {args.goto_live}")
+    print(f"📱 [fullzap] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    
+    # Execute zap actions using helper function
+    success = execute_zaps(
+        max_iterations=args.max_iteration,
+        action=args.action,
+        goto_live=args.goto_live,
+        audio_analysis=args.audio_analysis
+    )
+    
+    if success:
         # Print zap summary table from database
+        from backend_host.src.lib.utils.zap_controller import ZapController
+        zap_controller = ZapController()
         zap_controller.print_zap_summary_table(context)
         
-        # Print custom fullzap summary and capture it
-        summary_text = capture_fullzap_summary(context, args.userinterface_name)
-        print_fullzap_summary(context, args.userinterface_name)
-        
-        # Store summary for report
+        # Capture and store summary for report
+        summary_text = capture_fullzap_summary(args.userinterface_name)
         context.execution_summary = summary_text
         
-        if zap_success and args.audio_analysis:
-            # Skip audio menu analysis for VNC devices (no audio available)
-            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-            if device_model == 'host_vnc':
-                print("⏭️ [fullzap] Skipping audio menu analysis for VNC device (no audio available)")
-                context.custom_data['audio_menu_analysis'] = {
-                    'success': True,
-                    'audio_detected': False,
-                    'subtitles_detected': False,
-                    'skipped': True,
-                    'message': 'Audio Menu Analysis: ⏭️ SKIPPED',
-                    'details': 'VNC device has no audio available'
-                }
-            else:
-                print("🎧 [fullzap] Performing audio menu analysis after zap...")
-                audio_result = analyze_audio_menu(context)
-                context.custom_data['audio_menu_analysis'] = audio_result
-            
-            # IMPORTANT: Add audio menu analysis to relevant steps (split by menu type)
-            # Find steps that navigated to audio or subtitle menu nodes and attach relevant analysis
-            audio_menu_step_found = False
-            for i in range(len(context.step_results) - 1, -1, -1):  # Search backwards
-                step = context.step_results[i]
-                to_node = step.get('to_node', '')
-                
-                # Attach audio-specific analysis to audio menu steps
-                if 'menu_audio' in to_node.lower() or (to_node.lower().endswith('audiomenu') and 'subtitle' not in to_node.lower()):
-                    # Create audio-only analysis for this step
-                    # For mobile devices, use menu_detected; for desktop/TV, use audio_detected
-                    device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                    if device_model in ['android_mobile', 'ios_mobile']:
-                        # Mobile: analyze_audio_menu returns direct AI result with menu_detected
-                        menu_detected = audio_result.get('menu_detected', False)
-                        audio_languages = audio_result.get('audio_languages', [])
-                        message = audio_result.get('message', 'Audio menu analysis')
-                        analyzed_screenshot = audio_result.get('analyzed_screenshot')
-                    else:
-                        # Desktop/TV: analyze_audio_menu returns combined result with audio_detected
-                        menu_detected = audio_result.get('audio_detected', False)
-                        audio_languages = audio_result.get('audio_languages', [])
-                        message = audio_result.get('audio_analysis', {}).get('message', 'Audio menu analysis')
-                        analyzed_screenshot = audio_result.get('audio_analysis', {}).get('analyzed_screenshot')
-                    
-                    audio_only_analysis = {
-                        'success': audio_result.get('success', False),
-                        'menu_detected': menu_detected,
-                        'audio_languages': audio_languages,
-                        'subtitle_languages': [],  # Empty for audio menu step
-                        'message': message,
-                        'analyzed_screenshot': analyzed_screenshot
-                    }
-                    step['audio_menu_analysis'] = audio_only_analysis
-                    print(f"🔊 [fullzap] Added audio-only analysis to step {i + 1}: {to_node}")
-                    audio_menu_step_found = True
-                
-                # Attach subtitle-specific analysis to subtitle menu steps  
-                elif 'menu_subtitles' in to_node.lower() or 'subtitle' in to_node.lower():
-                    # Create subtitle-only analysis for this step
-                    # For mobile devices, use menu_detected; for desktop/TV, use subtitles_detected
-                    device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                    if device_model in ['android_mobile', 'ios_mobile']:
-                        # Mobile: analyze_audio_menu returns direct AI result with menu_detected
-                        menu_detected = audio_result.get('menu_detected', False)
-                        subtitle_languages = audio_result.get('subtitle_languages', [])
-                        message = audio_result.get('message', 'Subtitle menu analysis')
-                        analyzed_screenshot = audio_result.get('analyzed_screenshot')
-                    else:
-                        # Desktop/TV: analyze_audio_menu returns combined result with subtitles_detected
-                        menu_detected = audio_result.get('subtitles_detected', False)
-                        subtitle_languages = audio_result.get('subtitle_languages', [])
-                        message = audio_result.get('subtitle_analysis', {}).get('message', 'Subtitle menu analysis')
-                        analyzed_screenshot = audio_result.get('subtitle_analysis', {}).get('analyzed_screenshot')
-                    
-                    subtitle_only_analysis = {
-                        'success': audio_result.get('success', False),
-                        'menu_detected': menu_detected,
-                        'audio_languages': [],  # Empty for subtitle menu step
-                        'subtitle_languages': subtitle_languages,
-                        'message': message,
-                        'analyzed_screenshot': analyzed_screenshot
-                    }
-                    step['audio_menu_analysis'] = subtitle_only_analysis
-                    print(f"📝 [fullzap] Added subtitle-only analysis to step {i + 1}: {to_node}")
-                    audio_menu_step_found = True
-            
-            if not audio_menu_step_found:
-                # For non-mobile devices, the analyze_audio_menu() function creates its own navigation steps
-                # but they might not be recorded in step_results. Create a dedicated step for the analysis.
-                print("🎧 [fullzap] No existing audio menu navigation step found - creating dedicated analysis step")
-                
-                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                if device_model not in ['android_mobile', 'ios_mobile']:
-                    # Non-mobile devices: analyze_audio_menu() navigated to both audio and subtitle menus
-                    analysis_step = {
-                        'step_number': len(context.step_results) + 1,
-                        'from_node': target_node,
-                        'to_node': 'audio_menu_analysis',
-                        'action_type': 'analysis',
-                        'action_command': 'analyze_audio_menus',
-                        'success': audio_result.get('success', False),
-                        'execution_time_ms': 0,  # Analysis time not tracked separately
-                        'timestamp': datetime.now().strftime('%H:%M:%S'),
-                        'audio_menu_analysis': audio_result,
-                        'message': f"Audio menu analysis: {audio_result.get('message', 'Analysis completed')}"
-                    }
-                else:
-                    # Mobile devices: analyze_audio_menu() navigated to combined audio menu
-                    analysis_step = {
-                        'step_number': len(context.step_results) + 1,
-                        'from_node': target_node,
-                        'to_node': context.audio_menu_node,
-                        'action_type': 'analysis', 
-                        'action_command': 'analyze_audio_menu',
-                        'success': audio_result.get('success', False),
-                        'execution_time_ms': 0,  # Analysis time not tracked separately
-                        'timestamp': datetime.now().strftime('%H:%M:%S'),
-                        'audio_menu_analysis': audio_result,
-                        'message': f"Audio menu analysis: {audio_result.get('message', 'Analysis completed')}"
-                    }
-                
-                context.step_results.append(analysis_step)
-                print(f"🎧 [fullzap] Created dedicated audio menu analysis step: {analysis_step['to_node']}")
-        elif zap_success and not args.audio_analysis:
-            print("⏭️ [fullzap] Skipping audio menu analysis (--audio_analysis false)")
-        
-        if context.overall_success:
-            print("✅ [fullzap] Fullzap execution completed successfully!")
-            
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt(script_name)
-    except Exception as e:
-        handle_unexpected_error(script_name, e)
-    finally:
-        executor.cleanup_and_exit(context, args.userinterface_name)
+        print("✅ [fullzap] Fullzap execution completed successfully!")
+    
+    return success
 
 
 if __name__ == "__main__":

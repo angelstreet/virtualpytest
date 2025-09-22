@@ -22,10 +22,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from shared.src.lib.executors.step_executor import StepExecutor
-from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
+from shared.src.lib.executors.script_decorators import script, validate, get_context, get_args, capture_validation_summary
 from datetime import datetime
 import time
 
@@ -611,160 +608,45 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
         print(f"SCRIPT_REPORT_URL:{context.script_report_url}")
 
 
+@script("validation", "Validate navigation tree transitions")
 def main():
     """Main validation function with report generation"""
-    script_name = "validation"
-    executor = ScriptExecutor(script_name, "Validate navigation tree transitions")
+    args = get_args()
+    context = get_context()
     
-    # Create argument parser
-    parser = executor.create_argument_parser()
-    parser.add_argument('--max-iteration', type=int, default=None, 
-                       help='Maximum number of validation steps to execute (default: unlimited)')
-    args = parser.parse_args()
+    # Execute validation with recovery
+    success = validate(args.max_iteration)
     
-    # Setup execution context with database tracking enabled
-    context = executor.setup_execution_context(args, enable_db_tracking=True)
-    if context.error_message:
-        # Capture execution summary even on setup failure
-        summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
+    if success:
+        # Capture and store summary for report
+        summary_text = capture_validation_summary(args.userinterface_name, args.max_iteration)
         context.execution_summary = summary_text
-        executor.cleanup_and_exit(context, args.userinterface_name)
-        return
-    
-    try:
-        # Load navigation tree using NavigationExecutor
-        nav_result = context.selected_device.navigation_executor.load_navigation_tree(
-            args.userinterface_name, 
-            context.team_id
-        )
-        if not nav_result['success']:
-            context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
-            # Capture execution summary even on tree loading failure
-            summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
-            context.execution_summary = summary_text
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
         
-        # Initialize current position to entry point for pathfinding
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
-        from backend_host.src.lib.utils.navigation_graph import get_entry_points
-        
-        unified_graph = get_cached_unified_graph(context.tree_id, context.team_id)
-        if unified_graph:
-            entry_points = get_entry_points(unified_graph)
-            if entry_points:
-                context.current_node_id = entry_points[0]
-                print(f"📍 [validation] Starting validation from entry point: {context.current_node_id}")
-            else:
-                print(f"⚠️ [validation] No entry points found, starting with unknown position")
-        
-        # Get validation sequence
-        print("📋 [validation] Getting validation sequence...")
-        validation_sequence = find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
-        
-        if not validation_sequence:
-            context.error_message = "No validation sequence found"
-            print(f"❌ [validation] {context.error_message}")
-            # Capture execution summary even on validation sequence failure
-            summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
-            context.execution_summary = summary_text
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
-        
-        # Execute validation sequence with custom step handler and critical failure detection
-        success = execute_validation_sequence_with_force_recovery(
-            executor, context, validation_sequence, custom_validation_step_handler, args.max_iteration
-        )
-        
-        # Calculate validation success based on executed step results only
+        # Calculate validation-specific stats for custom_data
         successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-        executed_steps = len(context.step_results)  # Only executed steps are in results
+        failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
+        skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
+        recovered_steps = sum(1 for step in context.step_results if step.get('recovered', False))
         
-        # Validation is successful if ALL EXECUTED steps pass
-        # If we executed 3/3 successfully with max_iteration=3, that's 100% success
-        context.overall_success = successful_steps == executed_steps and executed_steps > 0
+        total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
+        passed_verifications = sum(
+            sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
+            for step in context.step_results
+        )
         
-        if context.overall_success:
-            print(f"🎉 [validation] All {successful_steps}/{executed_steps} executed validation steps passed successfully!")
-        else:
-            print(f"❌ [validation] Validation failed: {successful_steps}/{executed_steps} executed steps passed")
+        # Calculate coverage safely
+        total_steps = len(context.step_results)
+        coverage = ((successful_steps + recovered_steps) / total_steps * 100) if total_steps > 0 else 0
         
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt(script_name)
-    except Exception as e:
-        handle_unexpected_error(script_name, e)
-    finally:
-        # Generate report first to get the URL
-        report_url = None
-        report_result = None
-        if 'context' in locals() and context and context.host and context.selected_device:
-            try:
-                report_result = executor.generate_final_report(context, args.userinterface_name)
-                if report_result and report_result.get('success') and report_result.get('report_url'):
-                    report_url = report_result.get('report_url')
-                    print(f"SCRIPT_REPORT_URL:{report_url}")
-                    # Display log URL right after report URL
-                    if report_result.get('logs_url'):
-                        print(f"SCRIPT_LOGS_URL:{report_result['logs_url']}")
-            except Exception as e:
-                print(f"⚠️ [validation] Error generating report: {e}")
-        
-        # Print detailed validation summary and store extra info for framework summary
-        if 'context' in locals() and context:
-            summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
-            print(summary_text)
-            context.execution_summary = summary_text
-            
-            # Extract validation-specific metrics for framework summary
-            if report_url:
-                context.custom_data['report_url'] = report_url
-            
-            # Calculate validation-specific stats
-            successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-            failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
-            skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
-            recovered_steps = sum(1 for step in context.step_results if step.get('recovered', False))
-            
-            total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
-            passed_verifications = sum(
-                sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
-                for step in context.step_results
-            )
-            
-            # Calculate coverage safely
-            total_steps = len(context.step_results)
-            coverage = ((successful_steps + recovered_steps) / total_steps * 100) if total_steps > 0 else 0
-            
-            # Store validation metrics in custom_data
-            context.custom_data['successful_steps'] = f"{successful_steps}/{len(context.step_results)}"
-            context.custom_data['failed_steps'] = str(failed_steps)
-            context.custom_data['skipped_steps'] = str(skipped_steps)
-            context.custom_data['recovery_navigations'] = str(recovered_steps)
-            context.custom_data['verifications'] = f"{passed_verifications}/{total_verifications}"
-            context.custom_data['coverage'] = f"{coverage:.1f}%"
-            
-            # Add failed steps details if any
-            failed_step_details = [step for step in context.step_results if not step.get('success', False) and not step.get('skipped', False)]
-            if failed_step_details:
-                failed_details = []
-                for failed_step in failed_step_details:
-                    step_num = failed_step.get('step_number')
-                    from_node = failed_step.get('from_node')
-                    to_node = failed_step.get('to_node')
-                    error = failed_step.get('error')
-                    if not error:
-                        verification_results = failed_step.get('verification_results', [])
-                        if verification_results and verification_results[0].get('error'):
-                            error = verification_results[0].get('error')
-                        else:
-                            error = 'Unknown error'
-                    failed_details.append(f"Step {step_num}: {from_node} → {to_node} ({error})")
-                context.custom_data['failed_steps_details'] = "; ".join(failed_details)
-        
-        # Use the same cleanup approach as goto_live_fullscreen.py
-        executor.cleanup_and_exit(context, args.userinterface_name)
+        # Store validation metrics in custom_data
+        context.custom_data['successful_steps'] = f"{successful_steps}/{len(context.step_results)}"
+        context.custom_data['failed_steps'] = str(failed_steps)
+        context.custom_data['skipped_steps'] = str(skipped_steps)
+        context.custom_data['recovery_navigations'] = str(recovered_steps)
+        context.custom_data['verifications'] = f"{passed_verifications}/{total_verifications}"
+        context.custom_data['coverage'] = f"{coverage:.1f}%"
+    
+    return success
 
 
 if __name__ == "__main__":

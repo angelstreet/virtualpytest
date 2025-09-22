@@ -24,9 +24,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
-from shared.src.lib.executors.step_executor import StepExecutor
-from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
+from shared.src.lib.executors.script_decorators import script, navigate_to, get_context, get_args
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
@@ -48,73 +46,25 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
+@script("goto", "Navigate to specified node")
 def main():
     """Main navigation function to goto specified node"""
-    script_name = "goto"
-    executor = ScriptExecutor(script_name, "Navigate to specified node")
-    
-    # Create argument parser with custom --node parameter
-    parser = executor.create_argument_parser()
-    parser.add_argument('--node', type=str, default='home', 
-                       help='Target node to navigate to (default: home)')
-    args = parser.parse_args()
-    
+    args = get_args()
+    context = get_context()
     target_node = args.node
     
-    # Setup execution context with database tracking enabled
-    context = executor.setup_execution_context(args, enable_db_tracking=True)
-    if context.error_message:
-        executor.cleanup_and_exit(context, args.userinterface_name)
-        return
+    print(f"🎯 [goto] Target node: {target_node}")
+    print(f"📱 [goto] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     
-    try:
-        # Load navigation tree using NavigationExecutor
-        nav_result = context.selected_device.navigation_executor.load_navigation_tree(
-            args.userinterface_name, 
-            context.team_id
-        )
-        if not nav_result['success']:
-            context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
-            executor.cleanup_and_exit(context, args.userinterface_name)
-            return
-        
-        print(f"🎯 [{script_name}] Target node: {target_node}")
-        print(f"📱 [{script_name}] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
-        
-        # Execute navigation using proper navigation executor (same as goto_live.py)
-        print(f"🗺️ [{script_name}] Navigating to {target_node} using proper navigation executor...")
-        
-        navigation_result = context.selected_device.navigation_executor.execute_navigation(
-            tree_id=context.tree_id,
-            target_node_label=target_node,
-            team_id=context.team_id,
-            context=context
-        )
-        success = navigation_result['success']
-        context.overall_success = success
-        
-        # Create and record navigation step using StepExecutor
-        step_executor = StepExecutor(context)
-        nav_step = step_executor.create_navigation_step(navigation_result, "entry", target_node)
-        context.record_step_dict(nav_step)
-        
-        if not success:
-            context.error_message = navigation_result.get('error', 'Navigation failed')
-        
+    # Navigate using high-level method (auto-loads tree, executes, records step)
+    success = navigate_to(target_node)
+    
+    if success:
         # Capture summary for report
-        path_length = navigation_result.get('total_transitions', 0)
-        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, path_length)
+        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
         context.execution_summary = summary_text
-        
-        if success:
-            print(f"🎉 [{script_name}] Successfully navigated to '{target_node}'!")
-        
-    except KeyboardInterrupt:
-        handle_keyboard_interrupt(script_name)
-    except Exception as e:
-        handle_unexpected_error(script_name, e)
-    finally:
-        executor.cleanup_and_exit(context, args.userinterface_name)
+    
+    return success
 
 
 if __name__ == "__main__":
