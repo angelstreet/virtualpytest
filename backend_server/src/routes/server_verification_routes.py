@@ -67,9 +67,8 @@ def get_all_references():
     try:
         from shared.src.lib.supabase.verifications_references_db import get_references
         
-        # Get team_id from request
-        request_data = request.get_json() or {}
-        team_id = request_data.get('team_id')
+        # Get team_id from query params (standardized pattern like other endpoints)
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,

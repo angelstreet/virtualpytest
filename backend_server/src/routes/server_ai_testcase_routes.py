@@ -15,7 +15,7 @@ from shared.src.lib.supabase.navigation_trees_db import get_full_tree, get_root_
 from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces, get_userinterface_by_name
 from shared.src.lib.supabase.ai_analysis_cache_db import save_analysis_cache, get_analysis_cache
 
-from  backend_server.src.lib.utils.route_utils import proxy_to_host
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 
 # Create blueprint
 server_ai_testcase_bp = Blueprint('server_ai_testcase', __name__, url_prefix='/server/ai-testcase')
@@ -40,7 +40,7 @@ def analyze_test_case():
     }
     """
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -169,7 +169,7 @@ def generate_test_cases():
     }
     """
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -278,7 +278,7 @@ def execute_test_case():
     try:
         print("[@server_ai_testcase] Proxying test case execution to host")
         
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -335,7 +335,7 @@ def execute_test_case():
 def validate_compatibility():
     """Validate test case compatibility with specific userinterface"""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -394,7 +394,7 @@ def quick_feasibility_check():
         request_data = request.get_json() or {}
         prompt = request_data.get('prompt')
         interface_name = request_data.get('interface_name')
-        team_id = request_data.get('team_id')
+        team_id = request.args.get('team_id')
         
         if not prompt:
             return jsonify({

@@ -205,8 +205,8 @@ def approve_generation():
         nodes_created = 0
         edges_created = 0
         
-        # Get team_id from request
-        team_id = request_data.get('team_id')
+        # Get team_id from query params (standardized pattern)
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
