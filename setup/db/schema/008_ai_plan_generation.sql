@@ -2,6 +2,9 @@
 -- AI Plan Generation Cache System
 -- Clean implementation with no backward compatibility
 
+-- Drop existing table if it exists (for clean recreation)
+DROP TABLE IF EXISTS ai_plan_generation CASCADE;
+
 -- Create the ai_plan_generation table
 CREATE TABLE ai_plan_generation (
     -- Primary identification
