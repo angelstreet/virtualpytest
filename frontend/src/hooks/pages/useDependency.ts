@@ -9,7 +9,7 @@ import { useState, useCallback } from 'react';
 import { useExecutionResults } from './useExecutionResults';
 import { useScriptResults } from './useScriptResults';
 import { useUserInterface } from './useUserInterface';
-import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 // =====================================================
 // DEPENDENCY INTERFACES
@@ -84,10 +84,26 @@ export const useDependency = () => {
   const { getAllScriptResults } = useScriptResults();
   const { getAllExecutionResults } = useExecutionResults();
   const { getAllUserInterfaces } = useUserInterface();
-  const navigationConfig = useNavigationConfig();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Standalone function to load tree data without requiring NavigationConfigContext
+  const loadTreeData = useCallback(async (treeId: string): Promise<any> => {
+    try {
+      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/full`));
+      const result = await response.json();
+      
+      if (result.success) {
+        return result;
+      } else {
+        throw new Error(result.error || 'Failed to load tree data');
+      }
+    } catch (err: any) {
+      console.warn(`[@hook:useDependency] Failed to load tree data for ${treeId}:`, err);
+      throw err;
+    }
+  }, []);
 
   // Helper function to get proper labels for nodes and edges
   const getElementLabel = useCallback(
@@ -99,7 +115,7 @@ export const useDependency = () => {
 
       try {
         // If no fallback, try to fetch from navigation data
-        const treeData = await navigationConfig.loadTreeData(treeId);
+        const treeData = await loadTreeData(treeId);
         
         if (treeData.success) {
           if (elementType === 'node') {
@@ -121,7 +137,7 @@ export const useDependency = () => {
       // Last resort fallback
       return elementType === 'node' ? 'Unnamed Node' : 'Unnamed Edge';
     },
-    [navigationConfig]
+    [loadTreeData]
   );
 
   // Main function to load all dependency data
