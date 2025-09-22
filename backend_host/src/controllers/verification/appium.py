@@ -49,6 +49,7 @@ class AppiumVerificationController(VerificationControllerInterface):
         self.platform_name = appium_platform_name
         self.appium_device_id = appium_device_id  # This is the actual iOS/Android UDID
         self.appium_server_url = appium_server_url
+        self.device_model = device_model
         
         # Set verification type for controller lookup
         self.verification_type = 'appium'
