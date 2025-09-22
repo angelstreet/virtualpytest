@@ -429,21 +429,21 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         from  backend_host.src.services.actions.action_executor import ActionExecutor
         from  backend_host.src.services.navigation.navigation_executor import NavigationExecutor
         from  backend_host.src.services.verifications.verification_executor import VerificationExecutor
-        from  backend_host.src.services.ai.ai_executor import AIExecutor
+        from  shared.src.lib.executors.ai_executor import AIExecutor
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization
         print(f"[@controller_manager:_create_device_with_controllers] Creating ActionExecutor for device: {device_id}")
-        device.action_executor = ActionExecutor(device)
+        device.action_executor = ActionExecutor(device, _from_device_init=True)
         
         print(f"[@controller_manager:_create_device_with_controllers] Creating NavigationExecutor for device: {device_id}")
-        device.navigation_executor = NavigationExecutor(device)
+        device.navigation_executor = NavigationExecutor(device, _from_device_init=True)
         
         print(f"[@controller_manager:_create_device_with_controllers] Creating VerificationExecutor for device: {device_id}")
-        device.verification_executor = VerificationExecutor(device)
+        device.verification_executor = VerificationExecutor(device, _from_device_init=True)
         
         print(f"[@controller_manager:_create_device_with_controllers] Creating AIExecutor for device: {device_id}")
-        device.ai_executor = AIExecutor(device)
+        device.ai_executor = AIExecutor(device, _from_device_init=True)
         
         print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
         print(f"[@controller_manager:_create_device_with_controllers] ✓ Script execution now handled by shared executors")

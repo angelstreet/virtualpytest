@@ -23,12 +23,36 @@ class AIExecutor:
     - Plan execution using device's existing executors
     - Execution status tracking
     - Position tracking delegated to NavigationExecutor
+    
+    CRITICAL: Do not create new instances directly! Use device.ai_executor instead.
+    Each device has a singleton AIExecutor that preserves execution state and caches.
     """
+    
+    @classmethod
+    def get_for_device(cls, device):
+        """
+        Factory method to get the device's existing AIExecutor.
+        
+        RECOMMENDED: Use device.ai_executor directly instead of this method.
+        
+        Args:
+            device: Device instance
+            
+        Returns:
+            The device's existing AIExecutor instance
+            
+        Raises:
+            ValueError: If device doesn't have an ai_executor
+        """
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            raise ValueError(f"Device {device.device_id} does not have an AIExecutor. "
+                           "AIExecutors are created during device initialization.")
+        return device.ai_executor
     
     # Class-level storage for execution tracking across all devices
     _executions = {}  # {execution_id: execution_data}
     
-    def __init__(self, device):
+    def __init__(self, device, _from_device_init: bool = False):
         """Initialize AI executor for a specific device"""
         # Validate required parameters - fail fast if missing
         if not device:
@@ -37,6 +61,15 @@ class AIExecutor:
             raise ValueError("Device must have host_name")
         if not device.device_id:
             raise ValueError("Device must have device_id")
+        
+        # Warn if creating instance outside of device initialization
+        if not _from_device_init:
+            import traceback
+            print(f"⚠️ [AIExecutor] WARNING: Creating new AIExecutor instance for device {device.device_id}")
+            print(f"⚠️ [AIExecutor] This may cause state loss! Use device.ai_executor instead.")
+            print(f"⚠️ [AIExecutor] Call stack:")
+            for line in traceback.format_stack()[-3:-1]:  # Show last 2 stack frames
+                print(f"⚠️ [AIExecutor]   {line.strip()}")
         
         # Store instances directly
         self.device = device

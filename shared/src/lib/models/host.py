@@ -94,7 +94,7 @@ class Host:
         """
         device = self.get_device(device_id)
         if device:
-            return device.get_controller(controller_type)
+            return device._get_controller(controller_type)
         return None
     
     def get_controllers(self, device_id: str, controller_type: str):

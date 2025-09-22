@@ -73,9 +73,18 @@ class Device:
         
         self._controllers[controller_type].append(controller)
     
-    def get_controller(self, controller_type: str) -> Optional[BaseController]:
+    def _get_controller(self, controller_type: str) -> Optional[BaseController]:
         """
         Get the first controller of the specified type.
+        
+        PRIVATE METHOD - Only for use by service executors:
+        - ActionExecutor
+        - VerificationExecutor  
+        - NavigationExecutor
+        - ZapExecutor (specialized executor)
+        - AiExecutor
+        
+        Scripts and routes should use service executors instead of direct controller access.
         
         Args:
             controller_type: Abstract type ('av', 'remote', 'verification', etc.)

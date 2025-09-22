@@ -36,7 +36,7 @@ def capture_and_upload_screenshot(device, step_name: str, script_context: str = 
         # 1. Capture screenshot locally using device's AV controller
         screenshot_path = ""
         try:
-            av_controller = device.get_controller('av')
+            av_controller = device._get_controller('av')
             if av_controller:
                 screenshot_path = av_controller.take_screenshot()
             else:

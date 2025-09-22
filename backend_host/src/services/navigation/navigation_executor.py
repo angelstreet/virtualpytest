@@ -18,9 +18,33 @@ class NavigationExecutor:
     """
     Standardized navigation executor that orchestrates action and verification execution
     to provide complete navigation functionality.
+    
+    CRITICAL: Do not create new instances directly! Use device.navigation_executor instead.
+    Each device has a singleton NavigationExecutor that preserves current position and tree state.
     """
     
-    def __init__(self, device):
+    @classmethod
+    def get_for_device(cls, device):
+        """
+        Factory method to get the device's existing NavigationExecutor.
+        
+        RECOMMENDED: Use device.navigation_executor directly instead of this method.
+        
+        Args:
+            device: Device instance
+            
+        Returns:
+            The device's existing NavigationExecutor instance
+            
+        Raises:
+            ValueError: If device doesn't have a navigation_executor
+        """
+        if not hasattr(device, 'navigation_executor') or not device.navigation_executor:
+            raise ValueError(f"Device {device.device_id} does not have a NavigationExecutor. "
+                           "NavigationExecutors are created during device initialization.")
+        return device.navigation_executor
+    
+    def __init__(self, device, _from_device_init: bool = False):
         """Initialize NavigationExecutor"""
         # Validate required parameters - fail fast if missing
         if not device:
@@ -29,6 +53,15 @@ class NavigationExecutor:
             raise ValueError("Device must have host_name")
         if not device.device_id:
             raise ValueError("Device must have device_id")
+        
+        # Warn if creating instance outside of device initialization
+        if not _from_device_init:
+            import traceback
+            print(f"⚠️ [NavigationExecutor] WARNING: Creating new NavigationExecutor instance for device {device.device_id}")
+            print(f"⚠️ [NavigationExecutor] This may cause state loss! Use device.navigation_executor instead.")
+            print(f"⚠️ [NavigationExecutor] Call stack:")
+            for line in traceback.format_stack()[-3:-1]:  # Show last 2 stack frames
+                print(f"⚠️ [NavigationExecutor]   {line.strip()}")
         
         # Store instances directly
         self.device = device
@@ -89,7 +122,7 @@ class NavigationExecutor:
         
         # Cache miss - load tree hierarchy and populate cache
         print(f"[@navigation_executor] Cache miss for '{userinterface_name}' - loading tree hierarchy")
-        tree_result = self.load_navigation_tree_with_hierarchy(userinterface_name, team_id, "navigation_executor")
+        tree_result = self.load_navigation_tree(userinterface_name, team_id, "navigation_executor")
         
         # Fail fast - no fallback
         if not tree_result['success']:
@@ -442,10 +475,10 @@ class NavigationExecutor:
     # NAVIGATION TREE MANAGEMENT METHODS
     # ========================================
     
-    def load_navigation_tree(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
+    def load_navigation_tree(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
         """
-        Load navigation tree using direct database access (no HTTP requests).
-        This populates the cache and is required before calling pathfinding functions.
+        Load navigation tree and populate unified cache.
+        This is the unified function that always works for both simple and nested trees.
         
         Args:
             userinterface_name: Interface name (e.g., 'horizon_android_mobile')
@@ -453,9 +486,15 @@ class NavigationExecutor:
             script_name: Name of the script for logging
             
         Returns:
-            Dictionary with success status and tree data or error
+            Dictionary with success status and tree data
+            
+        Raises:
+            NavigationTreeError: If any part of the loading fails
         """
         try:
+            print(f"🗺️ [{script_name}] Loading navigation tree for '{userinterface_name}'")
+            
+            # 1. Load root tree data
             from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
             userinterface = get_userinterface_by_name(userinterface_name, team_id)
             if not userinterface:
@@ -478,54 +517,26 @@ class NavigationExecutor:
             if not tree_data['success']:
                 return {'success': False, 'error': f"Failed to load tree data: {tree_data.get('error', 'Unknown error')}"}
             
-            tree_id = tree['id']
+            root_tree_id = tree['id']
             nodes = tree_data['nodes']
             edges = tree_data['edges']
             
-            return {
+            # Create root tree result for hierarchy processing
+            root_tree_result = {
                 'success': True,
                 'tree': {
-                    'id': tree_id,
+                    'id': root_tree_id,
                     'name': tree.get('name', ''),
                     'metadata': {
                         'nodes': nodes,
                         'edges': edges
                     }
                 },
-                'tree_id': tree_id,
+                'tree_id': root_tree_id,
                 'userinterface_id': userinterface_id,
                 'nodes': nodes,
                 'edges': edges
             }
-            
-        except Exception as e:
-            return {'success': False, 'error': f"Error loading navigation tree: {str(e)}"}
-
-    def load_navigation_tree_with_hierarchy(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
-        """
-        Load complete navigation tree hierarchy and populate unified cache.
-        FAIL EARLY: No fallback to single-tree loading.
-        
-        Args:
-            userinterface_name: Interface name (e.g., 'horizon_android_mobile')
-            team_id: Team ID (required)
-            script_name: Name of the script for logging
-            
-        Returns:
-            Dictionary with success status and complete hierarchy data
-            
-        Raises:
-            NavigationTreeError: If any part of the hierarchy loading fails
-        """
-        try:
-            print(f"🗺️ [{script_name}] Loading complete navigation tree hierarchy for '{userinterface_name}'")
-            
-            # 1. Load root tree (using existing logic)
-            root_tree_result = self.load_navigation_tree(userinterface_name, team_id, script_name)
-            if not root_tree_result['success']:
-                raise NavigationTreeError(f"Root tree loading failed: {root_tree_result['error']}")
-            
-            root_tree_id = root_tree_result['tree_id']
             
             print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
             
@@ -545,30 +556,45 @@ class NavigationExecutor:
             
             # 4. Populate unified cache (MANDATORY)
             print(f"🔄 [{script_name}] Populating unified cache...")
+            from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
             unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
             if not unified_graph:
+                from backend_host.src.lib.utils.navigation_cache import UnifiedCacheError
                 raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
             
             print(f"✅ [{script_name}] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
             
-            # 5. Return enhanced result with hierarchy info
+            # 5. Return result compatible with script executor expectations
             return {
                 'success': True,
                 'tree_id': root_tree_id,
-                'root_tree': root_tree_result,
+                'tree': {
+                    'id': root_tree_id,
+                    'name': tree.get('name', ''),
+                    'metadata': {
+                        'nodes': nodes,
+                        'edges': edges
+                    }
+                },
+                'userinterface_id': userinterface_id,
+                'nodes': nodes,
+                'edges': edges,
+                # Additional hierarchy info for advanced use cases
                 'hierarchy': hierarchy_data,
                 'unified_graph_nodes': len(unified_graph.nodes),
                 'unified_graph_edges': len(unified_graph.edges),
-                'cross_tree_capabilities': len(hierarchy_data) > 1,
-                'team_id': team_id
+                'cross_tree_capabilities': len(hierarchy_data) > 1
             }
             
-        except (NavigationTreeError, UnifiedCacheError) as e:
-            # Re-raise navigation-specific errors
-            raise e
         except Exception as e:
-            # FAIL EARLY - no fallback
-            raise NavigationTreeError(f"Unified tree loading failed: {str(e)}")
+            # Import exceptions locally to avoid circular imports
+            from backend_host.src.lib.utils.navigation_cache import NavigationTreeError, UnifiedCacheError
+            if isinstance(e, (NavigationTreeError, UnifiedCacheError)):
+                # Re-raise navigation-specific errors
+                raise e
+            else:
+                # FAIL EARLY - no fallback
+                return {'success': False, 'error': f"Navigation tree loading failed: {str(e)}"}
 
     def discover_complete_hierarchy(self, root_tree_id: str, team_id: str, script_name: str = "navigation_executor") -> List[Dict]:
         """

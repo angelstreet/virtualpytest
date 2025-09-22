@@ -58,12 +58,12 @@ def print_fullzap_summary(context, userinterface_name: str):
     print("="*60)
 
 def execute_zap_iterations(max_iterations: int, action: str = 'live_chup', goto_live: bool = True, audio_analysis: bool = False) -> bool:
-    from backend_host.src.lib.utils.zap_controller import ZapController
-    from shared.lib.utils.navigation_utils import goto_node, find_edge_by_target_label, find_node_by_label
+    from shared.src.lib.executors.zap_executor import ZapExecutor
+    from shared.src.lib.executors.script_decorators import navigate_to
     from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
     
     context = get_context()
-    zap_controller = ZapController()
+    zap_controller = ZapExecutor(context.selected_device)
     
     if "mobile" in context.selected_device.device_model.lower():
         target_node = "live_fullscreen"
@@ -73,19 +73,29 @@ def execute_zap_iterations(max_iterations: int, action: str = 'live_chup', goto_
         mapped_action = action
     
     if goto_live:
-        live_result = goto_node(context.host, context.selected_device, target_node, context.tree_id, context.team_id, context)
-        if not live_result.get('success'):
-            context.error_message = f"Failed to navigate to {target_node}: {live_result.get('error', 'Unknown error')}"
+        success = navigate_to(target_node)
+        if not success:
+            context.error_message = f"Failed to navigate to {target_node}"
             return False
     else:
-        target_node_obj = find_node_by_label(context.nodes, target_node)
+        # Find target node in loaded tree
+        target_node_obj = None
+        for node in context.nodes:
+            if node.get('label') == target_node:
+                target_node_obj = node
+                break
         if target_node_obj:
             context.current_node_id = target_node_obj.get('node_id')
     
     context.custom_data['action_command'] = mapped_action
     context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in context.selected_device.device_model.lower() else "live_audiomenu"
     
-    action_edge = find_edge_by_target_label(context.current_node_id, context.edges, context.all_nodes, mapped_action)
+    # Find edge for the mapped action
+    action_edge = None
+    if context.current_node_id:
+        # Use NavigationExecutor's method to find edge
+        nav_executor = context.selected_device.navigation_executor
+        action_edge = nav_executor.find_edge_by_target_label(context.current_node_id, context.edges, context.nodes, mapped_action)
     if not action_edge:
         context.error_message = f"No edge found from current node to '{mapped_action}'"
         return False
@@ -117,9 +127,8 @@ def main():
     )
     
     if success:
-        from backend_host.src.lib.utils.zap_controller import ZapController
-        zap_controller = ZapController()
-        zap_controller.print_zap_summary_table(context)
+        from shared.src.lib.utils.zap_utils import print_zap_summary_table
+        print_zap_summary_table(context)
     
     return success
 

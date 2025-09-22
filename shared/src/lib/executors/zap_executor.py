@@ -1,5 +1,5 @@
 """
-ZapController - Handles zap action execution and comprehensive analysis
+ZapExecutor - Handles zap action execution and comprehensive analysis
 
 This controller manages:
 - Zap action execution with motion detection
@@ -12,14 +12,16 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from .report_utils import capture_and_upload_screenshot
-from .audio_menu_analyzer import analyze_audio_menu
-
-def get_controller(device_id: str, controller_type: str):
-    """Proxy controller access to host"""
-    print(f"⚠️ [ZapController] get_controller({device_id}, {controller_type}) - proxying to host not implemented")
-    return None
-
+from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
+from shared.src.lib.utils.zap_statistics import ZapStatistics
+from shared.src.lib.utils.zap_utils import (
+    create_blackscreen_analysis_log,
+    create_freeze_analysis_log, 
+    create_combined_analysis_log,
+    validate_capture_filename,
+    capture_fullzap_summary
+)
 
 class ZapAnalysisResult:
     """Container for zap analysis results"""
@@ -67,161 +69,12 @@ class ZapAnalysisResult:
         }
 
 
-class ZapStatistics:
-    """Container for zap execution statistics"""
-    
-    def __init__(self):
-        self.total_iterations = 0
-        self.successful_iterations = 0
-        self.motion_detected_count = 0
-        self.subtitles_detected_count = 0
-        self.zapping_detected_count = 0
-        self.detected_languages = []
-        self.total_execution_time = 0
-        self.analysis_results = []
-        self.audio_speech_detected_count = 0
-        self.audio_languages = []
-        self.zapping_durations = []
-        self.blackscreen_durations = []
-        self.detected_channels = []
-        self.channel_info_results = []
-        self.freeze_detected_count = 0
-        self.detection_methods_used = []
-    
-    @property
-    def success_rate(self) -> float:
-        return (self.successful_iterations / self.total_iterations * 100) if self.total_iterations > 0 else 0
-    
-    @property
-    def motion_success_rate(self) -> float:
-        return (self.motion_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
-    
-    @property
-    def subtitle_success_rate(self) -> float:
-        return (self.subtitles_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
-    
-    @property
-    def zapping_success_rate(self) -> float:
-        return (self.zapping_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
-    
-    @property
-    def audio_speech_success_rate(self) -> float:
-        return (self.audio_speech_detected_count / self.total_iterations * 100) if self.total_iterations > 0 else 0
-    
-    @property
-    def average_execution_time(self) -> float:
-        return self.total_execution_time / self.total_iterations if self.total_iterations > 0 else 0
-    
-    def add_language(self, language: str):
-        """Add a detected language if not already present"""
-        if language and language not in self.detected_languages:
-            self.detected_languages.append(language)
-    
-    def add_audio_language(self, language: str):
-        """Add a detected audio language if not already present"""
-        if language and language not in self.audio_languages:
-            self.audio_languages.append(language)
-    
-    def add_zapping_result(self, zapping_details: Dict[str, Any]):
-        """Add enhanced zapping analysis results"""
-        if zapping_details.get('success', False):
-            zapping_duration = zapping_details.get('zapping_duration', 0.0)
-            blackscreen_duration = zapping_details.get('blackscreen_duration', 0.0)
-            
-            if zapping_duration > 0:
-                self.zapping_durations.append(zapping_duration)
-            if blackscreen_duration > 0:
-                self.blackscreen_durations.append(blackscreen_duration)
-            
-            channel_name = zapping_details.get('channel_name', '').strip()
-            if channel_name and channel_name not in self.detected_channels:
-                self.detected_channels.append(channel_name)
-            
-            channel_info = {
-                'channel_name': zapping_details.get('channel_name', ''),
-                'channel_number': zapping_details.get('channel_number', ''),
-                'program_name': zapping_details.get('program_name', ''),
-                'program_start_time': zapping_details.get('program_start_time', ''),
-                'program_end_time': zapping_details.get('program_end_time', ''),
-                'channel_confidence': zapping_details.get('channel_confidence', 0.0),
-                'zapping_duration': zapping_duration,
-                'blackscreen_duration': blackscreen_duration
-            }
-            self.channel_info_results.append(channel_info)
-    
-    @property
-    def average_zapping_duration(self) -> float:
-        """Average zapping duration in seconds"""
-        return sum(self.zapping_durations) / len(self.zapping_durations) if self.zapping_durations else 0.0
-    
-    @property
-    def average_blackscreen_duration(self) -> float:
-        """Average blackscreen duration in seconds"""
-        return sum(self.blackscreen_durations) / len(self.blackscreen_durations) if self.blackscreen_durations else 0.0
-    
-    def print_summary(self, action_command: str):
-        """Print formatted statistics summary with enhanced zapping information"""
-        print(f"📊 [ZapController] Action execution summary:")
-        print(f"   • Total iterations: {self.total_iterations}")
-        print(f"   • Successful: {self.successful_iterations}")
-        print(f"   • Success rate: {self.success_rate:.1f}%")
-        print(f"   • Average time per iteration: {self.average_execution_time:.0f}ms")
-        print(f"   • Total action time: {self.total_execution_time}ms")
-        print(f"   • Motion detected: {self.motion_detected_count}/{self.total_iterations} ({self.motion_success_rate:.1f}%)")
-        print(f"   • Subtitles detected: {self.subtitles_detected_count}/{self.total_iterations} ({self.subtitle_success_rate:.1f}%)")
-        print(f"   • Audio speech detected: {self.audio_speech_detected_count}/{self.total_iterations} ({self.audio_speech_success_rate:.1f}%)")
-        print(f"   • Zapping detected: {self.zapping_detected_count}/{self.total_iterations} ({self.zapping_success_rate:.1f}%)")
-        
-        if self.zapping_durations:
-            print(f"   ⚡ Average zapping duration: {self.average_zapping_duration:.2f}s")
-            print(f"   ⬛ Average blackscreen duration: {self.average_blackscreen_duration:.2f}s")
-            min_zap = min(self.zapping_durations)
-            max_zap = max(self.zapping_durations)
-            print(f"   📊 Zapping duration range: {min_zap:.2f}s - {max_zap:.2f}s")
-        
-        if self.detected_channels:
-            print(f"   📺 Channels detected: {', '.join(self.detected_channels)}")
-            
-            successful_channel_info = [info for info in self.channel_info_results if info.get('channel_name')]
-            if successful_channel_info:
-                print(f"   🎬 Channel details:")
-                for i, info in enumerate(successful_channel_info, 1):
-                    channel_display = info['channel_name']
-                    if info.get('channel_number'):
-                        channel_display += f" ({info['channel_number']})"
-                    if info.get('program_name'):
-                        channel_display += f" - {info['program_name']}"
-                    if info.get('program_start_time') and info.get('program_end_time'):
-                        channel_display += f" [{info['program_start_time']}-{info['program_end_time']}]"
-                    
-                    print(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
-        
-        if self.detected_languages:
-            print(f"   🌐 Subtitle languages detected: {', '.join(self.detected_languages)}")
-        
-        if self.audio_languages:
-            print(f"   🎤 Audio languages detected: {', '.join(self.audio_languages)}")
-        
-        if self.detection_methods_used:
-            blackscreen_count = self.detection_methods_used.count('blackscreen')
-            freeze_count = self.detection_methods_used.count('freeze')
-            
-            if blackscreen_count > 0 and freeze_count > 0:
-                print(f"   🔍 Learning: ⬛ Blackscreen: {blackscreen_count}, 🧊 Freeze: {freeze_count}")
-            elif blackscreen_count > 0:
-                print(f"   ⬛ Detection method: Blackscreen/Freeze ({blackscreen_count}/{self.total_iterations})")
-            elif freeze_count > 0:
-                print(f"   🧊 Detection method: Blackscreen/Freeze ({freeze_count}/{self.total_iterations})")
-        
-        no_motion_count = self.total_iterations - self.motion_detected_count
-        if no_motion_count > 0:
-            print(f"   ⚠️  {no_motion_count} zap(s) did not show content change")
-
-
-class ZapController:
+class ZapExecutor:
     """Controller for executing zap actions with comprehensive analysis"""
     
-    def __init__(self):
+    def __init__(self, device):
+        """Initialize ZapExecutor with device instance"""
+        self.device = device
         self.statistics = ZapStatistics()
         self.learned_detection_method = None  # Learn on first success
     
@@ -250,7 +103,7 @@ class ZapController:
             result.zapping_detected = False
         
         try:
-            print(f"🔍 [ZapController] Analyzing zap results for {action_command} (iteration {iteration})...")
+            print(f"🔍 [ZapExecutor] Analyzing zap results for {action_command} (iteration {iteration})...")
             
             context.current_iteration = iteration
             motion_result = self._detect_motion(context)
@@ -258,9 +111,9 @@ class ZapController:
             result.motion_details = motion_result
             
             if result.motion_detected:
-                print(f"✅ [ZapController] Motion detected - content changed successfully")
+                print(f"✅ [ZapExecutor] Motion detected - content changed successfully")
             else:
-                print(f"⚠️ [ZapController] No motion detected - continuing with analysis anyway")
+                print(f"⚠️ [ZapExecutor] No motion detected - continuing with analysis anyway")
             if context:
                 subtitle_result = self._analyze_subtitles(context, iteration, action_command)
                 result.subtitles_detected = subtitle_result.get('subtitles_detected', False)
@@ -271,7 +124,7 @@ class ZapController:
             if context:
                 device_model = context.selected_device.device_model if context.selected_device else 'unknown'
                 if device_model == 'host_vnc':
-                    print(f"⏭️ [ZapController] Skipping audio analysis for VNC device (no audio available)")
+                    print(f"⏭️ [ZapExecutor] Skipping audio analysis for VNC device (no audio available)")
                     result.audio_speech_detected = False
                     result.audio_transcript = ""
                     result.audio_language = "unknown"
@@ -308,19 +161,19 @@ class ZapController:
         except Exception as e:
             result.success = False
             result.message = f"Analysis error: {e}"
-            print(f"❌ [ZapController] {result.message}")
+            print(f"❌ [ZapExecutor] {result.message}")
         
         return result
     
     def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, goto_live: bool = True) -> bool:
         """Execute multiple zap iterations with analysis - simple sequential recording"""
-        print(f"🔄 [ZapController] Starting {max_iterations} iterations of '{action_command}'...")
+        print(f"🔄 [ZapExecutor] Starting {max_iterations} iterations of '{action_command}'...")
         
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
         self.goto_live = goto_live
         
-        from .report_utils import capture_and_upload_screenshot
+        from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
         screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "pre_action", "zap")
         if screenshot_result['success']:
             context.add_screenshot(screenshot_result['screenshot_path'])
@@ -335,17 +188,17 @@ class ZapController:
             context.add_screenshot(screenshot_result['screenshot_path'])
         
         self.statistics.print_summary(action_command)
-        self._store_statistics_in_context(context, action_command)
+        self.statistics.store_in_context(context, action_command)
         
         if self.learned_detection_method:
             method_emoji = "⬛" if self.learned_detection_method == "blackscreen" else "🧊"
-            print(f"🧠 [ZapController] Learned detection method: {method_emoji} {self.learned_detection_method}")
+            print(f"🧠 [ZapExecutor] Learned detection method: {method_emoji} {self.learned_detection_method}")
         
         return self.statistics.successful_iterations == max_iterations
     
     def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
         """Execute a single zap iteration with timing and analysis"""
-        print(f"🎬 [ZapController] Iteration {iteration}/{max_iterations}: {action_command}")
+        print(f"🎬 [ZapExecutor] Iteration {iteration}/{max_iterations}: {action_command}")
         
         start_time = time.time()
         
@@ -354,11 +207,13 @@ class ZapController:
         step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
         
         if step_start_screenshot_path:
-            print(f"📸 [ZapController] Step-start screenshot captured: {step_start_screenshot_path}")
+            print(f"📸 [ZapExecutor] Step-start screenshot captured: {step_start_screenshot_path}")
             context.add_screenshot(step_start_screenshot_path)
         
-        from backend_host.src.services.actions.action_executor import ActionExecutor
-        action_executor = ActionExecutor(context.host, context.selected_device, context.team_id)
+        # Use device's existing ActionExecutor (preserves state and caches)
+        action_executor = context.selected_device.action_executor
+        if not action_executor:
+            return {"success": False, "error": f"No ActionExecutor found for device {context.selected_device.device_id}"}
         actions = action_edge.get('actions', [])
         action_result = action_executor.execute_actions(actions)
         end_time = time.time()
@@ -373,12 +228,12 @@ class ZapController:
         action_result['screenshot_url'] = screenshot_result['screenshot_url']
         action_result['step_start_screenshot_path'] = step_start_screenshot_path
         
-        print(f"⏰ [ZapController] Waiting 4 seconds for banner to disappear...")
+        print(f"⏰ [ZapExecutor] Waiting 4 seconds for banner to disappear...")
         time.sleep(4)
         
         analysis_step_name = f"zap_analysis_{iteration}_{action_command}"
         analysis_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, analysis_step_name, "zap")
-        print(f"📸 [ZapController] Captured clean screenshot for analysis: {analysis_screenshot_result['screenshot_path']}")
+        print(f"📸 [ZapExecutor] Captured clean screenshot for analysis: {analysis_screenshot_result['screenshot_path']}")
         
         analysis_result = self.analyze_after_zap(iteration, action_command, context)
         self.statistics.analysis_results.append(analysis_result)
@@ -403,7 +258,7 @@ class ZapController:
         if analysis_result.audio_language and analysis_result.audio_language != 'unknown':
             self.statistics.add_audio_language(analysis_result.audio_language)
 
-        self._record_zap_iteration_to_db(context, iteration, analysis_result, start_time, end_time)
+        self.statistics.record_iteration_to_db(context, iteration, analysis_result, start_time, end_time)
 
         # Update the ZAP step (not the last step) with analysis results
         if context.step_results and zap_step_index < len(context.step_results):
@@ -447,34 +302,45 @@ class ZapController:
         
         success = action_result.get('success', False)
         if success:
-            print(f"✅ [ZapController] Iteration {iteration} completed in {execution_time}ms")
+            print(f"✅ [ZapExecutor] Iteration {iteration} completed in {execution_time}ms")
             if iteration < max_iterations:
                 time.sleep(0.5)
         else:
-            print(f"❌ [ZapController] Iteration {iteration} failed: {action_result.get('error', 'Unknown error')}")
+            print(f"❌ [ZapExecutor] Iteration {iteration} failed: {action_result.get('error', 'Unknown error')}")
         
         return success
     
     def _detect_motion(self, context) -> Dict[str, Any]:
-        """Detect motion using direct controller call - same as HTTP routes do"""
+        """Detect motion using device's existing VerificationExecutor service"""
         try:
             time.sleep(3)
-            
-            device_id = context.selected_device.device_id
-            
-            video_controller = get_controller(device_id, 'verification_video')
-            if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
-            
+
             iteration = getattr(context, 'current_iteration', 1)
             screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"motion_analysis_{iteration}", "zap")
+
+            # Use device's existing VerificationExecutor (preserves state)
+            verification_executor = self.device.verification_executor
+            if not verification_executor:
+                return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
+
+            verification_config = [{
+                'command': 'detect_motion_from_json',
+                'verification_type': 'video',
+                'params': {
+                    'json_count': 3,
+                    'strict_mode': False
+                }
+            }]
+
+            verification_result = verification_executor.execute_verifications(verification_config)
+
+            # Extract result from verification executor response
+            if verification_result.get('success') and verification_result.get('results'):
+                result = verification_result['results'][0]  # Get first verification result
+            else:
+                return {"success": False, "message": f"Motion detection failed: {verification_result.get('error', 'Unknown error')}"}
             
-            result = video_controller.detect_motion_from_json(
-                json_count=3, 
-                strict_mode=False
-            )
-            
-            motion_images = self._add_motion_analysis_images_to_screenshots(context, device_id, iteration)
+            motion_images = self._add_motion_analysis_images_to_screenshots(context, iteration)
             if motion_images:
                 result['motion_analysis_images'] = motion_images
             
@@ -507,25 +373,37 @@ class ZapController:
             return {"success": False, "message": f"Motion detection error: {e}"}
     
     def _analyze_subtitles(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
-        """Analyze subtitles using direct controller call - same as HTTP routes do"""
+        """Analyze subtitles using device's existing VerificationExecutor service"""
         if not context.screenshot_paths:
             return {"success": False, "message": "No screenshots available"}
         
         try:
-            print(f"🔍 [ZapController] Analyzing subtitles...")
+            print(f"🔍 [ZapExecutor] Analyzing subtitles...")
             
             # Use the latest screenshot (which should be the clean analysis screenshot)
             latest_screenshot = context.screenshot_paths[-1]
-            print(f"🔍 [ZapController] Using clean screenshot for subtitle analysis: {latest_screenshot}")
-            device_id = context.selected_device.device_id
+            print(f"🔍 [ZapExecutor] Using clean screenshot for subtitle analysis: {latest_screenshot}")
+            # Use device's existing VerificationExecutor (preserves state)
+            verification_executor = self.device.verification_executor
+            if not verification_executor:
+                return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
             
-            # Get video verification controller - same as HTTP routes
-            video_controller = get_controller(device_id, 'verification_video')
-            if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+            verification_config = [{
+                'command': 'detect_subtitles_ai',
+                'verification_type': 'video',
+                'params': {
+                    'screenshots': [latest_screenshot],
+                    'extract_text': True
+                }
+            }]
             
-            # Call the same method that HTTP routes call
-            result = video_controller.detect_subtitles_ai([latest_screenshot], extract_text=True)
+            verification_result = verification_executor.execute_verifications(verification_config)
+            
+            # Extract result from verification executor response
+            if verification_result.get('success') and verification_result.get('results'):
+                result = verification_result['results'][0]
+            else:
+                return {"success": False, "message": f"Subtitle analysis failed: {verification_result.get('error', 'Unknown error')}"}
             
             if result.get('success'):
                 has_subtitles = result.get('subtitles_detected', False)
@@ -547,9 +425,9 @@ class ZapController:
                 if has_subtitles:
                     lang_info = f" (Language: {detected_language})" if detected_language else ""
                     text_info = f", Text: '{extracted_text[:50]}...'" if extracted_text and len(extracted_text) > 0 else ""
-                    print(f"✅ [ZapController] Subtitles detected{lang_info}{text_info}")
+                    print(f"✅ [ZapExecutor] Subtitles detected{lang_info}{text_info}")
                 else:
-                    print(f"⚠️ [ZapController] No subtitles detected in {latest_screenshot}")
+                    print(f"⚠️ [ZapExecutor] No subtitles detected in {latest_screenshot}")
                 
                 # Add screenshot to context for reporting (for R2 upload)
                 context.add_screenshot(latest_screenshot)
@@ -557,7 +435,7 @@ class ZapController:
                 return subtitle_result
             else:
                 error_msg = result.get('message', 'Subtitle analysis failed')
-                print(f"❌ [ZapController] Subtitle analysis failed: {error_msg} (image: {latest_screenshot})")
+                print(f"❌ [ZapExecutor] Subtitle analysis failed: {error_msg} (image: {latest_screenshot})")
                 # Add screenshot to context for reporting even when failed (for debugging)
                 context.add_screenshot(latest_screenshot)
                 return {
@@ -569,7 +447,7 @@ class ZapController:
         except Exception as e:
             error_msg = f"Subtitle analysis error: {e}"
             image_info = f" (image: {latest_screenshot})" if 'latest_screenshot' in locals() else ""
-            print(f"❌ [ZapController] {error_msg}{image_info}")
+            print(f"❌ [ZapExecutor] {error_msg}{image_info}")
             # Add screenshot to context for reporting even when exception occurs (for debugging)
             if 'latest_screenshot' in locals():
                 context.add_screenshot(latest_screenshot)
@@ -582,26 +460,24 @@ class ZapController:
     def _analyze_audio_speech(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
         """Analyze audio speech using AI-powered transcription"""
         try:
-            print(f"🎤 [ZapController] Analyzing audio speech for {action_command} (iteration {iteration})...")
-            
-            device_id = context.selected_device.device_id
+            print(f"🎤 [ZapExecutor] Analyzing audio speech for {action_command} (iteration {iteration})...")
             
             # Get AV controller for audio processing
-            av_controller = get_controller(device_id, 'av')
+            av_controller = self.device._get_controller('av')
             if not av_controller:
-                return {"success": False, "message": f"No AV controller found for device {device_id}"}
+                return {"success": False, "message": f"No AV controller found for device {self.device.device_id}"}
             
             # Import and initialize AudioAIHelpers
             try:
                 from backend_host.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
             except ImportError as e:
-                print(f"🎤 [ZapController] AudioAIHelpers import failed: {e}")
+                print(f"🎤 [ZapExecutor] AudioAIHelpers import failed: {e}")
                 return {"success": False, "message": "AudioAIHelpers not available"}
             
-            audio_ai = AudioAIHelpers(av_controller, f"ZapController-{device_id}")
+            audio_ai = AudioAIHelpers(av_controller, f"ZapExecutor-{device_id}")
             
             # Get recent audio segments - OPTIMIZED: reduced segments for faster processing
-            print(f"🎤 [ZapController] Retrieving recent audio segments...")
+            print(f"🎤 [ZapExecutor] Retrieving recent audio segments...")
             audio_files = audio_ai.get_recent_audio_segments(segment_count=3)  # Increased to 3 for more context (~6s total)
             
             if not audio_files:
@@ -615,7 +491,7 @@ class ZapController:
                 }
             
             # Analyze audio segments with AI (with R2 upload enabled and early stop optimization)
-            print(f"🎤 [ZapController] Analyzing {len(audio_files)} audio segments with AI...")
+            print(f"🎤 [ZapExecutor] Analyzing {len(audio_files)} audio segments with AI...")
             audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
             
             if not audio_analysis.get('success'):
@@ -639,9 +515,9 @@ class ZapController:
             if speech_detected and combined_transcript:
                 transcript_preview = combined_transcript[:100] + "..." if len(combined_transcript) > 100 else combined_transcript
                 early_info = f" (early stopped after {segments_analyzed}/{total_available})" if early_stopped else ""
-                print(f"🎤 [ZapController] Audio speech detected{early_info}: '{transcript_preview}' (Language: {detected_language}, Confidence: {confidence:.2f})")
+                print(f"🎤 [ZapExecutor] Audio speech detected{early_info}: '{transcript_preview}' (Language: {detected_language}, Confidence: {confidence:.2f})")
             else:
-                print(f"🎤 [ZapController] No speech detected in {segments_analyzed} audio segments")
+                print(f"🎤 [ZapExecutor] No speech detected in {segments_analyzed} audio segments")
             
             return {
                 "success": True,
@@ -663,7 +539,7 @@ class ZapController:
             
         except Exception as e:
             error_msg = f"Audio speech analysis error: {str(e)}"
-            print(f"🎤 [ZapController] {error_msg}")
+            print(f"🎤 [ZapExecutor] {error_msg}")
             return {
                 "success": False,
                 "message": error_msg,
@@ -673,21 +549,19 @@ class ZapController:
     def _analyze_macroblocks(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
         """Analyze macroblocks using direct controller call - same pattern as motion detection"""
         try:
-            print(f"🔍 [ZapController] Analyzing macroblocks for {action_command} (iteration {iteration})...")
-            
-            device_id = context.selected_device.device_id
+            print(f"🔍 [ZapExecutor] Analyzing macroblocks for {action_command} (iteration {iteration})...")
             
             # Get video verification controller - same as other detections
-            video_controller = get_controller(device_id, 'verification_video')
+            video_controller = self.device._get_controller('verification_video')
             if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+                return {"success": False, "message": f"No video verification controller found for device {self.device.device_id}"}
             
             # Use the latest screenshot (which should be the clean analysis screenshot)
             if not context.screenshot_paths:
                 return {"success": False, "message": "No screenshots available for macroblock analysis"}
             
             latest_screenshot = context.screenshot_paths[-1]
-            print(f"🔍 [ZapController] Using clean screenshot for macroblock analysis: {latest_screenshot}")
+            print(f"🔍 [ZapExecutor] Using clean screenshot for macroblock analysis: {latest_screenshot}")
             
             # Call detection method (will be added to video controller)
             result = video_controller.detect_macroblocks([latest_screenshot])
@@ -698,11 +572,11 @@ class ZapController:
                 quality_score = result.get('quality_score', 0.0)
                 
                 if macroblocks_detected:
-                    print(f"⚠️ [ZapController] Macroblocks detected - Quality score: {quality_score:.1f}")
+                    print(f"⚠️ [ZapExecutor] Macroblocks detected - Quality score: {quality_score:.1f}")
                 else:
-                    print(f"✅ [ZapController] No macroblocks detected - Quality score: {quality_score:.1f}")
+                    print(f"✅ [ZapExecutor] No macroblocks detected - Quality score: {quality_score:.1f}")
             else:
-                print(f"❌ [ZapController] Macroblock analysis failed: {result.get('message', 'Unknown error')}")
+                print(f"❌ [ZapExecutor] Macroblock analysis failed: {result.get('message', 'Unknown error')}")
             
             # Add screenshot to context for reporting
             context.add_screenshot(latest_screenshot)
@@ -711,7 +585,7 @@ class ZapController:
             
         except Exception as e:
             error_msg = f"Macroblock analysis error: {str(e)}"
-            print(f"🔍 [ZapController] {error_msg}")
+            print(f"🔍 [ZapExecutor] {error_msg}")
             return {
                 "success": False,
                 "message": error_msg,
@@ -724,11 +598,11 @@ class ZapController:
     def _analyze_zapping(self, context, iteration: int, action_command: str, action_end_time: float = None) -> Dict[str, Any]:
         """Smart zapping analysis - learn on first success, then stick with that method."""
         
-        print(f"🔍 [ZapController] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
+        print(f"🔍 [ZapExecutor] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
         
         # If we already learned the method, use it directly
         if self.learned_detection_method:
-            print(f"🧠 [ZapController] Using learned method: {self.learned_detection_method}")
+            print(f"🧠 [ZapExecutor] Using learned method: {self.learned_detection_method}")
             if self.learned_detection_method == 'freeze':
                 zapping_result = self._try_freeze_detection(context, iteration, action_command, action_end_time)
                 if not zapping_result.get('zapping_detected', False):
@@ -745,31 +619,30 @@ class ZapController:
                 return zapping_result
         
         # First time or no method learned yet - try blackscreen first
-        print(f"🔍 [ZapController] Learning phase - trying blackscreen first...")
+        print(f"🔍 [ZapExecutor] Learning phase - trying blackscreen first...")
         zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
         
         # If blackscreen succeeds, learn it
         if zapping_result.get('zapping_detected', False):
             self.learned_detection_method = 'blackscreen'
-            print(f"✅ [ZapController] Learned method: blackscreen (will use for all future zaps)")
+            print(f"✅ [ZapExecutor] Learned method: blackscreen (will use for all future zaps)")
             return zapping_result
         
         # If blackscreen fails, try freeze as fallback
-        print(f"🔄 [ZapController] Blackscreen failed, trying freeze...")
+        print(f"🔄 [ZapExecutor] Blackscreen failed, trying freeze...")
         zapping_result = self._try_freeze_detection(context, iteration, action_command, action_end_time)
         
         # If freeze succeeds, learn it
         if zapping_result.get('zapping_detected', False):
             self.learned_detection_method = 'freeze'
-            print(f"✅ [ZapController] Learned method: freeze (will use for all future zaps)")
+            print(f"✅ [ZapExecutor] Learned method: freeze (will use for all future zaps)")
             return zapping_result
         
         # Both methods failed - provide detailed error message and verification images
-        print(f"❌ [ZapController] Both blackscreen and freeze detection failed")
+        print(f"❌ [ZapExecutor] Both blackscreen and freeze detection failed")
         
         # For both methods failed, we need to get the images ourselves since no detection method succeeded
-        device_id = context.selected_device.device_id
-        av_controller = get_controller(device_id, 'av')
+        av_controller = self.device._get_controller('av')
         analyzed_screenshots = []
         
         if av_controller:
@@ -780,20 +653,20 @@ class ZapController:
                 max_images = self._get_max_images_for_device(device_model)
                 
                 from backend_host.src.controllers.verification.video_content_helpers import VideoContentHelpers
-                content_helpers = VideoContentHelpers(av_controller, "ZapController")
+                content_helpers = VideoContentHelpers(av_controller, "ZapExecutor")
                 
                 key_release_timestamp = context.last_action_start_time
                 image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=max_images)
                 
                 if image_data:
                     analyzed_screenshots = [img['path'] for img in image_data]
-                    print(f"🔍 [ZapController] Using {len(analyzed_screenshots)} images for both methods failed mosaic")
+                    print(f"🔍 [ZapExecutor] Using {len(analyzed_screenshots)} images for both methods failed mosaic")
                 
                 # Create failure mosaic for both methods failed
                 mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "both_failed")
                 
                 # Create combined analysis log for both methods
-                analysis_log = self._create_combined_analysis_log(analyzed_screenshots, key_release_timestamp)
+                analysis_log = create_combined_analysis_log(analyzed_screenshots, key_release_timestamp)
         
         return {
             "success": False,
@@ -813,19 +686,17 @@ class ZapController:
     def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
         """Try blackscreen detection method - extracted existing logic."""
         try:
-            print(f"⬛ [ZapController] Trying blackscreen detection...")
-            
-            device_id = context.selected_device.device_id
+            print(f"⬛ [ZapExecutor] Trying blackscreen detection...")
             
             # Get video verification controller
-            video_controller = get_controller(device_id, 'verification_video')
+            video_controller = self.device._get_controller('verification_video')
             if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+                return {"success": False, "message": f"No video verification controller found for device {self.device.device_id}"}
             
             # Get the folder path where images are captured
-            av_controller = get_controller(device_id, 'av')
+            av_controller = self.device._get_controller('av')
             if not av_controller:
-                return {"success": False, "message": f"No AV controller found for device {device_id}"}
+                return {"success": False, "message": f"No AV controller found for device {self.device.device_id}"}
             
             capture_folder = getattr(av_controller, 'video_capture_path', None)
             if not capture_folder:
@@ -860,7 +731,7 @@ class ZapController:
             
             if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
                 blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
-                print(f"✅ [ZapController] Blackscreen zapping detected - Duration: {blackscreen_duration}s")
+                print(f"✅ [ZapExecutor] Blackscreen zapping detected - Duration: {blackscreen_duration}s")
                 
                 # Add zapping images to context
                 self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
@@ -890,7 +761,7 @@ class ZapController:
                 }
                 return result
             else:
-                print(f"❌ [ZapController] Blackscreen detection failed")
+                print(f"❌ [ZapExecutor] Blackscreen detection failed")
                 
                 # Use the debug_images from the detection result - these are the actual analyzed images
                 debug_images = zapping_result.get('debug_images', [])
@@ -902,13 +773,13 @@ class ZapController:
                     if os.path.exists(image_path):
                         analyzed_screenshots.append(image_path)
                 
-                print(f"🔍 [ZapController] Using {len(analyzed_screenshots)} actual analyzed images for blackscreen mosaic")
+                print(f"🔍 [ZapExecutor] Using {len(analyzed_screenshots)} actual analyzed images for blackscreen mosaic")
                 
                 # Create failure mosaic with blackscreen analysis data
                 mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "blackscreen", zapping_result)
                 
                 # Create detailed analysis log for modal display
-                analysis_log = self._create_blackscreen_analysis_log(analyzed_screenshots, zapping_result, key_release_timestamp)
+                analysis_log = create_blackscreen_analysis_log(analyzed_screenshots, zapping_result, key_release_timestamp)
                 
                 return {
                     "success": False,
@@ -940,19 +811,17 @@ class ZapController:
     def _try_freeze_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
         """Try freeze detection method - SAME workflow as blackscreen detection."""
         try:
-            print(f"🧊 [ZapController] Trying freeze detection...")
-            
-            device_id = context.selected_device.device_id
+            print(f"🧊 [ZapExecutor] Trying freeze detection...")
             
             # Get video verification controller (same as blackscreen)
-            video_controller = get_controller(device_id, 'verification_video')
+            video_controller = self.device._get_controller('verification_video')
             if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {device_id}"}
+                return {"success": False, "message": f"No video verification controller found for device {self.device.device_id}"}
             
             # Get AV controller for capture path (same as blackscreen)
-            av_controller = get_controller(device_id, 'av')
+            av_controller = self.device._get_controller('av')
             if not av_controller:
-                return {"success": False, "message": f"No AV controller found for device {device_id}"}
+                return {"success": False, "message": f"No AV controller found for device {self.device.device_id}"}
             
             # Get the capture folder path (same as blackscreen)
             capture_folder = getattr(av_controller, 'video_capture_path', None)
@@ -987,7 +856,7 @@ class ZapController:
             
             if freeze_result.get('success', False) and freeze_result.get('freeze_zapping_detected', False):
                 freeze_duration = freeze_result.get('freeze_duration', 0.0)
-                print(f"✅ [ZapController] Freeze zapping detected - Duration: {freeze_duration}s")
+                print(f"✅ [ZapExecutor] Freeze zapping detected - Duration: {freeze_duration}s")
                 
                 # Add zapping images to context (same as blackscreen)
                 self._add_zapping_images_to_screenshots(context, freeze_result, capture_folder)
@@ -1018,7 +887,7 @@ class ZapController:
                 }
                 return result
             else:
-                print(f"❌ [ZapController] Freeze detection failed")
+                print(f"❌ [ZapExecutor] Freeze detection failed")
                 
                 # Use the debug_images from the detection result - these are the actual analyzed images
                 debug_images = freeze_result.get('debug_images', [])
@@ -1030,13 +899,13 @@ class ZapController:
                     if os.path.exists(image_path):
                         analyzed_screenshots.append(image_path)
                 
-                print(f"🔍 [ZapController] Using {len(analyzed_screenshots)} actual analyzed images for freeze mosaic")
+                print(f"🔍 [ZapExecutor] Using {len(analyzed_screenshots)} actual analyzed images for freeze mosaic")
                 
                 # Create failure mosaic with freeze analysis data (includes comparison results)
                 mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "freeze", freeze_result)
                 
                 # Create detailed analysis log for modal display
-                analysis_log = self._create_freeze_analysis_log(analyzed_screenshots, freeze_result, key_release_timestamp)
+                analysis_log = create_freeze_analysis_log(analyzed_screenshots, freeze_result, key_release_timestamp)
                 
                 return {
                     "success": False,
@@ -1065,111 +934,6 @@ class ZapController:
                 "details": f"Freeze detection error: {str(e)}"
             }
 
-
-
-    def _create_blackscreen_analysis_log(self, analyzed_screenshots: List[str], zapping_result: Dict[str, Any], key_release_timestamp: float) -> List[str]:
-        """Create detailed analysis log for blackscreen detection failure"""
-        log_lines = []
-        
-        # Header
-        log_lines.append("VideoContent[Video Verification]: Starting blackscreen zapping detection")
-        log_lines.append(f"VideoContent[Video Verification]: Key release timestamp: {datetime.fromtimestamp(key_release_timestamp).strftime('%Y%m%d%H%M%S')} (Unix: {key_release_timestamp})")
-        log_lines.append(f"VideoContent[Video Verification]: Enhanced collection: {len(analyzed_screenshots)} images covering {len(analyzed_screenshots)}s")
-        log_lines.append(f"VideoContent[Video Verification]: Found {len(analyzed_screenshots)} images to analyze")
-        
-        # Individual image analysis
-        for i, screenshot_path in enumerate(analyzed_screenshots):
-            filename = os.path.basename(screenshot_path)
-            # Simulate blackscreen analysis log (we don't have the actual percentages from the result)
-            log_lines.append(f"VideoContent[Video Verification]: {filename} | 1280x720 | region=400x200@(200,0) | blackscreen=False (0.0%)")
-        
-        # Summary
-        log_lines.append(f"VideoContent[Video Verification]: Blackscreen analysis complete - {len(analyzed_screenshots)} images analyzed, early_stopped=False")
-        log_lines.append("VideoContent[Video Verification]: Simple zapping detection complete - detected=False, duration=0.0s")
-        
-        return log_lines
-    
-    def _create_freeze_analysis_log(self, analyzed_screenshots: List[str], freeze_result: Dict[str, Any], key_release_timestamp: float) -> List[str]:
-        """Create detailed analysis log for freeze detection failure"""
-        log_lines = []
-        
-        # Header
-        log_lines.append("VideoContent[Video Verification]: Starting freeze-based zapping detection")
-        log_lines.append(f"VideoContent[Video Verification]: Key release timestamp: {datetime.fromtimestamp(key_release_timestamp).strftime('%Y%m%d%H%M%S')} (Unix: {key_release_timestamp})")
-        log_lines.append(f"VideoContent[Video Verification]: Enhanced collection: {len(analyzed_screenshots)} images covering {len(analyzed_screenshots)}s")
-        log_lines.append(f"VideoContent[Video Verification]: Found {len(analyzed_screenshots)} images to analyze for freeze zapping")
-        
-        # Individual comparisons
-        comparisons = freeze_result.get('comparisons', [])
-        for i, comp in enumerate(comparisons):
-            if i + 1 < len(analyzed_screenshots):
-                img1 = os.path.basename(analyzed_screenshots[i])
-                img2 = os.path.basename(analyzed_screenshots[i + 1])
-                diff = comp.get('difference', 0)
-                frozen = comp.get('frozen', False)
-                log_lines.append(f"VideoContent[Video Verification]: {img1} vs {img2}: diff={diff:.2f}, frozen={frozen}")
-        
-        # Summary
-        frozen_count = sum(1 for c in comparisons if c.get('frozen', False))
-        log_lines.append(f"VideoContent[Video Verification]: Freeze analysis - {frozen_count}/{len(comparisons)} frozen comparisons, max consecutive: 0, sequence detected: False, early_stopped=False")
-        log_lines.append("VideoContent[Video Verification]: Freeze zapping detection complete - detected=False, duration=0.0s")
-        
-        return log_lines
-    
-    def _create_combined_analysis_log(self, analyzed_screenshots: List[str], key_release_timestamp: float) -> List[str]:
-        """Create combined analysis log for both methods failed case"""
-        log_lines = []
-        
-        # Header
-        log_lines.append("VideoContent[Video Verification]: Both blackscreen and freeze detection failed")
-        log_lines.append(f"VideoContent[Video Verification]: Key release timestamp: {datetime.fromtimestamp(key_release_timestamp).strftime('%Y%m%d%H%M%S')} (Unix: {key_release_timestamp})")
-        log_lines.append(f"VideoContent[Video Verification]: Enhanced collection: {len(analyzed_screenshots)} images covering {len(analyzed_screenshots)}s")
-        log_lines.append(f"VideoContent[Video Verification]: Found {len(analyzed_screenshots)} images to analyze")
-        log_lines.append("")
-        
-        # Blackscreen analysis summary
-        log_lines.append("--- BLACKSCREEN ANALYSIS ---")
-        for i, screenshot_path in enumerate(analyzed_screenshots):
-            filename = os.path.basename(screenshot_path)
-            log_lines.append(f"VideoContent[Video Verification]: {filename} | 1280x720 | region=400x200@(200,0) | blackscreen=False (0.0%)")
-        log_lines.append("VideoContent[Video Verification]: Blackscreen analysis complete - no blackscreen detected")
-        log_lines.append("")
-        
-        # Freeze analysis summary
-        log_lines.append("--- FREEZE ANALYSIS ---")
-        for i in range(len(analyzed_screenshots) - 1):
-            img1 = os.path.basename(analyzed_screenshots[i])
-            img2 = os.path.basename(analyzed_screenshots[i + 1])
-            # Simulate typical differences (we don't have actual comparison data)
-            diff = 50.0 + (i * 10)  # Simulate varying differences
-            log_lines.append(f"VideoContent[Video Verification]: {img1} vs {img2}: diff={diff:.2f}, frozen=False")
-        log_lines.append("VideoContent[Video Verification]: Freeze analysis - 0 frozen comparisons, no freeze sequence detected")
-        log_lines.append("")
-        
-        # Summary
-        log_lines.append("--- FINAL RESULT ---")
-        log_lines.append("VideoContent[Video Verification]: Both detection methods failed")
-        log_lines.append("VideoContent[Video Verification]: No zapping transition detected")
-        
-        return log_lines
-    
-    def _validate_capture_filename(self, filename: str) -> bool:
-        """Validate capture filename format to prevent FileNotFoundError on malformed files"""
-        if not filename or not filename.startswith('capture_') or not filename.endswith('.jpg'):
-            return False
-        
-        # Validate sequential format: capture_0001.jpg, capture_0002.jpg, etc.
-        import re
-        if not re.match(r'^capture_\d+\.jpg$', filename):
-            print(f"🔍 [ZapController] Skipping invalid filename format: {filename}")
-            return False
-        
-        # Additional protection: ensure it's not a thumbnail
-        if '_thumbnail' in filename:
-            return False
-            
-        return True
-
     def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
         """Add key zapping images to context screenshot collection for R2 upload"""
         try:
@@ -1190,34 +954,34 @@ class ZapController:
             
             # Add each key image to screenshot paths if it exists and has valid format
             for image_filename in key_images:
-                if image_filename and self._validate_capture_filename(image_filename):
+                if image_filename and validate_capture_filename(image_filename):
                     image_path = f"{captures_folder}/{image_filename}"
                     if image_path not in context.screenshot_paths:
                         context.screenshot_paths.append(image_path)
-                        print(f"🖼️ [ZapController] Added zapping image for R2 upload: {image_filename}")
+                        print(f"🖼️ [ZapExecutor] Added zapping image for R2 upload: {image_filename}")
             
             # Also add debug images for debugging failed zap detection
             debug_images = zapping_result.get('debug_images', [])
             if debug_images:
                 for debug_filename in debug_images:
-                    if debug_filename and self._validate_capture_filename(debug_filename):
+                    if debug_filename and validate_capture_filename(debug_filename):
                         debug_path = f"{captures_folder}/{debug_filename}"
                         if debug_path not in context.screenshot_paths:
                             context.screenshot_paths.append(debug_path)
-                            print(f"🔧 [ZapController] Added debug image for R2 upload: {debug_filename}")
+                            print(f"🔧 [ZapExecutor] Added debug image for R2 upload: {debug_filename}")
             
         except Exception as e:
-            print(f"⚠️ [ZapController] Failed to add zapping images to screenshot collection: {e}")
+            print(f"⚠️ [ZapExecutor] Failed to add zapping images to screenshot collection: {e}")
 
     def _create_failure_mosaic(self, context, screenshots: List[str], detection_method: str, analysis_data: Dict[str, Any] = None) -> Optional[str]:
         """Create a mosaic image for zapping failure analysis instead of individual images"""
         try:
             if not screenshots or len(screenshots) == 0:
-                print(f"❌ [ZapController] No images available for {detection_method} failure mosaic")
+                print(f"❌ [ZapExecutor] No images available for {detection_method} failure mosaic")
                 return None
             
             # Import simple mosaic generator
-            from .image_mosaic_generator import create_zapping_failure_mosaic
+            from backend_host.src.lib.utils.image_mosaic_generator import create_zapping_failure_mosaic
             
             # Create mosaic with analysis data
             mosaic_path = create_zapping_failure_mosaic(
@@ -1227,7 +991,7 @@ class ZapController:
             )
             
             if mosaic_path:
-                print(f"🖼️ [ZapController] Created {detection_method} failure mosaic: {os.path.basename(mosaic_path)}")
+                print(f"🖼️ [ZapExecutor] Created {detection_method} failure mosaic: {os.path.basename(mosaic_path)}")
                 print(f"   📊 Mosaic contains {len(screenshots)} analyzed images")
                 
                 # Add mosaic to screenshot collection for R2 upload
@@ -1239,14 +1003,14 @@ class ZapController:
                 
                 return mosaic_path
             else:
-                print(f"❌ [ZapController] Failed to create {detection_method} failure mosaic")
+                print(f"❌ [ZapExecutor] Failed to create {detection_method} failure mosaic")
                 return None
                 
         except Exception as e:
-            print(f"⚠️ [ZapController] Exception creating {detection_method} failure mosaic: {e}")
+            print(f"⚠️ [ZapExecutor] Exception creating {detection_method} failure mosaic: {e}")
             return None
 
-    def _add_motion_analysis_images_to_screenshots(self, context, device_id: str, iteration: int):
+    def _add_motion_analysis_images_to_screenshots(self, context, iteration: int):
         """Add the 3 most recent motion analysis images to context screenshot collection for R2 upload"""
         motion_images = []
         try:
@@ -1254,9 +1018,9 @@ class ZapController:
                 context.screenshot_paths = []
             
             # Get the capture path from AV controller
-            av_controller = get_controller(device_id, 'av')
+            av_controller = self.device._get_controller('av')
             if not av_controller:
-                print(f"⚠️ [ZapController] No AV controller found for motion image collection")
+                print(f"⚠️ [ZapExecutor] No AV controller found for motion image collection")
                 return motion_images
                 
             capture_folder = f"{av_controller.video_capture_path}/captures"
@@ -1266,7 +1030,7 @@ class ZapController:
             data_result = load_recent_analysis_data_from_path(av_controller.video_capture_path, timeframe_minutes=5, max_count=3)
             
             if data_result['success'] and data_result['analysis_data']:
-                print(f"🖼️ [ZapController] Found {len(data_result['analysis_data'])} motion analysis images")
+                print(f"🖼️ [ZapExecutor] Found {len(data_result['analysis_data'])} motion analysis images")
                 
                 # Reverse for chronological order (oldest first) in reports
                 analysis_data_chronological = list(reversed(data_result['analysis_data']))
@@ -1276,13 +1040,13 @@ class ZapController:
                     image_filename = file_item['filename']  # e.g., "capture_0001.jpg"
                     image_path = f"{capture_folder}/{image_filename}"
                     # Validate filename format before adding to prevent FileNotFoundError on malformed files
-                    if not self._validate_capture_filename(image_filename):
-                        print(f"🔍 [ZapController] Skipped motion analysis image with invalid format: {image_filename}")
+                    if not validate_capture_filename(image_filename):
+                        print(f"🔍 [ZapExecutor] Skipped motion analysis image with invalid format: {image_filename}")
                         continue
                     
                     if image_path not in context.screenshot_paths:
                         context.screenshot_paths.append(image_path)
-                        print(f"🖼️ [ZapController] Added motion analysis image {i}/3 for R2 upload: {image_filename}")
+                        print(f"🖼️ [ZapExecutor] Added motion analysis image {i}/3 for R2 upload: {image_filename}")
                     
                     # Store image info for result (for thumbnails in reports)
                     motion_images.append({
@@ -1292,271 +1056,9 @@ class ZapController:
                         'analysis_data': file_item.get('analysis_json', {})
                     })
             else:
-                print(f"⚠️ [ZapController] No motion analysis images found: {data_result.get('error', 'Unknown error')}")
+                print(f"⚠️ [ZapExecutor] No motion analysis images found: {data_result.get('error', 'Unknown error')}")
                 
         except Exception as e:
-            print(f"⚠️ [ZapController] Failed to add motion analysis images to screenshot collection: {e}")
+            print(f"⚠️ [ZapExecutor] Failed to add motion analysis images to screenshot collection: {e}")
         
         return motion_images
-
-    
-    # _record_zap_step_immediately method removed - step recording now handled by scripts using StepExecutor
-    
-    # Legacy step recording removed - using immediate recording only
-    
-    def _extract_edge_actions(self, action_edge: Dict) -> tuple:
-        """Extract real actions from action edge"""
-        real_actions = []
-        real_retry_actions = []
-        real_failure_actions = []
-        
-        action_sets = action_edge.get('action_sets', [])
-        default_action_set_id = action_edge.get('default_action_set_id')
-        
-        if action_sets and default_action_set_id:
-            default_action_set = next((s for s in action_sets if s.get('id') == default_action_set_id), 
-                                    action_sets[0] if action_sets else None)
-            
-            if default_action_set:
-                real_actions = default_action_set.get('actions', [])
-                real_retry_actions = default_action_set.get('retry_actions') or []
-                real_failure_actions = default_action_set.get('failure_actions') or []
-        
-        return real_actions, real_retry_actions, real_failure_actions
-    
-    def _store_statistics_in_context(self, context, action_command: str):
-        """Store statistics in context for reporting"""
-        context.custom_data.update({
-            'action_command': action_command,
-            'max_iteration': self.statistics.total_iterations,
-            'successful_iterations': self.statistics.successful_iterations,
-            'motion_detected_count': self.statistics.motion_detected_count,
-            'subtitles_detected_count': self.statistics.subtitles_detected_count,
-            'audio_speech_detected_count': self.statistics.audio_speech_detected_count,
-            'zapping_detected_count': self.statistics.zapping_detected_count,
-            'detected_languages': self.statistics.detected_languages,
-            'audio_languages': self.statistics.audio_languages,
-            'motion_results': [r.to_dict() for r in self.statistics.analysis_results],
-            'total_action_time': self.statistics.total_execution_time,
-            
-            # Enhanced zapping statistics
-            'zapping_durations': self.statistics.zapping_durations,
-            'blackscreen_durations': self.statistics.blackscreen_durations,
-            'detected_channels': self.statistics.detected_channels,
-            'channel_info_results': self.statistics.channel_info_results
-        })
-    
-    def _record_zap_iteration_to_db(self, context, iteration: int, analysis_result, start_time: float, end_time: float):
-        """Record individual zap iteration to database"""
-        if not context.script_result_id:
-            return  # Skip if no script result ID
-        
-        try:
-            from shared.src.lib.supabase.zap_results_db import record_zap_iteration
-            
-            # Extract channel info from zapping analysis
-            zapping_details = analysis_result.zapping_details or {}
-            channel_info = zapping_details.get('channel_info', {})
-            
-            # Debug logging for channel info extraction
-            print(f"[ZapController] Channel info debug:")
-            print(f"  - zapping_details keys: {list(zapping_details.keys())}")
-            print(f"  - channel_info extracted: {channel_info}")
-            print(f"  - zapping_details success: {zapping_details.get('success')}")
-            print(f"  - zapping_detected: {zapping_details.get('zapping_detected')}")
-            
-            # Calculate duration
-            duration_seconds = end_time - start_time
-            
-            # Extract blackscreen/freeze details
-            blackscreen_freeze_duration = None
-            detection_method = None
-            if analysis_result.zapping_detected and zapping_details:
-                blackscreen_freeze_duration = zapping_details.get('blackscreen_duration', 0.0)
-                detection_method = zapping_details.get('detection_method', 'blackscreen')
-            
-            # Record to database
-            record_zap_iteration(
-                script_result_id=context.script_result_id,
-                team_id=context.team_id,
-                host_name=context.host.host_name,
-                device_name=context.selected_device.device_name,
-                device_model=context.selected_device.device_model,
-                userinterface_name=getattr(context, 'userinterface_name', 'unknown'),
-                iteration_index=iteration,
-                action_command=context.custom_data.get('action_command', 'unknown'),
-                started_at=datetime.fromtimestamp(start_time, tz=timezone.utc),
-                completed_at=datetime.fromtimestamp(end_time, tz=timezone.utc),
-                duration_seconds=duration_seconds,
-                motion_detected=analysis_result.motion_detected,
-                subtitles_detected=analysis_result.subtitles_detected,
-                audio_speech_detected=analysis_result.audio_speech_detected,
-                blackscreen_freeze_detected=analysis_result.zapping_detected,
-                subtitle_language=analysis_result.detected_language,
-                subtitle_text=analysis_result.extracted_text[:500] if analysis_result.extracted_text else None,  # Limit text length
-                audio_language=analysis_result.audio_language if analysis_result.audio_language != 'unknown' else None,
-                audio_transcript=analysis_result.audio_transcript[:500] if analysis_result.audio_transcript else None,  # Limit text length
-                blackscreen_freeze_duration_seconds=blackscreen_freeze_duration,
-                detection_method=detection_method,
-                channel_name=channel_info.get('channel_name'),
-                channel_number=channel_info.get('channel_number'),
-                program_name=channel_info.get('program_name'),
-                program_start_time=channel_info.get('start_time'),
-                program_end_time=channel_info.get('end_time')
-            )
-        except Exception as e:
-            print(f"⚠️ [ZapController] Failed to record zap iteration to database: {e}")
-    
-    def print_zap_summary_table(self, context):
-        """Print formatted zap summary table from database using shared formatter"""
-        if not context.script_result_id:
-            print("⚠️ [ZapController] No script result ID available for summary table")
-            return
-        
-        try:
-            from shared.src.lib.supabase.zap_results_db import get_zap_summary_for_script
-            from  backend_host.src.lib.utils.zap_summary_formatter import generate_zap_summary_text
-            
-            # Get zap data from database
-            summary_data = get_zap_summary_for_script(context.script_result_id)
-            if not summary_data['success'] or not summary_data['zap_iterations']:
-                print("⚠️ [ZapController] No zap data found in database for summary table")
-                return
-            
-            zap_iterations = summary_data['zap_iterations']
-            
-            # Use shared function to generate the exact same text as reports
-            summary_text = generate_zap_summary_text(zap_iterations)
-            print(f"\n{summary_text}")
-            
-            # Also capture fullzap summary
-            self._capture_fullzap_summary(context, context.userinterface_name)
-            
-        except Exception as e:
-            print(f"❌ [ZapController] Failed to generate summary table: {e}")
-    
-    def _capture_fullzap_summary(self, context, userinterface_name: str):
-        """Capture fullzap summary and store in context - moved from fullzap.py"""
-        lines = []
-        data = context.custom_data
-        
-        action_command = data.get('action_command', 'unknown')
-        max_iteration = data.get('max_iteration', 0)
-        successful_iterations = data.get('successful_iterations', 0)
-        motion_detected_count = data.get('motion_detected_count', 0)
-        subtitles_detected_count = data.get('subtitles_detected_count', 0)
-        audio_speech_detected_count = data.get('audio_speech_detected_count', 0)
-        zapping_detected_count = data.get('zapping_detected_count', 0)
-        total_action_time = data.get('total_action_time', 0)
-        
-        zapping_durations = data.get('zapping_durations', [])
-        blackscreen_durations = data.get('blackscreen_durations', [])
-        detected_channels = data.get('detected_channels', [])
-        channel_info_results = data.get('channel_info_results', [])
-        detected_languages = data.get('detected_languages', [])
-        audio_languages = data.get('audio_languages', [])
-        
-        if max_iteration > 0:
-            lines.append("📊 [ZapController] Action execution summary:")
-            lines.append(f"   • Total iterations: {max_iteration}")
-            lines.append(f"   • Successful: {successful_iterations}")
-            success_rate = (successful_iterations / max_iteration * 100) if max_iteration > 0 else 0
-            lines.append(f"   • Success rate: {success_rate:.1f}%")
-            avg_time = total_action_time / max_iteration if max_iteration > 0 else 0
-            lines.append(f"   • Average time per iteration: {avg_time:.0f}ms")
-            lines.append(f"   • Total action time: {total_action_time}ms")
-            motion_rate = (motion_detected_count / max_iteration * 100) if max_iteration > 0 else 0
-            lines.append(f"   • Motion detected: {motion_detected_count}/{max_iteration} ({motion_rate:.1f}%)")
-            subtitle_rate = (subtitles_detected_count / max_iteration * 100) if max_iteration > 0 else 0
-            lines.append(f"   • Subtitles detected: {subtitles_detected_count}/{max_iteration} ({subtitle_rate:.1f}%)")
-            audio_speech_rate = (audio_speech_detected_count / max_iteration * 100) if max_iteration > 0 else 0
-            lines.append(f"   • Audio speech detected: {audio_speech_detected_count}/{max_iteration} ({audio_speech_rate:.1f}%)")
-            zapping_rate = (zapping_detected_count / max_iteration * 100) if max_iteration > 0 else 0
-            lines.append(f"   • Zapping detected: {zapping_detected_count}/{max_iteration} ({zapping_rate:.1f}%)")
-            
-            if zapping_durations:
-                avg_zap_duration = sum(zapping_durations) / len(zapping_durations)
-                avg_blackscreen_duration = sum(blackscreen_durations) / len(blackscreen_durations) if blackscreen_durations else 0.0
-                lines.append(f"   ⚡ Average zapping duration: {avg_zap_duration:.2f}s")
-                lines.append(f"   ⬛ Average blackscreen/freeze duration: {avg_blackscreen_duration:.2f}s")
-                
-                min_zap = min(zapping_durations)
-                max_zap = max(zapping_durations)
-                lines.append(f"   📊 Zapping duration range: {min_zap:.2f}s - {max_zap:.2f}s")
-            
-            if detected_channels:
-                lines.append(f"   📺 Channels detected: {', '.join(detected_channels)}")
-                
-                successful_channel_info = [info for info in channel_info_results if info.get('channel_name')]
-                if successful_channel_info:
-                    lines.append(f"   🎬 Channel details:")
-                    for i, info in enumerate(successful_channel_info, 1):
-                        channel_display = info['channel_name']
-                        if info.get('channel_number'):
-                            channel_display += f" ({info['channel_number']})"
-                        if info.get('program_name'):
-                            channel_display += f" - {info['program_name']}"
-                        if info.get('program_start_time') and info.get('program_end_time'):
-                            channel_display += f" [{info['program_start_time']}-{info['program_end_time']}]"
-                        
-                        lines.append(f"      {i}. {channel_display} (zap: {info['zapping_duration']:.2f}s, confidence: {info['channel_confidence']:.1f})")
-            
-            if detected_languages:
-                lines.append(f"   🌐 Subtitle languages detected: {', '.join(detected_languages)}")
-            
-            if audio_languages:
-                lines.append(f"   🎤 Audio languages detected: {', '.join(audio_languages)}")
-            
-            no_motion_count = max_iteration - motion_detected_count
-            if no_motion_count > 0:
-                lines.append(f"   ⚠️  {no_motion_count} zap(s) did not show content change")
-            
-            if successful_iterations == max_iteration:
-                lines.append(f"✅ [fullzap] All {max_iteration} iterations of action '{action_command}' completed successfully!")
-            else:
-                lines.append(f"❌ [fullzap] Only {successful_iterations}/{max_iteration} iterations of action '{action_command}' completed successfully!")
-            
-            lines.append("")
-        
-        lines.append("🎯 [FULLZAP] EXECUTION SUMMARY")
-        lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
-        lines.append(f"🖥️  Host: {context.host.host_name}")
-        lines.append(f"📋 Interface: {userinterface_name}")
-        lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
-        lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
-        lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
-        
-        if context.error_message:
-            lines.append(f"❌ Error: {context.error_message}")
-        
-        lines.append("✅ [fullzap] Fullzap execution completed successfully!")
-        
-        context.execution_summary = "\n".join(lines)
-    
-    def _format_timestamp_to_time(self, timestamp_str: str) -> str:
-        """Format timestamp string to HH:MM:SS format."""
-        if not timestamp_str:
-            return 'N/A'
-        
-        try:
-            from datetime import datetime
-            # Parse ISO timestamp and format as time only
-            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            return dt.strftime('%H:%M:%S')
-        except (ValueError, AttributeError):
-            return 'N/A'
-    
-    def _format_timestamp_to_hhmmss_ms(self, timestamp_str: str) -> str:
-        """Format timestamp string to readable format like 21H25m26s.698ms."""
-        if not timestamp_str:
-            return 'N/A'
-        
-        try:
-            from datetime import datetime
-            # Parse ISO timestamp and format with milliseconds
-            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
-            # Format as 21H25m26s.698ms (more readable)
-            ms = dt.microsecond // 1000
-            return f"{dt.strftime('%H')}H{dt.strftime('%M')}m{dt.strftime('%S')}s.{ms:03d}ms"
-        except (ValueError, AttributeError):
-            return 'N/A'

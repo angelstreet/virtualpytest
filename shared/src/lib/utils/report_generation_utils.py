@@ -135,7 +135,7 @@ def generate_validation_report(report_data: Dict) -> str:
         print(f"[@utils:report_generation] DEBUG: custom_data keys = {list(custom_data.keys())}")
         if custom_data and 'motion_results' in custom_data:
             try:
-                from .zap_summary_formatter import create_zap_summary_section_from_data
+                from .zap_utils import create_zap_summary_section_from_data
                 print(f"[@utils:report_generation] DEBUG: Using existing zap data from memory (no DB read)")
                 zap_summary_section = create_zap_summary_section_from_data(custom_data)
                 print(f"[@utils:report_generation] DEBUG: Zap summary section length: {len(zap_summary_section)} characters")

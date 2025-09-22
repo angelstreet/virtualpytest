@@ -18,9 +18,33 @@ class VerificationExecutor:
     """
     Standardized verification executor that provides consistent verification execution
     across Python code and API endpoints.
+    
+    CRITICAL: Do not create new instances directly! Use device.verification_executor instead.
+    Each device has a singleton VerificationExecutor that preserves navigation context.
     """
     
-    def __init__(self, device, tree_id: str = None, node_id: str = None):
+    @classmethod
+    def get_for_device(cls, device):
+        """
+        Factory method to get the device's existing VerificationExecutor.
+        
+        RECOMMENDED: Use device.verification_executor directly instead of this method.
+        
+        Args:
+            device: Device instance
+            
+        Returns:
+            The device's existing VerificationExecutor instance
+            
+        Raises:
+            ValueError: If device doesn't have a verification_executor
+        """
+        if not hasattr(device, 'verification_executor') or not device.verification_executor:
+            raise ValueError(f"Device {device.device_id} does not have a VerificationExecutor. "
+                           "VerificationExecutors are created during device initialization.")
+        return device.verification_executor
+    
+    def __init__(self, device, tree_id: str = None, node_id: str = None, _from_device_init: bool = False):
         """
         Initialize VerificationExecutor
         
@@ -28,6 +52,7 @@ class VerificationExecutor:
             device: Device instance (mandatory, contains host_name and device_id)
             tree_id: Tree ID for navigation context
             node_id: Node ID for navigation context
+            _from_device_init: Internal flag to indicate creation from device initialization
         """
         # Validate required parameters - fail fast if missing
         if not device:
@@ -36,6 +61,15 @@ class VerificationExecutor:
             raise ValueError("Device must have host_name")
         if not device.device_id:
             raise ValueError("Device must have device_id")
+        
+        # Warn if creating instance outside of device initialization
+        if not _from_device_init:
+            import traceback
+            print(f"⚠️ [VerificationExecutor] WARNING: Creating new VerificationExecutor instance for device {device.device_id}")
+            print(f"⚠️ [VerificationExecutor] This may cause state loss! Use device.verification_executor instead.")
+            print(f"⚠️ [VerificationExecutor] Call stack:")
+            for line in traceback.format_stack()[-3:-1]:  # Show last 2 stack frames
+                print(f"⚠️ [VerificationExecutor]   {line.strip()}")
         
         # Store instances directly
         self.device = device
@@ -56,7 +90,7 @@ class VerificationExecutor:
         """
         try:
             # Use remote controller for base64 screenshot data
-            remote_controller = self.device.get_controller('remote')
+            remote_controller = self.device._get_controller('remote')
             if not remote_controller:
                 return False, "", "No remote controller available"
             
@@ -90,7 +124,7 @@ class VerificationExecutor:
             verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
             for v_type in verification_types:
                 try:
-                    controller = self.device.get_controller(f'verification_{v_type}')
+                    controller = self.device._get_controller(f'verification_{v_type}')
                     if controller and hasattr(controller, 'get_available_verifications'):
                         verifications = controller.get_available_verifications()
                         if isinstance(verifications, list):
@@ -266,7 +300,7 @@ class VerificationExecutor:
             verification_type = verification.get('verification_type', 'text')
             
             # Get verification controller directly from device
-            controller = self.device.get_controller(f'verification_{verification_type}')
+            controller = self.device._get_controller(f'verification_{verification_type}')
             if not controller:
                 return {
                     'success': False,

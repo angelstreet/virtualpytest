@@ -553,7 +553,7 @@ class ScriptExecutor:
             # 5. Capture initial screenshot using device AV controller
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
             try:
-                av_controller = context.selected_device.get_controller('av')
+                av_controller = context.selected_device._get_controller('av')
                 initial_screenshot = av_controller.take_screenshot()
                 context.add_screenshot(initial_screenshot)
                 print(f"✅ [{self.script_name}] Initial screenshot captured")
@@ -651,7 +651,7 @@ class ScriptExecutor:
             # Capture final screenshot using device AV controller
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
             try:
-                av_controller = context.selected_device.get_controller('av')
+                av_controller = context.selected_device._get_controller('av')
                 final_screenshot = av_controller.take_screenshot()
                 context.add_screenshot(final_screenshot)
                 print(f"✅ [{self.script_name}] Final screenshot captured")
@@ -661,7 +661,7 @@ class ScriptExecutor:
             # Capture test execution video using device AV controller
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
             try:
-                av_controller = context.selected_device.get_controller('av')
+                av_controller = context.selected_device._get_controller('av')
                 
                 # Use the captured baseline execution time
                 video_duration = max(10.0, actual_test_duration_seconds)
@@ -816,11 +816,18 @@ class ScriptExecutor:
             # Load navigation tree if not already loaded
             nav_result = context.selected_device.navigation_executor.load_navigation_tree(
                 userinterface_name, 
-                context.team_id
+                context.team_id,
+                self.script_name
             )
             if not nav_result['success']:
                 context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
                 return False
+            
+            # Update context with loaded tree information
+            context.tree_id = nav_result['tree_id']
+            context.tree_data = nav_result
+            context.nodes = nav_result.get('nodes', [])
+            context.edges = nav_result.get('edges', [])
             
             # Execute navigation
             navigation_result = context.selected_device.navigation_executor.execute_navigation(

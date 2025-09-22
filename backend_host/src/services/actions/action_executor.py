@@ -18,7 +18,31 @@ class ActionExecutor:
     """
     Standardized action executor that provides consistent action execution
     across Python code and API endpoints.
+    
+    CRITICAL: Do not create new instances directly! Use device.action_executor instead.
+    Each device has a singleton ActionExecutor that preserves state and caches.
     """
+    
+    @classmethod
+    def get_for_device(cls, device):
+        """
+        Factory method to get the device's existing ActionExecutor.
+        
+        RECOMMENDED: Use device.action_executor directly instead of this method.
+        
+        Args:
+            device: Device instance
+            
+        Returns:
+            The device's existing ActionExecutor instance
+            
+        Raises:
+            ValueError: If device doesn't have an action_executor
+        """
+        if not hasattr(device, 'action_executor') or not device.action_executor:
+            raise ValueError(f"Device {device.device_id} does not have an ActionExecutor. "
+                           "ActionExecutors are created during device initialization.")
+        return device.action_executor
     
     @staticmethod
     def _parse_wait_time(wait_time) -> int:
@@ -38,7 +62,7 @@ class ActionExecutor:
             iterator_count = 1
         return max(1, min(iterator_count, 100))  # Clamp to valid range [1, 100]
     
-    def __init__(self, device, tree_id: str = None, edge_id: str = None, action_set_id: Optional[str] = None):
+    def __init__(self, device, tree_id: str = None, edge_id: str = None, action_set_id: Optional[str] = None, _from_device_init: bool = False):
         """
         Initialize ActionExecutor
         
@@ -47,6 +71,7 @@ class ActionExecutor:
             tree_id: Tree ID for navigation context
             edge_id: Edge ID for navigation context
             action_set_id: Action set ID for navigation context
+            _from_device_init: Internal flag to indicate creation from device initialization
         """
         # Validate required parameters - fail fast if missing
         if not device:
@@ -55,6 +80,15 @@ class ActionExecutor:
             raise ValueError("Device must have host_name")
         if not device.device_id:
             raise ValueError("Device must have device_id")
+        
+        # Warn if creating instance outside of device initialization
+        if not _from_device_init:
+            import traceback
+            print(f"⚠️ [ActionExecutor] WARNING: Creating new ActionExecutor instance for device {device.device_id}")
+            print(f"⚠️ [ActionExecutor] This may cause state loss! Use device.action_executor instead.")
+            print(f"⚠️ [ActionExecutor] Call stack:")
+            for line in traceback.format_stack()[-3:-1]:  # Show last 2 stack frames
+                print(f"⚠️ [ActionExecutor]   {line.strip()}")
         
         # Store instances directly
         self.device = device
@@ -66,7 +100,7 @@ class ActionExecutor:
         self.action_set_id = action_set_id
         
         # Get AV controller directly from device
-        self.av_controller = device.get_controller('av')
+        self.av_controller = device._get_controller('av')
         if not self.av_controller:
             print(f"[@action_executor] Warning: No AV controller found for device {self.device_id}")
         
@@ -97,7 +131,7 @@ class ActionExecutor:
             for controller_type in controller_types:
                 try:
                     # Direct controller access from device instance
-                    controller = self.device.get_controller(controller_type)
+                    controller = self.device._get_controller(controller_type)
                     if controller and hasattr(controller, 'get_available_actions'):
                         actions = controller.get_available_actions()
                         if isinstance(actions, dict):
@@ -435,7 +469,7 @@ class ActionExecutor:
                 # Execute action using direct controller access (we are the host)
                 if action_type == 'web':
                     # Use web controller directly
-                    web_controller = self.device.get_controller('web')
+                    web_controller = self.device._get_controller('web')
                     if web_controller:
                         response_data = web_controller.execute_command(
                             command=request_data['command'],
@@ -453,7 +487,7 @@ class ActionExecutor:
                     
                     if command in bash_commands:
                         # Use bash desktop controller
-                        bash_controller = self.device.get_controller('desktop')  # Gets first desktop controller
+                        bash_controller = self.device._get_controller('desktop')  # Gets first desktop controller
                         if bash_controller and hasattr(bash_controller, 'execute_bash_command'):
                             response_data = bash_controller.execute_command(
                                 command=request_data['command'],
@@ -465,7 +499,7 @@ class ActionExecutor:
                             status_code = 500
                     else:
                         # Use pyautogui desktop controller (default)
-                        desktop_controller = self.device.get_controller('desktop')
+                        desktop_controller = self.device._get_controller('desktop')
                         if desktop_controller:
                             response_data = desktop_controller.execute_command(
                                 command=request_data['command'],
@@ -478,7 +512,7 @@ class ActionExecutor:
                             
                 else:
                     # Use remote controller (default for remote actions)
-                    remote_controller = self.device.get_controller('remote')
+                    remote_controller = self.device._get_controller('remote')
                     if remote_controller:
                         response_data = remote_controller.execute_command(
                             command=request_data['command'],
@@ -606,7 +640,7 @@ class ActionExecutor:
             for controller_type in ['remote', 'web', 'desktop', 'av', 'power']:
                 try:
                     # Direct controller access from device instance
-                    controller = self.device.get_controller(controller_type)
+                    controller = self.device._get_controller(controller_type)
                     if controller and hasattr(controller, 'get_available_actions'):
                         actions = controller.get_available_actions()
                         if self._command_exists_in_actions(command, actions):
@@ -618,7 +652,7 @@ class ActionExecutor:
             for v_type in ['image', 'text', 'adb', 'appium', 'video', 'audio']:
                 try:
                     # Direct controller access from device instance
-                    controller = self.device.get_controller(f'verification_{v_type}')
+                    controller = self.device._get_controller(f'verification_{v_type}')
                     if controller and hasattr(controller, 'get_available_verifications'):
                         verifications = controller.get_available_verifications()
                         if self._command_exists_in_actions(command, verifications):
