@@ -589,8 +589,6 @@ class ADBUtils:
                 else:
                     print(f"[@lib:adbUtils:click_element] Direct tap failed: {stderr}")
             
-            # Fallback methods would go here (resource ID, text, content-desc)
-            # For now, we'll just return False if direct tap failed
             print(f"[@lib:adbUtils:click_element] All click methods failed for element")
             return False
             

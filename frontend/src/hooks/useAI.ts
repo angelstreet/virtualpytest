@@ -255,7 +255,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           prompt,
           userinterface_name,
           device_id: device.device_id,
-          team_id: 'default',
+          team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
           use_cache: useCache,
           async_execution: true
         })

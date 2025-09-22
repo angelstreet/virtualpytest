@@ -42,7 +42,7 @@ class SharedConfig:
     security: SecurityConfig
     
     # Default team and user IDs
-    default_team_id: str = "default-team"
+    default_team_id: str = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
     default_user_id: str = "default-user"
     
     @classmethod

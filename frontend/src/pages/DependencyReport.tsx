@@ -196,7 +196,7 @@ const DependencyReport: React.FC = () => {
             const successCount = executions.filter((e) => e.success).length;
             const nodeName =
               data.nodeExecutions.find((e) => e.node_id === nodeId)?.element_name ||
-              `Node ${nodeId.slice(0, 8)}`;
+              'Unnamed Node';
 
             return {
               node_id: nodeId,
@@ -267,7 +267,7 @@ const DependencyReport: React.FC = () => {
             const successCount = executions.filter((e) => e.success).length;
             const edgeName =
               data.edgeExecutions.find((e) => e.edge_id === edgeId)?.element_name ||
-              `Edge ${edgeId.slice(0, 8)}`;
+              'Unnamed Edge';
 
             return {
               edge_id: edgeId,
@@ -307,7 +307,7 @@ const DependencyReport: React.FC = () => {
           .forEach((exec) => {
             if (!nodeMap.has(exec.node_id!)) {
               nodeMap.set(exec.node_id!, {
-                node_name: exec.element_name || `Node ${exec.node_id!.slice(0, 8)}`,
+                node_name: exec.element_name || 'Unnamed Node',
                 tree_name: treeMap[exec.tree_id] || exec.tree_name,
                 script_executions: [],
               });

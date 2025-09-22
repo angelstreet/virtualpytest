@@ -36,7 +36,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   const [taskInput, setTaskInput] = useState('');
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false);
   // Controls whether to use cached AI plans for similar tasks (does not affect plan storage)
-  const [useAIPlanCache, setUseAIPlanCache] = useState(false);
+  const [useAIPlanCache, setUseAIPlanCache] = useState(true);
 
   // AI Agent hook
   const {
@@ -72,11 +72,11 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       sx={{
         position: 'absolute',
         top: '50%',
-        right: 16,
+        right: 10,
         transform: 'translateY(-50%)',
         zIndex: getZIndex('MODAL_CONTENT'),
         pointerEvents: 'auto',
-        width: '380px',
+        width: '420px',
         backgroundColor: 'rgba(0,0,0,0.85)',
         borderRadius: 1,
         border: '1px solid rgba(255,255,255,0.2)',
@@ -110,7 +110,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
         </Typography>
 
         {/* Task Input */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 0.5 }}>
           <TextField
             size="small"
             placeholder="Enter task (e.g., 'go to live and zap 10 times')"
@@ -170,7 +170,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
         </Box>
 
         {/* AI Execution Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0 }}>
           <FormControlLabel
             control={
               <Checkbox
@@ -187,7 +187,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             }
             label={
               <Typography variant="caption" sx={{ color: '#aaa' }}>
-                Use AI Plan Cache
+                Use Cache
               </Typography>
             }
             sx={{ margin: 0 }}
@@ -215,7 +215,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           >
             {/* Show current step when executing but no plan yet */}
             {isAIExecuting && !aiPlan && (
-              <Box sx={{ p: 2, textAlign: 'center' }}>
+              <Box sx={{ p: 1, textAlign: 'center' }}>
                 <CircularProgress size={20} sx={{ color: '#2196f3', mb: 1 }} />
                 <Typography variant="body2" sx={{ color: '#2196f3' }}>
                   {currentStep || 'Starting AI...'}
