@@ -29,6 +29,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
+from shared.src.lib.executors.step_executor import StepExecutor
 from backend_host.src.lib.utils.zap_controller import ZapController
 from shared.lib.utils.navigation_utils import goto_node
 from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
@@ -45,10 +46,45 @@ def create_zap_controller(context: ScriptExecutionContext) -> ZapController:
     return zap_controller
 
 def execute_zap_actions(context: ScriptExecutionContext, action_edge, action_command: str, max_iteration: int, zap_controller: ZapController, goto_live: bool = True):
-    """Execute zap actions using ZapController with simple sequential recording"""
-    print(f"⚡ [fullzap] Delegating zap execution to ZapController...")
+    """Execute zap actions using ZapController and StepExecutor for step recording"""
+    print(f"⚡ [fullzap] Executing {max_iteration} zap iterations with step recording...")
     print(f"🎯 [fullzap] Audio menu analysis will be performed after zap execution")
-    return zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, goto_live)
+    
+    # Create StepExecutor for recording steps
+    step_executor = StepExecutor(context)
+    
+    # Execute zap iterations using ZapController (without step recording)
+    # ZapController will handle analysis but not step recording
+    success = zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, goto_live)
+    
+    # Since ZapController no longer records steps, we need to create them based on the results
+    # The ZapController stores analysis results in context.custom_data, so we can use those
+    # to create steps retroactively
+    
+    # For now, create a single summary step for all zap iterations
+    # This maintains the same reporting structure while using the new step system
+    zap_result = {
+        'success': success,
+        'execution_time_ms': context.custom_data.get('total_action_time', 0),
+        'motion_details': context.custom_data.get('motion_analysis', {}),
+        'subtitle_details': context.custom_data.get('subtitle_analysis', {}),
+        'audio_details': context.custom_data.get('audio_analysis', {}),
+        'zapping_details': context.custom_data.get('zapping_analysis', {}),
+        'error': None if success else 'Zap execution failed'
+    }
+    
+    # Create a summary step for all zap iterations
+    zap_step = step_executor.create_zap_step(
+        iteration=max_iteration, 
+        action_command=action_command, 
+        analysis_result=zap_result,
+        max_iterations=max_iteration
+    )
+    
+    # Record the zap summary step
+    context.record_step_dict(zap_step)
+    
+    return success
 
 
 def capture_fullzap_summary(context: ScriptExecutionContext, userinterface_name: str) -> str:

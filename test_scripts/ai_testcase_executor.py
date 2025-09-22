@@ -20,6 +20,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
+from shared.src.lib.executors.step_executor import StepExecutor
 
 def capture_ai_execution_summary(context, userinterface_name: str, test_case: dict, ai_steps: list) -> str:
     """Capture AI execution summary as text for report"""

@@ -29,6 +29,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
+from shared.src.lib.executors.step_executor import StepExecutor
 # Navigation is now handled entirely by the navigation executor - no direct pathfinding needed
 
 
@@ -93,6 +94,11 @@ def main():
         )
         success = navigation_result['success']
         context.overall_success = success
+        
+        # Create and record navigation step using StepExecutor
+        step_executor = StepExecutor(context)
+        nav_step = step_executor.create_navigation_step(navigation_result, "entry", target_node)
+        context.record_step_dict(nav_step)
         
         if not success:
             context.error_message = navigation_result.get('error', 'Navigation failed')

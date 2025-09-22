@@ -133,6 +133,20 @@ class ScriptExecutionContext:
     def get_captured_stdout(self) -> str:
         """Get captured stdout as string"""
         return ''.join(self.stdout_buffer)
+    
+    def record_step_dict(self, step_dict: dict):
+        """Record a step using dict format (backward compatible with existing reporting)"""
+        # Add step number
+        step_dict['step_number'] = len(self.step_results) + 1
+        
+        # Add to step_results (existing reporting expects this)
+        self.step_results.append(step_dict)
+        
+        # Add screenshots to context if present
+        screenshots = step_dict.get('screenshots', [])
+        for screenshot in screenshots:
+            if screenshot:
+                self.add_screenshot(screenshot)
 
 
 class ScriptExecutor:
@@ -466,8 +480,13 @@ class ScriptExecutor:
             # 2. Create host instance
             print(f"🏗️ [{self.script_name}] Creating host instance...")
             try:
-                from backend_host.src.lib.utils.host_utils import get_host_instance
-                context.host = get_host_instance()
+                # Import dynamically to avoid circular dependencies
+                import importlib.util
+                host_utils_path = os.path.join(project_root, 'backend_host', 'src', 'lib', 'utils', 'host_utils.py')
+                spec = importlib.util.spec_from_file_location("host_utils", host_utils_path)
+                host_utils = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(host_utils)
+                context.host = host_utils.get_host_instance()
                 device_count = context.host.get_device_count()
                 print(f"✅ [{self.script_name}] Host created with {device_count} devices")
                 

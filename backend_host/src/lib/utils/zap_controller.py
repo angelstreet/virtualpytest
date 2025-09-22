@@ -423,10 +423,7 @@ class ZapController:
         action_result['screenshot_url'] = screenshot_result['screenshot_url']
         action_result['step_start_screenshot_path'] = step_start_screenshot_path
         
-        # RECORD STEP IMMEDIATELY - not during analysis
-        zap_step_index = len(context.step_results)  # Store index before recording
-        self._record_zap_step_immediately(context, iteration, max_iterations, action_command, action_result, 
-                                         execution_time, start_time, end_time, screenshot_result['screenshot_path'], action_edge)
+        # Step recording removed - will be handled by script using StepExecutor
         
         # Wait for banner to disappear before analysis
         print(f"⏰ [ZapController] Waiting 4 seconds for banner to disappear...")
@@ -1367,42 +1364,7 @@ class ZapController:
         return motion_images
 
     
-    def _record_zap_step_immediately(self, context, iteration: int, max_iterations: int, action_command: str,
-                                    action_result: Dict, execution_time: int, start_time: float, end_time: float,
-                                    screenshot_path: str, action_edge: Dict):
-        """Record zap step immediately when executed - simple sequential recording"""
-        # Extract real actions from edge
-        real_actions, real_retry_actions, real_failure_actions = self._extract_edge_actions(action_edge)
-        
-        step_result = {
-            'success': action_result.get('success', False),
-            'screenshot_path': screenshot_path,
-            'screenshot_url': action_result.get('screenshot_url'),
-            'step_start_screenshot_path': action_result.get('step_start_screenshot_path', ''),
-            'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",  # Will be updated with step number
-            'execution_time_ms': execution_time,
-            'start_time': datetime.fromtimestamp(start_time).strftime('%H:%M:%S'),
-            'end_time': datetime.fromtimestamp(end_time).strftime('%H:%M:%S'),
-            'step_category': 'zap_action',
-            'action_name': action_command,
-            'iteration': iteration,
-            'max_iterations': max_iterations,
-            'from_node': 'live',
-            'to_node': 'live',
-            'actions': real_actions,
-            'retryActions': real_retry_actions,
-            'failureActions': real_failure_actions,
-            'verifications': [],
-            'verification_results': []
-        }
-        
-        if not action_result.get('success'):
-            step_result['error'] = action_result.get('error', 'Unknown error')
-        
-        # Record step immediately - step number shown in table
-        context.record_step_immediately(step_result)
-        # Simple message without redundant step number
-        step_result['message'] = f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})"
+    # _record_zap_step_immediately method removed - step recording now handled by scripts using StepExecutor
     
     # Legacy step recording removed - using immediate recording only
     

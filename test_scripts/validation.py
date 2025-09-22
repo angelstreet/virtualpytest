@@ -24,6 +24,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
+from shared.src.lib.executors.step_executor import StepExecutor
 from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
 from backend_host.src.services.navigation.navigation_executor import NavigationExecutor
 from datetime import datetime
@@ -251,37 +252,44 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
             counter_increment = result.get('global_verification_counter_increment', 0)
             context.global_verification_counter += counter_increment
             
-            # Record step result using hierarchical context
-            step_result = {
+            # Create and record validation step using StepExecutor
+            step_executor = StepExecutor(context)
+            
+            # Prepare validation result for StepExecutor
+            validation_result = {
                 'success': result.get('success', False),
+                'execution_time_ms': step_execution_time,
+                'verification_results': result.get('verification_results', []),
+                'recovered': result.get('recovered', False),
+                'recovery_used': result.get('recovery_used', False),
+                'error': result.get('error')
+            }
+            
+            # Create standardized validation step
+            val_step = step_executor.create_validation_step(
+                validation_result, from_node, to_node,
+                actions=step.get('actions', []),
+                verifications=step.get('verifications', [])
+            )
+            
+            # Add validation-specific fields for backward compatibility
+            val_step.update({
                 'step_start_screenshot_path': result.get('step_start_screenshot_path'),
                 'step_end_screenshot_path': result.get('step_end_screenshot_path'),
                 'screenshot_path': result.get('screenshot_path'),
                 'screenshot_url': result.get('screenshot_url'),
                 'action_screenshots': action_screenshots,
                 'verification_images': verification_images,
-                'message': f"Validation step {step_num}: {from_node} → {to_node}",
-                'execution_time_ms': step_execution_time,
-                'start_time': step_start_timestamp,
-                'end_time': step_end_timestamp,
-                'from_node': from_node,
-                'to_node': to_node,
-                'actions': step.get('actions', []),
-                'verifications': step.get('verifications', []),
-                'verification_results': result.get('verification_results', []),
-                'error': result.get('error'),
-                'recovered': result.get('recovered', False),
-                'recovery_used': result.get('recovery_used', False),
                 'recovery_time_ms': result.get('recovery_time_ms', 0),
                 'additional_context': result.get('additional_context'),
                 'recovery_error': result.get('recovery_error'),
-                'step_category': 'validation'
-            }
+                'start_time': step_start_timestamp,
+                'end_time': step_end_timestamp,
+                'message': f"Validation: {from_node} → {to_node}"
+            })
             
-            # Record step immediately - step number shown in table
-            context.record_step_immediately(step_result)
-            # Simple message without redundant step number
-            step_result['message'] = f"Validation: {from_node} → {to_node}"
+            # Record step using new system
+            context.record_step_dict(val_step)
             
             # Check for critical failure (both normal and force navigation failed)
             if result.get('critical_failure', False):
