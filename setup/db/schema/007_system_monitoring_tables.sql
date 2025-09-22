@@ -24,6 +24,8 @@ CREATE TABLE system_metrics (
     architecture text,
     ffmpeg_status jsonb DEFAULT '{}'::jsonb,
     monitor_status jsonb DEFAULT '{}'::jsonb,
+    ffmpeg_service_uptime_seconds bigint DEFAULT 0,
+    monitor_service_uptime_seconds bigint DEFAULT 0,
     created_at timestamp with time zone DEFAULT now(),
     cpu_temperature_celsius numeric
 );
@@ -118,6 +120,8 @@ CREATE INDEX idx_system_incident_severity ON system_incident(severity);
 COMMENT ON TABLE system_metrics IS 'Retention: Keep 7 days of 1-minute data, 30 days of hourly aggregates';
 COMMENT ON COLUMN system_metrics.timestamp IS 'UTC timestamp for system metrics collection';
 COMMENT ON COLUMN system_metrics.created_at IS 'UTC timestamp for record creation';
+COMMENT ON COLUMN system_metrics.ffmpeg_service_uptime_seconds IS 'Duration FFmpeg service has been continuously active in seconds';
+COMMENT ON COLUMN system_metrics.monitor_service_uptime_seconds IS 'Duration Monitor service has been continuously active in seconds';
 COMMENT ON COLUMN system_metrics.cpu_temperature_celsius IS 'CPU temperature in Celsius from vcgencmd or thermal zones';
 
 COMMENT ON TABLE system_device_metrics IS 'Stores per-device system performance and process status data';
