@@ -69,7 +69,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     setError(null);
 
     try {
-      const response = await fetch('/server/ai-execution/analyzeCompatibility', {
+      const response = await fetch(buildServerUrl('/server/ai-execution/analyzeCompatibility'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
@@ -107,7 +107,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
       // For now, generate test cases for each interface individually
       const generatedTestCases = [];
       for (const interfaceName of selectedInterfaces) {
-        const response = await fetch('/server/ai-execution/generatePlan', {
+        const response = await fetch(buildServerUrl('/server/ai-execution/generatePlan'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 

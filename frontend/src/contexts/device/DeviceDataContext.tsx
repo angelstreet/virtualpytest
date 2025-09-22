@@ -461,7 +461,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         }
 
         const response = await fetch(
-          `/server/action/getActions?device_model=${encodeURIComponent(deviceModel)}`,
+          buildServerUrl(`/server/action/getActions?device_model=${encodeURIComponent(deviceModel)}`),
           {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
@@ -522,7 +522,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         }
 
         const response = await fetch(
-          `/server/verification/getVerifications?device_model=${encodeURIComponent(deviceModel)}`,
+          buildServerUrl(`/server/verification/getVerifications?device_model=${encodeURIComponent(deviceModel)}`),
           {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
