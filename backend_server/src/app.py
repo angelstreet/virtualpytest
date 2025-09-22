@@ -261,8 +261,8 @@ def register_all_server_routes(app):
             (server_ai_queue_routes.server_ai_queue_bp, 'AI queue monitoring'),
             (server_api_testing_routes.server_api_testing_bp, 'API testing system'),
             
-            # Auto proxy (replaces 12 pure proxy route files)
-            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, navigation-execution, power, remote, restart, translation)')
+            # Auto proxy (replaces 12 pure proxy route files + 18 verification proxy routes)
+            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, navigation-execution, power, remote, restart, translation + 18 verification routes)')
         ]
         
         for blueprint, description in blueprints:

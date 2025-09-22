@@ -19,6 +19,8 @@ def auto_proxy(endpoint):
     - /server/ai-execution/executeTask -> /host/ai-execution/executeTask
     - /server/actions/executeBatch -> /host/actions/executeBatch
     - /server/av/get-stream-url -> /host/av/get-stream-url
+    - /server/verification/image/execute -> /host/verification/image/execute
+    - /server/verification/text/execute -> /host/verification/text/execute
     """
     try:
         # Simple passthrough
