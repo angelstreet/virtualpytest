@@ -4,7 +4,7 @@
 
 ## 📥 **Download & Flash**
 
-1. **Download pre-configured image**: [URL_TO_BE_PROVIDED]
+1. **Download pre-configured image**: [https://mega.nz/file/k6xmmYxL#WtKSR0DE4U8Jb8SW_LcJmfzQnWdjpgp2fZ8ql90TXzM]
 2. **Flash to SD card**:
    ```bash
    # Insert SD card, find device (usually /dev/sdb or /dev/mmcblk0)

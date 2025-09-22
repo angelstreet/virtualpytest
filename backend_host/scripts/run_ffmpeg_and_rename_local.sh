@@ -126,10 +126,17 @@ start_grabber() {
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Optimized for low CPU usage: dual output only (stream + captures)
-    local resolution=$(get_vnc_resolution "$source")
-
-    # Simple DISPLAY export - no XAUTHORITY needed with xhost +local:
+    
+    # Setup X11 display environment
     export DISPLAY="$source"
+    export XAUTHORITY=~/.Xauthority
+    
+    # Allow local connections and set resolution
+    echo "Setting up X11 display $source..."
+    xhost +local: 2>/dev/null || echo "Warning: xhost command failed"
+    xrandr -display "$source" -s 1280x720 2>/dev/null || echo "Warning: xrandr resolution set failed"
+    
+    local resolution=$(get_vnc_resolution "$source")
 
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
