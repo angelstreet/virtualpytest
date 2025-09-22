@@ -11,8 +11,8 @@ This document lists all system-level dependencies required for VirtualPyTest on 
 ## 📋 **System Dependencies**
 
 ### **Already Installed by VirtualPyTest Scripts:**
-- ✅ **Python 3.8+** - Installed by `install_shared.sh`
-- ✅ **Node.js 18+** - Installed by `install_frontend.sh` 
+- ✅ **Python 3.11+** - Installed by `install_shared.sh`
+- ✅ **Node.js 20+** - Installed by `install_frontend.sh` 
 - ✅ **PostgreSQL** - Installed by `install_db.sh` (with complete VirtualPyTest schema)
 - ✅ **Grafana** - Installed by `install_grafana.sh`
 
