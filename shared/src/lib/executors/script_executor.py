@@ -32,6 +32,15 @@ from shared.src.lib.supabase.script_results_db import record_script_execution_st
 DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
 
 
+def setup_project_paths():
+    """Add project root to sys.path for imports"""
+    import inspect
+    calling_file = inspect.currentframe().f_back.f_globals['__file__']
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(calling_file)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+
 class ScriptExecutionContext:
     """Context object that holds all execution state"""
     
@@ -481,13 +490,9 @@ class ScriptExecutor:
             device_id_to_use = args.device or "device1"
             print(f"🏗️ [{self.script_name}] Creating host instance with device: {device_id_to_use}...")
             try:
-                # Import dynamically to avoid circular dependencies
-                import importlib.util
-                host_utils_path = os.path.join(project_root, 'backend_host', 'src', 'lib', 'utils', 'host_utils.py')
-                spec = importlib.util.spec_from_file_location("host_utils", host_utils_path)
-                host_utils = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(host_utils)
-                context.host = host_utils.get_host_instance(device_ids=[device_id_to_use])
+                # Import controller manager directly (paths set up by script)
+                from backend_host.src.controllers.controller_manager import get_host
+                context.host = get_host(device_ids=[device_id_to_use])
                 device_count = context.host.get_device_count()
                 print(f"✅ [{self.script_name}] Host created with {device_count} devices")
                 
