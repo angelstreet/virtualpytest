@@ -103,13 +103,15 @@ def register_all_server_routes(app):
         from routes import server_core_routes
         print("[@backend_server:routes] ✅ server_core_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing auto_proxy...")
+        from routes import auto_proxy
+        print("[@backend_server:routes] ✅ auto_proxy imported successfully")
+        
         print("[@backend_server:routes] 🔍 Importing server_control_routes...")
         from routes import server_control_routes
         print("[@backend_server:routes] ✅ server_control_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_actions_routes...")
-        from routes import server_actions_routes
-        print("[@backend_server:routes] ✅ server_actions_routes imported successfully")
+        # server_actions_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_device_routes...")
         from routes import server_device_routes
@@ -139,21 +141,15 @@ def register_all_server_routes(app):
         from routes import server_heatmap_routes
         print("[@backend_server:routes] ✅ server_heatmap_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_navigation_execution_routes...")
-        from routes import server_navigation_execution_routes
-        print("[@backend_server:routes] ✅ server_navigation_execution_routes imported successfully")
+        # server_navigation_execution_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_devicemodel_routes...")
         from routes import server_devicemodel_routes
         print("[@backend_server:routes] ✅ server_devicemodel_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_remote_routes...")
-        from routes import server_remote_routes
-        print("[@backend_server:routes] ✅ server_remote_routes imported successfully")
+        # server_remote_routes replaced by auto_proxy
         
-        print("[@backend_server:routes] 🔍 Importing server_ai_execution_routes...")
-        from routes import server_ai_execution_routes
-        print("[@backend_server:routes] ✅ server_ai_execution_routes imported successfully")
+        # server_ai_execution_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_ai_testcase_routes...")
         from routes import server_ai_testcase_routes
@@ -163,21 +159,13 @@ def register_all_server_routes(app):
         from routes import server_ai_generation_routes
         print("[@backend_server:routes] ✅ server_ai_generation_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_ai_tools_routes...")
-        from routes import server_ai_tools_routes
-        print("[@backend_server:routes] ✅ server_ai_tools_routes imported successfully")
+        # server_ai_tools_routes replaced by auto_proxy
         
-        print("[@backend_server:routes] 🔍 Importing server_desktop_bash_routes...")
-        from routes import server_desktop_bash_routes
-        print("[@backend_server:routes] ✅ server_desktop_bash_routes imported successfully")
+        # server_desktop_bash_routes replaced by auto_proxy
         
-        print("[@backend_server:routes] 🔍 Importing server_power_routes...")
-        from routes import server_power_routes
-        print("[@backend_server:routes] ✅ server_power_routes imported successfully")
+        # server_power_routes replaced by auto_proxy
         
-        print("[@backend_server:routes] 🔍 Importing server_desktop_pyautogui_routes...")
-        from routes import server_desktop_pyautogui_routes
-        print("[@backend_server:routes] ✅ server_desktop_pyautogui_routes imported successfully")
+        # server_desktop_pyautogui_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_stream_proxy_routes...")
         from routes import server_stream_proxy_routes
@@ -200,17 +188,11 @@ def register_all_server_routes(app):
         print("[@backend_server:routes] ✅ server_userinterface_routes imported successfully")
         
         
-        print("[@backend_server:routes] 🔍 Importing server_av_routes...")
-        from routes import server_av_routes
-        print("[@backend_server:routes] ✅ server_av_routes imported successfully")
+        # server_av_routes replaced by auto_proxy
         
-        print("[@backend_server:routes] 🔍 Importing server_restart_routes...")
-        from routes import server_restart_routes
-        print("[@backend_server:routes] ✅ server_restart_routes imported successfully")
+        # server_restart_routes replaced by auto_proxy
         
-        print("[@backend_server:routes] 🔍 Importing server_monitoring_routes...")
-        from routes import server_monitoring_routes
-        print("[@backend_server:routes] ✅ server_monitoring_routes imported successfully")
+        # server_monitoring_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_execution_results_routes...")
         from routes import server_execution_results_routes
@@ -240,9 +222,7 @@ def register_all_server_routes(app):
         from routes import server_ai_queue_routes
         print("[@backend_server:routes] ✅ server_ai_queue_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_translation_routes...")
-        from routes import server_translation_routes
-        print("[@backend_server:routes] ✅ server_translation_routes imported successfully")
+        # server_translation_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_api_testing_routes...")
         from routes import server_api_testing_routes
@@ -252,11 +232,11 @@ def register_all_server_routes(app):
         
         # Register all server blueprints
         blueprints = [
+            # Core system routes (keep these - have server logic)
             (server_system_routes.server_system_bp, 'System management'),
             (server_web_routes.server_web_bp, 'Web interface'),
             (server_core_routes.server_core_bp, 'Server core API'),
             (server_control_routes.server_control_bp, 'Device control operations'),
-            (server_actions_routes.server_actions_bp, 'Action management'),
             (server_device_routes.server_device_bp, 'Device management'),
             (server_navigation_routes.server_navigation_bp, 'Navigation operations'),
             (server_navigation_trees_routes.server_navigation_trees_bp, 'Navigation trees'),
@@ -264,24 +244,14 @@ def register_all_server_routes(app):
             (server_alerts_routes.server_alerts_bp, 'Alert management'),
             (server_verification_routes.server_verification_bp, 'Verification operations'),
             (server_heatmap_routes.server_heatmap_bp, 'Heatmap generation'),
-            (server_navigation_execution_routes.server_navigation_execution_bp, 'Navigation execution'),
             (server_devicemodel_routes.server_devicemodel_bp, 'Device model management'),
-            (server_remote_routes.server_remote_bp, 'Remote control operations'),
-            (server_ai_execution_routes.server_ai_execution_bp, 'AI execution operations'),
             (server_ai_testcase_routes.server_ai_testcase_bp, 'AI test case operations'),
             (server_ai_generation_routes.server_ai_generation_bp, 'AI interface generation'),
-            (server_ai_tools_routes.server_ai_tools_bp, 'AI tools and debugging'),
-            (server_desktop_bash_routes.server_desktop_bash_bp, 'Desktop bash control'),
-            (server_power_routes.server_power_bp, 'Power management'),
-            (server_desktop_pyautogui_routes.server_desktop_pyautogui_bp, 'Desktop automation'),
             (server_stream_proxy_routes.server_stream_proxy_bp, 'Stream proxy'),
             (server_validation_routes.server_validation_bp, 'Validation operations'),
             (server_campaign_routes.server_campaign_bp, 'Campaign management'),
             (server_testcase_routes.server_testcase_bp, 'Test case management'),
             (server_userinterface_routes.server_userinterface_bp, 'User interface management'),
-            (server_av_routes.server_av_bp, 'Audio/Video operations'),
-            (server_restart_routes.server_restart_bp, 'Restart video system'),
-            (server_monitoring_routes.server_monitoring_bp, 'Monitoring system'),
             (server_execution_results_routes.server_execution_results_bp, 'Execution results'),
             (server_script_routes.server_script_bp, 'Script management'),
             (server_script_results_routes.server_script_results_bp, 'Script results'),
@@ -289,8 +259,10 @@ def register_all_server_routes(app):
             (server_campaign_results_routes.server_campaign_results_bp, 'Campaign results'),
             (server_frontend_routes.server_frontend_bp, 'Frontend control'),
             (server_ai_queue_routes.server_ai_queue_bp, 'AI queue monitoring'),
-            (server_translation_routes.server_translation_bp, 'Translation services'),
-            (server_api_testing_routes.server_api_testing_bp, 'API testing system')
+            (server_api_testing_routes.server_api_testing_bp, 'API testing system'),
+            
+            # Auto proxy (replaces 12 pure proxy route files)
+            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, navigation-execution, power, remote, restart, translation)')
         ]
         
         for blueprint, description in blueprints:
