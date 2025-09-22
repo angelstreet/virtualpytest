@@ -69,6 +69,7 @@ import {
   UINavigationNode as UINavigationNodeType,
 } from '../types/pages/Navigation_Types';
 import { getZIndex } from '../utils/zIndexUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {
@@ -261,6 +262,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
       // Host data (filtered by userInterface models)
       availableHosts,
+      
+      // API methods
+      loadTreeByUserInterface,
     } = useNavigationEditor();
 
     // treeName is available from useParams and used for userInterface resolution
@@ -342,22 +346,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       const refreshData = async () => {
         try {
           if (userInterface?.id) {
-            // Re-fetch tree data after AI generation
-            const response = await fetch(
-              `/server/navigationTrees/getTreeByUserInterfaceId/${userInterface.id}`,
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              },
-            );
-
-            if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.tree) {
-                // Force refresh by reloading the current tree
-                window.location.reload();
-              }
+            // Re-fetch tree data after AI generation using navigation hook
+            try {
+              await loadTreeByUserInterface(userInterface.id);
+              // Tree data is automatically updated in the navigation context
+            } catch (error) {
+              console.error('Failed to refresh tree data after AI generation:', error);
             }
           }
         } catch (error) {
@@ -457,7 +451,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         try {
           // Get the tree directly by user interface ID using the original endpoint
           const response = await fetch(
-            `/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`,
+            buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`),
             {
               headers: {
                 'Content-Type': 'application/json',

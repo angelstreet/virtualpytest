@@ -91,7 +91,7 @@ export const useDependency = () => {
   // Standalone function to load tree data without requiring NavigationConfigContext
   const loadTreeData = useCallback(async (treeId: string): Promise<any> => {
     try {
-      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/full?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce`));
+      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/full`));
       const result = await response.json();
       
       if (result.success) {

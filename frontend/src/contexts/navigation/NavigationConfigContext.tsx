@@ -84,6 +84,7 @@ interface NavigationConfigContextType {
   // Load operations
   loadTreeMetadata: (treeId: string) => Promise<NavigationTree>;
   loadTreeData: (treeId: string) => Promise<any>;
+  loadTreeByUserInterface: (userInterfaceId: string) => Promise<any>;
   loadTreeNodes: (treeId: string, page?: number, limit?: number) => Promise<NavigationNode[]>;
   loadTreeEdges: (treeId: string, nodeIds?: string[]) => Promise<NavigationEdge[]>;
 
@@ -142,6 +143,26 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
         return result;
       } else {
         throw new Error(result.error);
+      }
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadTreeByUserInterface = async (userInterfaceId: string): Promise<any> => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`));
+      const result = await response.json();
+      
+      if (result.success && result.tree) {
+        setActualTreeId(result.tree.id);
+        return result;
+      } else {
+        throw new Error(result.error || 'Failed to load tree for user interface');
       }
     } catch (err: any) {
       setError(err.message);
@@ -277,6 +298,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     <NavigationConfigContext.Provider value={{
       loadTreeMetadata,
       loadTreeData,
+      loadTreeByUserInterface,
       loadTreeNodes,
       loadTreeEdges,
       saveNode,

@@ -101,6 +101,66 @@ export const useNavigationEditor = () => {
     [navigationConfig, navigation],
   );
 
+  const loadTreeByUserInterface = useCallback(
+    async (userInterfaceId: string) => {
+      try {
+        navigation.setIsLoading(true);
+        navigation.setError(null);
+
+        // Load tree data by user interface using new API
+        const result = await navigationConfig.loadTreeByUserInterface(userInterfaceId);
+        
+        if (result.success && result.tree) {
+          // Convert tree data to frontend format (same as loadTreeData)
+          const treeData = result.tree;
+          const frontendNodes = (treeData.metadata?.nodes || []).map((node: any) => ({
+            id: node.node_id,
+            type: node.node_type || 'screen',
+            position: { x: node.position_x, y: node.position_y },
+            data: {
+              label: node.label,
+              type: node.node_type || 'screen',
+              description: node.description,
+              verifications: node.verifications,
+              ...node.data
+            }
+          }));
+
+          const frontendEdges = (treeData.metadata?.edges || []).map((edge: any) => ({
+            id: edge.edge_id,
+            source: edge.source_node_id,
+            target: edge.target_node_id,
+            type: 'navigation',
+            label: edge.label,
+            sourceHandle: edge.data?.sourceHandle,
+            targetHandle: edge.data?.targetHandle,
+            data: {
+              action_sets: edge.action_sets,
+              default_action_set_id: edge.default_action_set_id,
+              final_wait_time: edge.final_wait_time,
+              ...edge.data
+            }
+          }));
+
+          navigation.setNodes(frontendNodes);
+          navigation.setEdges(frontendEdges);
+          navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
+          navigation.setHasUnsavedChanges(false);
+
+          return result;
+        } else {
+          throw new Error(result.error || 'Failed to load tree for user interface');
+        }
+      } catch (error) {
+        navigation.setError(`Failed to load tree by user interface: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw error;
+      } finally {
+        navigation.setIsLoading(false);
+      }
+    },
+    [navigationConfig, navigation],
+  );
+
 
 
 
@@ -725,6 +785,7 @@ export const useNavigationEditor = () => {
 
       // New normalized API operations
       loadTreeData,
+      loadTreeByUserInterface,
       
       // Centralized save methods from NavigationContext
       saveNodeWithStateUpdate: navigation.saveNodeWithStateUpdate,

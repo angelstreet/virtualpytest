@@ -194,8 +194,8 @@ const ModelReports: React.FC = () => {
       let elementName = 'Unknown';
       let directionLabel = '';
       
-      // Always use the backend-provided element_name which is already correctly formatted
-      elementName = firstResult.element_name || (isAction ? 'Unknown Edge' : 'Unknown Node');
+      // Always use the backend-provided labelwhich is already correctly formatted
+      elementName = firstResult.label|| (isAction ? 'Unknown Edge' : 'Unknown Node');
       
       // For bidirectional edges, the direction is already included in element_name
       if (isAction && firstResult.action_set_id) {
