@@ -130,7 +130,7 @@ def create_tree_api():
 def update_tree_api(tree_id):
     """Update tree metadata."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -162,7 +162,7 @@ def update_tree_api(tree_id):
 def delete_tree_api(tree_id):
     """Delete a tree."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -189,7 +189,7 @@ def delete_tree_api(tree_id):
 def get_tree_nodes_api(tree_id):
     """Get nodes for a tree with pagination."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -215,7 +215,7 @@ def get_tree_nodes_api(tree_id):
 def get_node_api(tree_id, node_id):
     """Get a single node by its node_id."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -238,7 +238,7 @@ def get_node_api(tree_id, node_id):
 def create_node_api(tree_id):
     """Create a new node."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -269,7 +269,7 @@ def create_node_api(tree_id):
 def update_node_api(tree_id, node_id):
     """Update a node."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -301,7 +301,7 @@ def update_node_api(tree_id, node_id):
 def delete_node_api(tree_id, node_id):
     """Delete a node."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -328,7 +328,7 @@ def delete_node_api(tree_id, node_id):
 def get_tree_edges_api(tree_id):
     """Get edges, optionally filtered by nodes."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -353,7 +353,7 @@ def get_tree_edges_api(tree_id):
 def get_edge_api(tree_id, edge_id):
     """Get a single edge by its edge_id."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -376,7 +376,7 @@ def get_edge_api(tree_id, edge_id):
 def create_edge_api(tree_id):
     """Create a new edge."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -407,7 +407,7 @@ def create_edge_api(tree_id):
 def update_edge_api(tree_id, edge_id):
     """Update an edge."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -439,7 +439,7 @@ def update_edge_api(tree_id, edge_id):
 def delete_edge_api(tree_id, edge_id):
     """Delete an edge."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -466,7 +466,7 @@ def delete_edge_api(tree_id, edge_id):
 def get_node_sub_trees_api(tree_id, node_id):
     """Get all sub-trees for a specific node."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -485,7 +485,7 @@ def get_node_sub_trees_api(tree_id, node_id):
 def create_sub_tree_api(parent_tree_id, parent_node_id):
     """Create a new sub-tree for a specific node."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -516,7 +516,7 @@ def create_sub_tree_api(parent_tree_id, parent_node_id):
 def get_tree_hierarchy_api(tree_id):
     """Get complete tree hierarchy starting from root."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -535,7 +535,7 @@ def get_tree_hierarchy_api(tree_id):
 def get_tree_breadcrumb_api(tree_id):
     """Get breadcrumb path for a tree."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -554,7 +554,7 @@ def get_tree_breadcrumb_api(tree_id):
 def delete_tree_cascade_api(tree_id):
     """Delete a tree and all its descendant trees."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -577,7 +577,7 @@ def delete_tree_cascade_api(tree_id):
 def move_subtree_api(subtree_id):
     """Move a subtree to a different parent node."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -617,7 +617,7 @@ def move_subtree_api(subtree_id):
 def get_full_tree_api(tree_id):
     """Get complete tree data (metadata + nodes + edges)."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -672,7 +672,7 @@ def get_full_tree_api(tree_id):
 def save_tree_data_api(tree_id):
     """Save complete tree data (nodes + edges) in batch."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -713,7 +713,7 @@ def save_tree_data_api(tree_id):
 def get_tree_by_userinterface_id(userinterface_id):
     """Get navigation tree for a specific user interface."""
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id') 
         if not team_id:
             return jsonify({
                 'success': False,
@@ -724,58 +724,31 @@ def get_tree_by_userinterface_id(userinterface_id):
         tree = get_root_tree_for_interface(userinterface_id, team_id)
         
         if tree:
-            # SAME AS SCRIPT: Load complete hierarchy instead of single tree
-            from shared.src.lib.supabase.userinterface_db import get_userinterface
-            from  backend_server.src.lib.utils.route_utils import proxy_to_host
+            # Get complete tree data directly from database
+            tree_id = tree['id']
+            result = get_full_tree(tree_id, team_id)
             
-            # Get interface name for hierarchy loading
-            interface = get_userinterface(userinterface_id, team_id)
-            if not interface:
+            if result['success']:
+                # Return tree data in the expected format
                 return jsonify({
-                    'success': False,
-                    'error': f'User interface not found: {userinterface_id}'
-                })
-            
-            interface_name = interface.get('name')
-            if not interface_name:
-                return jsonify({
-                    'success': False,
-                    'error': f'Interface name not found for: {userinterface_id}'
-                })
-            
-            # Proxy navigation hierarchy loading to host
-            print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Loading hierarchy for interface: {interface_name}')
-            hierarchy_result = proxy_to_host('/host/navigation/load_hierarchy', 'POST', {
-                'interface_name': interface_name,
-                'context': 'frontend_navigation_editor',
-                'team_id': team_id
-            })
-            
-            if not hierarchy_result['success']:
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to load hierarchy: {hierarchy_result.get("error", "Unknown error")}'
-                })
-            
-            # Extract root tree data from hierarchy result
-            root_tree_data = hierarchy_result['root_tree']
-            
-            print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully loaded hierarchy with {hierarchy_result["unified_graph_nodes"]} nodes')
-            
-            return jsonify({
-                'success': True,
-                'tree': {
-                    'id': tree['id'],
-                    'name': tree['name'],
-                    'viewport_x': tree.get('viewport_x', 0),
-                    'viewport_y': tree.get('viewport_y', 0),
-                    'viewport_zoom': tree.get('viewport_zoom', 1),
-                    'metadata': {
-                        'nodes': root_tree_data['nodes'],
-                        'edges': root_tree_data['edges']
+                    'success': True,
+                    'tree': {
+                        'id': tree['id'],
+                        'name': tree['name'],
+                        'viewport_x': tree.get('viewport_x', 0),
+                        'viewport_y': tree.get('viewport_y', 0),
+                        'viewport_zoom': tree.get('viewport_zoom', 1),
+                        'metadata': {
+                            'nodes': result.get('nodes', []),
+                            'edges': result.get('edges', [])
+                        }
                     }
-                }
-            })
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to load tree data: {result.get("error", "Unknown error")}'
+                })
         else:
             return jsonify({
                 'success': False,
