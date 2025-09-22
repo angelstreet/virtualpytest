@@ -34,7 +34,7 @@ from shared.src.lib.supabase.campaign_executions_db import (
 )
 from shared.src.lib.utils.app_utils import load_environment_variables
 from backend_host.src.lib.utils.host_utils import get_host_instance
-from backend_host.src.lib.utils.script_utils import DEFAULT_TEAM_ID
+from .script_executor import DEFAULT_TEAM_ID
 
 
 class CampaignExecutionContext:
