@@ -91,7 +91,7 @@ export const useDependency = () => {
   // Standalone function to load tree data without requiring NavigationConfigContext
   const loadTreeData = useCallback(async (treeId: string): Promise<any> => {
     try {
-      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/full`));
+      const response = await fetch(buildServerUrl(`/server/navigationTrees/${treeId}/full?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce`));
       const result = await response.json();
       
       if (result.success) {
@@ -108,24 +108,32 @@ export const useDependency = () => {
   // Helper function to get proper labels for nodes and edges
   const getElementLabel = useCallback(
     async (elementId: string, elementType: 'node' | 'edge', treeId: string, fallbackName?: string): Promise<string> => {
+      console.log(`[@hook:useDependency] Getting label for ${elementType} ${elementId}, fallback: ${fallbackName}, treeId: ${treeId}`);
+      
       // First, use the fallback name if available (this should be element_name from execution results)
       if (fallbackName) {
+        console.log(`[@hook:useDependency] Using fallback name: ${fallbackName}`);
         return fallbackName;
       }
 
       try {
         // If no fallback, try to fetch from navigation data
+        console.log(`[@hook:useDependency] Fetching tree data for ${treeId}`);
         const treeData = await loadTreeData(treeId);
         
         if (treeData.success) {
           if (elementType === 'node') {
             const node = treeData.nodes?.find((n: any) => n.node_id === elementId);
+            console.log(`[@hook:useDependency] Found node:`, node);
             if (node?.label) {
+              console.log(`[@hook:useDependency] Using node label: ${node.label}`);
               return node.label;
             }
           } else if (elementType === 'edge') {
             const edge = treeData.edges?.find((e: any) => e.edge_id === elementId);
+            console.log(`[@hook:useDependency] Found edge:`, edge);
             if (edge?.label) {
+              console.log(`[@hook:useDependency] Using edge label: ${edge.label}`);
               return edge.label;
             }
           }
@@ -135,7 +143,9 @@ export const useDependency = () => {
       }
 
       // Last resort fallback
-      return elementType === 'node' ? 'Unnamed Node' : 'Unnamed Edge';
+      const fallback = elementType === 'node' ? 'Unnamed Node' : 'Unnamed Edge';
+      console.log(`[@hook:useDependency] Using last resort fallback: ${fallback}`);
+      return fallback;
     },
     [loadTreeData]
   );
@@ -152,6 +162,24 @@ export const useDependency = () => {
         getAllExecutionResults(),
         getAllUserInterfaces(),
       ]);
+
+      console.log(`[@hook:useDependency] Loaded data:`, {
+        scriptResults: scriptResults.length,
+        executionResults: executionResults.length,
+        userInterfaces: userInterfaces.length
+      });
+
+      // Debug: Check execution result types
+      const executionTypes = executionResults.reduce((acc, exec) => {
+        acc[exec.execution_type] = (acc[exec.execution_type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log(`[@hook:useDependency] Execution types:`, executionTypes);
+
+      // Debug: Check node/edge presence
+      const withNodeId = executionResults.filter(exec => exec.node_id).length;
+      const withEdgeId = executionResults.filter(exec => exec.edge_id).length;
+      console.log(`[@hook:useDependency] Executions with node_id: ${withNodeId}, with edge_id: ${withEdgeId}`);
 
       // Create mapping from tree_id to userinterface_name
       const treeMap: Record<string, string> = {};
@@ -184,6 +212,8 @@ export const useDependency = () => {
             exec.execution_type === 'verification' &&
             exec.node_id,
         );
+
+        console.log(`[@hook:useDependency] Script ${script.script_name}: ${nodeExecutions.length} node executions`);
 
         if (nodeExecutions.length > 0) {
           if (!scriptNodeMap.has(script.script_name)) {
@@ -264,6 +294,8 @@ export const useDependency = () => {
             exec.execution_type === 'action' &&
             exec.edge_id,
         );
+
+        console.log(`[@hook:useDependency] Script ${script.script_name}: ${edgeExecutions.length} edge executions`);
 
         if (edgeExecutions.length > 0) {
           if (!scriptEdgeMap.has(script.script_name)) {
