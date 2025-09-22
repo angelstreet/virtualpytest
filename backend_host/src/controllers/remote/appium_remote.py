@@ -7,7 +7,7 @@ Key difference from ADB controller: uses Appium WebDriver API for cross-platform
 Based on the AndroidMobileRemoteController pattern but with universal platform support.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import subprocess
 import time
 import json
@@ -337,7 +337,7 @@ class AppiumRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error getting apps: {e}")
             return []
             
-    def dump_ui_elements(self) -> tuple[bool, List[AppiumElement], str]:
+    def dump_ui_elements(self) -> Tuple[bool, List[AppiumElement], str]:
         """
         Dump UI elements from the current screen.
         
@@ -533,7 +533,7 @@ class AppiumRemoteController(RemoteControllerInterface):
             return self.device_resolution
         return None
         
-    def take_screenshot(self) -> tuple[bool, str, str]:
+    def take_screenshot(self) -> Tuple[bool, str, str]:
         """
         Take a screenshot of the device.
         

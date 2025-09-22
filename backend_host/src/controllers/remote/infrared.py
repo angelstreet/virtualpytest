@@ -5,7 +5,7 @@ This controller provides IR (Infrared) remote control functionality for TVs, STB
 Supports classic remote control buttons with standard IR keycodes.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import subprocess
 import time
 import json
@@ -156,7 +156,7 @@ class IRRemoteController(RemoteControllerInterface):
     
 
             
-    def _load_ir_config(self) -> tuple[bool, dict]:
+    def _load_ir_config(self) -> Tuple[bool, dict]:
         """
         Load IR configuration from JSON file.
         

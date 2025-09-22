@@ -10,7 +10,7 @@ The core logic is the same as /server/verification/executeBatch but available as
 """
 
 import time
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from shared.src.lib.supabase.execution_results_db import record_node_execution
 
 
@@ -47,7 +47,7 @@ class VerificationExecutor:
         
         print(f"[@verification_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
-    def take_screenshot(self) -> tuple[bool, str, str]:
+    def take_screenshot(self) -> Tuple[bool, str, str]:
         """
         Take a screenshot and return base64 data for AI analysis.
         

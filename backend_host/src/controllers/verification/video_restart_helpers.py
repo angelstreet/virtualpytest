@@ -933,7 +933,7 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Error creating silent video: {e}")
             return False
     
-    def _parse_timing_filename(self, filename: str) -> tuple[str, int]:
+    def _parse_timing_filename(self, filename: str) -> Tuple[str, int]:
         """
         Parse filename to extract base name and current timing offset.
         

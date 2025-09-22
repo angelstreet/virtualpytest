@@ -168,7 +168,7 @@ class NavigationExecutor:
         
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
-            from shared.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
+            from backend_host.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
             
             # Determine starting node from context or current position
             start_node_id = None
@@ -213,7 +213,7 @@ class NavigationExecutor:
                 if context:
                     from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
                     step_name = f"step_{step_num}_{from_node}_{to_node}"
-                    step_start_screenshot_result = capture_and_upload_screenshot(self.device.host, self.device, f"{step_name}_start", "navigation")
+                    step_start_screenshot_result = capture_and_upload_screenshot(self.device, f"{step_name}_start", "navigation")
                     step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
                     
                     if step_start_screenshot_path:
@@ -259,15 +259,15 @@ class NavigationExecutor:
                 # Main action screenshot (existing)
                 main_screenshot_path = ""
                 if context:
-                    from backend_host.src.lib.utils.action_utils import capture_validation_screenshot
-                    step_screenshot = capture_validation_screenshot(self.device.host, self.device, f"navigation_step_{step_num}", "navigation")
-                    main_screenshot_path = step_screenshot
-                    context.add_screenshot(step_screenshot)
+                    main_screenshot_result = capture_and_upload_screenshot(self.device, f"navigation_step_{step_num}", "navigation")
+                    main_screenshot_path = main_screenshot_result.get('screenshot_path', '')
+                    if main_screenshot_path:
+                        context.add_screenshot(main_screenshot_path)
                 
                 # Step end screenshot - capture AFTER action execution (like old goto_node)
                 step_end_screenshot_path = ""
                 if context:
-                    step_end_screenshot_result = capture_and_upload_screenshot(self.device.host, self.device, f"{step_name}_end", "navigation")
+                    step_end_screenshot_result = capture_and_upload_screenshot(self.device, f"{step_name}_end", "navigation")
                     step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
                     
                     if step_end_screenshot_path:

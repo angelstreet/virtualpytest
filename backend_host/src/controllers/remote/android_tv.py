@@ -5,7 +5,7 @@ This controller provides real Android TV remote control functionality using ADB.
 Connects directly to Android TV devices via ADB.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import subprocess
 import time
 import json
@@ -341,7 +341,7 @@ class AndroidTVRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error getting apps: {e}")
             return []
             
-    def take_screenshot(self) -> tuple[bool, str, str]:
+    def take_screenshot(self) -> Tuple[bool, str, str]:
         """
         Take a screenshot of the Android TV device.
         

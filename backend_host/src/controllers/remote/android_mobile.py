@@ -6,7 +6,7 @@ Key difference from TV controller: focuses on UI element dumping and clicking ra
 Based on the ADB actions pattern and RecAndroidPhoneRemote component.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import subprocess
 import time
 import json
@@ -234,7 +234,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error getting apps: {e}")
             return []
             
-    def dump_ui_elements(self) -> tuple[bool, List[AndroidElement], str]:
+    def dump_ui_elements(self) -> Tuple[bool, List[AndroidElement], str]:
         """
         Dump UI elements from the current screen.
         
@@ -436,7 +436,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             return self.device_resolution
         return None
         
-    def take_screenshot(self) -> tuple[bool, str, str]:
+    def take_screenshot(self) -> Tuple[bool, str, str]:
         """
         Take a screenshot of the Android device.
         

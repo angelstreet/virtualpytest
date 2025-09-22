@@ -1,35 +1,162 @@
 """
-Shared Script Executor
+Unified Script Executor for VirtualPyTest
 
-Core script execution logic that can be used by both server and host.
-Handles Python script execution with real-time output streaming.
+Complete script execution system that handles:
+- Context preparation (device setup, navigation loading)
+- Python script execution with real-time output streaming
+- Screenshot/video capture and report generation
+- Database tracking and cleanup
+
+Usage:
+    executor = ScriptExecutor("script_name", "Description")
+    context = executor.prepare_context(args)
+    result = executor.execute_script_with_context(context)
 """
 
+import sys
+import argparse
 import time
-import uuid
-import subprocess
 import os
+import subprocess
+import uuid
+import glob
 import select
-import threading
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
+
+# Import required modules for context preparation
+from shared.src.lib.utils.app_utils import load_environment_variables
+from shared.src.lib.utils.report_generation_utils import generate_and_upload_script_report
+from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
+
+DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+
+
+class ScriptExecutionContext:
+    """Context object that holds all execution state"""
+    
+    def __init__(self, script_name: str):
+        self.script_name = script_name
+        self.start_time = time.time()
+        
+        # Infrastructure objects
+        self.host = None
+        self.team_id = None
+        self.selected_device = None
+        
+        # Navigation objects
+        self.tree_data = None
+        self.tree_id = None
+        self.nodes = []
+        self.edges = []
+        self.current_node_id = None  # Track current location for pathfinding
+        
+        # Execution tracking
+        self.step_results = []
+        self.screenshot_paths = []
+        self.overall_success = False
+        self.error_message = ""
+        self.script_result_id = None
+        
+        # Recovery tracking for resilient validation
+        self.failed_steps: List[Dict] = []        # Track failed steps
+        self.recovery_attempts: int = 0           # Count total recovery attempts
+        self.recovered_steps: int = 0             # Count successful recoveries
+        
+        # Global verification counter to prevent overwriting verification images
+        self.global_verification_counter: int = 0
+        
+        # Custom data for display in final summary
+        self.custom_data = {}
+        
+        # Stdout capture for log upload
+        self.stdout_buffer = []
+        
+        # Simple sequential step counter
+        self.step_counter = 0
+    
+    def get_execution_time_ms(self) -> int:
+        """Get current execution time in milliseconds"""
+        return int((time.time() - self.start_time) * 1000)
+    
+    def record_step_immediately(self, step_data: Dict[str, Any]) -> int:
+        """Record step immediately with simple sequential numbering - returns step number"""
+        self.step_counter += 1
+        step_data['step_number'] = self.step_counter
+        step_data['timestamp'] = time.time()
+        self.step_results.append(step_data)
+        return self.step_counter
+
+    def add_screenshot(self, screenshot_path: str):
+        """Add a screenshot to the collection"""
+        if screenshot_path:
+            self.screenshot_paths.append(screenshot_path)
+    
+    def start_stdout_capture(self):
+        """Start capturing stdout for log upload"""
+        import sys
+        import io
+        
+        # Store original stdout
+        self.original_stdout = sys.stdout
+        
+        # Create a custom stdout that captures and forwards
+        class StdoutCapture:
+            def __init__(self, original_stdout, buffer):
+                self.original_stdout = original_stdout
+                self.buffer = buffer
+            
+            def write(self, text):
+                # Write to original stdout (so output still shows)
+                self.original_stdout.write(text)
+                # Capture in buffer for log upload
+                self.buffer.append(text)
+                return len(text)
+            
+            def flush(self):
+                self.original_stdout.flush()
+            
+            def __getattr__(self, name):
+                # Forward other attributes to original stdout
+                return getattr(self.original_stdout, name)
+        
+        # Replace stdout with capturing version
+        sys.stdout = StdoutCapture(self.original_stdout, self.stdout_buffer)
+    
+    def stop_stdout_capture(self):
+        """Stop capturing stdout and restore original"""
+        import sys
+        if hasattr(self, 'original_stdout') and self.original_stdout:
+            sys.stdout = self.original_stdout
+            self.original_stdout = None
+    
+    def get_captured_stdout(self) -> str:
+        """Get captured stdout as string"""
+        return ''.join(self.stdout_buffer)
 
 
 class ScriptExecutor:
     """
-    Shared script executor that handles Python script execution:
+    Unified script executor that handles:
+    - Context preparation (device setup, navigation loading)
     - Script execution with real-time output streaming
     - AI test case redirection
     - Report generation integration
     """
     
-    def __init__(self, host_name: str = None, device_id: str = None, device_model: str = None):
-        """Initialize script executor with optional device context"""
+    def __init__(self, script_name: str = None, description: str = "", host_name: str = None, device_id: str = None, device_model: str = None):
+        """Initialize script executor - supports both context preparation and direct execution modes"""
+        # For context preparation mode (test scripts)
+        self.script_name = script_name or "unknown-script"
+        self.description = description
+        
+        # For direct execution mode (API routes)
         self.host_name = host_name or "unknown-host"
         self.device_id = device_id or "unknown-device"
         self.device_model = device_model or "unknown-model"
         self.current_team_id = None
         
-        print(f"[@script_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
+        print(f"[@script_executor] Initialized: {self.script_name} for device: {self.device_id}, model: {self.device_model}")
     
     def set_team_id(self, team_id: str):
         """Set team_id for script execution"""
@@ -293,3 +420,382 @@ class ScriptExecutor:
         
         print(f"[@script_executor] RETURNING: About to return result dictionary")
         return result
+    
+    # =====================================================
+    # CONTEXT PREPARATION METHODS (from script_utils.py)
+    # =====================================================
+    
+    def create_argument_parser(self, additional_args: List[Dict] = None) -> argparse.ArgumentParser:
+        """Create standard argument parser with optional additional arguments"""
+        parser = argparse.ArgumentParser(description=self.description)
+        
+        # Standard arguments for all scripts
+        parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile',
+                          help='Name of the userinterface to use (default: horizon_android_mobile)')
+        parser.add_argument('--host', help='Specific host to use (default: sunri-pi1)')
+        parser.add_argument('--device', help='Specific device to use (default: device1)')
+        
+        # Add additional custom arguments
+        if additional_args:
+            for arg in additional_args:
+                parser.add_argument(arg['name'], **arg['kwargs'])
+        
+        return parser
+    
+    def setup_execution_context(self, args, enable_db_tracking: bool = False) -> ScriptExecutionContext:
+        """Setup execution context with infrastructure components - NO DEVICE LOCKING"""
+        context = ScriptExecutionContext(self.script_name)
+        
+        # Start capturing stdout for log upload
+        context.start_stdout_capture()
+        
+        print(f"🎯 [{self.script_name}] Starting execution for: {args.userinterface_name}")
+        
+        try:
+            # 1. Load environment variables first
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/src/lib/executors
+            lib_dir = os.path.dirname(current_dir)                    # /shared/src/lib
+            src_dir = os.path.dirname(lib_dir)                        # /shared/src
+            shared_dir = os.path.dirname(src_dir)                     # /shared
+            project_root = os.path.dirname(shared_dir)                # /virtualpytest
+            backend_host_src = os.path.join(project_root, 'backend_host', 'src')
+            
+            print(f"🔧 [{self.script_name}] Loading environment variables...")
+            load_environment_variables(calling_script_dir=backend_host_src)
+            
+            # 2. Create host instance
+            print(f"🏗️ [{self.script_name}] Creating host instance...")
+            try:
+                from backend_host.src.lib.utils.host_utils import get_host_instance
+                context.host = get_host_instance()
+                device_count = context.host.get_device_count()
+                print(f"✅ [{self.script_name}] Host created with {device_count} devices")
+                
+                if device_count == 0:
+                    context.error_message = "No devices configured"
+                    print(f"❌ [{self.script_name}] {context.error_message}")
+                    return context
+                
+                # Get team_id from environment (should be loaded by now)
+                context.team_id = os.getenv('TEAM_ID', DEFAULT_TEAM_ID)
+                
+            except Exception as e:
+                context.error_message = f"Failed to create host: {str(e)}"
+                print(f"❌ [{self.script_name}] {context.error_message}")
+                return context
+            
+            # 3. Select device from host instance
+            device_id_to_use = args.device or "device1"
+            print(f"🔍 [{self.script_name}] Selecting device: {device_id_to_use}")
+            
+            available_devices = [d.device_id for d in context.host.get_devices()]
+            print(f"📱 [{self.script_name}] Available devices: {available_devices}")
+            
+            # Try to find the specific device by ID
+            context.selected_device = next((d for d in context.host.get_devices() if d.device_id == device_id_to_use), None)
+            
+            if not context.selected_device:
+                # If specific device not found, try to find first non-host device
+                devices = [d for d in context.host.get_devices() if d.device_id != 'host']
+                if devices:
+                    context.selected_device = devices[0]
+                    print(f"⚠️ [{self.script_name}] Device {device_id_to_use} not found, using first non-host device: {context.selected_device.device_id}")
+                else:
+                    # Fall back to any device if no non-host devices available
+                    all_devices = context.host.get_devices()
+                    if all_devices:
+                        context.selected_device = all_devices[0]
+                        print(f"⚠️ [{self.script_name}] No non-host devices found, using: {context.selected_device.device_id}")
+                    else:
+                        context.error_message = "No devices available"
+                        print(f"❌ [{self.script_name}] {context.error_message}")
+                        return context
+            
+            print(f"✅ [{self.script_name}] Selected device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+            
+            # 4. Record script execution start in database (if enabled)
+            if enable_db_tracking:
+                context.script_result_id = record_script_execution_start(
+                    team_id=context.team_id,
+                    script_name=self.script_name,
+                    script_type=self.script_name,
+                    userinterface_name=args.userinterface_name,
+                    host_name=context.host.host_name,
+                    device_name=context.selected_device.device_name,
+                    metadata={
+                        'device_id': context.selected_device.device_id,
+                        'device_model': context.selected_device.device_model
+                    }
+                )
+                
+                if context.script_result_id:
+                    print(f"📝 [{self.script_name}] Script execution recorded with ID: {context.script_result_id}")
+                    # Output script result ID in a format that campaign executor can parse
+                    print(f"SCRIPT_RESULT_ID:{context.script_result_id}")
+            
+            # 5. Capture initial screenshot using device AV controller
+            print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
+            try:
+                av_controller = context.selected_device.get_controller('av')
+                initial_screenshot = av_controller.take_screenshot()
+                context.add_screenshot(initial_screenshot)
+                print(f"✅ [{self.script_name}] Initial screenshot captured")
+            except Exception as e:
+                print(f"⚠️ [{self.script_name}] Screenshot failed: {e}, continuing...")
+            
+            print(f"✅ [{self.script_name}] Execution context setup completed")
+            
+        except Exception as e:
+            context.error_message = f"Setup error: {str(e)}"
+            print(f"❌ [{self.script_name}] {context.error_message}")
+        
+        return context
+    
+    def cleanup_and_exit(self, context: ScriptExecutionContext, userinterface_name: str):
+        """Cleanup resources and exit with appropriate code - NO DEVICE UNLOCKING"""
+        try:
+            # Output results for execution system FIRST
+            success_str = str(context.overall_success).lower()
+            print(f"SCRIPT_SUCCESS:{success_str}")
+            import sys
+            sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
+            
+            # Generate report AFTER outputting success marker
+            report_result = None
+            if context.host and context.selected_device:
+                print(f"📊 [{self.script_name}] Generating report...")
+                report_result = self.generate_final_report(context, userinterface_name)
+                
+            if report_result and report_result.get('success') and report_result.get('report_url'):
+                print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
+                # Display log URL right after report URL
+                if report_result.get('logs_url'):
+                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
+                # Store report URL and logs URL for final summary
+                if not hasattr(context, 'custom_data'):
+                    context.custom_data = {}
+                context.custom_data['report_url'] = report_result['report_url']
+                # Store logs URL in context for later display
+                if report_result.get('logs_url'):
+                    context.logs_url = report_result['logs_url']
+            
+            # Update database if tracking is enabled
+            if context.script_result_id:
+                if context.overall_success:
+                    print(f"📝 [{self.script_name}] Recording success in database...")
+                    execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
+                    update_script_execution_result(
+                        script_result_id=context.script_result_id,
+                        success=True,
+                        execution_time_ms=execution_time_for_db,
+                        html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
+                        html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
+                        logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
+                        logs_r2_url=report_result.get('logs_url') if report_result and report_result.get('success') else None,
+                        error_msg=None
+                    )
+                else:
+                    print(f"📝 [{self.script_name}] Recording failure in database...")
+                    # Use baseline execution time if available, otherwise current time
+                    execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
+                    update_script_execution_result(
+                        script_result_id=context.script_result_id,
+                        success=False,
+                        execution_time_ms=execution_time_for_db,
+                        html_report_r2_path=report_result.get('report_path') if report_result and report_result.get('success') else None,
+                        html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
+                        logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
+                        logs_r2_url=report_result.get('logs_url') if report_result and report_result.get('success') else None,
+                        error_msg=context.error_message or 'Script execution failed'
+                    )
+        except Exception as e:
+            print(f"⚠️ [{self.script_name}] Error during report generation: {e}")
+        
+        # Always stop stdout capture - NO DEVICE UNLOCKING (handled by server)
+        context.stop_stdout_capture()
+        
+        # Print summary (use baseline time if available)
+        baseline_time = getattr(context, 'baseline_execution_time_ms', None)
+        self.print_execution_summary(context, userinterface_name, baseline_time)
+        
+        # Exit with proper code
+        print(f"✅ [{self.script_name}] Script execution completed (test result: {'PASS' if context.overall_success else 'FAIL'})")
+        sys.exit(0)
+    
+    def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> Dict[str, str]:
+        """Generate and upload final execution report using device info"""
+        try:
+            # Capture execution time BEFORE any additional processing
+            actual_execution_time_ms = context.get_execution_time_ms()
+            actual_test_duration_seconds = actual_execution_time_ms / 1000.0
+            # Store in context for use in cleanup_and_exit
+            context.baseline_execution_time_ms = actual_execution_time_ms
+            
+            # Capture final screenshot using device AV controller
+            print(f"📸 [{self.script_name}] Capturing final state screenshot...")
+            try:
+                av_controller = context.selected_device.get_controller('av')
+                final_screenshot = av_controller.take_screenshot()
+                context.add_screenshot(final_screenshot)
+                print(f"✅ [{self.script_name}] Final screenshot captured")
+            except Exception as e:
+                print(f"⚠️ [{self.script_name}] Screenshot failed: {e}")
+            
+            # Capture test execution video using device AV controller
+            print(f"🎥 [{self.script_name}] Capturing test execution video...")
+            try:
+                av_controller = context.selected_device.get_controller('av')
+                
+                # Use the captured baseline execution time
+                video_duration = max(10.0, actual_test_duration_seconds)
+                test_video_url = av_controller.take_video(video_duration, context.start_time)
+                context.test_video_url = test_video_url
+                print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
+            except Exception as e:
+                print(f"⚠️ [{self.script_name}] Video capture failed: {e}")
+                context.test_video_url = ""
+            
+            # Generate and upload report using device info
+            device_info = self.get_device_info_for_report_context(context)
+            host_info = self.get_host_info_for_report_context(context)
+            
+            # Stop stdout capture before generating report
+            context.stop_stdout_capture()
+            captured_stdout = context.get_captured_stdout()
+            
+            # Capture report generation output to get URLs
+            import io
+            import sys
+            
+            # Capture the report generation output
+            old_stdout = sys.stdout
+            report_output = io.StringIO()
+            sys.stdout = report_output
+            
+            report_result = generate_and_upload_script_report(
+                script_name=f"{self.script_name}.py",
+                device_info=device_info,
+                host_info=host_info,
+                execution_time=actual_execution_time_ms,  # Use captured baseline time
+                success=context.overall_success,
+                step_results=context.step_results,
+                screenshot_paths=context.screenshot_paths,
+                error_message=context.error_message,
+                userinterface_name=userinterface_name,
+                execution_summary=getattr(context, 'execution_summary', ''),
+                test_video_url=getattr(context, 'test_video_url', '') or '',
+                stdout=captured_stdout,
+                script_result_id=context.script_result_id,
+                custom_data=context.custom_data
+            )
+            
+            # Restore stdout and get the captured output
+            sys.stdout = old_stdout
+            report_generation_output = report_output.getvalue()
+            
+            # Print the captured output so it appears in logs
+            print(report_generation_output, end='')
+            
+            # Extract logs URL from the captured output
+            if 'Logs uploaded:' in report_generation_output:
+                try:
+                    logs_line = [line for line in report_generation_output.split('\n') if 'Logs uploaded:' in line][0]
+                    logs_url = logs_line.split('Logs uploaded: ')[1].strip()
+                    # Add logs_url to report_result if not already there
+                    if report_result and not report_result.get('logs_url'):
+                        report_result['logs_url'] = logs_url
+                        print(f"[@script_executor] Extracted logs URL: {logs_url}")
+                except Exception as e:
+                    print(f"[@script_executor] Failed to extract logs URL: {e}")
+            
+            if report_result.get('success') and report_result.get('report_url'):
+                print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
+                if report_result.get('logs_url'):
+                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
+            
+            return report_result
+            
+        except Exception as e:
+            print(f"⚠️ [{self.script_name}] Error in report generation: {e}")
+            return {
+                'success': False,
+                'report_url': '',
+                'report_path': ''
+            }
+    
+    def get_device_info_for_report_context(self, context: ScriptExecutionContext) -> Dict[str, Any]:
+        """Get device information for report generation from context"""
+        if context.selected_device:
+            return {
+                'device_name': context.selected_device.device_name,
+                'device_model': context.selected_device.device_model,
+                'device_id': context.selected_device.device_id
+            }
+        else:
+            return {
+                'device_name': self.device_id,
+                'device_model': self.device_model,
+                'device_id': self.device_id
+            }
+    
+    def get_host_info_for_report_context(self, context: ScriptExecutionContext) -> Dict[str, Any]:
+        """Get host information for report generation from context"""
+        if context.host:
+            return {
+                'host_name': context.host.host_name
+            }
+        else:
+            return {
+                'host_name': self.host_name
+            }
+    
+    def print_execution_summary(self, context: ScriptExecutionContext, userinterface_name: str, execution_time_ms: int = None):
+        """Print execution summary"""
+        print("\n" + "="*60)
+        print(f"🎯 [{self.script_name.upper()}] EXECUTION SUMMARY")
+        print("="*60)
+        
+        if context.selected_device and context.host:
+            print(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+            print(f"🖥️  Host: {context.host.host_name}")
+        
+        print(f"📋 Interface: {userinterface_name}")
+        # Use passed execution time if available, otherwise fall back to context time
+        display_time_ms = execution_time_ms if execution_time_ms is not None else context.get_execution_time_ms()
+        print(f"⏱️  Total Time: {display_time_ms/1000:.1f}s")
+        print(f"📊 Steps: {len(context.step_results)} executed")
+        print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+        print(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
+        
+        if context.error_message:
+            print(f"❌ Error: {context.error_message}")
+        
+        # Show simple step summary
+        print(f"\n📋 Steps executed: {len(context.step_results)}")
+        
+        # Show custom data from scripts
+        if hasattr(context, 'custom_data') and context.custom_data:
+            for key, value in context.custom_data.items():
+                print(f"{key}: {value}")
+                # Display log URL right after report URL
+                if key == 'report_url' and hasattr(context, 'logs_url') and context.logs_url:
+                    print(f"logs_url: {context.logs_url}")
+        
+        print("="*60)
+
+
+# =====================================================
+# UTILITY FUNCTIONS (from script_utils.py)
+# =====================================================
+
+def handle_keyboard_interrupt(script_name: str):
+    """Standard keyboard interrupt handler"""
+    print(f"\n⚠️ [{script_name}] Execution interrupted by user")
+    sys.exit(130)  # Standard exit code for keyboard interrupt
+
+
+def handle_unexpected_error(script_name: str, error: Exception):
+    """Standard unexpected error handler"""
+    error_message = f"Unexpected error: {str(error)}"
+    print(f"❌ [{script_name}] {error_message}")
+    sys.exit(1)

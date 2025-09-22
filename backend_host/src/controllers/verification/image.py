@@ -698,7 +698,7 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Error creating pixel difference overlay: {e}")
             return None
 
-    def _resolve_reference_image(self, image_path: str, model: str = 'default') -> tuple[Optional[str], Optional[dict]]:
+    def _resolve_reference_image(self, image_path: str, model: str = 'default') -> Tuple[Optional[str], Optional[dict]]:
         """
         Resolve reference image path and area by downloading from R2 and querying database.
         Returns tuple of (image_path, area_dict).
