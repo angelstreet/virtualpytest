@@ -16,9 +16,11 @@ Example:
 import sys
 import os
 
-# Set up project paths
-from shared.src.lib.executors.script_executor import setup_project_paths
-setup_project_paths()
+# Add project root to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext, handle_keyboard_interrupt, handle_unexpected_error
 from shared.src.lib.executors.step_executor import StepExecutor

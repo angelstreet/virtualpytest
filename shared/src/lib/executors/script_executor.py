@@ -32,13 +32,6 @@ from shared.src.lib.supabase.script_results_db import record_script_execution_st
 DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
 
 
-def setup_project_paths():
-    """Add project root to sys.path for imports"""
-    # Go up two levels from this file to get virtualpytest folder
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
 class ScriptExecutionContext:
     """Context object that holds all execution state"""
     
