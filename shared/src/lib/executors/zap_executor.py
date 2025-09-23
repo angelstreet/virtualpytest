@@ -95,65 +95,24 @@ class ZapExecutor:
             return 40
     
     def analyze_after_zap(self, iteration: int, action_command: str, context, action_start_time: float = None) -> ZapAnalysisResult:
-        """Perform comprehensive analysis after a zap action"""
+        """Perform comprehensive analysis after a zap action - CLEAN ARCHITECTURE"""
         result = ZapAnalysisResult()
-        
-        if not hasattr(result, 'zapping_details'):
-            result.zapping_details = {}
-        if not hasattr(result, 'zapping_detected'):
-            result.zapping_detected = False
         
         try:
             print(f"🔍 [ZapExecutor] Analyzing zap results for {action_command} (iteration {iteration})...")
             
-            context.current_iteration = iteration
-            motion_result = self._detect_motion(context)
-            result.motion_detected = motion_result.get('success', False)
-            result.motion_details = motion_result
+            # Get verification configurations
+            verification_configs = self._get_zap_verification_configs(context, iteration, action_command, action_start_time)
             
-            if result.motion_detected:
-                print(f"✅ [ZapExecutor] Motion detected - content changed successfully")
-            else:
-                print(f"⚠️ [ZapExecutor] No motion detected - continuing with analysis anyway")
-            if context:
-                subtitle_result = self._analyze_subtitles(context, iteration, action_command)
-                result.subtitles_detected = subtitle_result.get('subtitles_detected', False)
-                result.detected_language = subtitle_result.get('detected_language')
-                result.extracted_text = subtitle_result.get('extracted_text', '')
-                result.subtitle_details = subtitle_result
+            # Execute all verifications in one batch
+            batch_result = self._execute_verification_batch(context, verification_configs)
             
-            if context:
-                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                if device_model == 'host_vnc':
-                    print(f"⏭️ [ZapExecutor] Skipping audio analysis for VNC device (no audio available)")
-                    result.audio_speech_detected = False
-                    result.audio_transcript = ""
-                    result.audio_language = "unknown"
-                    result.audio_details = {
-                        "success": True, 
-                        "speech_detected": False,
-                        "skipped": True,
-                        "message": "Audio Speech Detection: ⏭️ SKIPPED",
-                        "details": "VNC device has no audio available"
-                    }
-                else:
-                    audio_speech_result = self._analyze_audio_speech(context, iteration, action_command)
-                    result.audio_speech_detected = audio_speech_result.get('speech_detected', False)
-                    result.audio_transcript = audio_speech_result.get('combined_transcript', '')
-                    result.audio_language = audio_speech_result.get('detected_language', 'unknown')
-                    result.audio_details = audio_speech_result
-            
-            macroblock_result = self._analyze_macroblocks(context, iteration, action_command)
-            result.macroblocks_detected = macroblock_result.get('macroblocks_detected', False)
-            result.quality_score = macroblock_result.get('quality_score', 0.0)
-            result.macroblock_details = macroblock_result
-            
-            if context and 'chup' in action_command.lower():
-                zapping_result = self._analyze_zapping(context, iteration, action_command, action_start_time)
-                result.zapping_detected = zapping_result.get('zapping_detected', False)
-                result.zapping_details = zapping_result
-            else:
-                result.zapping_details = {"success": True, "message": "Skipped - not a channel up action"}
+            # Map results to ZapAnalysisResult
+            if batch_result.get('success') and batch_result.get('results'):
+                for i, verification_result in enumerate(batch_result['results']):
+                    config = verification_configs[i]
+                    analysis_type = config.get('analysis_type')
+                    self._map_verification_result(result, analysis_type, verification_result)
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"
@@ -324,16 +283,12 @@ class ZapExecutor:
             from shared.src.lib.executors.step_executor import StepExecutor
             step_executor = StepExecutor(context)
             
-            # Get screenshot paths from the most recent navigation step (just executed)
-            screenshot_paths = self._extract_navigation_screenshots(context)
-            
-            # Create zap step with analysis results and screenshots
+            # Create zap step with analysis results - screenshots handled by VerificationExecutor
             zap_step = step_executor.create_zap_step(
                 iteration=iteration,
                 action_command=action_node,
                 analysis_result=analysis_result.to_dict(),
-                max_iterations=max_iterations,
-                screenshot_paths=screenshot_paths
+                max_iterations=max_iterations
             )
             
             # Record step in context
@@ -342,337 +297,113 @@ class ZapExecutor:
         except Exception as e:
             print(f"⚠️ [ZapExecutor] Failed to record zap step: {e}")
     
-    def _extract_navigation_screenshots(self, context) -> dict:
-        """Extract screenshot paths from the most recent navigation step"""
-        try:
-            if not context.step_results:
-                return {}
-            
-            # Get the most recent step (should be the navigation step we just executed)
-            recent_step = context.step_results[-1]
-            
-            # Only extract from navigation steps to avoid confusion
-            if recent_step.get('step_category') != 'navigation':
-                return {}
-            
-            # Extract screenshot paths in the same format as navigation steps
-            screenshot_paths = {
-                'step_start_screenshot_path': recent_step.get('step_start_screenshot_path'),
-                'screenshot_path': recent_step.get('screenshot_path'),
-                'step_end_screenshot_path': recent_step.get('step_end_screenshot_path'),
-                'screenshot_url': recent_step.get('screenshot_url')
-            }
-            
-            # Filter out None values
-            screenshot_paths = {k: v for k, v in screenshot_paths.items() if v}
-            
-            if screenshot_paths:
-                print(f"📸 [ZapExecutor] Extracted {len(screenshot_paths)} screenshot paths from navigation step")
-            
-            return screenshot_paths
-            
-        except Exception as e:
-            print(f"⚠️ [ZapExecutor] Failed to extract navigation screenshots: {e}")
-            return {}
-    
-    
-    def _detect_motion(self, context) -> Dict[str, Any]:
-        """Detect motion using device's existing VerificationExecutor service"""
-        try:
-            time.sleep(3)
-
-            iteration = getattr(context, 'current_iteration', 1)
-            screenshot_result = capture_and_upload_screenshot(context.selected_device, f"motion_analysis_{iteration}", "zap")
-
-            # Use device's existing VerificationExecutor (preserves state)
-            verification_executor = self.device.verification_executor
-            if not verification_executor:
-                return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
-
-            verification_config = [{
-                'command': 'DetectMotionFromJson',
+    def _get_zap_verification_configs(self, context, iteration: int, action_command: str, action_start_time: float) -> List[Dict]:
+        """Get all verification configurations for zap analysis"""
+        device_model = context.selected_device.device_model if context.selected_device else 'unknown'
+        configs = []
+        
+        # Motion detection (always run)
+        configs.append({
+            'command': 'DetectMotionFromJson',
+            'verification_type': 'video',
+            'params': {'json_count': 3, 'strict_mode': False},
+            'analysis_type': 'motion'
+        })
+        
+        # Subtitle detection (if screenshots available)
+        if context.screenshot_paths:
+            configs.append({
+                'command': 'detect_subtitles_ai',
+                'verification_type': 'video',
+                'params': {'screenshots': [context.screenshot_paths[-1]], 'extract_text': True},
+                'analysis_type': 'subtitles'
+            })
+        
+        # Audio analysis (skip for VNC devices)
+        if device_model != 'host_vnc':
+            configs.append({
+                'command': 'analyze_audio_speech',
+                'verification_type': 'audio',
+                'params': {'segment_count': 3, 'early_stop': True},
+                'analysis_type': 'audio_speech'
+            })
+        
+        # Macroblock detection
+        if context.screenshot_paths:
+            configs.append({
+                'command': 'detect_macroblocks',
+                'verification_type': 'video',
+                'params': {'image_paths': [context.screenshot_paths[-1]]},
+                'analysis_type': 'macroblocks'
+            })
+        
+        # Zapping detection (only for channel up actions)
+        if 'chup' in action_command.lower():
+            configs.append({
+                'command': 'detect_zapping',
                 'verification_type': 'video',
                 'params': {
-                    'json_count': 3,
-                    'strict_mode': False
-                }
-            }]
-
-            print(f"🔍 [ZapExecutor] Executing motion detection with config: {verification_config}")
-            verification_result = verification_executor.execute_verifications(verification_config, team_id=context.team_id)
-            print(f"🔍 [ZapExecutor] Motion detection raw result: {verification_result}")
-
-            # Extract result from verification executor response
-            if verification_result.get('success') and verification_result.get('results'):
-                result = verification_result['results'][0]  # Get first verification result
-                print(f"🔍 [ZapExecutor] Motion detection extracted result: {result}")
-            else:
-                # Enhanced error logging for motion detection failures
-                error_detail = verification_result.get('error', 'Unknown error')
-                print(f"🔍 [ZapExecutor] Motion detection verification failed: {error_detail}")
-                if verification_result.get('results'):
-                    print(f"🔍 [ZapExecutor] Verification results available but marked as failed")
-                    print(f"🔍 [ZapExecutor] Failed results: {verification_result.get('results')}")
-                else:
-                    print(f"🔍 [ZapExecutor] No verification results returned")
-                
-                return {"success": False, "message": f"Motion detection failed: {error_detail}"}
-            
-            motion_images = self._add_motion_analysis_images_to_screenshots(context, iteration)
-            if motion_images:
-                result['motion_analysis_images'] = motion_images
-            
-            if screenshot_result['success']:
-                context.add_screenshot(screenshot_result['screenshot_path'])
-                if screenshot_result['screenshot_url']:
-                    result['analyzed_screenshot'] = screenshot_result['screenshot_url']
-                elif screenshot_result['screenshot_path']:
-                    result['analyzed_screenshot'] = screenshot_result['screenshot_path']
-            
-            success = result.get('success', False)
+                    'key_release_timestamp': action_start_time or time.time(),
+                    'analysis_rectangle': {'x': 200, 'y': 0, 'width': 400, 'height': 200},
+                    'max_images': self._get_max_images_for_device(device_model)
+                },
+                'analysis_type': 'zapping'
+            })
+        
+        return configs
+    
+    
+    def _execute_verification_batch(self, context, verification_configs: List[Dict]) -> Dict[str, Any]:
+        """Execute a batch of verifications using the standard VerificationExecutor"""
+        verification_executor = self.device.verification_executor
+        if not verification_executor:
+            return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
+        
+        return verification_executor.execute_verifications(verification_configs, team_id=context.team_id)
+    
+    def _map_verification_result(self, result: ZapAnalysisResult, analysis_type: str, verification_result: Dict):
+        """Map verification result to ZapAnalysisResult fields"""
+        success = verification_result.get('success', False)
+        details = verification_result.get('details', {})
+        
+        if analysis_type == 'motion':
+            result.motion_detected = success
+            result.motion_details = verification_result
             if success:
-                # The VerificationExecutor already provides properly structured data
-                # No need to re-parse - use the flattened result directly
-                details = result.get('details', {})
+                analyzed_count = details.get('total_analyzed', 0)
                 video_ok = details.get('video_ok', False)
                 audio_ok = details.get('audio_ok', False)
-                analyzed_count = details.get('total_analyzed', 0)
-                
                 if video_ok and audio_ok:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed - both video and audio content present")
                 elif video_ok:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed - video motion detected")
                 elif audio_ok:
-                    print(f"   🎵 Motion detected: {analyzed_count} files analyzed - audio content present (video motion minimal)")
+                    print(f"   🎵 Motion detected: {analyzed_count} files analyzed - audio content present")
                 else:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed")
-            else:
-                print(f"   📝 Motion details: {result.get('message', 'No details')}")
             
-            return result
-        except Exception as e:
-            return {"success": False, "message": f"Motion detection error: {e}"}
+        elif analysis_type == 'subtitles':
+            result.subtitles_detected = verification_result.get('subtitles_detected', False)
+            result.detected_language = verification_result.get('detected_language')
+            result.extracted_text = verification_result.get('extracted_text', '')
+            result.subtitle_details = verification_result
+            
+        elif analysis_type == 'audio_speech':
+            result.audio_speech_detected = verification_result.get('speech_detected', False)
+            result.audio_transcript = verification_result.get('combined_transcript', '')
+            result.audio_language = verification_result.get('detected_language', 'unknown')
+            result.audio_details = verification_result
+            
+        elif analysis_type == 'macroblocks':
+            result.macroblocks_detected = verification_result.get('macroblocks_detected', False)
+            result.quality_score = verification_result.get('quality_score', 0.0)
+            result.macroblock_details = verification_result
+            
+        elif analysis_type == 'zapping':
+            result.zapping_detected = verification_result.get('zapping_detected', False)
+            result.zapping_details = verification_result
     
-    def _analyze_subtitles(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
-        """Analyze subtitles using device's existing VerificationExecutor service"""
-        if not context.screenshot_paths:
-            return {"success": False, "message": "No screenshots available"}
-        
-        try:
-            print(f"🔍 [ZapExecutor] Analyzing subtitles...")
-            
-            # Use the latest screenshot (which should be the clean analysis screenshot)
-            latest_screenshot = context.screenshot_paths[-1]
-            print(f"🔍 [ZapExecutor] Using clean screenshot for subtitle analysis: {latest_screenshot}")
-            # Use device's existing VerificationExecutor (preserves state)
-            verification_executor = self.device.verification_executor
-            if not verification_executor:
-                return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
-            
-            verification_config = [{
-                'command': 'detect_subtitles_ai',
-                'verification_type': 'video',
-                'params': {
-                    'screenshots': [latest_screenshot],
-                    'extract_text': True
-                }
-            }]
-            
-            verification_result = verification_executor.execute_verifications(verification_config, team_id=context.team_id)
-            
-            # Extract result from verification executor response
-            if verification_result.get('success') and verification_result.get('results'):
-                result = verification_result['results'][0]
-            else:
-                return {"success": False, "message": f"Subtitle analysis failed: {verification_result.get('error', 'Unknown error')}"}
-            
-            if result.get('success'):
-                has_subtitles = result.get('subtitles_detected', False)
-                extracted_text = result.get('combined_extracted_text', '') or result.get('extracted_text', '')
-                detected_language = result.get('detected_language')
-                
-                if detected_language == 'unknown' or not detected_language:
-                    detected_language = None
-                
-                subtitle_result = {
-                    "success": True,
-                    "subtitles_detected": has_subtitles,
-                    "extracted_text": extracted_text,
-                    "detected_language": detected_language,
-                    "analyzed_screenshot": latest_screenshot,
-                    "message": f"Subtitles {'detected' if has_subtitles else 'not detected'}"
-                }
-                
-                if has_subtitles:
-                    lang_info = f" (Language: {detected_language})" if detected_language else ""
-                    text_info = f", Text: '{extracted_text[:50]}...'" if extracted_text and len(extracted_text) > 0 else ""
-                    print(f"✅ [ZapExecutor] Subtitles detected{lang_info}{text_info}")
-                else:
-                    print(f"⚠️ [ZapExecutor] No subtitles detected in {latest_screenshot}")
-                
-                # Add screenshot to context for reporting (for R2 upload)
-                context.add_screenshot(latest_screenshot)
-                
-                return subtitle_result
-            else:
-                error_msg = result.get('message', 'Subtitle analysis failed')
-                print(f"❌ [ZapExecutor] Subtitle analysis failed: {error_msg} (image: {latest_screenshot})")
-                # Add screenshot to context for reporting even when failed (for debugging)
-                context.add_screenshot(latest_screenshot)
-                return {
-                    "success": False, 
-                    "analyzed_screenshot": latest_screenshot,
-                    "message": error_msg
-                }
-                
-        except Exception as e:
-            error_msg = f"Subtitle analysis error: {e}"
-            image_info = f" (image: {latest_screenshot})" if 'latest_screenshot' in locals() else ""
-            print(f"❌ [ZapExecutor] {error_msg}{image_info}")
-            # Add screenshot to context for reporting even when exception occurs (for debugging)
-            if 'latest_screenshot' in locals():
-                context.add_screenshot(latest_screenshot)
-            return {
-                "success": False,
-                "analyzed_screenshot": latest_screenshot if 'latest_screenshot' in locals() else None,
-                "message": error_msg
-            }
     
-    def _analyze_audio_speech(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
-        """Analyze audio speech using AI-powered transcription"""
-        try:
-            print(f"🎤 [ZapExecutor] Analyzing audio speech for {action_command} (iteration {iteration})...")
-            
-            # Get AV controller for audio processing
-            av_controller = self.device._get_controller('av')
-            if not av_controller:
-                return {"success": False, "message": f"No AV controller found for device {self.device.device_id}"}
-            
-            # Import and initialize AudioAIHelpers
-            try:
-                from backend_host.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
-            except ImportError as e:
-                print(f"🎤 [ZapExecutor] AudioAIHelpers import failed: {e}")
-                return {"success": False, "message": "AudioAIHelpers not available"}
-            
-            audio_ai = AudioAIHelpers(av_controller, f"ZapExecutor-{self.device.device_id}")
-            
-            # Get recent audio segments - OPTIMIZED: reduced segments for faster processing
-            print(f"🎤 [ZapExecutor] Retrieving recent audio segments...")
-            audio_files = audio_ai.get_recent_audio_segments(segment_count=3)  # Increased to 3 for more context (~6s total)
-            
-            if not audio_files:
-                return {
-                    "success": True,
-                    "speech_detected": False,
-                    "message": "No audio segments available for analysis",
-                    "segments_analyzed": 0,
-                    "combined_transcript": "",
-                    "detected_language": "unknown"
-                }
-            
-            # Analyze audio segments with AI (with R2 upload enabled and early stop optimization)
-            print(f"🎤 [ZapExecutor] Analyzing {len(audio_files)} audio segments with AI...")
-            audio_analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True, early_stop=True)
-            
-            if not audio_analysis.get('success'):
-                return {
-                    "success": False,
-                    "message": f"Audio analysis failed: {audio_analysis.get('error', 'Unknown error')}",
-                    "speech_detected": False
-                }
-            
-            # Extract results
-            speech_detected = audio_analysis.get('successful_segments', 0) > 0
-            combined_transcript = audio_analysis.get('combined_transcript', '')
-            detected_language = audio_analysis.get('detected_language', 'unknown')
-            confidence = audio_analysis.get('confidence', 0.0)
-            segments_analyzed = audio_analysis.get('segments_analyzed', 0)
-            
-            # Log results in the same format as subtitle detection
-            early_stopped = audio_analysis.get('early_stopped', False)
-            total_available = audio_analysis.get('total_segments_available', segments_analyzed)
-            
-            if speech_detected and combined_transcript:
-                transcript_preview = combined_transcript[:100] + "..." if len(combined_transcript) > 100 else combined_transcript
-                early_info = f" (early stopped after {segments_analyzed}/{total_available})" if early_stopped else ""
-                print(f"🎤 [ZapExecutor] Audio speech detected{early_info}: '{transcript_preview}' (Language: {detected_language}, Confidence: {confidence:.2f})")
-            else:
-                print(f"🎤 [ZapExecutor] No speech detected in {segments_analyzed} audio segments")
-            
-            return {
-                "success": True,
-                "speech_detected": speech_detected,
-                "combined_transcript": combined_transcript,
-                "detected_language": detected_language,
-                "confidence": confidence,
-                "segments_analyzed": segments_analyzed,
-                "total_segments_available": total_available,
-                "successful_segments": audio_analysis.get('successful_segments', 0),
-                "detection_message": audio_analysis.get('detection_message', ''),
-                "segments": audio_analysis.get('segments', []),
-                "audio_urls": audio_analysis.get('audio_urls', []),  # R2 URLs for traceability
-                "uploaded_segments": audio_analysis.get('uploaded_segments', 0),
-                "early_stopped": early_stopped,  # Track early stopping for reporting
-                "analysis_type": "audio_speech_analysis",
-                "message": f"Audio analysis completed: {audio_analysis.get('successful_segments', 0)}/{segments_analyzed} segments with speech{' (early stopped)' if early_stopped else ''}"
-            }
-            
-        except Exception as e:
-            error_msg = f"Audio speech analysis error: {str(e)}"
-            print(f"🎤 [ZapExecutor] {error_msg}")
-            return {
-                "success": False,
-                "message": error_msg,
-                "speech_detected": False
-            }
-    
-    def _analyze_macroblocks(self, context, iteration: int, action_command: str) -> Dict[str, Any]:
-        """Analyze macroblocks using direct controller call - same pattern as motion detection"""
-        try:
-            print(f"🔍 [ZapExecutor] Analyzing macroblocks for {action_command} (iteration {iteration})...")
-            
-            # Get video verification controller - same as other detections
-            video_controller = self.device._get_controller('verification_video')
-            if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {self.device.device_id}"}
-            
-            # Use the latest screenshot (which should be the clean analysis screenshot)
-            if not context.screenshot_paths:
-                return {"success": False, "message": "No screenshots available for macroblock analysis"}
-            
-            latest_screenshot = context.screenshot_paths[-1]
-            print(f"🔍 [ZapExecutor] Using clean screenshot for macroblock analysis: {latest_screenshot}")
-            
-            # Call detection method (will be added to video controller)
-            result = video_controller.detect_macroblocks([latest_screenshot])
-            
-            success = result.get('success', False)
-            if success:
-                macroblocks_detected = result.get('macroblocks_detected', False)
-                quality_score = result.get('quality_score', 0.0)
-                
-                if macroblocks_detected:
-                    print(f"⚠️ [ZapExecutor] Macroblocks detected - Quality score: {quality_score:.1f}")
-                else:
-                    print(f"✅ [ZapExecutor] No macroblocks detected - Quality score: {quality_score:.1f}")
-            else:
-                print(f"❌ [ZapExecutor] Macroblock analysis failed: {result.get('message', 'Unknown error')}")
-            
-            # Add screenshot to context for reporting
-            context.add_screenshot(latest_screenshot)
-            
-            return result
-            
-        except Exception as e:
-            error_msg = f"Macroblock analysis error: {str(e)}"
-            print(f"🔍 [ZapExecutor] {error_msg}")
-            return {
-                "success": False,
-                "message": error_msg,
-                "macroblocks_detected": False,
-                "quality_score": 0.0
-            }
     
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py
     
