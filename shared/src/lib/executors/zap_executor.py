@@ -524,7 +524,9 @@ class ZapExecutor:
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)
             subtitle_details = verification_result.get('details', {})
-            result.subtitles_detected = subtitle_details.get('subtitles_detected', False)
+            # Use success flag when details indicate subtitles were detected
+            result.subtitles_detected = (verification_result.get('success', False) and 
+                                       subtitle_details.get('subtitles_detected', False))
             result.detected_language = subtitle_details.get('detected_language')
             result.extracted_text = subtitle_details.get('combined_extracted_text', '') or subtitle_details.get('extracted_text', '')
             result.subtitle_details = verification_result
