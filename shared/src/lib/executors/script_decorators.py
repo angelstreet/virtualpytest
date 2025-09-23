@@ -139,7 +139,7 @@ def navigate_to(target_node: str) -> bool:
     # Direct call to NavigationExecutor - no middle layer
     result = device.navigation_executor.execute_navigation(
         tree_id=context.tree_id,
-        target_node_id=target_node,
+        target_node_label=target_node,
         current_node_id=getattr(context, 'current_node_id', None),
         team_id=context.team_id
     )
