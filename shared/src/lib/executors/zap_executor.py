@@ -94,6 +94,18 @@ class ZapExecutor:
         else:
             return 40
     
+    def _get_sequential_images(self, latest_path: str, count: int) -> str:
+        """Get sequential capture images: current, -1, -2, etc."""
+        import re
+        match = re.search(r'capture_(\d+)\.jpg', latest_path)
+        if not match:
+            return latest_path
+        
+        num = int(match.group(1))
+        base = latest_path.replace(f'capture_{num}.jpg', '')
+        paths = [f"{base}capture_{num-i}.jpg" for i in range(count)]
+        return ','.join(paths)
+    
     def analyze_after_zap(self, iteration: int, action_command: str, context, action_start_time: float = None) -> ZapAnalysisResult:
         """Perform comprehensive analysis after a zap action - CLEAN ARCHITECTURE"""
         result = ZapAnalysisResult()
@@ -393,12 +405,14 @@ class ZapExecutor:
         if not verification_executor:
             return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
         
-        # Pass context screenshot paths as image_source_url (same as main branch approach)
+        # Pass context screenshot paths as image_source_url (last 3 images for better subtitle detection)
         image_source_url = None
         if context.screenshot_paths:
-            image_source_url = context.screenshot_paths[-1]
-            print(f"🔍 [ZapExecutor] DEBUG: Using context screenshot for verification: {image_source_url}")
-            print(f"🔍 [ZapExecutor] DEBUG: Total context screenshots: {len(context.screenshot_paths)}")
+            image_source_url = self._get_sequential_images(context.screenshot_paths[-1], 3)
+            print(f"🔍 [ZapExecutor] DEBUG: Using last {len(last_screenshots)} context screenshots for verification:")
+            for i, screenshot in enumerate(last_screenshots, 1):
+                print(f"🔍 [ZapExecutor] DEBUG:   {i}. {screenshot}")
+            print(f"🔍 [ZapExecutor] DEBUG: Total context screenshots available: {len(context.screenshot_paths)}")
         else:
             print(f"🔍 [ZapExecutor] DEBUG: No context screenshots available - will fallback to take_screenshot")
         
@@ -433,9 +447,11 @@ class ZapExecutor:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed")
             
         elif analysis_type == 'subtitles':
-            result.subtitles_detected = verification_result.get('subtitles_detected', False)
-            result.detected_language = verification_result.get('detected_language')
-            result.extracted_text = verification_result.get('extracted_text', '')
+            # Extract from details (where AI results are nested)
+            subtitle_details = verification_result.get('details', {})
+            result.subtitles_detected = subtitle_details.get('subtitles_detected', False)
+            result.detected_language = subtitle_details.get('detected_language')
+            result.extracted_text = subtitle_details.get('combined_extracted_text', '') or subtitle_details.get('extracted_text', '')
             result.subtitle_details = verification_result
             # Ensure subtitles_detected is never None
             if result.subtitles_detected is None:
