@@ -300,12 +300,16 @@ class ZapExecutor:
             from shared.src.lib.executors.step_executor import StepExecutor
             step_executor = StepExecutor(context)
             
-            # Create zap step with analysis results
+            # Get screenshot paths from the most recent navigation step (just executed)
+            screenshot_paths = self._extract_navigation_screenshots(context)
+            
+            # Create zap step with analysis results and screenshots
             zap_step = step_executor.create_zap_step(
                 iteration=iteration,
                 action_command=action_node,
                 analysis_result=analysis_result.to_dict(),
-                max_iterations=max_iterations
+                max_iterations=max_iterations,
+                screenshot_paths=screenshot_paths
             )
             
             # Record step in context
@@ -313,6 +317,39 @@ class ZapExecutor:
             
         except Exception as e:
             print(f"⚠️ [ZapExecutor] Failed to record zap step: {e}")
+    
+    def _extract_navigation_screenshots(self, context) -> dict:
+        """Extract screenshot paths from the most recent navigation step"""
+        try:
+            if not context.step_results:
+                return {}
+            
+            # Get the most recent step (should be the navigation step we just executed)
+            recent_step = context.step_results[-1]
+            
+            # Only extract from navigation steps to avoid confusion
+            if recent_step.get('step_category') != 'navigation':
+                return {}
+            
+            # Extract screenshot paths in the same format as navigation steps
+            screenshot_paths = {
+                'step_start_screenshot_path': recent_step.get('step_start_screenshot_path'),
+                'screenshot_path': recent_step.get('screenshot_path'),
+                'step_end_screenshot_path': recent_step.get('step_end_screenshot_path'),
+                'screenshot_url': recent_step.get('screenshot_url')
+            }
+            
+            # Filter out None values
+            screenshot_paths = {k: v for k, v in screenshot_paths.items() if v}
+            
+            if screenshot_paths:
+                print(f"📸 [ZapExecutor] Extracted {len(screenshot_paths)} screenshot paths from navigation step")
+            
+            return screenshot_paths
+            
+        except Exception as e:
+            print(f"⚠️ [ZapExecutor] Failed to extract navigation screenshots: {e}")
+            return {}
     
     def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
         """Execute a single zap iteration with timing and analysis"""
@@ -456,7 +493,14 @@ class ZapExecutor:
             if verification_result.get('success') and verification_result.get('results'):
                 result = verification_result['results'][0]  # Get first verification result
             else:
-                return {"success": False, "message": f"Motion detection failed: {verification_result.get('error', 'Unknown error')}"}
+                # Enhanced error logging for motion detection failures
+                error_detail = verification_result.get('error', 'Unknown error')
+                print(f"🔍 [ZapExecutor] Motion detection verification failed: {error_detail}")
+                if verification_result.get('results'):
+                    print(f"🔍 [ZapExecutor] Verification results available but marked as failed")
+                else:
+                    print(f"🔍 [ZapExecutor] No verification results returned")
+                return {"success": False, "message": f"Motion detection failed: {error_detail}"}
             
             motion_images = self._add_motion_analysis_images_to_screenshots(context, iteration)
             if motion_images:

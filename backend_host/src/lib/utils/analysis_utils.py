@@ -357,6 +357,9 @@ def analyze_motion_from_loaded_data(analysis_data: List[Dict], json_count: int =
         total_analyzed = len(details)
         
         if total_analyzed == 0:
+            # Enhanced logging for no analysis data
+            print(f"🔍 [@analysis_utils] Motion analysis failed: No valid analysis data found")
+            print(f"🔍 [@analysis_utils] Requested {json_count} files, found {len(analysis_data)} total files")
             return {
                 'success': False,
                 'video_ok': False,
@@ -408,6 +411,10 @@ def analyze_motion_from_loaded_data(analysis_data: List[Dict], json_count: int =
             if audio_loss_count > 0:
                 issues.append(f"{audio_loss_count} audio loss")
             message = f"No motion/activity - {total_analyzed} files analyzed in {mode_text}, found: {', '.join(issues)}"
+            
+            # Enhanced logging for motion detection failure
+            print(f"🔍 [@analysis_utils] Motion detection failed: {message}")
+            print(f"🔍 [@analysis_utils] Analysis summary: video_ok={video_ok}, audio_ok={audio_ok}, strict_mode={strict_mode}")
         
         result = {
             'success': success,

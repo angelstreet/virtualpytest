@@ -246,7 +246,10 @@ def record_node_execution(
             'script_context': script_context
         }
         
-        print(f"[@db:execution_results:record_node_execution] {execution_id[:8]} | node:{node_id[:8]} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
+        # Safe string slicing for logging
+        execution_id_short = execution_id[:8] if execution_id else 'unknown'
+        node_id_short = node_id[:8] if node_id else 'none'
+        print(f"[@db:execution_results:record_node_execution] {execution_id_short} | node:{node_id_short} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
         
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()

@@ -197,6 +197,27 @@ class NavigationExecutor:
         if team_id:
             self.device.navigation_context['team_id'] = team_id
         
+        # Store previous position before navigation attempt
+        nav_context = self.device.navigation_context
+        nav_context['previous_node_id'] = nav_context['current_node_id']
+        nav_context['previous_node_label'] = nav_context['current_node_label']
+        
+        # Set target as current position at navigation start (for verification recording)
+        # This ensures verifications have a valid node_id even if navigation fails
+        target_node_id = None
+        if self.unified_graph:
+            try:
+                target_node_id = self.find_node_id(target_node_label)
+                nav_context['current_node_id'] = target_node_id
+                nav_context['current_node_label'] = target_node_label
+                nav_context['current_node_navigation_success'] = None  # Will be set at end
+                print(f"[@navigation_executor:execute_navigation] Set target as current position: {target_node_id} ({target_node_label})")
+            except ValueError:
+                print(f"[@navigation_executor:execute_navigation] Could not find node_id for '{target_node_label}' - will use label as fallback")
+                nav_context['current_node_id'] = target_node_label  # Fallback to label
+                nav_context['current_node_label'] = target_node_label
+                nav_context['current_node_navigation_success'] = None
+        
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
             from backend_host.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
@@ -218,6 +239,8 @@ class NavigationExecutor:
             navigation_path = find_shortest_path(tree_id, target_node_label, team_id, start_node_id)
             
             if not navigation_path:
+                # Mark navigation as failed
+                nav_context['current_node_navigation_success'] = False
                 return self._build_result(
                     False, 
                     f"No unified path found to '{target_node_label}'",
@@ -379,6 +402,10 @@ class NavigationExecutor:
                     
                     # NAVIGATION FUNCTIONS: Stop immediately on ANY step failure (no recovery attempts)
                     print(f"🛑 [@navigation_executor:execute_navigation] STOPPING navigation - navigation functions do not recover from failures")
+                    
+                    # Mark navigation as failed
+                    nav_context['current_node_navigation_success'] = False
+                    
                     detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {error_msg}"
                     return self._build_result(
                         False, 
@@ -413,7 +440,10 @@ class NavigationExecutor:
             total_time = int((time.time() - start_time) * 1000)
             print(f"[@navigation_executor] Navigation to '{target_node_label}' completed successfully in {total_time}ms → {target_node_id}")
             
-            # Update position if navigation succeeded
+            # Mark navigation as successful
+            nav_context['current_node_navigation_success'] = True
+            
+            # Update position if navigation succeeded (keep existing logic)
             if navigation_path:
                 final_step = navigation_path[-1]
                 final_node_id = final_step.get('to_node_id', target_node_label)
@@ -437,6 +467,8 @@ class NavigationExecutor:
             
         except (UnifiedCacheError, PathfindingError) as e:
             print(f"❌ [@navigation_executor:execute_navigation] Unified navigation failed: {str(e)}")
+            # Mark navigation as failed
+            self.device.navigation_context['current_node_navigation_success'] = False
             return self._build_result(
                 False,
                 str(e),
@@ -446,6 +478,8 @@ class NavigationExecutor:
         except Exception as e:
             error_msg = f"Unexpected navigation error to '{target_node_label}': {str(e)}"
             print(f"❌ [@navigation_executor:execute_navigation] ERROR: {error_msg}")
+            # Mark navigation as failed
+            self.device.navigation_context['current_node_navigation_success'] = False
             return self._build_result(
                 False,
                 error_msg,

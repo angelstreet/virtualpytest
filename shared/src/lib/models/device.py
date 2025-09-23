@@ -65,6 +65,11 @@ class Device:
             'current_tree_id': None,
             'current_node_id': None,
             'current_node_label': None,
+            'previous_node_id': None,
+            'previous_node_label': None,
+            'current_node_navigation_success': None,
+            'last_action_executed': None,
+            'last_action_timestamp': None,
             'team_id': None
         }
     

@@ -406,7 +406,7 @@ class VerificationExecutor:
             node_id = nav_context['current_node_id']
             
             # Only record if we have navigation context
-            if not tree_id or not node_id:
+            if tree_id is None or node_id is None:
                 print(f"[@lib:verification_executor:_record_verification_to_database] Skipping database recording - missing navigation context (tree_id: {tree_id}, node_id: {node_id})")
                 return
             

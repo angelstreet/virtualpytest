@@ -733,6 +733,10 @@ class VideoContentHelpers:
             data_result = load_recent_analysis_data_from_path(capture_path, timeframe_minutes=5, max_count=json_count)
             
             if not data_result['success']:
+                # Enhanced error logging for data loading failures
+                error_detail = data_result.get('error', 'Failed to load analysis data')
+                print(f"🔍 [VideoContent] Motion analysis data loading failed: {error_detail}")
+                print(f"🔍 [VideoContent] Capture path: {capture_path}")
                 return {
                     'success': False,
                     'video_ok': False,
@@ -743,7 +747,7 @@ class VideoContentHelpers:
                     'total_analyzed': 0,
                     'details': [],
                     'strict_mode': strict_mode,
-                    'message': data_result.get('error', 'Failed to load analysis data')
+                    'message': error_detail
                 }
             
             # Analyze motion from loaded data using shared utility

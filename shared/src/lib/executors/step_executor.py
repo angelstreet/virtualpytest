@@ -33,9 +33,9 @@ class StepExecutor:
         }
     
     def create_zap_step(self, iteration: int, action_command: str, analysis_result: dict, 
-                       max_iterations: int = 0) -> dict:
+                       max_iterations: int = 0, screenshot_paths: dict = None) -> dict:
         """Convert ZapController analysis to standardized step dict"""
-        return {
+        step_dict = {
             'success': analysis_result.get('success', False),
             'iteration': iteration,
             'max_iterations': max_iterations,
@@ -54,6 +54,18 @@ class StepExecutor:
             'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
             'screenshots': []  # Populated by script
         }
+        
+        # Add screenshot paths if provided (same fields as navigation steps)
+        if screenshot_paths:
+            step_dict.update(screenshot_paths)
+            # Also populate action_screenshots for backward compatibility
+            screenshots = []
+            for path in screenshot_paths.values():
+                if path and path not in screenshots:
+                    screenshots.append(path)
+            step_dict['action_screenshots'] = screenshots
+        
+        return step_dict
     
     def create_validation_step(self, validation_result: dict, from_node: str, to_node: str,
                               actions: List[Dict] = None, verifications: List[Dict] = None) -> dict:
