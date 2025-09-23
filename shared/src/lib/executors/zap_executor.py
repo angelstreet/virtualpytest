@@ -231,7 +231,19 @@ class ZapExecutor:
                     self.statistics.audio_speech_detected_count += 1
                 if analysis_result.zapping_detected:
                     self.statistics.zapping_detected_count += 1
-                    self.statistics.add_zapping_result(analysis_result.zapping_details)
+                    # Create proper zapping result data structure for statistics
+                    zapping_result_data = {
+                        'success': True,
+                        'zapping_duration': analysis_result.zapping_details.get('details', {}).get('zapping_duration', 0.0),
+                        'blackscreen_duration': analysis_result.blackscreen_duration,
+                        'channel_name': analysis_result.channel_name,
+                        'channel_number': analysis_result.channel_number,
+                        'program_name': analysis_result.program_name,
+                        'program_start_time': analysis_result.program_start_time,
+                        'program_end_time': analysis_result.program_end_time,
+                        'channel_confidence': analysis_result.zapping_details.get('details', {}).get('channel_confidence', 0.0)
+                    }
+                    self.statistics.add_zapping_result(zapping_result_data)
                     
                     detection_method = analysis_result.zapping_details.get('detection_method', 'blackscreen')
                     self.statistics.detection_methods_used.append(detection_method)
@@ -258,6 +270,23 @@ class ZapExecutor:
         
         self.statistics.print_summary(action_node)
         self.statistics.store_in_context(context, action_node)
+        
+        # Store comprehensive zap data for report generation (same as main branch)
+        if not hasattr(context, 'custom_data'):
+            context.custom_data = {}
+        
+        context.custom_data['zap_data'] = {
+            'iterations': self.statistics.iterations,
+            'successful_iterations': self.statistics.successful_iterations,
+            'motion_detected_count': self.statistics.motion_detected_count,
+            'subtitles_detected_count': self.statistics.subtitles_detected_count,
+            'audio_speech_detected_count': self.statistics.audio_speech_detected_count,
+            'zapping_detected_count': self.statistics.zapping_detected_count,
+            'detected_languages': list(self.statistics.detected_languages),
+            'audio_languages': list(self.statistics.audio_languages),
+            'analysis_results': [result.to_dict() for result in getattr(self, 'analysis_results', [])]
+        }
+        print(f"📊 [ZapExecutor] Stored zap data in custom_data for report generation")
         
         if self.learned_detection_method:
             method_emoji = "⬛" if self.learned_detection_method == "blackscreen" else "🧊"
@@ -509,13 +538,13 @@ class ZapExecutor:
                 verification_result.get('duration') or 
                 0.0
             )
-            # Extract channel info from details
-            if zapping_details:
-                result.channel_name = zapping_details.get('channel_name', '')
-                result.channel_number = zapping_details.get('channel_number', '')
-                result.program_name = zapping_details.get('program_name', '')
-                result.program_start_time = zapping_details.get('start_time', '')
-                result.program_end_time = zapping_details.get('end_time', '')
+            # Extract channel info from details - channel info is nested under 'channel_info' key
+            channel_info = zapping_details.get('channel_info', {}) if zapping_details else {}
+            result.channel_name = channel_info.get('channel_name', '')
+            result.channel_number = channel_info.get('channel_number', '')
+            result.program_name = channel_info.get('program_name', '')
+            result.program_start_time = channel_info.get('start_time', '')
+            result.program_end_time = channel_info.get('end_time', '')
             result.zapping_details = verification_result
     
 
