@@ -277,7 +277,7 @@ class VideoVerificationHelpers:
             return self._create_error_result(f'JSON motion analysis error: {str(e)}')
 
     def _execute_zapping_detection(self, params: Dict[str, Any], folder_path: str) -> Dict[str, Any]:
-        """Execute zapping detection verification."""
+        """Execute zapping detection verification with smart dual-method approach (same as main branch)."""
         try:
             key_release_timestamp = float(params.get('key_release_timestamp', 0.0))
             analysis_rectangle = params.get('analysis_rectangle')
@@ -290,18 +290,62 @@ class VideoVerificationHelpers:
             if not folder_path:
                 return self._create_error_result('No folder path provided for zapping detection')
             
-            # Execute core zapping detection
+            # Smart dual-method zapping detection (same as main branch)
+            print(f"VideoVerification[{self.device_name}]: Smart zapping detection - trying blackscreen first...")
+            
+            # Try blackscreen detection first
             zapping_result = self.controller.content_helpers.detect_zapping_sequence(
                 folder_path, key_release_timestamp, analysis_rectangle, max_images
             )
             
-            if not zapping_result.get('success', False):
-                return {
-                    'success': False,
-                    'message': f"Zapping detection failed: {zapping_result.get('error', 'Unknown error')}",
-                    'confidence': 0.0,
-                    'details': zapping_result
-                }
+            # If blackscreen succeeds, use it
+            if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
+                print(f"VideoVerification[{self.device_name}]: ✅ Blackscreen detection successful")
+                zapping_result['detection_method'] = 'blackscreen'
+            else:
+                # Blackscreen failed, try freeze detection as fallback
+                print(f"VideoVerification[{self.device_name}]: Blackscreen failed, trying freeze detection...")
+                
+                try:
+                    # Try freeze detection using existing freeze detection logic
+                    freeze_result = self.controller.content_helpers.detect_freeze_sequence(
+                        folder_path, key_release_timestamp, max_images
+                    )
+                    
+                    if freeze_result.get('success', False) and freeze_result.get('freeze_detected', False):
+                        print(f"VideoVerification[{self.device_name}]: ✅ Freeze detection successful")
+                        # Convert freeze result to zapping result format
+                        zapping_result = {
+                            'success': True,
+                            'zapping_detected': True,
+                            'detection_method': 'freeze',
+                            'freeze_sequence': freeze_result.get('freeze_sequence', {}),
+                            'first_content_after_blackscreen': freeze_result.get('first_content_after_freeze'),
+                            'analyzed_images': freeze_result.get('analyzed_images', []),
+                            'message': 'Zapping detected via freeze detection'
+                        }
+                    else:
+                        print(f"VideoVerification[{self.device_name}]: ❌ Both blackscreen and freeze detection failed")
+                        return {
+                            'success': False,
+                            'message': 'Zapping not detected - both blackscreen and freeze methods failed',
+                            'confidence': 0.0,
+                            'details': {
+                                'blackscreen_result': zapping_result,
+                                'freeze_result': freeze_result,
+                                'detection_method': 'dual_method_failed'
+                            }
+                        }
+                        
+                except Exception as freeze_error:
+                    print(f"VideoVerification[{self.device_name}]: Freeze detection error: {freeze_error}")
+                    # Return original blackscreen failure
+                    return {
+                        'success': False,
+                        'message': f"Zapping detection failed: {zapping_result.get('error', 'Blackscreen failed, freeze errored')}",
+                        'confidence': 0.0,
+                        'details': zapping_result
+                    }
             
             # If zapping was detected and we have banner region, try to extract channel info
             channel_info = {}
