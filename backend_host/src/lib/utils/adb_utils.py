@@ -126,8 +126,6 @@ class ADBUtils:
             Tuple of (success, stdout, stderr, exit_code)
         """
         try:
-            print(f"[@lib:adbUtils:execute_command] Executing: {command}")
-            
             result = subprocess.run(
                 command.split(),
                 capture_output=True,
@@ -141,9 +139,9 @@ class ADBUtils:
             exit_code = result.returncode
             
             if success:
-                print(f"[@lib:adbUtils:execute_command] Command successful")
+                print(f"[@lib:adbUtils:execute_command] Executing: {command} - SUCCESS")
             else:
-                print(f"[@lib:adbUtils:execute_command] Command failed with exit code {exit_code}: {stderr}")
+                print(f"[@lib:adbUtils:execute_command] Executing: {command} - FAILED (exit code {exit_code}): {stderr}")
             
             return success, stdout, stderr, exit_code
             

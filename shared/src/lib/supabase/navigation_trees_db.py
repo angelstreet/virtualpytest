@@ -61,10 +61,8 @@ def get_tree_metadata(tree_id: str, team_id: str) -> Dict:
         result = supabase.table('navigation_trees').select('*').eq('id', tree_id).eq('team_id', team_id).execute()
         
         if result.data:
-            print(f"[@db:navigation_trees:get_tree_metadata] Retrieved tree: {tree_id}")
             return {'success': True, 'tree': result.data[0]}
         else:
-            print(f"[@db:navigation_trees:get_tree_metadata] Tree not found: {tree_id}")
             return {'success': False, 'error': 'Tree not found'}
     except Exception as e:
         print(f"[@db:navigation_trees:get_tree_metadata] Error: {e}")
@@ -144,7 +142,6 @@ def get_tree_nodes(tree_id: str, team_id: str, page: int = 0, limit: int = 100) 
             .order('created_at')\
             .execute()
         
-        print(f"[@db:navigation_trees:get_tree_nodes] Retrieved {len(result.data)} nodes for tree: {tree_id}")
         return {'success': True, 'nodes': result.data}
     except Exception as e:
         print(f"[@db:navigation_trees:get_tree_nodes] Error: {e}")
@@ -277,7 +274,6 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
             if not edge.get('default_action_set_id'):
                 raise ValueError(f"Edge {edge.get('edge_id')} missing default_action_set_id - migration incomplete")
         
-        print(f"[@db:navigation_trees:get_tree_edges] Retrieved {len(result.data)} edges for tree: {tree_id}")
         return {'success': True, 'edges': result.data}
     except Exception as e:
         print(f"[@db:navigation_trees:get_tree_edges] Error: {e}")
@@ -458,7 +454,6 @@ def get_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict:
         # Use the SQL function to get all descendant trees
         result = supabase.rpc('get_descendant_trees', {'root_tree_id': root_tree_id}).execute()
         
-        print(f"[@db:navigation_trees:get_tree_hierarchy] Retrieved hierarchy for tree: {root_tree_id}")
         return {
             'success': True,
             'hierarchy': result.data
@@ -500,8 +495,6 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
     try:
         from  backend_host.src.lib.utils.navigation_exceptions import DatabaseError
         
-        print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Building complete hierarchy for root tree: {root_tree_id}")
-        
         # Get root tree
         root_tree = get_full_tree(root_tree_id, team_id)
         if not root_tree['success']:
@@ -512,6 +505,8 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         
         # Build complete hierarchy data
         hierarchy_data = []
+        total_nodes = len(root_tree['nodes'])
+        total_edges = len(root_tree['edges'])
         
         # Add root tree
         hierarchy_data.append({
@@ -530,7 +525,6 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         # Add nested trees
         for nested_tree_info in descendant_trees:
             nested_tree_id = nested_tree_info['tree_id']
-            print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Loading nested tree: {nested_tree_id}")
             
             nested_data = get_full_tree(nested_tree_id, team_id)
             if nested_data['success']:
@@ -546,13 +540,13 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
                     'nodes': nested_data['nodes'],
                     'edges': nested_data['edges']
                 })
-                print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Added nested tree: {nested_tree_id} ({len(nested_data['nodes'])} nodes, {len(nested_data['edges'])} edges)")
-            else:
-                print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Warning: Failed to load nested tree {nested_tree_id}: {nested_data.get('error')}")
+                total_nodes += len(nested_data['nodes'])
+                total_edges += len(nested_data['edges'])
         
         max_depth = max([t['tree_info']['tree_depth'] for t in hierarchy_data]) if hierarchy_data else 0
         
-        print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Complete hierarchy built: {len(hierarchy_data)} trees, max depth: {max_depth}")
+        # Single summary log with essential information
+        print(f"[@db:navigation_trees:get_complete_tree_hierarchy] Complete hierarchy: {len(hierarchy_data)} trees, {total_nodes} nodes, {total_edges} edges, max depth: {max_depth}")
         
         return {
             'success': True,
@@ -587,15 +581,12 @@ def get_descendant_trees_data(root_tree_id: str, team_id: str) -> List[Dict]:
         hierarchy_result = get_tree_hierarchy(root_tree_id, team_id)
         
         if not hierarchy_result['success']:
-            print(f"[@db:navigation_trees:get_descendant_trees_data] No hierarchy found for root tree: {root_tree_id}")
             return []
         
         hierarchy_trees = hierarchy_result['hierarchy']
         
         # Filter out the root tree (depth 0) to get only descendants
         descendant_trees = [tree for tree in hierarchy_trees if tree.get('depth', 0) > 0]
-        
-        print(f"[@db:navigation_trees:get_descendant_trees_data] Found {len(descendant_trees)} descendant trees for root: {root_tree_id}")
         
         return descendant_trees
         

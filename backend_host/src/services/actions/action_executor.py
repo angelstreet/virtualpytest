@@ -191,17 +191,14 @@ class ActionExecutor:
         Returns:
             Dict with success status, results, and execution statistics
         """
-        print(f"[@lib:action_executor:execute_actions] Starting batch action execution")
-        print(f"[@lib:action_executor:execute_actions] Processing {len(actions)} main actions, {len(retry_actions or [])} retry actions, {len(failure_actions or [])} failure actions")
-        print(f"[@lib:action_executor:execute_actions] Host: {self.host_name}")
-        
-        # Debug: Show actual retry/failure actions if they exist
+        # Build action summary for consolidated logging
+        action_summary = f"{len(actions)} actions"
         if retry_actions:
-            retry_commands = [action.get('command', 'unknown') for action in retry_actions]
-            print(f"[@lib:action_executor:execute_actions] Retry actions available: {retry_commands}")
+            action_summary += f", {len(retry_actions)} retry"
         if failure_actions:
-            failure_commands = [action.get('command', 'unknown') for action in failure_actions]
-            print(f"[@lib:action_executor:execute_actions] Failure actions available: {failure_commands}")
+            action_summary += f", {len(failure_actions)} failure"
+        
+        print(f"[@lib:action_executor:execute_actions] Executing {action_summary} on {self.host_name}")
         
         # Validate inputs
         if not actions:
@@ -232,7 +229,6 @@ class ActionExecutor:
         execution_order = 1
         
         # Execute main actions - stop on first failure
-        print(f"[@lib:action_executor:execute_actions] Executing {len(valid_actions)} main actions")
         main_actions_failed = False
         
         for i, action in enumerate(valid_actions):
@@ -361,10 +357,11 @@ class ActionExecutor:
         else:
             iterator_count = self._parse_iterator_count(action.get('iterator', 1))
         
-        if action_type == 'verification':
-            print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} verification {action_number}: {action.get('command')} (verifications always run once)")
-        else:
-            print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number}: {action.get('command')} with {iterator_count} iteration(s)")
+        # Consolidated action execution log
+        action_desc = f"{action_category} {action_number}: {action.get('command')}"
+        if iterator_count > 1:
+            action_desc += f" ({iterator_count}x)"
+        print(f"[@lib:action_executor:_execute_single_action] {action_desc}")
         
         # Track results for all iterations
         all_iterations_successful = True
@@ -375,9 +372,6 @@ class ActionExecutor:
             iteration_start_time = time.time()
             
             try:
-                iteration_label = f"iteration {iteration + 1}/{iterator_count}" if iterator_count > 1 else ""
-                print(f"[@lib:action_executor:_execute_single_action] Executing {action_category} action {action_number} {iteration_label}: {action.get('command')} with params {action.get('params', {})}")
-                
                 # Use action params directly - wait_time is already in params from database
                 params = action.get('params', {})
                 action_type = action.get('action_type')
@@ -387,22 +381,26 @@ class ActionExecutor:
                     command = action.get('command', '')
                     if command in self._action_type_cache:
                         action_type = self._action_type_cache[command]
-                        if iteration == 0:
-                            print(f"[@lib:action_executor:_execute_single_action] Using cached action_type: {action_type}")
                     else:
                         action_type = self._detect_action_type_from_device(command)
                         self._action_type_cache[command] = action_type
-                        if iteration == 0:
-                            print(f"[@lib:action_executor:_execute_single_action] Detected and cached action_type: {action_type}")
                 
-                if iteration == 0:  # Only log action type once
-                    print(f"[@lib:action_executor:_execute_single_action] Action type: {action_type}")
+                # Log controller type and params only on first iteration
+                if iteration == 0:
+                    controller_info = f"→ {action_type}"
+                    if params:
+                        # Show only essential params
+                        essential_params = {}
+                        for key in ['element_id', 'text', 'xpath', 'wait_time']:
+                            if key in params and params[key]:
+                                essential_params[key] = params[key]
+                        if essential_params:
+                            controller_info += f" {essential_params}"
+                    print(f"[@lib:action_executor:_execute_single_action] {controller_info}")
                 
                 # Route to appropriate endpoint based on action_type
                 if action_type == 'verification':
                     verification_type = action.get('verification_type', 'text')  # Default to text verification
-                    if iteration == 0:  # Only log routing once
-                        print(f"[@lib:action_executor:_execute_single_action] Routing verification action to verification_{verification_type} endpoint")
                     
                     # Route to verification endpoint
                     endpoint = f'/host/verification/{verification_type}/execute'
@@ -416,8 +414,6 @@ class ActionExecutor:
                     }
                 elif action_type == 'web':
                     # Route to web endpoint
-                    if iteration == 0:  # Only log routing once
-                        print(f"[@lib:action_executor:_execute_single_action] Routing web action to web endpoint")
                     
                     # Transform parameters for web controller compatibility
                     web_params = params.copy()
@@ -457,8 +453,6 @@ class ActionExecutor:
                     }
                 else:
                     # Route to remote endpoint (default behavior for remote actions)
-                    if iteration == 0:  # Only log routing once
-                        print(f"[@lib:action_executor:_execute_single_action] Routing {action_type} action to remote endpoint")
                     endpoint = '/host/remote/executeCommand'
                     request_data = {
                         'command': action.get('command'),

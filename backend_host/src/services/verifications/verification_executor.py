@@ -79,6 +79,14 @@ class VerificationExecutor:
         self.tree_id = tree_id
         self.node_id = node_id
         
+        # Get AV controller directly from device for screenshot capture
+        self.av_controller = device._get_controller('av')
+        if not self.av_controller:
+            print(f"[@verification_executor] Warning: No AV controller found for device {self.device_id}")
+        
+        # Initialize screenshot tracking
+        self.verification_screenshots = []
+        
         print(f"[@verification_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
     
     def take_screenshot(self) -> Tuple[bool, str, str]:
@@ -256,6 +264,7 @@ class VerificationExecutor:
             'passed_count': passed_count,
             'failed_count': len(valid_verifications) - passed_count,
             'results': results,
+            'verification_screenshots': self.verification_screenshots,  # NEW: Include screenshots
             'message': f'Batch verification completed: {passed_count}/{len(valid_verifications)} passed'
         }
         
@@ -320,6 +329,16 @@ class VerificationExecutor:
             # Direct controller execution (same pattern as ActionExecutor)
             verification_result = controller.execute_verification(verification_config)
             
+            # ALWAYS capture screenshot after verification - success OR failure
+            screenshot_path = ""
+            try:
+                screenshot_path = self.av_controller.take_screenshot()
+                if screenshot_path:
+                    self.verification_screenshots.append(screenshot_path)
+                    print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
+            except Exception as e:
+                print(f"[@verification_executor] Screenshot failed: {e}")
+            
             flattened_result = {
                 'success': verification_result.get('success', False),
                 'message': verification_result.get('message'),
@@ -349,7 +368,8 @@ class VerificationExecutor:
                 # General fields
                 'verification_type': verification_result.get('verification_type', verification_type),
                 'execution_time_ms': verification_result.get('execution_time_ms'),
-                'details': verification_result.get('details', {})
+                'details': verification_result.get('details', {}),
+                'screenshot_path': screenshot_path  # Always present
             }
             
             print(f"[@lib:verification_executor:_execute_single_verification] Verification result: success={flattened_result['success']}, type={flattened_result['verification_type']}")
@@ -359,12 +379,23 @@ class VerificationExecutor:
         except Exception as e:
             print(f"[@lib:verification_executor:_execute_single_verification] Verification error: {str(e)}")
             
+            # ALWAYS capture screenshot even on exception - success OR failure
+            screenshot_path = ""
+            try:
+                screenshot_path = self.av_controller.take_screenshot()
+                if screenshot_path:
+                    self.verification_screenshots.append(screenshot_path)
+                    print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
+            except Exception as screenshot_e:
+                print(f"[@verification_executor] Screenshot failed: {screenshot_e}")
+            
             return {
                 'success': False,
                 'message': f"Verification execution failed",
                 'error': str(e),
                 'verification_type': verification.get('verification_type', 'unknown'),
-                'resultType': 'FAIL'
+                'resultType': 'FAIL',
+                'screenshot_path': screenshot_path  # Always present
             }
     
     def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):

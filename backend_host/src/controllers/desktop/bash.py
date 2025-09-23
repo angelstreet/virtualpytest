@@ -72,8 +72,6 @@ class BashDesktopController(DesktopControllerInterface):
             start_time = time.time()
             
             try:
-                print(f"Desktop[{self.desktop_type.upper()}]: Executing local command: '{bash_command}'")
-                
                 # Use shell=True to execute bash commands with proper shell interpretation
                 process = subprocess.Popen(
                     bash_command,
@@ -103,13 +101,9 @@ class BashDesktopController(DesktopControllerInterface):
                 self.last_exit_code = exit_code
                 
                 if success:
-                    print(f"Desktop[{self.desktop_type.upper()}]: Command executed successfully (exit code: {exit_code})")
-                    if stdout:
-                        print(f"Desktop[{self.desktop_type.upper()}]: Output: {stdout[:200]}...")
+                    print(f"Desktop[{self.desktop_type.upper()}]: Executing local command: '{bash_command}' - SUCCESS")
                 else:
-                    print(f"Desktop[{self.desktop_type.upper()}]: Command failed (exit code: {exit_code})")
-                    if stderr:
-                        print(f"Desktop[{self.desktop_type.upper()}]: Error: {stderr[:200]}...")
+                    print(f"Desktop[{self.desktop_type.upper()}]: Executing local command: '{bash_command}' - FAILED (exit code {exit_code}): {stderr[:200] if stderr else 'No error details'}")
                 
                 return {
                     'success': success,

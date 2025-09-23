@@ -260,11 +260,15 @@ class NavigationExecutor:
                 retry_actions = step.get('retryActions', [])
                 failure_actions = step.get('failureActions', [])
                 
-                # Debug logging for action counts
-                print(f"[@navigation_executor:execute_navigation] Step {step_num} action counts:")
-                print(f"[@navigation_executor:execute_navigation]   Main actions: {len(actions)}")
-                print(f"[@navigation_executor:execute_navigation]   Retry actions: {len(retry_actions)}")
-                print(f"[@navigation_executor:execute_navigation]   Failure actions: {len(failure_actions)}")
+                # Consolidated action count logging
+                total_step_actions = len(actions) + len(retry_actions) + len(failure_actions)
+                if total_step_actions > 0:
+                    action_summary = f"{len(actions)}"
+                    if len(retry_actions) > 0:
+                        action_summary += f"+{len(retry_actions)}r"
+                    if len(failure_actions) > 0:
+                        action_summary += f"+{len(failure_actions)}f"
+                    print(f"[@navigation_executor:execute_navigation] Step {step_num}: {action_summary} actions")
                 
                 if actions:
                     # Update context for this navigation step
@@ -397,19 +401,19 @@ class NavigationExecutor:
                         }
                     )
                 
-                print(f"[@navigation_executor:execute_navigation] Step {step_num} completed successfully in {step_execution_time}ms")
                 transitions_executed += 1
             
-            print(f"[@navigation_executor:execute_navigation] Successfully navigated to '{target_node_label}'!")
+            # Get final destination for consolidated success message
+            final_step = navigation_path[-1] if navigation_path else {}
+            target_node_id = final_step.get('to_node_id')
             
             # Update current location in context after successful navigation
-            if context and hasattr(context, 'current_node_id') and navigation_path:
-                # Get the final destination node ID from the last step
-                final_step = navigation_path[-1]
-                target_node_id = final_step.get('to_node_id')
-                if target_node_id:
-                    context.current_node_id = target_node_id
-                    print(f"[@navigation_executor:execute_navigation] Updated current location to: {target_node_id}")
+            if context and hasattr(context, 'current_node_id') and target_node_id:
+                context.current_node_id = target_node_id
+            
+            # Consolidated success message with timing and final position
+            total_time = int((time.time() - start_time) * 1000)
+            print(f"[@navigation_executor] Navigation to '{target_node_label}' completed successfully in {total_time}ms → {target_node_id}")
             
             # Update position if navigation succeeded
             if navigation_path:
@@ -894,7 +898,12 @@ class NavigationExecutor:
         self.current_tree_id = tree_id or self.current_tree_id
         self.current_node_label = node_label or node_id
         
-        print(f"[@navigation_executor] Updated position for {self.device_id}: {node_id} (tree: {self.current_tree_id})")
+        # Only log position updates when called directly (not from navigation completion)
+        # Navigation completion already logs the final position
+        import inspect
+        caller_function = inspect.stack()[1].function
+        if caller_function != 'execute_navigation':
+            print(f"[@navigation_executor] Position updated: {self.device_id} → {node_id}")
         
         return {
             'success': True,

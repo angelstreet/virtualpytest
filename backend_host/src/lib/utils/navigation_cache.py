@@ -453,7 +453,6 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
         # Check if cache is still valid (24-hour TTL)
         cache_time = _unified_cache_timestamps.get(cache_key)
         if cache_time and (datetime.now() - cache_time).total_seconds() < CACHE_TTL:
-            print(f"[@navigation:cache:get_cached_unified_graph] Using 24h cached unified graph for root tree: {root_tree_id}")
             return _unified_graphs_cache[cache_key]
         else:
             # Cache expired - remove it
@@ -482,20 +481,15 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
     cache_key = f"unified_{root_tree_id}_{team_id}"
     
     try:
-        print(f"[@navigation:cache:populate_unified_cache] Building unified graph for root tree: {root_tree_id}")
-        
         from  backend_host.src.lib.utils.navigation_graph import create_unified_networkx_graph
         
         if not all_trees_data:
-            print(f"[@navigation:cache:populate_unified_cache] No tree data provided for root tree: {root_tree_id}")
             return None
         
         # Build unified NetworkX graph with cross-tree edges
-        print(f"[@navigation:cache:populate_unified_cache] Creating unified graph with {len(all_trees_data)} trees")
         unified_graph = create_unified_networkx_graph(all_trees_data)
         
         if not unified_graph:
-            print(f"[@navigation:cache:populate_unified_cache] create_unified_networkx_graph returned None")
             return None
         
         # Cache the unified graph
@@ -534,8 +528,7 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
         _tree_hierarchy_cache[hierarchy_cache_key] = tree_hierarchy
         _node_location_cache[location_cache_key] = node_location_map
         
-        print(f"[@navigation:cache:populate_unified_cache] Successfully cached unified graph with {len(unified_graph.nodes)} nodes and {len(unified_graph.edges)} edges")
-        print(f"[@navigation:cache:populate_unified_cache] Cached {len(node_location_map)} node locations across {len(tree_hierarchy)} trees")
+        print(f"[@navigation:cache:populate_unified_cache] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
         
         return unified_graph
         

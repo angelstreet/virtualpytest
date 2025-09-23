@@ -107,8 +107,6 @@ class BashUtils:
             
             ssh_cmd.append(full_command)
             
-            print(f"[@utils:BashUtils:execute_command] Executing: {' '.join(ssh_cmd)}")
-            
             # Execute command
             result = subprocess.run(
                 ssh_cmd,
@@ -118,9 +116,15 @@ class BashUtils:
             )
             
             execution_time = time.time() - start_time
+            success = result.returncode == 0
+            
+            if success:
+                print(f"[@utils:BashUtils:execute_command] Executing: {' '.join(ssh_cmd)} - SUCCESS")
+            else:
+                print(f"[@utils:BashUtils:execute_command] Executing: {' '.join(ssh_cmd)} - FAILED (exit code {result.returncode}): {result.stderr}")
             
             return {
-                'success': result.returncode == 0,
+                'success': success,
                 'output': result.stdout,
                 'error': result.stderr,
                 'exit_code': result.returncode,

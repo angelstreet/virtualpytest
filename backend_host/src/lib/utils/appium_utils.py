@@ -111,8 +111,6 @@ class AppiumUtils:
             Tuple of (success, stdout, stderr, exit_code)
         """
         try:
-            print(f"[@lib:appiumUtils:execute_command] Executing: {command}")
-            
             result = subprocess.run(
                 command,
                 shell=True,
@@ -127,9 +125,9 @@ class AppiumUtils:
             exit_code = result.returncode
             
             if success:
-                print(f"[@lib:appiumUtils:execute_command] Command successful")
+                print(f"[@lib:appiumUtils:execute_command] Executing: {command} - SUCCESS")
             else:
-                print(f"[@lib:appiumUtils:execute_command] Command failed with exit code {exit_code}: {stderr}")
+                print(f"[@lib:appiumUtils:execute_command] Executing: {command} - FAILED (exit code {exit_code}): {stderr}")
                 
             return success, stdout, stderr, exit_code
             

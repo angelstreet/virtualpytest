@@ -196,27 +196,16 @@ def record_edge_execution(
             'action_set_id': action_set_id
         }
         
-        print(f"[@db:execution_results:record_edge_execution] Recording execution:")
-        print(f"  - execution_id: {execution_id}")
-        print(f"  - team_id: {team_id}")
-        print(f"  - tree_id: {tree_id}")
-        print(f"  - edge_id: {edge_id}")
-        print(f"  - host_name: {host_name}")
-        print(f"  - device_model: {device_model}")
-        print(f"  - success: {success}")
-        print(f"  - execution_time_ms: {execution_time_ms}")
-        print(f"  - message: {message}")
-        print(f"  - error_details: {error_details}")
-        print(f"  - action_set_id: {action_set_id}")
+        print(f"[@db:execution_results:record_edge_execution] {execution_id[:8]} | {action_set_id or 'N/A'} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
         
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()
         
         if result.data:
-            print(f"[@db:execution_results:record_edge_execution] Success: {execution_id}")
+            print(f"[@db:execution_results:record_edge_execution] ✓ Recorded: {execution_id[:8]}")
             return execution_id
         else:
-            print(f"[@db:execution_results:record_edge_execution] Failed: No data returned")
+            print(f"[@db:execution_results:record_edge_execution] ✗ Failed: No data returned")
             return None
             
     except Exception as e:
@@ -257,26 +246,16 @@ def record_node_execution(
             'script_context': script_context
         }
         
-        print(f"[@db:execution_results:record_node_execution] Recording execution:")
-        print(f"  - execution_id: {execution_id}")
-        print(f"  - team_id: {team_id}")
-        print(f"  - tree_id: {tree_id}")
-        print(f"  - node_id: {node_id}")
-        print(f"  - host_name: {host_name}")
-        print(f"  - device_model: {device_model}")
-        print(f"  - success: {success}")
-        print(f"  - execution_time_ms: {execution_time_ms}")
-        print(f"  - message: {message}")
-        print(f"  - error_details: {error_details}")
+        print(f"[@db:execution_results:record_node_execution] {execution_id[:8]} | node:{node_id[:8]} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
         
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()
         
         if result.data:
-            print(f"[@db:execution_results:record_node_execution] Success: {execution_id}")
+            print(f"[@db:execution_results:record_node_execution] ✓ Recorded: {execution_id[:8]}")
             return execution_id
         else:
-            print(f"[@db:execution_results:record_node_execution] Failed")
+            print(f"[@db:execution_results:record_node_execution] ✗ Failed: No data returned")
             return None
             
     except Exception as e:

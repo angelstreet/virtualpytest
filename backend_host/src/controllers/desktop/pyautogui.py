@@ -316,8 +316,7 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
         self.last_command_error = ""
         self.last_exit_code = 0
         
-        print(f"Desktop[{self.desktop_type.upper()}]: Command executed successfully")
-        print(f"Desktop[{self.desktop_type.upper()}]: Output: {output[:200]}...")
+        print(f"Desktop[{self.desktop_type.upper()}]: {output} - SUCCESS")
         
         return {
             'success': True,
@@ -336,7 +335,7 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
         self.last_command_error = error
         self.last_exit_code = -1
         
-        print(f"Desktop[{self.desktop_type.upper()}]: Command failed: {error}")
+        print(f"Desktop[{self.desktop_type.upper()}]: {error} - FAILED")
         
         return {
             'success': False,

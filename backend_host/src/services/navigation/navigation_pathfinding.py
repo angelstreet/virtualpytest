@@ -26,12 +26,9 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
         UnifiedCacheError: If unified cache is not available
         PathfindingError: If no path can be found
     """
-    print(f"[@navigation:pathfinding:unified_only] Finding path to '{target_node_id}' (unified pathfinding required)")
-    
     # Use unified pathfinding ONLY - NO FALLBACK
     unified_result = find_shortest_path_unified(tree_id, target_node_id, team_id, start_node_id)
     if unified_result:
-        print(f"[@navigation:pathfinding:unified_only] Found path using unified graph: {len(unified_result)} transitions")
         return unified_result
     
     # FAIL EARLY - no fallback available
@@ -52,18 +49,13 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     Returns:
         List of navigation transitions with cross-tree context or None if no path found
     """
-    print(f"[@navigation:pathfinding:find_shortest_path_unified] Finding unified path to node {target_node_id}")
-    
     # Get unified cached graph - MANDATORY
     from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
     from  backend_host.src.lib.utils.navigation_graph import get_entry_points, get_node_info
     
     unified_graph = get_cached_unified_graph(root_tree_id, team_id)
     if not unified_graph:
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] No unified graph cached for root tree {root_tree_id}")
         raise UnifiedCacheError(f"No unified graph cached for root tree {root_tree_id}. Unified pathfinding is required - no fallback available.")
-    
-    print(f"[@navigation:pathfinding:find_shortest_path_unified] Using unified graph with {len(unified_graph.nodes)} nodes and {len(unified_graph.edges)} edges")
     
     # Check if target is an action node
     target_node_data = unified_graph.nodes.get(target_node_id, {})
@@ -73,48 +65,46 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     
     # Resolve target_node_id if it's a label instead of UUID
     actual_target_node = target_node_id
+    target_resolved_by_label = False
     if target_node_id not in unified_graph.nodes:
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] Target '{target_node_id}' not found as node ID, searching by label...")
         for node_id, node_data in unified_graph.nodes(data=True):
             if node_data.get('label', '') == target_node_id and node_data.get('node_type') != 'action':
                 actual_target_node = node_id
-                print(f"[@navigation:pathfinding:find_shortest_path_unified] Resolved label '{target_node_id}' to node ID '{node_id}'")
+                target_resolved_by_label = True
                 break
         else:
             # Try case-insensitive search
             for node_id, node_data in unified_graph.nodes(data=True):
                 if node_data.get('label', '').lower() == target_node_id.lower() and node_data.get('node_type') != 'action':
                     actual_target_node = node_id
-                    print(f"[@navigation:pathfinding:find_shortest_path_unified] Resolved label '{target_node_id}' to node ID '{node_id}' (case-insensitive)")
+                    target_resolved_by_label = True
                     break
     
     # Determine starting node
     actual_start_node = start_node_id
+    start_resolved_by_label = False
     if start_node_id:
         # Resolve start_node_id if it's a label instead of UUID
         if start_node_id not in unified_graph.nodes:
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] Start '{start_node_id}' not found as node ID, searching by label...")
             for node_id, node_data in unified_graph.nodes(data=True):
                 if node_data.get('label', '') == start_node_id:
                     actual_start_node = node_id
-                    print(f"[@navigation:pathfinding:find_shortest_path_unified] Resolved start label '{start_node_id}' to node ID '{node_id}'")
+                    start_resolved_by_label = True
                     break
             else:
                 # Try case-insensitive search
                 for node_id, node_data in unified_graph.nodes(data=True):
                     if node_data.get('label', '').lower() == start_node_id.lower():
                         actual_start_node = node_id
-                        print(f"[@navigation:pathfinding:find_shortest_path_unified] Resolved start label '{start_node_id}' to node ID '{node_id}' (case-insensitive)")
+                        start_resolved_by_label = True
                         break
     
     if not actual_start_node:
         entry_points = get_entry_points(unified_graph)
         
         if not entry_points:
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] No entry points found, using first node")
             nodes = list(unified_graph.nodes())
             if not nodes:
-                print(f"[@navigation:pathfinding:find_shortest_path_unified] No nodes in unified graph")
                 raise PathfindingError("No nodes in unified graph")
             actual_start_node = nodes[0]
         else:
@@ -149,12 +139,14 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     try:
         # Use NetworkX shortest path algorithm on unified graph
         path = nx.shortest_path(unified_graph, actual_start_node, actual_target_node)
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] Found path with {len(path)} nodes")
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] Path nodes: {' → '.join(path)}")
         
         # Convert path to navigation transitions with cross-tree support
         navigation_transitions = []
         transition_number = 1
+        total_actions = 0
+        total_retry_actions = 0
+        total_failure_actions = 0
+        cross_tree_transitions = []
         
         for i in range(len(path) - 1):
             from_node = path[i]
@@ -180,12 +172,10 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             failure_actions_list = forward_set.get('failure_actions') or []
             verifications_list = to_node_info.get('verifications', [])
             
-            # Debug logging
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Action sets: {len(action_sets)}")
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Using forward set: {forward_set.get('id')}")
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Actions found: {len(actions_list)}")
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Retry actions found: {len(retry_actions_list)}")
-            print(f"[@navigation:pathfinding:find_shortest_path_unified]   Failure actions found: {len(failure_actions_list)}")
+            # Count actions for summary
+            total_actions += len(actions_list)
+            total_retry_actions += len(retry_actions_list)
+            total_failure_actions += len(failure_actions_list)
             
             # Check for cross-tree transition
             transition_type = edge_data.get('edge_type', 'NORMAL')
@@ -196,10 +186,8 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             to_tree_id = to_node_info.get('tree_id', '')
             tree_context_change = from_tree_id != to_tree_id
             
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] Transition {transition_number}: {from_node_info.get('label', from_node)} → {to_node_info.get('label', to_node)}")
             if is_cross_tree:
-                print(f"[@navigation:pathfinding:find_shortest_path_unified]   Cross-tree transition: {transition_type}")
-                print(f"[@navigation:pathfinding:find_shortest_path_unified]   From tree: {from_tree_id} → To tree: {to_tree_id}")
+                cross_tree_transitions.append(f"{from_node_info.get('label', from_node)} → {to_node_info.get('label', to_node)} ({transition_type})")
             
             # Create navigation transition with action_sets structure ONLY
             navigation_transition = {
@@ -236,12 +224,26 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             navigation_transitions.append(navigation_transition)
             transition_number += 1
         
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] Generated {len(navigation_transitions)} navigation transitions")
+        # Generate consolidated summary log
+        start_label = unified_graph.nodes.get(actual_start_node, {}).get('label', actual_start_node)
+        target_label = unified_graph.nodes.get(actual_target_node, {}).get('label', actual_target_node)
         
-        # Count cross-tree transitions
-        cross_tree_count = len([t for t in navigation_transitions if t.get('tree_context_change')])
-        if cross_tree_count > 0:
-            print(f"[@navigation:pathfinding:find_shortest_path_unified] Cross-tree transitions: {cross_tree_count}")
+        summary_parts = [
+            f"Path: {start_label} → {target_label}",
+            f"{len(navigation_transitions)} transitions",
+            f"{total_actions} actions"
+        ]
+        
+        if total_retry_actions > 0:
+            summary_parts.append(f"{total_retry_actions} retry")
+        if total_failure_actions > 0:
+            summary_parts.append(f"{total_failure_actions} failure")
+        if cross_tree_transitions:
+            summary_parts.append(f"{len(cross_tree_transitions)} cross-tree")
+        if target_resolved_by_label:
+            summary_parts.append(f"target: {target_node_id}→{actual_target_node}")
+        
+        print(f"[@navigation:pathfinding:find_shortest_path_unified] {', '.join(summary_parts)}")
         
         return navigation_transitions
         
