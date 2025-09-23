@@ -202,21 +202,13 @@ class NavigationExecutor:
         nav_context['previous_node_id'] = nav_context['current_node_id']
         nav_context['previous_node_label'] = nav_context['current_node_label']
         
-        # Set target as current position at navigation start (for verification recording)
-        # This ensures verifications have a valid node_id even if navigation fails
+        # Get target node ID for final position update
         target_node_id = None
         if self.unified_graph:
             try:
                 target_node_id = self.get_node_id(target_node_label)
-                nav_context['current_node_id'] = target_node_id
-                nav_context['current_node_label'] = target_node_label
-                nav_context['current_node_navigation_success'] = None  # Will be set at end
-                print(f"[@navigation_executor:execute_navigation] Set target as current position: {target_node_id} ({target_node_label})")
             except ValueError:
                 print(f"[@navigation_executor:execute_navigation] Could not find node_id for '{target_node_label}' - will use label as fallback")
-                nav_context['current_node_id'] = target_node_label  # Fallback to label
-                nav_context['current_node_label'] = target_node_label
-                nav_context['current_node_navigation_success'] = None
         
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
@@ -441,14 +433,12 @@ class NavigationExecutor:
             total_time = int((time.time() - start_time) * 1000)
             print(f"[@navigation_executor] Navigation to '{target_node_label}' completed successfully in {total_time}ms → {target_node_id}")
             
+            # Update position if navigation succeeded
+            if navigation_path:
+                self.update_current_position(target_node_id, tree_id, target_node_label)
+            
             # Mark navigation as successful
             nav_context['current_node_navigation_success'] = True
-            
-            # Update position if navigation succeeded (keep existing logic)
-            if navigation_path:
-                final_step = navigation_path[-1]
-                final_node_id = final_step.get('to_node_id', target_node_label)
-                self.update_current_position(final_node_id, tree_id, target_node_label)
             
             # Count cross-tree transitions
             cross_tree_transitions = len([step for step in navigation_path if step.get('tree_context_change')])
