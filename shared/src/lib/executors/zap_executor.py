@@ -484,11 +484,20 @@ class ZapExecutor:
             result.macroblock_details = verification_result
             
         elif analysis_type == 'zapping':
-            # Extract from details (where zapping results are nested) same as subtitles/audio
+            # Zapping results are in details, but also check direct fields for compatibility
             zapping_details = verification_result.get('details', {})
-            result.zapping_detected = verification_result.get('success', False) and zapping_details.get('zapping_detected', False)
-            # Extract blackscreen duration from details
-            result.blackscreen_duration = zapping_details.get('duration', 0.0)
+            result.zapping_detected = verification_result.get('success', False) and (
+                zapping_details.get('zapping_detected', False) or verification_result.get('zapping_detected', False)
+            )
+            # Extract blackscreen duration from details or direct field
+            result.blackscreen_duration = zapping_details.get('duration', verification_result.get('duration', 0.0))
+            # Extract channel info from details
+            if zapping_details:
+                result.channel_name = zapping_details.get('channel_name', '')
+                result.channel_number = zapping_details.get('channel_number', '')
+                result.program_name = zapping_details.get('program_name', '')
+                result.program_start_time = zapping_details.get('start_time', '')
+                result.program_end_time = zapping_details.get('end_time', '')
             result.zapping_details = verification_result
     
 
