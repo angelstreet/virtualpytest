@@ -431,11 +431,12 @@ class ZapExecutor:
             
             success = result.get('success', False)
             if success:
-                # Extract fields from nested details if available (motion detection returns nested structure)
+                # The VerificationExecutor already provides properly structured data
+                # No need to re-parse - use the flattened result directly
                 details = result.get('details', {})
-                video_ok = details.get('video_ok', result.get('video_ok', False))
-                audio_ok = details.get('audio_ok', result.get('audio_ok', False))
-                analyzed_count = details.get('total_analyzed', result.get('total_analyzed', 0))
+                video_ok = details.get('video_ok', False)
+                audio_ok = details.get('audio_ok', False)
+                analyzed_count = details.get('total_analyzed', 0)
                 
                 if video_ok and audio_ok:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed - both video and audio content present")
