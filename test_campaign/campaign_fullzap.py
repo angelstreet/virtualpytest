@@ -76,8 +76,8 @@ def create_campaign_config(userinterface_name: str, host: str = "auto", device: 
         "description": "First fullzap execution - Channel Up with navigation to live",
         "parameters": {
             "action": "live_chup",
-            "max_iteration": max_iteration,
-            "goto_live": True,
+            "max-iteration": max_iteration,
+            "goto-live": True,
         }
     })
     
@@ -90,8 +90,8 @@ def create_campaign_config(userinterface_name: str, host: str = "auto", device: 
             "description": f"Execution #{execution_num} - Channel Up without navigation to live",
             "parameters": {
                 "action": "live_chup", 
-                "max_iteration": max_iteration,
-                "goto_live": False,
+                "max-iteration": max_iteration,
+                "goto-live": False,
             }
         })
     
