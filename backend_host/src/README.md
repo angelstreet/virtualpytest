@@ -50,8 +50,8 @@ backend_host/src/
 
 ### Device Controllers
 ```python
-from backend_host.controllers.desktop.pyautogui import PyAutoGUIController
-from backend_host.controllers.remote.android_mobile import AndroidMobileController
+from backend_host.src.controllers.desktop.pyautogui import PyAutoGUIController
+from backend_host.src.controllers.remote.android_mobile import AndroidMobileController
 
 # Desktop automation
 desktop = PyAutoGUIController()
@@ -164,7 +164,7 @@ from backend_host.services import *
 from backend_host.services.actions import ActionExecutor
 
 # In standalone scripts
-from backend_host.controllers.desktop.pyautogui import PyAutoGUIController
+from backend_host.src.controllers.desktop.pyautogui import PyAutoGUIController
 ```
 
 ### Docker Integration

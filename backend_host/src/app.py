@@ -202,7 +202,7 @@ def main():
         # STEP 2.5: Initialize host devices with executors
         print("[@backend_host:main] Step 2.5: Initializing host devices with executors...")
         try:
-            from backend_host.controllers.controller_manager import get_host
+            from backend_host.src.controllers.controller_manager import get_host
             
             host = get_host()
             

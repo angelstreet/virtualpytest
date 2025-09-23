@@ -292,7 +292,7 @@ Device configurations stored in JSON:
 
 ### Direct Controller Usage
 ```python
-from backend_host.controllers.remote.android_mobile import AndroidMobileRemoteController
+from backend_host.src.controllers.remote.android_mobile import AndroidMobileRemoteController
 
 # Initialize controller
 controller = AndroidMobileRemoteController()

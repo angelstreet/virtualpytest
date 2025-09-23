@@ -603,7 +603,7 @@ CUSTOM_CAPTURE_FPS=30
 # tests/test_custom_device_controller.py
 import unittest
 from unittest.mock import Mock, patch
-from backend_host.controllers.remote.custom_device import CustomDeviceRemoteController
+from backend_host.src.controllers.remote.custom_device import CustomDeviceRemoteController
 
 class TestCustomDeviceController(unittest.TestCase):
     
@@ -652,7 +652,7 @@ if __name__ == '__main__':
 ```python
 # tests/integration/test_custom_device_integration.py
 import unittest
-from backend_host.controllers.remote.custom_device import CustomDeviceRemoteController
+from backend_host.src.controllers.remote.custom_device import CustomDeviceRemoteController
 
 class TestCustomDeviceIntegration(unittest.TestCase):
     """

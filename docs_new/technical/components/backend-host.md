@@ -381,7 +381,7 @@ def check_connected_devices() -> bool:
 ```python
 # Test device connectivity
 python -c "
-from backend_host.controllers.remote.android_mobile import AndroidMobileRemoteController
+from backend_host.src.controllers.remote.android_mobile import AndroidMobileRemoteController
 controller = AndroidMobileRemoteController()
 print('Controller initialized:', controller.initialize())
 "
