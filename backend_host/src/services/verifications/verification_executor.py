@@ -343,15 +343,14 @@ class VerificationExecutor:
             verification_config = {
                 'command': verification.get('command'),
                 'params': verification.get('params', {}),
-                'verification_type': verification_type,
-                'image_source_url': image_source_url
+                'verification_type': verification_type
             }
             
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing image_source_url to controller: {image_source_url}")
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
             
             # Direct controller execution (same pattern as ActionExecutor)
-            verification_result = controller.execute_verification(verification_config)
+            verification_result = controller.execute_verification(verification_config, image_source_url)
             
             # ALWAYS capture screenshot after verification - success OR failure
             screenshot_path = ""
