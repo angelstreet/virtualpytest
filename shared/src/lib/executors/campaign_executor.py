@@ -221,9 +221,12 @@ class CampaignExecutor:
         """Setup campaign execution environment at host level"""
         try:
             # Load environment variables first
-            current_dir = os.path.dirname(os.path.abspath(__file__))  # /backend_host/src/lib/utils
-            lib_dir = os.path.dirname(current_dir)                    # /backend_host/src/lib
-            backend_host_src = os.path.dirname(lib_dir)               # /backend_host/src
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # /shared/src/lib/executors
+            lib_dir = os.path.dirname(current_dir)                    # /shared/src/lib
+            src_dir = os.path.dirname(lib_dir)                        # /shared/src
+            shared_dir = os.path.dirname(src_dir)                     # /shared
+            project_root = os.path.dirname(shared_dir)                # /virtualpytest
+            backend_host_src = os.path.join(project_root, 'backend_host', 'src')
             
             print(f"🔧 [Campaign] Loading environment variables...")
             load_environment_variables(calling_script_dir=backend_host_src)

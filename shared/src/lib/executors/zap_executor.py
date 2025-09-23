@@ -496,6 +496,23 @@ class ZapExecutor:
                     print(f"   🎵 Motion detected: {analyzed_count} files analyzed - audio content present")
                 else:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed")
+                
+                # Transform details array to motion_analysis_images for report thumbnails
+                details = verification_result.get('details', [])
+                if details:
+                    motion_images = []
+                    for detail in details[:3]:  # Take first 3 for thumbnails
+                        motion_images.append({
+                            'path': f"/var/www/html/stream/capture1/captures/{detail.get('filename', '')}",
+                            'filename': detail.get('filename', ''),
+                            'timestamp': detail.get('timestamp', ''),
+                            'analysis_data': {
+                                'freeze': detail.get('freeze', False),
+                                'blackscreen': detail.get('blackscreen', False),
+                                'audio': detail.get('audio', True)
+                            }
+                        })
+                    result.motion_details['motion_analysis_images'] = motion_images
             
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)

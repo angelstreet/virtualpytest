@@ -47,9 +47,9 @@ class StepExecutor:
             'execution_time_ms': analysis_result.get('execution_time_ms', 0),
             'motion_detection': analysis_result.get('motion_details', {}),
             'motion_analysis': analysis_result.get('motion_details', {}),
-            'subtitle_analysis': analysis_result.get('subtitle_details', {}),
-            'audio_analysis': analysis_result.get('audio_details', {}),
-            'zapping_analysis': analysis_result.get('zapping_details', {}),
+            'subtitle_analysis': analysis_result.get('subtitle_analysis', {}),
+            'audio_analysis': analysis_result.get('audio_analysis', {}),
+            'zapping_analysis': analysis_result.get('zapping_analysis', {}),
             'error': analysis_result.get('error'),
             'message': f"Zap iteration {iteration}: {action_command} ({iteration}/{max_iterations})",
             'screenshots': []  # Populated by script
