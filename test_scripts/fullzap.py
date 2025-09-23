@@ -41,6 +41,19 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
 @script("fullzap", "Execute zap iterations with analysis")
 def main():
     args = get_args()
+    context = get_context()
+    device = get_device()
+    
+    # Load navigation tree (required for ZapExecutor navigation)
+    nav_result = device.navigation_executor.load_navigation_tree(
+        args.userinterface_name, 
+        context.team_id
+    )
+    if not nav_result['success']:
+        context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
+        return False
+    
+    context.tree_id = nav_result['tree_id']
     
     success = execute_zap_iterations(
         max_iteration=args.max_iteration,
