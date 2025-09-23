@@ -61,6 +61,7 @@ class AudioAIHelpers:
         Returns:
             List of audio file paths (WAV format) ready for AI analysis
         """
+        merged_ts = None  # Track for cleanup - declare outside try block
         try:
             # Use global HLS segment duration if not specified
             if segment_duration is None:
@@ -116,7 +117,6 @@ class AudioAIHelpers:
                     return []
             
             # NEW: Merge TS files first if more than one
-            merged_ts = None  # Track for cleanup
             if len(recent_files) > 1:
                 print(f"AudioAI[{self.device_name}]: Merging {len(recent_files)} TS segments into one file...")
                 merged_ts = self._merge_ts_files([f['path'] for f in recent_files])
