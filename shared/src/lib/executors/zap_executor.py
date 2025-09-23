@@ -42,6 +42,12 @@ class ZapAnalysisResult:
         self.macroblocks_detected = False
         self.quality_score = 0.0
         self.macroblock_details = {}
+        self.blackscreen_duration = 0.0
+        self.channel_name = ""
+        self.channel_number = ""
+        self.program_name = ""
+        self.program_start_time = ""
+        self.program_end_time = ""
         
         self.success = False
         self.message = ""
@@ -65,7 +71,13 @@ class ZapAnalysisResult:
             "audio_analysis": self.audio_details,
             "macroblocks_detected": self.macroblocks_detected,
             "quality_score": self.quality_score,
-            "macroblock_analysis": self.macroblock_details
+            "macroblock_analysis": self.macroblock_details,
+            "blackscreen_duration": self.blackscreen_duration,
+            "channel_name": self.channel_name,
+            "channel_number": self.channel_number,
+            "program_name": self.program_name,
+            "program_start_time": self.program_start_time,
+            "program_end_time": self.program_end_time
         }
 
 
@@ -489,8 +501,14 @@ class ZapExecutor:
             result.zapping_detected = verification_result.get('success', False) and (
                 zapping_details.get('zapping_detected', False) or verification_result.get('zapping_detected', False)
             )
-            # Extract blackscreen duration from details or direct field
-            result.blackscreen_duration = zapping_details.get('duration', verification_result.get('duration', 0.0))
+            # Extract blackscreen duration from details or direct field - check multiple possible field names
+            result.blackscreen_duration = (
+                zapping_details.get('blackscreen_duration') or 
+                verification_result.get('blackscreen_duration') or
+                zapping_details.get('duration') or 
+                verification_result.get('duration') or 
+                0.0
+            )
             # Extract channel info from details
             if zapping_details:
                 result.channel_name = zapping_details.get('channel_name', '')
