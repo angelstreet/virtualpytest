@@ -931,7 +931,7 @@ class NavigationExecutor:
         if not self.unified_graph:
             raise ValueError("Unified graph not loaded - call load_navigation_tree() first")
         for node_id, node_data in self.unified_graph.nodes(data=True):
-            if node_data.get('label', '') == node_label and node_data.get('node_type') != 'action':
+            if node_data.get('label') == node_label:
                 return node_id
         raise ValueError(f"Node with label '{node_label}' not found in navigation graph")
     
@@ -942,7 +942,7 @@ class NavigationExecutor:
         
         if node_id in self.unified_graph.nodes:
             node_data = self.unified_graph.nodes[node_id]
-            return node_data.get('label', node_id)  # Fallback to node_id if no label
+            return node_data.get('label')  # Fallback to node_id if no label
         
         raise ValueError(f"Node with id '{node_id}' not found in navigation graph")
     
@@ -950,8 +950,8 @@ class NavigationExecutor:
         """Update current navigation position for this device"""
         nav_context = self.device.navigation_context
         nav_context['current_node_id'] = node_id
-        nav_context['current_tree_id'] = tree_id or nav_context['current_tree_id']
-        nav_context['current_node_label'] = node_label or node_id
+        nav_context['current_tree_id'] = tree_id
+        nav_context['current_node_label'] = node_label
         
         # Only log position updates when called directly (not from navigation completion)
         # Navigation completion already logs the final position
