@@ -97,10 +97,10 @@ def main():
 
 # Define arguments AFTER function definition
 main._script_args = [
-    '--max_iteration:int:50',      # Integer argument with default 50
+    '--max-iteration:int:50',      # Integer argument with default 50
     '--action:str:live_chup',      # String argument with default 'live_chup'
-    '--goto_live:bool:true',       # Boolean argument with default true
-    '--audio_analysis:bool:false'  # Boolean argument with default false
+    '--goto-live:bool:true',       # Boolean argument with default true
+    '--audio-analysis:bool:false'  # Boolean argument with default false
 ]
 ```
 
@@ -108,6 +108,10 @@ main._script_args = [
 - `int` - Integer values
 - `str` - String values  
 - `bool` - Boolean values (accepts: true/false, yes/no, 1/0, t/f, y/n)
+
+**Argument Naming Best Practice:**
+- Use hyphens for multi-word arguments: `--max-iteration`, `--goto-live`, `--audio-analysis`
+- The framework automatically converts hyphens to underscores in code: `args.max_iteration`, `args.goto_live`, `args.audio_analysis`
 
 ## Helper Functions Available
 

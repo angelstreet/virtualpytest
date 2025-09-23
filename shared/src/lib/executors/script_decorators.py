@@ -30,7 +30,14 @@ def script(name: str, description: str):
             parser = executor.create_argument_parser()
             
             # Add script-specific arguments from function attribute
+            # Check both the original function and the wrapper (since _script_args is set after decoration)
+            script_args = None
             if hasattr(func, '_script_args'):
+                script_args = func._script_args
+            elif hasattr(wrapper, '_script_args'):
+                script_args = wrapper._script_args
+            
+            if script_args:
                 def str_to_bool(v):
                     if isinstance(v, bool):
                         return v
@@ -41,7 +48,7 @@ def script(name: str, description: str):
                     else:
                         raise argparse.ArgumentTypeError('Boolean value expected.')
                 
-                for arg_spec in func._script_args:
+                for arg_spec in script_args:
                     # Parse format: '--name:type:default'
                     parts = arg_spec.split(':')
                     if len(parts) != 3:
