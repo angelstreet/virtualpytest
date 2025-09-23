@@ -115,12 +115,38 @@ main._script_args = [
 
 ## Helper Functions Available
 
+### Navigation Functions
+- `navigate_to(node)` - **HIGH-LEVEL**: Navigate to specified node (recommended for most scripts)
+- `ensure_navigation_tree_loaded()` - **MID-LEVEL**: Ensure tree loaded for low-level operations
+
+### Context Functions  
 - `get_device()` - Get current device object
 - `is_mobile_device()` - Check if device is mobile
-- `navigate_to(node)` - Navigate to specified node
 - `get_args()` - Get parsed command line arguments  
 - `get_context()` - Get execution context
 - `get_executor()` - Get script executor
+
+### Navigation Architecture Layers
+
+**🎯 HIGH-LEVEL (Recommended)**: Use `navigate_to()` for simple navigation
+```python
+success = navigate_to("home")  # Handles everything automatically
+```
+
+**🔧 MID-LEVEL (Tree Access)**: Use `ensure_navigation_tree_loaded()` for complex logic
+```python
+if not ensure_navigation_tree_loaded():
+    return False
+# Now safe to access context.tree_id, context.nodes, etc.
+```
+
+**⚙️ LOW-LEVEL (Expert)**: Direct service access for advanced scenarios
+```python
+# Only use if you need complex pathfinding or validation algorithms
+# MUST call ensure_navigation_tree_loaded() first!
+```
+
+See `/docs/NAVIGATION_ARCHITECTURE_GUIDE.md` for detailed guidance.
 
 ## Reports & Logs
 

@@ -104,7 +104,7 @@ def script(name: str, description: str):
         return wrapper
     return decorator
 
-# Helper functions that use global context
+# PUBLIC: Helper functions for scripts
 def get_device():
     """Get current device"""
     return _current_context.selected_device
@@ -125,10 +125,52 @@ def get_args():
     """Get parsed command line arguments"""
     return _current_context.args
 
-def get_context():
-    """Get current execution context"""
+# PRIVATE: Internal functions (scripts should not use these)
+def _get_context():
+    """PRIVATE: Get current execution context"""
     return _current_context
 
-def get_executor():
-    """Get current script executor"""
+def _get_executor():
+    """PRIVATE: Get current script executor"""
     return _current_executor
+
+def _ensure_navigation_tree_loaded() -> bool:
+    """PRIVATE: Ensure navigation tree is loaded in current context"""
+    context = _get_context()
+    args = get_args()
+    
+    # Check if tree is already loaded
+    if context.tree_id is not None:
+        return True
+    
+    print(f"🔧 [ensure_navigation_tree_loaded] Loading navigation tree for low-level operations...")
+    
+    # Load navigation tree (same logic as ScriptExecutor.navigate_to)
+    nav_result = context.selected_device.navigation_executor.load_navigation_tree(
+        args.userinterface_name, 
+        context.team_id,
+        context.script_name
+    )
+    
+    if not nav_result['success']:
+        context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
+        print(f"❌ [ensure_navigation_tree_loaded] {context.error_message}")
+        return False
+    
+    # Update context with loaded tree information
+    context.tree_id = nav_result['tree_id']
+    context.tree_data = nav_result
+    context.nodes = nav_result.get('nodes', [])
+    context.edges = nav_result.get('edges', [])
+    
+    return True
+
+def _get_validation_plan():
+    """PRIVATE: Get list of transitions to validate"""
+    from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+    
+    context = _get_context()
+    if not _ensure_navigation_tree_loaded():
+        return []
+    
+    return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)

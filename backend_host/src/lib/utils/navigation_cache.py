@@ -447,6 +447,18 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
     Returns:
         Unified NetworkX directed graph or None if not cached
     """
+    # Validate inputs to provide better error messages
+    if root_tree_id is None:
+        print(f"❌ [@navigation:cache:get_cached_unified_graph] ERROR: root_tree_id is None!")
+        print(f"💡 This usually means the navigation tree was not loaded properly.")
+        print(f"💡 SOLUTION: Use navigate_to() helper or call load_navigation_tree() first")
+        return None
+    
+    if team_id is None:
+        print(f"❌ [@navigation:cache:get_cached_unified_graph] ERROR: team_id is None for tree {root_tree_id}!")
+        print(f"💡 This usually means the script context was not set up properly.")
+        return None
+    
     cache_key = f"unified_{root_tree_id}_{team_id}"
     
     if cache_key in _unified_graphs_cache:
