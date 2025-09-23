@@ -12,44 +12,19 @@ if project_root not in sys.path:
 
 from shared.src.lib.executors.script_decorators import script, navigate_to, get_device, get_args
 
-def execute_zap_actions(context, action_edge, action_command: str, max_iteration: int, zap_controller, goto_live: bool = True):
-    from shared.src.lib.executors.step_executor import StepExecutor
-    
-    step_executor = StepExecutor(context)
-    success = zap_controller.execute_zap_iterations(context, action_edge, action_command, max_iteration, goto_live)
-    
-    zap_result = {
-        'success': success,
-        'execution_time_ms': context.custom_data.get('total_action_time', 0),
-        'motion_details': context.custom_data.get('motion_analysis', {}),
-        'subtitle_details': context.custom_data.get('subtitle_analysis', {}),
-        'audio_details': context.custom_data.get('audio_analysis', {}),
-        'zapping_details': context.custom_data.get('zapping_analysis', {}),
-        'error': None if success else 'Zap execution failed'
-    }
-    
-    zap_step = step_executor.create_zap_step(
-        iteration=max_iteration, 
-        action_command=action_command, 
-        analysis_result=zap_result,
-        max_iteration=max_iteration
-    )
-    
-    context.record_step_dict(zap_step)
-    return success
-
 def print_fullzap_summary(context, userinterface_name: str):
+    device = get_device()
     print("\n" + "="*60)
     print(f"🎯 [FULLZAP] EXECUTION SUMMARY")
     print("="*60)
-    print(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    print(f"📱 Device: {device.device_name} ({device.device_model})")
     print(f"🖥️  Host: {context.host.host_name}")
     print(f"📋 Interface: {userinterface_name}")
     print(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     print(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     print(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
     
-    if context.error_message:
+    if hasattr(context, 'error_message') and context.error_message:
         print(f"❌ Error: {context.error_message}")
     
     print("="*60)

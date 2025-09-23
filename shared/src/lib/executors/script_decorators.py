@@ -114,12 +114,38 @@ def is_mobile_device() -> bool:
     return "mobile" in get_device().device_model.lower()
 
 def navigate_to(target_node: str) -> bool:
-    """Navigate to target node"""
-    return _current_executor.navigate_to(
-        _current_context, 
-        target_node, 
-        _current_context.args.userinterface_name
+    """Navigate to target node - direct call to NavigationExecutor"""
+    context = _current_context
+    device = context.selected_device
+    args = context.args
+    
+    # Load navigation tree if not already loaded
+    if not context.tree_id:
+        nav_result = device.navigation_executor.load_navigation_tree(
+            args.userinterface_name, 
+            context.team_id,
+            'navigation'
+        )
+        if not nav_result['success']:
+            print(f"❌ [navigate_to] Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}")
+            return False
+        
+        context.tree_id = nav_result['tree_id']
+        context.tree_data = nav_result
+        context.nodes = nav_result.get('nodes', [])
+        context.edges = nav_result.get('edges', [])
+        print(f"✅ [navigate_to] Navigation tree loaded: {context.tree_id}")
+    
+    # Direct call to NavigationExecutor - no middle layer
+    result = device.navigation_executor.execute_navigation(
+        tree_id=context.tree_id,
+        target_node_id=target_node,
+        current_node_id=getattr(context, 'current_node_id', None),
+        image_source_url=device.get_image_source_url(),
+        team_id=context.team_id
     )
+    
+    return result.get('success', False)
 
 def get_args():
     """Get parsed command line arguments"""
@@ -134,43 +160,27 @@ def _get_executor():
     """PRIVATE: Get current script executor"""
     return _current_executor
 
-def _ensure_navigation_tree_loaded() -> bool:
-    """PRIVATE: Ensure navigation tree is loaded in current context"""
-    context = _get_context()
-    args = get_args()
-    
-    # Check if tree is already loaded
-    if context.tree_id is not None:
-        return True
-    
-    print(f"🔧 [ensure_navigation_tree_loaded] Loading navigation tree for low-level operations...")
-    
-    # Load navigation tree (same logic as ScriptExecutor.navigate_to)
-    nav_result = context.selected_device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
-        context.team_id,
-        context.script_name
-    )
-    
-    if not nav_result['success']:
-        context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
-        print(f"❌ [ensure_navigation_tree_loaded] {context.error_message}")
-        return False
-    
-    # Update context with loaded tree information
-    context.tree_id = nav_result['tree_id']
-    context.tree_data = nav_result
-    context.nodes = nav_result.get('nodes', [])
-    context.edges = nav_result.get('edges', [])
-    
-    return True
 
 def _get_validation_plan():
     """PRIVATE: Get list of transitions to validate"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
     
-    context = _get_context()
-    if not _ensure_navigation_tree_loaded():
-        return []
+    context = _current_context
+    
+    # Ensure navigation tree is loaded
+    if not context.tree_id:
+        device = context.selected_device
+        args = context.args
+        nav_result = device.navigation_executor.load_navigation_tree(
+            args.userinterface_name, 
+            context.team_id,
+            'validation'
+        )
+        if not nav_result['success']:
+            print(f"❌ [_get_validation_plan] Navigation tree loading failed")
+            return []
+        
+        context.tree_id = nav_result['tree_id']
+        context.tree_data = nav_result
     
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
