@@ -7,6 +7,7 @@ Each controller provides AV functionality for different capture sources and meth
 Available Controllers:
 - HDMIStreamController: HDMI stream URL controller for video streaming
 - CameraStreamController: Camera stream controller with calibration capabilities
+- VNCStreamController: VNC stream controller for VNC capture and viewing
 
 Available Helpers:
 (VideoRestartHelpers moved to verification package)
@@ -14,8 +15,10 @@ Available Helpers:
 
 from .hdmi_stream import HDMIStreamController
 from .camera_stream import CameraStreamController
+from .vnc_stream import VNCStreamController
 
 __all__ = [
     'HDMIStreamController',
-    'CameraStreamController'
+    'CameraStreamController',
+    'VNCStreamController'
 ]

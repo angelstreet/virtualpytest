@@ -37,15 +37,13 @@ class TextVerificationController:
         print(f"[@controller:TextVerification] Initialized with captures path: {self.captures_path}")
         
         # Controller is always ready
-        self.is_connected = True
 
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the text verification controller."""
         return {
-            "connected": self.is_connected,
+            "connected": True,
             "av_controller": self.av_controller.device_name if self.av_controller else None,
             "controller_type": "text",
-
             "captures_path": self.captures_path
         }
 

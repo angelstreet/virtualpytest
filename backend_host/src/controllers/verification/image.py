@@ -51,23 +51,20 @@ class ImageVerificationController:
         print(f"  References: {self.references_dir}")
         
         # Controller is always ready
-        self.is_connected = True
         self.verification_session_id = f"image_verify_{int(time.time())}"
 
     def connect(self) -> bool:
         """Connect to the image verification controller."""
-        self.is_connected = True
         return True
 
     def disconnect(self) -> bool:
         """Disconnect from the image verification controller."""
-        self.is_connected = False
         return True
 
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the image verification controller."""
         return {
-            "connected": self.is_connected,
+            "connected": True,
             "av_controller": self.av_controller.device_name if self.av_controller else None,
             "controller_type": "image",
             "captures_path": self.captures_path

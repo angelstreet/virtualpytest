@@ -51,13 +51,7 @@ class AudioVerificationController(VerificationControllerInterface):
         try:
             print(f"AudioVerify[{self.device_name}]: Connecting to audio verification system")
             
-            # Check if AV controller is connected
-            if not hasattr(self.av_controller, 'is_connected') or not self.av_controller.is_connected:
-                print(f"AudioVerify[{self.device_name}]: ERROR - AV controller not connected")
-                print(f"AudioVerify[{self.device_name}]: Please connect {self.av_controller.device_name} first")
-                return False
-            else:
-                print(f"AudioVerify[{self.device_name}]: Using AV controller: {self.av_controller.device_name}")
+            print(f"AudioVerify[{self.device_name}]: Using AV controller: {self.av_controller.device_name}")
             
             # Require AV controller to have video device for audio capture
             if not hasattr(self.av_controller, 'video_device'):
@@ -78,7 +72,6 @@ class AudioVerificationController(VerificationControllerInterface):
                 print(f"AudioVerify[{self.device_name}]: ERROR - FFmpeg not found")
                 return False
             
-            self.is_connected = True
             self.verification_session_id = f"audio_verify_{int(time.time())}"
             print(f"AudioVerify[{self.device_name}]: Connected - Session: {self.verification_session_id}")
             return True
@@ -90,7 +83,6 @@ class AudioVerificationController(VerificationControllerInterface):
     def disconnect(self) -> bool:
         """Disconnect from the audio verification system."""
         print(f"AudioVerify[{self.device_name}]: Disconnecting")
-        self.is_connected = False
         self.verification_session_id = None
         
         # Clean up temporary files
@@ -114,9 +106,6 @@ class AudioVerificationController(VerificationControllerInterface):
         Returns:
             Path to the captured audio file
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return None
             
         duration = duration or self.analysis_duration
         timestamp = int(time.time())
@@ -174,9 +163,6 @@ class AudioVerificationController(VerificationControllerInterface):
         Returns:
             Audio level as percentage (0-100)
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return 0.0
             
         # Capture audio if no file provided
         if not audio_file:
@@ -240,10 +226,6 @@ class AudioVerificationController(VerificationControllerInterface):
         Returns:
             True if audio is silent, False otherwise
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return False
-            
         threshold = threshold or self.silence_threshold
         duration = duration or self.analysis_duration
         
@@ -271,10 +253,6 @@ class AudioVerificationController(VerificationControllerInterface):
             min_level: Minimum audio level to consider as "playing" (percentage)
             duration: Duration to check audio in seconds
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return False
-            
         print(f"AudioVerify[{self.device_name}]: Verifying audio playback (min level: {min_level}%, duration: {duration}s)")
         
         audio_level = self.analyze_audio_level(duration=duration)
@@ -304,10 +282,6 @@ class AudioVerificationController(VerificationControllerInterface):
         Returns:
             Dictionary with frequency analysis results
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return {}
-            
         # Capture audio if no file provided
         if not audio_file:
             audio_file = self.capture_audio_sample(duration)
@@ -357,10 +331,6 @@ class AudioVerificationController(VerificationControllerInterface):
         Returns:
             True if frequency is detected, False otherwise
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return False
-            
         print(f"AudioVerify[{self.device_name}]: Checking for frequency {target_freq}Hz (±{tolerance}Hz)")
         
         # Simplified frequency detection (in a real implementation, this would use FFT analysis)
@@ -464,7 +434,7 @@ class AudioVerificationController(VerificationControllerInterface):
         return {
             'controller_type': self.controller_type,
             'device_name': self.device_name,
-            'connected': self.is_connected,
+            'connected': True,
             'session_id': self.verification_session_id,
             'verification_count': len(self.verification_results),
             'acquisition_source': self.av_controller.device_name if self.av_controller else None,
@@ -531,18 +501,6 @@ class AudioVerificationController(VerificationControllerInterface):
         Returns:
             Dict with audio-focused analysis results
         """
-        if not self.is_connected:
-            print(f"AudioVerify[{self.device_name}]: ERROR - Not connected")
-            return {
-                'success': False,
-                'audio_ok': False,
-                'audio_loss_count': 0,
-                'total_analyzed': 0,
-                'details': [],
-                'strict_mode': strict_mode,
-                'message': 'Controller not connected'
-            }
-        
         try:
             print(f"AudioVerify[{self.device_name}]: Analyzing last {json_count} JSON files (strict_mode: {strict_mode})")
             

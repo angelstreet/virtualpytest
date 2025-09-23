@@ -566,7 +566,7 @@ class VideoVerificationHelpers:
         return {
             'controller_type': self.controller.controller_type,
             'device_name': self.controller.device_name,
-            'connected': self.controller.is_connected,
+            'connected': True,
             'session_id': self.controller.verification_session_id,
             'acquisition_source': self.controller.av_controller.device_name if self.controller.av_controller else None,
             'capabilities': [
