@@ -38,9 +38,6 @@ def execute_zap_actions(context, action_edge, action_command: str, max_iteration
     context.record_step_dict(zap_step)
     return success
 
-
-
-
 def print_fullzap_summary(context, userinterface_name: str):
     print("\n" + "="*60)
     print(f"🎯 [FULLZAP] EXECUTION SUMMARY")
@@ -113,6 +110,9 @@ def execute_zap_iterations(max_iterations: int, action: str = 'live_chup', goto_
     
     return zap_success
 
+# Define script-specific arguments
+main._script_args = ['--max_iteration:int:50', '--action:str:live_chup', '--goto_live:bool:true', '--audio_analysis:bool:false']
+
 @script("fullzap", "Execute zap iterations with analysis")
 def main():
     args = get_args()
@@ -126,9 +126,9 @@ def main():
         audio_analysis=args.audio_analysis
     )
     
-    if success:
-        from shared.src.lib.utils.zap_utils import print_zap_summary_table
-        print_zap_summary_table(context)
+    from shared.src.lib.utils.zap_utils import print_zap_summary_table
+    print_zap_summary_table(context)
+    print_fullzap_summary(context, args.userinterface_name)
     
     return success
 

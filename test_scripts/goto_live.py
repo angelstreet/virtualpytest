@@ -49,6 +49,9 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
+# Define script-specific arguments (none needed for this script)
+main._script_args = []
+
 @script("goto_live", "Navigate to live node")
 def main():
     """Main navigation function to goto live"""
@@ -65,10 +68,9 @@ def main():
     # Navigate using high-level method (auto-loads tree, executes, records step)
     success = navigate_to(target_node)
     
-    if success:
-        # Capture summary for report
-        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
-        context.execution_summary = summary_text
+    # Always capture summary for report (regardless of success/failure)
+    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
+    context.execution_summary = summary_text
     
     return success
 

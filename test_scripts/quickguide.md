@@ -69,17 +69,40 @@ All scripts support these standard arguments:
 ## Example Script Structure
 
 ```python
-from shared.src.lib.executors.script_decorators import script, navigate_to, is_mobile_device
+from shared.src.lib.executors.script_decorators import script, navigate_to, is_mobile_device, get_args
+
+# Define script-specific arguments (one line per script)
+main._script_args = ['--node:str:home', '--timeout:int:30', '--verbose:bool:false']
 
 @script("my_script", "Description of what it does")
 def main():
     """Business logic only"""
-    target = "live_fullscreen" if is_mobile_device() else "live"
+    args = get_args()
+    target = args.node if hasattr(args, 'node') else ("live_fullscreen" if is_mobile_device() else "live")
     return navigate_to(target)
 
 if __name__ == "__main__":
     main()
 ```
+
+## Script Argument Definition
+
+Each script defines its own arguments using a simple one-line pattern:
+
+```python
+# Format: '--name:type:default'
+main._script_args = [
+    '--max_iteration:int:50',      # Integer argument with default 50
+    '--action:str:live_chup',      # String argument with default 'live_chup'
+    '--goto_live:bool:true',       # Boolean argument with default true
+    '--audio_analysis:bool:false'  # Boolean argument with default false
+]
+```
+
+**Supported Types:**
+- `int` - Integer values
+- `str` - String values  
+- `bool` - Boolean values (accepts: true/false, yes/no, 1/0, t/f, y/n)
 
 ## Helper Functions Available
 
@@ -108,7 +131,18 @@ SCRIPT_REPORT_URL:http://host/reports/script_123.html
 2. **Focus on business logic** - What does your script actually do?
 3. **Use helper functions** - `navigate_to()`, `is_mobile_device()`, etc.
 4. **Return boolean** - `True` for success, `False` for failure
-5. **Script-specific logic** - Keep complex logic in the script file, not decorators
+5. **Define arguments in script** - Use `main._script_args = [...]` pattern
+6. **Script-specific logic** - Keep complex logic in the script file, not decorators
+
+## Architecture Benefits (Updated)
+
+✅ **Zero Boilerplate** - `@script` decorator handles all setup/cleanup  
+✅ **Pure Business Logic** - Scripts contain only what they actually do  
+✅ **Self-Contained Arguments** - Each script defines its own arguments  
+✅ **No Central Configuration** - No hardcoded argument logic in decorators  
+✅ **Automatic Reports** - HTML reports generated automatically  
+✅ **Error Handling** - Keyboard interrupts and exceptions handled  
+✅ **Database Tracking** - Execution tracked in database automatically
 
 ## File Structure
 

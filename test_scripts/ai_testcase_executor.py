@@ -113,6 +113,9 @@ def execute_ai_test_case(test_case_id: str, team_id: str) -> bool:
         print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
         return False
 
+# Define script-specific arguments (none needed for this script)
+main._script_args = []
+
 @script("ai_testcase", "Execute AI-generated test case")
 def main():
     """Main execution function"""
@@ -140,16 +143,15 @@ def main():
     # Execute AI test case using script-specific function
     success = execute_ai_test_case(test_case_id, team_id)
     
-    if success:
-        # Capture summary for report (need to reload test case for summary)
-        try:
-            from shared.src.lib.supabase.testcase_db import get_test_case
-            test_case = get_test_case(test_case_id, team_id)
-            stored_plan = test_case.get('ai_plan', {}) if test_case else {}
-            summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case or {}, stored_plan.get('steps', []))
-            context.execution_summary = summary_text
-        except Exception:
-            pass  # Summary is optional
+    # Always capture summary for report (regardless of success/failure)
+    try:
+        from shared.src.lib.supabase.testcase_db import get_test_case
+        test_case = get_test_case(test_case_id, team_id)
+        stored_plan = test_case.get('ai_plan', {}) if test_case else {}
+        summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case or {}, stored_plan.get('steps', []))
+        context.execution_summary = summary_text
+    except Exception:
+        pass  # Summary is optional but we tried
     
     return success
 

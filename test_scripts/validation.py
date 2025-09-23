@@ -607,7 +607,6 @@ def print_validation_summary(context: ScriptExecutionContext, userinterface_name
         print("")
         print(f"SCRIPT_REPORT_URL:{context.script_report_url}")
 
-
 def validate_with_recovery(max_iterations: int = None) -> bool:
     """Execute validation with recovery - validation-specific logic"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
@@ -655,6 +654,9 @@ def validate_with_recovery(max_iterations: int = None) -> bool:
     
     return context.overall_success
 
+# Define script-specific arguments
+main._script_args = ['--max_iteration:int:10']
+
 @script("validation", "Validate navigation tree transitions")
 def main():
     """Main validation function with report generation"""
@@ -664,34 +666,33 @@ def main():
     # Execute validation with recovery
     success = validate_with_recovery(args.max_iteration)
     
-    if success:
-        # Capture and store summary for report
-        summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
-        context.execution_summary = summary_text
-        
-        # Calculate validation-specific stats for custom_data
-        successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-        failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
-        skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
-        recovered_steps = sum(1 for step in context.step_results if step.get('recovered', False))
-        
-        total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
-        passed_verifications = sum(
-            sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
-            for step in context.step_results
-        )
-        
-        # Calculate coverage safely
-        total_steps = len(context.step_results)
-        coverage = ((successful_steps + recovered_steps) / total_steps * 100) if total_steps > 0 else 0
-        
-        # Store validation metrics in custom_data
-        context.custom_data['successful_steps'] = f"{successful_steps}/{len(context.step_results)}"
-        context.custom_data['failed_steps'] = str(failed_steps)
-        context.custom_data['skipped_steps'] = str(skipped_steps)
-        context.custom_data['recovery_navigations'] = str(recovered_steps)
-        context.custom_data['verifications'] = f"{passed_verifications}/{total_verifications}"
-        context.custom_data['coverage'] = f"{coverage:.1f}%"
+    # Always capture and store summary for report (regardless of success/failure)
+    summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
+    context.execution_summary = summary_text
+    
+    # Always calculate validation-specific stats for custom_data
+    successful_steps = sum(1 for step in context.step_results if step.get('success', False))
+    failed_steps = sum(1 for step in context.step_results if not step.get('success', False) and not step.get('skipped', False))
+    skipped_steps = sum(1 for step in context.step_results if step.get('skipped', False))
+    recovered_steps = sum(1 for step in context.step_results if step.get('recovered', False))
+    
+    total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
+    passed_verifications = sum(
+        sum(1 for v in step.get('verification_results', []) if v.get('success', False)) 
+        for step in context.step_results
+    )
+    
+    # Calculate coverage safely
+    total_steps = len(context.step_results)
+    coverage = ((successful_steps + recovered_steps) / total_steps * 100) if total_steps > 0 else 0
+    
+    # Always store validation metrics in custom_data
+    context.custom_data['successful_steps'] = f"{successful_steps}/{len(context.step_results)}"
+    context.custom_data['failed_steps'] = str(failed_steps)
+    context.custom_data['skipped_steps'] = str(skipped_steps)
+    context.custom_data['recovery_navigations'] = str(recovered_steps)
+    context.custom_data['verifications'] = f"{passed_verifications}/{total_verifications}"
+    context.custom_data['coverage'] = f"{coverage:.1f}%"
     
     return success
 
