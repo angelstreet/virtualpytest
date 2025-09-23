@@ -317,7 +317,7 @@ class VideoVerificationHelpers:
                         banner_region=params.get('banner_region')
                     )
                     
-                    if freeze_result.get('success', False) and freeze_result.get('freeze_detected', False):
+                    if freeze_result.get('success', False) and freeze_result.get('freeze_zapping_detected', False):
                         print(f"VideoVerification[{self.device_name}]: ✅ Freeze detection successful")
                         # Convert freeze result to zapping result format
                         zapping_result = {
