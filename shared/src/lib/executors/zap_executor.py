@@ -393,7 +393,15 @@ class ZapExecutor:
         if not verification_executor:
             return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
         
-        return verification_executor.execute_verifications(verification_configs, team_id=context.team_id)
+        # Pass context screenshot paths as image_source_url (same as main branch approach)
+        image_source_url = None
+        if context.screenshot_paths:
+            image_source_url = context.screenshot_paths[-1]
+            print(f"🔍 [ZapExecutor] Using context screenshot for verification: {latest_screenshot}")
+        
+        return verification_executor.execute_verifications(verification_configs, 
+                                                         image_source_url=image_source_url,
+                                                         team_id=context.team_id)
     
     def _map_verification_result(self, result: ZapAnalysisResult, analysis_type: str, verification_result: Dict):
         """Map verification result to ZapAnalysisResult fields"""
