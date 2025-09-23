@@ -20,7 +20,7 @@ python goto.py horizon_android_tv --node settings --device device2
 
 ### 3. **validation.py** - Validate Navigation Tree
 ```bash
-python validation.py horizon_android_mobile --max-iteration 10
+python validation.py horizon_android_mobile --max_iteration 10
 ```
 **What it does**: Validates all navigation transitions with recovery logic
 
@@ -50,7 +50,7 @@ All scripts support these standard arguments:
 - `--node <node_name>` - Target node (default: `home`)
 
 ### validation.py  
-- `--max-iteration <number>` - Max validation steps (default: unlimited)
+- `--max_iteration <number>` - Max validation steps (default: unlimited)
 
 ### fullzap.py
 - `--action <action>` - Action to execute (default: `live_chup`)
@@ -138,6 +138,59 @@ SCRIPT_REPORT_URL:http://host/reports/script_123.html
 4. **Return boolean** - `True` for success, `False` for failure
 5. **Define arguments in script** - Use `main._script_args = [...]` pattern
 6. **Script-specific logic** - Keep complex logic in the script file, not decorators
+
+## Common Pitfalls to Avoid
+
+### ❌ Don't Import Framework Classes Directly
+```python
+# WRONG - Don't do this
+from shared.src.lib.executors.script_executor import ScriptExecutor, ScriptExecutionContext
+
+def my_function(context: ScriptExecutionContext):  # This will cause NameError
+    executor = ScriptExecutor()  # This breaks the decorator pattern
+```
+
+### ✅ Use Helper Functions Instead
+```python
+# CORRECT - Use the decorator framework
+from shared.src.lib.executors.script_decorators import script, get_context, get_executor
+
+def my_function(context):  # No type hints for framework classes
+    executor = get_executor()  # Use helper function
+```
+
+### ❌ Don't Use Type Hints for Framework Classes
+```python
+# WRONG - Runtime NameError
+def validate_steps(context: ScriptExecutionContext):
+    pass
+```
+
+### ✅ Keep Type Hints Simple or Use TYPE_CHECKING
+```python
+# CORRECT - No type hints or use TYPE_CHECKING
+def validate_steps(context):
+    pass
+
+# OR for type checking only:
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from shared.src.lib.executors.script_executor import ScriptExecutionContext
+
+def validate_steps(context: 'ScriptExecutionContext'):  # String annotation
+    pass
+```
+
+### ✅ Import Business Logic Classes Where Needed
+```python
+# CORRECT - Import specific executors for business logic
+def execute_zap_actions(context):
+    from shared.src.lib.executors.step_executor import StepExecutor
+    from shared.src.lib.executors.zap_executor import ZapExecutor
+    
+    step_executor = StepExecutor(context)  # This is fine
+    zap_executor = ZapExecutor(context.selected_device)  # This is fine
+```
 
 ## Architecture Benefits (Updated)
 

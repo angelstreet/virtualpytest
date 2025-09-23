@@ -32,7 +32,7 @@ def execute_zap_actions(context, action_edge, action_command: str, max_iteration
         iteration=max_iteration, 
         action_command=action_command, 
         analysis_result=zap_result,
-        max_iterations=max_iteration
+        max_iteration=max_iteration
     )
     
     context.record_step_dict(zap_step)
@@ -54,7 +54,7 @@ def print_fullzap_summary(context, userinterface_name: str):
     
     print("="*60)
 
-def execute_zap_iterations(max_iterations: int, action: str = 'live_chup', goto_live: bool = True, audio_analysis: bool = False) -> bool:
+def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_live: bool = True, audio_analysis: bool = False) -> bool:
     from shared.src.lib.executors.zap_executor import ZapExecutor
     from shared.src.lib.executors.script_decorators import navigate_to
     from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
@@ -98,7 +98,7 @@ def execute_zap_iterations(max_iterations: int, action: str = 'live_chup', goto_
         return False
     
     try:
-        zap_success = execute_zap_actions(context, action_edge, mapped_action, max_iterations, zap_controller, goto_live)
+        zap_success = execute_zap_actions(context, action_edge, mapped_action, max_iteration, zap_controller, goto_live)
     except Exception as e:
         zap_success = False
     
@@ -117,7 +117,7 @@ def main():
     context.userinterface_name = args.userinterface_name
     
     success = execute_zap_iterations(
-        max_iterations=args.max_iteration,
+        max_iteration=args.max_iteration,
         action=args.action,
         goto_live=args.goto_live,
         audio_analysis=args.audio_analysis

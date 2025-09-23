@@ -614,7 +614,7 @@ def print_validation_summary(context, userinterface_name: str, max_iteration: in
         print("")
         print(f"SCRIPT_REPORT_URL:{context.script_report_url}")
 
-def validate_with_recovery(max_iterations: int = None) -> bool:
+def validate_with_recovery(max_iteration: int = None) -> bool:
     """Execute validation with recovery - validation-specific logic"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
     from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
@@ -644,7 +644,7 @@ def validate_with_recovery(max_iterations: int = None) -> bool:
     # Execute validation sequence (using existing complex logic)
     from shared.src.lib.executors.script_decorators import get_executor
     success = execute_validation_sequence_with_force_recovery(
-        get_executor(), context, validation_sequence, custom_validation_step_handler, max_iterations
+        get_executor(), context, validation_sequence, custom_validation_step_handler, max_iteration
     )
     
     # Calculate validation success based on executed step results only
