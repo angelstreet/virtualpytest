@@ -274,12 +274,14 @@ echo "🖥️ Setting up VNC server with default configuration..."
 # Make sure we continue even if VNC setup fails
 set +e  # Disable exit on error for VNC setup
 
-# Clean up any existing VNC sessions for display :1
-echo "🧹 Cleaning up existing VNC sessions..."
+# Clean up any existing VNC sessions for display :1 (HDMI-safe)
+echo "🧹 Cleaning up existing VNC sessions (preserving HDMI display :0)..."
 pkill -f "Xvnc.*:1" 2>/dev/null || true
 tigervncserver -kill :1 2>/dev/null || true
+# ONLY remove VNC display :1 files - NEVER touch display :0 (HDMI)
 rm -f /tmp/.X1-lock 2>/dev/null || true
 rm -f /tmp/.X11-unix/X1 2>/dev/null || true
+# CRITICAL: Do NOT remove /tmp/.X0-lock or /tmp/.X11-unix/X0
 
 # Create VNC directory
 mkdir -p ~/.vnc
@@ -344,11 +346,13 @@ echo "✅ VNC startup script created"
 echo "✅ VNC config file created"
 echo "✅ XFCE4 session files created"
 
-# Proactive VNC cleanup (enhanced with user's manual fix steps)
-echo "🧹 Enhanced proactive VNC cleanup before testing (including manual fix steps)..."
+# Proactive VNC cleanup (enhanced with user's manual fix steps - HDMI-safe)
+echo "🧹 Enhanced proactive VNC cleanup before testing (preserving HDMI display :0)..."
 sudo systemctl stop vncserver 2>/dev/null || true  # Step 1: Stop the service
-sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1  # Step 2: Clean up stale files
-pkill -f "Xvnc.*:1" 2>/dev/null || true  # Step 3: Kill lingering processes
+# Step 2: Clean up ONLY VNC stale files - preserve HDMI display :0
+sudo rm -f /tmp/.X1-lock /tmp/.X11-unix/X1  # Only VNC display :1
+# CRITICAL: Never remove /tmp/.X0-lock or /tmp/.X11-unix/X0 (HDMI display)
+pkill -f "Xvnc.*:1" 2>/dev/null || true  # Step 3: Kill only VNC processes
 sleep 2  # Brief pause for cleanup
 
 # Step 4: Test VNC web interface (simple curl test)
