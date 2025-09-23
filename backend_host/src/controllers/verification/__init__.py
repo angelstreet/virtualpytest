@@ -11,7 +11,6 @@ Available Controllers:
 - AppiumVerificationController: Cross-platform element verification using Appium WebDriver
 - VideoVerificationController: Motion detection and video content verification
 - AudioVerificationController: Audio level and sound verification
-- VNCStreamController: VNC stream controller for VNC-based verification
 
 Available Helpers:
 - VideoRestartHelpers: Restart video generation and analysis functionality
@@ -23,7 +22,6 @@ from .adb import ADBVerificationController
 from .appium import AppiumVerificationController
 from .video import VideoVerificationController
 from .audio import AudioVerificationController
-from .vnc_stream import VNCStreamController
 from .video_restart_helpers import VideoRestartHelpers
 
 __all__ = [
@@ -33,6 +31,5 @@ __all__ = [
     'AppiumVerificationController',
     'VideoVerificationController',
     'AudioVerificationController',
-    'VNCStreamController',
     'VideoRestartHelpers'
 ]
