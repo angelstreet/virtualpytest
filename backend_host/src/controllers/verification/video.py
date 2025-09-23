@@ -100,52 +100,6 @@ class VideoVerificationController(VerificationControllerInterface):
         print(f"VideoVerify[{self.device_name}]: Disconnected")
         return True
 
-    def capture_screenshot(self, filename: str = None, source: str = "av_controller") -> str:
-        """
-        Capture a screenshot for analysis using the AV controller.
-        
-        Args:
-            filename: Optional filename for the screenshot
-            source: Video source ("av_controller" or file path)
-            
-        Returns:
-            Path to the captured screenshot file
-        """
-        # Only check connection when actually using AV controller
-        if source == "av_controller" and not self.is_connected:
-            print(f"VideoVerify[{self.device_name}]: ERROR - Not connected for AV controller capture")
-            return None
-            
-        timestamp = int(time.time())
-        screenshot_name = filename 
-        screenshot_path = Path.cwd() / screenshot_name
-        
-        try:
-            if source == "av_controller":
-                # Use AV controller's screenshot method
-                print(f"VideoVerify[{self.device_name}]: Requesting screenshot from {self.av_controller.device_name}")
-                result = self.av_controller.take_screenshot(screenshot_name)
-                if result:
-                    # Copy to our temp directory for analysis
-                    import shutil
-                    shutil.copy2(result, screenshot_path)
-                    return str(screenshot_path)
-                else:
-                    print(f"VideoVerify[{self.device_name}]: Failed to get screenshot from AV controller")
-                    return None
-                
-            elif os.path.exists(source):
-                # Use existing image file
-                print(f"VideoVerify[{self.device_name}]: Using existing image file: {source}")
-                return source
-                
-            else:
-                print(f"VideoVerify[{self.device_name}]: ERROR - Unknown video source: {source}")
-                return None
-                
-        except Exception as e:
-            print(f"VideoVerify[{self.device_name}]: Screenshot capture error: {e}")
-            return None
 
     # =============================================================================
     # Core Analysis Methods (delegated to helpers)
@@ -226,7 +180,7 @@ class VideoVerificationController(VerificationControllerInterface):
                     return {'success': False, 'error': 'Not connected for screenshot capture'}
                 
                 # Use last available capture
-                screenshot = self.capture_screenshot()
+                screenshot = self.av_controller.take_screenshot()
                 if not screenshot:
                     return {'success': False, 'error': 'Failed to capture screenshot'}
                 image_paths = [screenshot]
@@ -253,7 +207,7 @@ class VideoVerificationController(VerificationControllerInterface):
                 # Use multiple recent captures for freeze detection
                 screenshots = []
                 for i in range(3):  # Get 3 screenshots with delay
-                    screenshot = self.capture_screenshot(f"freeze_analysis_{i}_{int(time.time())}.png")
+                    screenshot = self.av_controller.take_screenshot()
                     if screenshot:
                         screenshots.append(screenshot)
                     if i < 2:  # Don't wait after last screenshot
@@ -284,7 +238,7 @@ class VideoVerificationController(VerificationControllerInterface):
                     return {'success': False, 'error': 'Not connected for screenshot capture'}
                 
                 # Use last available capture
-                screenshot = self.capture_screenshot()
+                screenshot = self.av_controller.take_screenshot()
                 if not screenshot:
                     return {'success': False, 'error': 'Failed to capture screenshot'}
                 image_paths = [screenshot]
@@ -309,7 +263,7 @@ class VideoVerificationController(VerificationControllerInterface):
                     return {'success': False, 'error': 'Not connected for screenshot capture'}
                 
                 # Use last available capture
-                screenshot = self.capture_screenshot()
+                screenshot = self.av_controller.take_screenshot()
                 if not screenshot:
                     return {'success': False, 'error': 'Failed to capture screenshot'}
                 image_paths = [screenshot]
@@ -334,7 +288,7 @@ class VideoVerificationController(VerificationControllerInterface):
                     return {'success': False, 'error': 'Not connected for screenshot capture'}
                 
                 # Use last available capture
-                screenshot = self.capture_screenshot()
+                screenshot = self.av_controller.take_screenshot()
                 if not screenshot:
                     return {'success': False, 'error': 'Failed to capture screenshot'}
                 image_paths = [screenshot]
@@ -360,7 +314,7 @@ class VideoVerificationController(VerificationControllerInterface):
             # Determine which images to analyze
             if image_paths is None or len(image_paths) == 0:
                 # Capture current screenshot if no paths provided
-                screenshot = self.capture_screenshot("macroblock_analysis.jpg")
+                screenshot = self.av_controller.take_screenshot()
                 if not screenshot:
                     return {"success": False, "error": "Failed to capture screenshot"}
                 image_paths = [screenshot]
@@ -520,7 +474,7 @@ class VideoVerificationController(VerificationControllerInterface):
         print(f"VideoVerify[{self.device_name}]: Looking for color '{color}' (tolerance: {tolerance}%)")
         
         # Capture screenshot for analysis
-        screenshot = self.capture_screenshot()
+        screenshot = self.av_controller.take_screenshot()
         if not screenshot:
             return False
         
@@ -549,7 +503,7 @@ class VideoVerificationController(VerificationControllerInterface):
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            screenshot = self.capture_screenshot()
+            screenshot = self.av_controller.take_screenshot()
             if not screenshot:
                 time.sleep(0.5)
                 continue
@@ -584,7 +538,7 @@ class VideoVerificationController(VerificationControllerInterface):
     def verify_performance_metric(self, metric_name: str, expected_value: float, tolerance: float = 10.0) -> bool:
         """Verify video-related performance metrics."""
         if metric_name.lower() in ['brightness', 'contrast']:
-            screenshot = self.capture_screenshot()
+            screenshot = self.av_controller.take_screenshot()
             if not screenshot:
                 return False
                 
