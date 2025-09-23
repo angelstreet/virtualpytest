@@ -232,6 +232,33 @@ class ZapExecutor:
                 if analysis_result.success:
                     self.statistics.successful_iterations += 1
                 
+                # Store analysis result for reporting
+                self.statistics.analysis_results.append(analysis_result)
+                
+                # Update statistics counters based on analysis results
+                if analysis_result.motion_detected:
+                    self.statistics.motion_detected_count += 1
+                if analysis_result.subtitles_detected:
+                    self.statistics.subtitles_detected_count += 1
+                if analysis_result.audio_speech_detected:
+                    self.statistics.audio_speech_detected_count += 1
+                if analysis_result.zapping_detected:
+                    self.statistics.zapping_detected_count += 1
+                    self.statistics.add_zapping_result(analysis_result.zapping_details)
+                    
+                    detection_method = analysis_result.zapping_details.get('detection_method', 'blackscreen')
+                    self.statistics.detection_methods_used.append(detection_method)
+                    
+                    if detection_method == 'freeze':
+                        self.statistics.freeze_detected_count += 1
+                if analysis_result.detected_language:
+                    self.statistics.add_language(analysis_result.detected_language)
+                if analysis_result.audio_language and analysis_result.audio_language != 'unknown':
+                    self.statistics.add_audio_language(analysis_result.audio_language)
+
+                # Record iteration to database
+                self.statistics.record_iteration_to_db(context, iteration, analysis_result, action_start_time, time.time())
+                
                 # Record zap analysis step (separate from navigation step)
                 self._record_zap_step(context, iteration, action_node, analysis_result, max_iterations)
             else:
@@ -348,119 +375,6 @@ class ZapExecutor:
             print(f"⚠️ [ZapExecutor] Failed to extract navigation screenshots: {e}")
             return {}
     
-    def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
-        """Execute a single zap iteration with timing and analysis"""
-        print(f"🎬 [ZapExecutor] Iteration {iteration}/{max_iterations}: {action_command}")
-        
-        start_time = time.time()
-        
-        step_name = f"zap_iteration_{iteration}_{action_command}"
-        step_start_screenshot_result = capture_and_upload_screenshot(context.selected_device, f"{step_name}_start", "zap")
-        step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
-        
-        if step_start_screenshot_path:
-            print(f"📸 [ZapExecutor] Step-start screenshot captured: {step_start_screenshot_path}")
-            context.add_screenshot(step_start_screenshot_path)
-        
-        # Use device's existing ActionExecutor (preserves state and caches)
-        action_executor = context.selected_device.action_executor
-        if not action_executor:
-            return {"success": False, "error": f"No ActionExecutor found for device {context.selected_device.device_id}"}
-        actions = action_edge.get('actions', [])
-        action_result = action_executor.execute_actions(actions)
-        end_time = time.time()
-        execution_time = int((end_time - start_time) * 1000)
-        
-        context.last_action_start_time = start_time
-        context.last_action_end_time = end_time
-        self.statistics.total_execution_time += execution_time
-        
-        screenshot_result = capture_and_upload_screenshot(context.selected_device, step_name, "zap")
-        action_result['screenshot_path'] = screenshot_result['screenshot_path']
-        action_result['screenshot_url'] = screenshot_result['screenshot_url']
-        action_result['step_start_screenshot_path'] = step_start_screenshot_path
-        
-        print(f"⏰ [ZapExecutor] Waiting 4 seconds for banner to disappear...")
-        time.sleep(4)
-        
-        analysis_step_name = f"zap_analysis_{iteration}_{action_command}"
-        analysis_screenshot_result = capture_and_upload_screenshot(context.selected_device, analysis_step_name, "zap")
-        print(f"📸 [ZapExecutor] Captured clean screenshot for analysis: {analysis_screenshot_result['screenshot_path']}")
-        
-        analysis_result = self.analyze_after_zap(iteration, action_command, context)
-        self.statistics.analysis_results.append(analysis_result)
-        
-        if analysis_result.motion_detected:
-            self.statistics.motion_detected_count += 1
-        if analysis_result.subtitles_detected:
-            self.statistics.subtitles_detected_count += 1
-        if analysis_result.audio_speech_detected:
-            self.statistics.audio_speech_detected_count += 1
-        if analysis_result.zapping_detected:
-            self.statistics.zapping_detected_count += 1
-            self.statistics.add_zapping_result(analysis_result.zapping_details)
-            
-            detection_method = analysis_result.zapping_details.get('detection_method', 'blackscreen')
-            self.statistics.detection_methods_used.append(detection_method)
-            
-            if detection_method == 'freeze':
-                self.statistics.freeze_detected_count += 1
-        if analysis_result.detected_language:
-            self.statistics.add_language(analysis_result.detected_language)
-        if analysis_result.audio_language and analysis_result.audio_language != 'unknown':
-            self.statistics.add_audio_language(analysis_result.audio_language)
-
-        self.statistics.record_iteration_to_db(context, iteration, analysis_result, start_time, end_time)
-
-        # Update the ZAP step (not the last step) with analysis results
-        if context.step_results and zap_step_index < len(context.step_results):
-            zap_step = context.step_results[zap_step_index]
-            zap_step['motion_detection'] = analysis_result.to_dict()
-            zap_step['motion_analysis'] = analysis_result.motion_details
-            zap_step['subtitle_analysis'] = analysis_result.subtitle_details
-            zap_step['zapping_analysis'] = analysis_result.zapping_details
-            
-            # Collect all screenshots for this zap iteration (like original)
-            action_screenshots = []
-            if screenshot_result['screenshot_path']:
-                action_screenshots.append(screenshot_result['screenshot_path'])
-            
-            # Add analysis screenshots if different from main screenshot
-            if analysis_result.subtitle_details.get('analyzed_screenshot') and analysis_result.subtitle_details['analyzed_screenshot'] != screenshot_result['screenshot_path']:
-                action_screenshots.append(analysis_result.subtitle_details['analyzed_screenshot'])
-            
-            # Store all analysis results in step
-            zap_step['motion_detection'] = analysis_result.to_dict()
-            zap_step['motion_analysis'] = analysis_result.motion_details
-            zap_step['subtitle_analysis'] = analysis_result.subtitle_details
-            zap_step['audio_analysis'] = analysis_result.audio_details
-            zap_step['zapping_analysis'] = analysis_result.zapping_details
-            
-            zap_step['action_screenshots'] = action_screenshots
-        
-        context.add_screenshot(screenshot_result['screenshot_path'])
-        
-        # Step end screenshot
-        step_end_screenshot_result = capture_and_upload_screenshot(context.selected_device, f"{step_name}_end", "zap")
-        step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
-        
-        if step_end_screenshot_path:
-            context.add_screenshot(step_end_screenshot_path)
-            
-        # Update the ZAP step with the step_end_screenshot_path
-        if context.step_results and zap_step_index < len(context.step_results):
-            zap_step = context.step_results[zap_step_index]
-            zap_step['step_end_screenshot_path'] = step_end_screenshot_path
-        
-        success = action_result.get('success', False)
-        if success:
-            print(f"✅ [ZapExecutor] Iteration {iteration} completed in {execution_time}ms")
-            if iteration < max_iterations:
-                time.sleep(0.5)
-        else:
-            print(f"❌ [ZapExecutor] Iteration {iteration} failed: {action_result.get('error', 'Unknown error')}")
-        
-        return success
     
     def _detect_motion(self, context) -> Dict[str, Any]:
         """Detect motion using device's existing VerificationExecutor service"""
@@ -502,8 +416,6 @@ class ZapExecutor:
                 else:
                     print(f"🔍 [ZapExecutor] No verification results returned")
                 
-                # Try to get more details about the failure
-                self._debug_motion_detection_failure(context)
                 return {"success": False, "message": f"Motion detection failed: {error_detail}"}
             
             motion_images = self._add_motion_analysis_images_to_screenshots(context, iteration)
@@ -1229,70 +1141,3 @@ class ZapExecutor:
         
         return motion_images
     
-    def _debug_motion_detection_failure(self, context):
-        """Debug motion detection failure by checking capture folder and analysis files"""
-        try:
-            print(f"🔍 [ZapExecutor] DEBUG: Investigating motion detection failure...")
-            
-            # Get AV controller to check capture path
-            av_controller = self.device._get_controller('av')
-            if not av_controller:
-                print(f"🔍 [ZapExecutor] DEBUG: No AV controller found")
-                return
-            
-            capture_path = getattr(av_controller, 'video_capture_path', None)
-            if not capture_path:
-                print(f"🔍 [ZapExecutor] DEBUG: No video_capture_path found on AV controller")
-                return
-            
-            print(f"🔍 [ZapExecutor] DEBUG: Capture path: {capture_path}")
-            
-            # Check if capture folder exists
-            capture_folder = os.path.join(capture_path, 'captures')
-            if not os.path.exists(capture_folder):
-                print(f"🔍 [ZapExecutor] DEBUG: Capture folder does not exist: {capture_folder}")
-                return
-            
-            # List files in capture folder
-            try:
-                files = os.listdir(capture_folder)
-                print(f"🔍 [ZapExecutor] DEBUG: Found {len(files)} files in capture folder")
-                
-                # Show recent files
-                recent_files = sorted([f for f in files if f.endswith('.json')], reverse=True)[:5]
-                print(f"🔍 [ZapExecutor] DEBUG: Recent JSON files: {recent_files}")
-                
-                # Check a recent file's content
-                if recent_files:
-                    recent_file_path = os.path.join(capture_folder, recent_files[0])
-                    try:
-                        with open(recent_file_path, 'r') as f:
-                            json_content = json.load(f)
-                        print(f"🔍 [ZapExecutor] DEBUG: Sample JSON content from {recent_files[0]}:")
-                        print(f"🔍 [ZapExecutor] DEBUG: - blackscreen: {json_content.get('blackscreen', 'N/A')}")
-                        print(f"🔍 [ZapExecutor] DEBUG: - freeze: {json_content.get('freeze', 'N/A')}")
-                        print(f"🔍 [ZapExecutor] DEBUG: - audio: {json_content.get('audio', 'N/A')}")
-                        print(f"🔍 [ZapExecutor] DEBUG: - timestamp: {json_content.get('timestamp', 'N/A')}")
-                    except Exception as e:
-                        print(f"🔍 [ZapExecutor] DEBUG: Failed to read JSON file {recent_files[0]}: {e}")
-                
-            except Exception as e:
-                print(f"🔍 [ZapExecutor] DEBUG: Failed to list capture folder: {e}")
-            
-            # Try to call the analysis utility directly to see what happens
-            try:
-                from backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data_from_path, analyze_motion_from_loaded_data
-                
-                print(f"🔍 [ZapExecutor] DEBUG: Testing analysis utilities directly...")
-                data_result = load_recent_analysis_data_from_path(capture_path, timeframe_minutes=5, max_count=3)
-                print(f"🔍 [ZapExecutor] DEBUG: load_recent_analysis_data_from_path result: {data_result}")
-                
-                if data_result.get('success') and data_result.get('analysis_data'):
-                    motion_result = analyze_motion_from_loaded_data(data_result['analysis_data'], json_count=3, strict_mode=False)
-                    print(f"🔍 [ZapExecutor] DEBUG: analyze_motion_from_loaded_data result: {motion_result}")
-                
-            except Exception as e:
-                print(f"🔍 [ZapExecutor] DEBUG: Failed to test analysis utilities: {e}")
-                
-        except Exception as e:
-            print(f"🔍 [ZapExecutor] DEBUG: Exception in debug method: {e}")

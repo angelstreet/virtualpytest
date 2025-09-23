@@ -54,7 +54,6 @@ class VerificationExecutor:
             node_id: Node ID for navigation context
             _from_device_init: Internal flag to indicate creation from device initialization
         """
-        # Validate required parameters - fail fast if missing
         if not device:
             raise ValueError("Device instance is required")
         if not device.host_name:
@@ -62,7 +61,6 @@ class VerificationExecutor:
         if not device.device_id:
             raise ValueError("Device must have device_id")
         
-        # Warn if creating instance outside of device initialization
         if not _from_device_init:
             import traceback
             print(f"⚠️ [VerificationExecutor] WARNING: Creating new VerificationExecutor instance for device {device.device_id}")
@@ -76,12 +74,35 @@ class VerificationExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
-        # Navigation context - REMOVED: Now using device.navigation_context
-        
+
         # Get AV controller directly from device for screenshot capture
         self.av_controller = device._get_controller('av')
         if not self.av_controller:
             print(f"[@verification_executor] Warning: No AV controller found for device {self.device_id}")
+        
+        # Get verification controllers directly by type
+        verification_controllers = device.get_controllers('verification')
+        self.video_controller = None
+        self.image_controller = None
+        self.text_controller = None
+        self.audio_controller = None
+        self.adb_controller = None
+        self.appium_controller = None
+        
+        for ctrl in verification_controllers:
+            class_name = ctrl.__class__.__name__.lower()
+            if 'video' in class_name:
+                self.video_controller = ctrl
+            elif 'image' in class_name:
+                self.image_controller = ctrl
+            elif 'text' in class_name:
+                self.text_controller = ctrl
+            elif 'audio' in class_name:
+                self.audio_controller = ctrl
+            elif 'adb' in class_name:
+                self.adb_controller = ctrl
+            elif 'appium' in class_name:
+                self.appium_controller = ctrl
         
         # Initialize screenshot tracking
         self.verification_screenshots = []
@@ -131,7 +152,7 @@ class VerificationExecutor:
             verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
             for v_type in verification_types:
                 try:
-                    controller = self.device._get_controller(f'verification_{v_type}')
+                    controller = getattr(self, f'{v_type}_controller', None)
                     if controller and hasattr(controller, 'get_available_verifications'):
                         verifications = controller.get_available_verifications()
                         if isinstance(verifications, list):
@@ -307,8 +328,8 @@ class VerificationExecutor:
         try:
             verification_type = verification.get('verification_type', 'text')
             
-            # Get verification controller directly from device
-            controller = self.device._get_controller(f'verification_{verification_type}')
+            # Get verification controller directly
+            controller = getattr(self, f'{verification_type}_controller', None)
             if not controller:
                 return {
                     'success': False,
@@ -378,7 +399,6 @@ class VerificationExecutor:
         except Exception as e:
             print(f"[@lib:verification_executor:_execute_single_verification] Verification error: {str(e)}")
             
-            # ALWAYS capture screenshot even on exception - success OR failure
             screenshot_path = ""
             try:
                 screenshot_path = self.av_controller.take_screenshot()
