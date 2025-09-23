@@ -46,9 +46,6 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-# Define script-specific arguments
-main._script_args = ['--node:str:home']
-
 @script("goto", "Navigate to specified node")
 def main():
     """Main navigation function to goto specified node"""
@@ -68,6 +65,8 @@ def main():
     
     return success
 
+# Define script-specific arguments
+main._script_args = ['--node:str:home']
 
 if __name__ == "__main__":
     main()

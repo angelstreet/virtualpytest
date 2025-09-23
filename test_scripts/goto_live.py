@@ -49,9 +49,6 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-# Define script-specific arguments (none needed for this script)
-main._script_args = []
-
 @script("goto_live", "Navigate to live node")
 def main():
     """Main navigation function to goto live"""
@@ -74,6 +71,8 @@ def main():
     
     return success
 
+# Define script-specific arguments (none needed for this script)
+main._script_args = []
 
 if __name__ == "__main__":
     main() 

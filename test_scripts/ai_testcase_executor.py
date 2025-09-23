@@ -113,9 +113,6 @@ def execute_ai_test_case(test_case_id: str, team_id: str) -> bool:
         print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
         return False
 
-# Define script-specific arguments (none needed for this script)
-main._script_args = []
-
 @script("ai_testcase", "Execute AI-generated test case")
 def main():
     """Main execution function"""
@@ -155,6 +152,8 @@ def main():
     
     return success
 
+# Define script-specific arguments (none needed for this script)
+main._script_args = []
 
 if __name__ == "__main__":
     main()

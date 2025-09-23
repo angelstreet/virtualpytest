@@ -71,9 +71,6 @@ All scripts support these standard arguments:
 ```python
 from shared.src.lib.executors.script_decorators import script, navigate_to, is_mobile_device, get_args
 
-# Define script-specific arguments (one line per script)
-main._script_args = ['--node:str:home', '--timeout:int:30', '--verbose:bool:false']
-
 @script("my_script", "Description of what it does")
 def main():
     """Business logic only"""
@@ -81,16 +78,24 @@ def main():
     target = args.node if hasattr(args, 'node') else ("live_fullscreen" if is_mobile_device() else "live")
     return navigate_to(target)
 
+# Define script-specific arguments (after function definition)
+main._script_args = ['--node:str:home', '--timeout:int:30', '--verbose:bool:false']
+
 if __name__ == "__main__":
     main()
 ```
 
 ## Script Argument Definition
 
-Each script defines its own arguments using a simple one-line pattern:
+Each script defines its own arguments using a simple one-line pattern **after** the function definition:
 
 ```python
-# Format: '--name:type:default'
+@script("my_script", "Description")
+def main():
+    # Script logic here
+    return True
+
+# Define arguments AFTER function definition
 main._script_args = [
     '--max_iteration:int:50',      # Integer argument with default 50
     '--action:str:live_chup',      # String argument with default 'live_chup'

@@ -110,9 +110,6 @@ def execute_zap_iterations(max_iterations: int, action: str = 'live_chup', goto_
     
     return zap_success
 
-# Define script-specific arguments
-main._script_args = ['--max_iteration:int:50', '--action:str:live_chup', '--goto_live:bool:true', '--audio_analysis:bool:false']
-
 @script("fullzap", "Execute zap iterations with analysis")
 def main():
     args = get_args()
@@ -132,6 +129,8 @@ def main():
     
     return success
 
+# Define script-specific arguments
+main._script_args = ['--max_iteration:int:50', '--action:str:live_chup', '--goto_live:bool:true', '--audio_analysis:bool:false']
 
 if __name__ == "__main__":
     main() 

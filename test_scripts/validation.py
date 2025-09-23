@@ -654,9 +654,6 @@ def validate_with_recovery(max_iterations: int = None) -> bool:
     
     return context.overall_success
 
-# Define script-specific arguments
-main._script_args = ['--max_iteration:int:10']
-
 @script("validation", "Validate navigation tree transitions")
 def main():
     """Main validation function with report generation"""
@@ -696,6 +693,8 @@ def main():
     
     return success
 
+# Define script-specific arguments
+main._script_args = ['--max_iteration:int:10']
 
 if __name__ == "__main__":
     main() 
