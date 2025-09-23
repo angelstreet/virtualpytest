@@ -78,7 +78,9 @@ class VideoVerificationHelpers:
             elif command == 'DetectMotionFromJson':
                 return self._execute_json_motion_analysis(params)
             elif command == 'DetectZapping':
-                return self._execute_zapping_detection(params, image_source_url)
+                # Get capture folder same as main branch (don't use image_source_url)
+                folder_path = getattr(self.controller.av_controller, 'video_capture_path', None)
+                return self._execute_zapping_detection(params, folder_path)
             else:
                 return self._create_error_result(f'Unknown verification command: {command}')
             
