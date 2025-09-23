@@ -59,6 +59,14 @@ class Device:
         
         # Capabilities derived from controllers
         self._capabilities: List[str] = []
+        
+        # Shared navigation context for all executors
+        self.navigation_context = {
+            'current_tree_id': None,
+            'current_node_id': None,
+            'current_node_label': None,
+            'team_id': None
+        }
     
     def add_controller(self, controller_type: str, controller: BaseController):
         """

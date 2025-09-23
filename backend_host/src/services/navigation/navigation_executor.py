@@ -69,10 +69,7 @@ class NavigationExecutor:
         self.device_id = device.device_id
         self.device_model = device.device_model
         
-        # Navigation state tracking
-        self.current_node_id = None
-        self.current_node_label = None
-        self.current_tree_id = None
+        # Navigation state tracking - REMOVED: Now using device.navigation_context
         
         # Initialized for device: {self.device_id}, model: {self.device_model}
     
@@ -198,6 +195,10 @@ class NavigationExecutor:
             Dict with success status and navigation details
         """
         start_time = time.time()
+        
+        # Update shared navigation context with team_id
+        if team_id:
+            self.device.navigation_context['team_id'] = team_id
         
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
@@ -881,19 +882,21 @@ class NavigationExecutor:
     
     def get_current_position(self) -> Dict[str, Any]:
         """Get current navigation position for this device"""
+        nav_context = self.device.navigation_context
         return {
             'success': True,
             'device_id': self.device_id,
-            'current_node_id': self.current_node_id,
-            'current_node_label': self.current_node_label,
-            'current_tree_id': self.current_tree_id
+            'current_node_id': nav_context['current_node_id'],
+            'current_node_label': nav_context['current_node_label'],
+            'current_tree_id': nav_context['current_tree_id']
         }
     
     def update_current_position(self, node_id: str, tree_id: str = None, node_label: str = None) -> Dict[str, Any]:
         """Update current navigation position for this device"""
-        self.current_node_id = node_id
-        self.current_tree_id = tree_id or self.current_tree_id
-        self.current_node_label = node_label or node_id
+        nav_context = self.device.navigation_context
+        nav_context['current_node_id'] = node_id
+        nav_context['current_tree_id'] = tree_id or nav_context['current_tree_id']
+        nav_context['current_node_label'] = node_label or node_id
         
         # Only log position updates when called directly (not from navigation completion)
         # Navigation completion already logs the final position
@@ -905,22 +908,23 @@ class NavigationExecutor:
         return {
             'success': True,
             'device_id': self.device_id,
-            'current_node_id': self.current_node_id,
-            'current_node_label': self.current_node_label,
-            'current_tree_id': self.current_tree_id
+            'current_node_id': nav_context['current_node_id'],
+            'current_node_label': nav_context['current_node_label'],
+            'current_tree_id': nav_context['current_tree_id']
         }
     
     def clear_current_position(self) -> Dict[str, Any]:
         """Clear current navigation position (e.g., when switching interfaces)"""
+        nav_context = self.device.navigation_context
         old_position = {
-            'node_id': self.current_node_id,
-            'tree_id': self.current_tree_id,
-            'node_label': self.current_node_label
+            'node_id': nav_context['current_node_id'],
+            'tree_id': nav_context['current_tree_id'],
+            'node_label': nav_context['current_node_label']
         }
         
-        self.current_node_id = None
-        self.current_tree_id = None
-        self.current_node_label = None
+        nav_context['current_node_id'] = None
+        nav_context['current_tree_id'] = None
+        nav_context['current_node_label'] = None
         
         print(f"[@navigation_executor] Cleared position for {self.device_id} (was: {old_position['node_id']})")
         

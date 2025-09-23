@@ -1088,7 +1088,7 @@ class ZapExecutor:
                 return None
             
             # Import simple mosaic generator
-            from backend_host.src.lib.utils.image_mosaic_generator import create_zapping_failure_mosaic
+            from shared.src.lib.utils.image_mosaic_generator import create_zapping_failure_mosaic
             
             # Create mosaic with analysis data
             mosaic_path = create_zapping_failure_mosaic(

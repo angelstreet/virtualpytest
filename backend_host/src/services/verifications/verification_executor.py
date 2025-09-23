@@ -76,8 +76,7 @@ class VerificationExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
-        self.tree_id = tree_id
-        self.node_id = node_id
+        # Navigation context - REMOVED: Now using device.navigation_context
         
         # Get AV controller directly from device for screenshot capture
         self.av_controller = device._get_controller('av')
@@ -401,14 +400,24 @@ class VerificationExecutor:
     def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):
         """Record single verification directly to database"""
         try:
+            # Get navigation context from device
+            nav_context = self.device.navigation_context
+            tree_id = nav_context['current_tree_id']
+            node_id = nav_context['current_node_id']
+            
+            # Only record if we have navigation context
+            if not tree_id or not node_id:
+                print(f"[@lib:verification_executor:_record_verification_to_database] Skipping database recording - missing navigation context (tree_id: {tree_id}, node_id: {node_id})")
+                return
+            
             # Auto-derive script_context from script_result_id
             script_result_id = getattr(self, 'script_result_id', None)
             script_context = 'script' if script_result_id else 'direct'
             
             record_node_execution(
                 team_id=team_id,
-                tree_id=self.tree_id,
-                node_id=self.node_id,
+                tree_id=tree_id,
+                node_id=node_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
                 success=success,

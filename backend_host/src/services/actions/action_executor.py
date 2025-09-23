@@ -95,7 +95,8 @@ class ActionExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
-        self.tree_id = tree_id
+        # Navigation context - REMOVED: Now using device.navigation_context
+        # Action-specific context
         self.edge_id = edge_id
         self.action_set_id = action_set_id
         
@@ -308,7 +309,9 @@ class ActionExecutor:
         total_execution_time = sum(r.get('execution_time_ms', 0) for r in results)
         
         # Record edge execution to database if we have navigation context
-        if self.tree_id and self.edge_id and valid_actions:
+        nav_context = self.device.navigation_context
+        tree_id = nav_context['current_tree_id']
+        if tree_id and self.edge_id and valid_actions:
             self._record_edge_execution(
                 success=overall_success,
                 execution_time_ms=total_execution_time,
@@ -680,9 +683,11 @@ class ActionExecutor:
             script_result_id = getattr(self, 'script_result_id', None)
             script_context = 'script' if script_result_id else 'direct'
             
+            nav_context = self.device.navigation_context
+            tree_id = nav_context['current_tree_id']
             record_edge_execution(
                 team_id=team_id,
-                tree_id=self.tree_id,
+                tree_id=tree_id,
                 edge_id=self.edge_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
@@ -703,9 +708,11 @@ class ActionExecutor:
         """Record edge execution to database (same as old system)"""
         try:
             
+            nav_context = self.device.navigation_context
+            tree_id = nav_context['current_tree_id']
             result = record_edge_execution(
                 team_id=team_id,
-                tree_id=self.tree_id,
+                tree_id=tree_id,
                 edge_id=self.edge_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
