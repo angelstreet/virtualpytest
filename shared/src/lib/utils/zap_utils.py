@@ -211,16 +211,28 @@ def generate_zap_summary_text(zap_data: List[Dict[str, Any]]) -> str:
             method_icon = "⬛" if method == 'blackscreen' else "🧊"
             bf_result = f"{method_icon} {duration:.1f}s"
         
-        # Format channel info (exact same logic as zap_controller)
+        # Format channel info - show partial info even without channel name
         channel_info = ""
+        channel_parts = []
+        
+        # Channel name and number
         if iteration['channel_name']:
-            channel_info = iteration['channel_name']
             if iteration['channel_number']:
-                channel_info += f" ({iteration['channel_number']})"
-            if iteration['program_name']:
-                channel_info += f" - {iteration['program_name']}"
-            if iteration['program_start_time'] and iteration['program_end_time']:
-                channel_info += f" [{iteration['program_start_time']}-{iteration['program_end_time']}]"
+                channel_parts.append(f"{iteration['channel_name']} ({iteration['channel_number']})")
+            else:
+                channel_parts.append(iteration['channel_name'])
+        elif iteration['channel_number']:
+            channel_parts.append(f"Ch {iteration['channel_number']}")
+        
+        # Program name
+        if iteration['program_name']:
+            channel_parts.append(iteration['program_name'])
+        
+        # Time range
+        if iteration['program_start_time'] and iteration['program_end_time']:
+            channel_parts.append(f"[{iteration['program_start_time']}-{iteration['program_end_time']}]")
+        
+        channel_info = " - ".join(channel_parts)
         
         # Truncate channel info if too long
         if len(channel_info) > 40:
@@ -286,7 +298,7 @@ def create_zap_summary_text(zap_data: List[Dict[str, Any]]) -> str:
 
 def format_channel_info(zap: Dict[str, Any]) -> str:
     """
-    Format channel information for display.
+    Format channel information for display - shows partial info even without channel name.
     
     Args:
         zap: Single zap iteration data
@@ -303,15 +315,20 @@ def format_channel_info(zap: Dict[str, Any]) -> str:
     # Build channel info string
     parts = []
     
+    # Channel name and number
     if channel_name:
         if channel_number:
             parts.append(f"{channel_name} ({channel_number})")
         else:
             parts.append(channel_name)
+    elif channel_number:
+        parts.append(f"Ch {channel_number}")
     
+    # Program name
     if program_name:
         parts.append(program_name)
     
+    # Time range
     if program_start and program_end:
         parts.append(f"[{program_start}-{program_end}]")
     
