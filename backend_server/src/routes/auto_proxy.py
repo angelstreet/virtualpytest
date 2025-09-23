@@ -18,12 +18,12 @@ def auto_proxy(endpoint):
     Examples:
     - /server/ai-execution/executeTask -> /host/ai-execution/executeTask
     - /server/actions/executeBatch -> /host/actions/executeBatch
-    - /server/av/get-stream-url -> /host/av/get-stream-url
+    - /server/av/getStreamUrl -> /host/av/getStreamUrl (POST->GET conversion)
     - /server/verification/image/execute -> /host/verification/image/execute
     - /server/verification/text/execute -> /host/verification/text/execute
     """
     try:
-        # Simple passthrough
+        # Simple passthrough with method conversion for specific endpoints
         data = request.get_json() or {}
         host_endpoint = f'/host/{endpoint}'
         
@@ -35,9 +35,18 @@ def auto_proxy(endpoint):
         if data and 'device_id' in data:
             query_params['device_id'] = data['device_id']
         
+        # Handle method conversion for specific endpoints that need it
+        target_method = request.method
+        if endpoint in ['av/getStreamUrl', 'av/getStatus']:
+            # These endpoints accept POST from frontend but host expects GET
+            target_method = 'GET'
+            # For POST requests, extract device_id from body to query params
+            if request.method == 'POST' and data.get('device_id'):
+                query_params['device_id'] = data.get('device_id')
+        
         # Proxy to host
         response_data, status_code = proxy_to_host_with_params(
-            host_endpoint, request.method, data, query_params, timeout=60
+            host_endpoint, target_method, data, query_params, timeout=60
         )
         
         return jsonify(response_data), status_code

@@ -553,7 +553,7 @@ class ScriptExecutor:
                     # CRITICAL: Populate device navigation_context with script tracking info
                     # This enables all executors to record with script dependency
                     nav_context = context.selected_device.navigation_context
-                    nav_context['script_result_id'] = context.script_result_id
+                    nav_context['script_id'] = context.script_result_id
                     nav_context['script_name'] = self.script_name
                     nav_context['script_context'] = 'script'
                     print(f"📝 [{self.script_name}] Script context populated in device navigation_context")
@@ -642,8 +642,8 @@ class ScriptExecutor:
         # Clean up script context from device navigation_context
         if context.selected_device and hasattr(context.selected_device, 'navigation_context'):
             nav_context = context.selected_device.navigation_context
-            if nav_context.get('script_result_id'):
-                nav_context.pop('script_result_id', None)
+            if nav_context.get('script_id'):
+                nav_context.pop('script_id', None)
                 nav_context.pop('script_name', None)
                 nav_context.pop('script_context', None)
                 print(f"📝 [{self.script_name}] Script context cleaned from device navigation_context")

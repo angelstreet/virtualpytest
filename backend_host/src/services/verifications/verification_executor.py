@@ -415,7 +415,7 @@ class VerificationExecutor:
                 return
             
             # Get script context from device navigation_context - single source of truth
-            script_result_id = nav_context.get('script_result_id')
+            script_result_id = nav_context.get('script_id')
             script_context = nav_context.get('script_context', 'direct')
             
             record_node_execution(

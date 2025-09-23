@@ -690,7 +690,7 @@ class ActionExecutor:
         try:
             # Get script context from device navigation_context - single source of truth
             nav_context = self.device.navigation_context
-            script_result_id = nav_context.get('script_result_id')
+            script_result_id = nav_context.get('script_id')
             script_context = nav_context.get('script_context', 'direct')
             
             tree_id = nav_context['current_tree_id']
