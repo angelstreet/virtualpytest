@@ -386,12 +386,19 @@ class ZapExecutor:
         
         # Zapping detection (only for channel up actions)
         if 'chup' in action_command.lower():
+            # Banner region for channel analysis (same as main branch)
+            if 'android_mobile' in device_model:
+                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
+            else:
+                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
+            
             configs.append({
                 'command': 'DetectZapping',
                 'verification_type': 'video',
                 'params': {
                     'key_release_timestamp': action_start_time or time.time(),
                     'analysis_rectangle': {'x': 200, 'y': 0, 'width': 400, 'height': 200},
+                    'banner_region': banner_region,
                     'max_images': self._get_max_images_for_device(device_model)
                 },
                 'analysis_type': 'zapping'
@@ -480,6 +487,8 @@ class ZapExecutor:
             # Extract from details (where zapping results are nested) same as subtitles/audio
             zapping_details = verification_result.get('details', {})
             result.zapping_detected = verification_result.get('success', False) and zapping_details.get('zapping_detected', False)
+            # Extract blackscreen duration from details
+            result.blackscreen_duration = zapping_details.get('duration', 0.0)
             result.zapping_details = verification_result
     
 
