@@ -297,7 +297,7 @@ class VideoVerificationHelpers:
             
             # Try blackscreen detection first
             zapping_result = self.controller.content_helpers.detect_zapping_sequence(
-                folder_path, key_release_timestamp, analysis_rectangle, max_images
+                folder_path, key_release_timestamp, analysis_rectangle, max_images, banner_region
             )
             
             # If blackscreen succeeds, use it
