@@ -477,7 +477,9 @@ class ZapExecutor:
             result.macroblock_details = verification_result
             
         elif analysis_type == 'zapping':
-            result.zapping_detected = verification_result.get('zapping_detected', False)
+            # Extract from details (where zapping results are nested) same as subtitles/audio
+            zapping_details = verification_result.get('details', {})
+            result.zapping_detected = verification_result.get('success', False) and zapping_details.get('zapping_detected', False)
             result.zapping_details = verification_result
     
 
