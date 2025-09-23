@@ -688,11 +688,11 @@ class ActionExecutor:
     def _record_execution_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):
         """Record single execution directly to database"""
         try:
-            # Auto-derive script_context from script_result_id
-            script_result_id = getattr(self, 'script_result_id', None)
-            script_context = 'script' if script_result_id else 'direct'
-            
+            # Get script context from device navigation_context - single source of truth
             nav_context = self.device.navigation_context
+            script_result_id = nav_context.get('script_result_id')
+            script_context = nav_context.get('script_context', 'direct')
+            
             tree_id = nav_context['current_tree_id']
             record_edge_execution(
                 team_id=team_id,

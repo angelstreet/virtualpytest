@@ -289,9 +289,8 @@ class NavigationExecutor:
                     self.device.action_executor.tree_id = tree_id
                     self.device.action_executor.edge_id = step.get('edge_id')
                     self.device.action_executor.action_set_id = step.get('action_set_id')
-                    # Pass script context if available
-                    if hasattr(self, 'script_result_id'):
-                        self.device.action_executor.script_result_id = self.script_result_id
+                    # Script context is automatically available in device navigation_context
+                    # ActionExecutor will read it directly from there - no need to pass it
                     
                     result = self.device.action_executor.execute_actions(
                         actions=actions,

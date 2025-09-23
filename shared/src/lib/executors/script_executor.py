@@ -549,6 +549,14 @@ class ScriptExecutor:
                     print(f"📝 [{self.script_name}] Script execution recorded with ID: {context.script_result_id}")
                     # Output script result ID in a format that campaign executor can parse
                     print(f"SCRIPT_RESULT_ID:{context.script_result_id}")
+                    
+                    # CRITICAL: Populate device navigation_context with script tracking info
+                    # This enables all executors to record with script dependency
+                    nav_context = context.selected_device.navigation_context
+                    nav_context['script_result_id'] = context.script_result_id
+                    nav_context['script_name'] = self.script_name
+                    nav_context['script_context'] = 'script'
+                    print(f"📝 [{self.script_name}] Script context populated in device navigation_context")
             
             # 5. Capture initial screenshot using device AV controller
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
@@ -630,6 +638,15 @@ class ScriptExecutor:
         
         # Always stop stdout capture - NO DEVICE UNLOCKING (handled by server)
         context.stop_stdout_capture()
+        
+        # Clean up script context from device navigation_context
+        if context.selected_device and hasattr(context.selected_device, 'navigation_context'):
+            nav_context = context.selected_device.navigation_context
+            if nav_context.get('script_result_id'):
+                nav_context.pop('script_result_id', None)
+                nav_context.pop('script_name', None)
+                nav_context.pop('script_context', None)
+                print(f"📝 [{self.script_name}] Script context cleaned from device navigation_context")
         
         # Print summary (use baseline time if available)
         baseline_time = getattr(context, 'baseline_execution_time_ms', None)

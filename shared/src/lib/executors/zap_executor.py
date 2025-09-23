@@ -10,6 +10,7 @@ This controller manages:
 
 import os
 import time
+import json
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
@@ -483,19 +484,26 @@ class ZapExecutor:
                 }
             }]
 
+            print(f"🔍 [ZapExecutor] Executing motion detection with config: {verification_config}")
             verification_result = verification_executor.execute_verifications(verification_config)
+            print(f"🔍 [ZapExecutor] Motion detection raw result: {verification_result}")
 
             # Extract result from verification executor response
             if verification_result.get('success') and verification_result.get('results'):
                 result = verification_result['results'][0]  # Get first verification result
+                print(f"🔍 [ZapExecutor] Motion detection extracted result: {result}")
             else:
                 # Enhanced error logging for motion detection failures
                 error_detail = verification_result.get('error', 'Unknown error')
                 print(f"🔍 [ZapExecutor] Motion detection verification failed: {error_detail}")
                 if verification_result.get('results'):
                     print(f"🔍 [ZapExecutor] Verification results available but marked as failed")
+                    print(f"🔍 [ZapExecutor] Failed results: {verification_result.get('results')}")
                 else:
                     print(f"🔍 [ZapExecutor] No verification results returned")
+                
+                # Try to get more details about the failure
+                self._debug_motion_detection_failure(context)
                 return {"success": False, "message": f"Motion detection failed: {error_detail}"}
             
             motion_images = self._add_motion_analysis_images_to_screenshots(context, iteration)
@@ -1220,3 +1228,71 @@ class ZapExecutor:
             print(f"⚠️ [ZapExecutor] Failed to add motion analysis images to screenshot collection: {e}")
         
         return motion_images
+    
+    def _debug_motion_detection_failure(self, context):
+        """Debug motion detection failure by checking capture folder and analysis files"""
+        try:
+            print(f"🔍 [ZapExecutor] DEBUG: Investigating motion detection failure...")
+            
+            # Get AV controller to check capture path
+            av_controller = self.device._get_controller('av')
+            if not av_controller:
+                print(f"🔍 [ZapExecutor] DEBUG: No AV controller found")
+                return
+            
+            capture_path = getattr(av_controller, 'video_capture_path', None)
+            if not capture_path:
+                print(f"🔍 [ZapExecutor] DEBUG: No video_capture_path found on AV controller")
+                return
+            
+            print(f"🔍 [ZapExecutor] DEBUG: Capture path: {capture_path}")
+            
+            # Check if capture folder exists
+            capture_folder = os.path.join(capture_path, 'captures')
+            if not os.path.exists(capture_folder):
+                print(f"🔍 [ZapExecutor] DEBUG: Capture folder does not exist: {capture_folder}")
+                return
+            
+            # List files in capture folder
+            try:
+                files = os.listdir(capture_folder)
+                print(f"🔍 [ZapExecutor] DEBUG: Found {len(files)} files in capture folder")
+                
+                # Show recent files
+                recent_files = sorted([f for f in files if f.endswith('.json')], reverse=True)[:5]
+                print(f"🔍 [ZapExecutor] DEBUG: Recent JSON files: {recent_files}")
+                
+                # Check a recent file's content
+                if recent_files:
+                    recent_file_path = os.path.join(capture_folder, recent_files[0])
+                    try:
+                        with open(recent_file_path, 'r') as f:
+                            json_content = json.load(f)
+                        print(f"🔍 [ZapExecutor] DEBUG: Sample JSON content from {recent_files[0]}:")
+                        print(f"🔍 [ZapExecutor] DEBUG: - blackscreen: {json_content.get('blackscreen', 'N/A')}")
+                        print(f"🔍 [ZapExecutor] DEBUG: - freeze: {json_content.get('freeze', 'N/A')}")
+                        print(f"🔍 [ZapExecutor] DEBUG: - audio: {json_content.get('audio', 'N/A')}")
+                        print(f"🔍 [ZapExecutor] DEBUG: - timestamp: {json_content.get('timestamp', 'N/A')}")
+                    except Exception as e:
+                        print(f"🔍 [ZapExecutor] DEBUG: Failed to read JSON file {recent_files[0]}: {e}")
+                
+            except Exception as e:
+                print(f"🔍 [ZapExecutor] DEBUG: Failed to list capture folder: {e}")
+            
+            # Try to call the analysis utility directly to see what happens
+            try:
+                from backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data_from_path, analyze_motion_from_loaded_data
+                
+                print(f"🔍 [ZapExecutor] DEBUG: Testing analysis utilities directly...")
+                data_result = load_recent_analysis_data_from_path(capture_path, timeframe_minutes=5, max_count=3)
+                print(f"🔍 [ZapExecutor] DEBUG: load_recent_analysis_data_from_path result: {data_result}")
+                
+                if data_result.get('success') and data_result.get('analysis_data'):
+                    motion_result = analyze_motion_from_loaded_data(data_result['analysis_data'], json_count=3, strict_mode=False)
+                    print(f"🔍 [ZapExecutor] DEBUG: analyze_motion_from_loaded_data result: {motion_result}")
+                
+            except Exception as e:
+                print(f"🔍 [ZapExecutor] DEBUG: Failed to test analysis utilities: {e}")
+                
+        except Exception as e:
+            print(f"🔍 [ZapExecutor] DEBUG: Exception in debug method: {e}")

@@ -405,14 +405,18 @@ class VerificationExecutor:
             tree_id = nav_context['current_tree_id']
             node_id = nav_context['current_node_id']
             
-            # Only record if we have navigation context
+            # Only record if we have navigation context and team_id
             if tree_id is None or node_id is None:
                 print(f"[@lib:verification_executor:_record_verification_to_database] Skipping database recording - missing navigation context (tree_id: {tree_id}, node_id: {node_id})")
                 return
             
-            # Auto-derive script_context from script_result_id
-            script_result_id = getattr(self, 'script_result_id', None)
-            script_context = 'script' if script_result_id else 'direct'
+            if team_id is None:
+                print(f"[@lib:verification_executor:_record_verification_to_database] Skipping database recording - missing team_id")
+                return
+            
+            # Get script context from device navigation_context - single source of truth
+            script_result_id = nav_context.get('script_result_id')
+            script_context = nav_context.get('script_context', 'direct')
             
             record_node_execution(
                 team_id=team_id,
