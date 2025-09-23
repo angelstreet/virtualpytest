@@ -701,7 +701,7 @@ def main():
     return success
 
 # Define script-specific arguments
-main._script_args = ['--max_iteration:int:10']
+main._script_args = ['--max-iteration:int:10']
 
 if __name__ == "__main__":
     main() 

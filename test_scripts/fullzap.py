@@ -130,7 +130,7 @@ def main():
     return success
 
 # Define script-specific arguments
-main._script_args = ['--max_iteration:int:50', '--action:str:live_chup', '--goto_live:bool:true', '--audio_analysis:bool:false']
+main._script_args = ['--max-iteration:int:50', '--action:str:live_chup', '--goto-live:bool:true', '--audio-analysis:bool:false']
 
 if __name__ == "__main__":
     main() 
