@@ -414,6 +414,15 @@ class VideoVerificationHelpers:
                 'description': 'Detect motion in video stream'
             },
             {
+                'command': 'DetectMotionFromJson',
+                'params': {
+                    'json_count': 5,            # Default number of files to analyze
+                    'strict_mode': False        # Default to lenient mode
+                },
+                'verification_type': 'video',
+                'description': 'Detect motion by analyzing recent JSON analysis files'
+            },
+            {
                 'command': 'WaitForVideoChange',
                 'params': {
                     'timeout': 10.0,            # Default timeout

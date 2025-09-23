@@ -390,7 +390,7 @@ class ZapExecutor:
                 return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
 
             verification_config = [{
-                'command': 'detect_motion_from_json',
+                'command': 'DetectMotionFromJson',
                 'verification_type': 'video',
                 'params': {
                     'json_count': 3,
