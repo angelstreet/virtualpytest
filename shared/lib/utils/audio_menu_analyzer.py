@@ -11,7 +11,7 @@ import time
 from typing import Dict, Any
 from .navigation_utils import goto_node
 from .host_utils import get_controller
-from .report_utils import capture_and_upload_screenshot
+from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
 
 
 def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
@@ -56,7 +56,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             
             if audio_menu_nav.get('success'):
                 # Capture and analyze using unified approach
-                screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "audio_menu_analysis", "analysis")
+                screenshot_result = capture_and_upload_screenshot(context.selected_device, "audio_menu_analysis", "analysis")
                 screenshot_path = screenshot_result['screenshot_path'] if screenshot_result['success'] else ""
                 screenshot_url = screenshot_result['screenshot_url'] if screenshot_result['success'] else None
                 if screenshot_result['success']:
@@ -83,7 +83,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
                 return result
             else:
                 # Even on navigation failure, try to capture screenshot for debugging
-                screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "audio_menu_analysis_failed", "analysis")
+                screenshot_result = capture_and_upload_screenshot(context.selected_device, "audio_menu_analysis_failed", "analysis")
                 result = {"success": False, "message": f"Failed to navigate to {audio_menu_target}"}
                 
                 # Include screenshot even on failure for debugging
@@ -117,7 +117,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             
             if audio_nav.get('success'):
                 # Capture and analyze audio menu
-                audio_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "audio_menu_analysis", "analysis")
+                audio_screenshot_result = capture_and_upload_screenshot(context.selected_device, "audio_menu_analysis", "analysis")
                 audio_screenshot_path = audio_screenshot_result['screenshot_path'] if audio_screenshot_result['success'] else ""
                 audio_screenshot_url = audio_screenshot_result['screenshot_url'] if audio_screenshot_result['success'] else None
                 if audio_screenshot_result['success']:
@@ -140,7 +140,7 @@ def analyze_audio_menu(context, current_node: str = None) -> Dict[str, Any]:
             
             if subtitle_nav.get('success'):
                 # Capture and analyze subtitle menu
-                subtitle_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "subtitle_menu_analysis", "analysis")
+                subtitle_screenshot_result = capture_and_upload_screenshot(context.selected_device, "subtitle_menu_analysis", "analysis")
                 subtitle_screenshot_path = subtitle_screenshot_result['screenshot_path'] if subtitle_screenshot_result['success'] else ""
                 subtitle_screenshot_url = subtitle_screenshot_result['screenshot_url'] if subtitle_screenshot_result['success'] else None
                 if subtitle_screenshot_result['success']:

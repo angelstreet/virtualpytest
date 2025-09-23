@@ -117,7 +117,7 @@ main._script_args = [
 
 ### Navigation Functions
 - `navigate_to(node)` - **HIGH-LEVEL**: Navigate to specified node (recommended for most scripts)
-- `ensure_navigation_tree_loaded()` - **MID-LEVEL**: Ensure tree loaded for low-level operations
+- **Manual Tree Loading** - **MID-LEVEL**: Load navigation tree for low-level operations (see examples below)
 
 ### Context Functions  
 - `get_device()` - Get current device object
@@ -133,17 +133,50 @@ main._script_args = [
 success = navigate_to("home")  # Handles everything automatically
 ```
 
-**🔧 MID-LEVEL (Tree Access)**: Use `ensure_navigation_tree_loaded()` for complex logic
+**🔧 MID-LEVEL (Manual Tree Loading)**: Load navigation tree for complex logic
 ```python
-if not ensure_navigation_tree_loaded():
+# Pattern 1: Load tree at start (like goto_live.py, fullzap.py)
+context = get_context()
+device = get_device()
+args = get_args()
+
+nav_result = device.navigation_executor.load_navigation_tree(
+    args.userinterface_name, 
+    context.team_id
+)
+if not nav_result['success']:
+    context.error_message = f"Navigation tree loading failed: {nav_result.get('error')}"
     return False
-# Now safe to access context.tree_id, context.nodes, etc.
+
+context.tree_id = nav_result['tree_id']
+# Now safe to use context.tree_id for navigation
+```
+
+```python
+# Pattern 2: Lazy loading (like validation.py)
+def ensure_tree_loaded(context):
+    if not context.tree_id:
+        device = context.selected_device
+        args = context.args
+        nav_result = device.navigation_executor.load_navigation_tree(
+            args.userinterface_name, 
+            context.team_id
+        )
+        if not nav_result['success']:
+            return False
+        context.tree_id = nav_result['tree_id']
+    return True
+
+# Usage:
+if not ensure_tree_loaded(context):
+    return False
+# Now safe to access context.tree_id
 ```
 
 **⚙️ LOW-LEVEL (Expert)**: Direct service access for advanced scenarios
 ```python
 # Only use if you need complex pathfinding or validation algorithms
-# MUST call ensure_navigation_tree_loaded() first!
+# MUST load navigation tree first using one of the patterns above!
 ```
 
 See `/docs/NAVIGATION_ARCHITECTURE_GUIDE.md` for detailed guidance.
@@ -168,6 +201,68 @@ SCRIPT_REPORT_URL:http://host/reports/script_123.html
 4. **Return boolean** - `True` for success, `False` for failure
 5. **Define arguments in script** - Use `main._script_args = [...]` pattern
 6. **Script-specific logic** - Keep complex logic in the script file, not decorators
+
+## Navigation Tree Loading Requirements
+
+**CRITICAL**: Scripts that use `NavigationExecutor` directly (not through `navigate_to()`) **MUST** load the navigation tree first.
+
+### ✅ Scripts That Handle This Correctly
+- **`goto_live.py`** - Loads tree at start
+- **`goto.py`** - Loads tree at start  
+- **`validation.py`** - Uses lazy loading pattern
+
+### ❌ Common Issue: Missing Tree Loading
+```python
+# WRONG - This will fail with "root_tree_id is None!"
+@script("my_script", "Description")
+def main():
+    context = get_context()
+    # Missing: nav_result = device.navigation_executor.load_navigation_tree(...)
+    
+    result = context.selected_device.navigation_executor.execute_navigation(
+        tree_id=context.tree_id,  # ← This is None!
+        target_node_label="home",
+        team_id=context.team_id,
+        context=context
+    )
+```
+
+### ✅ Correct Pattern
+```python
+# CORRECT - Load tree first
+@script("my_script", "Description") 
+def main():
+    context = get_context()
+    device = get_device()
+    args = get_args()
+    
+    # Load navigation tree FIRST
+    nav_result = device.navigation_executor.load_navigation_tree(
+        args.userinterface_name, 
+        context.team_id
+    )
+    if not nav_result['success']:
+        context.error_message = f"Navigation tree loading failed: {nav_result.get('error')}"
+        return False
+    
+    context.tree_id = nav_result['tree_id']
+    
+    # Now navigation will work
+    result = device.navigation_executor.execute_navigation(
+        tree_id=context.tree_id,  # ← Now this has a value!
+        target_node_label="home",
+        team_id=context.team_id,
+        context=context
+    )
+```
+
+### 🎯 Recommended: Use High-Level Helper Instead
+```python
+# BEST - Let navigate_to() handle tree loading automatically
+@script("my_script", "Description")
+def main():
+    return navigate_to("home")  # Handles tree loading internally
+```
 
 ## Common Pitfalls to Avoid
 

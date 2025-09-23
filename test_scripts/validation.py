@@ -46,6 +46,59 @@ def _get_validation_plan(context):
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
+def capture_validation_summary(context, userinterface_name: str, max_iteration: int = None) -> str:
+    """Capture validation summary as text for report - adapted from original comprehensive version"""
+    
+    # Get basic stats from context
+    total_steps = getattr(context, 'validation_total_steps', 0)
+    successful_steps = getattr(context, 'validation_successful_steps', 0)
+    failed_steps = total_steps - successful_steps if total_steps > 0 else 0
+    
+    lines = []
+    lines.append("-"*60)
+    lines.append("🎯 [VALIDATION] EXECUTION SUMMARY")
+    lines.append("-"*60)
+    
+    # Handle case where setup failed and device/host are None
+    if context.selected_device:
+        lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    else:
+        lines.append(f"📱 Device: Setup failed - no device selected")
+    
+    if context.host:
+        lines.append(f"🖥️  Host: {context.host.host_name}")
+    else:
+        lines.append(f"🖥️  Host: Setup failed - no host available")
+    
+    lines.append(f"📋 Interface: {userinterface_name}")
+    lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    
+    # Add max_iteration info if it was used
+    if max_iteration is not None:
+        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (executed {total_steps} steps)")
+    
+    lines.append(f"📊 Steps: {successful_steps}/{total_steps} steps successful")
+    lines.append(f"✅ Successful: {successful_steps}")
+    lines.append(f"❌ Failed: {failed_steps}")
+    lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
+    
+    # Calculate coverage safely to avoid division by zero
+    if total_steps > 0:
+        coverage = (successful_steps / total_steps * 100)
+        lines.append(f"🎯 Coverage: {coverage:.1f}%")
+    else:
+        lines.append(f"🎯 Coverage: 0.0% (no steps executed)")
+    
+    lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
+    
+    if context.error_message:
+        lines.append(f"\n❌ Error: {context.error_message}")
+    
+    lines.append("-"*60)
+    
+    return "\n".join(lines)
+
+
 def validate_with_recovery(max_iteration: int = None) -> bool:
     """Execute validation - test all transitions using NavigationExecutor directly"""
     context = get_context()
@@ -85,8 +138,10 @@ def validate_with_recovery(max_iteration: int = None) -> bool:
         else:
             print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
     
-    # Calculate success
+    # Calculate success and store stats for summary generation
     context.overall_success = successful == len(validation_sequence)
+    context.validation_successful_steps = successful
+    context.validation_total_steps = len(validation_sequence)
     coverage = (successful / len(validation_sequence) * 100) if validation_sequence else 0
     
     print(f"🎉 [validation] Results: {successful}/{len(validation_sequence)} successful ({coverage:.1f}%)")
@@ -96,8 +151,17 @@ def validate_with_recovery(max_iteration: int = None) -> bool:
 @script("validation", "Validate navigation tree transitions")
 def main():
     """Main validation function - simple and clean"""
+    context = get_context()
     args = get_args()
-    return validate_with_recovery(args.max_iteration)
+    
+    # Execute validation
+    result = validate_with_recovery(args.max_iteration)
+    
+    # Always capture summary for report (regardless of success/failure)
+    summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
+    context.execution_summary = summary_text
+    
+    return result
 
 
 # Define script-specific arguments

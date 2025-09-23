@@ -93,7 +93,7 @@ class ZapExecutor:
         else:
             return 40
     
-    def analyze_after_zap(self, iteration: int, action_command: str, context) -> ZapAnalysisResult:
+    def analyze_after_zap(self, iteration: int, action_command: str, context, action_start_time: float = None) -> ZapAnalysisResult:
         """Perform comprehensive analysis after a zap action"""
         result = ZapAnalysisResult()
         
@@ -148,8 +148,7 @@ class ZapExecutor:
             result.macroblock_details = macroblock_result
             
             if context and 'chup' in action_command.lower():
-                action_end_time = getattr(context, 'last_action_end_time', None)
-                zapping_result = self._analyze_zapping(context, iteration, action_command, action_end_time)
+                zapping_result = self._analyze_zapping(context, iteration, action_command, action_start_time)
                 result.zapping_detected = zapping_result.get('zapping_detected', False)
                 result.zapping_details = zapping_result
             else:
@@ -201,6 +200,8 @@ class ZapExecutor:
         for iteration in range(1, max_iterations + 1):
             print(f"🎬 [ZapExecutor] Iteration {iteration}/{max_iterations}: {action_node}")
             
+            action_start_time = time.time()
+            
             # Use NavigationExecutor directly
             result = self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
@@ -211,7 +212,7 @@ class ZapExecutor:
             
             if result.get('success', False):
                 # Perform zap-specific analysis and record zap step
-                analysis_result = self.analyze_after_zap(iteration, action_node, context)
+                analysis_result = self.analyze_after_zap(iteration, action_node, context, action_start_time)
                 if analysis_result.success:
                     self.statistics.successful_iterations += 1
                 
@@ -309,7 +310,7 @@ class ZapExecutor:
         start_time = time.time()
         
         step_name = f"zap_iteration_{iteration}_{action_command}"
-        step_start_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"{step_name}_start", "zap")
+        step_start_screenshot_result = capture_and_upload_screenshot(context.selected_device, f"{step_name}_start", "zap")
         step_start_screenshot_path = step_start_screenshot_result.get('screenshot_path', '')
         
         if step_start_screenshot_path:
@@ -329,7 +330,7 @@ class ZapExecutor:
         context.last_action_end_time = end_time
         self.statistics.total_execution_time += execution_time
         
-        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, step_name, "zap")
+        screenshot_result = capture_and_upload_screenshot(context.selected_device, step_name, "zap")
         action_result['screenshot_path'] = screenshot_result['screenshot_path']
         action_result['screenshot_url'] = screenshot_result['screenshot_url']
         action_result['step_start_screenshot_path'] = step_start_screenshot_path
@@ -338,7 +339,7 @@ class ZapExecutor:
         time.sleep(4)
         
         analysis_step_name = f"zap_analysis_{iteration}_{action_command}"
-        analysis_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, analysis_step_name, "zap")
+        analysis_screenshot_result = capture_and_upload_screenshot(context.selected_device, analysis_step_name, "zap")
         print(f"📸 [ZapExecutor] Captured clean screenshot for analysis: {analysis_screenshot_result['screenshot_path']}")
         
         analysis_result = self.analyze_after_zap(iteration, action_command, context)
@@ -395,7 +396,7 @@ class ZapExecutor:
         context.add_screenshot(screenshot_result['screenshot_path'])
         
         # Step end screenshot
-        step_end_screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"{step_name}_end", "zap")
+        step_end_screenshot_result = capture_and_upload_screenshot(context.selected_device, f"{step_name}_end", "zap")
         step_end_screenshot_path = step_end_screenshot_result.get('screenshot_path', '')
         
         if step_end_screenshot_path:
@@ -422,7 +423,7 @@ class ZapExecutor:
             time.sleep(3)
 
             iteration = getattr(context, 'current_iteration', 1)
-            screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, f"motion_analysis_{iteration}", "zap")
+            screenshot_result = capture_and_upload_screenshot(context.selected_device, f"motion_analysis_{iteration}", "zap")
 
             # Use device's existing VerificationExecutor (preserves state)
             verification_executor = self.device.verification_executor
@@ -580,7 +581,7 @@ class ZapExecutor:
                 print(f"🎤 [ZapExecutor] AudioAIHelpers import failed: {e}")
                 return {"success": False, "message": "AudioAIHelpers not available"}
             
-            audio_ai = AudioAIHelpers(av_controller, f"ZapExecutor-{device_id}")
+            audio_ai = AudioAIHelpers(av_controller, f"ZapExecutor-{self.device.device_id}")
             
             # Get recent audio segments - OPTIMIZED: reduced segments for faster processing
             print(f"🎤 [ZapExecutor] Retrieving recent audio segments...")
@@ -701,7 +702,7 @@ class ZapExecutor:
     
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py
     
-    def _analyze_zapping(self, context, iteration: int, action_command: str, action_end_time: float = None) -> Dict[str, Any]:
+    def _analyze_zapping(self, context, iteration: int, action_command: str, action_start_time: float = None) -> Dict[str, Any]:
         """Smart zapping analysis - learn on first success, then stick with that method."""
         
         print(f"🔍 [ZapExecutor] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
@@ -710,14 +711,14 @@ class ZapExecutor:
         if self.learned_detection_method:
             print(f"🧠 [ZapExecutor] Using learned method: {self.learned_detection_method}")
             if self.learned_detection_method == 'freeze':
-                zapping_result = self._try_freeze_detection(context, iteration, action_command, action_end_time)
+                zapping_result = self._try_freeze_detection(context, iteration, action_command, action_start_time)
                 if not zapping_result.get('zapping_detected', False):
                     # Update error message to show which method failed
                     zapping_result['message'] = "Zapping Detection: ❌ NOT DETECTED"
                     zapping_result['details'] = "No freeze detected"
                 return zapping_result
             else:
-                zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
+                zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_start_time)
                 if not zapping_result.get('zapping_detected', False):
                     # Update error message to show which method failed
                     zapping_result['message'] = "Zapping Detection: ❌ NOT DETECTED"
@@ -726,7 +727,7 @@ class ZapExecutor:
         
         # First time or no method learned yet - try blackscreen first
         print(f"🔍 [ZapExecutor] Learning phase - trying blackscreen first...")
-        zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_end_time)
+        zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_start_time)
         
         # If blackscreen succeeds, learn it
         if zapping_result.get('zapping_detected', False):
@@ -736,7 +737,7 @@ class ZapExecutor:
         
         # If blackscreen fails, try freeze as fallback
         print(f"🔄 [ZapExecutor] Blackscreen failed, trying freeze...")
-        zapping_result = self._try_freeze_detection(context, iteration, action_command, action_end_time)
+        zapping_result = self._try_freeze_detection(context, iteration, action_command, action_start_time)
         
         # If freeze succeeds, learn it
         if zapping_result.get('zapping_detected', False):
@@ -761,7 +762,7 @@ class ZapExecutor:
                 from backend_host.src.controllers.verification.video_content_helpers import VideoContentHelpers
                 content_helpers = VideoContentHelpers(av_controller, "ZapExecutor")
                 
-                key_release_timestamp = context.last_action_start_time
+                key_release_timestamp = action_start_time or time.time()
                 image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=max_images)
                 
                 if image_data:
@@ -789,7 +790,7 @@ class ZapExecutor:
             "analysis_log": analysis_log
         }
     
-    def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
+    def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_start_time: float) -> Dict[str, Any]:
         """Try blackscreen detection method - extracted existing logic."""
         try:
             print(f"⬛ [ZapExecutor] Trying blackscreen detection...")
@@ -809,7 +810,7 @@ class ZapExecutor:
                 return {"success": False, "message": "No capture folder available"}
             
             # Use action start time to catch blackscreen that happens during the action
-            key_release_timestamp = context.last_action_start_time
+            key_release_timestamp = action_start_time or time.time()
             
             # Get analysis areas (same as original)
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
@@ -914,7 +915,7 @@ class ZapExecutor:
                 "details": f"Blackscreen detection error: {str(e)}"
             }
     
-    def _try_freeze_detection(self, context, iteration: int, action_command: str, action_end_time: float) -> Dict[str, Any]:
+    def _try_freeze_detection(self, context, iteration: int, action_command: str, action_start_time: float) -> Dict[str, Any]:
         """Try freeze detection method - SAME workflow as blackscreen detection."""
         try:
             print(f"🧊 [ZapExecutor] Trying freeze detection...")
@@ -935,7 +936,7 @@ class ZapExecutor:
                 return {"success": False, "message": "No capture folder available"}
             
             # Use action start time (same as blackscreen)
-            key_release_timestamp = context.last_action_start_time
+            key_release_timestamp = action_start_time or time.time()
             
             # Use same areas as blackscreen detection
             device_model = context.selected_device.device_model if context.selected_device else 'unknown'
