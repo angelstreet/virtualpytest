@@ -78,15 +78,11 @@ def script(name: str, description: str):
             # Set global context for helper functions
             _current_context = context
             _current_executor = executor
-            
-            # Store args in context for access
             context.args = args
             
             try:
-                # Execute user's business logic
                 result = func()
-                
-                # Auto-determine success
+            
                 if result is None or result is True:
                     executor.test_success(context)
                 else:
@@ -104,12 +100,9 @@ def script(name: str, description: str):
         return wrapper
     return decorator
 
-# PUBLIC: Helper functions for scripts
 def get_device():
     """Get current device"""
     return _current_context.selected_device
-
-
 
 def get_args():
     """Get parsed command line arguments"""
@@ -123,5 +116,3 @@ def _get_context():
 def _get_executor():
     """PRIVATE: Get current script executor"""
     return _current_executor
-
-
