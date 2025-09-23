@@ -218,6 +218,9 @@ class ZapExecutor:
                 analysis_result = self.analyze_after_zap(iteration, action_node, context, action_start_time)
                 if analysis_result.success:
                     self.statistics.successful_iterations += 1
+                    
+                    # Print detailed analysis results (restore main branch functionality)
+                    self._print_analysis_results(analysis_result)
                 
                 # Store analysis result for reporting
                 self.statistics.analysis_results.append(analysis_result)
@@ -1039,3 +1042,60 @@ class ZapExecutor:
         
         return motion_images
     
+    def _print_analysis_results(self, analysis_result):
+        """Print detailed analysis results to console (restore main branch functionality)"""
+        print("\nAnalysis Results:")
+        
+        # Motion Detection
+        motion_status = "✅ DETECTED" if analysis_result.motion_detected else "❌ NOT DETECTED"
+        print(f"Motion Detection: {motion_status}")
+        if analysis_result.motion_details.get('message'):
+            print(f"Details: {analysis_result.motion_details.get('message')}")
+        
+        # Subtitle Detection
+        subtitle_status = "✅ DETECTED" if analysis_result.subtitles_detected else "❌ NOT DETECTED"
+        print(f"Subtitle Detection: {subtitle_status}")
+        if analysis_result.subtitles_detected:
+            if analysis_result.detected_language:
+                print(f"Language: {analysis_result.detected_language}")
+            if analysis_result.extracted_text:
+                text_preview = analysis_result.extracted_text[:100] + "..." if len(analysis_result.extracted_text) > 100 else analysis_result.extracted_text
+                print(f"Text: {text_preview}")
+        else:
+            print("Details: AI Subtitles not detected")
+        
+        # Audio Speech Detection
+        audio_status = "✅ DETECTED" if analysis_result.audio_speech_detected else "❌ NOT DETECTED"
+        print(f"Audio Speech Detection: {audio_status}")
+        if analysis_result.audio_speech_detected:
+            if analysis_result.audio_transcript:
+                transcript_preview = analysis_result.audio_transcript[:50] + "..." if len(analysis_result.audio_transcript) > 50 else analysis_result.audio_transcript
+                language_info = f" ({analysis_result.audio_language})" if analysis_result.audio_language and analysis_result.audio_language != 'unknown' else ""
+                print(f"Details: Speech detected: '{transcript_preview}'{language_info}")
+        else:
+            # Check if there's a message from audio analysis
+            audio_message = analysis_result.audio_details.get('message', 'Audio analysis completed: 0/1 segments with speech')
+            print(f"Details: {audio_message}")
+        
+        # Zapping Detection (only for chup actions)
+        if 'chup' in analysis_result.message.lower():
+            zapping_status = "✅ DETECTED" if analysis_result.zapping_detected else "❌ NOT DETECTED"
+            print(f"Zapping Detection: {zapping_status}")
+            if analysis_result.zapping_detected:
+                duration_info = f"duration: {analysis_result.blackscreen_duration:.2f}s" if analysis_result.blackscreen_duration > 0 else "duration: N/A"
+                print(f"Details: Zapping detected ({duration_info})")
+                if analysis_result.channel_name:
+                    channel_info = analysis_result.channel_name
+                    if analysis_result.channel_number:
+                        channel_info += f" ({analysis_result.channel_number})"
+                    if analysis_result.program_name:
+                        channel_info += f" - {analysis_result.program_name}"
+                    print(f"Channel: {channel_info}")
+                    if analysis_result.program_start_time and analysis_result.program_end_time:
+                        print(f"Program Time: {analysis_result.program_start_time}-{analysis_result.program_end_time}")
+            else:
+                # Show failure reason from zapping details
+                zapping_message = analysis_result.zapping_details.get('message', 'Zapping not detected')
+                print(f"Details: {zapping_message}")
+        
+        print()  # Add blank line after analysis results
