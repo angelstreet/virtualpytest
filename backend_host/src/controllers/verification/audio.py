@@ -660,7 +660,7 @@ class AudioVerificationController(VerificationControllerInterface):
                 details = result
                 
             # Map AI description commands to existing audio detection (MINIMAL CHANGES)
-            elif command in ['DetectAudioPresence', 'WaitForAudioToStart', 'VerifyAudioQuality', 'DetectAudioSpeech']:
+            elif command in ['DetectAudioPresence', 'WaitForAudioToStart', 'VerifyAudioQuality']:
                 # Use existing detect_motion_from_json which analyzes recent audio segments
                 json_count = int(params.get('json_count', 5))
                 strict_mode = params.get('strict_mode', False)  # Less strict for general audio detection
@@ -669,6 +669,32 @@ class AudioVerificationController(VerificationControllerInterface):
                 success = result.get('audio_ok', False)
                 message = f"Audio {'detected' if success else 'not detected'} using existing analysis"
                 details = result
+                
+            elif command == 'DetectAudioSpeech':
+                # Use AudioAIHelpers for actual speech detection with Whisper (same as main branch)
+                try:
+                    from backend_host.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
+                    audio_ai = AudioAIHelpers(self.av_controller, self.device_name)
+                    
+                    # Get recent audio segments and analyze with AI
+                    segment_count = int(params.get('json_count', 3))  # Use json_count param for consistency
+                    audio_files = audio_ai.get_recent_audio_segments(segment_count=segment_count)
+                    if audio_files:
+                        analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=False)
+                        success = analysis.get('success', False) and bool(analysis.get('combined_transcript', '').strip())
+                        transcript = analysis.get('combined_transcript', '')
+                        language = analysis.get('detected_language', 'unknown')
+                        message = f"Speech {'detected' if success else 'not detected'}: '{transcript[:50]}...' ({language})" if success else "No speech detected"
+                        details = analysis
+                    else:
+                        success = False
+                        message = "No audio segments available for speech detection"
+                        details = {'error': 'No audio segments'}
+                        
+                except ImportError:
+                    success = False
+                    message = "AudioAI not available for speech detection"
+                    details = {'error': 'AudioAI not available'}
                 
             elif command == 'WaitForAudioToStop':
                 # For audio stop, use strict mode to detect silence
