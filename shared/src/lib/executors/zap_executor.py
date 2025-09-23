@@ -108,7 +108,7 @@ class ZapExecutor:
             batch_result = self._execute_verification_batch(context, verification_configs)
             
             # Map results to ZapAnalysisResult
-            if batch_result.get('success') and batch_result.get('results'):
+            if batch_result.get('results'):
                 for i, verification_result in enumerate(batch_result['results']):
                     config = verification_configs[i]
                     analysis_type = config.get('analysis_type')
