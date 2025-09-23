@@ -10,7 +10,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, navigate_to, get_device, get_args
+from shared.src.lib.executors.script_decorators import script, navigate_to, get_device, get_args, _get_context
 
 def print_fullzap_summary(context, userinterface_name: str):
     device = get_device()
@@ -59,8 +59,26 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
     context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in device.device_model.lower() else "live_audiomenu"
     
     try:
-        # Use ZapExecutor directly for zap-specific functionality
-        zap_success = zap_controller.execute_zap_iterations_simple(mapped_action, max_iteration)
+        # Get the action edge for the zap action
+        context = _get_context()
+        
+        # Find the action edge that matches our mapped_action
+        action_edge = None
+        for edge in context.edges:
+            edge_actions = edge.get('actions', [])
+            for action in edge_actions:
+                if action.get('action_command') == mapped_action:
+                    action_edge = edge
+                    break
+            if action_edge:
+                break
+        
+        if not action_edge:
+            print(f"❌ [fullzap] No action edge found for command: {mapped_action}")
+            zap_success = False
+        else:
+            # Use ZapExecutor with the found action edge
+            zap_success = zap_controller.execute_zap_iterations(context, action_edge, mapped_action, max_iteration, goto_live)
     except Exception as e:
         print(f"❌ [fullzap] Zap execution failed: {e}")
         zap_success = False
