@@ -68,11 +68,8 @@ class NavigationExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
-        
-        # Navigation state tracking - REMOVED: Now using device.navigation_context
-        
-        # Initialized for device: {self.device_id}, model: {self.device_model}
-    
+        self.unified_graph = None
+      
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """Get available navigation context using cache when possible"""
         # First check if we have a cached unified graph for this interface
@@ -568,6 +565,9 @@ class NavigationExecutor:
             
             print(f"✅ [NavigationExecutor] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
             
+            # Store unified graph for direct access
+            self.unified_graph = unified_graph
+            
             # 5. Return result compatible with script executor expectations
             return {
                 'success': True,
@@ -890,6 +890,15 @@ class NavigationExecutor:
             'current_node_label': nav_context['current_node_label'],
             'current_tree_id': nav_context['current_tree_id']
         }
+    
+    def find_node_id(self, node_label: str) -> str:
+        """Find node_id by label using loaded unified graph"""
+        if not self.unified_graph:
+            raise ValueError("Unified graph not loaded - call load_navigation_tree() first")
+        for node_id, node_data in self.unified_graph.nodes(data=True):
+            if node_data.get('label', '') == node_label and node_data.get('node_type') != 'action':
+                return node_id
+        raise ValueError(f"Node with label '{node_label}' not found in navigation graph")
     
     def update_current_position(self, node_id: str, tree_id: str = None, node_label: str = None) -> Dict[str, Any]:
         """Update current navigation position for this device"""

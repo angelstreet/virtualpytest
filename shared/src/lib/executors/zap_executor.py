@@ -174,9 +174,11 @@ class ZapExecutor:
         self.statistics.total_iterations = max_iterations
         context = get_context()
         
-        # 1. Handle goto_live if required
+        # 1. Get navigation nodes
+        live_node, action_node = self._get_navigation_nodes(action)
+        
+        # 2. Handle goto_live if required
         if goto_live:
-            live_node = self._determine_live_node()
             print(f"🎯 [ZapExecutor] Navigating to live: {live_node}")
             
             # Use NavigationExecutor directly
@@ -191,9 +193,22 @@ class ZapExecutor:
                 print(f"❌ [ZapExecutor] Failed to navigate to {live_node}")
                 return False
             print(f"✅ [ZapExecutor] Navigated to {live_node}")
+        else:
+            # goto_live=false: Set device context to live position without navigation
+            print(f"🎯 [ZapExecutor] Setting device position to {live_node} (goto_live=false)")
+            
+            # Resolve label to actual node_id using loaded tree
+            actual_node_id = self.device.navigation_executor.find_node_id(live_node)
+            if actual_node_id:
+                self.device.navigation_executor.update_current_position(
+                    node_id=actual_node_id,
+                    tree_id=context.tree_id,
+                    node_label=live_node
+                )
+                print(f"✅ [ZapExecutor] Device position set to: {live_node}")
+            else:
+                print(f"⚠️ [ZapExecutor] Could not find node_id for label: {live_node}")
         
-        # 2. Determine action node for zapping
-        action_node = self._determine_action_node(action)
         print(f"🎬 [ZapExecutor] Zap action node: {action_node}")
         
         # 3. Execute zap iterations
@@ -258,19 +273,15 @@ class ZapExecutor:
         except Exception as e:
             print(f"⚠️ [ZapExecutor] Failed to generate summary: {e}")
     
-    def _determine_live_node(self) -> str:
-        """Determine live node based on device type"""
+    def _get_navigation_nodes(self, action: str) -> tuple[str, str]:
+        """Get live node and action node based on device type"""
         if "mobile" in self.device.device_model.lower():
-            return "live_fullscreen"
+            live_node = "live_fullscreen"
+            action_node = f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
         else:
-            return "live"
-    
-    def _determine_action_node(self, action: str) -> str:
-        """Determine action node based on device type and action"""
-        if "mobile" in self.device.device_model.lower():
-            return f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
-        else:
-            return action
+            live_node = "live"
+            action_node = action
+        return live_node, action_node
     
     def _analyze_audio_menu(self, context):
         """Perform audio menu analysis"""
