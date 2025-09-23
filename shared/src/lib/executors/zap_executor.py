@@ -14,7 +14,6 @@ import json
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
-from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
 from shared.src.lib.utils.zap_statistics import ZapStatistics
 from shared.src.lib.utils.zap_utils import (
     create_blackscreen_analysis_log,
@@ -449,7 +448,7 @@ class ZapExecutor:
             result.zapping_details = verification_result
     
 
-    # Audio menu analysis moved to dedicated audio_menu_analyzer.py
+    # Audio menu analysis integrated into ZapExecutor using VerificationExecutor
     
     def _analyze_zapping(self, context, iteration: int, action_command: str, action_start_time: float = None) -> Dict[str, Any]:
         """Smart zapping analysis - learn on first success, then stick with that method."""
