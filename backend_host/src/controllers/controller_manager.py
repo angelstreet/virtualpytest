@@ -13,7 +13,7 @@ from backend_host.src.controllers.controller_config_factory import create_contro
 
 # Import controller classes
 from backend_host.src.controllers.audiovideo.hdmi_stream import HDMIStreamController
-from backend_host.src.controllers.verification.vnc_stream import VNCStreamController
+from backend_host.src.controllers.audiovideo.vnc_stream import VNCStreamController
 from backend_host.src.controllers.audiovideo.camera_stream import CameraStreamController
 from backend_host.src.controllers.remote.android_mobile import AndroidMobileRemoteController
 from backend_host.src.controllers.remote.android_tv import AndroidTVRemoteController
