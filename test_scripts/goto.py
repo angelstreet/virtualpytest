@@ -24,7 +24,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, get_context, get_args
+from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_device
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
@@ -52,15 +52,14 @@ def main():
     args = get_args()
     context = get_context()
     target_node = args.node
-    
+    device = get_device()
     print(f"🎯 [goto] Target node: {target_node}")
-    print(f"📱 [goto] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
+    print(f"📱 [goto] Device: {device.device_name} ({device.device_model})")
     
     # Load navigation tree
     nav_result = device.navigation_executor.load_navigation_tree(
         args.userinterface_name, 
-        context.team_id,
-        'goto'
+        context.team_id
     )
     if not nav_result['success']:
         context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"

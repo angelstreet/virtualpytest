@@ -816,8 +816,7 @@ class ScriptExecutor:
             # Load navigation tree if not already loaded
             nav_result = context.selected_device.navigation_executor.load_navigation_tree(
                 userinterface_name, 
-                context.team_id,
-                self.script_name
+                context.team_id
             )
             if not nav_result['success']:
                 context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"

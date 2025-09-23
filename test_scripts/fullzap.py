@@ -10,7 +10,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, get_device, get_args, _get_context
+from shared.src.lib.executors.script_decorators import script, get_device, get_args, get_context
 
 def print_fullzap_summary(context, userinterface_name: str):
     device = get_device()
@@ -52,7 +52,7 @@ def main():
     # Print zap summary table and fullzap summary
     from shared.src.lib.utils.zap_utils import print_zap_summary_table
     
-    context = _get_context()
+    context = get_context()
     print_zap_summary_table(context)  # This was removed - restored!
     print_fullzap_summary(context, args.userinterface_name)
     

@@ -122,7 +122,7 @@ class NavigationExecutor:
         
         # Cache miss - load tree hierarchy and populate cache
         print(f"[@navigation_executor] Cache miss for '{userinterface_name}' - loading tree hierarchy")
-        tree_result = self.load_navigation_tree(userinterface_name, team_id, "navigation_executor")
+        tree_result = self.load_navigation_tree(userinterface_name, team_id)
         
         # Fail fast - no fallback
         if not tree_result['success']:
@@ -479,7 +479,7 @@ class NavigationExecutor:
     # NAVIGATION TREE MANAGEMENT METHODS
     # ========================================
     
-    def load_navigation_tree(self, userinterface_name: str, team_id: str, script_name: str = "navigation_executor") -> Dict[str, Any]:
+    def load_navigation_tree(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """
         Load navigation tree and populate unified cache.
         This is the unified function that always works for both simple and nested trees.
@@ -487,7 +487,6 @@ class NavigationExecutor:
         Args:
             userinterface_name: Interface name (e.g., 'horizon_android_mobile')
             team_id: Team ID (required)
-            script_name: Name of the script for logging
             
         Returns:
             Dictionary with success status and tree data
@@ -496,7 +495,7 @@ class NavigationExecutor:
             NavigationTreeError: If any part of the loading fails
         """
         try:
-            print(f"🗺️ [{script_name}] Loading navigation tree for '{userinterface_name}'")
+            print(f"🗺️ [NavigationExecutor] Loading navigation tree for '{userinterface_name}'")
             
             # 1. Load root tree data
             from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
@@ -542,31 +541,31 @@ class NavigationExecutor:
                 'edges': edges
             }
             
-            print(f"✅ [{script_name}] Root tree loaded: {root_tree_id}")
+            print(f"✅ [NavigationExecutor] Root tree loaded: {root_tree_id}")
             
             # 2. Discover complete tree hierarchy
-            hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id, script_name)
+            hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id)
             if not hierarchy_data:
                 # If no nested trees, create single-tree hierarchy
                 hierarchy_data = [self.format_tree_for_hierarchy(root_tree_result, is_root=True)]
-                print(f"📋 [{script_name}] No nested trees found, using single root tree")
+                print(f"📋 [NavigationExecutor] No nested trees found, using single root tree")
             else:
-                print(f"📋 [{script_name}] Found {len(hierarchy_data)} trees in hierarchy")
+                print(f"📋 [NavigationExecutor] Found {len(hierarchy_data)} trees in hierarchy")
             
             # 3. Build unified tree data structure
-            all_trees_data = self.build_unified_tree_data(hierarchy_data, script_name)
+            all_trees_data = self.build_unified_tree_data(hierarchy_data)
             if not all_trees_data:
                 raise NavigationTreeError("Failed to build unified tree data structure")
             
             # 4. Populate unified cache (MANDATORY)
-            print(f"🔄 [{script_name}] Populating unified cache...")
+            print(f"🔄 [NavigationExecutor] Populating unified cache...")
             from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
             unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
             if not unified_graph:
                 from backend_host.src.lib.utils.navigation_cache import UnifiedCacheError
                 raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
             
-            print(f"✅ [{script_name}] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+            print(f"✅ [NavigationExecutor] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
             
             # 5. Return result compatible with script executor expectations
             return {
@@ -600,14 +599,13 @@ class NavigationExecutor:
                 # FAIL EARLY - no fallback
                 return {'success': False, 'error': f"Navigation tree loading failed: {str(e)}"}
 
-    def discover_complete_hierarchy(self, root_tree_id: str, team_id: str, script_name: str = "navigation_executor") -> List[Dict]:
+    def discover_complete_hierarchy(self, root_tree_id: str, team_id: str) -> List[Dict]:
         """
         Discover all nested trees in hierarchy using enhanced database functions.
         
         Args:
             root_tree_id: Root tree ID
             team_id: Team ID
-            script_name: Script name for logging
             
         Returns:
             List of tree data dictionaries for the complete hierarchy
@@ -615,24 +613,24 @@ class NavigationExecutor:
         try:
             from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
             
-            print(f"🔍 [{script_name}] Discovering complete tree hierarchy using enhanced database function...")
+            print(f"🔍 [NavigationExecutor] Discovering complete tree hierarchy using enhanced database function...")
             
             # Use the new enhanced database function
             hierarchy_result = get_complete_tree_hierarchy(root_tree_id, team_id)
             if not hierarchy_result['success']:
-                print(f"⚠️ [{script_name}] Failed to get complete hierarchy: {hierarchy_result.get('error', 'Unknown error')}")
+                print(f"⚠️ [NavigationExecutor] Failed to get complete hierarchy: {hierarchy_result.get('error', 'Unknown error')}")
                 return []
             
             hierarchy_data = hierarchy_result['hierarchy']
             if not hierarchy_data:
-                print(f"📋 [{script_name}] Empty hierarchy returned from database")
+                print(f"📋 [NavigationExecutor] Empty hierarchy returned from database")
                 return []
             
             total_trees = hierarchy_result.get('total_trees', len(hierarchy_data))
             max_depth = hierarchy_result.get('max_depth', 0)
             has_nested = hierarchy_result.get('has_nested_trees', False)
             
-            print(f"✅ [{script_name}] Complete hierarchy discovered:")
+            print(f"✅ [NavigationExecutor] Complete hierarchy discovered:")
             print(f"   • Total trees: {total_trees}")
             print(f"   • Maximum depth: {max_depth}")
             print(f"   • Has nested trees: {has_nested}")
@@ -641,7 +639,7 @@ class NavigationExecutor:
             return hierarchy_data
             
         except Exception as e:
-            print(f"❌ [{script_name}] Error discovering hierarchy: {str(e)}")
+            print(f"❌ [NavigationExecutor] Error discovering hierarchy: {str(e)}")
             return []
 
     def format_tree_for_hierarchy(self, tree_data: Dict, tree_info: Dict = None, is_root: bool = False) -> Dict:
@@ -685,23 +683,22 @@ class NavigationExecutor:
                 'edges': tree_data['edges']
             }
 
-    def build_unified_tree_data(self, hierarchy_data: List[Dict], script_name: str = "navigation_executor") -> List[Dict]:
+    def build_unified_tree_data(self, hierarchy_data: List[Dict]) -> List[Dict]:
         """
         Build unified data structure for cache population.
         
         Args:
             hierarchy_data: List of formatted tree data
-            script_name: Script name for logging
             
         Returns:
             Data structure ready for create_unified_networkx_graph()
         """
         try:
             if not hierarchy_data:
-                print(f"⚠️ [{script_name}] No hierarchy data to build unified structure")
+                print(f"⚠️ [NavigationExecutor] No hierarchy data to build unified structure")
                 return []
             
-            print(f"🔧 [{script_name}] Building unified data structure from {len(hierarchy_data)} trees")
+            print(f"🔧 [NavigationExecutor] Building unified data structure from {len(hierarchy_data)} trees")
             
             # The hierarchy_data is already in the correct format for create_unified_networkx_graph
             # Just validate and return
@@ -711,11 +708,11 @@ class NavigationExecutor:
                     if key not in tree_data:
                         raise NavigationTreeError(f"Missing required key '{key}' in tree data")
             
-            print(f"✅ [{script_name}] Unified data structure validated")
+            print(f"✅ [NavigationExecutor] Unified data structure validated")
             return hierarchy_data
             
         except Exception as e:
-            print(f"❌ [{script_name}] Error building unified data: {str(e)}")
+            print(f"❌ [NavigationExecutor] Error building unified data: {str(e)}")
             return []
 
 

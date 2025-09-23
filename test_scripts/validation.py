@@ -21,7 +21,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, get_args, _get_context
+from shared.src.lib.executors.script_decorators import script, get_args, get_context
 
 
 def _get_validation_plan(context):
@@ -34,8 +34,7 @@ def _get_validation_plan(context):
         args = context.args
         nav_result = device.navigation_executor.load_navigation_tree(
             args.userinterface_name, 
-            context.team_id,
-            'validation'
+            context.team_id
         )
         if not nav_result['success']:
             print(f"❌ [_get_validation_plan] Navigation tree loading failed")
@@ -49,7 +48,7 @@ def _get_validation_plan(context):
 
 def validate_with_recovery(max_iteration: int = None) -> bool:
     """Execute validation - test all transitions using NavigationExecutor directly"""
-    context = _get_context()
+    context = get_context()
     
     # Get validation plan
     validation_sequence = _get_validation_plan(context)

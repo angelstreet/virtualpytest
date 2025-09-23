@@ -104,15 +104,10 @@ def get_device():
     """Get current device"""
     return _current_context.selected_device
 
+def get_context():
+    """Get current execution context"""
+    return _current_context
+
 def get_args():
     """Get parsed command line arguments"""
     return _current_context.args
-
-# PRIVATE: Internal functions (scripts should not use these)
-def _get_context():
-    """PRIVATE: Get current execution context"""
-    return _current_context
-
-def _get_executor():
-    """PRIVATE: Get current script executor"""
-    return _current_executor

@@ -178,9 +178,7 @@ def main():
 context = executor.setup_execution_context(args, enable_db_tracking=True)
 
 # Load navigation tree once
-nav_result = context.selected_device.navigation_executor.load_navigation_tree(
-    userinterface_name, context.team_id, "validation"
-)
+nav_result = context.selected_device.navigation_executor.load_navigation_tree(userinterface_name, context.team_id)
 
 # Execute complex validation logic
 for step in validation_steps:

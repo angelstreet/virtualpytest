@@ -65,8 +65,7 @@ def main():
     # Load navigation tree
     nav_result = device.navigation_executor.load_navigation_tree(
         args.userinterface_name, 
-        context.team_id,
-        'goto_live'
+        context.team_id
     )
     if not nav_result['success']:
         context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"

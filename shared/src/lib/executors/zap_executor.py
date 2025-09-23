@@ -167,13 +167,13 @@ class ZapExecutor:
     
     def execute_zap_iterations(self, action: str, max_iterations: int, goto_live: bool = True, audio_analysis: bool = False) -> bool:
         """Execute complete zap workflow: goto_live → zap iterations → analysis"""
-        from shared.src.lib.executors.script_decorators import _get_context
+        from shared.src.lib.executors.script_decorators import get_context
         
         print(f"🔄 [ZapExecutor] Starting zap execution: {max_iterations} iterations of '{action}'")
         
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
-        context = _get_context()
+        context = get_context()
         
         # 1. Handle goto_live if required
         if goto_live:
