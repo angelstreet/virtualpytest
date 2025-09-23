@@ -22,11 +22,15 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, get_context, get_args
-from shared.src.lib.executors.script_executor import ScriptExecutionContext
-from shared.src.lib.executors.step_executor import StepExecutor
+from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_executor
 from datetime import datetime
 import time
+
+# Import types for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from shared.src.lib.executors.script_executor import ScriptExecutionContext
+    from shared.src.lib.executors.step_executor import StepExecutor
 
 
 def get_node_label_from_id(node_id: str, tree_id: str, team_id: str) -> str:
@@ -186,7 +190,7 @@ def _record_skipped_steps(context: ScriptExecutionContext, navigation_path: list
     print(f"⏭️  [validation] Marked {skipped_count} remaining steps as skipped")
 
 
-def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, context: ScriptExecutionContext, 
+def execute_validation_sequence_with_force_recovery(executor, context, 
                                                    navigation_path: list, custom_step_handler, max_iteration: int = None) -> bool:
     """
     Execute validation sequence with force navigation recovery - each step as top-level.
@@ -251,6 +255,7 @@ def execute_validation_sequence_with_force_recovery(executor: ScriptExecutor, co
             context.global_verification_counter += counter_increment
             
             # Create and record validation step using StepExecutor
+            from shared.src.lib.executors.step_executor import StepExecutor
             step_executor = StepExecutor(context)
             
             # Prepare validation result for StepExecutor
