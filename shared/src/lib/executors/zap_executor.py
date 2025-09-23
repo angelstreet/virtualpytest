@@ -165,36 +165,129 @@ class ZapExecutor:
         
         return result
     
-    def execute_zap_iterations(self, context, action_edge, action_command: str, max_iterations: int, goto_live: bool = True) -> bool:
-        """Execute multiple zap iterations with analysis - simple sequential recording"""
-        print(f"🔄 [ZapExecutor] Starting {max_iterations} iterations of '{action_command}'...")
+    def execute_zap_iterations(self, action: str, max_iterations: int, goto_live: bool = True, audio_analysis: bool = False) -> bool:
+        """Execute complete zap workflow: goto_live → zap iterations → analysis"""
+        from shared.src.lib.executors.script_decorators import navigate_to, _get_context
+        
+        print(f"🔄 [ZapExecutor] Starting zap execution: {max_iterations} iterations of '{action}'")
         
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
-        self.goto_live = goto_live
+        context = _get_context()
         
-        from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
-        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "pre_action", "zap")
-        if screenshot_result['success']:
-            context.add_screenshot(screenshot_result['screenshot_path'])
+        # 1. Handle goto_live if required
+        if goto_live:
+            live_node = self._determine_live_node()
+            print(f"🎯 [ZapExecutor] Navigating to live: {live_node}")
+            success = navigate_to(live_node)
+            if not success:
+                print(f"❌ [ZapExecutor] Failed to navigate to {live_node}")
+                return False
+            print(f"✅ [ZapExecutor] Navigated to {live_node}")
         
+        # 2. Determine action node for zapping
+        action_node = self._determine_action_node(action)
+        print(f"🎬 [ZapExecutor] Zap action node: {action_node}")
+        
+        # 3. Execute zap iterations
         for iteration in range(1, max_iterations + 1):
-            success = self._execute_single_zap(context, action_edge, action_command, iteration, max_iterations)
+            print(f"🎬 [ZapExecutor] Iteration {iteration}/{max_iterations}: {action_node}")
+            
+            # navigate_to() handles navigation screenshots and steps automatically
+            success = navigate_to(action_node)
+            
             if success:
-                self.statistics.successful_iterations += 1
+                # Perform zap-specific analysis and record zap step
+                analysis_result = self.analyze_after_zap(iteration, action_node, context)
+                if analysis_result.success:
+                    self.statistics.successful_iterations += 1
+                
+                # Record zap analysis step (separate from navigation step)
+                self._record_zap_step(context, iteration, action_node, analysis_result, max_iterations)
+            else:
+                print(f"❌ [ZapExecutor] Navigation to {action_node} failed")
         
-        screenshot_result = capture_and_upload_screenshot(context.host, context.selected_device, "post_action", "zap")
-        if screenshot_result['success']:
-            context.add_screenshot(screenshot_result['screenshot_path'])
+        # 4. Handle audio analysis if requested
+        if audio_analysis and self.device.device_model != 'host_vnc':
+            print(f"🎤 [ZapExecutor] Performing audio analysis...")
+            self._analyze_audio_menu(context)
         
-        self.statistics.print_summary(action_command)
-        self.statistics.store_in_context(context, action_command)
+        self.statistics.print_summary(action_node)
+        self.statistics.store_in_context(context, action_node)
         
         if self.learned_detection_method:
             method_emoji = "⬛" if self.learned_detection_method == "blackscreen" else "🧊"
             print(f"🧠 [ZapExecutor] Learned detection method: {method_emoji} {self.learned_detection_method}")
         
+        # Generate zap execution summary for reporting (like goto_live.py does)
+        self._generate_zap_summary(context, action, max_iterations)
+        
         return self.statistics.successful_iterations == max_iterations
+    
+    def _generate_zap_summary(self, context, action: str, max_iterations: int):
+        """Generate zap execution summary for reporting"""
+        try:
+            lines = []
+            lines.append(f"🎯 [ZAP] EXECUTION SUMMARY")
+            lines.append(f"📱 Device: {self.device.device_name} ({self.device.device_model})")
+            lines.append(f"🎬 Action: {action}")
+            lines.append(f"🔄 Iterations: {self.statistics.successful_iterations}/{max_iterations}")
+            lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+            lines.append(f"📊 Success Rate: {(self.statistics.successful_iterations/max_iterations)*100:.1f}%")
+            
+            if self.learned_detection_method:
+                method_emoji = "⬛" if self.learned_detection_method == "blackscreen" else "🧊"
+                lines.append(f"🧠 Detection Method: {method_emoji} {self.learned_detection_method}")
+            
+            context.execution_summary = "\n".join(lines)
+            
+        except Exception as e:
+            print(f"⚠️ [ZapExecutor] Failed to generate summary: {e}")
+    
+    def _determine_live_node(self) -> str:
+        """Determine live node based on device type"""
+        if "mobile" in self.device.device_model.lower():
+            return "live_fullscreen"
+        else:
+            return "live"
+    
+    def _determine_action_node(self, action: str) -> str:
+        """Determine action node based on device type and action"""
+        if "mobile" in self.device.device_model.lower():
+            return f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
+        else:
+            return action
+    
+    def _analyze_audio_menu(self, context):
+        """Perform audio menu analysis"""
+        try:
+            from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
+            context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in self.device.device_model.lower() else "live_audiomenu"
+            audio_result = analyze_audio_menu(context)
+            context.custom_data['audio_menu_analysis'] = audio_result
+            print(f"✅ [ZapExecutor] Audio analysis completed")
+        except Exception as e:
+            print(f"❌ [ZapExecutor] Audio analysis failed: {e}")
+    
+    def _record_zap_step(self, context, iteration: int, action_node: str, analysis_result, max_iterations: int):
+        """Record zap analysis step using StepExecutor"""
+        try:
+            from shared.src.lib.executors.step_executor import StepExecutor
+            step_executor = StepExecutor(context)
+            
+            # Create zap step with analysis results
+            zap_step = step_executor.create_zap_step(
+                iteration=iteration,
+                action_command=action_node,
+                analysis_result=analysis_result.to_dict(),
+                max_iterations=max_iterations
+            )
+            
+            # Record step in context
+            context.record_step_dict(zap_step)
+            
+        except Exception as e:
+            print(f"⚠️ [ZapExecutor] Failed to record zap step: {e}")
     
     def _execute_single_zap(self, context, action_edge, action_command: str, iteration: int, max_iterations: int) -> bool:
         """Execute a single zap iteration with timing and analysis"""

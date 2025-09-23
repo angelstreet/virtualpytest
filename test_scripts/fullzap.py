@@ -30,51 +30,13 @@ def print_fullzap_summary(context, userinterface_name: str):
     print("="*60)
 
 def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_live: bool = True, audio_analysis: bool = False) -> bool:
-    from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
+    from shared.src.lib.executors.zap_executor import ZapExecutor
     
     device = get_device()
     
-    # Determine target based on device (same logic as goto_live.py)
-    if "mobile" in device.device_model.lower():
-        target_node = "live_fullscreen"
-        action_node = f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
-    else:
-        target_node = "live"
-        action_node = action
-    
-    # Navigate to live first (if requested)
-    if goto_live:
-        success = navigate_to(target_node)
-        if not success:
-            print(f"❌ [fullzap] Failed to navigate to {target_node}")
-            return False
-        print(f"✅ [fullzap] Navigated to {target_node}")
-    
-    # Execute zap iterations by navigating to action node repeatedly
-    print(f"🔄 [fullzap] Starting {max_iteration} iterations of '{action_node}'...")
-    
-    successful_iterations = 0
-    for iteration in range(1, max_iteration + 1):
-        print(f"🎬 [fullzap] Iteration {iteration}/{max_iteration}: {action_node}")
-        
-        success = navigate_to(action_node)
-        if success:
-            successful_iterations += 1
-            print(f"✅ [fullzap] Iteration {iteration} completed successfully")
-        else:
-            print(f"❌ [fullzap] Iteration {iteration} failed")
-    
-    zap_success = successful_iterations == max_iteration
-    print(f"📊 [fullzap] Completed {successful_iterations}/{max_iteration} iterations successfully")
-    
-    # Audio analysis if requested
-    if zap_success and audio_analysis and device.device_model != 'host_vnc':
-        context = _get_context()
-        context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in device.device_model.lower() else "live_audiomenu"
-        audio_result = analyze_audio_menu(context)
-        context.custom_data['audio_menu_analysis'] = audio_result
-    
-    return zap_success
+    # ZapExecutor handles complete zap workflow
+    zap_executor = ZapExecutor(device)
+    return zap_executor.execute_zap_iterations(action, max_iteration, goto_live, audio_analysis)
 
 @script("fullzap", "Execute zap iterations with analysis")
 def main():
@@ -87,8 +49,11 @@ def main():
         audio_analysis=args.audio_analysis
     )
     
-    # Print summary
+    # Print zap summary table and fullzap summary
+    from shared.src.lib.utils.zap_utils import print_zap_summary_table
+    
     context = _get_context()
+    print_zap_summary_table(context)  # This was removed - restored!
     print_fullzap_summary(context, args.userinterface_name)
     
     return success
