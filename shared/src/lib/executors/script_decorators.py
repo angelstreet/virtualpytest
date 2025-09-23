@@ -4,6 +4,7 @@ Ultra-simple decorator-based script execution
 """
 
 import functools
+import argparse
 from typing import Callable, Any
 from .script_executor import ScriptExecutor, handle_keyboard_interrupt, handle_unexpected_error
 
