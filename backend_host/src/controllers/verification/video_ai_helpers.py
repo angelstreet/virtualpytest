@@ -66,6 +66,10 @@ class VideoAIHelpers:
             Tuple of (extracted_text, detected_language, confidence)
         """
         try:
+            # Early validation - fail loudly if no image provided
+            if image is None:
+                raise ValueError(f"VideoAI[{self.device_name}]: ❌ CRITICAL ERROR - No image provided for AI subtitle analysis!")
+            
             # Use centralized AI utilities
             from shared.src.lib.utils.ai_utils import call_vision_ai
             

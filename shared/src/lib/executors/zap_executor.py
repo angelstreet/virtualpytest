@@ -397,7 +397,7 @@ class ZapExecutor:
         image_source_url = None
         if context.screenshot_paths:
             image_source_url = context.screenshot_paths[-1]
-            print(f"🔍 [ZapExecutor] Using context screenshot for verification: {latest_screenshot}")
+            print(f"🔍 [ZapExecutor] Using context screenshot for verification: {image_source_url}")
         
         return verification_executor.execute_verifications(verification_configs, 
                                                          image_source_url=image_source_url,
