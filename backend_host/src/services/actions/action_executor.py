@@ -594,6 +594,9 @@ class ActionExecutor:
             end_time = time.strftime("%H:%M:%S", time.localtime())
             print(f"[@lib:action_executor:_execute_single_action] [{end_time}] Wait completed after {action.get('command')}")
         
+        # Store the actual completion timestamp (after all iterations and waits)
+        action_completion_timestamp = time.time()
+        
         # Record execution to database (summary of all iterations)
         self._record_execution_to_database(
             success=all_iterations_successful,
@@ -602,6 +605,12 @@ class ActionExecutor:
             error_details={'iterations': iteration_results} if not all_iterations_successful else None,
             team_id=team_id
         )
+        
+        # Update navigation context with last action executed and precise completion timestamp
+        # This provides accurate timing for post-processing analysis
+        nav_context = self.device.navigation_context
+        nav_context['last_action_executed'] = action.get('command')
+        nav_context['last_action_timestamp'] = action_completion_timestamp
         
         # Return standardized result (same format as API)
         result_message = f"{action.get('command')}"

@@ -198,7 +198,7 @@ class ZapExecutor:
             print(f"🎯 [ZapExecutor] Setting device position to {live_node} (goto_live=false)")
             
             # Resolve label to actual node_id using loaded tree
-            actual_node_id = self.device.navigation_executor.find_node_id(live_node)
+            actual_node_id = self.device.navigation_executor.get_node_id(live_node)
             if actual_node_id:
                 self.device.navigation_executor.update_current_position(
                     node_id=actual_node_id,

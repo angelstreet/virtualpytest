@@ -207,7 +207,7 @@ class NavigationExecutor:
         target_node_id = None
         if self.unified_graph:
             try:
-                target_node_id = self.find_node_id(target_node_label)
+                target_node_id = self.get_node_id(target_node_label)
                 nav_context['current_node_id'] = target_node_id
                 nav_context['current_node_label'] = target_node_label
                 nav_context['current_node_navigation_success'] = None  # Will be set at end
@@ -222,21 +222,22 @@ class NavigationExecutor:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
             from backend_host.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
             
-            # Determine starting node from context or current position
-            start_node_id = None
-            if context and hasattr(context, 'current_node_id') and context.current_node_id:
-                start_node_id = context.current_node_id
-                print(f"[@navigation_executor:execute_navigation] Starting from current location: {start_node_id}")
-            elif current_node_id:
-                start_node_id = current_node_id
-                print(f"[@navigation_executor:execute_navigation] Starting from provided location: {start_node_id}")
+            # Handle current_node_id parameter - update navigation context if provided
+            if current_node_id:
+                # Update navigation context with provided starting position
+                nav_context['current_node_id'] = current_node_id
+                nav_context['current_node_label'] = self.get_node_label(current_node_id)
+                print(f"[@navigation_executor:execute_navigation] Starting from provided location: {current_node_id} ({nav_context['current_node_label']})")
+            elif nav_context.get('current_node_id'):
+                current_label = nav_context.get('current_node_label', 'unknown')
+                print(f"[@navigation_executor:execute_navigation] Starting from device current position: {nav_context['current_node_id']} ({current_label})")
             else:
                 print(f"[@navigation_executor:execute_navigation] Starting from default entry point (no current location)")
             
             print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label}' using unified pathfinding")
             
-            # Use unified pathfinding with current location as starting point
-            navigation_path = find_shortest_path(tree_id, target_node_label, team_id, start_node_id)
+            # Use unified pathfinding with current navigation context position
+            navigation_path = find_shortest_path(tree_id, target_node_label, team_id, nav_context.get('current_node_id'))
             
             if not navigation_path:
                 # Mark navigation as failed
@@ -925,14 +926,25 @@ class NavigationExecutor:
             'current_tree_id': nav_context['current_tree_id']
         }
     
-    def find_node_id(self, node_label: str) -> str:
-        """Find node_id by label using loaded unified graph"""
+    def get_node_id(self, node_label: str) -> str:
+        """Get node_id by label using loaded unified graph"""
         if not self.unified_graph:
             raise ValueError("Unified graph not loaded - call load_navigation_tree() first")
         for node_id, node_data in self.unified_graph.nodes(data=True):
             if node_data.get('label', '') == node_label and node_data.get('node_type') != 'action':
                 return node_id
         raise ValueError(f"Node with label '{node_label}' not found in navigation graph")
+    
+    def get_node_label(self, node_id: str) -> str:
+        """Find node label by node_id using loaded unified graph"""
+        if not self.unified_graph:
+            raise ValueError("Unified graph not loaded - call load_navigation_tree() first")
+        
+        if node_id in self.unified_graph.nodes:
+            node_data = self.unified_graph.nodes[node_id]
+            return node_data.get('label', node_id)  # Fallback to node_id if no label
+        
+        raise ValueError(f"Node with id '{node_id}' not found in navigation graph")
     
     def update_current_position(self, node_id: str, tree_id: str = None, node_label: str = None) -> Dict[str, Any]:
         """Update current navigation position for this device"""
