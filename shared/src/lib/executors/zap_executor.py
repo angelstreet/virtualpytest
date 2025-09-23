@@ -272,15 +272,52 @@ class ZapExecutor:
         return "live", action
     
     def _analyze_audio_menu(self, context):
-        """Perform audio menu analysis"""
+        """Perform audio menu analysis using VerificationExecutor"""
         try:
-            from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
-            context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in self.device.device_model.lower() else "live_audiomenu"
-            audio_result = analyze_audio_menu(context)
-            context.custom_data['audio_menu_analysis'] = audio_result
-            print(f"✅ [ZapExecutor] Audio analysis completed")
+            print(f"🎧 [ZapExecutor] Starting audio menu analysis...")
+            
+            # Use existing navigation logic - no duplication
+            audio_menu_action = "live_fullscreen_audiomenu" if "mobile" in self.device.device_model.lower() else "live_audiomenu"
+            
+            # Navigate to audio menu
+            result = self.device.navigation_executor.execute_navigation(
+                tree_id=context.tree_id,
+                target_node_label=audio_menu_action,
+                team_id=context.team_id,
+                context=context
+            )
+            
+            if result.get('success', False):
+                # Single verification config - minimal
+                verification_configs = [{
+                    'command': 'AnalyzeLanguageMenuAI',
+                    'verification_type': 'video',
+                    'params': {},
+                    'analysis_type': 'audio_menu'
+                }]
+                
+                # Execute using same batch system
+                batch_result = self._execute_verification_batch(context, verification_configs)
+                
+                # Process result
+                audio_result = {"success": False, "menu_detected": False}
+                if batch_result.get('success') and batch_result.get('results'):
+                    verification_result = batch_result['results'][0]
+                    audio_result = {
+                        "success": verification_result.get('success', False),
+                        "menu_detected": verification_result.get('menu_detected', False),
+                        "message": verification_result.get('message', 'Audio menu analyzed')
+                    }
+                
+                context.custom_data['audio_menu_analysis'] = audio_result
+                print(f"✅ [ZapExecutor] Audio menu analysis: menu_detected = {audio_result.get('menu_detected', False)}")
+            else:
+                print(f"❌ [ZapExecutor] Failed to navigate to audio menu")
+                context.custom_data['audio_menu_analysis'] = {"success": False, "menu_detected": False}
+                
         except Exception as e:
             print(f"❌ [ZapExecutor] Audio analysis failed: {e}")
+            context.custom_data['audio_menu_analysis'] = {"success": False, "menu_detected": False}
     
     def _record_zap_step(self, context, iteration: int, action_node: str, analysis_result, max_iterations: int):
         """Record zap analysis step using StepExecutor"""
@@ -350,7 +387,6 @@ class ZapExecutor:
             })
         
         return configs
-    
     
     def _execute_verification_batch(self, context, verification_configs: List[Dict]) -> Dict[str, Any]:
         """Execute a batch of verifications using the standard VerificationExecutor"""
