@@ -837,11 +837,8 @@ class ScriptExecutor:
                 context=context
             )
             
-            # Auto-create and record navigation step
-            from .step_executor import StepExecutor
-            step_executor = StepExecutor(context)
-            nav_step = step_executor.create_navigation_step(navigation_result, "entry", target_node)
-            context.record_step_dict(nav_step)
+            # Navigation steps are already recorded by NavigationExecutor.execute_navigation()
+            # No need to record duplicate step here
             
             success = navigation_result['success']
             if not success:

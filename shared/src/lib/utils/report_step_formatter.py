@@ -86,14 +86,18 @@ def format_screenshot_display_name(screenshot_url_or_path: str) -> str:
         screenshot_url_or_path: URL or path to screenshot
         
     Returns:
-        Formatted display name (e.g., "#10149", "screenshot_20250911_213045 - 21:30:45")
+        Formatted display name (e.g., "#10149", "screenshot_20250911_213045_21_30_45")
     """
     if not screenshot_url_or_path:
         return 'unknown'
     
     # Extract filename and format in one step
     filename = extract_capture_filename_from_url(screenshot_url_or_path)
-    return format_capture_display_name(filename)
+    formatted_name = format_capture_display_name(filename)
+    
+    # Import sanitization function
+    from .report_formatting import sanitize_for_json
+    return sanitize_for_json(formatted_name)
 
 
 def create_compact_step_results_section(step_results: List[Dict], screenshots: Dict) -> str:
@@ -878,7 +882,7 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         # Use enhanced formatting for navigation step screenshots
         start_screenshot_path = step.get('step_start_screenshot_path')
         start_formatted_display = format_screenshot_display_name(start_screenshot_path)
-        screenshots_for_step.append((f'{start_formatted_display}\nStep Start', start_screenshot_path, None, None))
+        screenshots_for_step.append((f'{start_formatted_display}_step_start', start_screenshot_path, None, None))
     
     # Main action screenshot (always include if available, especially for failed actions)
     # Get the actual action command for labeling (like zap controller does)
@@ -901,12 +905,12 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         # Use enhanced formatting for main action screenshot
         main_screenshot_path = step.get('screenshot_url')
         main_formatted_display = format_screenshot_display_name(main_screenshot_path)
-        screenshots_for_step.append((f'{main_formatted_display}\n{action_label}', main_screenshot_path, None, None))
+        screenshots_for_step.append((f'{main_formatted_display}_{action_label}', main_screenshot_path, None, None))
     elif step.get('screenshot_path'):
         # Use enhanced formatting for main action screenshot
         main_screenshot_path = step.get('screenshot_path')
         main_formatted_display = format_screenshot_display_name(main_screenshot_path)
-        screenshots_for_step.append((f'{main_formatted_display}\n{action_label}', main_screenshot_path, None, None))
+        screenshots_for_step.append((f'{main_formatted_display}_{action_label}', main_screenshot_path, None, None))
     
     # Action screenshots
     action_screenshots = step.get('action_screenshots', [])
@@ -916,14 +920,14 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         action_params = actions[i].get('params', {}) if i < len(actions) else {}
         # Use enhanced formatting for action screenshots
         action_formatted_display = format_screenshot_display_name(screenshot_path)
-        screenshots_for_step.append((f'{action_formatted_display}\nAction {i+1}', screenshot_path, action_cmd, action_params))
+        screenshots_for_step.append((f'{action_formatted_display}_action_{i+1}', screenshot_path, action_cmd, action_params))
     
     # Step end screenshot
     if step.get('step_end_screenshot_path'):
         # Use enhanced formatting for navigation step screenshots
         end_screenshot_path = step.get('step_end_screenshot_path')
         end_formatted_display = format_screenshot_display_name(end_screenshot_path)
-        screenshots_for_step.append((f'{end_formatted_display}\nStep End', end_screenshot_path, None, None))
+        screenshots_for_step.append((f'{end_formatted_display}_step_end', end_screenshot_path, None, None))
         print(f"[@report_step_formatter:format_step_screenshots] ✅ Step {step_num} end screenshot included")
     else:
         expected_filename = f"step_{step_num}_{step.get('from_node', 'unknown')}_{step.get('to_node', 'unknown')}_end"

@@ -365,9 +365,8 @@ class FFmpegCaptureController(AVControllerInterface):
                 try:
                     mtime = os.path.getmtime(path)
                     age = now - mtime
-                    if age <= 2:  # Within 2 seconds
+                    if age <= 1:  # Within 2 seconds
                         candidates.append((age, path))
-                        print(f"{self.capture_source}[{self.capture_source}]: Found candidate: {f} (age: {age:.1f}s)")
                 except OSError:
                     continue  # File might have been deleted
             

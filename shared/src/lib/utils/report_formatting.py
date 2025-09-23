@@ -6,8 +6,32 @@ Contains functions for creating HTML sections, formatting data, and handling ima
 """
 
 import json
+import re
 from typing import Dict, List, Optional, Any
 from .report_step_formatter import create_compact_step_results_section
+
+
+def sanitize_for_json(text: str) -> str:
+    """
+    Sanitize text to be JSON-safe by removing control characters.
+    
+    Args:
+        text: Input text that may contain control characters
+        
+    Returns:
+        Sanitized text safe for JSON serialization
+    """
+    if not text:
+        return text
+    
+    # Remove control characters (newlines, tabs, etc.) and replace with underscores
+    # Keep alphanumeric, spaces, hyphens, underscores, and basic punctuation
+    sanitized = re.sub(r'[\n\r\t\f\v]', '_', text)  # Replace control chars with underscore
+    sanitized = re.sub(r'[^\w\s\-_.,()#]', '_', sanitized)  # Replace other special chars
+    sanitized = re.sub(r'_+', '_', sanitized)  # Collapse multiple underscores
+    sanitized = sanitized.strip('_')  # Remove leading/trailing underscores
+    
+    return sanitized
 
 
 def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
