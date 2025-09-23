@@ -276,12 +276,8 @@ class ZapExecutor:
     def _get_navigation_nodes(self, action: str) -> tuple[str, str]:
         """Get live node and action node based on device type"""
         if "mobile" in self.device.device_model.lower():
-            live_node = "live_fullscreen"
-            action_node = f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
-        else:
-            live_node = "live"
-            action_node = action
-        return live_node, action_node
+            return "live_fullscreen", f"live_fullscreen_{action.split('_')[-1]}"
+        return "live", action
     
     def _analyze_audio_menu(self, context):
         """Perform audio menu analysis"""
