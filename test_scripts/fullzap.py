@@ -30,23 +30,19 @@ def print_fullzap_summary(context, userinterface_name: str):
     print("="*60)
 
 def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_live: bool = True, audio_analysis: bool = False) -> bool:
-    from shared.src.lib.executors.zap_executor import ZapExecutor
     from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
-    from shared.src.lib.executors.script_decorators import _get_context
     
     device = get_device()
-    context = _get_context()  # Only for zap-specific data storage
-    zap_controller = ZapExecutor(device)
     
     # Determine target based on device (same logic as goto_live.py)
     if "mobile" in device.device_model.lower():
         target_node = "live_fullscreen"
-        mapped_action = f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
+        action_node = f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
     else:
         target_node = "live"
-        mapped_action = action
+        action_node = action
     
-    # Navigate to live using public interface (same as goto.py)
+    # Navigate to live first (if requested)
     if goto_live:
         success = navigate_to(target_node)
         if not success:
@@ -54,37 +50,27 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
             return False
         print(f"✅ [fullzap] Navigated to {target_node}")
     
-    # Execute zap actions (this is the fullzap-specific part)
-    context.custom_data['action_command'] = mapped_action
-    context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in device.device_model.lower() else "live_audiomenu"
+    # Execute zap iterations by navigating to action node repeatedly
+    print(f"🔄 [fullzap] Starting {max_iteration} iterations of '{action_node}'...")
     
-    try:
-        # Get the action edge for the zap action
-        context = _get_context()
+    successful_iterations = 0
+    for iteration in range(1, max_iteration + 1):
+        print(f"🎬 [fullzap] Iteration {iteration}/{max_iteration}: {action_node}")
         
-        # Find the action edge that matches our mapped_action
-        action_edge = None
-        for edge in context.edges:
-            edge_actions = edge.get('actions', [])
-            for action in edge_actions:
-                if action.get('action_command') == mapped_action:
-                    action_edge = edge
-                    break
-            if action_edge:
-                break
-        
-        if not action_edge:
-            print(f"❌ [fullzap] No action edge found for command: {mapped_action}")
-            zap_success = False
+        success = navigate_to(action_node)
+        if success:
+            successful_iterations += 1
+            print(f"✅ [fullzap] Iteration {iteration} completed successfully")
         else:
-            # Use ZapExecutor with the found action edge
-            zap_success = zap_controller.execute_zap_iterations(context, action_edge, mapped_action, max_iteration, goto_live)
-    except Exception as e:
-        print(f"❌ [fullzap] Zap execution failed: {e}")
-        zap_success = False
+            print(f"❌ [fullzap] Iteration {iteration} failed")
+    
+    zap_success = successful_iterations == max_iteration
+    print(f"📊 [fullzap] Completed {successful_iterations}/{max_iteration} iterations successfully")
     
     # Audio analysis if requested
     if zap_success and audio_analysis and device.device_model != 'host_vnc':
+        context = _get_context()
+        context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in device.device_model.lower() else "live_audiomenu"
         audio_result = analyze_audio_menu(context)
         context.custom_data['audio_menu_analysis'] = audio_result
     
@@ -101,12 +87,8 @@ def main():
         audio_analysis=args.audio_analysis
     )
     
-    # Print summary (zap-specific reporting)
-    from shared.src.lib.executors.script_decorators import _get_context
-    from shared.src.lib.utils.zap_utils import print_zap_summary_table
-    
+    # Print summary
     context = _get_context()
-    print_zap_summary_table(context)
     print_fullzap_summary(context, args.userinterface_name)
     
     return success
