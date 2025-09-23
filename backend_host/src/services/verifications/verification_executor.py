@@ -87,7 +87,7 @@ class VerificationExecutor:
         # Initialize screenshot tracking
         self.verification_screenshots = []
         
-        print(f"[@verification_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
+        # Initialized for device: {self.device_id}, model: {self.device_model}
     
     def take_screenshot(self) -> Tuple[bool, str, str]:
         """

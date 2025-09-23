@@ -66,10 +66,16 @@ def create_host_from_environment(device_ids: List[str] = None) -> Host:
     host = Host(host_ip, host_port, host_name, host_url)
     
     # Check for host VNC configuration and create VNC controller if present
+    # Only create host VNC device if specifically requested or no device filter specified
     vnc_stream_path = os.getenv('HOST_VNC_STREAM_PATH')
     video_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
     
-    if vnc_stream_path and video_capture_path:
+    should_create_host_vnc = (
+        vnc_stream_path and video_capture_path and 
+        (device_ids is None or 'host' in device_ids)
+    )
+    
+    if should_create_host_vnc:
         print(f"[@controller_manager:create_host_from_environment] VNC configuration detected - creating host VNC controller")
         print(f"[@controller_manager:create_host_from_environment]   VNC Stream Path: {vnc_stream_path}")
         print(f"[@controller_manager:create_host_from_environment]   Video Capture Path: {video_capture_path}")
@@ -101,6 +107,8 @@ def create_host_from_environment(device_ids: List[str] = None) -> Host:
         host_device = _create_device_with_controllers(host_device_config, host)
         host.add_device(host_device)
         print(f"[@controller_manager:create_host_from_environment] Added host VNC device: {host_device.device_id} ({host_device.device_name})")
+    elif vnc_stream_path and video_capture_path and device_ids is not None:
+        print(f"[@controller_manager:create_host_from_environment] VNC configuration detected but host not in requested devices: {device_ids} - skipping host VNC controller")
     
     # Create devices from environment variables
     devices_config = _get_devices_config_from_environment()
@@ -323,8 +331,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
-        print(f"[@controller_manager:_create_device_with_controllers] Creating {controller_type} controller: {implementation}")
-        
         # Create controller based on implementation type
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
@@ -337,8 +343,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
-        print(f"[@controller_manager:_create_device_with_controllers] Creating {controller_type} controller: {implementation}")
-        
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
             device.add_controller(controller_type, controller)
@@ -349,8 +353,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
-        print(f"[@controller_manager:_create_device_with_controllers] Creating {controller_type} controller: {implementation}")
-        
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
             device.add_controller(controller_type, controller)
@@ -360,8 +362,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
-        
-        print(f"[@controller_manager:_create_device_with_controllers] Creating verification controller: {implementation}")
         
         # Add av_controller dependency for verification controllers that need it
         # ADB verification controller doesn't need av_controller (uses direct ADB communication)
@@ -382,7 +382,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         
         if controller:
             device.add_controller(controller_type, controller)
-            print(f"[@controller_manager:_create_device_with_controllers] ✓ Created {implementation} verification controller")
         else:
             print(f"[@controller_manager:_create_device_with_controllers] ✗ Failed to create {implementation} verification controller")
     
@@ -391,8 +390,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
-        
-        print(f"[@controller_manager:_create_device_with_controllers] Creating {controller_type} controller: {implementation}")
         
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
@@ -404,8 +401,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
-        print(f"[@controller_manager:_create_device_with_controllers] Creating {controller_type} controller: {implementation}")
-        
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
             device.add_controller(controller_type, controller)
@@ -416,15 +411,11 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
-        print(f"[@controller_manager:_create_device_with_controllers] Creating {controller_type} controller: {implementation}")
-        
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
             device.add_controller(controller_type, controller)
     
     # Step 8: Create service executors (ActionExecutor, NavigationExecutor, VerificationExecutor)
-    print(f"[@controller_manager:_create_device_with_controllers] Creating service executors for device: {device_id}")
-    
     try:
         from  backend_host.src.services.actions.action_executor import ActionExecutor
         from  backend_host.src.services.navigation.navigation_executor import NavigationExecutor
@@ -433,20 +424,10 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         
         # Create executors - device has everything they need
         # team_id will be provided during actual execution, not during initialization
-        print(f"[@controller_manager:_create_device_with_controllers] Creating ActionExecutor for device: {device_id}")
         device.action_executor = ActionExecutor(device, _from_device_init=True)
-        
-        print(f"[@controller_manager:_create_device_with_controllers] Creating NavigationExecutor for device: {device_id}")
         device.navigation_executor = NavigationExecutor(device, _from_device_init=True)
-        
-        print(f"[@controller_manager:_create_device_with_controllers] Creating VerificationExecutor for device: {device_id}")
         device.verification_executor = VerificationExecutor(device, _from_device_init=True)
-        
-        print(f"[@controller_manager:_create_device_with_controllers] Creating AIExecutor for device: {device_id}")
         device.ai_executor = AIExecutor(device, _from_device_init=True)
-        
-        print(f"[@controller_manager:_create_device_with_controllers] ✓ Created service executors for device: {device_id}")
-        print(f"[@controller_manager:_create_device_with_controllers] ✓ Script execution now handled by shared executors")
         
     except Exception as e:
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Failed to create service executors for device {device_id}: {e}")
@@ -456,7 +437,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         print(f"[@controller_manager:_create_device_with_controllers] ❌ Full traceback: {traceback.format_exc()}")
         # Continue without executors - they can be created later if needed
     
-    print(f"[@controller_manager:_create_device_with_controllers] Device {device_id} created with capabilities: {device.get_capabilities()}")
+    print(f"[@controller_manager:_create_device_with_controllers] ✓ Device {device_id} created with capabilities: {device.get_capabilities()}")
     return device
 
 

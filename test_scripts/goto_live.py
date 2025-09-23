@@ -68,9 +68,7 @@ def main():
     if success:
         # Capture summary for report
         summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
-        if not hasattr(context, 'custom_data'):
-            context.custom_data = {}
-        context.custom_data['execution_summary'] = summary_text
+        context.execution_summary = summary_text
     
     return success
 

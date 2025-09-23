@@ -71,14 +71,11 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         self.last_ui_elements = []
         self.last_dump_time = 0
         
-        print(f"[@controller:AndroidMobileRemote] Initialized for {self.android_device_id}")
         self.connect()
     
     def connect(self) -> bool:
         """Connect to Android device via ADB."""
         try:
-            print(f"Remote[{self.device_type.upper()}]: Connecting to Android device {self.android_device_id}")
-            
             # Initialize ADB utilities with direct connection
             self.adb_utils = ADBUtils()
             
@@ -87,12 +84,12 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 print(f"Remote[{self.device_type.upper()}]: Failed to connect to Android device {self.android_device_id}")
                 return False
                 
-            print(f"Remote[{self.device_type.upper()}]: Successfully connected to Android device {self.android_device_id}")
-            
             # Get device resolution
             self.device_resolution = self.adb_utils.get_device_resolution(self.android_device_id)
-            if self.device_resolution:
-                print(f"Remote[{self.device_type.upper()}]: Device resolution: {self.device_resolution['width']}x{self.device_resolution['height']}")
+            
+            # Single consolidated success message
+            resolution_info = f"{self.device_resolution['width']}x{self.device_resolution['height']}" if self.device_resolution else "unknown"
+            print(f"Remote[{self.device_type.upper()}]: Connected to {self.android_device_id}, resolution: {resolution_info}")
             
             self.is_connected = True
             return True

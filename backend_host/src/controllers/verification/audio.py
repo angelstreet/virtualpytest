@@ -44,7 +44,7 @@ class AudioVerificationController(VerificationControllerInterface):
         self.temp_audio_path = Path("/tmp/audio_verification")
         self.temp_audio_path.mkdir(exist_ok=True)
         
-        print(f"[@controller:AudioVerification] Initialized with AV controller")
+        # Initialized with AV controller
 
     def connect(self) -> bool:
         """Connect to the audio verification system."""

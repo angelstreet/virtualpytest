@@ -47,7 +47,7 @@ class VideoVerificationController(VerificationControllerInterface):
         self.motion_threshold = 5.0  # Default motion threshold percentage
         self.frame_comparison_threshold = 10.0  # Default frame change threshold
         
-        print(f"[@controller:VideoVerification] Initialized with AV controller")
+        # Initialized with AV controller
         
         # Controller is always ready
         self.is_connected = True

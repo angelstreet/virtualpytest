@@ -138,10 +138,9 @@ class ADBUtils:
             stderr = result.stderr.strip()
             exit_code = result.returncode
             
-            if success:
-                print(f"[@lib:adbUtils:execute_command] Executing: {command} - SUCCESS")
-            else:
-                print(f"[@lib:adbUtils:execute_command] Executing: {command} - FAILED (exit code {exit_code}): {stderr}")
+            # Only log failures, not every successful command
+            if not success:
+                print(f"[@lib:adbUtils:execute_command] FAILED: {command} (exit code {exit_code}): {stderr}")
             
             return success, stdout, stderr, exit_code
             
@@ -182,16 +181,12 @@ class ADBUtils:
             bool: True if connection successful
         """
         try:
-            print(f"[@lib:adbUtils:connect_device] Connecting to ADB device: {device_id}")
-            
             # Connect to ADB device
             success, stdout, stderr, exit_code = self.execute_command(f"adb connect {device_id}")
             
             if not success or exit_code != 0:
                 print(f"[@lib:adbUtils:connect_device] ADB connect failed: {stderr}")
                 return False
-                
-            print(f"[@lib:adbUtils:connect_device] ADB connect output: {stdout.strip()}")
             
             # Verify device is connected
             success, stdout, stderr, exit_code = self.execute_command("adb devices")
@@ -223,7 +218,6 @@ class ADBUtils:
                 print(f"[@lib:adbUtils:connect_device] Device {device_id} status: {status}")
                 return False
                 
-            print(f"[@lib:adbUtils:connect_device] Successfully connected to device {device_id}")
             return True
             
         except Exception as e:
@@ -605,8 +599,6 @@ class ADBUtils:
             Dictionary with width and height accounting for current rotation, or None if failed
         """
         try:
-            print(f"[@lib:adbUtils:get_device_resolution] Getting current resolution for device {device_id}")
-            
             command = f"adb -s {device_id} shell dumpsys display"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
@@ -627,7 +619,6 @@ class ADBUtils:
             width = int(width_match.group(1))
             height = int(height_match.group(1))
             
-            print(f"[@lib:adbUtils:get_device_resolution] Current resolution: {width}x{height}")
             return {'width': width, 'height': height}
             
         except Exception as e:

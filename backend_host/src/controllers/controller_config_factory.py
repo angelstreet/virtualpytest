@@ -107,11 +107,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
     """Create controller configurations for a device."""
     device_model = device_config.get('model', device_config.get('device_model'))
     
-    print(f"[@controller_factory:create_controller_configs_from_device_info] DEBUG: Received device_config:")
-    for key, value in device_config.items():
-        print(f"[@controller_factory:create_controller_configs_from_device_info] DEBUG:   {key} = {value}")
-    
-    print(f"[@controller_factory:create_controller_configs_from_device_info] Creating configs for device model: {device_model}")
+    # Creating configs for device model: {device_model}
     
     if device_model not in DEVICE_CONTROLLER_MAP:
         print(f"[@controller_factory:create_controller_configs_from_device_info] ERROR: Unknown device model: {device_model}")
@@ -120,6 +116,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
     
     configs = {}
     device_mapping = DEVICE_CONTROLLER_MAP[device_model]
+    created_controllers = []
     
     # Create AV controllers
     for av_impl in device_mapping['av']:
@@ -128,7 +125,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
             'implementation': av_impl,
             'params': _get_av_params(av_impl, device_config)
         }
-        print(f"[@controller_factory:create_controller_configs_from_device_info] Created AV controller: {av_impl}")
+        created_controllers.append(f"av:{av_impl}")
     
     # Create Remote controllers - support multiple remotes like desktop controllers
     for remote_impl in device_mapping['remote']:
@@ -140,7 +137,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
                 'implementation': remote_impl,
                 'params': _get_remote_params(remote_impl, device_config)
             }
-            print(f"[@controller_factory:create_controller_configs_from_device_info] Created Remote controller: remote_{remote_impl}")
+            created_controllers.append(f"remote:{remote_impl}")
         else:
             # Single remote - use standard 'remote' key for backward compatibility
             configs['remote'] = {
@@ -148,7 +145,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
                 'implementation': remote_impl,
                 'params': _get_remote_params(remote_impl, device_config)
             }
-            print(f"[@controller_factory:create_controller_configs_from_device_info] Created Remote controller: {remote_impl}")
+            created_controllers.append(f"remote:{remote_impl}")
     
     # Create Desktop controllers
     for desktop_impl in device_mapping['desktop']:
@@ -157,7 +154,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
             'implementation': desktop_impl,
             'params': _get_desktop_params(desktop_impl, device_config)
         }
-        print(f"[@controller_factory:create_controller_configs_from_device_info] Created Desktop controller: {desktop_impl}")
+        created_controllers.append(f"desktop:{desktop_impl}")
     
     # Create Web controllers
     for web_impl in device_mapping['web']:
@@ -166,7 +163,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
             'implementation': web_impl,
             'params': _get_web_params(web_impl, device_config)
         }
-        print(f"[@controller_factory:create_controller_configs_from_device_info] Created Web controller: {web_impl}")
+        created_controllers.append(f"web:{web_impl}")
     
     # Create AI controllers
     for ai_impl in device_mapping['ai']:
@@ -175,7 +172,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
             'implementation': ai_impl,
             'params': {'device_id': device_config.get('device_id')}  # Add device_id to params
         }
-        print(f"[@controller_factory:create_controller_configs_from_device_info] Created AI controller: {ai_impl}")
+        created_controllers.append(f"ai:{ai_impl}")
     
     # Create Power controllers - only if required environment variables are present
     for power_impl in device_mapping['power']:
@@ -194,7 +191,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
                     'implementation': power_impl,
                     'params': _get_power_params(power_impl, device_config)
                 }
-                print(f"[@controller_factory:create_controller_configs_from_device_info] Created Power controller: {power_impl}")
+                created_controllers.append(f"power:{power_impl}")
             else:
                 print(f"[@controller_factory:create_controller_configs_from_device_info] Skipping Power controller {power_impl} - missing required configuration:")
                 print(f"[@controller_factory:create_controller_configs_from_device_info]   power_name: {power_name}")
@@ -209,7 +206,7 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
                     'implementation': power_impl,
                     'params': _get_power_params(power_impl, device_config)
                 }
-                print(f"[@controller_factory:create_controller_configs_from_device_info] Created Power controller: {power_impl}")
+                created_controllers.append(f"power:{power_impl}")
             else:
                 print(f"[@controller_factory:create_controller_configs_from_device_info] Skipping Power controller {power_impl} - no power_name configured")
     
@@ -226,9 +223,11 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
             'implementation': verification_impl,
             'params': _get_verification_params(verification_impl, device_config)
         }
-        print(f"[@controller_factory:create_controller_configs_from_device_info] Created Verification controller: {verification_impl}")
+        created_controllers.append(f"verification:{verification_impl}")
     
-    print(f"[@controller_factory:create_controller_configs_from_device_info] Created {len(configs)} controller configs")
+    # Single consolidated log line
+    controllers_summary = ", ".join(created_controllers)
+    print(f"[@controller_factory:create_controller_configs_from_device_info] Created {len(configs)} controllers: {controllers_summary}")
     return configs
 
 def get_controller_type_for_device(device_model: str, action_type: str) -> str:
@@ -390,14 +389,14 @@ def _get_av_params(implementation: str, device_config: dict) -> dict:
 
 def _get_remote_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for Remote controllers."""
-    print(f"[@controller_factory:_get_remote_params] DEBUG: Getting remote params for implementation: {implementation}")
+    # Getting remote params for implementation: {implementation}
     
     if implementation in ['android_mobile', 'android_tv']:
         params = {
             'device_ip': device_config.get('device_ip', '192.168.1.100'),
             'device_port': device_config.get('device_port', 5555)
         }
-        print(f"[@controller_factory:_get_remote_params] DEBUG: Android params: {params}")
+        # Android params configured
         return params
     elif implementation == 'appium':
         params = {
@@ -405,11 +404,7 @@ def _get_remote_params(implementation: str, device_config: dict) -> dict:
             'appium_device_id': device_config.get('appium_device_id'),
             'appium_server_url': device_config.get('appium_server_url', 'http://localhost:4723')
         }
-        print(f"[@controller_factory:_get_remote_params] DEBUG: Appium params: {params}")
-        print(f"[@controller_factory:_get_remote_params] DEBUG: Key Appium values:")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   platform_name = {params['appium_platform_name']}")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   device_id = {params['appium_device_id']}")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   server_url = {params['appium_server_url']}")
+        # Appium params configured
         return params
     elif implementation == 'ir_remote':
         ir_path = device_config.get('ir_path')
@@ -440,18 +435,15 @@ def _get_remote_params(implementation: str, device_config: dict) -> dict:
             'ir_path': ir_path,
             'ir_type': ir_type
         }
-        print(f"[@controller_factory:_get_remote_params] DEBUG: IR remote params: {params}")
-        print(f"[@controller_factory:_get_remote_params] DEBUG: Key IR values:")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_path = {params['ir_path']}")
-        print(f"[@controller_factory:_get_remote_params] DEBUG:   ir_type = {params['ir_type']}")
+        # IR remote params configured
         return params
     
-    print(f"[@controller_factory:_get_remote_params] DEBUG: Unknown implementation, returning empty params")
+    # Unknown implementation, returning empty params
     return {}
 
 def _get_desktop_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for Desktop controllers."""
-    print(f"[@controller_factory:_get_desktop_params] DEBUG: Getting desktop params for implementation: {implementation}")
+    # Getting desktop params for implementation: {implementation}
     
     if implementation == 'bash':
         params = {
@@ -459,11 +451,11 @@ def _get_desktop_params(implementation: str, device_config: dict) -> dict:
             'host_port': device_config.get('host_port', 22),
             'host_user': device_config.get('host_user', 'root')
         }
-        print(f"[@controller_factory:_get_desktop_params] DEBUG: Bash params: {params}")
+        # Bash params configured
         return params
     elif implementation == 'pyautogui':
         params = {}  # PyAutoGUI works locally, no connection parameters needed
-        print(f"[@controller_factory:_get_desktop_params] DEBUG: PyAutoGUI params: {params}")
+        # PyAutoGUI params configured
         return params
     elif implementation == 'powershell':
         params = {
@@ -471,34 +463,34 @@ def _get_desktop_params(implementation: str, device_config: dict) -> dict:
             'host_port': device_config.get('host_port', 22),
             'host_user': device_config.get('host_user', 'Administrator')
         }
-        print(f"[@controller_factory:_get_desktop_params] DEBUG: PowerShell params: {params}")
+        # PowerShell params configured
         return params
     
-    print(f"[@controller_factory:_get_desktop_params] DEBUG: Unknown implementation, returning empty params")
+    # Unknown implementation, returning empty params
     return {}
 
 def _get_web_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for Web controllers."""
-    print(f"[@controller_factory:_get_web_params] DEBUG: Getting web params for implementation: {implementation}")
+    # Getting web params for implementation: {implementation}
     
     if implementation == 'playwright':
         params = {}
-        print(f"[@controller_factory:_get_web_params] DEBUG: Playwright params: {params}")
+        # Playwright params configured
         return params
     elif implementation == 'selenium':
         params = {
             'selenium_url': device_config.get('selenium_url', 'http://localhost:4444/wd/hub'),
             'selenium_browser': device_config.get('selenium_browser', 'chrome')
         }
-        print(f"[@controller_factory:_get_web_params] DEBUG: Selenium params: {params}")
+        # Selenium params configured
         return params
     
-    print(f"[@controller_factory:_get_web_params] DEBUG: Unknown implementation, returning empty params")
+    # Unknown implementation, returning empty params
     return {}
 
 def _get_power_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for Power controllers."""
-    print(f"[@controller_factory:_get_power_params] DEBUG: Getting power params for implementation: {implementation}")
+    # Getting power params for implementation: {implementation}
     
     if implementation == 'tapo':
         params = {
@@ -506,14 +498,10 @@ def _get_power_params(implementation: str, device_config: dict) -> dict:
             'email': device_config.get('power_email'),
             'password': device_config.get('power_pwd')
         }
-        print(f"[@controller_factory:_get_power_params] DEBUG: Tapo params: {params}")
-        print(f"[@controller_factory:_get_power_params] DEBUG: Key Tapo values:")
-        print(f"[@controller_factory:_get_power_params] DEBUG:   device_ip = {params['device_ip']}")
-        print(f"[@controller_factory:_get_power_params] DEBUG:   email = {params['email']}")
-        print(f"[@controller_factory:_get_power_params] DEBUG:   password = {'***' if params['password'] else None}")
+        # Tapo params configured
         return params
     
-    print(f"[@controller_factory:_get_power_params] DEBUG: Unknown implementation, returning empty params")
+    # Unknown implementation, returning empty params
     return {}
 
 def _get_verification_params(implementation: str, device_config: dict) -> dict:

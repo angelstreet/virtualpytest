@@ -74,7 +74,7 @@ class NavigationExecutor:
         self.current_node_label = None
         self.current_tree_id = None
         
-        print(f"[@navigation_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
+        # Initialized for device: {self.device_id}, model: {self.device_model}
     
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """Get available navigation context using cache when possible"""

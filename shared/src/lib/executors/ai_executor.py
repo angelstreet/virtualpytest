@@ -87,7 +87,7 @@ class AIExecutor:
         # Initialize AI plan cache (loaded on demand)
         self.plan_cache = None
         
-        print(f"[@ai_executor] Initialized for device: {self.device_id}, model: {self.device_model}")
+        # Initialized for device: {self.device_id}, model: {self.device_model}
     
     def execute_prompt(self, 
                       prompt: str, 
