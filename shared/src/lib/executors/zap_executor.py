@@ -276,7 +276,7 @@ class ZapExecutor:
             context.custom_data = {}
         
         context.custom_data['zap_data'] = {
-            'iterations': self.statistics.iterations,
+            'iterations': self.statistics.total_iterations,
             'successful_iterations': self.statistics.successful_iterations,
             'motion_detected_count': self.statistics.motion_detected_count,
             'subtitles_detected_count': self.statistics.subtitles_detected_count,
@@ -284,7 +284,7 @@ class ZapExecutor:
             'zapping_detected_count': self.statistics.zapping_detected_count,
             'detected_languages': list(self.statistics.detected_languages),
             'audio_languages': list(self.statistics.audio_languages),
-            'analysis_results': [result.to_dict() for result in getattr(self, 'analysis_results', [])]
+            'analysis_results': self.statistics.analysis_results
         }
         print(f"📊 [ZapExecutor] Stored zap data in custom_data for report generation")
         
