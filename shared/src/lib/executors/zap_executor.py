@@ -405,14 +405,17 @@ class ZapExecutor:
         if not verification_executor:
             return {"success": False, "message": f"No VerificationExecutor found for device {self.device.device_id}"}
         
-        # Pass context screenshot paths as image_source_url (last 3 images for better subtitle detection)
+        # Pass context screenshot paths as image_source_url
         image_source_url = None
         if context.screenshot_paths:
-            image_source_url = self._get_sequential_images(context.screenshot_paths[-1], 3)
-            print(f"🔍 [ZapExecutor] DEBUG: Using last {len(last_screenshots)} context screenshots for verification:")
-            for i, screenshot in enumerate(last_screenshots, 1):
-                print(f"🔍 [ZapExecutor] DEBUG:   {i}. {screenshot}")
-            print(f"🔍 [ZapExecutor] DEBUG: Total context screenshots available: {len(context.screenshot_paths)}")
+            # Check if any verification needs multiple screenshots (subtitles only)
+            has_subtitles = any(config.get('command') == 'DetectSubtitlesAI' for config in verification_configs)
+            if has_subtitles:
+                image_source_url = self._get_sequential_images(context.screenshot_paths[-1], 3)
+                print(f"🔍 [ZapExecutor] DEBUG: Using 3 sequential screenshots for subtitle detection")
+            else:
+                image_source_url = context.screenshot_paths[-1]
+                print(f"🔍 [ZapExecutor] DEBUG: Using latest context screenshot: {image_source_url}")
         else:
             print(f"🔍 [ZapExecutor] DEBUG: No context screenshots available - will fallback to take_screenshot")
         
