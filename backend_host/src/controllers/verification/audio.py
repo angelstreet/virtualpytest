@@ -724,7 +724,7 @@ class AudioVerificationController(VerificationControllerInterface):
             elif command == 'DetectAudioLanguage':
                 # Use existing AudioAIHelpers for language detection
                 try:
-                    from controllers.verification.audio_ai_helpers import AudioAIHelpers
+                    from backend_host.controllers.verification.audio_ai_helpers import AudioAIHelpers
                     audio_ai = AudioAIHelpers(self.av_controller, self.device_name)
                     
                     # Get recent audio segments and analyze

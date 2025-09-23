@@ -485,7 +485,7 @@ class ZapExecutor:
             }]
 
             print(f"🔍 [ZapExecutor] Executing motion detection with config: {verification_config}")
-            verification_result = verification_executor.execute_verifications(verification_config)
+            verification_result = verification_executor.execute_verifications(verification_config, team_id=context.team_id)
             print(f"🔍 [ZapExecutor] Motion detection raw result: {verification_result}")
 
             # Extract result from verification executor response
@@ -563,7 +563,7 @@ class ZapExecutor:
                 }
             }]
             
-            verification_result = verification_executor.execute_verifications(verification_config)
+            verification_result = verification_executor.execute_verifications(verification_config, team_id=context.team_id)
             
             # Extract result from verification executor response
             if verification_result.get('success') and verification_result.get('results'):

@@ -109,7 +109,7 @@ class VideoRestartHelpers:
     def analyze_restart_audio(self, video_id: str, segment_files: List[tuple] = None) -> Optional[Dict[str, Any]]:
         """Analyze audio transcript using provided segment files from video generation"""
         try:
-            from controllers.verification.audio_ai_helpers import AudioAIHelpers
+            from backend_host.controllers.verification.audio_ai_helpers import AudioAIHelpers
             
             # Use provided segment files if available, otherwise fallback to globbing
             if segment_files is None:
@@ -157,7 +157,7 @@ class VideoRestartHelpers:
         """Combined restart analysis: subtitles + summary in single optimized call"""
         try:
             from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
-            from controllers.verification.video import VideoVerificationController
+            from backend_host.controllers.verification.video import VideoVerificationController
             
             local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
             
@@ -506,7 +506,7 @@ class VideoRestartHelpers:
     def _get_audio_transcript_locally(self, segment_files: List[Tuple[str, str]], duration_seconds: float) -> Dict[str, Any]:
         """Get audio transcript locally by extracting from the already-created MP4 video (no double merging)"""
         try:
-            from controllers.verification.audio_ai_helpers import AudioAIHelpers
+            from backend_host.controllers.verification.audio_ai_helpers import AudioAIHelpers
             import subprocess
             import tempfile
             

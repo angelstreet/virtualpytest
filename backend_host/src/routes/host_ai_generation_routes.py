@@ -182,7 +182,7 @@ def run_exploration(exploration_id: str):
         session['status'] = 'exploring'
         
         # Import simplified AI architecture
-        from controllers.controller_manager import get_host
+        from backend_host.controllers.controller_manager import get_host
         
         # Get session parameters
         device_id = session['device_id']
