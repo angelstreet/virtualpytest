@@ -21,15 +21,38 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, navigate_to, get_args, _get_validation_plan, _get_context
+from shared.src.lib.executors.script_decorators import script, get_args, _get_context
+
+
+def _get_validation_plan(context):
+    """Get list of transitions to validate"""
+    from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+    
+    # Ensure navigation tree is loaded
+    if not context.tree_id:
+        device = context.selected_device
+        args = context.args
+        nav_result = device.navigation_executor.load_navigation_tree(
+            args.userinterface_name, 
+            context.team_id,
+            'validation'
+        )
+        if not nav_result['success']:
+            print(f"❌ [_get_validation_plan] Navigation tree loading failed")
+            return []
+        
+        context.tree_id = nav_result['tree_id']
+        context.tree_data = nav_result
+    
+    return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
 def validate_with_recovery(max_iteration: int = None) -> bool:
-    """Execute validation - test all transitions using navigate_to()"""
+    """Execute validation - test all transitions using NavigationExecutor directly"""
     context = _get_context()
     
-    # Get validation plan (private function handles complexity)
-    validation_sequence = _get_validation_plan()
+    # Get validation plan
+    validation_sequence = _get_validation_plan(context)
     if not validation_sequence:
         context.error_message = "No validation sequence found"
         print(f"❌ [validation] {context.error_message}")
@@ -48,12 +71,20 @@ def validate_with_recovery(max_iteration: int = None) -> bool:
         target = step.get('to_node_label', 'unknown')
         print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: → {target}")
         
-        # Use same navigate_to() as goto.py
-        if navigate_to(target):
+        # Use NavigationExecutor directly
+        device = context.selected_device
+        result = device.navigation_executor.execute_navigation(
+            tree_id=context.tree_id,
+            target_node_label=target,
+            team_id=context.team_id,
+            context=context
+        )
+        
+        if result.get('success', False):
             successful += 1
             print(f"✅ [validation] Step {i+1} successful")
         else:
-            print(f"❌ [validation] Step {i+1} failed")
+            print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
     
     # Calculate success
     context.overall_success = successful == len(validation_sequence)

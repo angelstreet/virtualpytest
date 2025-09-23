@@ -24,7 +24,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, navigate_to, get_context, get_args
+from shared.src.lib.executors.script_decorators import script, get_context, get_args
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
@@ -56,8 +56,29 @@ def main():
     print(f"🎯 [goto] Target node: {target_node}")
     print(f"📱 [goto] Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     
-    # Navigate using high-level method (auto-loads tree, executes, records step)
-    success = navigate_to(target_node)
+    # Load navigation tree
+    nav_result = device.navigation_executor.load_navigation_tree(
+        args.userinterface_name, 
+        context.team_id,
+        'goto'
+    )
+    if not nav_result['success']:
+        context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
+        return False
+    
+    context.tree_id = nav_result['tree_id']
+    
+    # Execute navigation using NavigationExecutor directly
+    result = device.navigation_executor.execute_navigation(
+        tree_id=context.tree_id,
+        target_node_label=target_node,
+        team_id=context.team_id,
+        context=context
+    )
+    
+    success = result.get('success', False)
+    if not success:
+        context.error_message = result.get('error', 'Navigation failed')
     
     # Always capture summary for report (regardless of success/failure)
     summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)

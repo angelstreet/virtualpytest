@@ -167,7 +167,7 @@ class ZapExecutor:
     
     def execute_zap_iterations(self, action: str, max_iterations: int, goto_live: bool = True, audio_analysis: bool = False) -> bool:
         """Execute complete zap workflow: goto_live → zap iterations → analysis"""
-        from shared.src.lib.executors.script_decorators import navigate_to, _get_context
+        from shared.src.lib.executors.script_decorators import _get_context
         
         print(f"🔄 [ZapExecutor] Starting zap execution: {max_iterations} iterations of '{action}'")
         
@@ -179,8 +179,16 @@ class ZapExecutor:
         if goto_live:
             live_node = self._determine_live_node()
             print(f"🎯 [ZapExecutor] Navigating to live: {live_node}")
-            success = navigate_to(live_node)
-            if not success:
+            
+            # Use NavigationExecutor directly
+            result = self.device.navigation_executor.execute_navigation(
+                tree_id=context.tree_id,
+                target_node_label=live_node,
+                team_id=context.team_id,
+                context=context
+            )
+            
+            if not result.get('success', False):
                 print(f"❌ [ZapExecutor] Failed to navigate to {live_node}")
                 return False
             print(f"✅ [ZapExecutor] Navigated to {live_node}")
@@ -193,10 +201,15 @@ class ZapExecutor:
         for iteration in range(1, max_iterations + 1):
             print(f"🎬 [ZapExecutor] Iteration {iteration}/{max_iterations}: {action_node}")
             
-            # navigate_to() handles navigation screenshots and steps automatically
-            success = navigate_to(action_node)
+            # Use NavigationExecutor directly
+            result = self.device.navigation_executor.execute_navigation(
+                tree_id=context.tree_id,
+                target_node_label=action_node,
+                team_id=context.team_id,
+                context=context
+            )
             
-            if success:
+            if result.get('success', False):
                 # Perform zap-specific analysis and record zap step
                 analysis_result = self.analyze_after_zap(iteration, action_node, context)
                 if analysis_result.success:
@@ -205,7 +218,7 @@ class ZapExecutor:
                 # Record zap analysis step (separate from navigation step)
                 self._record_zap_step(context, iteration, action_node, analysis_result, max_iterations)
             else:
-                print(f"❌ [ZapExecutor] Navigation to {action_node} failed")
+                print(f"❌ [ZapExecutor] Navigation to {action_node} failed: {result.get('error', 'Unknown error')}")
         
         # 4. Handle audio analysis if requested
         if audio_analysis and self.device.device_model != 'host_vnc':

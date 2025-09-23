@@ -119,6 +119,15 @@ class Device:
         """
         return len(self._controllers.get(controller_type, [])) > 0
     
+    def is_mobile_device(self) -> bool:
+        """
+        Check if this device is a mobile device.
+        
+        Returns:
+            True if device model contains 'mobile'
+        """
+        return "mobile" in self.device_model.lower()
+    
 
     
     def get_capabilities(self) -> List[str]:

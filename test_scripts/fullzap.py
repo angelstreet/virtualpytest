@@ -10,7 +10,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, navigate_to, get_device, get_args, _get_context
+from shared.src.lib.executors.script_decorators import script, get_device, get_args, _get_context
 
 def print_fullzap_summary(context, userinterface_name: str):
     device = get_device()
