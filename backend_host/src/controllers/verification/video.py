@@ -229,14 +229,20 @@ class VideoVerificationController(VerificationControllerInterface):
     def detect_subtitles_ai(self, image_paths: List[str] = None, extract_text: bool = True) -> Dict[str, Any]:
         """AI-powered subtitle detection using OpenRouter."""
         try:
+            print(f"VideoVerify[{self.device_name}]: DEBUG: detect_subtitles_ai called with image_paths: {image_paths}")
+            
             # Determine which images to analyze
             if image_paths is None or len(image_paths) == 0:
+                print(f"VideoVerify[{self.device_name}]: DEBUG: No image_paths provided, taking fallback screenshot")
                 
                 # Use last available capture
                 screenshot = self.av_controller.take_screenshot()
                 if not screenshot:
                     return {'success': False, 'error': 'Failed to capture screenshot'}
                 image_paths = [screenshot]
+                print(f"VideoVerify[{self.device_name}]: DEBUG: Fallback screenshot taken: {screenshot}")
+            else:
+                print(f"VideoVerify[{self.device_name}]: DEBUG: Using provided image_paths: {image_paths}")
             
             return self.ai_helpers.detect_subtitles_ai_batch(image_paths, extract_text)
             
@@ -531,6 +537,8 @@ class VideoVerificationController(VerificationControllerInterface):
 
     def execute_verification(self, verification_config: Dict[str, Any], image_source_url: str = None) -> Dict[str, Any]:
         """Unified verification execution interface for centralized controller."""
+        print(f"VideoVerify[{self.device_name}]: DEBUG: execute_verification called with image_source_url: {image_source_url}")
+        print(f"VideoVerify[{self.device_name}]: DEBUG: Command: {verification_config.get('command')}")
         return self.verification_helpers.execute_verification_workflow(verification_config, image_source_url)
 
     # =============================================================================

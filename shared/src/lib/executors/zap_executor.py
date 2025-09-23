@@ -397,8 +397,12 @@ class ZapExecutor:
         image_source_url = None
         if context.screenshot_paths:
             image_source_url = context.screenshot_paths[-1]
-            print(f"🔍 [ZapExecutor] Using context screenshot for verification: {image_source_url}")
+            print(f"🔍 [ZapExecutor] DEBUG: Using context screenshot for verification: {image_source_url}")
+            print(f"🔍 [ZapExecutor] DEBUG: Total context screenshots: {len(context.screenshot_paths)}")
+        else:
+            print(f"🔍 [ZapExecutor] DEBUG: No context screenshots available - will fallback to take_screenshot")
         
+        print(f"🔍 [ZapExecutor] DEBUG: Calling execute_verifications with image_source_url={image_source_url}")
         return verification_executor.execute_verifications(verification_configs, 
                                                          image_source_url=image_source_url,
                                                          team_id=context.team_id)

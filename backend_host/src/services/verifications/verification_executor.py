@@ -206,6 +206,7 @@ class VerificationExecutor:
         print(f"[@lib:verification_executor:execute_verifications] Starting batch verification execution")
         print(f"[@lib:verification_executor:execute_verifications] Processing {len(verifications)} verifications")
         print(f"[@lib:verification_executor:execute_verifications] Host: {self.host_name}")
+        print(f"[@lib:verification_executor:execute_verifications] DEBUG: Received image_source_url: {image_source_url}")
         print(f"[@lib:verification_executor:execute_verifications] Source: {image_source_url}")
         
 
@@ -345,6 +346,9 @@ class VerificationExecutor:
                 'verification_type': verification_type,
                 'image_source_url': image_source_url
             }
+            
+            print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing image_source_url to controller: {image_source_url}")
+            print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
             
             # Direct controller execution (same pattern as ActionExecutor)
             verification_result = controller.execute_verification(verification_config)

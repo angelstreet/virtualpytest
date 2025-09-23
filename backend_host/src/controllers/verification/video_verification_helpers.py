@@ -55,9 +55,11 @@ class VideoVerificationHelpers:
             
             print(f"VideoVerification[{self.device_name}]: Executing {command}")
             print(f"VideoVerification[{self.device_name}]: Parameters: {params}")
+            print(f"VideoVerification[{self.device_name}]: DEBUG: Received image_source_url: {image_source_url}")
             
             # Parse image source for frame analysis commands
             image_paths = self._parse_image_source(image_source_url)
+            print(f"VideoVerification[{self.device_name}]: DEBUG: Parsed image_paths: {image_paths}")
             
             # Route to appropriate verification method
             if command in ['WaitForVideoToAppear', 'WaitForVideoToDisappear']:
@@ -71,6 +73,7 @@ class VideoVerificationHelpers:
             elif command == 'VerifyScreenState':
                 return self._execute_screen_state_verification(params)
             elif command in ['DetectBlackscreen', 'DetectFreeze', 'DetectSubtitles', 'DetectSubtitlesAI']:
+                print(f"VideoVerification[{self.device_name}]: DEBUG: Calling _execute_content_analysis with image_paths: {image_paths}")
                 return self._execute_content_analysis(command, params, image_paths)
             elif command == 'DetectMotionFromJson':
                 return self._execute_json_motion_analysis(params)
@@ -209,6 +212,7 @@ class VideoVerificationHelpers:
                 
             elif command == 'DetectSubtitlesAI':
                 extract_text = params.get('extract_text', True)
+                print(f"VideoVerification[{self.device_name}]: DEBUG: Calling detect_subtitles_ai with image_paths: {image_paths}")
                 result = self.controller.detect_subtitles_ai(image_paths, extract_text)
                 success = result.get('success', False) and result.get('subtitles_detected', False)
                 message = f"AI Subtitles {'detected' if success else 'not detected'}"
