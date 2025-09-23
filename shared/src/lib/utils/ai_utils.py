@@ -152,7 +152,7 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             print(f"[AI_UTILS] Headers prepared: {list(headers.keys())}")
             
             # Prepare message content
-            if image:
+            if image is not None:
                 # Vision request
                 image_b64 = _process_image_input(image)
                 if not image_b64:
