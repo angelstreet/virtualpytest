@@ -33,9 +33,10 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
     from shared.src.lib.executors.zap_executor import ZapExecutor
     
     device = get_device()
+    args = get_args()
     
     # ZapExecutor handles complete zap workflow
-    zap_executor = ZapExecutor(device)
+    zap_executor = ZapExecutor(device, args.userinterface_name)
     return zap_executor.execute_zap_iterations(action, max_iteration, goto_live, audio_analysis)
 
 @script("fullzap", "Execute zap iterations with analysis")

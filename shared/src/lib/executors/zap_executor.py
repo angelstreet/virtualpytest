@@ -73,9 +73,10 @@ class ZapAnalysisResult:
 class ZapExecutor:
     """Controller for executing zap actions with comprehensive analysis"""
     
-    def __init__(self, device):
-        """Initialize ZapExecutor with device instance"""
+    def __init__(self, device, userinterface_name: str):
+        """Initialize ZapExecutor with device instance and userinterface name"""
         self.device = device
+        self.userinterface_name = userinterface_name
         self.statistics = ZapStatistics()
         self.learned_detection_method = None  # Learn on first success
     
@@ -133,6 +134,10 @@ class ZapExecutor:
         self.statistics = ZapStatistics()
         self.statistics.total_iterations = max_iterations
         context = get_context()
+        
+        # Set context values for database recording
+        context.userinterface_name = self.userinterface_name
+        context.custom_data['action_command'] = action
         
         # 1. Get navigation nodes
         live_node, action_node = self._get_navigation_nodes(action)
@@ -313,34 +318,28 @@ class ZapExecutor:
         # Subtitle detection (if screenshots available)
         if context.screenshot_paths:
             configs.append({
-                'command': 'detect_subtitles_ai',
+                'command': 'DetectSubtitlesAI',
                 'verification_type': 'video',
-                'params': {'screenshots': [context.screenshot_paths[-1]], 'extract_text': True},
+                'params': {'extract_text': True},
                 'analysis_type': 'subtitles'
             })
         
-        # Audio analysis (skip for VNC devices)
+        # Audio analysis (skip for VNC devices) - use existing audio detection command
         if device_model != 'host_vnc':
             configs.append({
-                'command': 'analyze_audio_speech',
+                'command': 'DetectAudioSpeech',
                 'verification_type': 'audio',
-                'params': {'segment_count': 3, 'early_stop': True},
+                'params': {'json_count': 3, 'strict_mode': False},
                 'analysis_type': 'audio_speech'
             })
         
-        # Macroblock detection
-        if context.screenshot_paths:
-            configs.append({
-                'command': 'detect_macroblocks',
-                'verification_type': 'video',
-                'params': {'image_paths': [context.screenshot_paths[-1]]},
-                'analysis_type': 'macroblocks'
-            })
+        # Skip macroblock detection for now - no valid command available
+        # TODO: Implement macroblock detection command if needed
         
         # Zapping detection (only for channel up actions)
         if 'chup' in action_command.lower():
             configs.append({
-                'command': 'detect_zapping',
+                'command': 'DetectZapping',
                 'verification_type': 'video',
                 'params': {
                     'key_release_timestamp': action_start_time or time.time(),
@@ -369,10 +368,14 @@ class ZapExecutor:
         if analysis_type == 'motion':
             result.motion_detected = success
             result.motion_details = verification_result
+            # Ensure motion_detected is never None
+            if result.motion_detected is None:
+                result.motion_detected = False
             if success:
-                analyzed_count = details.get('total_analyzed', 0)
-                video_ok = details.get('video_ok', False)
-                audio_ok = details.get('audio_ok', False)
+                # Motion detection details are in the main verification_result, not nested in details
+                analyzed_count = verification_result.get('total_analyzed', 0)
+                video_ok = verification_result.get('video_ok', False)
+                audio_ok = verification_result.get('audio_ok', False)
                 if video_ok and audio_ok:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed - both video and audio content present")
                 elif video_ok:
@@ -387,12 +390,18 @@ class ZapExecutor:
             result.detected_language = verification_result.get('detected_language')
             result.extracted_text = verification_result.get('extracted_text', '')
             result.subtitle_details = verification_result
+            # Ensure subtitles_detected is never None
+            if result.subtitles_detected is None:
+                result.subtitles_detected = False
             
         elif analysis_type == 'audio_speech':
             result.audio_speech_detected = verification_result.get('speech_detected', False)
             result.audio_transcript = verification_result.get('combined_transcript', '')
             result.audio_language = verification_result.get('detected_language', 'unknown')
             result.audio_details = verification_result
+            # Ensure audio_speech_detected is never None
+            if result.audio_speech_detected is None:
+                result.audio_speech_detected = False
             
         elif analysis_type == 'macroblocks':
             result.macroblocks_detected = verification_result.get('macroblocks_detected', False)
@@ -403,8 +412,7 @@ class ZapExecutor:
             result.zapping_detected = verification_result.get('zapping_detected', False)
             result.zapping_details = verification_result
     
-    
-    
+
     # Audio menu analysis moved to dedicated audio_menu_analyzer.py
     
     def _analyze_zapping(self, context, iteration: int, action_command: str, action_start_time: float = None) -> Dict[str, Any]:
