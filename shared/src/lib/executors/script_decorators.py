@@ -141,7 +141,6 @@ def navigate_to(target_node: str) -> bool:
         tree_id=context.tree_id,
         target_node_id=target_node,
         current_node_id=getattr(context, 'current_node_id', None),
-        image_source_url=None,  # Optional parameter - let NavigationExecutor handle it
         team_id=context.team_id
     )
     
