@@ -39,30 +39,29 @@ server_navigation_trees_bp = Blueprint('server_navigation_trees', __name__, url_
 @server_navigation_trees_bp.route('/navigationTrees', methods=['GET'])
 def get_all_navigation_trees():
     """Get all navigation trees metadata for a team."""
-    # Log caller information to identify source
-    user_agent = request.headers.get('User-Agent', 'Unknown')
-    referer = request.headers.get('Referer', 'Unknown')
-    x_requested_with = request.headers.get('X-Requested-With', 'Unknown')
-    print(f"[@server_navigation_trees_routes:navigationTrees] 🔍 CALLER INFO:")
-    print(f"  - User-Agent: {user_agent}")
-    print(f"  - Referer: {referer}")
-    print(f"  - X-Requested-With: {x_requested_with}")
-    print(f"  - Remote Address: {request.remote_addr}")
-    
     try:
+        # Extract HTTP request data
         team_id = request.args.get('team_id')
-        if not team_id:
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        referer = request.headers.get('Referer', 'Unknown')
+        
+        # Delegate to service layer (business logic moved out of route)
+        from services.navigation_service import navigation_service
+        result = navigation_service.get_all_navigation_trees(team_id, user_agent, referer)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'trees': result['trees']
+            })
+        else:
+            status_code = result.get('status_code', 500)
             return jsonify({
                 'success': False,
-                'message': 'team_id is required'
-            }), 400
-        
-        trees = get_all_trees(team_id)
-        
-        return jsonify({
-            'success': True,
-            'trees': trees
-        })
+                'message': result['error']
+            }), status_code
+            
     except Exception as e:
         print(f'[@route:navigation_trees:get_all] ERROR: {e}')
         return jsonify({

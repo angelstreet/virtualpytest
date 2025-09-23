@@ -23,13 +23,8 @@ from shared.src.lib.utils.app_utils import check_supabase
 # Create blueprint with abstract server campaign prefix
 server_campaign_bp = Blueprint('server_campaign', __name__, url_prefix='/server/campaigns')
 
-# Helper functions (these should be imported from a shared module)
-def get_user_id():
-    '''Get user_id from request headers - FAIL FAST if not provided'''
-    user_id = request.headers.get('X-User-ID')
-    if not user_id:
-        raise ValueError('X-User-ID header is required but not provided')
-    return user_id
+# Legacy helper functions moved to services/campaign_service.py
+# All business logic has been extracted to the service layer
 
 # =====================================================
 # CAMPAIGN ENDPOINTS WITH CONSISTENT NAMING
@@ -38,93 +33,111 @@ def get_user_id():
 @server_campaign_bp.route('/getAllCampaigns', methods=['GET'])
 def get_all_campaigns_route():
     """Get all campaigns for a team"""
-    # Log caller information to identify source
-    user_agent = request.headers.get('User-Agent', 'Unknown')
-    referer = request.headers.get('Referer', 'Unknown')
-    x_requested_with = request.headers.get('X-Requested-With', 'Unknown')
-    print(f"[@server_campaign_routes:getAllCampaigns] 🔍 CALLER INFO:")
-    print(f"  - User-Agent: {user_agent}")
-    print(f"  - Referer: {referer}")
-    print(f"  - X-Requested-With: {x_requested_with}")
-    print(f"  - Remote Address: {request.remote_addr}")
-    
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
-        # Campaign templates are not stored in database - they are just configurations
-        # Return empty list for now, or implement campaign template storage if needed
-        return jsonify([])
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        referer = request.headers.get('Referer', 'Unknown')
+        
+        # Delegate to service layer
+        from services.campaign_service import campaign_service
+        result = campaign_service.get_all_campaigns(team_id, user_agent, referer)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify(result['campaigns'])
+        else:
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_campaign_bp.route('/getCampaign/<campaign_id>', methods=['GET'])
 def get_campaign_route(campaign_id):
     """Get a specific campaign by ID"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
-        # Campaign templates are not stored in database - they are just configurations
-        # Return empty object for now, or implement campaign template storage if needed
-        return jsonify({})
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        
+        # Delegate to service layer
+        from services.campaign_service import campaign_service
+        result = campaign_service.get_campaign(campaign_id, team_id)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify(result['campaign'])
+        else:
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_campaign_bp.route('/createCampaign', methods=['POST'])
 def create_campaign_route():
     """Create a new campaign"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    user_id = get_user_id()
-    
     try:
-        campaign = request.json
-        # Campaign templates are not stored in database - they are just configurations
-        # Return success for now, or implement campaign template storage if needed
-        return jsonify({'status': 'success', 'campaign_id': campaign.get('campaign_id', 'template-campaign')})
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        user_id = request.headers.get('X-User-ID')
+        campaign_data = request.json
+        
+        # Delegate to service layer
+        from services.campaign_service import campaign_service
+        result = campaign_service.create_campaign(campaign_data, team_id, user_id)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify({'status': 'success', 'campaign': result['campaign']})
+        else:
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_campaign_bp.route('/updateCampaign/<campaign_id>', methods=['PUT'])
 def update_campaign_route(campaign_id):
     """Update an existing campaign"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    user_id = get_user_id()
-    
     try:
-        campaign = request.json
-        # Campaign templates are not stored in database - they are just configurations
-        # Return success for now, or implement campaign template storage if needed
-        return jsonify({'status': 'success'})
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        user_id = request.headers.get('X-User-ID')
+        campaign_data = request.json
+        
+        # Delegate to service layer
+        from services.campaign_service import campaign_service
+        result = campaign_service.update_campaign(campaign_id, campaign_data, team_id, user_id)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify({'status': 'success', 'campaign': result['campaign']})
+        else:
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_campaign_bp.route('/deleteCampaign/<campaign_id>', methods=['DELETE'])
 def delete_campaign_route(campaign_id):
     """Delete a campaign"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
-        # Campaign templates are not stored in database - they are just configurations
-        # Return success for now, or implement campaign template storage if needed
-        return jsonify({'status': 'success'})
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        user_id = request.headers.get('X-User-ID')
+        
+        # Delegate to service layer
+        from services.campaign_service import campaign_service
+        result = campaign_service.delete_campaign(campaign_id, team_id, user_id)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify({'status': 'success'})
+        else:
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

@@ -21,35 +21,8 @@ from shared.src.lib.utils.app_utils import check_supabase
 # HELPER FUNCTIONS
 # =====================================================
 
-def check_device_name_exists(name, team_id, exclude_device_id=None):
-    """Check if a device name already exists for the team"""
-    try:
-        devices = get_all_devices(team_id)
-        for device in devices:
-            if device.get('name') == name:
-                if exclude_device_id and device.get('id') == exclude_device_id:
-                    continue
-                return True
-        return False
-    except Exception:
-        return False
-
-def update_device(device_id, device_data, team_id):
-    """Update an existing device"""
-    try:
-        # Get the existing device
-        existing_device = get_device(device_id, team_id)
-        if not existing_device:
-            return None
-            
-        # Update the device data
-        updated_data = {**existing_device, **device_data}
-        updated_data['id'] = device_id
-        
-        # Save the updated device
-        return create_device(updated_data, team_id)
-    except Exception:
-        return None
+# Legacy helper functions moved to services/device_service.py
+# All business logic has been extracted to the service layer
 
 # Create blueprint
 server_device_bp = Blueprint('server_device', __name__, url_prefix='/server/devices')
@@ -61,44 +34,42 @@ server_device_bp = Blueprint('server_device', __name__, url_prefix='/server/devi
 @server_device_bp.route('/getAllDevices', methods=['GET'])
 def get_devices():
     """Get all devices for the team"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
-        devices = get_all_devices(team_id)
-        return jsonify(devices)
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        
+        # Delegate to service layer
+        from services.device_service import device_service
+        result = device_service.get_all_devices(team_id)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify(result['devices'])
+        else:
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_device_bp.route('/createDevice', methods=['POST'])
 def create_device_endpoint():
     """Create a new device"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
         device_data = request.json
         
-        # Validate required fields
-        if not device_data.get('name'):
-            return jsonify({'error': 'Name is required'}), 400
+        # Delegate to service layer
+        from services.device_service import device_service
+        result = device_service.save_device(device_data, team_id)
         
-        # Check for duplicate names
-        if check_device_name_exists(device_data['name'], team_id):
-            return jsonify({'error': 'A device with this name already exists'}), 400
-        
-        # Create the device
-        created_device = create_device(device_data, team_id)
-        if created_device:
-            return jsonify({'status': 'success', 'device': created_device}), 201
+        # Return HTTP response
+        if result['success']:
+            return jsonify({'status': 'success', 'device': result['device']}), 201
         else:
-            return jsonify({'error': 'Failed to create device'}), 500
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -106,64 +77,67 @@ def create_device_endpoint():
 @server_device_bp.route('/getDevice/<device_id>', methods=['GET'])
 def get_device_endpoint(device_id):
     """Get a specific device by ID"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
-        device = get_device(device_id, team_id)
-        if device:
-            return jsonify(device)
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        
+        # Delegate to service layer
+        from services.device_service import device_service
+        result = device_service.get_device(device_id, team_id)
+        
+        # Return HTTP response
+        if result['success']:
+            return jsonify(result['device'])
         else:
-            return jsonify({'error': 'Device not found'}), 404
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_device_bp.route('/updateDevice/<device_id>', methods=['PUT'])
 def update_device_endpoint(device_id):
     """Update a specific device"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
         device_data = request.json
         
-        # Validate required fields
-        if not device_data.get('name'):
-            return jsonify({'error': 'Name is required'}), 400
+        # Add device_id to data for service
+        if device_data:
+            device_data['id'] = device_id
         
-        # Check for duplicate names (excluding current device)
-        if check_device_name_exists(device_data['name'], team_id, device_id):
-            return jsonify({'error': 'A device with this name already exists'}), 400
+        # Delegate to service layer
+        from services.device_service import device_service
+        result = device_service.save_device(device_data, team_id)
         
-        # Update the device
-        updated_device = update_device(device_id, device_data, team_id)
-        if updated_device:
-            return jsonify({'status': 'success', 'device': updated_device})
+        # Return HTTP response
+        if result['success']:
+            return jsonify({'status': 'success', 'device': result['device']})
         else:
-            return jsonify({'error': 'Device not found or failed to update'}), 404
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @server_device_bp.route('/deleteDevice/<device_id>', methods=['DELETE'])
 def delete_device_endpoint(device_id):
     """Delete a specific device"""
-    error = check_supabase()
-    if error:
-        return error
-        
-    team_id = request.args.get('team_id')
-    
     try:
-        success = delete_device(device_id, team_id)
-        if success:
+        # Extract HTTP request data
+        team_id = request.args.get('team_id')
+        
+        # Delegate to service layer
+        from services.device_service import device_service
+        result = device_service.delete_device(device_id, team_id)
+        
+        # Return HTTP response
+        if result['success']:
             return jsonify({'status': 'success'})
         else:
-            return jsonify({'error': 'Device not found or failed to delete'}), 404
+            status_code = result.get('status_code', 500)
+            return jsonify({'error': result['error']}), status_code
+            
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

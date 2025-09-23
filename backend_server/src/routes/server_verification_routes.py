@@ -20,38 +20,20 @@ def get_verifications():
     try:
         device_model = request.args.get('device_model', 'android_mobile')
         
-        # Return basic verification types available for the device model
-        # This is mainly for frontend compatibility - verifications are now embedded in nodes
-        verifications = [
-            {
-                'id': 'waitForElementToAppear',
-                'name': 'waitForElementToAppear',
-                'command': 'waitForElementToAppear',
-                'device_model': device_model,
-                'verification_type': 'adb',
-                'params': {
-                    'search_term': '',
-                    'timeout': 10,
-                    'check_interval': 1
-                }
-            },
-            {
-                'id': 'image_verification',
-                'name': 'image_verification',
-                'command': 'image_verification',
-                'device_model': device_model,
-                'verification_type': 'image',
-                'params': {
-                    'reference_image': '',
-                    'confidence_threshold': 0.8
-                }
-            }
-        ]
+        # Delegate to service layer (business logic moved out of route)
+        from services.verification_service import verification_service
+        result = verification_service.get_verification_types(device_model)
         
-        return jsonify({
-            'success': True,
-            'verifications': verifications
-        })
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'verifications': result['verifications']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['error']
+            }), 500
         
     except Exception as e:
         print(f'[@route:server_verification:get_verifications] ERROR: {e}')
@@ -64,33 +46,23 @@ def get_verifications():
 def get_all_references():
     """Get all reference images/data."""
     try:
-        from shared.src.lib.supabase.verifications_references_db import get_references
-        
-        # Get team_id from query params (standardized pattern like other endpoints)
         team_id = request.args.get('team_id')
-        if not team_id:
-            return jsonify({
-                'success': False,
-                'message': 'team_id is required'
-            }), 400
         
-        print(f'[@route:server_verification:get_all_references] Getting all references for team: {team_id}')
-        
-        # Get all references for the team
-        result = get_references(team_id=team_id)
+        # Delegate to service layer (database logic moved out of route)
+        from services.verification_service import verification_service
+        result = verification_service.get_all_references(team_id)
         
         if result['success']:
-            print(f'[@route:server_verification:get_all_references] Found {result["count"]} references')
             return jsonify({
                 'success': True,
                 'references': result['references']
             })
         else:
-            print(f'[@route:server_verification:get_all_references] Error getting references: {result.get("error")}')
+            status_code = result.get('status_code', 500)
             return jsonify({
                 'success': False,
-                'message': result.get('error', 'Failed to get references')
-            }), 500
+                'message': result['error']
+            }), status_code
         
     except Exception as e:
         print(f'[@route:server_verification:get_all_references] ERROR: {e}')
