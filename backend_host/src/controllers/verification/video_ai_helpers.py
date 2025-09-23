@@ -60,7 +60,7 @@ class VideoAIHelpers:
         AI-powered subtitle analysis using centralized AI utilities
         
         Args:
-            image: Either cropped subtitle region or full image for AI analysis
+            image: OpenCV image array (numpy.ndarray) - NOT a string path!
             
         Returns:
             Tuple of (extracted_text, detected_language, confidence)
@@ -70,8 +70,20 @@ class VideoAIHelpers:
             if image is None:
                 raise ValueError(f"VideoAI[{self.device_name}]: ❌ CRITICAL ERROR - No image provided for AI subtitle analysis!")
             
+            # Type enforcement - must be numpy array (cv2 image), not string path
+            import numpy as np
+            if isinstance(image, str):
+                raise TypeError(f"VideoAI[{self.device_name}]: ❌ CRITICAL ERROR - Expected cv2 image array, got string path: {image}. Use cv2.imread() first!")
+            
+            if not isinstance(image, np.ndarray):
+                raise TypeError(f"VideoAI[{self.device_name}]: ❌ CRITICAL ERROR - Expected cv2 image array (numpy.ndarray), got: {type(image)}")
+            
             # Use centralized AI utilities
             from shared.src.lib.utils.ai_utils import call_vision_ai
+            
+            # Log the image being analyzed
+            height, width = image.shape[:2]
+            print(f"VideoAI[{self.device_name}]: Analyzing cv2 image array: {width}x{height} pixels")
             
             prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
             
