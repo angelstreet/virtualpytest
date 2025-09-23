@@ -10,7 +10,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from shared.src.lib.executors.script_decorators import script, get_context, get_args
+from shared.src.lib.executors.script_decorators import script, navigate_to, get_device, get_args
 
 def execute_zap_actions(context, action_edge, action_command: str, max_iteration: int, zap_controller, goto_live: bool = True):
     from shared.src.lib.executors.step_executor import StepExecutor
@@ -56,65 +56,50 @@ def print_fullzap_summary(context, userinterface_name: str):
 
 def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_live: bool = True, audio_analysis: bool = False) -> bool:
     from shared.src.lib.executors.zap_executor import ZapExecutor
-    from shared.src.lib.executors.script_decorators import navigate_to
     from backend_host.src.lib.utils.audio_menu_analyzer import analyze_audio_menu
+    from shared.src.lib.executors.script_decorators import _get_context
     
-    context = get_context()
-    zap_controller = ZapExecutor(context.selected_device)
+    device = get_device()
+    context = _get_context()  # Only for zap-specific data storage
+    zap_controller = ZapExecutor(device)
     
-    if "mobile" in context.selected_device.device_model.lower():
+    # Determine target based on device (same logic as goto_live.py)
+    if "mobile" in device.device_model.lower():
         target_node = "live_fullscreen"
         mapped_action = f"live_fullscreen_{action.split('_')[-1]}" if action.startswith("live_") else action
     else:
         target_node = "live"
         mapped_action = action
     
+    # Navigate to live using public interface (same as goto.py)
     if goto_live:
         success = navigate_to(target_node)
         if not success:
-            context.error_message = f"Failed to navigate to {target_node}"
+            print(f"❌ [fullzap] Failed to navigate to {target_node}")
             return False
-    else:
-        # Find target node in loaded tree
-        target_node_obj = None
-        for node in context.nodes:
-            if node.get('label') == target_node:
-                target_node_obj = node
-                break
-        if target_node_obj:
-            context.current_node_id = target_node_obj.get('node_id')
+        print(f"✅ [fullzap] Navigated to {target_node}")
     
+    # Execute zap actions (this is the fullzap-specific part)
     context.custom_data['action_command'] = mapped_action
-    context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in context.selected_device.device_model.lower() else "live_audiomenu"
-    
-    # Find edge for the mapped action
-    action_edge = None
-    if context.current_node_id:
-        # Use NavigationExecutor's method to find edge
-        nav_executor = context.selected_device.navigation_executor
-        action_edge = nav_executor.find_edge_by_target_label(context.current_node_id, context.edges, context.nodes, mapped_action)
-    if not action_edge:
-        context.error_message = f"No edge found from current node to '{mapped_action}'"
-        return False
+    context.audio_menu_node = "live_fullscreen_audiomenu" if "mobile" in device.device_model.lower() else "live_audiomenu"
     
     try:
-        zap_success = execute_zap_actions(context, action_edge, mapped_action, max_iteration, zap_controller, goto_live)
+        # Use ZapExecutor directly for zap-specific functionality
+        zap_success = zap_controller.execute_zap_iterations_simple(mapped_action, max_iteration)
     except Exception as e:
+        print(f"❌ [fullzap] Zap execution failed: {e}")
         zap_success = False
     
-    if zap_success and audio_analysis:
-        device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-        if device_model != 'host_vnc':
-            audio_result = analyze_audio_menu(context)
-            context.custom_data['audio_menu_analysis'] = audio_result
+    # Audio analysis if requested
+    if zap_success and audio_analysis and device.device_model != 'host_vnc':
+        audio_result = analyze_audio_menu(context)
+        context.custom_data['audio_menu_analysis'] = audio_result
     
     return zap_success
 
 @script("fullzap", "Execute zap iterations with analysis")
 def main():
     args = get_args()
-    context = get_context()
-    context.userinterface_name = args.userinterface_name
     
     success = execute_zap_iterations(
         max_iteration=args.max_iteration,
@@ -123,7 +108,11 @@ def main():
         audio_analysis=args.audio_analysis
     )
     
+    # Print summary (zap-specific reporting)
+    from shared.src.lib.executors.script_decorators import _get_context
     from shared.src.lib.utils.zap_utils import print_zap_summary_table
+    
+    context = _get_context()
     print_zap_summary_table(context)
     print_fullzap_summary(context, args.userinterface_name)
     
