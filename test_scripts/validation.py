@@ -63,7 +63,7 @@ def get_node_label_from_id(node_id: str, tree_id: str, team_id: str) -> str:
         return f"{node_id} (label lookup failed)"
 
 
-def custom_validation_step_handler(context: ScriptExecutionContext, step, step_num):
+def custom_validation_step_handler(context, step, step_num):
     """Enhanced validation step handler with force navigation recovery on failure"""
     try:
         # Step start screenshot - capture BEFORE action execution (like ZapController)
@@ -149,7 +149,7 @@ def custom_validation_step_handler(context: ScriptExecutionContext, step, step_n
         }
 
 
-def _record_skipped_steps(context: ScriptExecutionContext, navigation_path: list, start_step_num: int):
+def _record_skipped_steps(context, navigation_path: list, start_step_num: int):
     """Record all remaining steps as skipped when validation stops early"""
     if not hasattr(context, 'skipped_steps'):
         context.skipped_steps = []
@@ -373,7 +373,7 @@ def execute_validation_sequence_with_force_recovery(executor, context,
         return False
 
 
-def capture_validation_summary(context: ScriptExecutionContext, userinterface_name: str, max_iteration: int = None) -> str:
+def capture_validation_summary(context, userinterface_name: str, max_iteration: int = None) -> str:
     """Capture validation summary as text for report"""
     # Calculate verification statistics
     total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
@@ -527,7 +527,7 @@ def capture_validation_summary(context: ScriptExecutionContext, userinterface_na
     return "\n".join(lines)
 
 
-def print_validation_summary(context: ScriptExecutionContext, userinterface_name: str, max_iteration: int = None):
+def print_validation_summary(context, userinterface_name: str, max_iteration: int = None):
     """Print enhanced validation summary with recovery stats"""
     # Calculate verification statistics
     total_verifications = sum(len(step.get('verification_results', [])) for step in context.step_results)
