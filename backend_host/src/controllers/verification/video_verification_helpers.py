@@ -310,8 +310,11 @@ class VideoVerificationHelpers:
                 
                 try:
                     # Try freeze detection using existing freeze detection logic
-                    freeze_result = self.controller.content_helpers.detect_freeze_sequence(
-                        folder_path, key_release_timestamp, max_images
+                    freeze_result = self.controller.content_helpers.detect_freeze_zapping_sequence(
+                        folder_path, key_release_timestamp, 
+                        analysis_rectangle=params.get('analysis_rectangle'),
+                        max_images=max_images,
+                        banner_region=params.get('banner_region')
                     )
                     
                     if freeze_result.get('success', False) and freeze_result.get('freeze_detected', False):
