@@ -461,9 +461,11 @@ class ZapExecutor:
                 result.subtitles_detected = False
             
         elif analysis_type == 'audio_speech':
-            result.audio_speech_detected = verification_result.get('speech_detected', False)
-            result.audio_transcript = verification_result.get('combined_transcript', '')
-            result.audio_language = verification_result.get('detected_language', 'unknown')
+            # Extract from details (where AI results are nested) same as subtitles
+            audio_details = verification_result.get('details', {})
+            result.audio_speech_detected = verification_result.get('success', False) and bool(audio_details.get('combined_transcript', '').strip())
+            result.audio_transcript = audio_details.get('combined_transcript', '')
+            result.audio_language = audio_details.get('detected_language', 'unknown')
             result.audio_details = verification_result
             # Ensure audio_speech_detected is never None
             if result.audio_speech_detected is None:
