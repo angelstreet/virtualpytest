@@ -336,7 +336,7 @@ class NavigationExecutor:
                     
                     step_result = {
                         'success': result.get('success', False),
-                        'screenshot_path': main_screenshot_path,
+                        'screenshot_path': step_end_screenshot_path,  # Use step end screenshot since ActionExecutor handles action screenshots
                         'screenshot_url': result.get('screenshot_url'),
                         'step_start_screenshot_path': step_start_screenshot_path,
                         'step_end_screenshot_path': step_end_screenshot_path,
