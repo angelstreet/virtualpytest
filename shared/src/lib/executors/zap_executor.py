@@ -549,6 +549,21 @@ class ZapExecutor:
             if result.subtitles_detected is None:
                 result.subtitles_detected = False
             
+            # Add sourceImageUrl for thumbnail display (same as motion detection)
+            if result.subtitles_detected and subtitle_details.get('results'):
+                subtitle_results = subtitle_details.get('results', [])
+                if subtitle_results and len(subtitle_results) > 0:
+                    # Get the first successful result with subtitles for thumbnail
+                    for subtitle_result in subtitle_results:
+                        if subtitle_result.get('success') and subtitle_result.get('has_subtitles'):
+                            image_filename = subtitle_result.get('image_path', '')
+                            if image_filename:
+                                # Build thumbnail URL (same pattern as motion detection)
+                                thumbnail_filename = image_filename.replace('.jpg', '_thumbnail.jpg')
+                                result.subtitle_details['sourceImageUrl'] = f"/host/stream/capture1/captures/{thumbnail_filename}"
+                                print(f"🖼️ [ZapExecutor] Added subtitle thumbnail: {thumbnail_filename}")
+                                break
+            
         elif analysis_type == 'audio_speech':
             # Extract from details (where AI results are nested) same as subtitles
             audio_details = verification_result.get('details', {})

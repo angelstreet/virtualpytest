@@ -33,22 +33,28 @@ const RecContent: React.FC = () => {
   // Filter states
   const [hostFilter, setHostFilter] = useState<string>('');
   const [deviceModelFilter, setDeviceModelFilter] = useState<string>('');
+  const [deviceFilter, setDeviceFilter] = useState<string>('');
 
-  // Get unique host names and device models for filter dropdowns
-  const { uniqueHosts, uniqueDeviceModels } = useMemo(() => {
+  // Get unique host names, device models, and device names for filter dropdowns
+  const { uniqueHosts, uniqueDeviceModels, uniqueDevices } = useMemo(() => {
     const hosts = new Set<string>();
     const deviceModels = new Set<string>();
+    const devices = new Set<string>();
 
     avDevices.forEach(({ host, device }) => {
       hosts.add(host.host_name);
       if (device.device_model) {
         deviceModels.add(device.device_model);
       }
+      if (device.device_name) {
+        devices.add(device.device_name);
+      }
     });
 
     return {
       uniqueHosts: Array.from(hosts).sort(),
       uniqueDeviceModels: Array.from(deviceModels).sort(),
+      uniqueDevices: Array.from(devices).sort(),
     };
   }, [avDevices]);
 
@@ -57,15 +63,17 @@ const RecContent: React.FC = () => {
     return avDevices.filter(({ host, device }) => {
       const matchesHost = !hostFilter || host.host_name === hostFilter;
       const matchesDeviceModel = !deviceModelFilter || device.device_model === deviceModelFilter;
+      const matchesDevice = !deviceFilter || device.device_name === deviceFilter;
 
-      return matchesHost && matchesDeviceModel;
+      return matchesHost && matchesDeviceModel && matchesDevice;
     });
-  }, [avDevices, hostFilter, deviceModelFilter]);
+  }, [avDevices, hostFilter, deviceModelFilter, deviceFilter]);
 
   // Clear filters
   const clearFilters = () => {
     setHostFilter('');
     setDeviceModelFilter('');
+    setDeviceFilter('');
   };
 
   // Log AV devices count
@@ -74,7 +82,7 @@ const RecContent: React.FC = () => {
     console.log(`[@page:Rec] Filtered to ${filteredDevices.length} devices`);
   }, [avDevices.length, filteredDevices.length]);
 
-  const hasActiveFilters = hostFilter || deviceModelFilter;
+  const hasActiveFilters = hostFilter || deviceModelFilter || deviceFilter;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -148,6 +156,25 @@ const RecContent: React.FC = () => {
               {uniqueDeviceModels.map((deviceModel) => (
                 <MenuItem key={deviceModel} value={deviceModel}>
                   {deviceModel}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Device Filter */}
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Device</InputLabel>
+            <Select
+              value={deviceFilter}
+              label="Device"
+              onChange={(e) => setDeviceFilter(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>All Devices</em>
+              </MenuItem>
+              {uniqueDevices.map((deviceName) => (
+                <MenuItem key={deviceName} value={deviceName}>
+                  {deviceName}
                 </MenuItem>
               ))}
             </Select>
