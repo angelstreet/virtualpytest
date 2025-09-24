@@ -731,6 +731,9 @@ def format_analysis_results(step: Dict) -> str:
     
     # Zapping Analysis Results  
     if zapping_analysis and zapping_analysis.get('success') is not None:
+        # Add discrete separator before zapping section
+        analysis_html += '<div style="margin: 8px 0; border-top: 1px solid #333; opacity: 0.3;"></div>'
+        
         zapping_detected = zapping_analysis.get('zapping_detected', False)
         zapping_status = "✅ DETECTED" if zapping_detected else "❌ NOT DETECTED"
         analysis_html += f'<div class="analysis-item zapping"><strong>Zapping Detection:</strong> {zapping_status}</div>'
@@ -750,9 +753,9 @@ def format_analysis_results(step: Dict) -> str:
                 zap_details.append(f"Images Analyzed: {analyzed_images}")
             
             if zap_details:
-                analysis_html += f'<div class="analysis-detail">{" - ".join(zap_details)}</div>'
+                analysis_html += f'<div class="analysis-detail" style="margin-bottom: 6px;">{" - ".join(zap_details)}</div>'
                 
-            # Channel information
+            # Channel information with spacing
             if channel_info.get('channel_name'):
                 channel_display = channel_info['channel_name']
                 if channel_info.get('channel_number'):
@@ -765,7 +768,7 @@ def format_analysis_results(step: Dict) -> str:
                 if channel_info.get('start_time') and channel_info.get('end_time'):
                     channel_info_line += f" Program Time - {channel_info['start_time']}-{channel_info['end_time']}"
                 
-                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none;">{channel_info_line}</div>'
+                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none; margin-bottom: 8px;">{channel_info_line}</div>'
             
             # Complete zapping sequence thumbnails (4 key images)
             before_blackscreen = zapping_analysis.get('first_image')  # Image before blackscreen starts
