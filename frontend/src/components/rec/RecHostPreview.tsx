@@ -67,6 +67,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     return deviceFlag?.flags || [];
   }, [deviceFlags, host.host_name, device?.device_id]);
 
+  // Hook for notifications
+  const { showError } = useToast();
+
   // Cleanup stream when component unmounts
   useEffect(() => {
     return () => {

@@ -64,23 +64,21 @@ def generate_validation_report(report_data: Dict) -> str:
         if test_video_url is None:
             test_video_url = ''
         
-        # Generate zap summary section using existing data from memory (no database read needed)
+        # Use zap summary from execution_summary if it contains zap data
         zap_summary_section = ""
-        custom_data = report_data.get('custom_data', {})
-        print(f"[@utils:report_generation] DEBUG: custom_data keys = {list(custom_data.keys())}")
-        if custom_data and 'motion_results' in custom_data:
-            try:
-                from .zap_utils import create_zap_summary_section_from_data
-                print(f"[@utils:report_generation] DEBUG: Using existing zap data from memory (no DB read)")
-                zap_summary_section = create_zap_summary_section_from_data(custom_data)
-                print(f"[@utils:report_generation] DEBUG: Zap summary section length: {len(zap_summary_section)} characters")
-            except Exception as e:
-                print(f"[@utils:report_generation] Failed to generate zap summary from memory: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                zap_summary_section = ""
-        else:
-            print(f"[@utils:report_generation] DEBUG: No zap data found in custom_data, skipping zap summary")
+        execution_summary = report_data.get('execution_summary', '')
+        if execution_summary and 'ZAP EXECUTION SUMMARY' in execution_summary:
+            zap_summary_section = f"""
+            <div class="section">
+                <div class="section-header" onclick="toggleSection('zap-summary-content')">
+                    <h2>🎯 Zap Execution Summary</h2>
+                    <button class="toggle-btn">▶</button>
+                </div>
+                <div id="zap-summary-content" class="collapsible-content">
+                    <pre class="console-output">{execution_summary}</pre>
+                </div>
+            </div>
+            """
         
         # Replace placeholders with actual content
         html_content = html_template.format(
