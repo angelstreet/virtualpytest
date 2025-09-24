@@ -5,6 +5,8 @@ Continuous background service that generates heatmap mosaics every minute.
 Uses circular buffer with HHMM naming (1440 fixed files).
 """
 
+import sys
+import os
 import time
 import asyncio
 import aiohttp
@@ -14,6 +16,12 @@ from typing import Dict, List, Optional
 from PIL import Image
 import io
 import math
+
+# Add project root to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
 
