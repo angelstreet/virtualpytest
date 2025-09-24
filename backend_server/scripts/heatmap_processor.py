@@ -73,8 +73,8 @@ class HeatmapProcessor:
             if not current_captures:
                 print(f"⚠️ No current captures retrieved for {time_key}")
                 return
-            
-            
+                
+                
             # Create complete device list with placeholders for missing captures
             complete_device_list = self.create_complete_device_list(hosts_devices, current_captures)
             
@@ -220,7 +220,7 @@ class HeatmapProcessor:
                                 current_captures.append({
                                     'host_name': host_name,
                                     'device_id': device_id,
-                                    'image_url': image_url,
+                            'image_url': image_url,
                                     'json_url': json_url,
                                     'analysis': analysis_data,
                                     'timestamp': result.get('timestamp', ''),
@@ -381,17 +381,17 @@ class HeatmapProcessor:
             else:
                 # Try to download and use actual image
                 try:
-                    import requests
+                import requests
                     print(f"📥 Downloading image: {image_url}")
                     response = requests.get(image_url, timeout=10)
-                    if response.status_code == 200:
-                        img = Image.open(io.BytesIO(response.content))
-                        img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
-                        mosaic.paste(img, (x, y))
+                if response.status_code == 200:
+                    img = Image.open(io.BytesIO(response.content))
+                    img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
+                    mosaic.paste(img, (x, y))
                         print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
                     else:
                         raise Exception(f"HTTP {response.status_code}")
-                except Exception as e:
+            except Exception as e:
                     print(f"❌ Error loading image {image_data['image_url']}: {e}")
                     # Create error placeholder
                     error_placeholder = Image.new('RGB', (cell_width, cell_height), color='#4a2a2a')  # Dark red
@@ -427,14 +427,14 @@ class HeatmapProcessor:
             
             # Check for incidents (only for real captures, not placeholders)
             if not is_placeholder:
-                has_incidents = (
+            has_incidents = (
                     analysis.get('blackscreen', False) or
                     analysis.get('freeze', False) or
                     not analysis.get('audio', True)
-                )
-                
-                if has_incidents:
-                    incidents_count += 1
+            )
+            
+            if has_incidents:
+                incidents_count += 1
             
             # Build device entry
             device_entry = {
@@ -504,7 +504,7 @@ class HeatmapProcessor:
                 if result['success'] and len(result['uploaded_files']) == 2:
                     # Check if all files have valid URLs
                     all_urls_available = all(
-                        uploaded.get('public_url') and uploaded.get('public_url') != 'URL not available' 
+                        uploaded.get('url') and uploaded.get('url').strip() and uploaded.get('url') != 'URL not available' 
                         for uploaded in result['uploaded_files']
                     )
                     
@@ -514,7 +514,9 @@ class HeatmapProcessor:
                     else:
                         print(f"❌ Upload failed for {time_key}: Files uploaded but URLs not available")
                         for uploaded in result['uploaded_files']:
-                            url_status = uploaded.get('public_url', 'URL not available')
+                            url_status = uploaded.get('url', 'URL not available')
+                            if not url_status or not url_status.strip():
+                                url_status = 'URL not available (CLOUDFLARE_R2_PUBLIC_URL not set)'
                             print(f"   🔗 {uploaded['remote_path']}: {url_status}")
                         return False
                 else:
