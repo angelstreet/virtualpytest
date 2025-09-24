@@ -514,9 +514,6 @@ def format_analysis_results(step: Dict) -> str:
         motion_status = "✅ DETECTED" if motion_success else "❌ NOT DETECTED"
         analysis_html += f'<div class="analysis-item motion"><strong>Motion Detection:</strong> {motion_status}</div>'
         
-        if motion_analysis.get('message'):
-            analysis_html += f'<div class="analysis-detail">Details: {motion_analysis.get("message")}</div>'
-
         # Motion analysis thumbnails (3 analyzed images) - similar to zapping detection
         motion_images = motion_analysis.get('motion_analysis_images', [])
         if motion_images:

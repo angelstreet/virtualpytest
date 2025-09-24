@@ -146,14 +146,6 @@ const RecContent: React.FC = () => {
     await Promise.all(promises);
   }, [selectedDevices, deviceFlags, updateDeviceFlags]);
 
-  const handleBulkClearFlags = useCallback(async () => {
-    const promises = Array.from(selectedDevices).map(deviceKey => {
-      const [hostName, deviceId] = deviceKey.split('-');
-      return updateDeviceFlags(hostName, deviceId, []);
-    });
-    
-    await Promise.all(promises);
-  }, [selectedDevices, updateDeviceFlags]);
 
   // Log AV devices count
   useEffect(() => {
@@ -367,18 +359,7 @@ const RecContent: React.FC = () => {
                 disabled={selectedDevices.size === 0}
                 sx={{ height: 32, textTransform: 'none' }}
               >
-                Clear
-              </Button>
-
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                onClick={handleBulkClearFlags}
-                disabled={selectedDevices.size === 0}
-                sx={{ height: 32, textTransform: 'none' }}
-              >
-                Clear Flags
+                Clear Selection
               </Button>
             </>
           )}
