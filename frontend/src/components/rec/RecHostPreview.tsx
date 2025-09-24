@@ -1,5 +1,5 @@
-import { Error as ErrorIcon } from '@mui/icons-material';
-import { Card, Typography, Box, Chip, CircularProgress } from '@mui/material';
+import { Error as ErrorIcon, Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Card, Typography, Box, Chip, CircularProgress, TextField, IconButton } from '@mui/material';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
@@ -11,6 +11,7 @@ import { useDeviceFlags } from '../../hooks/useDeviceFlags';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 import { RecHostStreamModal } from './RecHostStreamModal';
+import { FlagContextMenu } from './FlagContextMenu';
 
 interface RecHostPreviewProps {
   host: Host;
@@ -52,7 +53,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   });
 
   // Get device flags
-  const { deviceFlags } = useDeviceFlags();
+  const { deviceFlags, updateDeviceFlags } = useDeviceFlags();
   const currentDeviceFlags = useMemo(() => {
     if (!device) return [];
     const deviceFlag = deviceFlags.find(df => 
@@ -61,8 +62,45 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     return deviceFlag?.flags || [];
   }, [deviceFlags, host.host_name, device?.device_id]);
 
+  // Flag editing state
+  const [isEditingFlags, setIsEditingFlags] = useState(false);
+  const [newFlag, setNewFlag] = useState('');
+  const [showAllFlags, setShowAllFlags] = useState(false);
+  const [contextMenuAnchor, setContextMenuAnchor] = useState<HTMLElement | null>(null);
+
   // Hook for notifications only
   const { showError } = useToast();
+
+  // Flag management functions
+  const handleAddFlag = useCallback(async () => {
+    if (!device || !newFlag.trim()) return;
+    
+    const updatedFlags = [...currentDeviceFlags, newFlag.trim()];
+    const success = await updateDeviceFlags(host.host_name, device.device_id, updatedFlags);
+    
+    if (success) {
+      setNewFlag('');
+      setIsEditingFlags(false);
+    } else {
+      showError('Failed to add flag');
+    }
+  }, [device, newFlag, currentDeviceFlags, updateDeviceFlags, host.host_name, showError]);
+
+  const handleRemoveFlag = useCallback(async (flagToRemove: string) => {
+    if (!device) return;
+    
+    const updatedFlags = currentDeviceFlags.filter(flag => flag !== flagToRemove);
+    const success = await updateDeviceFlags(host.host_name, device.device_id, updatedFlags);
+    
+    if (!success) {
+      showError('Failed to remove flag');
+    }
+  }, [device, currentDeviceFlags, updateDeviceFlags, host.host_name, showError]);
+
+  const handleContextMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    setContextMenuAnchor(event.currentTarget);
+  }, []);
 
   // Cleanup stream when component unmounts
   useEffect(() => {
@@ -152,21 +190,89 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             flexWrap: 'wrap',
             gap: 0.5,
           }}
+          onContextMenu={handleContextMenu}
         >
           <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 1, minWidth: 0 }}>
             {displayName}
           </Typography>
           
-          {/* Device flags - show max 2 */}
-          {currentDeviceFlags.slice(0, 2).map((flag) => (
+          {/* Device flags - show max 2 with edit capability */}
+          {(showAllFlags ? currentDeviceFlags : currentDeviceFlags.slice(0, 2)).map((flag) => (
             <Chip
               key={flag}
               label={flag}
               size="small"
               variant="outlined"
-              sx={{ fontSize: '0.65rem', height: 18, maxWidth: 60 }}
+              onDelete={() => handleRemoveFlag(flag)}
+              sx={{ 
+                fontSize: '0.65rem', 
+                height: 18, 
+                maxWidth: 60,
+                cursor: 'pointer',
+                '& .MuiChip-deleteIcon': {
+                  fontSize: '0.7rem'
+                }
+              }}
             />
           ))}
+          
+          {/* Add flag button/input */}
+          {isEditingFlags ? (
+            <TextField
+              size="small"
+              value={newFlag}
+              onChange={(e) => setNewFlag(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddFlag()}
+              onBlur={() => {
+                if (newFlag.trim()) {
+                  handleAddFlag();
+                } else {
+                  setIsEditingFlags(false);
+                }
+              }}
+              placeholder="Flag name"
+              autoFocus
+              sx={{ 
+                width: 80,
+                '& .MuiInputBase-input': { 
+                  fontSize: '0.65rem', 
+                  padding: '2px 4px',
+                  height: '14px'
+                }
+              }}
+            />
+          ) : (
+            currentDeviceFlags.length < 5 && (
+              <IconButton
+                size="small"
+                onClick={() => setIsEditingFlags(true)}
+                sx={{ 
+                  width: 18, 
+                  height: 18, 
+                  padding: 0,
+                  '& .MuiSvgIcon-root': { fontSize: '0.7rem' }
+                }}
+              >
+                <AddIcon />
+              </IconButton>
+            )
+          )}
+          
+          {/* Show more flags indicator */}
+          {currentDeviceFlags.length > 2 && (
+            <Chip
+              label={showAllFlags ? 'less' : `+${currentDeviceFlags.length - 2}`}
+              size="small"
+              variant="outlined"
+              onClick={() => setShowAllFlags(!showAllFlags)}
+              sx={{ 
+                fontSize: '0.6rem', 
+                height: 16, 
+                minWidth: 20,
+                cursor: 'pointer'
+              }}
+            />
+          )}
           
           {/* Status chip */}
           <Chip
@@ -328,6 +434,18 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         isOpen={isStreamModalOpen}
         onClose={handleCloseStreamModal}
       />
+
+      {/* Flag Context Menu */}
+      {device && (
+        <FlagContextMenu
+          anchorEl={contextMenuAnchor}
+          open={Boolean(contextMenuAnchor)}
+          onClose={() => setContextMenuAnchor(null)}
+          sourceFlags={currentDeviceFlags}
+          targetHostName={host.host_name}
+          targetDeviceId={device.device_id}
+        />
+      )}
     </Card>
   );
 };
