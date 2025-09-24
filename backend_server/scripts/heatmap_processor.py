@@ -211,16 +211,23 @@ class HeatmapProcessor:
                         timeout=10
                     )
                     
-                    if response.status_code == 200:
-                        result = response.json()
-                        if result.get('success') and result.get('latest_json_url'):
-                            # Extract sequence from JSON URL to build image URL
-                            json_url = result['latest_json_url']
-                            sequence_match = json_url.split('capture_')[-1].split('.json')[0] if 'capture_' in json_url else ''
-                            
-                            if sequence_match:
-                                from shared.src.lib.utils.build_url_utils import buildCaptureUrl
-                                image_url = buildCaptureUrl(device['host_data'], sequence_match, device_id)
+                     if response.status_code == 200:
+                         result = response.json()
+                         if result.get('success') and result.get('latest_json_url'):
+                             # Use exact same logic as useMonitoring.ts lines 268-272
+                             raw_json_url = result['latest_json_url']
+                             
+                             # Extract sequence using same regex as useMonitoring
+                             import re
+                             sequence_match = re.search(r'capture_(\d+)', raw_json_url)
+                             sequence = sequence_match.group(1) if sequence_match else ''
+                             
+                             if sequence:
+                                 from shared.src.lib.utils.build_url_utils import buildCaptureUrl
+                                 # Build image URL exactly like useMonitoring: buildCaptureUrl(host, sequence, device_id)
+                                 image_url = buildCaptureUrl(device['host_data'], sequence, device_id)
+                                 # Build JSON URL by replacing .jpg with .json like useMonitoring line 272
+                                 json_url = image_url.replace('.jpg', '.json')
                                 
                                 # Load JSON analysis data
                                 json_response = requests.get(json_url, timeout=5)
@@ -233,12 +240,14 @@ class HeatmapProcessor:
                                     'json_url': json_url,
                                     'analysis': analysis_data,
                                     'timestamp': result.get('timestamp', ''),
-                                    'sequence': sequence_match
+                                    'sequence': sequence
                                 })
                                 
-                                print(f"✅ Got current capture for {host_name}/{device_id}: {sequence_match}")
+                                print(f"✅ Got current capture for {host_name}/{device_id}: sequence={sequence}")
+                                print(f"   📷 Image URL: {image_url}")
+                                print(f"   📄 JSON URL: {json_url}")
                             else:
-                                print(f"⚠️ Could not extract sequence from {json_url}")
+                                print(f"⚠️ Could not extract sequence from {raw_json_url}")
                         else:
                             print(f"⚠️ No latest JSON for {host_name}/{device_id}: {result.get('error', 'Unknown error')}")
                     else:
