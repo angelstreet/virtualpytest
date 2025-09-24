@@ -17,6 +17,7 @@ interface UseDeviceFlagsReturn {
   isLoading: boolean;
   error: string | null;
   updateDeviceFlags: (hostName: string, deviceId: string, flags: string[]) => Promise<boolean>;
+  batchUpdateDeviceFlags: (updates: Array<{ hostName: string; deviceId: string; flags: string[] }>) => Promise<boolean>;
   refreshFlags: () => Promise<void>;
 }
 
@@ -99,6 +100,64 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
     }
   }, [deviceFlags]);
 
+  const batchUpdateDeviceFlags = useCallback(async (updates: Array<{ hostName: string; deviceId: string; flags: string[] }>): Promise<boolean> => {
+    try {
+      const promises = updates.map(({ hostName, deviceId, flags }) =>
+        fetch(buildServerUrl(`/server/device-flags/${hostName}/${deviceId}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ flags }),
+        })
+      );
+
+      const responses = await Promise.all(promises);
+      
+      // Check if all requests succeeded
+      const allSuccessful = responses.every(response => response.ok);
+      
+      if (allSuccessful) {
+        // Parse all results
+        const results = await Promise.all(responses.map(response => response.json()));
+        const allResultsSuccessful = results.every(result => result.success);
+        
+        if (allResultsSuccessful) {
+          // Update local state for all changes
+          setDeviceFlags(prev => {
+            const updated = [...prev];
+            updates.forEach(({ hostName, deviceId, flags }) => {
+              const index = updated.findIndex(df => df.host_name === hostName && df.device_id === deviceId);
+              if (index >= 0) {
+                updated[index] = { ...updated[index], flags, updated_at: new Date().toISOString() };
+              }
+            });
+            return updated;
+          });
+          
+          // Recalculate unique flags
+          const allFlags = new Set<string>();
+          deviceFlags.forEach(df => {
+            const update = updates.find(u => u.hostName === df.host_name && u.deviceId === df.device_id);
+            const flagsToUse = update ? update.flags : df.flags;
+            flagsToUse.forEach(flag => allFlags.add(flag));
+          });
+          setUniqueFlags(Array.from(allFlags).sort());
+          
+          return true;
+        } else {
+          throw new Error('Some flag updates failed');
+        }
+      } else {
+        throw new Error('Some requests failed');
+      }
+    } catch (err) {
+      console.error('Error batch updating device flags:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      return false;
+    }
+  }, [deviceFlags]);
+
   const refreshFlags = useCallback(async () => {
     await fetchBatchFlags();
   }, [fetchBatchFlags]);
@@ -113,6 +172,7 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
     isLoading,
     error,
     updateDeviceFlags,
+    batchUpdateDeviceFlags,
     refreshFlags,
   };
 };

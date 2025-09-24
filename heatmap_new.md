@@ -228,11 +228,29 @@ REACT_APP_CLOUDFLARE_R2_PUBLIC_URL=https://pub-your-bucket.r2.dev
 
 ## Troubleshooting
 
+### **Service Commands**
+```bash
+# Check service status
+sudo systemctl status heatmap_processor
+
+# View logs
+sudo journalctl -u heatmap_processor -f
+
+# Restart service
+sudo systemctl restart heatmap_processor
+```
+
 ### **Common Issues**
+
+**Import/Module Errors**
+- Ensure PYTHONPATH includes all required paths
+- Service file sets: `PYTHONPATH=/home/sunri-pi1/virtualpytest:/home/sunri-pi1/virtualpytest/shared:/home/sunri-pi1/virtualpytest/backend_server`
+- Uses `python -m src.services` which loads `__main__.py`
 
 **No mosaic images showing**
 - Check processor service is running
-- Verify R2 credentials and bucket access
+- Verify R2 credentials in `backend_server/src/.env`
+- Required vars: `CLOUDFLARE_R2_ENDPOINT`, `CLOUDFLARE_R2_ACCESS_KEY_ID`, `CLOUDFLARE_R2_SECRET_ACCESS_KEY`, `CLOUDFLARE_R2_PUBLIC_URL`
 - Check host connectivity for data collection
 
 **Timeline shows errors**

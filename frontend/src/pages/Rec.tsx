@@ -34,7 +34,7 @@ const RecContent: React.FC = () => {
   } = useRec();
 
   // Device flags hook
-  const { deviceFlags, uniqueFlags, updateDeviceFlags } = useDeviceFlags();
+  const { deviceFlags, uniqueFlags, batchUpdateDeviceFlags } = useDeviceFlags();
 
   // Filter states
   const [hostFilter, setHostFilter] = useState<string>('');
@@ -45,6 +45,8 @@ const RecContent: React.FC = () => {
   // Edit mode state
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
+  const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
+  const [isSaving, setIsSaving] = useState(false);
 
   // Get unique host names, device models, and device names for filter dropdowns
   const { uniqueHosts, uniqueDeviceModels, uniqueDevices } = useMemo(() => {
@@ -119,32 +121,69 @@ const RecContent: React.FC = () => {
     setSelectedDevices(new Set());
   }, []);
 
-  // Bulk flag operations
-  const handleBulkAddFlag = useCallback(async (flag: string) => {
+  // Get current flags for a device (considering pending changes)
+  const getCurrentFlags = useCallback((hostName: string, deviceId: string): string[] => {
+    const deviceKey = `${hostName}-${deviceId}`;
+    if (pendingChanges.has(deviceKey)) {
+      return pendingChanges.get(deviceKey) || [];
+    }
+    return deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+  }, [deviceFlags, pendingChanges]);
+
+  // Bulk flag operations (now work with pending changes)
+  const handleBulkAddFlag = useCallback((flag: string) => {
     if (!flag.trim()) return;
     
-    const promises = Array.from(selectedDevices).map(deviceKey => {
-      const [hostName, deviceId] = deviceKey.split('-');
-      const currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
-      if (!currentFlags.includes(flag.trim())) {
-        return updateDeviceFlags(hostName, deviceId, [...currentFlags, flag.trim()]);
-      }
-      return Promise.resolve(true);
+    setPendingChanges(prev => {
+      const newChanges = new Map(prev);
+      Array.from(selectedDevices).forEach(deviceKey => {
+        const [hostName, deviceId] = deviceKey.split('-');
+        const currentFlags = getCurrentFlags(hostName, deviceId);
+        if (!currentFlags.includes(flag.trim())) {
+          newChanges.set(deviceKey, [...currentFlags, flag.trim()]);
+        }
+      });
+      return newChanges;
     });
-    
-    await Promise.all(promises);
-  }, [selectedDevices, deviceFlags, updateDeviceFlags]);
+  }, [selectedDevices, getCurrentFlags]);
 
-  const handleBulkRemoveFlag = useCallback(async (flag: string) => {
-    const promises = Array.from(selectedDevices).map(deviceKey => {
-      const [hostName, deviceId] = deviceKey.split('-');
-      const currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
-      const updatedFlags = currentFlags.filter(f => f !== flag);
-      return updateDeviceFlags(hostName, deviceId, updatedFlags);
+  const handleBulkRemoveFlag = useCallback((flag: string) => {
+    setPendingChanges(prev => {
+      const newChanges = new Map(prev);
+      Array.from(selectedDevices).forEach(deviceKey => {
+        const [hostName, deviceId] = deviceKey.split('-');
+        const currentFlags = getCurrentFlags(hostName, deviceId);
+        const updatedFlags = currentFlags.filter(f => f !== flag);
+        newChanges.set(deviceKey, updatedFlags);
+      });
+      return newChanges;
     });
+  }, [selectedDevices, getCurrentFlags]);
+
+  // Save all pending changes
+  const handleSaveChanges = useCallback(async () => {
+    if (pendingChanges.size === 0) return;
     
-    await Promise.all(promises);
-  }, [selectedDevices, deviceFlags, updateDeviceFlags]);
+    setIsSaving(true);
+    try {
+      const updates = Array.from(pendingChanges.entries()).map(([deviceKey, flags]) => {
+        const [hostName, deviceId] = deviceKey.split('-');
+        return { hostName, deviceId, flags };
+      });
+      
+      const success = await batchUpdateDeviceFlags(updates);
+      if (success) {
+        setPendingChanges(new Map()); // Clear pending changes
+      }
+    } catch (error) {
+      console.error('Error saving changes:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [pendingChanges, batchUpdateDeviceFlags]);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = pendingChanges.size > 0;
 
 
   // Log AV devices count
@@ -177,6 +216,12 @@ const RecContent: React.FC = () => {
             {isEditMode ? (
               <>
                 Flag Edit Mode • {selectedDevices.size} selected
+                {hasUnsavedChanges && (
+                  <span style={{ color: '#ff9800', fontWeight: 500 }}>
+                    {' '}
+                    • {pendingChanges.size} unsaved changes
+                  </span>
+                )}
               </>
             ) : (
               <>
@@ -201,6 +246,7 @@ const RecContent: React.FC = () => {
             onClick={() => {
               setIsEditMode(!isEditMode);
               setSelectedDevices(new Set());
+              setPendingChanges(new Map()); // Clear pending changes when toggling edit mode
             }}
             sx={{ 
               color: '#1976d2', 
@@ -359,7 +405,25 @@ const RecContent: React.FC = () => {
                 disabled={selectedDevices.size === 0}
                 sx={{ height: 32, textTransform: 'none' }}
               >
-                Clear Selection
+                Unselect All
+              </Button>
+
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleSaveChanges}
+                disabled={!hasUnsavedChanges || isSaving}
+                startIcon={isSaving ? <CircularProgress size={16} /> : undefined}
+                sx={{ 
+                  height: 32, 
+                  textTransform: 'none',
+                  backgroundColor: hasUnsavedChanges ? '#1976d2' : undefined,
+                  '&:disabled': {
+                    backgroundColor: hasUnsavedChanges ? 'rgba(25, 118, 210, 0.3)' : undefined
+                  }
+                }}
+              >
+                {isSaving ? 'Saving...' : hasUnsavedChanges ? `Save (${pendingChanges.size})` : 'Save'}
               </Button>
             </>
           )}
@@ -395,11 +459,8 @@ const RecContent: React.FC = () => {
         <Grid container spacing={2}>
           {filteredDevices.map(({ host, device }) => {
             const deviceKey = `${host.host_name}-${device.device_id}`;
-            // Find device flags for this specific device
-            const deviceFlag = deviceFlags.find(df => 
-              df.host_name === host.host_name && df.device_id === device.device_id
-            );
-            const currentDeviceFlags = deviceFlag?.flags || [];
+            // Get current flags (including pending changes)
+            const currentDeviceFlags = getCurrentFlags(host.host_name, device.device_id);
             
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={deviceKey}>

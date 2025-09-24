@@ -8,7 +8,7 @@ Type=simple
 User=sunri-pi1
 Group=sunri-pi1
 WorkingDirectory=/home/sunri-pi1/virtualpytest/backend_server
-ExecStart=/home/sunri-pi1/virtualpytest/venv/bin/python -m src.services.heatmap_processor
+ExecStart=/home/sunri-pi1/virtualpytest/venv/bin/python -m src.services
 TimeoutStopSec=10
 Restart=always
 RestartSec=30
@@ -17,7 +17,8 @@ StandardError=journal
 
 # Environment
 Environment=HOST_NAME=sunri-pi1
-Environment=PYTHONPATH=/home/sunri-pi1/virtualpytest
+Environment=PYTHONPATH=/home/sunri-pi1/virtualpytest:/home/sunri-pi1/virtualpytest/shared:/home/sunri-pi1/virtualpytest/backend_server
+EnvironmentFile=-/home/sunri-pi1/virtualpytest/backend_server/src/.env
 
 # Security
 NoNewPrivileges=true
