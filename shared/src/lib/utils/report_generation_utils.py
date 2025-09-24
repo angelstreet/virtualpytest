@@ -64,10 +64,10 @@ def generate_validation_report(report_data: Dict) -> str:
         if test_video_url is None:
             test_video_url = ''
         
-        # Use zap summary from execution_summary if it contains zap data
+        # Use detailed zap summary (stored separately to avoid overwrite by fullzap summary)
         zap_summary_section = ""
-        execution_summary = report_data.get('execution_summary', '')
-        if execution_summary and 'ZAP EXECUTION SUMMARY' in execution_summary:
+        zap_detailed_summary = report_data.get('zap_detailed_summary', '')
+        if zap_detailed_summary:
             zap_summary_section = f"""
             <div class="section">
                 <div class="section-header" onclick="toggleSection('zap-summary-content')">
@@ -75,7 +75,7 @@ def generate_validation_report(report_data: Dict) -> str:
                     <button class="toggle-btn">▶</button>
                 </div>
                 <div id="zap-summary-content" class="collapsible-content">
-                    <pre class="console-output">{execution_summary}</pre>
+                    <pre class="console-output">{zap_detailed_summary}</pre>
                 </div>
             </div>
             """

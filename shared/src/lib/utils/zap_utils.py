@@ -462,6 +462,9 @@ def print_zap_summary_table(context):
         summary_text = generate_zap_summary_text(zap_iterations)
         print(f"\n{summary_text}")
         
+        # Store detailed table for report (before fullzap summary overwrites execution_summary)
+        context.zap_detailed_summary = summary_text
+        
         # Also capture fullzap summary
         capture_fullzap_summary(context, context.userinterface_name)
         
