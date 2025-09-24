@@ -132,7 +132,8 @@ def generate_and_upload_script_report(
     execution_summary: str = "",
     test_video_url: str = "",
     script_result_id: str = None,
-    custom_data: Dict = None
+    custom_data: Dict = None,
+    zap_detailed_summary: str = ""
 ) -> Dict[str, str]:
     """
     Generate HTML report and upload to R2 storage - extracted from validation.py
@@ -315,7 +316,8 @@ def generate_and_upload_script_report(
             'execution_summary': execution_summary,
             'test_video_url': uploaded_test_video_url,
             'script_result_id': script_result_id,
-            'custom_data': custom_data or {}  # Pass zap data from memory
+            'custom_data': custom_data or {},  # Pass zap data from memory
+            'zap_detailed_summary': zap_detailed_summary
         }
         
         html_content = generate_validation_report(report_data)

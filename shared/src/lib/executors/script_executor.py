@@ -720,7 +720,8 @@ class ScriptExecutor:
                 test_video_url=getattr(context, 'test_video_url', '') or '',
                 stdout=captured_stdout,
                 script_result_id=context.script_result_id,
-                custom_data=context.custom_data
+                custom_data=context.custom_data,
+                zap_detailed_summary=getattr(context, 'zap_detailed_summary', '')
             )
             
             # Restore stdout and get the captured output
