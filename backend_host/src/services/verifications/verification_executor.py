@@ -360,15 +360,19 @@ class VerificationExecutor:
             # ALWAYS capture screenshot after verification - success OR failure
             screenshot_path = ""
             try:
-                screenshot_path = self.av_controller.take_screenshot()
-                if screenshot_path:
-                    self.verification_screenshots.append(screenshot_path)
-                    print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
+                # Use capture_and_upload_screenshot for consistent naming (same as ActionExecutor)
+                if context:
+                    from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+                    # Create meaningful step name with verification command and type
+                    step_name = f"verification_{verification_type}_{verification.get('command', 'unknown')}"
+                    screenshot_result = capture_and_upload_screenshot(self.device, step_name, "verification")
+                    screenshot_path = screenshot_result.get('screenshot_path', '')
                     
-                    # Add to context if available (same as NavigationExecutor)
-                    if context and hasattr(context, 'add_screenshot'):
+                    if screenshot_path:
+                        self.verification_screenshots.append(screenshot_path)
+                        print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
                         context.add_screenshot(screenshot_path)
-                        print(f"[@verification_executor] Screenshot added to context: {screenshot_path}")
+                        print(f"[@verification_executor] Screenshot added to context: {step_name}")
             except Exception as e:
                 print(f"[@verification_executor] Screenshot failed: {e}")
             
@@ -414,15 +418,19 @@ class VerificationExecutor:
             
             screenshot_path = ""
             try:
-                screenshot_path = self.av_controller.take_screenshot()
-                if screenshot_path:
-                    self.verification_screenshots.append(screenshot_path)
-                    print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
+                # Use capture_and_upload_screenshot for consistent naming (same as ActionExecutor)
+                if context:
+                    from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+                    # Create meaningful step name with verification command and type
+                    step_name = f"verification_{verification.get('verification_type', 'unknown')}_{verification.get('command', 'unknown')}"
+                    screenshot_result = capture_and_upload_screenshot(self.device, step_name, "verification")
+                    screenshot_path = screenshot_result.get('screenshot_path', '')
                     
-                    # Add to context if available (same as NavigationExecutor)
-                    if context and hasattr(context, 'add_screenshot'):
+                    if screenshot_path:
+                        self.verification_screenshots.append(screenshot_path)
+                        print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
                         context.add_screenshot(screenshot_path)
-                        print(f"[@verification_executor] Screenshot added to context: {screenshot_path}")
+                        print(f"[@verification_executor] Screenshot added to context: {step_name}")
             except Exception as screenshot_e:
                 print(f"[@verification_executor] Screenshot failed: {screenshot_e}")
             

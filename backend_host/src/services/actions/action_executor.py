@@ -622,15 +622,25 @@ class ActionExecutor:
         # ALWAYS capture screenshot - success OR failure
         screenshot_path = ""
         try:
-            screenshot_path = self.av_controller.take_screenshot()
-            if screenshot_path:
-                self.action_screenshots.append(screenshot_path)
-                print(f"[@action_executor] Screenshot captured: {screenshot_path}")
+            # Use capture_and_upload_screenshot for consistent naming (same as NavigationExecutor)
+            if context:
+                from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+                # Create meaningful step name with command and action number
+                step_name = f"action_{action_number}_{action.get('command', 'unknown')}"
+                screenshot_result = capture_and_upload_screenshot(self.device, step_name, "action")
+                screenshot_path = screenshot_result.get('screenshot_path', '')
                 
-                # Add to context if available (same as NavigationExecutor and VerificationExecutor)
-                if context and hasattr(context, 'add_screenshot'):
+                if screenshot_path:
+                    self.action_screenshots.append(screenshot_path)
+                    print(f"[@action_executor] Screenshot captured: {screenshot_path}")
                     context.add_screenshot(screenshot_path)
-                    print(f"[@action_executor] Screenshot added to context: {screenshot_path}")
+                    print(f"[@action_executor] Screenshot added to context: {step_name}")
+            else:
+                # Fallback to direct AV controller call if no context
+                screenshot_path = self.av_controller.take_screenshot()
+                if screenshot_path:
+                    self.action_screenshots.append(screenshot_path)
+                    print(f"[@action_executor] Screenshot captured: {screenshot_path}")
         except Exception as e:
             print(f"[@action_executor] Screenshot failed: {e}")
         

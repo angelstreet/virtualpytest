@@ -74,24 +74,17 @@ class HeatmapProcessor:
                 print(f"⚠️ No current captures retrieved for {time_key}")
                 return
             
-            print(f"✅ Got {len(current_captures)} current captures (expected: {len(hosts_devices)})")
             
             # Create complete device list with placeholders for missing captures
             complete_device_list = self.create_complete_device_list(hosts_devices, current_captures)
-            print(f"📋 Complete device list: {len(complete_device_list)} devices ({len(current_captures)} with captures, {len(complete_device_list) - len(current_captures)} placeholders)")
             
             # Create mosaic image (always full grid)
-            print(f"🖼️ Creating mosaic from {len(complete_device_list)} devices...")
             mosaic_image = self.create_mosaic_image(complete_device_list)
-            print(f"✅ Mosaic created: {mosaic_image.size[0]}x{mosaic_image.size[1]} pixels")
             
             # Create analysis JSON (includes all devices, even missing ones)
-            print(f"📊 Creating analysis JSON for {time_key}...")
             analysis_json = self.create_analysis_json(complete_device_list, time_key)
-            print(f"📋 Analysis JSON created with {len(analysis_json.get('devices', []))} devices, {analysis_json.get('incidents_count', 0)} incidents")
             
             # Upload to R2 with time-only naming
-            print(f"☁️ Uploading heatmap files for {time_key}...")
             success = self.upload_heatmap_files(time_key, mosaic_image, analysis_json)
             
             if not success:
@@ -140,19 +133,16 @@ class HeatmapProcessor:
             hosts_devices = []
             
             for host_name, host_data in all_hosts.items():
-                print(f"🔍 Processing host: {host_name}")
                 devices = host_data.get('devices', [])
-                host_av_devices = 0
                 
                 if isinstance(devices, list) and devices:
-                    print(f"   📱 Host has {len(devices)} devices")
                     for device in devices:
                         device_id = device.get('device_id', 'device1')
                         device_name = device.get('device_name', 'Unknown')
                         capabilities = device.get('device_capabilities', {})
                         av_capability = capabilities.get('av')
                         
-                        print(f"   🔧 Device {device_id} ({device_name}): AV={av_capability}")
+                        print(f"🔧 Device {device_id} ({device_name}): AV={av_capability}")
                         
                         if (isinstance(capabilities, dict) and 'av' in capabilities and av_capability):
                             hosts_devices.append({
@@ -160,13 +150,10 @@ class HeatmapProcessor:
                                 'device_id': device_id,
                                 'host_data': host_data
                             })
-                            host_av_devices += 1
-                            print(f"   ✅ Added AV device: {device_id}")
                 else:
-                    print(f"   📱 Host has no device list, checking host capabilities")
                     host_capabilities = host_data.get('capabilities', {})
                     av_capability = host_capabilities.get('av')
-                    print(f"   🔧 Host capabilities: AV={av_capability}")
+                    print(f"🔧 Host {host_name}: AV={av_capability}")
                     
                     if (isinstance(host_capabilities, dict) and 'av' in host_capabilities and av_capability):
                         hosts_devices.append({
@@ -174,10 +161,6 @@ class HeatmapProcessor:
                             'device_id': 'device1',
                             'host_data': host_data
                         })
-                        host_av_devices += 1
-                        print(f"   ✅ Added AV host: {host_name}")
-                
-                print(f"   📊 Host {host_name}: {host_av_devices} AV devices")
             
             print(f"🎯 Total AV devices found: {len(hosts_devices)}")
             return hosts_devices
@@ -224,8 +207,9 @@ class HeatmapProcessor:
                             
                             if sequence:
                                 from shared.src.lib.utils.build_url_utils import buildCaptureUrl
-                                # Build image URL exactly like useMonitoring: buildCaptureUrl(host, sequence, device_id)
-                                image_url = buildCaptureUrl(device['host_data'], sequence, device_id)
+                                # Build filename like capture_24487.jpg (Python version expects full filename)
+                                filename = f"capture_{sequence}.jpg"
+                                image_url = buildCaptureUrl(device['host_data'], filename, device_id)
                                 # Build JSON URL by replacing .jpg with .json like useMonitoring line 272
                                 json_url = image_url.replace('.jpg', '.json')
                                 
@@ -243,9 +227,7 @@ class HeatmapProcessor:
                                     'sequence': sequence
                                 })
                                 
-                                print(f"✅ Got current capture for {host_name}/{device_id}: sequence={sequence}")
-                                print(f"   📷 Image URL: {image_url}")
-                                print(f"   📄 JSON URL: {json_url}")
+                                print(f"✅ {host_name}/{device_id}: capture_{sequence}.jpg")
                             else:
                                 print(f"⚠️ Could not extract sequence from {raw_json_url}")
                         else:
@@ -283,7 +265,6 @@ class HeatmapProcessor:
             if key in captures_by_device:
                 # Device has current capture - use it
                 complete_list.append(captures_by_device[key])
-                print(f"✅ Device {key}: Has capture")
             else:
                 # Device missing capture - create placeholder
                 placeholder = {
@@ -298,7 +279,6 @@ class HeatmapProcessor:
                     'host_data': device['host_data']  # Keep host data for device info
                 }
                 complete_list.append(placeholder)
-                print(f"⚠️ Device {key}: Missing capture - added placeholder")
         
         return complete_list
     
@@ -308,10 +288,7 @@ class HeatmapProcessor:
             print("⚠️ No images provided for mosaic - creating empty black image")
             return Image.new('RGB', (800, 600), color='black')
         
-        print(f"🎨 Creating mosaic from {len(images_data)} images:")
-        for i, img_data in enumerate(images_data):
-            image_url = img_data.get('image_url', 'None')
-            print(f"   {i+1}. {img_data['host_name']}/{img_data['device_id']}: {image_url}")
+        print(f"🎨 Creating mosaic from {len(images_data)} images")
         
         # Calculate grid layout
         count = len(images_data)
@@ -520,27 +497,29 @@ class HeatmapProcessor:
                     }
                 ]
                 
-                print(f"📤 Uploading files:")
-                print(f"   🖼️ Image: {img_remote_path}")
-                print(f"   📄 JSON: {json_remote_path}")
-                print(f"📊 Analysis data preview:")
-                print(f"   Devices: {len(analysis_json.get('devices', []))}")
-                print(f"   Incidents: {analysis_json.get('incidents_count', 0)}")
-                print(f"   Time: {analysis_json.get('timestamp', 'N/A')}")
-                
                 # Upload files using CloudflareUtils
                 cloudflare_utils = get_cloudflare_utils()
                 result = cloudflare_utils.upload_files(file_mappings)
                 
                 if result['success'] and len(result['uploaded_files']) == 2:
-                    print(f"✅ Uploaded heatmap files for {time_key}")
-                    # Show the public URLs
-                    for uploaded in result['uploaded_files']:
-                        print(f"   🔗 {uploaded['remote_path']}: {uploaded.get('public_url', 'URL not available')}")
-                    return True
+                    # Check if all files have valid URLs
+                    all_urls_available = all(
+                        uploaded.get('public_url') and uploaded.get('public_url') != 'URL not available' 
+                        for uploaded in result['uploaded_files']
+                    )
+                    
+                    if all_urls_available:
+                        print(f"✅ Uploaded heatmap files for {time_key}")
+                        return True
+                    else:
+                        print(f"❌ Upload failed for {time_key}: Files uploaded but URLs not available")
+                        for uploaded in result['uploaded_files']:
+                            url_status = uploaded.get('public_url', 'URL not available')
+                            print(f"   🔗 {uploaded['remote_path']}: {url_status}")
+                        return False
                 else:
                     print(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
-                    if result['failed_uploads']:
+                    if result.get('failed_uploads'):
                         for failed in result['failed_uploads']:
                             print(f"   Failed: {failed['remote_path']} - {failed['error']}")
                     return False
