@@ -208,7 +208,11 @@ def process_host_results(host_results):
     print(f"[@process_host_results] Processing {len(host_results)} host results")
     
     for result in host_results:
-        # Fail fast - don't handle exceptions here since we removed return_exceptions=True
+        # Skip exceptions returned by asyncio.gather with return_exceptions=True
+        if isinstance(result, Exception):
+            print(f"[@process_host_results] Skipping exception: {str(result)}")
+            continue
+        # Handle failed results (dictionaries with success=False)
         if not result.get('success'):
             print(f"[@process_host_results] Skipping failed result: {result.get('error', 'Unknown error')}")
             continue
