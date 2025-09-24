@@ -395,6 +395,12 @@ const RecContent: React.FC = () => {
         <Grid container spacing={2}>
           {filteredDevices.map(({ host, device }) => {
             const deviceKey = `${host.host_name}-${device.device_id}`;
+            // Find device flags for this specific device
+            const deviceFlag = deviceFlags.find(df => 
+              df.host_name === host.host_name && df.device_id === device.device_id
+            );
+            const currentDeviceFlags = deviceFlag?.flags || [];
+            
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={deviceKey}>
                 <RecHostPreview
@@ -403,6 +409,7 @@ const RecContent: React.FC = () => {
                   isEditMode={isEditMode}
                   isSelected={selectedDevices.has(deviceKey)}
                   onSelectionChange={(selected) => handleDeviceSelection(deviceKey, selected)}
+                  deviceFlags={currentDeviceFlags}
                 />
               </Grid>
             );

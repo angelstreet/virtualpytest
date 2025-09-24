@@ -7,7 +7,6 @@ import { useStream } from '../../hooks/controller';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { calculateVncScaling } from '../../utils/vncUtils';
-import { useDeviceFlags } from '../../hooks/useDeviceFlags';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 import { RecHostStreamModal } from './RecHostStreamModal';
@@ -19,6 +18,7 @@ interface RecHostPreviewProps {
   isEditMode?: boolean;
   isSelected?: boolean;
   onSelectionChange?: (selected: boolean) => void;
+  deviceFlags?: string[]; // Pass flags from parent
 }
 
 // Simple mobile detection function to match MonitoringPlayer logic
@@ -35,6 +35,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   isEditMode = false,
   isSelected = false,
   onSelectionChange,
+  deviceFlags = [], // Default to empty array
 }) => {
   // States
   const [error] = useState<string | null>(null);
@@ -57,15 +58,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     device_id: device?.device_id || 'device1',
   });
 
-  // Get device flags for display only
-  const { deviceFlags } = useDeviceFlags();
-  const currentDeviceFlags = useMemo(() => {
-    if (!device) return [];
-    const deviceFlag = deviceFlags.find(df => 
-      df.host_name === host.host_name && df.device_id === device.device_id
-    );
-    return deviceFlag?.flags || [];
-  }, [deviceFlags, host.host_name, device?.device_id]);
+  // Device flags are now passed as props from parent
 
   // Hook for notifications
   const { showError } = useToast();
@@ -182,7 +175,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           </Typography>
           
           {/* Device flags - simple display */}
-          {currentDeviceFlags.slice(0, 2).map((flag) => (
+          {deviceFlags.slice(0, 2).map((flag) => (
             <Chip
               key={flag}
               label={flag}
@@ -193,9 +186,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           ))}
           
           {/* More flags indicator */}
-          {currentDeviceFlags.length > 2 && (
+          {deviceFlags.length > 2 && (
             <Chip
-              label={`+${currentDeviceFlags.length - 2}`}
+              label={`+${deviceFlags.length - 2}`}
               size="small"
               variant="outlined"
               sx={{ fontSize: '0.6rem', height: 16, minWidth: 20 }}

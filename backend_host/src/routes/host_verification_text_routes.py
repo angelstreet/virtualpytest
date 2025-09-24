@@ -6,6 +6,7 @@ Host-side text verification endpoints that execute using instantiated text verif
 
 from flask import Blueprint, request, jsonify
 from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+from backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id, get_host
 import os
 
 # Create blueprint

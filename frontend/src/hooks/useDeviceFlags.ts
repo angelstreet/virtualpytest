@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
-interface DeviceFlag {
+export interface DeviceFlag {
   id: string;
   host_name: string;
   device_id: string;
@@ -26,19 +26,21 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDeviceFlags = useCallback(async () => {
+  const fetchBatchFlags = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(buildServerUrl('/server/device-flags/'));
+      // Use the new batch endpoint to get both device flags and unique flags in one request
+      const response = await fetch(buildServerUrl('/server/device-flags/batch'));
       if (!response.ok) {
         throw new Error(`Failed to fetch device flags: ${response.statusText}`);
       }
 
       const result = await response.json();
       if (result.success) {
-        setDeviceFlags(result.data || []);
+        setDeviceFlags(result.data.device_flags || []);
+        setUniqueFlags(result.data.unique_flags || []);
       } else {
         throw new Error(result.error || 'Failed to fetch device flags');
       }
@@ -47,22 +49,6 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
       console.error('Error fetching device flags:', err);
     } finally {
       setIsLoading(false);
-    }
-  }, []);
-
-  const fetchUniqueFlags = useCallback(async () => {
-    try {
-      const response = await fetch(buildServerUrl('/server/device-flags/flags'));
-      if (!response.ok) {
-        throw new Error(`Failed to fetch unique flags: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        setUniqueFlags(result.data || []);
-      }
-    } catch (err) {
-      console.error('Error fetching unique flags:', err);
     }
   }, []);
 
@@ -91,8 +77,17 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
           )
         );
         
-        // Refresh unique flags
-        await fetchUniqueFlags();
+        // Recalculate unique flags from updated device flags
+        const allFlags = new Set<string>();
+        deviceFlags.forEach(df => {
+          if (df.host_name === hostName && df.device_id === deviceId) {
+            flags.forEach(flag => allFlags.add(flag));
+          } else {
+            df.flags.forEach(flag => allFlags.add(flag));
+          }
+        });
+        setUniqueFlags(Array.from(allFlags).sort());
+        
         return true;
       } else {
         throw new Error(result.error || 'Failed to update device flags');
@@ -102,15 +97,15 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
       setError(err instanceof Error ? err.message : 'Unknown error');
       return false;
     }
-  }, [fetchUniqueFlags]);
+  }, [deviceFlags]);
 
   const refreshFlags = useCallback(async () => {
-    await Promise.all([fetchDeviceFlags(), fetchUniqueFlags()]);
-  }, [fetchDeviceFlags, fetchUniqueFlags]);
+    await fetchBatchFlags();
+  }, [fetchBatchFlags]);
 
   useEffect(() => {
-    refreshFlags();
-  }, [refreshFlags]);
+    fetchBatchFlags();
+  }, [fetchBatchFlags]);
 
   return {
     deviceFlags,
