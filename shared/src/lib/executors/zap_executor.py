@@ -363,6 +363,11 @@ class ZapExecutor:
                         "menu_detected": verification_result.get('menu_detected', False),
                         "message": verification_result.get('message', 'Audio menu analyzed')
                     }
+                    
+                    # Add analyzed_screenshot for main branch compatibility
+                    if hasattr(context, 'screenshot_paths') and context.screenshot_paths:
+                        analyzed_screenshot = context.screenshot_paths[-1]  # Use latest screenshot
+                        audio_result['analyzed_screenshot'] = analyzed_screenshot
                 
                 context.custom_data['audio_menu_analysis'] = audio_result
                 print(f"✅ [ZapExecutor] Audio menu analysis: menu_detected = {audio_result.get('menu_detected', False)}")
@@ -589,6 +594,11 @@ class ZapExecutor:
             if result.subtitles_detected is None:
                 result.subtitles_detected = False
             
+            # Add analyzed_screenshot for main branch compatibility
+            if hasattr(context, 'screenshot_paths') and context.screenshot_paths:
+                analyzed_screenshot = context.screenshot_paths[-1]  # Use latest screenshot
+                result.subtitle_details['analyzed_screenshot'] = analyzed_screenshot
+            
             
         elif analysis_type == 'audio_speech':
             # Extract from details (where AI results are nested) same as subtitles
@@ -600,6 +610,11 @@ class ZapExecutor:
             # Ensure audio_speech_detected is never None
             if result.audio_speech_detected is None:
                 result.audio_speech_detected = False
+            
+            # Add audio_urls for main branch compatibility
+            audio_urls = verification_result.get('audio_urls', [])
+            if audio_urls:
+                result.audio_details['audio_urls'] = audio_urls
             
         elif analysis_type == 'macroblocks':
             result.macroblocks_detected = verification_result.get('macroblocks_detected', False)
@@ -628,6 +643,29 @@ class ZapExecutor:
             result.program_start_time = channel_info.get('start_time', '')
             result.program_end_time = channel_info.get('end_time', '')
             result.zapping_details = verification_result
+            
+            # Add zapping sequence images for main branch compatibility
+            if result.zapping_detected:
+                # Extract 4-image sequence from verification result
+                result.zapping_details['first_image'] = verification_result.get('first_image')
+                result.zapping_details['blackscreen_start_image'] = verification_result.get('blackscreen_start_image')
+                result.zapping_details['blackscreen_end_image'] = verification_result.get('blackscreen_end_image')
+                result.zapping_details['first_content_after_blackscreen'] = verification_result.get('first_content_after_blackscreen')
+                
+                # Add zapping images to R2 upload queue
+                zapping_images = [
+                    verification_result.get('first_image'),
+                    verification_result.get('blackscreen_start_image'),
+                    verification_result.get('blackscreen_end_image'),
+                    verification_result.get('first_content_after_blackscreen')
+                ]
+                
+                if not hasattr(context, 'screenshot_paths'):
+                    context.screenshot_paths = []
+                
+                for img_path in zapping_images:
+                    if img_path and img_path not in context.screenshot_paths:
+                        context.screenshot_paths.append(img_path)
             
     
 

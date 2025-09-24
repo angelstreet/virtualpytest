@@ -250,7 +250,8 @@ def process_host_results(host_results):
                         device_latest_by_bucket[bucket_key] = {}
                     
                     if (device_key not in device_latest_by_bucket[bucket_key] or 
-                        timestamp > device_latest_by_bucket[bucket_key][device_key]['frontend']['timestamp']):
+                        (device_key in device_latest_by_bucket[bucket_key] and 
+                         timestamp > device_latest_by_bucket[bucket_key][device_key]['frontend']['timestamp'])):
                         
                         # Build image URL
                         host_data = result.get('host_data', {})
@@ -263,7 +264,11 @@ def process_host_results(host_results):
                         
                         # Build image URL with correct device-to-capture directory mapping using buildHostImageUrl
                         # Extract capture directory from host device configuration
-                        capture_dir = get_device_capture_dir(host_data, device_id)
+                        try:
+                            capture_dir = get_device_capture_dir(host_data, device_id)
+                        except ValueError as e:
+                            print(f"[@process_host_results] Error getting capture directory: {e}")
+                            continue  # Skip this item if we can't determine the capture directory
                         
                         # Use buildHostImageUrl to properly handle nginx port stripping for static files
                         image_path = f"stream/{capture_dir}/captures/{filename}"

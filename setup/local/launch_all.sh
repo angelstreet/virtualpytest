@@ -75,14 +75,42 @@ if [ "$INCLUDE_GRAFANA" = true ] && [ ! -f "grafana/config/grafana.ini" ]; then
 fi
 
 if [ -n "$MISSING_COMPONENTS" ]; then
-    echo "❌ Missing components:$MISSING_COMPONENTS"
-    echo "Please install all components first:"
+    echo "❌ Missing required dependencies. Cannot start system."
+    echo ""
+    echo "🔍 Specific missing components:"
+    
+    if [[ "$MISSING_COMPONENTS" == *"venv"* ]]; then
+        echo "   • Python Virtual Environment (venv/)"
+        echo "     → Fix: ./setup/local/install_python_deps.sh"
+        echo "     → Or: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
+    fi
+    
+    if [[ "$MISSING_COMPONENTS" == *"frontend-deps"* ]]; then
+        echo "   • Frontend Dependencies (frontend/node_modules/)"
+        echo "     → Fix: cd frontend && npm install"
+        echo "     → Or: ./setup/local/install_frontend_deps.sh"
+    fi
+    
+    if [[ "$MISSING_COMPONENTS" == *"backend_discard"* ]]; then
+        echo "   • AI Discard Service (backend_discard/src/)"
+        echo "     → Fix: ./setup/local/install_backend_discard.sh"
+        echo "     → Note: Required when using --discard flag"
+    fi
+    
+    if [[ "$MISSING_COMPONENTS" == *"grafana"* ]]; then
+        echo "   • Grafana Configuration (grafana/config/grafana.ini)"
+        echo "     → Fix: ./setup/local/install_grafana.sh"
+        echo "     → Or: ./setup/local/install_all.sh --with-grafana"
+    fi
+    
+    echo ""
+    echo "🚀 Quick fix - install everything:"
     if [[ "$MISSING_COMPONENTS" == *"grafana"* ]]; then
         echo "   ./setup/local/install_all.sh --with-grafana"
-        echo "   OR ./setup/local/install_grafana.sh"
     else
         echo "   ./setup/local/install_all.sh"
     fi
+    echo ""
     exit 1
 fi
 
