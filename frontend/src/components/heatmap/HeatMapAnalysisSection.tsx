@@ -16,10 +16,23 @@ import {
 } from '@mui/material';
 import React from 'react';
 
-import { HeatmapImage } from '../../hooks/pages/useHeatmap';
+interface DeviceData {
+  host_name: string;
+  device_id: string;
+  image_url: string;
+  analysis_json: {
+    audio?: boolean;
+    blackscreen?: boolean;
+    freeze?: boolean;
+    volume_percentage?: number;
+    mean_volume_db?: number;
+    freeze_diffs?: number[];
+    last_3_filenames?: string[];
+  };
+}
 
 interface HeatMapAnalysisSectionProps {
-  images: HeatmapImage[];
+  images: DeviceData[];
   analysisExpanded: boolean;
   onToggleExpanded: () => void;
 }

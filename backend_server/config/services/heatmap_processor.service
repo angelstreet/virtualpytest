@@ -1,0 +1,26 @@
+[Unit]
+Description=Heatmap Processor Service - 24h Circular Buffer Generation
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=sunri-pi1
+Group=sunri-pi1
+WorkingDirectory=/home/sunri-pi1/virtualpytest/backend_server
+ExecStart=/home/sunri-pi1/virtualpytest/venv/bin/python -m src.services.heatmap_processor
+TimeoutStopSec=10
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=HOST_NAME=sunri-pi1
+Environment=PYTHONPATH=/home/sunri-pi1/virtualpytest
+
+# Security
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -212,8 +212,35 @@ echo "   - Grafana: 3000"
 
 # Configure UFW for backend_server ports
 check_and_open_port "$SERVER_PORT" "backend_server API" "tcp"
-heck_and_open_port "5432" "PostgreSQL database" "tcp"
+check_and_open_port "5432" "PostgreSQL database" "tcp"
 check_and_open_port "3000" "Grafana dashboard" "tcp"
+
+# Install Heatmap Processor Service
+echo "🔧 Installing Heatmap Processor Service..."
+HEATMAP_SERVICE_FILE="backend_server/config/services/heatmap_processor.service"
+
+if [ -f "$HEATMAP_SERVICE_FILE" ]; then
+    # Stop existing service if running
+    sudo systemctl stop heatmap_processor 2>/dev/null || true
+    
+    # Copy service file to systemd directory
+    sudo cp "$HEATMAP_SERVICE_FILE" /etc/systemd/system/
+    
+    # Reload systemd daemon
+    sudo systemctl daemon-reload
+    
+    # Enable service for auto-start
+    sudo systemctl enable heatmap_processor
+    
+    echo "✅ Heatmap Processor service installed and enabled"
+    echo "   • Service will start automatically on boot"
+    echo "   • Generates 24h circular heatmap buffer every minute"
+    echo "   • To start now: sudo systemctl start heatmap_processor"
+    echo "   • To check status: sudo systemctl status heatmap_processor"
+    echo "   • To view logs: sudo journalctl -u heatmap_processor -f"
+else
+    echo "⚠️ Heatmap service file not found: $HEATMAP_SERVICE_FILE"
+fi
 
 # Create VPT Server Host systemd service (but don't enable/start it)
 echo "🔧 Creating VPT Server Host systemd service..."
@@ -260,6 +287,13 @@ echo "🔧 Grafana Configuration:"
 echo "   • Local PostgreSQL database created for metrics storage"
 echo "   • Supabase connection configured as read-only"
 echo "   • Access Grafana at: http://localhost:3000 (when server is running)"
+echo ""
+echo "🔧 Heatmap Processor Service:"
+echo "   • Service installed and enabled: heatmap_processor.service"
+echo "   • Generates 24h circular heatmap buffer every minute"
+echo "   • To start now: sudo systemctl start heatmap_processor"
+echo "   • To check status: sudo systemctl status heatmap_processor"
+echo "   • To view logs: sudo journalctl -u heatmap_processor -f"
 echo ""
 echo "🔧 VPT Server Host Service (Optional):"
 echo "   • Service created: vpt_server_host.service"
