@@ -181,7 +181,8 @@ class ActionExecutor:
                        actions: List[Dict[str, Any]], 
                        retry_actions: Optional[List[Dict[str, Any]]] = None,
                        failure_actions: Optional[List[Dict[str, Any]]] = None,
-                       team_id: str = None) -> Dict[str, Any]:
+                       team_id: str = None,
+                       context = None) -> Dict[str, Any]:
         """
         Execute batch of actions with retry logic
         
@@ -625,6 +626,11 @@ class ActionExecutor:
             if screenshot_path:
                 self.action_screenshots.append(screenshot_path)
                 print(f"[@action_executor] Screenshot captured: {screenshot_path}")
+                
+                # Add to context if available (same as NavigationExecutor and VerificationExecutor)
+                if context and hasattr(context, 'add_screenshot'):
+                    context.add_screenshot(screenshot_path)
+                    print(f"[@action_executor] Screenshot added to context: {screenshot_path}")
         except Exception as e:
             print(f"[@action_executor] Screenshot failed: {e}")
         

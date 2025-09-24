@@ -190,7 +190,8 @@ class VerificationExecutor:
     def execute_verifications(self, 
                             verifications: List[Dict[str, Any]], 
                             image_source_url: Optional[str] = None,
-                            team_id: str = None
+                            team_id: str = None,
+                            context = None
                            ) -> Dict[str, Any]:
         """
         Execute batch of verifications
@@ -243,7 +244,7 @@ class VerificationExecutor:
             print(f"[@lib:verification_executor:execute_verifications] Processing verification {i+1}/{len(valid_verifications)}: {verification_type}")
             
             start_time = time.time()
-            result = self._execute_single_verification(verification, image_source_url)
+            result = self._execute_single_verification(verification, image_source_url, context)
             execution_time = int((time.time() - start_time) * 1000)
             
                         # Add execution time to result
@@ -324,7 +325,7 @@ class VerificationExecutor:
         
         return valid_verifications
     
-    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str]) -> Dict[str, Any]:
+    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str], context = None) -> Dict[str, Any]:
         """Execute a single verification and return standardized result"""
         try:
             verification_type = verification.get('verification_type', 'text')
@@ -363,6 +364,11 @@ class VerificationExecutor:
                 if screenshot_path:
                     self.verification_screenshots.append(screenshot_path)
                     print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
+                    
+                    # Add to context if available (same as NavigationExecutor)
+                    if context and hasattr(context, 'add_screenshot'):
+                        context.add_screenshot(screenshot_path)
+                        print(f"[@verification_executor] Screenshot added to context: {screenshot_path}")
             except Exception as e:
                 print(f"[@verification_executor] Screenshot failed: {e}")
             
@@ -412,6 +418,11 @@ class VerificationExecutor:
                 if screenshot_path:
                     self.verification_screenshots.append(screenshot_path)
                     print(f"[@verification_executor] Screenshot captured: {screenshot_path}")
+                    
+                    # Add to context if available (same as NavigationExecutor)
+                    if context and hasattr(context, 'add_screenshot'):
+                        context.add_screenshot(screenshot_path)
+                        print(f"[@verification_executor] Screenshot added to context: {screenshot_path}")
             except Exception as screenshot_e:
                 print(f"[@verification_executor] Screenshot failed: {screenshot_e}")
             

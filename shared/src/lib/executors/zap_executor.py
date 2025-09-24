@@ -473,7 +473,8 @@ class ZapExecutor:
         print(f"🔍 [ZapExecutor] DEBUG: Calling execute_verifications with image_source_url={image_source_url}")
         return verification_executor.execute_verifications(verification_configs, 
                                                          image_source_url=image_source_url,
-                                                         team_id=context.team_id)
+                                                         team_id=context.team_id,
+                                                         context=context)
     
     def _map_verification_result(self, result: ZapAnalysisResult, analysis_type: str, verification_result: Dict):
         """Map verification result to ZapAnalysisResult fields"""
@@ -520,21 +521,6 @@ class ZapExecutor:
                             })
                     if motion_images:
                         result.motion_details['motion_analysis_images'] = motion_images
-                        
-                        # Add motion analysis images to context for R2 upload (same as zapping detection)
-                        try:
-                            av_controller = self.device._get_controller('av')
-                            if av_controller and hasattr(context, 'screenshot_paths'):
-                                capture_folder = f"{av_controller.video_capture_path}/captures"
-                                for motion_image in motion_images:
-                                    image_filename = motion_image.get('filename', '')
-                                    if image_filename:
-                                        image_path = f"{capture_folder}/{image_filename}"
-                                        if image_path not in context.screenshot_paths:
-                                            context.screenshot_paths.append(image_path)
-                                            print(f"🖼️ [ZapExecutor] Added motion analysis image for R2 upload: {image_filename}")
-                        except Exception as e:
-                            print(f"⚠️ [ZapExecutor] Failed to add motion images to context: {e}")
             
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)
@@ -549,20 +535,6 @@ class ZapExecutor:
             if result.subtitles_detected is None:
                 result.subtitles_detected = False
             
-            # Add sourceImageUrl for thumbnail display (same as motion detection)
-            if result.subtitles_detected and subtitle_details.get('results'):
-                subtitle_results = subtitle_details.get('results', [])
-                if subtitle_results and len(subtitle_results) > 0:
-                    # Get the first successful result with subtitles for thumbnail
-                    for subtitle_result in subtitle_results:
-                        if subtitle_result.get('success') and subtitle_result.get('has_subtitles'):
-                            image_filename = subtitle_result.get('image_path', '')
-                            if image_filename:
-                                # Build thumbnail URL (same pattern as motion detection)
-                                thumbnail_filename = image_filename.replace('.jpg', '_thumbnail.jpg')
-                                result.subtitle_details['sourceImageUrl'] = f"/host/stream/capture1/captures/{thumbnail_filename}"
-                                print(f"🖼️ [ZapExecutor] Added subtitle thumbnail: {thumbnail_filename}")
-                                break
             
         elif analysis_type == 'audio_speech':
             # Extract from details (where AI results are nested) same as subtitles
@@ -603,23 +575,6 @@ class ZapExecutor:
             result.program_end_time = channel_info.get('end_time', '')
             result.zapping_details = verification_result
             
-            # Add zapping images to context for R2 upload and thumbnail display (same as old zapping detection)
-            if result.zapping_detected:
-                try:
-                    av_controller = self.device._get_controller('av')
-                    if av_controller and hasattr(context, 'screenshot_paths'):
-                        capture_folder = av_controller.video_capture_path
-                        # Use the same method as old zapping detection
-                        self._add_zapping_images_to_screenshots(context, zapping_details, capture_folder)
-                        
-                        # Add sourceImageUrl for thumbnail display (same pattern as motion/subtitle detection)
-                        first_content_image = zapping_details.get('first_content_after_blackscreen')
-                        if first_content_image:
-                            thumbnail_filename = first_content_image.replace('.jpg', '_thumbnail.jpg')
-                            result.zapping_details['sourceImageUrl'] = f"/host/stream/capture1/captures/{thumbnail_filename}"
-                            print(f"🖼️ [ZapExecutor] Added zapping thumbnail: {thumbnail_filename}")
-                except Exception as e:
-                    print(f"⚠️ [ZapExecutor] Failed to add zapping images to context: {e}")
     
 
     # Audio menu analysis integrated into ZapExecutor using VerificationExecutor

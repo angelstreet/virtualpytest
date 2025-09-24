@@ -296,7 +296,8 @@ class NavigationExecutor:
                         actions=actions,
                         retry_actions=retry_actions,
                         failure_actions=failure_actions,
-                        team_id=team_id
+                        team_id=team_id,
+                        context=context
                     )
                     
                     actions_executed += result.get('passed_count', 0)
@@ -306,13 +307,8 @@ class NavigationExecutor:
                 
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
-                # Main action screenshot (existing)
-                main_screenshot_path = ""
-                if context:
-                    main_screenshot_result = capture_and_upload_screenshot(self.device, f"navigation_step_{step_num}", "navigation")
-                    main_screenshot_path = main_screenshot_result.get('screenshot_path', '')
-                    if main_screenshot_path:
-                        context.add_screenshot(main_screenshot_path)
+                # Note: ActionExecutor now handles screenshots during action execution
+                # No need for redundant main action screenshot here
                 
                 # Step end screenshot - capture AFTER action execution (like old goto_node)
                 step_end_screenshot_path = ""
