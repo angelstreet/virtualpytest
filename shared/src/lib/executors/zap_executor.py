@@ -520,6 +520,21 @@ class ZapExecutor:
                             })
                     if motion_images:
                         result.motion_details['motion_analysis_images'] = motion_images
+                        
+                        # Add motion analysis images to context for R2 upload (same as zapping detection)
+                        try:
+                            av_controller = self.device._get_controller('av')
+                            if av_controller and hasattr(context, 'screenshot_paths'):
+                                capture_folder = f"{av_controller.video_capture_path}/captures"
+                                for motion_image in motion_images:
+                                    image_filename = motion_image.get('filename', '')
+                                    if image_filename:
+                                        image_path = f"{capture_folder}/{image_filename}"
+                                        if image_path not in context.screenshot_paths:
+                                            context.screenshot_paths.append(image_path)
+                                            print(f"🖼️ [ZapExecutor] Added motion analysis image for R2 upload: {image_filename}")
+                        except Exception as e:
+                            print(f"⚠️ [ZapExecutor] Failed to add motion images to context: {e}")
             
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)
