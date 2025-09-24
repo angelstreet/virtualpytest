@@ -9,7 +9,7 @@ This module contains the host-side verification API endpoints that:
 import os
 import json
 from flask import Blueprint, request, jsonify, current_app
-from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
+from backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_verification_bp = Blueprint('host_verification', __name__, url_prefix='/host/verification')

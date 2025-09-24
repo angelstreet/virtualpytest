@@ -8,7 +8,7 @@ This module contains host-side video verification endpoints that:
 """
 
 from flask import Blueprint, request, jsonify
-from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id, get_host
+from backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id, get_host
 import time
 import traceback
 

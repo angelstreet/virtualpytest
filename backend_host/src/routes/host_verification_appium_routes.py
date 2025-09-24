@@ -5,7 +5,7 @@ Host-side appium verification endpoints that execute using instantiated appium v
 """
 
 from flask import Blueprint, request, jsonify
-from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
+from backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 
 # Create blueprint
 host_verification_appium_bp = Blueprint('host_verification_appium', __name__, url_prefix='/host/verification/appium')

@@ -611,15 +611,16 @@ class ZapExecutor:
             result.audio_speech_detected = verification_result.get('success', False) and bool(audio_details.get('combined_transcript', '').strip())
             result.audio_transcript = audio_details.get('combined_transcript', '')
             result.audio_language = audio_details.get('detected_language', 'unknown')
-            result.audio_details = verification_result
-            # Ensure audio_speech_detected is never None
-            if result.audio_speech_detected is None:
-                result.audio_speech_detected = False
             
-            # Add audio_urls for main branch compatibility
-            audio_urls = verification_result.get('audio_urls', [])
-            if audio_urls:
-                result.audio_details['audio_urls'] = audio_urls
+            # Create flattened structure for main branch compatibility
+            result.audio_details = {
+                'success': verification_result.get('success', False),
+                'speech_detected': result.audio_speech_detected,
+                'detected_language': result.audio_language,
+                'combined_transcript': result.audio_transcript,
+                'message': verification_result.get('message', ''),
+                'audio_urls': verification_result.get('audio_urls', [])
+            }
             
         elif analysis_type == 'macroblocks':
             result.macroblocks_detected = verification_result.get('macroblocks_detected', False)
@@ -647,7 +648,17 @@ class ZapExecutor:
             result.program_name = channel_info.get('program_name', '')
             result.program_start_time = channel_info.get('start_time', '')
             result.program_end_time = channel_info.get('end_time', '')
-            result.zapping_details = verification_result
+            
+            # Create flattened structure for main branch compatibility
+            result.zapping_details = {
+                'success': verification_result.get('success', False),
+                'zapping_detected': result.zapping_detected,
+                'blackscreen_duration': result.blackscreen_duration,
+                'zapping_duration': verification_result.get('zapping_duration', 0),
+                'analyzed_images': verification_result.get('analyzed_images', 0),
+                'channel_info': channel_info,
+                'message': verification_result.get('message', '')
+            }
             
             # Add zapping sequence images for main branch compatibility
             if result.zapping_detected:
