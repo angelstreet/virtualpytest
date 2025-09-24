@@ -169,13 +169,21 @@ const RecContent: React.FC = () => {
       const newChanges = new Map(prev);
       Array.from(selectedDevices).forEach(deviceKey => {
         const [hostName, deviceId] = deviceKey.split('-');
-        const currentFlags = getCurrentFlags(hostName, deviceId);
+        
+        // Get current flags from either pending changes or device flags
+        let currentFlags: string[];
+        if (prev.has(deviceKey)) {
+          currentFlags = prev.get(deviceKey) || [];
+        } else {
+          currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+        }
+        
         const updatedFlags = currentFlags.filter(f => f !== flag);
         newChanges.set(deviceKey, updatedFlags);
       });
       return newChanges;
     });
-  }, [selectedDevices, getCurrentFlags]);
+  }, [selectedDevices, deviceFlags]);
 
   // Save all pending changes
   const handleSaveChanges = useCallback(async () => {
@@ -204,6 +212,8 @@ const RecContent: React.FC = () => {
   
   // Debug logging for save button state
   console.log('[@Rec] hasUnsavedChanges:', hasUnsavedChanges, 'pendingChanges.size:', pendingChanges.size, 'isSaving:', isSaving);
+  console.log('[@Rec] selectedDevices.size:', selectedDevices.size, 'selectedDevices:', Array.from(selectedDevices));
+  console.log('[@Rec] pendingChanges:', pendingChanges);
 
 
   // Log AV devices count
@@ -392,7 +402,7 @@ const RecContent: React.FC = () => {
                   }
                 }}
                 sx={{ minWidth: 140 }}
-                helperText={selectedDevices.size === 0 ? "Select devices to add flags" : ""}
+               
               />
 
               <FormControl size="small" sx={{ minWidth: 140 }}>
