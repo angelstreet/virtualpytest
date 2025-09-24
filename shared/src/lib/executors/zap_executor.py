@@ -662,18 +662,19 @@ class ZapExecutor:
             
             # Add zapping sequence images for main branch compatibility
             if result.zapping_detected:
-                # Extract 4-image sequence from verification result
-                result.zapping_details['first_image'] = verification_result.get('first_image')
-                result.zapping_details['blackscreen_start_image'] = verification_result.get('blackscreen_start_image')
-                result.zapping_details['blackscreen_end_image'] = verification_result.get('blackscreen_end_image')
-                result.zapping_details['first_content_after_blackscreen'] = verification_result.get('first_content_after_blackscreen')
+                # Extract 4-image sequence from verification result details (nested structure)
+                details = verification_result.get('details', {})
+                result.zapping_details['first_image'] = details.get('first_image')
+                result.zapping_details['blackscreen_start_image'] = details.get('blackscreen_start_image')
+                result.zapping_details['blackscreen_end_image'] = details.get('blackscreen_end_image')
+                result.zapping_details['first_content_after_blackscreen'] = details.get('first_content_after_blackscreen')
                 
                 # Add zapping images to R2 upload queue
                 zapping_images = [
-                    verification_result.get('first_image'),
-                    verification_result.get('blackscreen_start_image'),
-                    verification_result.get('blackscreen_end_image'),
-                    verification_result.get('first_content_after_blackscreen')
+                    details.get('first_image'),
+                    details.get('blackscreen_start_image'),
+                    details.get('blackscreen_end_image'),
+                    details.get('first_content_after_blackscreen')
                 ]
                 
                 if not hasattr(context, 'screenshot_paths'):
