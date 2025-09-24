@@ -19,6 +19,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
+import { useDeviceFlags } from '../hooks/useDeviceFlags';
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
 // No local HostManagerProvider needed since we only need AV capability filtering
@@ -31,10 +32,14 @@ const RecContent: React.FC = () => {
     isRestarting,
   } = useRec();
 
+  // Device flags hook
+  const { deviceFlags, uniqueFlags } = useDeviceFlags();
+
   // Filter states
   const [hostFilter, setHostFilter] = useState<string>('');
   const [deviceModelFilter, setDeviceModelFilter] = useState<string>('');
   const [deviceFilter, setDeviceFilter] = useState<string>('');
+  const [flagFilter, setFlagFilter] = useState<string>('');
 
   // Get unique host names, device models, and device names for filter dropdowns
   const { uniqueHosts, uniqueDeviceModels, uniqueDevices } = useMemo(() => {
@@ -65,16 +70,26 @@ const RecContent: React.FC = () => {
       const matchesHost = !hostFilter || host.host_name === hostFilter;
       const matchesDeviceModel = !deviceModelFilter || device.device_model === deviceModelFilter;
       const matchesDevice = !deviceFilter || device.device_name === deviceFilter;
+      
+      // Flag filtering
+      let matchesFlag = true;
+      if (flagFilter) {
+        const deviceFlag = deviceFlags.find(df => 
+          df.host_name === host.host_name && df.device_id === device.device_id
+        );
+        matchesFlag = deviceFlag?.flags?.includes(flagFilter) || false;
+      }
 
-      return matchesHost && matchesDeviceModel && matchesDevice;
+      return matchesHost && matchesDeviceModel && matchesDevice && matchesFlag;
     });
-  }, [avDevices, hostFilter, deviceModelFilter, deviceFilter]);
+  }, [avDevices, hostFilter, deviceModelFilter, deviceFilter, flagFilter, deviceFlags]);
 
   // Clear filters
   const clearFilters = () => {
     setHostFilter('');
     setDeviceModelFilter('');
     setDeviceFilter('');
+    setFlagFilter('');
   };
 
   // Log AV devices count
@@ -83,7 +98,7 @@ const RecContent: React.FC = () => {
     console.log(`[@page:Rec] Filtered to ${filteredDevices.length} devices`);
   }, [avDevices.length, filteredDevices.length]);
 
-  const hasActiveFilters = hostFilter || deviceModelFilter || deviceFilter;
+  const hasActiveFilters = hostFilter || deviceModelFilter || deviceFilter || flagFilter;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -176,6 +191,25 @@ const RecContent: React.FC = () => {
               {uniqueDevices.map((deviceName) => (
                 <MenuItem key={deviceName} value={deviceName}>
                   {deviceName}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Flag Filter */}
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Flag</InputLabel>
+            <Select
+              value={flagFilter}
+              label="Flag"
+              onChange={(e: SelectChangeEvent) => setFlagFilter(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>All Flags</em>
+              </MenuItem>
+              {uniqueFlags.map((flag) => (
+                <MenuItem key={flag} value={flag}>
+                  {flag}
                 </MenuItem>
               ))}
             </Select>

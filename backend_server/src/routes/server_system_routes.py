@@ -141,6 +141,18 @@ def register_host():
         host_manager = get_host_manager()
         success = host_manager.register_host(host_info['host_name'], host_object)
         
+        # Auto-register devices in flags table
+        try:
+            from routes.server_device_flags_routes import upsert_device_on_registration
+            for device in devices_with_controllers:
+                upsert_device_on_registration(
+                    host_info['host_name'],
+                    device['device_id'],
+                    device['device_name']
+                )
+        except Exception as e:
+            print(f"⚠️ [SERVER] Failed to auto-register devices in flags table: {e}")
+        
         if not success:
             error_msg = f"Failed to register host {host_info['host_name']}"
             print(f"❌ [SERVER] {error_msg}")

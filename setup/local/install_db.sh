@@ -133,6 +133,7 @@ run_migrations() {
         "006_parent_node_sync_triggers.sql"
         "007_system_monitoring_tables.sql"
         "008_ai_plan_generation.sql"
+        "009_device_flags.sql"
     )
     
     # Run each migration file
@@ -180,6 +181,7 @@ verify_database() {
         "system_device_metrics"
         "system_incident"
         "ai_plan_generation"
+        "device_flags"
     )
     
     echo "📋 Checking for expected tables..."
@@ -196,10 +198,10 @@ verify_database() {
     TABLE_COUNT=$(PGPASSWORD=virtualpytest_pass psql -h localhost -U virtualpytest_user -d virtualpytest -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" | xargs)
     echo "📊 Total tables created: $TABLE_COUNT"
     
-    if [ "$TABLE_COUNT" -ge 24 ]; then
+    if [ "$TABLE_COUNT" -ge 25 ]; then
         echo "✅ Database verification successful"
     else
-        echo "❌ Expected at least 24 tables, found $TABLE_COUNT"
+        echo "❌ Expected at least 25 tables, found $TABLE_COUNT"
         exit 1
     fi
 }

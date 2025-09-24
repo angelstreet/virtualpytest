@@ -7,6 +7,7 @@ import { useStream } from '../../hooks/controller';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { calculateVncScaling } from '../../utils/vncUtils';
+import { useDeviceFlags } from '../../hooks/useDeviceFlags';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 import { RecHostStreamModal } from './RecHostStreamModal';
@@ -49,6 +50,16 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     host,
     device_id: device?.device_id || 'device1',
   });
+
+  // Get device flags
+  const { deviceFlags } = useDeviceFlags();
+  const currentDeviceFlags = useMemo(() => {
+    if (!device) return [];
+    const deviceFlag = deviceFlags.find(df => 
+      df.host_name === host.host_name && df.device_id === device.device_id
+    );
+    return deviceFlag?.flags || [];
+  }, [deviceFlags, host.host_name, device?.device_id]);
 
   // Hook for notifications only
   const { showError } = useToast();
@@ -138,11 +149,26 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 0.5,
           }}
         >
-          <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 1 }}>
+          <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 1, minWidth: 0 }}>
             {displayName}
           </Typography>
+          
+          {/* Device flags - show max 2 */}
+          {currentDeviceFlags.slice(0, 2).map((flag) => (
+            <Chip
+              key={flag}
+              label={flag}
+              size="small"
+              variant="outlined"
+              sx={{ fontSize: '0.65rem', height: 18, maxWidth: 60 }}
+            />
+          ))}
+          
+          {/* Status chip */}
           <Chip
             label={isHostStuck ? 'error' : host.status}
             size="small"
