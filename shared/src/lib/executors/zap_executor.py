@@ -589,10 +589,15 @@ class ZapExecutor:
                                        subtitle_details.get('subtitles_detected', False))
             result.detected_language = subtitle_details.get('detected_language')
             result.extracted_text = subtitle_details.get('combined_extracted_text', '') or subtitle_details.get('extracted_text', '')
-            result.subtitle_details = verification_result
-            # Ensure subtitles_detected is never None
-            if result.subtitles_detected is None:
-                result.subtitles_detected = False
+            
+            # Create flattened structure for main branch compatibility
+            result.subtitle_details = {
+                'success': verification_result.get('success', False),
+                'subtitles_detected': result.subtitles_detected,
+                'detected_language': result.detected_language,
+                'extracted_text': result.extracted_text,
+                'message': verification_result.get('message', '')
+            }
             
             # Add analyzed_screenshot for main branch compatibility
             if hasattr(context, 'screenshot_paths') and context.screenshot_paths:
