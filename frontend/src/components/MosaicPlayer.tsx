@@ -51,6 +51,17 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const currentItem = timeline[currentIndex];
   
   /**
+   * Format time for display
+   */
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+  
+  /**
    * Auto-play functionality
    */
   const startPlaying = useCallback(() => {
