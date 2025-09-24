@@ -36,14 +36,14 @@ export interface AnalysisData {
   hosts_count: number;
 }
 
-export const useHeatmapTimeline = () => {
+export const useHeatmap = () => {
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(1439); // Start at latest (11:59 PM)
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   
   // Get R2 base URL from environment
-  const R2_BASE_URL = process.env.REACT_APP_CLOUDFLARE_R2_PUBLIC_URL || '';
+  const R2_BASE_URL = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
   
   /**
    * Generate 24-hour timeline with predictable file names
