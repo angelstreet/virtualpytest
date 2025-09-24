@@ -37,19 +37,19 @@ for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do
   # Get parent directory
   PARENT_DIR=$(dirname "$CAPTURE_DIR")
   
-  # Clean parent directory (only files, not folders)
+  # Clean parent directory (only files, not folders) - PRESERVE SEGMENTS
   if [ -d "$PARENT_DIR" ]; then
-    echo "$(date): Cleaning parent directory $PARENT_DIR" >> "$CLEAN_LOG"
-    # Specifically target segment files and other files in parent directory
-    find "$PARENT_DIR" -maxdepth 1 -type f -name "segment_*.ts" -mmin +10 -delete -printf "$(date): Deleted segment file %p\n" >> "$CLEAN_LOG" 2>&1
-    find "$PARENT_DIR" -maxdepth 1 -type f -not -name "segment_*.ts" -not -name "*.m3u8" -mmin +10 -delete -printf "$(date): Deleted other parent file %p\n" >> "$CLEAN_LOG" 2>&1
+    echo "$(date): Cleaning parent directory $PARENT_DIR (preserving segments)" >> "$CLEAN_LOG"
+    # Clean other files but preserve segment files and m3u8 files
+    find "$PARENT_DIR" -maxdepth 1 -type f -not -name "segment_*.ts" -not -name "*.m3u8" -mmin +10 -delete -printf "$(date): Deleted parent file %p\n" >> "$CLEAN_LOG" 2>&1
     reset_log_if_large "$CLEAN_LOG"
   fi
   
-  # Clean captures directory
+  # Clean captures directory - PRESERVE SEGMENTS
   if [ -d "$CAPTURE_DIR" ]; then
-    echo "$(date): Cleaning captures directory $CAPTURE_DIR" >> "$CLEAN_LOG"
-    find "$CAPTURE_DIR" -type f -mmin +10 -delete -printf "$(date): Deleted capture file %p\n" >> "$CLEAN_LOG" 2>&1
+    echo "$(date): Cleaning captures directory $CAPTURE_DIR (preserving segments)" >> "$CLEAN_LOG"
+    # Only delete non-segment files in captures directory
+    find "$CAPTURE_DIR" -type f -not -name "segment_*.ts" -not -name "*.m3u8" -mmin +10 -delete -printf "$(date): Deleted capture file %p\n" >> "$CLEAN_LOG" 2>&1
     reset_log_if_large "$CLEAN_LOG"
   fi
 done

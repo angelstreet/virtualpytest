@@ -23,6 +23,13 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Apply global typing compatibility early to fix third-party package issues
+try:
+    from shared.src.lib.utils.typing_compatibility import ensure_typing_compatibility
+    ensure_typing_compatibility()
+except ImportError:
+    print("⚠️  Warning: Could not apply typing compatibility fix")
+
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
 
 
@@ -101,8 +108,18 @@ class HeatmapProcessor:
         try:
             import requests
             
+            # Load environment and use proper URL building
+            from shared.src.lib.utils.app_utils import load_environment_variables
+            from shared.src.lib.utils.build_url_utils import buildServerUrl
+            
+            # Load environment variables (same as server does)
+            load_environment_variables(mode='server')
+            
+            # Build proper server URL using the same utility the server uses
+            api_url = buildServerUrl('server/system/getAllHosts')
+            
             # Call server API to get all hosts
-            response = requests.get('http://localhost:5000/api/hosts', timeout=10)
+            response = requests.get(api_url, timeout=10)
             if response.status_code != 200:
                 print(f"❌ Server API returned status {response.status_code}")
                 return []
@@ -112,7 +129,9 @@ class HeatmapProcessor:
                 print(f"❌ Server API error: {api_result.get('error', 'Unknown error')}")
                 return []
             
-            all_hosts = api_result.get('hosts', {})
+            # API returns hosts as a list, not a dict
+            hosts_list = api_result.get('hosts', [])
+            all_hosts = {host['host_name']: host for host in hosts_list}
             hosts_devices = []
             
             for host_name, host_data in all_hosts.items():
