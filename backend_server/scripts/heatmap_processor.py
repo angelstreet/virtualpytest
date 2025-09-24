@@ -97,13 +97,23 @@ class HeatmapProcessor:
             print(f"❌ Error processing {time_key}: {e}")
     
     def get_hosts_devices(self) -> List[Dict]:
-        """Get hosts and devices from host manager"""
+        """Get hosts and devices via server API endpoint"""
         try:
-            from backend_server.src.lib.utils.server_utils import get_host_manager
-            host_manager = get_host_manager()
+            import requests
             
+            # Call server API to get all hosts
+            response = requests.get('http://localhost:5000/api/hosts', timeout=10)
+            if response.status_code != 200:
+                print(f"❌ Server API returned status {response.status_code}")
+                return []
+            
+            api_result = response.json()
+            if not api_result.get('success', False):
+                print(f"❌ Server API error: {api_result.get('error', 'Unknown error')}")
+                return []
+            
+            all_hosts = api_result.get('hosts', {})
             hosts_devices = []
-            all_hosts = host_manager.get_all_hosts()
             
             for host_name, host_data in all_hosts.items():
                 devices = host_data.get('devices', [])
@@ -132,7 +142,7 @@ class HeatmapProcessor:
             return hosts_devices
             
         except Exception as e:
-            print(f"❌ Error getting hosts: {e}")
+            print(f"❌ Error getting hosts from API: {e}")
             return []
     
     def fetch_all_host_data(self, hosts_devices: List[Dict]) -> List[Dict]:
