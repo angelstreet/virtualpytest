@@ -211,23 +211,23 @@ class HeatmapProcessor:
                         timeout=10
                     )
                     
-                     if response.status_code == 200:
-                         result = response.json()
-                         if result.get('success') and result.get('latest_json_url'):
-                             # Use exact same logic as useMonitoring.ts lines 268-272
-                             raw_json_url = result['latest_json_url']
-                             
-                             # Extract sequence using same regex as useMonitoring
-                             import re
-                             sequence_match = re.search(r'capture_(\d+)', raw_json_url)
-                             sequence = sequence_match.group(1) if sequence_match else ''
-                             
-                             if sequence:
-                                 from shared.src.lib.utils.build_url_utils import buildCaptureUrl
-                                 # Build image URL exactly like useMonitoring: buildCaptureUrl(host, sequence, device_id)
-                                 image_url = buildCaptureUrl(device['host_data'], sequence, device_id)
-                                 # Build JSON URL by replacing .jpg with .json like useMonitoring line 272
-                                 json_url = image_url.replace('.jpg', '.json')
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success') and result.get('latest_json_url'):
+                            # Use exact same logic as useMonitoring.ts lines 268-272
+                            raw_json_url = result['latest_json_url']
+                            
+                            # Extract sequence using same regex as useMonitoring
+                            import re
+                            sequence_match = re.search(r'capture_(\d+)', raw_json_url)
+                            sequence = sequence_match.group(1) if sequence_match else ''
+                            
+                            if sequence:
+                                from shared.src.lib.utils.build_url_utils import buildCaptureUrl
+                                # Build image URL exactly like useMonitoring: buildCaptureUrl(host, sequence, device_id)
+                                image_url = buildCaptureUrl(device['host_data'], sequence, device_id)
+                                # Build JSON URL by replacing .jpg with .json like useMonitoring line 272
+                                json_url = image_url.replace('.jpg', '.json')
                                 
                                 # Load JSON analysis data
                                 json_response = requests.get(json_url, timeout=5)
