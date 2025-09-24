@@ -538,10 +538,10 @@ class ZapExecutor:
                         capture_folder = f"{av_controller.video_capture_path}/captures"
                         print(f"🔍 [ZapExecutor] DEBUG: Using capture folder: {capture_folder}")
                         motion_images = []
-                        for i, detail in enumerate(details):
-                            if i >= 3:  # Only take first 3 for thumbnails
-                                break
-                            print(f"🔍 [ZapExecutor] DEBUG: Processing detail[{i}]: {detail}")
+                        # Reverse details to show chronologically (oldest first) in report
+                        chronological_details = list(reversed(details[:3]))  # Take first 3, then reverse
+                        for i, detail in enumerate(chronological_details):
+                            print(f"🔍 [ZapExecutor] DEBUG: Processing detail[{i}] (chronological): {detail}")
                             if isinstance(detail, dict):
                                 filename = detail.get('filename', '')
                                 image_path = f"{capture_folder}/{filename}"
