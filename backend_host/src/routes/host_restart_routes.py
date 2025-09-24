@@ -139,6 +139,7 @@ def generate_restart_video_only():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
 @host_restart_bp.route('/analyzeAudio', methods=['POST'])
 def analyze_restart_audio():
     """Analyze audio transcript"""

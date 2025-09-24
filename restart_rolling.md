@@ -46,71 +46,58 @@ async def generate_rewind_video(request: RewindRequest):
 <Button onClick={handleRewind}>Rewind</Button>
 ```
 
-## Simple Implementation Plan
+## Enhanced HLS Player Implementation
 
-### Step 1: FFmpeg Rolling Buffer (5 minutes)
+### Step 1: FFmpeg Rolling Buffer ✅
 **File**: `backend_host/scripts/run_ffmpeg_and_rename_local.sh`
+- Already configured for 24h retention (86,400 segments)
 
-```bash
-# Line 111: Change from 600 to 86400
--hls_list_size 86400
-
-# Line 147: Change from 150 to 21600  
--hls_list_size 21600
-```
-
-### Step 2: Backend Rewind Endpoint (30 minutes)
-**File**: `backend_server/src/routes/restart_routes.py`
-
-```python
-@router.post("/rewind/generate")
-async def generate_rewind_video(request: dict):
-    """Generate 10s video from X hours ago"""
-    hours_ago = request.get("hours_ago", 1)
-    host_name = request.get("host_name")
-    device_id = request.get("device_id")
-    
-    # Find segments from X hours ago
-    # Concatenate 10 seconds worth
-    # Return video URL
-    
-    return {"success": True, "video_url": "..."}
-```
-
-### Step 3: Add Rewind Button (15 minutes)
-**File**: `frontend/src/pages/Rec.tsx`
+### Step 2: Enhanced HLS Player Component ✅
+**File**: `frontend/src/components/video/EnhancedHLSPlayer.tsx`
 
 ```tsx
-// Add next to existing Restart button (line 257)
-<Button
-  variant="outlined" 
-  size="small"
-  startIcon={<ReplayIcon />}
-  onClick={handleRewind}
-  sx={{ height: 32, minWidth: 120 }}
->
-  Rewind
-</Button>
+<EnhancedHLSPlayer 
+  deviceId="device1"
+  hostName="host1"
+  width="100%"
+  height={400}
+/>
+```
 
-const handleRewind = () => {
-  // Simple: generate video from 1 hour ago
-  // Later: add time picker
-};
+**Features:**
+- **Live/24h Toggle**: Switch between live stream and 24h archive
+- **Timeline Scrubber**: Navigate through 24h history (only in archive mode)
+- **Custom Controls**: Play/pause, volume, fullscreen
+- **Mode Indicators**: Clear visual feedback for current mode
+
+### Step 3: Integration
+Replace existing video players with `EnhancedHLSPlayer` component:
+
+```tsx
+// Instead of basic <video> or HLS player
+<EnhancedHLSPlayer 
+  deviceId={device.device_id}
+  hostName={device.host_name}
+/>
 ```
 
 ## File Changes Summary
 
-### 3 Files to Modify
+### New Files Created
 ```
-✏️  backend_host/scripts/run_ffmpeg_and_rename_local.sh  (2 lines)
-✏️  backend_server/src/routes/restart_routes.py  (1 new endpoint)  
-✏️  frontend/src/pages/Rec.tsx  (1 new button)
+➕  frontend/src/components/video/EnhancedHLSPlayer.tsx  (new component)
+```
+
+### Files Modified
+```
+✅  backend_host/scripts/run_ffmpeg_and_rename_local.sh  (already configured)
+✏️  frontend/src/pages/Rec.tsx  (removed separate rewind button)
 ```
 
 ### Zero Changes Required
+- Backend endpoints (no new APIs needed)
 - useRestart.ts hook (unchanged)
 - Video processing pipeline (unchanged)
-- Analysis, dubbing, translation (unchanged)
 - Database schemas (unchanged)
 
 ## Storage Requirements
@@ -124,13 +111,15 @@ const handleRewind = () => {
 - **Step 3**: 15 minutes (Frontend button)
 
 ## How It Works
-1. **FFmpeg**: Keeps 24h of segments instead of 10 minutes
-2. **Rewind Button**: Calls new endpoint with "hours_ago" parameter
-3. **Backend**: Finds segments from X hours ago, concatenates 10 seconds
-4. **Result**: Same video player shows historical footage
+1. **FFmpeg**: Keeps 24h of segments (86,400 for hardware, 21,600 for VNC)
+2. **Enhanced Player**: Every HLS player has Live/24h toggle at the top
+3. **Live Mode**: Shows current stream with minimal delay
+4. **24h Mode**: Shows full timeline scrubber for navigation
+5. **Timeline**: User can scrub through entire 24-hour history
 
 ## Benefits
-- **Simple**: Just 2 buttons side by side
-- **Clean**: No mode switching, no complex UI
-- **Fast**: Reuses existing video processing pipeline
-- **Minimal**: Only 3 files changed, ~50 lines total
+- **Better UX**: Toggle on every player, no separate buttons needed
+- **Intuitive**: Clear Live vs Archive modes with visual indicators
+- **Powerful**: Full timeline navigation in archive mode
+- **Clean**: Single component handles both live and historical viewing
+- **Minimal**: Only 1 new component, reuses existing HLS infrastructure

@@ -759,10 +759,13 @@ def format_analysis_results(step: Dict) -> str:
                     channel_display += f" ({channel_info['channel_number']})"
                 if channel_info.get('program_name'):
                     channel_display += f" - {channel_info['program_name']}"
-                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none;">Channel: {channel_display}</div>'
                 
+                # Combine channel and program time on single line
+                channel_info_line = f"Channel info: {channel_display}"
                 if channel_info.get('start_time') and channel_info.get('end_time'):
-                    analysis_html += f'<div class="analysis-detail">Program Time: {channel_info["start_time"]}-{channel_info["end_time"]}</div>'
+                    channel_info_line += f" Program Time - {channel_info['start_time']}-{channel_info['end_time']}"
+                
+                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none;">{channel_info_line}</div>'
             
             # Complete zapping sequence thumbnails (4 key images)
             before_blackscreen = zapping_analysis.get('first_image')  # Image before blackscreen starts
@@ -808,12 +811,9 @@ def format_analysis_results(step: Dict) -> str:
                     thumbnails_html = "<div class='zapping-sequence-thumbnails' style='margin-top: 4px; display: flex; gap: 8px;'>"
                     
                     for image in images:
-                        # Extract capture name from label (first line before actual newline)
-                        label_first_line = image['label'].split('\n')[0] if '\n' in image['label'] else image['label']
                         thumbnails_html += f"""
                         <div style='text-align: center;'>
-                            <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{label_first_line}</div>
-                            <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                            <img src='{image['url']}' style='width: 120px; height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                                  onclick='openVerificationImageModal({modal_data_json})' title='Click to view complete zapping sequence'>
                         </div>
                         """

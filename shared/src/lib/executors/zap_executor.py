@@ -669,20 +669,27 @@ class ZapExecutor:
                 result.zapping_details['blackscreen_end_image'] = details.get('blackscreen_end_image')
                 result.zapping_details['first_content_after_blackscreen'] = details.get('first_content_after_blackscreen')
                 
-                # Add zapping images to R2 upload queue
-                zapping_images = [
-                    details.get('first_image'),
-                    details.get('blackscreen_start_image'),
-                    details.get('blackscreen_end_image'),
-                    details.get('first_content_after_blackscreen')
-                ]
-                
-                if not hasattr(context, 'screenshot_paths'):
-                    context.screenshot_paths = []
-                
-                for img_path in zapping_images:
-                    if img_path and img_path not in context.screenshot_paths:
-                        context.screenshot_paths.append(img_path)
+                # Add zapping images to R2 upload queue with full paths
+                av_controller = self.device._get_controller('av')
+                if av_controller and hasattr(av_controller, 'video_capture_path'):
+                    capture_folder = f"{av_controller.video_capture_path}/captures"
+                    
+                    zapping_filenames = [
+                        details.get('first_image'),
+                        details.get('blackscreen_start_image'),
+                        details.get('blackscreen_end_image'),
+                        details.get('first_content_after_blackscreen')
+                    ]
+                    
+                    if not hasattr(context, 'screenshot_paths'):
+                        context.screenshot_paths = []
+                    
+                    for filename in zapping_filenames:
+                        if filename:
+                            full_path = f"{capture_folder}/{filename}"
+                            if full_path not in context.screenshot_paths:
+                                context.screenshot_paths.append(full_path)
+                                print(f"🔍 [ZapExecutor] DEBUG: Added zapping image to R2 upload queue: {filename}")
             
     
 

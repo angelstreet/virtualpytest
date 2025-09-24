@@ -23,8 +23,6 @@ except ImportError:
 
 # Now import everything else after typing fix
 import time
-import asyncio
-import aiohttp
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -70,21 +68,16 @@ class HeatmapProcessor:
                 print(f"⚠️ No hosts available for {time_key}")
                 return
                 
-            # Fetch analysis data from all hosts
-            host_results = self.fetch_all_host_data(hosts_devices)
-            if not host_results:
-                print(f"⚠️ No host data retrieved for {time_key}")
+            # Fetch current captures using latest-json endpoint (same as useMonitoring)
+            current_captures = self.fetch_current_captures(hosts_devices)
+            if not current_captures:
+                print(f"⚠️ No current captures retrieved for {time_key}")
                 return
-                
-            # Process results into images by timestamp
-            images_by_timestamp = self.process_host_results(host_results)
-            if not images_by_timestamp:
-                print(f"⚠️ No processed images for {time_key}")
-                return
-                
-            # Use the most recent timestamp data
-            latest_timestamp = max(images_by_timestamp.keys())
-            images_data = images_by_timestamp[latest_timestamp]
+            
+            print(f"✅ Got {len(current_captures)} current captures (expected: {len(hosts_devices)})")
+            
+            # Use current captures directly - no complex timestamp processing needed
+            images_data = current_captures
             
             # Create mosaic image
             mosaic_image = self.create_mosaic_image(images_data)
@@ -187,143 +180,76 @@ class HeatmapProcessor:
             print(f"❌ Error getting hosts from API: {e}")
             return []
     
-    def fetch_all_host_data(self, hosts_devices: List[Dict]) -> List[Dict]:
-        """Fetch analysis data from all hosts"""
+    def fetch_current_captures(self, hosts_devices: List[Dict]) -> List[Dict]:
+        """Fetch current capture (latest JSON + image) for each device using latest-json endpoint"""
         try:
-            async def query_all_hosts():
-                async with aiohttp.ClientSession() as session:
-                    tasks = [self.query_host_analysis(session, hd) for hd in hosts_devices]
-                    results = []
-                    for task in asyncio.as_completed(tasks):
-                        try:
-                            result = await task
-                            results.append(result)
-                        except Exception as e:
-                            print(f"Host query failed: {str(e)}")
-                    return results
+            import requests
+            from shared.src.lib.utils.build_url_utils import buildServerUrl
             
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            host_results = loop.run_until_complete(query_all_hosts())
-            loop.close()
+            current_captures = []
             
-            return host_results
-            
-        except Exception as e:
-            print(f"❌ Error fetching host data: {e}")
-            return []
-    
-    async def query_host_analysis(self, session: aiohttp.ClientSession, host_device: Dict) -> Dict:
-        """Query single host for recent analysis data"""
-        try:
-            host_data = host_device['host_data']
-            device_id = host_device['device_id']
-            host_name = host_device['host_name']
-            
-            from shared.src.lib.utils.build_url_utils import buildHostUrl
-            host_url = buildHostUrl(host_data, '/host/heatmap/listRecentAnalysis')
-            
-            async with session.post(
-                host_url,
-                json={
-                    'device_id': device_id,
-                    'timeframe_minutes': 1
-                },
-                timeout=aiohttp.ClientTimeout(total=30),
-                ssl=False
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    if result.get('success'):
-                        return {
-                            'host_name': host_name,
-                            'device_id': device_id,
-                            'success': True,
-                            'analysis_data': result.get('analysis_data', []),
-                            'host_data': host_data
-                        }
+            for device in hosts_devices:
+                host_name = device['host_name']
+                device_id = device['device_id']
                 
-                return {
-                    'host_name': host_name,
-                    'device_id': device_id,
-                    'success': False,
-                    'error': f'HTTP {response.status}'
-                }
-                
-        except Exception as e:
-            return {
-                'host_name': host_device.get('host_name', 'unknown'),
-                'device_id': host_device.get('device_id', 'unknown'),
-                'success': False,
-                'error': str(e)
-            }
-    
-    def process_host_results(self, host_results: List[Dict]) -> Dict[str, List[Dict]]:
-        """Process host results and group by timestamp"""
-        images_by_timestamp = {}
-        
-        for result in host_results:
-            if isinstance(result, Exception):
-                continue
-            if not isinstance(result, dict) or not result.get('success'):
-                continue
-                
-            analysis_data = result.get('analysis_data', [])
-            
-            for item in analysis_data:
-                timestamp = item.get('timestamp', '')
-                if not timestamp:
-                    continue
-                    
                 try:
-                    # Handle different timestamp formats
-                    if isinstance(timestamp, (int, float)) or (isinstance(timestamp, str) and timestamp.isdigit()):
-                        timestamp_seconds = int(timestamp) / 1000.0
-                        dt = datetime.fromtimestamp(timestamp_seconds)
-                    elif isinstance(timestamp, str) and 'T' in timestamp:
-                        timestamp_clean = timestamp.split('.')[0] if '.' in timestamp else timestamp
-                        dt = datetime.fromisoformat(timestamp_clean.replace('Z', '+00:00'))
+                    # Use same endpoint as useMonitoring - proven to work
+                    api_url = buildServerUrl('server/monitoring/latest-json')
+                    
+                    response = requests.post(
+                        api_url,
+                        json={
+                            'host_name': host_name,
+                            'device_id': device_id
+                        },
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success') and result.get('latest_json_url'):
+                            # Extract sequence from JSON URL to build image URL
+                            json_url = result['latest_json_url']
+                            sequence_match = json_url.split('capture_')[-1].split('.json')[0] if 'capture_' in json_url else ''
+                            
+                            if sequence_match:
+                                from shared.src.lib.utils.build_url_utils import buildCaptureUrl
+                                image_url = buildCaptureUrl(device['host_data'], sequence_match, device_id)
+                                
+                                # Load JSON analysis data
+                                json_response = requests.get(json_url, timeout=5)
+                                analysis_data = json_response.json() if json_response.status_code == 200 else {}
+                                
+                                current_captures.append({
+                                    'host_name': host_name,
+                                    'device_id': device_id,
+                                    'image_url': image_url,
+                                    'json_url': json_url,
+                                    'analysis': analysis_data,
+                                    'timestamp': result.get('timestamp', ''),
+                                    'sequence': sequence_match
+                                })
+                                
+                                print(f"✅ Got current capture for {host_name}/{device_id}: {sequence_match}")
+                            else:
+                                print(f"⚠️ Could not extract sequence from {json_url}")
+                        else:
+                            print(f"⚠️ No latest JSON for {host_name}/{device_id}: {result.get('error', 'Unknown error')}")
                     else:
-                        dt = datetime.strptime(str(timestamp), '%Y%m%d%H%M%S')
-                    
-                    # Create 10-second buckets
-                    seconds = (dt.second // 10) * 10
-                    bucket_dt = dt.replace(second=seconds, microsecond=0)
-                    bucket_key = bucket_dt.strftime('%Y%m%d%H%M%S')
-                    
-                    if bucket_key not in images_by_timestamp:
-                        images_by_timestamp[bucket_key] = []
-                    
-                    # Build image data
-                    host_data = result.get('host_data', {})
-                    device_id = result['device_id']
-                    filename = item.get('filename', '')
-                    
-                    from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-                    from backend_server.src.routes.server_heatmap_routes import get_device_capture_dir
-                    
-                    if filename and '/' in filename:
-                        filename = filename.split('/')[-1]
-                    
-                    if filename:
-                        capture_dir = get_device_capture_dir(host_data, device_id)
-                        image_path = f"stream/{capture_dir}/captures/{filename}"
-                        image_url = buildHostImageUrl(host_data, image_path)
-                        
-                        images_by_timestamp[bucket_key].append({
-                            'host_name': result['host_name'],
-                            'device_id': result['device_id'],
-                            'filename': filename,
-                            'image_url': image_url,
-                            'timestamp': timestamp,
-                            'analysis_json': item.get('analysis_json', {})
-                        })
+                        print(f"❌ API error for {host_name}/{device_id}: HTTP {response.status_code}")
                         
                 except Exception as e:
-                    print(f"Error processing timestamp '{timestamp}': {e}")
+                    print(f"❌ Error fetching current capture for {host_name}/{device_id}: {e}")
                     continue
-        
-        return images_by_timestamp
+            
+            print(f"🎯 Fetched {len(current_captures)} current captures from {len(hosts_devices)} devices")
+            return current_captures
+            
+        except Exception as e:
+            print(f"❌ Error fetching current captures: {e}")
+            return []
+    
+    
     
     def create_mosaic_image(self, images_data: List[Dict]) -> Image.Image:
         """Create mosaic image from device images"""
@@ -372,8 +298,9 @@ class HeatmapProcessor:
                     img = Image.open(io.BytesIO(response.content))
                     img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
                     mosaic.paste(img, (x, y))
+                    print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
             except Exception as e:
-                print(f"Error loading image {image_data['image_url']}: {e}")
+                print(f"❌ Error loading image {image_data['image_url']}: {e}")
                 # Create placeholder
                 placeholder = Image.new('RGB', (cell_width, cell_height), color='gray')
                 mosaic.paste(placeholder, (x, y))
@@ -386,13 +313,13 @@ class HeatmapProcessor:
         incidents_count = 0
         
         for image_data in images_data:
-            analysis_json = image_data.get('analysis_json', {})
+            analysis = image_data.get('analysis', {})
             
             # Check for incidents
             has_incidents = (
-                analysis_json.get('blackscreen', False) or
-                analysis_json.get('freeze', False) or
-                not analysis_json.get('audio', True)
+                analysis.get('blackscreen', False) or
+                analysis.get('freeze', False) or
+                not analysis.get('audio', True)
             )
             
             if has_incidents:
@@ -402,7 +329,9 @@ class HeatmapProcessor:
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
                 'image_url': image_data['image_url'],
-                'analysis_json': analysis_json
+                'json_url': image_data['json_url'],
+                'sequence': image_data['sequence'],
+                'analysis': analysis
             })
         
         return {

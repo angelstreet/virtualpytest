@@ -1,4 +1,4 @@
-import { Computer as ComputerIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { Computer as ComputerIcon, Refresh as RefreshIcon, Replay as ReplayIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -32,6 +32,7 @@ const RecContent: React.FC = () => {
     restartStreams,
     isRestarting,
   } = useRec();
+
 
   // Device flags hook
   const { deviceFlags, uniqueFlags, batchUpdateDeviceFlags } = useDeviceFlags();
@@ -258,6 +259,7 @@ const RecContent: React.FC = () => {
           >
             {isEditMode ? 'Cancel' : 'Edit'}
           </Button>
+
 
           {/* Restart Streams Button */}
           {!isEditMode && (

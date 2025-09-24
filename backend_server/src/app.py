@@ -144,10 +144,6 @@ def register_all_server_routes(app):
         from routes import server_verification_routes
         print("[@backend_server:routes] ✅ server_verification_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_heatmap_routes...")
-        from routes import server_heatmap_routes
-        print("[@backend_server:routes] ✅ server_heatmap_routes imported successfully")
-        
         # server_navigation_execution_routes replaced by auto_proxy
         
         print("[@backend_server:routes] 🔍 Importing server_devicemodel_routes...")
@@ -254,7 +250,6 @@ def register_all_server_routes(app):
             (server_pathfinding_routes.server_pathfinding_bp, 'Navigation pathfinding'),
             (server_alerts_routes.server_alerts_bp, 'Alert management'),
             (server_verification_routes.server_verification_bp, 'Verification operations'),
-            (server_heatmap_routes.server_heatmap_bp, 'Heatmap generation'),
             (server_devicemodel_routes.server_devicemodel_bp, 'Device model management'),
             (server_ai_testcase_routes.server_ai_testcase_bp, 'AI test case operations'),
             (server_ai_generation_routes.server_ai_generation_bp, 'AI interface generation'),
