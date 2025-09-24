@@ -22,11 +22,16 @@ if [ ! -f "README.md" ] || [ ! -d "frontend" ]; then
 fi
 
 # Install Node.js and npm if not present
+# NOTE: This script requires Node.js 20+
+# If you have Node.js 18 or older, update it by running:
+#   sudo apt-get remove -y nodejs npm
+#   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+#   sudo apt-get install -y nodejs
 echo "📦 Checking Node.js installation..."
 if ! command -v node &> /dev/null; then
-    echo "🔧 Installing Node.js 18..."
+    echo "🔧 Installing Node.js 20..."
     # Install on Linux
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     sudo apt-get install -y nodejs
     echo "✅ Node.js installed successfully"
 else
