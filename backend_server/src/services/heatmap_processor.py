@@ -15,7 +15,7 @@ from PIL import Image
 import io
 import math
 
-from shared.src.lib.utils.r2_utils import upload_to_r2
+from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
 
 
 class HeatmapProcessor:
@@ -77,11 +77,11 @@ class HeatmapProcessor:
             analysis_json = self.create_analysis_json(images_data, time_key)
             
             # Upload to R2 with time-only naming
-            mosaic_bytes = self.image_to_bytes(mosaic_image)
-            analysis_bytes = json.dumps(analysis_json).encode('utf-8')
+            success = self.upload_heatmap_files(time_key, mosaic_image, analysis_json)
             
-            upload_to_r2(f"heatmaps/{time_key}.jpg", mosaic_bytes)
-            upload_to_r2(f"heatmaps/{time_key}.json", analysis_bytes)
+            if not success:
+                print(f"❌ Failed to upload files for {time_key}")
+                return
             
             print(f"✅ Generated heatmap for {time_key} ({len(images_data)} devices)")
             
@@ -358,6 +358,61 @@ class HeatmapProcessor:
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=85)
         return buffer.getvalue()
+    
+    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict) -> bool:
+        """Upload mosaic image and analysis JSON to R2"""
+        try:
+            import tempfile
+            import os
+            
+            # Create temporary files
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as img_temp:
+                mosaic_image.save(img_temp.name, format='JPEG', quality=85)
+                img_temp_path = img_temp.name
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as json_temp:
+                json.dump(analysis_json, json_temp, indent=2)
+                json_temp_path = json_temp.name
+            
+            try:
+                # Prepare file mappings for batch upload
+                file_mappings = [
+                    {
+                        'local_path': img_temp_path,
+                        'remote_path': f'heatmaps/{time_key}.jpg',
+                        'content_type': 'image/jpeg'
+                    },
+                    {
+                        'local_path': json_temp_path,
+                        'remote_path': f'heatmaps/{time_key}.json',
+                        'content_type': 'application/json'
+                    }
+                ]
+                
+                # Upload files using CloudflareUtils
+                cloudflare_utils = get_cloudflare_utils()
+                result = cloudflare_utils.upload_files(file_mappings)
+                
+                if result['success'] and len(result['uploaded_files']) == 2:
+                    print(f"✅ Uploaded heatmap files for {time_key}")
+                    return True
+                else:
+                    print(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
+                    if result['failed_uploads']:
+                        for failed in result['failed_uploads']:
+                            print(f"   Failed: {failed['remote_path']} - {failed['error']}")
+                    return False
+                    
+            finally:
+                # Clean up temporary files
+                if os.path.exists(img_temp_path):
+                    os.unlink(img_temp_path)
+                if os.path.exists(json_temp_path):
+                    os.unlink(json_temp_path)
+                    
+        except Exception as e:
+            print(f"❌ Error uploading heatmap files for {time_key}: {e}")
+            return False
     
     def wait_for_next_minute(self):
         """Wait until next minute boundary"""

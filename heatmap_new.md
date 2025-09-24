@@ -32,7 +32,7 @@ The new heatmap system provides **continuous 24-hour monitoring** with **zero-la
 - **Continuous processing**: Runs every minute at :00 seconds
 - **Host data collection**: Queries all registered hosts for analysis
 - **Mosaic generation**: Creates grid layout from device screenshots
-- **R2 upload**: Saves both image and JSON with time-only naming
+- **R2 upload**: Uses existing CloudflareUtils to save both image and JSON with time-only naming
 
 ```python
 # Example file naming
