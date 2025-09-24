@@ -213,6 +213,10 @@ def register_all_server_routes(app):
         from routes import server_metrics_routes
         print("[@backend_server:routes] ✅ server_metrics_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_heatmap_routes...")
+        from routes import server_heatmap_routes
+        print("[@backend_server:routes] ✅ server_heatmap_routes imported successfully")
+        
         print("[@backend_server:routes] 🔍 Importing server_campaign_results_routes...")
         from routes import server_campaign_results_routes
         print("[@backend_server:routes] ✅ server_campaign_results_routes imported successfully")
@@ -262,6 +266,7 @@ def register_all_server_routes(app):
             (server_script_routes.server_script_bp, 'Script management'),
             (server_script_results_routes.server_script_results_bp, 'Script results'),
             (server_metrics_routes.server_metrics_bp, 'Metrics API'),
+            (server_heatmap_routes.server_heatmap_bp, 'Heatmap API'),
             (server_campaign_results_routes.server_campaign_results_bp, 'Campaign results'),
             (server_frontend_routes.server_frontend_bp, 'Frontend control'),
             (server_ai_queue_routes.server_ai_queue_bp, 'AI queue monitoring'),

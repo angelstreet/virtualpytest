@@ -23,7 +23,7 @@ import {
   Refresh
 } from '@mui/icons-material';
 
-import { TimelineItem } from '../hooks/useHeatmapTimeline';
+import { TimelineItem } from '../hooks/useHeatmap';
 
 interface MosaicPlayerProps {
   timeline: TimelineItem[];
@@ -100,9 +100,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
     }
   };
   
-  const goToLatest = () => {
-    onIndexChange(timeline.length - 1);
-  };
   
   /**
    * Timeline slider change handler
@@ -190,9 +187,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
           </Box>
         </Box>
         
-        <IconButton onClick={goToLatest} title="Go to Latest">
-          <Refresh />
-        </IconButton>
       </Box>
       
       {/* Loading indicator */}
@@ -242,11 +236,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
               setImageError(true);
             }}
             onClick={() => {
-              // If we have cell click handler, we'd need to determine which cell was clicked
-              // For now, just a placeholder
-              if (onCellClick) {
-                console.log('Mosaic clicked - cell detection not implemented yet');
-              }
+              // Open image in new tab
+              window.open(currentItem.mosaicUrl, '_blank');
             }}
           />
         )}
@@ -275,34 +266,20 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
           borderRadius: 1
         }}
       >
-        {/* Playback Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <IconButton 
-            size="small" 
-            onClick={goToPrevious}
-            disabled={currentIndex === 0}
-          >
-            <SkipPrevious />
-          </IconButton>
-          
-          <IconButton 
-            size="small" 
-            onClick={togglePlayPause}
-            sx={{ 
-              backgroundColor: 'rgba(25, 118, 210, 0.1)',
-              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.2)' }
+        {/* Time Display */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+            {currentItem ? formatTime(currentItem.displayTime) : '--:--'}
+          </Typography>
+          <Chip
+            label={hasIncidents ? 'INCIDENTS' : 'ALL GOOD'}
+            size="small"
+            sx={{
+              backgroundColor: hasIncidents ? '#ff4444' : '#4CAF50',
+              color: 'white',
+              fontWeight: 'bold'
             }}
-          >
-            {isPlaying ? <Pause /> : <PlayArrow />}
-          </IconButton>
-          
-          <IconButton 
-            size="small" 
-            onClick={goToNext}
-            disabled={currentIndex === timeline.length - 1}
-          >
-            <SkipNext />
-          </IconButton>
+          />
         </Box>
         
         {/* Timeline Scrubber */}
@@ -328,23 +305,29 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
             }}
           />
           
-          {/* Timeline ticks (simplified for now) */}
-          {getTimelineTicks().map((tick) => (
-            <Box
-              key={tick.value}
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: `${(tick.value / Math.max(1, timeline.length - 1)) * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                width: 2,
-                height: 8,
-                backgroundColor: tick.hasIncident ? '#FF0000' : '#00FF00',
-                borderRadius: 1,
-                pointerEvents: 'none'
-              }}
-            />
-          ))}
+          {/* Hour Marks */}
+          <Box sx={{ position: 'absolute', top: -25, left: 0, right: 0, height: 20 }}>
+            {Array.from({ length: 24 }, (_, i) => {
+              const hourIndex = i * 60; // Every hour (60 minutes)
+              const position = (hourIndex / Math.max(1, timeline.length - 1)) * 100;
+              return (
+                <Box
+                  key={i}
+                  sx={{
+                    position: 'absolute',
+                    left: `${position}%`,
+                    transform: 'translateX(-50%)',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    '&:hover': { fontWeight: 'bold' }
+                  }}
+                  onClick={() => onIndexChange(hourIndex)}
+                >
+                  {String(23 - i).padStart(2, '0')}h
+                </Box>
+              );
+            })}
+          </Box>
         </Box>
       </Box>
     </Box>

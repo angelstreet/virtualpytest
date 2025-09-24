@@ -1,6 +1,7 @@
 import {
   GridView as HeatmapIcon,
   OpenInNew,
+  GridView,
 } from '@mui/icons-material';
 import {
   Box,
@@ -15,7 +16,6 @@ import React, { useState } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
-import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { useHeatmap } from '../hooks/useHeatmap';
 
@@ -24,7 +24,6 @@ const Heatmap: React.FC = () => {
     timeline,
     currentIndex,
     setCurrentIndex,
-    currentItem,
     analysisData,
     analysisLoading,
     hasIncidents,
@@ -34,6 +33,7 @@ const Heatmap: React.FC = () => {
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   
   // Freeze modal state
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
@@ -56,6 +56,43 @@ const Heatmap: React.FC = () => {
     return `${baseUrl}${cleanFilename}`;
   };
 
+  // Generate report for current frame
+  const handleGenerateReport = async () => {
+    if (!timeline[currentIndex] || !analysisData || isGeneratingReport) return;
+    
+    setIsGeneratingReport(true);
+    try {
+      const currentItem = timeline[currentIndex];
+      const reportData = {
+        timeframe: 'single_frame',
+        timestamp: currentItem.displayTime.toISOString(),
+        time_key: currentItem.timeKey,
+        mosaic_url: currentItem.mosaicUrl,
+        analysis_data: analysisData,
+        devices_count: analysisData.devices.length,
+        incidents_count: analysisData.incidents_count
+      };
+
+      // For now, just download the data as JSON (we can enhance this later)
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `heatmap_report_${currentItem.timeKey}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('Report generated for frame:', currentItem.timeKey);
+    } catch (error) {
+      console.error('Error generating report:', error);
+      setError('Failed to generate report');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   return (
     <Box>
       {error && (
@@ -65,7 +102,7 @@ const Heatmap: React.FC = () => {
       )}
 
       {/* Header */}
-      <Box sx={{ mb: 0.5 }}>
+      <Box sx={{ mb: 0 }}>
         <Card>
           <CardContent sx={{ py: 0.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -95,6 +132,17 @@ const Heatmap: React.FC = () => {
                     <OpenInNew />
                   </IconButton>
                 </Tooltip>
+                
+                {/* Generate Report Button */}
+                <Tooltip title="Generate Report for Current Frame">
+                  <IconButton 
+                    size="small" 
+                    onClick={handleGenerateReport}
+                    disabled={isGeneratingReport || !analysisData}
+                  >
+                    <GridView />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
           </CardContent>
@@ -118,8 +166,6 @@ const Heatmap: React.FC = () => {
         onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
       />
 
-      {/* History Section */}
-      <HeatMapHistory />
 
       {/* Freeze Modal */}
       <HeatMapFreezeModal

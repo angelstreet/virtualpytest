@@ -38,9 +38,10 @@ export interface AnalysisData {
 
 export const useHeatmap = () => {
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(1439); // Start at latest (11:59 PM)
+  const [currentIndex, setCurrentIndex] = useState(1438); // Start at current-1 minute
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [errorRetryCount, setErrorRetryCount] = useState(0);
   
   // Get R2 base URL from environment
   const R2_BASE_URL = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
@@ -70,9 +71,9 @@ export const useHeatmap = () => {
   };
   
   /**
-   * Load analysis data for current timeline item
+   * Load analysis data with retry logic (max 10 attempts)
    */
-  const loadAnalysisData = async (item: TimelineItem) => {
+  const loadAnalysisData = async (item: TimelineItem, retryCount: number = 0) => {
     if (!item) return;
     
     setAnalysisLoading(true);
@@ -81,8 +82,19 @@ export const useHeatmap = () => {
       if (response.ok) {
         const data = await response.json();
         setAnalysisData(data);
-      } else {
-        setAnalysisData(null);
+        setErrorRetryCount(0); // Reset error count on success
+      } else if (response.status === 404 && retryCount < 10) {
+        // File not generated yet, try previous minute
+        const itemIndex = timeline.findIndex(t => t.timeKey === item.timeKey);
+        const prevIndex = itemIndex - 1;
+        if (prevIndex >= 0 && timeline[prevIndex]) {
+          console.log(`File ${item.timeKey} not found, trying previous minute (attempt ${retryCount + 1})`);
+          await loadAnalysisData(timeline[prevIndex], retryCount + 1);
+          return;
+        }
+      }
+      if (response.status === 404) {
+        setAnalysisData(null); // Stop retrying after 10 attempts
       }
     } catch (error) {
       console.log(`No analysis data available for ${item.timeKey}`);
@@ -114,8 +126,8 @@ export const useHeatmap = () => {
       setTimeline(newTimeline);
       
       // If we're at the latest position, stay there with new data
-      if (currentIndex === 1439 && newTimeline[1439]) {
-        loadAnalysisData(newTimeline[1439]);
+      if (currentIndex === 1438 && newTimeline[1438]) {
+        loadAnalysisData(newTimeline[1438]);
       }
     }, 60000); // Refresh every minute
     
@@ -143,10 +155,11 @@ export const useHeatmap = () => {
   };
   
   /**
-   * Navigate to latest available data
+   * Navigate to latest available data (current-1 minute)
    */
   const goToLatest = () => {
-    setCurrentIndex(1439); // Go to latest minute
+    setCurrentIndex(1438); // Go to current-1 minute
+    setErrorRetryCount(0); // Reset retry count
   };
   
   /**
@@ -175,6 +188,6 @@ export const useHeatmap = () => {
     
     // Timeline info
     totalMinutes: timeline.length,
-    isAtLatest: currentIndex === 1439
+    isAtLatest: currentIndex === 1438
   };
 };

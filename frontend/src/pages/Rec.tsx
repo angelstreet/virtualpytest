@@ -133,9 +133,14 @@ const RecContent: React.FC = () => {
 
   // Bulk flag operations (now work with pending changes)
   const handleBulkAddFlag = useCallback((flag: string) => {
-    if (!flag.trim()) return;
+    const trimmedFlag = flag.trim();
+    if (!trimmedFlag) return;
+    if (trimmedFlag.length < 3) {
+      console.log('[@handleBulkAddFlag] Flag too short:', trimmedFlag, '(must be at least 3 characters)');
+      return;
+    }
     
-    console.log('[@handleBulkAddFlag] Adding flag:', flag.trim(), 'to devices:', Array.from(selectedDevices));
+    console.log('[@handleBulkAddFlag] Adding flag:', trimmedFlag, 'to devices:', Array.from(selectedDevices));
     
     setPendingChanges(prev => {
       const newChanges = new Map(prev);
@@ -151,8 +156,8 @@ const RecContent: React.FC = () => {
         }
         
         console.log('[@handleBulkAddFlag] Device:', deviceKey, 'current flags:', currentFlags);
-        if (!currentFlags.includes(flag.trim())) {
-          const updatedFlags = [...currentFlags, flag.trim()];
+        if (!currentFlags.includes(trimmedFlag)) {
+          const updatedFlags = [...currentFlags, trimmedFlag];
           newChanges.set(deviceKey, updatedFlags);
           console.log('[@handleBulkAddFlag] Updated flags for', deviceKey, ':', updatedFlags);
         } else {
@@ -402,7 +407,7 @@ const RecContent: React.FC = () => {
                   }
                 }}
                 sx={{ minWidth: 140 }}
-               
+                helperText={selectedDevices.size === 0 ? "Select devices to add flags" : "Min 3 characters, press Enter"}
               />
 
               <FormControl size="small" sx={{ minWidth: 140 }}>

@@ -176,15 +176,17 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
         if query_params:
             kwargs['params'] = query_params
         
-        # Prepare headers
-        request_headers = {'Content-Type': 'application/json'}
+        # Prepare headers - only set Content-Type if we have data
+        request_headers = {}
+        if data:
+            request_headers['Content-Type'] = 'application/json'
+            kwargs['json'] = data
+        
         if headers:
             request_headers.update(headers)
         
-        if data:
-            kwargs['json'] = data
-        
-        kwargs['headers'] = request_headers
+        if request_headers:
+            kwargs['headers'] = request_headers
         
         # Make the request to the host
         if method.upper() == 'GET':
