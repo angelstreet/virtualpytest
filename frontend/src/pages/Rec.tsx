@@ -13,6 +13,7 @@ import {
   Stack,
   Button,
   SelectChangeEvent,
+  TextField,
 } from '@mui/material';
 import React, { useEffect, useState, useMemo } from 'react';
 
@@ -33,13 +34,17 @@ const RecContent: React.FC = () => {
   } = useRec();
 
   // Device flags hook
-  const { deviceFlags, uniqueFlags } = useDeviceFlags();
+  const { deviceFlags, uniqueFlags, updateDeviceFlags } = useDeviceFlags();
 
   // Filter states
   const [hostFilter, setHostFilter] = useState<string>('');
   const [deviceModelFilter, setDeviceModelFilter] = useState<string>('');
   const [deviceFilter, setDeviceFilter] = useState<string>('');
   const [flagFilter, setFlagFilter] = useState<string>('');
+
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
 
   // Get unique host names, device models, and device names for filter dropdowns
   const { uniqueHosts, uniqueDeviceModels, uniqueDevices } = useMemo(() => {
@@ -92,6 +97,64 @@ const RecContent: React.FC = () => {
     setFlagFilter('');
   };
 
+  // Selection handlers
+  const handleDeviceSelection = useCallback((deviceKey: string, selected: boolean) => {
+    setSelectedDevices(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(deviceKey);
+      } else {
+        newSet.delete(deviceKey);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    const allDeviceKeys = filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`);
+    setSelectedDevices(new Set(allDeviceKeys));
+  }, [filteredDevices]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedDevices(new Set());
+  }, []);
+
+  // Bulk flag operations
+  const handleBulkAddFlag = useCallback(async (flag: string) => {
+    if (!flag.trim()) return;
+    
+    const promises = Array.from(selectedDevices).map(deviceKey => {
+      const [hostName, deviceId] = deviceKey.split('-');
+      const currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+      if (!currentFlags.includes(flag.trim())) {
+        return updateDeviceFlags(hostName, deviceId, [...currentFlags, flag.trim()]);
+      }
+      return Promise.resolve(true);
+    });
+    
+    await Promise.all(promises);
+  }, [selectedDevices, deviceFlags, updateDeviceFlags]);
+
+  const handleBulkRemoveFlag = useCallback(async (flag: string) => {
+    const promises = Array.from(selectedDevices).map(deviceKey => {
+      const [hostName, deviceId] = deviceKey.split('-');
+      const currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+      const updatedFlags = currentFlags.filter(f => f !== flag);
+      return updateDeviceFlags(hostName, deviceId, updatedFlags);
+    });
+    
+    await Promise.all(promises);
+  }, [selectedDevices, deviceFlags, updateDeviceFlags]);
+
+  const handleBulkClearFlags = useCallback(async () => {
+    const promises = Array.from(selectedDevices).map(deviceKey => {
+      const [hostName, deviceId] = deviceKey.split('-');
+      return updateDeviceFlags(hostName, deviceId, []);
+    });
+    
+    await Promise.all(promises);
+  }, [selectedDevices, updateDeviceFlags]);
+
   // Log AV devices count
   useEffect(() => {
     console.log(`[@page:Rec] Found ${avDevices.length} devices with AV capability`);
@@ -119,29 +182,58 @@ const RecContent: React.FC = () => {
             Remote Eye Controller
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            View and control connected devices
-            {hasActiveFilters && (
-              <span>
-                {' '}
-                • Showing {filteredDevices.length} of {avDevices.length} devices
-              </span>
+            {isEditMode ? (
+              <>
+                Flag Edit Mode • {selectedDevices.size} selected
+              </>
+            ) : (
+              <>
+                View and control connected devices
+                {hasActiveFilters && (
+                  <span>
+                    {' '}
+                    • Showing {filteredDevices.length} of {avDevices.length} devices
+                  </span>
+                )}
+              </>
             )}
           </Typography>
         </Box>
 
         {/* Right side - Restart button and compact filters */}
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-          {/* Restart Streams Button */}
+          {/* Edit Mode Toggle */}
           <Button
-            variant="outlined"
+            variant="text"
             size="small"
-            startIcon={isRestarting ? <CircularProgress size={16} /> : <RefreshIcon />}
-            onClick={restartStreams}
-            disabled={isRestarting || avDevices.length === 0}
-            sx={{ height: 32, minWidth: 120 }}
+            onClick={() => {
+              setIsEditMode(!isEditMode);
+              setSelectedDevices(new Set());
+            }}
+            sx={{ 
+              color: '#1976d2', 
+              textTransform: 'none',
+              fontWeight: 500,
+              minWidth: 'auto',
+              px: 1
+            }}
           >
-            {isRestarting ? 'Restarting...' : 'Restart'}
+            {isEditMode ? 'Cancel' : 'Edit'}
           </Button>
+
+          {/* Restart Streams Button */}
+          {!isEditMode && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={isRestarting ? <CircularProgress size={16} /> : <RefreshIcon />}
+              onClick={restartStreams}
+              disabled={isRestarting || avDevices.length === 0}
+              sx={{ height: 32, minWidth: 120 }}
+            >
+              {isRestarting ? 'Restarting...' : 'Restart'}
+            </Button>
+          )}
 
           {/* Host Filter */}
           <FormControl size="small" sx={{ minWidth: 140 }}>

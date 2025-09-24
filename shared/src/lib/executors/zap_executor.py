@@ -519,23 +519,27 @@ class ZapExecutor:
                 # Transform details array to motion_analysis_images for report thumbnails
                 details = verification_result.get('details', [])
                 if details and isinstance(details, list):
-                    motion_images = []
-                    for i, detail in enumerate(details):
-                        if i >= 3:  # Only take first 3 for thumbnails
-                            break
-                        if isinstance(detail, dict):
-                            motion_images.append({
-                                'path': f"/var/www/html/stream/capture1/captures/{detail.get('filename', '')}",
-                                'filename': detail.get('filename', ''),
-                                'timestamp': detail.get('timestamp', ''),
-                                'analysis_data': {
-                                    'freeze': detail.get('freeze', False),
-                                    'blackscreen': detail.get('blackscreen', False),
-                                    'audio': detail.get('audio', True)
-                                }
-                            })
-                    if motion_images:
-                        result.motion_details['motion_analysis_images'] = motion_images
+                    # Get actual capture path from device's AV controller
+                    av_controller = self.device._get_controller('av')
+                    if av_controller and hasattr(av_controller, 'video_capture_path'):
+                        capture_folder = f"{av_controller.video_capture_path}/captures"
+                        motion_images = []
+                        for i, detail in enumerate(details):
+                            if i >= 3:  # Only take first 3 for thumbnails
+                                break
+                            if isinstance(detail, dict):
+                                motion_images.append({
+                                    'path': f"{capture_folder}/{detail.get('filename', '')}",
+                                    'filename': detail.get('filename', ''),
+                                    'timestamp': detail.get('timestamp', ''),
+                                    'analysis_data': {
+                                        'freeze': detail.get('freeze', False),
+                                        'blackscreen': detail.get('blackscreen', False),
+                                        'audio': detail.get('audio', True)
+                                    }
+                                })
+                        if motion_images:
+                            result.motion_details['motion_analysis_images'] = motion_images
             
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)
