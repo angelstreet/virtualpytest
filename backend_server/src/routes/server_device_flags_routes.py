@@ -3,7 +3,7 @@ Device Flags Routes - Minimal implementation for device clustering/tagging
 """
 
 from flask import Blueprint, request, jsonify
-from shared.src.lib.supabase.supabase_client import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 # Create blueprint
 device_flags_bp = Blueprint('device_flags', __name__, url_prefix='/server/device-flags')
