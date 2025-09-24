@@ -20,10 +20,10 @@ def generate_restart_video():
         print(f"[SERVER] 🎬 [@server_restart_routes:generateRestartVideo] Received request for device: {device_id}, duration: {duration_seconds}s")
 
         # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
-        print(f"[SERVER] 🔄 [@server_restart_routes:generateRestartVideo] Proxying to host endpoint: /host/restart/generateVideo")
+        print(f"[SERVER] 🔄 [@server_restart_routes:generateRestartVideo] Proxying to host endpoint: /host/restart/generateRestartVideo")
 
         response_data, status_code = proxy_to_host_with_params(
-            '/host/restart/generateVideo',
+            '/host/restart/generateRestartVideo',
             'POST',
             request_data,
             {'device_id': device_id},

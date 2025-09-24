@@ -468,12 +468,6 @@ class FFmpegCaptureController(AVControllerInterface):
         return self.restart_helpers.adjust_video_audio_timing(video_url, timing_offset_ms, language,
                                                              silent_video_path, background_audio_path, vocals_path)
 
-    def generateRestartVideoFast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
-        """
-        Fast restart video generation - returns video URL + audio analysis only.
-        Shows player immediately while AI analysis runs in background.
-        """
-        return self.restart_helpers.generate_restart_video_fast(duration_seconds, test_start_time, processing_time)
     
     
     def take_video(self, duration_seconds: float = None, test_start_time: float = None) -> Optional[str]:

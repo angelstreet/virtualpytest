@@ -50,7 +50,7 @@ def timeout(duration):
     finally:
         signal.alarm(0)
 
-@host_restart_bp.route('/generateVideo', methods=['POST'])
+@host_restart_bp.route('/generateRestartVideo', methods=['POST'])
 def generate_restart_video():
     """Generate video only - fast response"""
     try:
@@ -58,23 +58,23 @@ def generate_restart_video():
         device_id = data.get('device_id', 'device1')
         duration_seconds = data.get('duration_seconds', 10)
         
-        print(f"[HOST] 🎬 [@host_restart_routes:generateVideo] Starting video generation for device {device_id}, duration: {duration_seconds}s")
+        print(f"[HOST] 🎬 [@host_restart_routes:generateRestartVideo] Starting video generation for device {device_id}, duration: {duration_seconds}s")
         
         av_controller = get_controller(device_id, 'av')
         if not av_controller:
             error_msg = f'No AV controller found for device {device_id}'
-            print(f"[HOST] ❌ [@host_restart_routes:generateVideo] {error_msg}")
+            print(f"[HOST] ❌ [@host_restart_routes:generateRestartVideo] {error_msg}")
             return jsonify({'success': False, 'error': error_msg}), 404
         
-        print(f"[HOST] 🎥 [@host_restart_routes:generateVideo] AV controller found: {av_controller.__class__.__name__}")
-        print(f"[HOST] 🎬 [@host_restart_routes:generateVideo] Calling generateRestartVideoFast...")
+        print(f"[HOST] 🎥 [@host_restart_routes:generateRestartVideo] AV controller found: {av_controller.__class__.__name__}")
+        print(f"[HOST] 🎬 [@host_restart_routes:generateRestartVideo] Calling generateRestartVideo...")
         
-        result = av_controller.generateRestartVideoFast(
+        result = av_controller.restart_helpers.generate_restart_video(
             duration_seconds=duration_seconds,
             processing_time=0.0
         )
         
-        print(f"[HOST] 📊 [@host_restart_routes:generateVideo] Result received: {result is not None}")
+        print(f"[HOST] 📊 [@host_restart_routes:generateRestartVideo] Result received: {result is not None}")
         
         if result and result.get('success'):
             video_url = result.get('video_url')
@@ -85,15 +85,15 @@ def generate_restart_video():
             segment_files = result.get('analysis_data', {}).get('segment_files', [])
             segment_files_count = len(segment_files) if segment_files else 0
             
-            print(f"[HOST] ✅ [@host_restart_routes:generateVideo] Video generation SUCCESS!")
-            print(f"[HOST] 📹 [@host_restart_routes:generateVideo] Video URL: {video_url}")
-            print(f"[HOST] 🆔 [@host_restart_routes:generateVideo] Video ID: {video_id}")
-            print(f"[HOST] 📸 [@host_restart_routes:generateVideo] Screenshots: {screenshot_count}")
-            print(f"[HOST] 🎞️ [@host_restart_routes:generateVideo] Segments: {segment_count}")
-            print(f"[HOST] 📂 [@host_restart_routes:generateVideo] Segment files: {segment_files_count} files")
+            print(f"[HOST] ✅ [@host_restart_routes:generateRestartVideo] Video generation SUCCESS!")
+            print(f"[HOST] 📹 [@host_restart_routes:generateRestartVideo] Video URL: {video_url}")
+            print(f"[HOST] 🆔 [@host_restart_routes:generateRestartVideo] Video ID: {video_id}")
+            print(f"[HOST] 📸 [@host_restart_routes:generateRestartVideo] Screenshots: {screenshot_count}")
+            print(f"[HOST] 🎞️ [@host_restart_routes:generateRestartVideo] Segments: {segment_count}")
+            print(f"[HOST] 📂 [@host_restart_routes:generateRestartVideo] Segment files: {segment_files_count} files")
             if segment_files_count > 0:
-                print(f"[HOST] 📋 [@host_restart_routes:generateVideo] First segment: {segment_files[0] if segment_files else 'None'}")
-                print(f"[HOST] 📋 [@host_restart_routes:generateVideo] Last segment: {segment_files[-1] if segment_files else 'None'}")
+                print(f"[HOST] 📋 [@host_restart_routes:generateRestartVideo] First segment: {segment_files[0] if segment_files else 'None'}")
+                print(f"[HOST] 📋 [@host_restart_routes:generateRestartVideo] Last segment: {segment_files[-1] if segment_files else 'None'}")
             
             return jsonify({
                 'success': True,
@@ -110,15 +110,15 @@ def generate_restart_video():
             })
         else:
             error_msg = 'Video generation failed - no result or success=False'
-            print(f"[HOST] ❌ [@host_restart_routes:generateVideo] {error_msg}")
-            print(f"[HOST] 🔍 [@host_restart_routes:generateVideo] Result details: {result}")
+            print(f"[HOST] ❌ [@host_restart_routes:generateRestartVideo] {error_msg}")
+            print(f"[HOST] 🔍 [@host_restart_routes:generateRestartVideo] Result details: {result}")
             return jsonify({'success': False, 'error': error_msg}), 500
             
     except Exception as e:
         error_msg = f"Exception during video generation: {str(e)}"
-        print(f"[HOST] 💥 [@host_restart_routes:generateVideo] {error_msg}")
+        print(f"[HOST] 💥 [@host_restart_routes:generateRestartVideo] {error_msg}")
         import traceback
-        print(f"[HOST] 🔍 [@host_restart_routes:generateVideo] Traceback: {traceback.format_exc()}")
+        print(f"[HOST] 🔍 [@host_restart_routes:generateRestartVideo] Traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @host_restart_bp.route('/generateVideoOnly', methods=['POST'])

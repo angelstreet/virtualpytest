@@ -192,11 +192,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             }
             sx={{ margin: 0 }}
           />
-          {useAIPlanCache && (
-            <Typography variant="caption" sx={{ color: '#4caf50', ml: 1 }}>
-              (Plan cache enabled)
-            </Typography>
-          )}
         </Box>
 
         {/* AI Plan Display */}

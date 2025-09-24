@@ -25,7 +25,7 @@ except ImportError:
 import time
 import json
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from PIL import Image
 import io
 import math
@@ -81,15 +81,25 @@ class HeatmapProcessor:
             # Create mosaic image (always full grid)
             mosaic_image = self.create_mosaic_image(complete_device_list)
             
+            # Save heatmap locally before uploading (for preview/debugging)
+            local_heatmap_path = self.save_heatmap_locally(time_key, mosaic_image)
+            print(f"💾 Saved local heatmap: {local_heatmap_path}")
+            
             # Create analysis JSON (includes all devices, even missing ones)
             analysis_json = self.create_analysis_json(complete_device_list, time_key)
             
+            # Display consolidated JSON data in logs
+            self.log_consolidated_json(analysis_json)
+            
             # Upload to R2 with time-only naming
-            success = self.upload_heatmap_files(time_key, mosaic_image, analysis_json)
+            success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json)
             
             if not success:
                 print(f"❌ Failed to upload files for {time_key}")
                 return
+            
+            # Log uploaded URLs
+            self.log_uploaded_urls(uploaded_urls, time_key)
             
             print(f"✅ Generated heatmap for {time_key} ({len(complete_device_list)} devices)")
             
@@ -282,6 +292,101 @@ class HeatmapProcessor:
         
         return complete_list
     
+    def save_heatmap_locally(self, time_key: str, mosaic_image: Image.Image) -> str:
+        """Save heatmap locally before uploading for preview/debugging"""
+        try:
+            import os
+            
+            # Create heatmaps directory if it doesn't exist
+            heatmaps_dir = os.path.join(os.path.dirname(__file__), '..', 'heatmaps')
+            os.makedirs(heatmaps_dir, exist_ok=True)
+            
+            # Save with timestamp for uniqueness
+            local_path = os.path.join(heatmaps_dir, f'heatmap_{time_key}.jpg')
+            mosaic_image.save(local_path, format='JPEG', quality=85)
+            
+            return local_path
+            
+        except Exception as e:
+            print(f"⚠️ Could not save heatmap locally: {e}")
+            return "Failed to save locally"
+    
+    def log_consolidated_json(self, analysis_json: Dict):
+        """Display consolidated JSON data in logs"""
+        print(f"\n📊 CONSOLIDATED JSON DATA:")
+        print(f"   🕐 Time Key: {analysis_json['time_key']}")
+        print(f"   📅 Timestamp: {analysis_json['timestamp']}")
+        print(f"   🖥️  Total Devices: {analysis_json['hosts_count']}")
+        print(f"   🚨 Incidents Count: {analysis_json['incidents_count']}")
+        
+        print(f"   📋 Device Status Summary:")
+        active_count = 0
+        missing_count = 0
+        incident_devices = []
+        
+        for device in analysis_json['devices']:
+            if device['status'] == 'missing':
+                missing_count += 1
+            else:
+                active_count += 1
+                
+            # Check for incidents
+            analysis = device.get('analysis', {})
+            has_incident = (
+                analysis.get('blackscreen', False) or
+                analysis.get('freeze', False) or
+                not analysis.get('audio', True)
+            )
+            
+            if has_incident and device['status'] != 'missing':
+                incident_types = []
+                if analysis.get('blackscreen', False):
+                    incident_types.append('blackscreen')
+                if analysis.get('freeze', False):
+                    incident_types.append('freeze')
+                if not analysis.get('audio', True):
+                    incident_types.append('no_audio')
+                
+                incident_devices.append({
+                    'device': f"{device['host_name']}/{device['device_id']}",
+                    'incidents': incident_types
+                })
+        
+        print(f"      ✅ Active: {active_count}")
+        print(f"      ❌ Missing: {missing_count}")
+        
+        if incident_devices:
+            print(f"   🚨 Devices with Incidents:")
+            for incident_device in incident_devices:
+                incidents_str = ', '.join(incident_device['incidents'])
+                print(f"      🔴 {incident_device['device']}: {incidents_str}")
+        else:
+            print(f"   ✅ No incidents detected")
+        
+        print()  # Empty line for readability
+    
+    def log_uploaded_urls(self, uploaded_urls: Dict, time_key: str):
+        """Log the uploaded URLs for mosaic and JSON"""
+        print(f"\n🔗 UPLOADED URLS for {time_key}:")
+        
+        if uploaded_urls:
+            mosaic_url = uploaded_urls.get('mosaic_url')
+            json_url = uploaded_urls.get('json_url')
+            
+            if mosaic_url:
+                print(f"   🖼️  Mosaic Image: {mosaic_url}")
+            else:
+                print(f"   ❌ Mosaic Image: URL not available")
+                
+            if json_url:
+                print(f"   📄 JSON Data: {json_url}")
+            else:
+                print(f"   ❌ JSON Data: URL not available")
+        else:
+            print(f"   ❌ No URLs available")
+        
+        print()  # Empty line for readability
+    
     def create_mosaic_image(self, images_data: List[Dict]) -> Image.Image:
         """Create mosaic image from device images"""
         if not images_data:
@@ -465,7 +570,7 @@ class HeatmapProcessor:
         image.save(buffer, format='JPEG', quality=85)
         return buffer.getvalue()
     
-    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict) -> bool:
+    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict) -> Tuple[bool, Dict]:
         """Upload mosaic image and analysis JSON to R2"""
         try:
             import tempfile
@@ -511,7 +616,16 @@ class HeatmapProcessor:
                     
                     if all_urls_available:
                         print(f"✅ Uploaded heatmap files for {time_key}")
-                        return True
+                        
+                        # Extract URLs for return
+                        uploaded_urls = {}
+                        for uploaded in result['uploaded_files']:
+                            if uploaded['remote_path'].endswith('.jpg'):
+                                uploaded_urls['mosaic_url'] = uploaded['url']
+                            elif uploaded['remote_path'].endswith('.json'):
+                                uploaded_urls['json_url'] = uploaded['url']
+                        
+                        return True, uploaded_urls
                     else:
                         print(f"❌ Upload failed for {time_key}: Files uploaded but URLs not available")
                         for uploaded in result['uploaded_files']:
@@ -519,13 +633,13 @@ class HeatmapProcessor:
                             if not url_status or not url_status.strip():
                                 url_status = 'URL not available (CLOUDFLARE_R2_PUBLIC_URL not set)'
                             print(f"   🔗 {uploaded['remote_path']}: {url_status}")
-                        return False
+                        return False, {}
                 else:
                     print(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
                     if result.get('failed_uploads'):
                         for failed in result['failed_uploads']:
                             print(f"   Failed: {failed['remote_path']} - {failed['error']}")
-                    return False
+                    return False, {}
                     
             finally:
                 # Clean up temporary files
@@ -536,7 +650,7 @@ class HeatmapProcessor:
                     
         except Exception as e:
             print(f"❌ Error uploading heatmap files for {time_key}: {e}")
-            return False
+            return False, {}
     
     def wait_for_next_minute(self):
         """Wait until next minute boundary"""

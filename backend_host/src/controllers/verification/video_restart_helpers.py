@@ -261,9 +261,9 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Combined restart analysis error: {e}")
             return {'success': False, 'error': str(e)}
     
-    def generate_restart_video_fast(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
+    def generate_restart_video(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """
-        Fast restart video generation - returns video URL + audio analysis only.
+        Generate restart video - returns video URL + audio analysis only.
         Shows player immediately while AI analysis runs in background.
         """
         try:
@@ -660,6 +660,8 @@ class VideoRestartHelpers:
                 # Use the same Google Translate approach as batch translation (which works)
                 # Use AI translation for audio transcript (more accurate than Google Translate)
                 from  backend_host.src.lib.utils.translation_utils import translate_text
+                # Auto-detect source language for translation
+                detected_language = 'auto'
                 translation_result = translate_text(existing_transcript, detected_language, target_language, method='ai')
                 print(f"RestartHelpers[{self.device_name}]: AI translation completed for audio transcript ({detected_language} → {target_language})")
                 

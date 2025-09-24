@@ -1,4 +1,4 @@
-import { Computer as ComputerIcon, Refresh as RefreshIcon, Replay as ReplayIcon } from '@mui/icons-material';
+import { Computer as ComputerIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -135,15 +135,23 @@ const RecContent: React.FC = () => {
   const handleBulkAddFlag = useCallback((flag: string) => {
     if (!flag.trim()) return;
     
+    console.log('[@handleBulkAddFlag] Adding flag:', flag.trim(), 'to devices:', Array.from(selectedDevices));
+    
     setPendingChanges(prev => {
       const newChanges = new Map(prev);
       Array.from(selectedDevices).forEach(deviceKey => {
         const [hostName, deviceId] = deviceKey.split('-');
         const currentFlags = getCurrentFlags(hostName, deviceId);
+        console.log('[@handleBulkAddFlag] Device:', deviceKey, 'current flags:', currentFlags);
         if (!currentFlags.includes(flag.trim())) {
-          newChanges.set(deviceKey, [...currentFlags, flag.trim()]);
+          const updatedFlags = [...currentFlags, flag.trim()];
+          newChanges.set(deviceKey, updatedFlags);
+          console.log('[@handleBulkAddFlag] Updated flags for', deviceKey, ':', updatedFlags);
+        } else {
+          console.log('[@handleBulkAddFlag] Flag already exists for', deviceKey);
         }
       });
+      console.log('[@handleBulkAddFlag] Final pending changes:', newChanges);
       return newChanges;
     });
   }, [selectedDevices, getCurrentFlags]);
@@ -185,6 +193,9 @@ const RecContent: React.FC = () => {
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = pendingChanges.size > 0;
+  
+  // Debug logging for save button state
+  console.log('[@Rec] hasUnsavedChanges:', hasUnsavedChanges, 'pendingChanges.size:', pendingChanges.size, 'isSaving:', isSaving);
 
 
   // Log AV devices count
@@ -363,14 +374,17 @@ const RecContent: React.FC = () => {
             <>
               <TextField
                 size="small"
-                placeholder="Add flag..."
+                placeholder={selectedDevices.size === 0 ? "Select devices first..." : "Add flag..."}
+                disabled={selectedDevices.size === 0}
                 onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    console.log('[@TextField] Enter pressed, adding flag:', e.currentTarget.value.trim());
                     handleBulkAddFlag(e.currentTarget.value.trim());
                     e.currentTarget.value = '';
                   }
                 }}
                 sx={{ minWidth: 140 }}
+                helperText={selectedDevices.size === 0 ? "Select devices to add flags" : ""}
               />
 
               <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -378,6 +392,7 @@ const RecContent: React.FC = () => {
                 <Select
                   value=""
                   label="Remove Flag"
+                  disabled={selectedDevices.size === 0}
                   onChange={(e: SelectChangeEvent) => {
                     if (e.target.value) {
                       handleBulkRemoveFlag(e.target.value);
@@ -416,6 +431,13 @@ const RecContent: React.FC = () => {
                 onClick={handleSaveChanges}
                 disabled={!hasUnsavedChanges || isSaving}
                 startIcon={isSaving ? <CircularProgress size={16} /> : undefined}
+                title={
+                  !hasUnsavedChanges 
+                    ? "No changes to save" 
+                    : isSaving 
+                    ? "Saving changes..." 
+                    : `Save ${pendingChanges.size} changes`
+                }
                 sx={{ 
                   height: 32, 
                   textTransform: 'none',
