@@ -429,6 +429,13 @@ def analyze_motion_from_loaded_data(analysis_data: List[Dict], json_count: int =
             'message': message
         }
         
+        # DEBUG: Log the details array structure
+        print(f"🔍 [@analysis_utils] DEBUG: Motion analysis result - success: {success}")
+        print(f"🔍 [@analysis_utils] DEBUG: Details array type: {type(details)}, length: {len(details)}")
+        print(f"🔍 [@analysis_utils] DEBUG: Details content: {details}")
+        if details and len(details) > 0:
+            print(f"🔍 [@analysis_utils] DEBUG: First detail keys: {list(details[0].keys()) if isinstance(details[0], dict) else 'Not a dict'}")
+        
         return result
         
     except Exception as e:

@@ -502,6 +502,13 @@ class ZapExecutor:
             # Ensure motion_detected is never None
             if result.motion_detected is None:
                 result.motion_detected = False
+            
+            # DEBUG: Log the complete verification_result structure
+            print(f"🔍 [ZapExecutor] DEBUG: Motion verification_result keys: {list(verification_result.keys())}")
+            print(f"🔍 [ZapExecutor] DEBUG: Motion success: {success}")
+            print(f"🔍 [ZapExecutor] DEBUG: Motion details type: {type(verification_result.get('details'))}")
+            print(f"🔍 [ZapExecutor] DEBUG: Motion details content: {verification_result.get('details')}")
+            
             if success:
                 # Motion detection details are in the main verification_result, not nested in details
                 analyzed_count = verification_result.get('total_analyzed', 0)
@@ -518,19 +525,28 @@ class ZapExecutor:
                 
                 # Transform details array to motion_analysis_images for report thumbnails
                 details = verification_result.get('details', [])
+                print(f"🔍 [ZapExecutor] DEBUG: Motion details for thumbnails - type: {type(details)}, length: {len(details) if isinstance(details, list) else 'N/A'}")
+                print(f"🔍 [ZapExecutor] DEBUG: Motion details content: {details}")
+                
                 if details and isinstance(details, list):
+                    print(f"🔍 [ZapExecutor] DEBUG: Processing {len(details)} motion details for thumbnails")
                     # Get actual capture path from device's AV controller
                     av_controller = self.device._get_controller('av')
                     if av_controller and hasattr(av_controller, 'video_capture_path'):
                         capture_folder = f"{av_controller.video_capture_path}/captures"
+                        print(f"🔍 [ZapExecutor] DEBUG: Using capture folder: {capture_folder}")
                         motion_images = []
                         for i, detail in enumerate(details):
                             if i >= 3:  # Only take first 3 for thumbnails
                                 break
+                            print(f"🔍 [ZapExecutor] DEBUG: Processing detail[{i}]: {detail}")
                             if isinstance(detail, dict):
+                                filename = detail.get('filename', '')
+                                image_path = f"{capture_folder}/{filename}"
+                                print(f"🔍 [ZapExecutor] DEBUG: Creating motion_image: {filename} -> {image_path}")
                                 motion_images.append({
-                                    'path': f"{capture_folder}/{detail.get('filename', '')}",
-                                    'filename': detail.get('filename', ''),
+                                    'path': image_path,
+                                    'filename': filename,
                                     'timestamp': detail.get('timestamp', ''),
                                     'analysis_data': {
                                         'freeze': detail.get('freeze', False),
@@ -538,8 +554,16 @@ class ZapExecutor:
                                         'audio': detail.get('audio', True)
                                     }
                                 })
+                        print(f"🔍 [ZapExecutor] DEBUG: Created {len(motion_images)} motion_analysis_images")
                         if motion_images:
                             result.motion_details['motion_analysis_images'] = motion_images
+                            print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
+                        else:
+                            print(f"🔍 [ZapExecutor] DEBUG: No motion_images created - motion_analysis_images not added")
+                    else:
+                        print(f"🔍 [ZapExecutor] DEBUG: No AV controller or video_capture_path available")
+                else:
+                    print(f"🔍 [ZapExecutor] DEBUG: No valid details array for motion thumbnails")
             
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)
