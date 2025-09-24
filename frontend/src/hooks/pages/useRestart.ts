@@ -637,7 +637,7 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
       setIsDubbing(true);
       
       const basePayload = {
-        host,
+        host_name: host.host_name,
         device_id: device.device_id,
         video_id: videoId,
         target_language: language,

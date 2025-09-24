@@ -135,9 +135,9 @@ const RecContent: React.FC = () => {
   const handleBulkAddFlag = useCallback((flag: string) => {
     const trimmedFlag = flag.trim();
     if (!trimmedFlag) return;
+    
     if (trimmedFlag.length < 3) {
-      console.log('[@handleBulkAddFlag] Flag too short:', trimmedFlag, '(must be at least 3 characters)');
-      return;
+      console.log('[@handleBulkAddFlag] Warning: Short flag:', trimmedFlag);
     }
     
     console.log('[@handleBulkAddFlag] Adding flag:', trimmedFlag, 'to devices:', Array.from(selectedDevices));
@@ -407,7 +407,6 @@ const RecContent: React.FC = () => {
                   }
                 }}
                 sx={{ minWidth: 140 }}
-                helperText={selectedDevices.size === 0 ? "Select devices to add flags" : "Min 3 characters, press Enter"}
               />
 
               <FormControl size="small" sx={{ minWidth: 140 }}>

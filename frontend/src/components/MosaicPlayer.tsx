@@ -32,6 +32,7 @@ interface MosaicPlayerProps {
   onCellClick?: (deviceData: any) => void;
   hasIncidents?: boolean;
   isLoading?: boolean;
+  hasDataError?: boolean;
 }
 
 export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
@@ -40,7 +41,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   onIndexChange,
   onCellClick,
   hasIncidents = false,
-  isLoading = false
+  isLoading = false,
+  hasDataError = false
 }) => {
   const [imageError, setImageError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -277,21 +279,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
           borderRadius: 1
         }}
       >
-        {/* Time Display */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-            {currentItem ? formatTime(currentItem.displayTime) : '--:--'}
-          </Typography>
-          <Chip
-            label={hasIncidents ? 'INCIDENTS' : 'ALL GOOD'}
-            size="small"
-            sx={{
-              backgroundColor: hasIncidents ? '#ff4444' : '#4CAF50',
-              color: 'white',
-              fontWeight: 'bold'
-            }}
-          />
-        </Box>
         
         {/* Timeline Scrubber */}
         <Box sx={{ position: 'relative' }}>
@@ -301,14 +288,14 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
             max={Math.max(0, timeline.length - 1)}
             onChange={handleSliderChange}
             sx={{
-              color: hasIncidents ? '#FF0000' : '#00AA00',
+              color: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
               '& .MuiSlider-thumb': {
                 width: 16,
                 height: 16,
-                backgroundColor: hasIncidents ? '#FF0000' : '#00AA00',
+                backgroundColor: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
               },
               '& .MuiSlider-track': {
-                backgroundColor: hasIncidents ? '#FF0000' : '#00AA00',
+                backgroundColor: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
               },
               '& .MuiSlider-rail': {
                 backgroundColor: '#CCCCCC',

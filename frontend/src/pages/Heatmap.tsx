@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
+import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { useHeatmap } from '../hooks/useHeatmap';
 
@@ -27,7 +28,9 @@ const Heatmap: React.FC = () => {
     analysisData,
     analysisLoading,
     hasIncidents,
-    goToLatest
+    goToLatest,
+    refreshCurrentData,
+    hasDataError
   } = useHeatmap();
 
   // UI state
@@ -122,7 +125,7 @@ const Heatmap: React.FC = () => {
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">Status</Typography>
                   <Typography variant="body2" fontWeight="bold" color={hasIncidents() ? 'error' : 'success'}>
-                    {hasIncidents() ? 'Incidents Detected' : 'All Good'}
+                    {hasIncidents() ? 'KO' : 'OK'}
                   </Typography>
                 </Box>
 
@@ -138,7 +141,7 @@ const Heatmap: React.FC = () => {
                   <IconButton 
                     size="small" 
                     onClick={handleGenerateReport}
-                    disabled={isGeneratingReport || !analysisData}
+                    disabled={isGeneratingReport || !analysisData || !timeline[currentIndex]}
                   >
                     <GridView />
                   </IconButton>
@@ -157,6 +160,7 @@ const Heatmap: React.FC = () => {
         onCellClick={handleCellClick}
         hasIncidents={hasIncidents()}
         isLoading={analysisLoading}
+        hasDataError={hasDataError}
       />
 
       {/* Analysis Section */}
@@ -166,6 +170,8 @@ const Heatmap: React.FC = () => {
         onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
       />
 
+      {/* History Section */}
+      <HeatMapHistory />
 
       {/* Freeze Modal */}
       <HeatMapFreezeModal

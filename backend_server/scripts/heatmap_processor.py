@@ -230,7 +230,18 @@ class HeatmapProcessor:
                                 
                                 # Load JSON analysis data
                                 json_response = requests.get(json_url, timeout=5)
-                                analysis_data = json_response.json() if json_response.status_code == 200 else {}
+                                if json_response.status_code == 200:
+                                    full_json_data = json_response.json()
+                                    # Extract analysis data from the JSON structure
+                                    analysis_data = {
+                                        'analyzed': True,
+                                        'blackscreen': full_json_data.get('blackscreen', False),
+                                        'freeze': full_json_data.get('freeze', False),
+                                        'audio': full_json_data.get('audio', True)
+                                    }
+                                    print(f"🔍 Analysis for {host_name}/{device_id}: blackscreen={analysis_data['blackscreen']}, freeze={analysis_data['freeze']}, audio={analysis_data['audio']}")
+                                else:
+                                    analysis_data = {'analyzed': False}
                                 
                                 current_captures.append({
                                     'host_name': host_name,
@@ -393,11 +404,25 @@ class HeatmapProcessor:
         print()  # Empty line for readability
     
     def filter_error_devices(self, devices_data: List[Dict]) -> List[Dict]:
-        """Filter devices that have error images (_error.jpg)"""
+        """Filter devices that have incidents (errors)"""
         error_devices = []
         for device in devices_data:
-            # Check if device has error image URL
-            if device.get('image_url') and '_error.jpg' in device.get('image_url', ''):
+            # Check for incidents in analysis data
+            analysis = device.get('analysis', {})
+            is_placeholder = device.get('is_placeholder', False)
+            
+            has_incident = False
+            if not is_placeholder:
+                has_incident = (
+                    analysis.get('blackscreen', False) or
+                    analysis.get('freeze', False) or
+                    not analysis.get('audio', True)
+                )
+            
+            # Also check for error image URL (legacy support)
+            has_error_url = device.get('image_url') and '_error.jpg' in device.get('image_url', '')
+            
+            if has_incident or has_error_url:
                 error_devices.append(device)
         return error_devices
     
@@ -405,14 +430,31 @@ class HeatmapProcessor:
         """Add colored border and label to device image"""
         from PIL import ImageDraw, ImageFont
         
-        # Add border (red for error, green for OK)
-        has_error = '_error.jpg' in image_data.get('image_url', '')
-        border_color = (255, 0, 0) if has_error else (0, 255, 0)
+        # Check for incidents in analysis data
+        analysis = image_data.get('analysis', {})
+        is_placeholder = image_data.get('is_placeholder', False)
+        
+        has_incident = False
+        if not is_placeholder:
+            has_incident = (
+                analysis.get('blackscreen', False) or
+                analysis.get('freeze', False) or
+                not analysis.get('audio', True)
+            )
+        
+        # Add border (red for incident, green for OK, grey for placeholder)
+        if is_placeholder:
+            border_color = (128, 128, 128)  # Grey for placeholder
+        elif has_incident:
+            border_color = (255, 0, 0)  # Red for incident
+        else:
+            border_color = (0, 255, 0)  # Green for OK
+            
         draw = ImageDraw.Draw(img)
         draw.rectangle([0, 0, cell_width-1, cell_height-1], outline=border_color, width=4)
         
         # Add label in bottom right
-        label = f"{image_data.get('host_name', '')}_{image_data.get('device_name', '')}"
+        label = f"{image_data.get('host_name', '')}_{image_data.get('device_id', '')}"
         draw.text((cell_width-150, cell_height-20), label, fill='white', font=ImageFont.load_default())
         
         return img

@@ -42,6 +42,7 @@ export const useHeatmap = () => {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [errorRetryCount, setErrorRetryCount] = useState(0);
+  const [hasDataError, setHasDataError] = useState(false);
   
   // Get R2 base URL from environment
   const R2_BASE_URL = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
@@ -83,6 +84,7 @@ export const useHeatmap = () => {
         const data = await response.json();
         setAnalysisData(data);
         setErrorRetryCount(0); // Reset error count on success
+        setHasDataError(false); // Reset error flag on success
       } else if (response.status === 404 && retryCount < 10) {
         // File not generated yet, try previous minute
         const itemIndex = timeline.findIndex(t => t.timeKey === item.timeKey);
@@ -95,10 +97,12 @@ export const useHeatmap = () => {
       }
       if (response.status === 404) {
         setAnalysisData(null); // Stop retrying after 10 attempts
+        setHasDataError(true); // Mark as having data error
       }
     } catch (error) {
       console.log(`No analysis data available for ${item.timeKey}`);
       setAnalysisData(null);
+      setHasDataError(true); // Mark as having data error
     } finally {
       setAnalysisLoading(false);
     }
@@ -144,6 +148,17 @@ export const useHeatmap = () => {
   }, [currentIndex, timeline]);
   
   /**
+   * Force refresh analysis data
+   */
+  const refreshCurrentData = () => {
+    if (timeline[currentIndex]) {
+      setAnalysisData(null); // Clear current data first
+      setHasDataError(false); // Reset error flag
+      loadAnalysisData(timeline[currentIndex]);
+    }
+  };
+  
+  /**
    * Navigate to specific time
    */
   const goToTime = (hours: number, minutes: number) => {
@@ -180,11 +195,13 @@ export const useHeatmap = () => {
     // Analysis data
     analysisData,
     analysisLoading,
+    hasDataError,
     
     // Navigation helpers
     goToTime,
     goToLatest,
     hasIncidents,
+    refreshCurrentData,
     
     // Timeline info
     totalMinutes: timeline.length,
