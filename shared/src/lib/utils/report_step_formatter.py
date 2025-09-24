@@ -625,8 +625,7 @@ def format_analysis_results(step: Dict) -> str:
             analysis_html += f"""
             <div class='subtitle-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{formatted_display}</div>
-                    <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                    <img src='{analyzed_screenshot}' style='width: 120px; height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                          onclick='openVerificationImageModal({modal_data_json})' title='Click to view subtitle analysis screenshot'>
                 </div>
             </div>
@@ -724,8 +723,7 @@ def format_analysis_results(step: Dict) -> str:
             analysis_html += f"""
             <div class='audio-menu-screenshot' style='margin-top: 4px;'>
                 <div style='text-align: center;'>
-                    <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{formatted_display}</div>
-                    <img src='{analyzed_screenshot}' style='width: 60px; height: 40px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                    <img src='{analyzed_screenshot}' style='width: 120px; height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                          onclick='openVerificationImageModal({modal_data_json})' title='Click to view audio menu analysis screenshot'>
                 </div>
             </div>

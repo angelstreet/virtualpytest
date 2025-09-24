@@ -680,7 +680,7 @@ class AudioVerificationController(VerificationControllerInterface):
                     segment_count = int(params.get('json_count', 3))  # Use json_count param for consistency
                     audio_files = audio_ai.get_recent_audio_segments(segment_count=segment_count)
                     if audio_files:
-                        analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=False)
+                        analysis = audio_ai.analyze_audio_segments_ai(audio_files, upload_to_r2=True)
                         success = analysis.get('success', False) and bool(analysis.get('combined_transcript', '').strip())
                         transcript = analysis.get('combined_transcript', '')
                         language = analysis.get('detected_language', 'unknown')
