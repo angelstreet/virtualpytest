@@ -381,17 +381,17 @@ class HeatmapProcessor:
             else:
                 # Try to download and use actual image
                 try:
-                import requests
+                    import requests
                     print(f"📥 Downloading image: {image_url}")
                     response = requests.get(image_url, timeout=10)
-                if response.status_code == 200:
-                    img = Image.open(io.BytesIO(response.content))
-                    img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
-                    mosaic.paste(img, (x, y))
+                    if response.status_code == 200:
+                        img = Image.open(io.BytesIO(response.content))
+                        img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
+                        mosaic.paste(img, (x, y))
                         print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
                     else:
                         raise Exception(f"HTTP {response.status_code}")
-            except Exception as e:
+                except Exception as e:
                     print(f"❌ Error loading image {image_data['image_url']}: {e}")
                     # Create error placeholder
                     error_placeholder = Image.new('RGB', (cell_width, cell_height), color='#4a2a2a')  # Dark red

@@ -15,7 +15,6 @@ from . import (
     host_desktop_bash_routes,
     host_desktop_pyautogui_routes,
     host_script_routes,
-    host_heatmap_routes,
     host_verification_appium_routes,
     host_verification_text_routes,
     host_verification_audio_routes,
