@@ -81,9 +81,14 @@ class HeatmapProcessor:
             # Create mosaic image (always full grid)
             mosaic_image = self.create_mosaic_image(complete_device_list)
             
-            # Save heatmap locally before uploading (for preview/debugging)
-            local_heatmap_path = self.save_heatmap_locally(time_key, mosaic_image)
-            print(f"💾 Saved local heatmap: {local_heatmap_path}")
+            # Create error-only mosaic
+            error_devices = self.filter_error_devices(complete_device_list)
+            error_mosaic_image = None
+            if error_devices:
+                error_mosaic_image = self.create_mosaic_image(error_devices)
+                print(f"🚨 Created error mosaic with {len(error_devices)} error devices")
+            else:
+                print(f"✅ No error devices found for {time_key}")
             
             # Create analysis JSON (includes all devices, even missing ones)
             analysis_json = self.create_analysis_json(complete_device_list, time_key)
@@ -92,7 +97,7 @@ class HeatmapProcessor:
             self.log_consolidated_json(analysis_json)
             
             # Upload to R2 with time-only naming
-            success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json)
+            success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json, error_mosaic_image)
             
             if not success:
                 print(f"❌ Failed to upload files for {time_key}")
@@ -387,6 +392,31 @@ class HeatmapProcessor:
         
         print()  # Empty line for readability
     
+    def filter_error_devices(self, devices_data: List[Dict]) -> List[Dict]:
+        """Filter devices that have error images (_error.jpg)"""
+        error_devices = []
+        for device in devices_data:
+            # Check if device has error image URL
+            if device.get('image_url') and '_error.jpg' in device.get('image_url', ''):
+                error_devices.append(device)
+        return error_devices
+    
+    def add_border_and_label(self, img: Image.Image, image_data: Dict, cell_width: int, cell_height: int) -> Image.Image:
+        """Add colored border and label to device image"""
+        from PIL import ImageDraw, ImageFont
+        
+        # Add border (red for error, green for OK)
+        has_error = '_error.jpg' in image_data.get('image_url', '')
+        border_color = (255, 0, 0) if has_error else (0, 255, 0)
+        draw = ImageDraw.Draw(img)
+        draw.rectangle([0, 0, cell_width-1, cell_height-1], outline=border_color, width=4)
+        
+        # Add label in bottom right
+        label = f"{image_data.get('host_name', '')}_{image_data.get('device_id', '')}"
+        draw.text((cell_width-150, cell_height-20), label, fill='white', font=ImageFont.load_default())
+        
+        return img
+    
     def create_mosaic_image(self, images_data: List[Dict]) -> Image.Image:
         """Create mosaic image from device images"""
         if not images_data:
@@ -436,9 +466,16 @@ class HeatmapProcessor:
             is_placeholder = image_data.get('is_placeholder', False)
             
             if is_placeholder or not image_url or image_url == 'None':
-                # Create placeholder with device info
-                placeholder_color = '#2a2a2a' if is_placeholder else '#4a2a2a'  # Dark gray for missing, dark red for None
-                placeholder = Image.new('RGB', (cell_width, cell_height), color=placeholder_color)
+                # Create placeholder with device info and border
+                has_error = '_error.jpg' in str(image_url) if image_url else False
+                border_color = '#ff0000' if has_error else '#888888'  # Red for error, gray for placeholder
+                border_width = 4
+                
+                # Create placeholder with border
+                placeholder = Image.new('RGB', (cell_width, cell_height), color=border_color)
+                inner_color = '#2a2a2a' if is_placeholder else '#4a2a2a'  # Dark gray for missing, dark red for None
+                inner_placeholder = Image.new('RGB', (cell_width - 2*border_width, cell_height - 2*border_width), color=inner_color)
+                placeholder.paste(inner_placeholder, (border_width, border_width))
                 
                 # Add text overlay with device info
                 try:
@@ -492,7 +529,10 @@ class HeatmapProcessor:
                     if response.status_code == 200:
                         img = Image.open(io.BytesIO(response.content))
                         img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
-                        mosaic.paste(img, (x, y))
+                        
+                        # Add border and label to the image
+                        img_with_border = self.add_border_and_label(img, image_data, cell_width, cell_height)
+                        mosaic.paste(img_with_border, (x, y))
                         print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
                     else:
                         raise Exception(f"HTTP {response.status_code}")
@@ -570,7 +610,7 @@ class HeatmapProcessor:
         image.save(buffer, format='JPEG', quality=85)
         return buffer.getvalue()
     
-    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict) -> Tuple[bool, Dict]:
+    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict, error_mosaic_image: Optional[Image.Image] = None) -> Tuple[bool, Dict]:
         """Upload mosaic image and analysis JSON to R2"""
         try:
             import tempfile
@@ -584,6 +624,13 @@ class HeatmapProcessor:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as json_temp:
                 json.dump(analysis_json, json_temp, indent=2)
                 json_temp_path = json_temp.name
+            
+            # Handle error mosaic if provided
+            error_img_temp_path = None
+            if error_mosaic_image:
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as error_img_temp:
+                    error_mosaic_image.save(error_img_temp.name, format='JPEG', quality=85)
+                    error_img_temp_path = error_img_temp.name
             
             try:
                 # Prepare file mappings for batch upload
@@ -602,6 +649,15 @@ class HeatmapProcessor:
                         'content_type': 'application/json'
                     }
                 ]
+                
+                # Add error mosaic if available
+                if error_img_temp_path:
+                    error_remote_path = f'heatmaps/{time_key}_errors.jpg'
+                    file_mappings.append({
+                        'local_path': error_img_temp_path,
+                        'remote_path': error_remote_path,
+                        'content_type': 'image/jpeg'
+                    })
                 
                 # Upload files using CloudflareUtils
                 cloudflare_utils = get_cloudflare_utils()
@@ -647,6 +703,8 @@ class HeatmapProcessor:
                     os.unlink(img_temp_path)
                 if os.path.exists(json_temp_path):
                     os.unlink(json_temp_path)
+                if error_img_temp_path and os.path.exists(error_img_temp_path):
+                    os.unlink(error_img_temp_path)
                     
         except Exception as e:
             print(f"❌ Error uploading heatmap files for {time_key}: {e}")
