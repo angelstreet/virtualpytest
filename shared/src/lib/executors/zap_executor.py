@@ -524,7 +524,9 @@ class ZapExecutor:
                     print(f"   📊 Motion detected: {analyzed_count} files analyzed")
                 
                 # Transform details array to motion_analysis_images for report thumbnails
-                details = verification_result.get('details', [])
+                # Motion detection returns nested structure: verification_result['details']['details']
+                motion_result = verification_result.get('details', {})
+                details = motion_result.get('details', []) if isinstance(motion_result, dict) else []
                 print(f"🔍 [ZapExecutor] DEBUG: Motion details for thumbnails - type: {type(details)}, length: {len(details) if isinstance(details, list) else 'N/A'}")
                 print(f"🔍 [ZapExecutor] DEBUG: Motion details content: {details}")
                 
