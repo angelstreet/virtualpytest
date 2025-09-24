@@ -7,17 +7,8 @@ Uses circular buffer with HHMM naming (1440 fixed files).
 
 import sys
 import os
-import time
-import asyncio
-import aiohttp
-import json
-from datetime import datetime
-from typing import Dict, List, Optional
-from PIL import Image
-import io
-import math
 
-# Add project root to path
+# Add project root to path FIRST
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
@@ -30,8 +21,18 @@ try:
 except ImportError:
     print("⚠️  Warning: Could not apply typing compatibility fix")
 
-from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+# Now import everything else after typing fix
+import time
+import asyncio
+import aiohttp
+import json
+from datetime import datetime
+from typing import Dict, List, Optional
+from PIL import Image
+import io
+import math
 
+from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
 
 class HeatmapProcessor:
     """Background processor for continuous heatmap generation"""
