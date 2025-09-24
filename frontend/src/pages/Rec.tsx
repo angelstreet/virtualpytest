@@ -15,7 +15,7 @@ import {
   SelectChangeEvent,
   TextField,
 } from '@mui/material';
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { ModalProvider } from '../contexts/ModalContext';
@@ -235,87 +235,152 @@ const RecContent: React.FC = () => {
             </Button>
           )}
 
-          {/* Host Filter */}
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Host</InputLabel>
-            <Select value={hostFilter} label="Host" onChange={(e: SelectChangeEvent) => setHostFilter(e.target.value)}>
-              <MenuItem value="">
-                <em>All Hosts</em>
-              </MenuItem>
-              {uniqueHosts.map((hostName) => (
-                <MenuItem key={hostName} value={hostName}>
-                  {hostName}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {/* Normal Mode - Filters */}
+          {!isEditMode && (
+            <>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Host</InputLabel>
+                <Select value={hostFilter} label="Host" onChange={(e: SelectChangeEvent) => setHostFilter(e.target.value)}>
+                  <MenuItem value="">
+                    <em>All Hosts</em>
+                  </MenuItem>
+                  {uniqueHosts.map((hostName) => (
+                    <MenuItem key={hostName} value={hostName}>
+                      {hostName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          {/* Device Model Filter */}
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Model</InputLabel>
-            <Select
-              value={deviceModelFilter}
-              label="Model"
-              onChange={(e: SelectChangeEvent) => setDeviceModelFilter(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>All Models</em>
-              </MenuItem>
-              {uniqueDeviceModels.map((deviceModel) => (
-                <MenuItem key={deviceModel} value={deviceModel}>
-                  {deviceModel}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Model</InputLabel>
+                <Select
+                  value={deviceModelFilter}
+                  label="Model"
+                  onChange={(e: SelectChangeEvent) => setDeviceModelFilter(e.target.value)}
+                >
+                  <MenuItem value="">
+                    <em>All Models</em>
+                  </MenuItem>
+                  {uniqueDeviceModels.map((deviceModel) => (
+                    <MenuItem key={deviceModel} value={deviceModel}>
+                      {deviceModel}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          {/* Device Filter */}
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Device</InputLabel>
-            <Select
-              value={deviceFilter}
-              label="Device"
-              onChange={(e: SelectChangeEvent) => setDeviceFilter(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>All Devices</em>
-              </MenuItem>
-              {uniqueDevices.map((deviceName) => (
-                <MenuItem key={deviceName} value={deviceName}>
-                  {deviceName}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Device</InputLabel>
+                <Select
+                  value={deviceFilter}
+                  label="Device"
+                  onChange={(e: SelectChangeEvent) => setDeviceFilter(e.target.value)}
+                >
+                  <MenuItem value="">
+                    <em>All Devices</em>
+                  </MenuItem>
+                  {uniqueDevices.map((deviceName) => (
+                    <MenuItem key={deviceName} value={deviceName}>
+                      {deviceName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          {/* Flag Filter */}
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Flag</InputLabel>
-            <Select
-              value={flagFilter}
-              label="Flag"
-              onChange={(e: SelectChangeEvent) => setFlagFilter(e.target.value)}
-            >
-              <MenuItem value="">
-                <em>All Flags</em>
-              </MenuItem>
-              {uniqueFlags.map((flag) => (
-                <MenuItem key={flag} value={flag}>
-                  {flag}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Flag</InputLabel>
+                <Select
+                  value={flagFilter}
+                  label="Flag"
+                  onChange={(e: SelectChangeEvent) => setFlagFilter(e.target.value)}
+                >
+                  <MenuItem value="">
+                    <em>All Flags</em>
+                  </MenuItem>
+                  {uniqueFlags.map((flag) => (
+                    <MenuItem key={flag} value={flag}>
+                      {flag}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          {/* Clear filters chip */}
-          {hasActiveFilters && (
-            <Chip
-              label="Clear"
-              size="small"
-              variant="outlined"
-              onClick={clearFilters}
-              sx={{ height: 32 }}
-            />
+              {hasActiveFilters && (
+                <Chip
+                  label="Clear"
+                  size="small"
+                  variant="outlined"
+                  onClick={clearFilters}
+                  sx={{ height: 32 }}
+                />
+              )}
+            </>
+          )}
+
+          {/* Edit Mode - Bulk Actions */}
+          {isEditMode && (
+            <>
+              <TextField
+                size="small"
+                placeholder="Add flag..."
+                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                    handleBulkAddFlag(e.currentTarget.value.trim());
+                    e.currentTarget.value = '';
+                  }
+                }}
+                sx={{ minWidth: 140 }}
+              />
+
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Remove Flag</InputLabel>
+                <Select
+                  value=""
+                  label="Remove Flag"
+                  onChange={(e: SelectChangeEvent) => {
+                    if (e.target.value) {
+                      handleBulkRemoveFlag(e.target.value);
+                    }
+                  }}
+                >
+                  {uniqueFlags.map((flag) => (
+                    <MenuItem key={flag} value={flag}>
+                      {flag}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Button
+                size="small"
+                onClick={handleSelectAll}
+                disabled={selectedDevices.size === filteredDevices.length}
+                sx={{ height: 32, textTransform: 'none' }}
+              >
+                Select All
+              </Button>
+
+              <Button
+                size="small"
+                onClick={handleClearSelection}
+                disabled={selectedDevices.size === 0}
+                sx={{ height: 32, textTransform: 'none' }}
+              >
+                Clear
+              </Button>
+
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                onClick={handleBulkClearFlags}
+                disabled={selectedDevices.size === 0}
+                sx={{ height: 32, textTransform: 'none' }}
+              >
+                Clear Flags
+              </Button>
+            </>
           )}
         </Stack>
       </Box>
@@ -347,14 +412,20 @@ const RecContent: React.FC = () => {
         </Alert>
       ) : (
         <Grid container spacing={2}>
-          {filteredDevices.map(({ host, device }) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={`${host.host_name}-${device.device_id}`}>
-              <RecHostPreview
-                host={host}
-                device={device}
-              />
-            </Grid>
-          ))}
+          {filteredDevices.map(({ host, device }) => {
+            const deviceKey = `${host.host_name}-${device.device_id}`;
+            return (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={deviceKey}>
+                <RecHostPreview
+                  host={host}
+                  device={device}
+                  isEditMode={isEditMode}
+                  isSelected={selectedDevices.has(deviceKey)}
+                  onSelectionChange={(selected) => handleDeviceSelection(deviceKey, selected)}
+                />
+              </Grid>
+            );
+          })}
         </Grid>
       )}
     </Box>
