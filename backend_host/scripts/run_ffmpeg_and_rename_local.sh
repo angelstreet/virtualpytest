@@ -117,7 +117,7 @@ start_grabber() {
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 28 -maxrate 400k -bufsize 800k -force_key_frames \"expr:gte(t,n_forced*0.5)\" \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -fps_mode passthrough \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 600 -hls_flags delete_segments+omit_endlist+split_by_time -lhls 1 \
+      -f hls -hls_time 1 -hls_list_size 86400 -hls_flags delete_segments+omit_endlist+split_by_time -lhls 1 \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
@@ -144,7 +144,7 @@ start_grabber() {
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 40 -maxrate 300k -bufsize 600k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \
-      -f hls -hls_time 4 -hls_list_size 150 -hls_flags delete_segments \
+      -f hls -hls_time 4 -hls_list_size 21600 -hls_flags delete_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 8 -f image2 \
