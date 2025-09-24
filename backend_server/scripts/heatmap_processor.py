@@ -120,7 +120,10 @@ class HeatmapProcessor:
             api_url = buildServerUrl('server/system/getAllHosts')
             
             # Call server API to get all hosts
+            print(f"📡 Making API request to: {api_url}")
             response = requests.get(api_url, timeout=10)
+            print(f"📨 Response status: {response.status_code}")
+            
             if response.status_code != 200:
                 print(f"❌ Server API returned status {response.status_code}")
                 return []
@@ -132,25 +135,39 @@ class HeatmapProcessor:
             
             # API returns hosts as a list, not a dict
             hosts_list = api_result.get('hosts', [])
+            print(f"✅ Successfully fetched {len(hosts_list)} hosts from server")
+            
             all_hosts = {host['host_name']: host for host in hosts_list}
             hosts_devices = []
             
             for host_name, host_data in all_hosts.items():
+                print(f"🔍 Processing host: {host_name}")
                 devices = host_data.get('devices', [])
+                host_av_devices = 0
+                
                 if isinstance(devices, list) and devices:
+                    print(f"   📱 Host has {len(devices)} devices")
                     for device in devices:
+                        device_id = device.get('device_id', 'device1')
+                        device_name = device.get('device_name', 'Unknown')
                         capabilities = device.get('device_capabilities', {})
                         av_capability = capabilities.get('av')
+                        
+                        print(f"   🔧 Device {device_id} ({device_name}): AV={av_capability}")
                         
                         if (isinstance(capabilities, dict) and 'av' in capabilities and av_capability):
                             hosts_devices.append({
                                 'host_name': host_name,
-                                'device_id': device.get('device_id', 'device1'),
+                                'device_id': device_id,
                                 'host_data': host_data
                             })
+                            host_av_devices += 1
+                            print(f"   ✅ Added AV device: {device_id}")
                 else:
+                    print(f"   📱 Host has no device list, checking host capabilities")
                     host_capabilities = host_data.get('capabilities', {})
                     av_capability = host_capabilities.get('av')
+                    print(f"   🔧 Host capabilities: AV={av_capability}")
                     
                     if (isinstance(host_capabilities, dict) and 'av' in host_capabilities and av_capability):
                         hosts_devices.append({
@@ -158,7 +175,12 @@ class HeatmapProcessor:
                             'device_id': 'device1',
                             'host_data': host_data
                         })
+                        host_av_devices += 1
+                        print(f"   ✅ Added AV host: {host_name}")
+                
+                print(f"   📊 Host {host_name}: {host_av_devices} AV devices")
             
+            print(f"🎯 Total AV devices found: {len(hosts_devices)}")
             return hosts_devices
             
         except Exception as e:
