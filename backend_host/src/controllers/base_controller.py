@@ -8,9 +8,6 @@ Controllers implement their own specific functionality.
 from typing import Dict, Any, Optional, List, Tuple
 import time
 
-
-
-
 class BaseController:
     """
     Minimal base controller with just connection state.

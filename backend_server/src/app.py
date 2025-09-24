@@ -29,6 +29,13 @@ project_root = os.path.dirname(backend_server_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Apply global typing compatibility early to fix third-party package issues
+try:
+    from shared.src.lib.utils.typing_compatibility import ensure_typing_compatibility
+    ensure_typing_compatibility()
+except ImportError:
+    print("⚠️  Warning: Could not apply typing compatibility fix")
+
 # Add backend_server to path for src.lib.* imports
 if backend_server_dir not in sys.path:
     sys.path.insert(0, backend_server_dir)

@@ -114,7 +114,7 @@ export const useMonitoring = ({
     console.log('[useMonitoring] ⚡ Fast JSON loading for:', queuedFrame.imageUrl);
     
     // Load JSON analysis only (fast) - handle 404s gracefully
-    let jsonAnalysis = null;
+    let jsonAnalysis: any = null;
     try {
       const jsonResponse = await fetch(queuedFrame.jsonUrl);
       if (jsonResponse.ok) {
@@ -167,8 +167,8 @@ export const useMonitoring = ({
     }).then(r => r.ok ? r.json() : null).catch(() => null);
 
     // Process combined AI results
-    let subtitleAnalysis = null;
-    let aiDescription = null;
+    let subtitleAnalysis: any = null;
+    let aiDescription: any = null;
     
     if (combinedResult?.success && combinedResult.subtitle_analysis) {
       const data = combinedResult.subtitle_analysis;
@@ -479,7 +479,7 @@ export const useMonitoring = ({
       try {
         console.log('[useMonitoring] Loading analysis:', selectedFrame.jsonUrl);
         const response = await fetch(selectedFrame.jsonUrl);
-        let analysis = null;
+        let analysis: any = null;
 
         if (response.ok) {
             const data = await response.json();

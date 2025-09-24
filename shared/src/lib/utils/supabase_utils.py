@@ -2,6 +2,10 @@ import os
 import sys
 from typing import Optional
 
+# Ensure global typing compatibility for all third-party packages
+from shared.src.lib.utils.typing_compatibility import ensure_typing_compatibility
+ensure_typing_compatibility()
+
 # Import the real supabase package by temporarily manipulating sys.path
 def _import_real_supabase():
     """Import the real supabase package, avoiding our local supabase directory."""
