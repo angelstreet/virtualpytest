@@ -208,9 +208,7 @@ def process_host_results(host_results):
     print(f"[@process_host_results] Processing {len(host_results)} host results")
     
     for result in host_results:
-        if isinstance(result, Exception):
-            print(f"[@process_host_results] Skipping exception result: {result}")
-            continue
+        # Fail fast - don't handle exceptions here since we removed return_exceptions=True
         if not result.get('success'):
             print(f"[@process_host_results] Skipping failed result: {result.get('error', 'Unknown error')}")
             continue
@@ -264,11 +262,7 @@ def process_host_results(host_results):
                         
                         # Build image URL with correct device-to-capture directory mapping using buildHostImageUrl
                         # Extract capture directory from host device configuration
-                        try:
-                            capture_dir = get_device_capture_dir(host_data, device_id)
-                        except ValueError as e:
-                            print(f"[@process_host_results] Error getting capture directory: {e}")
-                            continue  # Skip this item if we can't determine the capture directory
+                        capture_dir = get_device_capture_dir(host_data, device_id)
                         
                         # Use buildHostImageUrl to properly handle nginx port stripping for static files
                         image_path = f"stream/{capture_dir}/captures/{filename}"
