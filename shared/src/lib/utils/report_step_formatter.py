@@ -586,8 +586,7 @@ def format_analysis_results(step: Dict) -> str:
                     label_first_line = image['label'].split('<br>')[0] if '<br>' in image['label'] else image['label'].split('\n')[0] if '\n' in image['label'] else image['label']
                     thumbnails_html += f"""
                     <div style='text-align: center;'>
-                        <div style='font-size: 11px; color: #666; margin-bottom: 2px;'>{label_first_line}</div>
-                        <img src='{image['url']}' style='width: 55px; height: 37px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
+                        <img src='{image['url']}' style='width: 120px; height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                              onclick='openVerificationImageModal({modal_data_json})' title='Click to view motion analysis images'>
                     </div>
                     """
