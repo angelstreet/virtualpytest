@@ -75,7 +75,9 @@ def generate_validation_report(report_data: Dict) -> str:
                     <button class="toggle-btn">▶</button>
                 </div>
                 <div id="zap-summary-content" class="collapsible-content">
-                    <pre class="console-output">{zap_detailed_summary}</pre>
+                    <div class="summary-stats">
+                        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; margin: 0;">{zap_detailed_summary}</pre>
+                    </div>
                 </div>
             </div>
             """

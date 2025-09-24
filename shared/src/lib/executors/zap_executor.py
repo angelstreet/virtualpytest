@@ -136,7 +136,7 @@ class ZapExecutor:
                 for i, verification_result in enumerate(batch_result['results']):
                     config = verification_configs[i]
                     analysis_type = config.get('analysis_type')
-                    self._map_verification_result(result, analysis_type, verification_result)
+                    self._map_verification_result(result, analysis_type, verification_result, context)
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"
@@ -491,7 +491,7 @@ class ZapExecutor:
                                                          team_id=context.team_id,
                                                          context=context)
     
-    def _map_verification_result(self, result: ZapAnalysisResult, analysis_type: str, verification_result: Dict):
+    def _map_verification_result(self, result: ZapAnalysisResult, analysis_type: str, verification_result: Dict, context):
         """Map verification result to ZapAnalysisResult fields"""
         success = verification_result.get('success', False)
         details = verification_result.get('details', {})
@@ -560,6 +560,15 @@ class ZapExecutor:
                         if motion_images:
                             result.motion_details['motion_analysis_images'] = motion_images
                             print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
+                            
+                            # Add motion analysis images to context.screenshot_paths for R2 upload
+                            if not hasattr(context, 'screenshot_paths'):
+                                context.screenshot_paths = []
+                            for motion_img in motion_images:
+                                image_path = motion_img['path']
+                                if image_path not in context.screenshot_paths:
+                                    context.screenshot_paths.append(image_path)
+                                    print(f"🔍 [ZapExecutor] DEBUG: Added motion image to R2 upload queue: {motion_img['filename']}")
                         else:
                             print(f"🔍 [ZapExecutor] DEBUG: No motion_images created - motion_analysis_images not added")
                     else:
