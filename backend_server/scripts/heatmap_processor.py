@@ -76,16 +76,22 @@ class HeatmapProcessor:
             
             print(f"✅ Got {len(current_captures)} current captures (expected: {len(hosts_devices)})")
             
-            # Use current captures directly - no complex timestamp processing needed
-            images_data = current_captures
+            # Create complete device list with placeholders for missing captures
+            complete_device_list = self.create_complete_device_list(hosts_devices, current_captures)
+            print(f"📋 Complete device list: {len(complete_device_list)} devices ({len(current_captures)} with captures, {len(complete_device_list) - len(current_captures)} placeholders)")
             
-            # Create mosaic image
-            mosaic_image = self.create_mosaic_image(images_data)
+            # Create mosaic image (always full grid)
+            print(f"🖼️ Creating mosaic from {len(complete_device_list)} devices...")
+            mosaic_image = self.create_mosaic_image(complete_device_list)
+            print(f"✅ Mosaic created: {mosaic_image.size[0]}x{mosaic_image.size[1]} pixels")
             
-            # Create analysis JSON
-            analysis_json = self.create_analysis_json(images_data, time_key)
+            # Create analysis JSON (includes all devices, even missing ones)
+            print(f"📊 Creating analysis JSON for {time_key}...")
+            analysis_json = self.create_analysis_json(complete_device_list, time_key)
+            print(f"📋 Analysis JSON created with {len(analysis_json.get('devices', []))} devices, {analysis_json.get('incidents_count', 0)} incidents")
             
             # Upload to R2 with time-only naming
+            print(f"☁️ Uploading heatmap files for {time_key}...")
             success = self.upload_heatmap_files(time_key, mosaic_image, analysis_json)
             
             if not success:
@@ -249,13 +255,53 @@ class HeatmapProcessor:
             print(f"❌ Error fetching current captures: {e}")
             return []
     
-    
+    def create_complete_device_list(self, hosts_devices: List[Dict], current_captures: List[Dict]) -> List[Dict]:
+        """Create complete device list with placeholders for missing captures"""
+        complete_list = []
+        
+        # Create lookup for current captures
+        captures_by_device = {}
+        for capture in current_captures:
+            key = f"{capture['host_name']}/{capture['device_id']}"
+            captures_by_device[key] = capture
+        
+        # Process all expected devices
+        for device in hosts_devices:
+            host_name = device['host_name']
+            device_id = device['device_id']
+            key = f"{host_name}/{device_id}"
+            
+            if key in captures_by_device:
+                # Device has current capture - use it
+                complete_list.append(captures_by_device[key])
+                print(f"✅ Device {key}: Has capture")
+            else:
+                # Device missing capture - create placeholder
+                placeholder = {
+                    'host_name': host_name,
+                    'device_id': device_id,
+                    'image_url': None,  # No image available
+                    'json_url': None,   # No JSON available
+                    'analysis': {},     # Empty analysis
+                    'timestamp': '',    # No timestamp
+                    'sequence': 'missing',
+                    'is_placeholder': True,  # Mark as placeholder
+                    'host_data': device['host_data']  # Keep host data for device info
+                }
+                complete_list.append(placeholder)
+                print(f"⚠️ Device {key}: Missing capture - added placeholder")
+        
+        return complete_list
     
     def create_mosaic_image(self, images_data: List[Dict]) -> Image.Image:
         """Create mosaic image from device images"""
         if not images_data:
-            # Create empty black image
+            print("⚠️ No images provided for mosaic - creating empty black image")
             return Image.new('RGB', (800, 600), color='black')
+        
+        print(f"🎨 Creating mosaic from {len(images_data)} images:")
+        for i, img_data in enumerate(images_data):
+            print(f"   {i+1}. {img_data['host_name']}/{img_data['device_id']}: {img_data['image_url']}")
         
         # Calculate grid layout
         count = len(images_data)
@@ -273,11 +319,14 @@ class HeatmapProcessor:
             cols = math.ceil(math.sqrt(count))
             rows = math.ceil(count / cols)
         
+        print(f"📐 Grid layout: {cols}x{rows} (total cells: {cols*rows})")
+        
         # Create mosaic
         cell_width, cell_height = 400, 300
         mosaic_width = cols * cell_width
         mosaic_height = rows * cell_height
         
+        print(f"🖼️ Mosaic dimensions: {mosaic_width}x{mosaic_height} pixels ({cell_width}x{cell_height} per cell)")
         mosaic = Image.new('RGB', (mosaic_width, mosaic_height), color='black')
         
         for i, image_data in enumerate(images_data):
@@ -290,20 +339,87 @@ class HeatmapProcessor:
             x = col * cell_width
             y = row * cell_height
             
-            try:
-                # Download and resize image
-                import requests
-                response = requests.get(image_data['image_url'], timeout=10)
-                if response.status_code == 200:
-                    img = Image.open(io.BytesIO(response.content))
-                    img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
-                    mosaic.paste(img, (x, y))
-                    print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
-            except Exception as e:
-                print(f"❌ Error loading image {image_data['image_url']}: {e}")
-                # Create placeholder
-                placeholder = Image.new('RGB', (cell_width, cell_height), color='gray')
+            # Check if this is a placeholder or has no image
+            if image_data.get('is_placeholder', False) or not image_data.get('image_url'):
+                # Create placeholder with device info
+                placeholder = Image.new('RGB', (cell_width, cell_height), color='#2a2a2a')  # Dark gray
+                
+                # Add text overlay with device info
+                try:
+                    from PIL import ImageDraw, ImageFont
+                    draw = ImageDraw.Draw(placeholder)
+                    
+                    # Try to use a font, fallback to default
+                    try:
+                        font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 24)
+                        small_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 16)
+                    except:
+                        font = ImageFont.load_default()
+                        small_font = ImageFont.load_default()
+                    
+                    # Device info text
+                    host_name = image_data['host_name']
+                    device_id = image_data['device_id']
+                    
+                    # Center the text
+                    text1 = f"{host_name}"
+                    text2 = f"{device_id}"
+                    text3 = "NO CAPTURE"
+                    
+                    # Calculate text positions (centered)
+                    bbox1 = draw.textbbox((0, 0), text1, font=font)
+                    bbox2 = draw.textbbox((0, 0), text2, font=small_font)
+                    bbox3 = draw.textbbox((0, 0), text3, font=small_font)
+                    
+                    text1_x = (cell_width - (bbox1[2] - bbox1[0])) // 2
+                    text2_x = (cell_width - (bbox2[2] - bbox2[0])) // 2
+                    text3_x = (cell_width - (bbox3[2] - bbox3[0])) // 2
+                    
+                    # Draw text
+                    draw.text((text1_x, cell_height//2 - 40), text1, fill='white', font=font)
+                    draw.text((text2_x, cell_height//2 - 10), text2, fill='lightgray', font=small_font)
+                    draw.text((text3_x, cell_height//2 + 15), text3, fill='red', font=small_font)
+                    
+                except Exception as e:
+                    print(f"⚠️ Could not add text to placeholder: {e}")
+                
                 mosaic.paste(placeholder, (x, y))
+                print(f"📝 Added placeholder for {image_data['host_name']}/{image_data['device_id']}")
+                
+            else:
+                # Try to download and use actual image
+                try:
+                    import requests
+                    response = requests.get(image_data['image_url'], timeout=10)
+                    if response.status_code == 200:
+                        img = Image.open(io.BytesIO(response.content))
+                        img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
+                        mosaic.paste(img, (x, y))
+                        print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
+                    else:
+                        raise Exception(f"HTTP {response.status_code}")
+                except Exception as e:
+                    print(f"❌ Error loading image {image_data['image_url']}: {e}")
+                    # Create error placeholder
+                    error_placeholder = Image.new('RGB', (cell_width, cell_height), color='#4a2a2a')  # Dark red
+                    
+                    try:
+                        from PIL import ImageDraw, ImageFont
+                        draw = ImageDraw.Draw(error_placeholder)
+                        try:
+                            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 20)
+                        except:
+                            font = ImageFont.load_default()
+                        
+                        text = "IMAGE ERROR"
+                        bbox = draw.textbbox((0, 0), text, font=font)
+                        text_x = (cell_width - (bbox[2] - bbox[0])) // 2
+                        text_y = (cell_height - (bbox[3] - bbox[1])) // 2
+                        draw.text((text_x, text_y), text, fill='red', font=font)
+                    except:
+                        pass
+                    
+                    mosaic.paste(error_placeholder, (x, y))
         
         return mosaic
     
@@ -314,25 +430,32 @@ class HeatmapProcessor:
         
         for image_data in images_data:
             analysis = image_data.get('analysis', {})
+            is_placeholder = image_data.get('is_placeholder', False)
             
-            # Check for incidents
-            has_incidents = (
-                analysis.get('blackscreen', False) or
-                analysis.get('freeze', False) or
-                not analysis.get('audio', True)
-            )
+            # Check for incidents (only for real captures, not placeholders)
+            if not is_placeholder:
+                has_incidents = (
+                    analysis.get('blackscreen', False) or
+                    analysis.get('freeze', False) or
+                    not analysis.get('audio', True)
+                )
+                
+                if has_incidents:
+                    incidents_count += 1
             
-            if has_incidents:
-                incidents_count += 1
-            
-            devices.append({
+            # Build device entry
+            device_entry = {
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
-                'image_url': image_data['image_url'],
-                'json_url': image_data['json_url'],
-                'sequence': image_data['sequence'],
-                'analysis': analysis
-            })
+                'image_url': image_data.get('image_url'),
+                'json_url': image_data.get('json_url'),
+                'sequence': image_data.get('sequence', 'missing'),
+                'analysis': analysis,
+                'status': 'missing' if is_placeholder else 'active',
+                'is_placeholder': is_placeholder
+            }
+            
+            devices.append(device_entry)
         
         return {
             'time_key': time_key,
@@ -365,18 +488,29 @@ class HeatmapProcessor:
             
             try:
                 # Prepare file mappings for batch upload
+                img_remote_path = f'heatmaps/{time_key}.jpg'
+                json_remote_path = f'heatmaps/{time_key}.json'
+                
                 file_mappings = [
                     {
                         'local_path': img_temp_path,
-                        'remote_path': f'heatmaps/{time_key}.jpg',
+                        'remote_path': img_remote_path,
                         'content_type': 'image/jpeg'
                     },
                     {
                         'local_path': json_temp_path,
-                        'remote_path': f'heatmaps/{time_key}.json',
+                        'remote_path': json_remote_path,
                         'content_type': 'application/json'
                     }
                 ]
+                
+                print(f"📤 Uploading files:")
+                print(f"   🖼️ Image: {img_remote_path}")
+                print(f"   📄 JSON: {json_remote_path}")
+                print(f"📊 Analysis data preview:")
+                print(f"   Devices: {len(analysis_json.get('devices', []))}")
+                print(f"   Incidents: {analysis_json.get('incidents_count', 0)}")
+                print(f"   Time: {analysis_json.get('timestamp', 'N/A')}")
                 
                 # Upload files using CloudflareUtils
                 cloudflare_utils = get_cloudflare_utils()
@@ -384,6 +518,9 @@ class HeatmapProcessor:
                 
                 if result['success'] and len(result['uploaded_files']) == 2:
                     print(f"✅ Uploaded heatmap files for {time_key}")
+                    # Show the public URLs
+                    for uploaded in result['uploaded_files']:
+                        print(f"   🔗 {uploaded['remote_path']}: {uploaded.get('public_url', 'URL not available')}")
                     return True
                 else:
                     print(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
