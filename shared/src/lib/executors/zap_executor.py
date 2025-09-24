@@ -602,6 +602,24 @@ class ZapExecutor:
             result.program_start_time = channel_info.get('start_time', '')
             result.program_end_time = channel_info.get('end_time', '')
             result.zapping_details = verification_result
+            
+            # Add zapping images to context for R2 upload and thumbnail display (same as old zapping detection)
+            if result.zapping_detected:
+                try:
+                    av_controller = self.device._get_controller('av')
+                    if av_controller and hasattr(context, 'screenshot_paths'):
+                        capture_folder = av_controller.video_capture_path
+                        # Use the same method as old zapping detection
+                        self._add_zapping_images_to_screenshots(context, zapping_details, capture_folder)
+                        
+                        # Add sourceImageUrl for thumbnail display (same pattern as motion/subtitle detection)
+                        first_content_image = zapping_details.get('first_content_after_blackscreen')
+                        if first_content_image:
+                            thumbnail_filename = first_content_image.replace('.jpg', '_thumbnail.jpg')
+                            result.zapping_details['sourceImageUrl'] = f"/host/stream/capture1/captures/{thumbnail_filename}"
+                            print(f"🖼️ [ZapExecutor] Added zapping thumbnail: {thumbnail_filename}")
+                except Exception as e:
+                    print(f"⚠️ [ZapExecutor] Failed to add zapping images to context: {e}")
     
 
     # Audio menu analysis integrated into ZapExecutor using VerificationExecutor

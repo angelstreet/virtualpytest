@@ -12,6 +12,7 @@ import {
   Chip,
   Stack,
   Button,
+  SelectChangeEvent,
 } from '@mui/material';
 import React, { useEffect, useState, useMemo } from 'react';
 
@@ -130,7 +131,7 @@ const RecContent: React.FC = () => {
           {/* Host Filter */}
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>Host</InputLabel>
-            <Select value={hostFilter} label="Host" onChange={(e) => setHostFilter(e.target.value)}>
+            <Select value={hostFilter} label="Host" onChange={(e: SelectChangeEvent) => setHostFilter(e.target.value)}>
               <MenuItem value="">
                 <em>All Hosts</em>
               </MenuItem>
@@ -148,7 +149,7 @@ const RecContent: React.FC = () => {
             <Select
               value={deviceModelFilter}
               label="Model"
-              onChange={(e) => setDeviceModelFilter(e.target.value)}
+              onChange={(e: SelectChangeEvent) => setDeviceModelFilter(e.target.value)}
             >
               <MenuItem value="">
                 <em>All Models</em>
@@ -167,7 +168,7 @@ const RecContent: React.FC = () => {
             <Select
               value={deviceFilter}
               label="Device"
-              onChange={(e) => setDeviceFilter(e.target.value)}
+              onChange={(e: SelectChangeEvent) => setDeviceFilter(e.target.value)}
             >
               <MenuItem value="">
                 <em>All Devices</em>
