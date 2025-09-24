@@ -141,7 +141,15 @@ const RecContent: React.FC = () => {
       const newChanges = new Map(prev);
       Array.from(selectedDevices).forEach(deviceKey => {
         const [hostName, deviceId] = deviceKey.split('-');
-        const currentFlags = getCurrentFlags(hostName, deviceId);
+        
+        // Get current flags from either pending changes or device flags
+        let currentFlags: string[];
+        if (prev.has(deviceKey)) {
+          currentFlags = prev.get(deviceKey) || [];
+        } else {
+          currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+        }
+        
         console.log('[@handleBulkAddFlag] Device:', deviceKey, 'current flags:', currentFlags);
         if (!currentFlags.includes(flag.trim())) {
           const updatedFlags = [...currentFlags, flag.trim()];
@@ -154,7 +162,7 @@ const RecContent: React.FC = () => {
       console.log('[@handleBulkAddFlag] Final pending changes:', newChanges);
       return newChanges;
     });
-  }, [selectedDevices, getCurrentFlags]);
+  }, [selectedDevices, deviceFlags]);
 
   const handleBulkRemoveFlag = useCallback((flag: string) => {
     setPendingChanges(prev => {
