@@ -412,7 +412,7 @@ class HeatmapProcessor:
         draw.rectangle([0, 0, cell_width-1, cell_height-1], outline=border_color, width=4)
         
         # Add label in bottom right
-        label = f"{image_data.get('host_name', '')}_{image_data.get('device_id', '')}"
+        label = f"{image_data.get('host_name', '')}_{image_data.get('device_name', '')}"
         draw.text((cell_width-150, cell_height-20), label, fill='white', font=ImageFont.load_default())
         
         return img
@@ -466,16 +466,9 @@ class HeatmapProcessor:
             is_placeholder = image_data.get('is_placeholder', False)
             
             if is_placeholder or not image_url or image_url == 'None':
-                # Create placeholder with device info and border
-                has_error = '_error.jpg' in str(image_url) if image_url else False
-                border_color = '#ff0000' if has_error else '#888888'  # Red for error, gray for placeholder
-                border_width = 4
-                
-                # Create placeholder with border
-                placeholder = Image.new('RGB', (cell_width, cell_height), color=border_color)
-                inner_color = '#2a2a2a' if is_placeholder else '#4a2a2a'  # Dark gray for missing, dark red for None
-                inner_placeholder = Image.new('RGB', (cell_width - 2*border_width, cell_height - 2*border_width), color=inner_color)
-                placeholder.paste(inner_placeholder, (border_width, border_width))
+                # Create placeholder with device info
+                placeholder_color = '#2a2a2a' if is_placeholder else '#4a2a2a'  # Dark gray for missing, dark red for None
+                placeholder = Image.new('RGB', (cell_width, cell_height), color=placeholder_color)
                 
                 # Add text overlay with device info
                 try:
