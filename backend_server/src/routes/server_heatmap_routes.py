@@ -94,7 +94,7 @@ def get_hosts_devices():
     hosts_devices = []
     all_hosts = host_manager.get_all_hosts()
     
-    for host_data in all_hosts:
+    for host_name, host_data in all_hosts.items():
         host_name = host_data.get('host_name', host_data.get('name', 'unknown'))
         devices = host_data.get('devices', [])
         if isinstance(devices, list) and devices:
