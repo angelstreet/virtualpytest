@@ -98,7 +98,7 @@ class HeatmapProcessor:
                 print(f"❌ Failed to upload files for {time_key}")
                 return
             
-            print(f"✅ Generated heatmap for {time_key} ({len(images_data)} devices)")
+            print(f"✅ Generated heatmap for {time_key} ({len(complete_device_list)} devices)")
             
         except Exception as e:
             print(f"❌ Error processing {time_key}: {e}")
@@ -310,7 +310,8 @@ class HeatmapProcessor:
         
         print(f"🎨 Creating mosaic from {len(images_data)} images:")
         for i, img_data in enumerate(images_data):
-            print(f"   {i+1}. {img_data['host_name']}/{img_data['device_id']}: {img_data['image_url']}")
+            image_url = img_data.get('image_url', 'None')
+            print(f"   {i+1}. {img_data['host_name']}/{img_data['device_id']}: {image_url}")
         
         # Calculate grid layout
         count = len(images_data)
@@ -348,10 +349,14 @@ class HeatmapProcessor:
             x = col * cell_width
             y = row * cell_height
             
-            # Check if this is a placeholder or has no image
-            if image_data.get('is_placeholder', False) or not image_data.get('image_url'):
+            # Check if this is a placeholder or has no image URL
+            image_url = image_data.get('image_url')
+            is_placeholder = image_data.get('is_placeholder', False)
+            
+            if is_placeholder or not image_url or image_url == 'None':
                 # Create placeholder with device info
-                placeholder = Image.new('RGB', (cell_width, cell_height), color='#2a2a2a')  # Dark gray
+                placeholder_color = '#2a2a2a' if is_placeholder else '#4a2a2a'  # Dark gray for missing, dark red for None
+                placeholder = Image.new('RGB', (cell_width, cell_height), color=placeholder_color)
                 
                 # Add text overlay with device info
                 try:
@@ -373,7 +378,7 @@ class HeatmapProcessor:
                     # Center the text
                     text1 = f"{host_name}"
                     text2 = f"{device_id}"
-                    text3 = "NO CAPTURE"
+                    text3 = "NO CAPTURE" if is_placeholder else "NOT FOUND"
                     
                     # Calculate text positions (centered)
                     bbox1 = draw.textbbox((0, 0), text1, font=font)
@@ -393,13 +398,15 @@ class HeatmapProcessor:
                     print(f"⚠️ Could not add text to placeholder: {e}")
                 
                 mosaic.paste(placeholder, (x, y))
-                print(f"📝 Added placeholder for {image_data['host_name']}/{image_data['device_id']}")
+                status_text = "placeholder" if is_placeholder else "not found"
+                print(f"📝 Added {status_text} for {image_data['host_name']}/{image_data['device_id']}")
                 
             else:
                 # Try to download and use actual image
                 try:
                     import requests
-                    response = requests.get(image_data['image_url'], timeout=10)
+                    print(f"📥 Downloading image: {image_url}")
+                    response = requests.get(image_url, timeout=10)
                     if response.status_code == 200:
                         img = Image.open(io.BytesIO(response.content))
                         img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)

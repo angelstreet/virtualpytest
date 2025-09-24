@@ -582,7 +582,7 @@ def format_analysis_results(step: Dict) -> str:
                     # Extract capture name and time from label (first line before <br> or newline)
                     label_first_line = image['label'].split('<br>')[0] if '<br>' in image['label'] else image['label'].split('\n')[0] if '\n' in image['label'] else image['label']
                     thumbnails_html += f"""
-                    <div style='text-align: center;'>
+                    <div'>
                         <img src='{image['url']}' style='width: 120px; height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;' 
                              onclick='openVerificationImageModal({modal_data_json})' title='Click to view motion analysis images'>
                     </div>
@@ -590,6 +590,10 @@ def format_analysis_results(step: Dict) -> str:
             
             thumbnails_html += "</div>"
             analysis_html += thumbnails_html
+    
+    # Add separator after Motion Detection
+    if motion_analysis and motion_analysis.get('success') is not None:
+        analysis_html += '<div style="margin: 12px 0 8px 0; border-top: 1px solid #555; opacity: 0.6;"></div>'
     
     # Subtitle Analysis Results
     if subtitle_analysis and subtitle_analysis.get('success') is not None:
@@ -631,6 +635,10 @@ def format_analysis_results(step: Dict) -> str:
             </div>
             """
     
+    # Add separator after Subtitle Detection
+    if subtitle_analysis and subtitle_analysis.get('success') is not None:
+        analysis_html += '<div style="margin: 12px 0 8px 0; border-top: 1px solid #555; opacity: 0.6;"></div>'
+    
     # Audio Speech Analysis Results
     if audio_analysis and audio_analysis.get('success') is not None:
         speech_detected = audio_analysis.get('speech_detected', False)
@@ -669,6 +677,10 @@ def format_analysis_results(step: Dict) -> str:
             # Show failure details for failed (not skipped) analysis
             if audio_analysis.get('message'):
                 analysis_html += f'<div class="analysis-detail">Details: {audio_analysis.get("message")}</div>'
+    
+    # Add separator after Audio Speech Detection
+    if audio_analysis and audio_analysis.get('success') is not None:
+        analysis_html += '<div style="margin: 12px 0 8px 0; border-top: 1px solid #555; opacity: 0.6;"></div>'
     
     # Audio Menu Analysis Results
     if audio_menu_analysis and audio_menu_analysis.get('success') is not None:
@@ -729,14 +741,16 @@ def format_analysis_results(step: Dict) -> str:
             </div>
             """
     
+    # Add separator after Audio Menu Analysis
+    if audio_menu_analysis and audio_menu_analysis.get('success') is not None:
+        analysis_html += '<div style="margin: 12px 0 8px 0; border-top: 1px solid #555; opacity: 0.6;"></div>'
+    
     # Zapping Analysis Results  
     if zapping_analysis and zapping_analysis.get('success') is not None:
-        # Add discrete separator before zapping section
-        analysis_html += '<div style="margin: 8px 0; border-top: 1px solid #333; opacity: 0.3;"></div>'
         
         zapping_detected = zapping_analysis.get('zapping_detected', False)
         zapping_status = "✅ DETECTED" if zapping_detected else "❌ NOT DETECTED"
-        analysis_html += f'<div class="analysis-item zapping"><strong>Zapping Detection:</strong> {zapping_status}</div>'
+        analysis_html += f'<div class="analysis-item zapping" style="margin-bottom: 8px;"><strong>Zapping Detection:</strong> {zapping_status}</div>'
         
         if zapping_detected:
             blackscreen_duration = zapping_analysis.get('blackscreen_duration', 0)
@@ -768,7 +782,7 @@ def format_analysis_results(step: Dict) -> str:
                 if channel_info.get('start_time') and channel_info.get('end_time'):
                     channel_info_line += f" Program Time - {channel_info['start_time']}-{channel_info['end_time']}"
                 
-                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none; margin-bottom: 8px;">{channel_info_line}</div>'
+                analysis_html += f'<div class="analysis-detail" style="word-wrap: break-word; max-width: none; margin-bottom: 12px;">{channel_info_line}</div>'
             
             # Complete zapping sequence thumbnails (4 key images)
             before_blackscreen = zapping_analysis.get('first_image')  # Image before blackscreen starts
