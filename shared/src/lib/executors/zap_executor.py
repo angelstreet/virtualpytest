@@ -380,12 +380,27 @@ class ZapExecutor:
             from shared.src.lib.executors.step_executor import StepExecutor
             step_executor = StepExecutor(context)
             
-            # Create zap step with analysis results - screenshots handled by VerificationExecutor
+            # Get recent screenshots from context for ZAP step (same as navigation steps)
+            screenshot_paths = {}
+            if hasattr(context, 'screenshot_paths') and context.screenshot_paths:
+                # Use the most recent screenshots as step start/end (like navigation steps)
+                recent_screenshots = context.screenshot_paths[-3:] if len(context.screenshot_paths) >= 3 else context.screenshot_paths
+                
+                if len(recent_screenshots) >= 1:
+                    screenshot_paths['step_start_screenshot_path'] = recent_screenshots[0]
+                    screenshot_paths['screenshot_path'] = recent_screenshots[-1]  # Use last as main screenshot
+                if len(recent_screenshots) >= 2:
+                    screenshot_paths['step_end_screenshot_path'] = recent_screenshots[-1]
+                    
+                print(f"🔍 [ZapExecutor] Adding {len(screenshot_paths)} screenshot paths to zap step {iteration}")
+            
+            # Create zap step with analysis results and screenshots
             zap_step = step_executor.create_zap_step(
                 iteration=iteration,
                 action_command=action_node,
                 analysis_result=analysis_result.to_dict(),
-                max_iterations=max_iterations
+                max_iterations=max_iterations,
+                screenshot_paths=screenshot_paths if screenshot_paths else None
             )
             
             # Record step in context

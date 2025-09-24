@@ -16,6 +16,9 @@ import {
   Tv as TvIcon,
   CheckCircle as SuccessIcon,
   ExpandMore as ExpandMoreIcon,
+  RestartAlt as RestartServiceIcon,
+  PowerSettingsNew as RebootIcon,
+  VideoSettings as RestartStreamIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -44,6 +47,7 @@ import {
 } from '@mui/material';
 
 import { useHostManager } from '../hooks/useHostManager';
+import { useRec } from '../hooks/pages/useRec';
 import { TestCase, Campaign, Tree } from '../types';
 import { Host } from '../types/common/Host_Types';
 import { DashboardStats, RecentActivity, ViewMode } from '../types/pages/Dashboard_Types';
@@ -51,6 +55,7 @@ import { DashboardStats, RecentActivity, ViewMode } from '../types/pages/Dashboa
 const Dashboard: React.FC = () => {
   const { getAllHosts } = useHostManager();
   const availableHosts = useMemo(() => getAllHosts(), [getAllHosts]);
+  const { restartStreams, isRestarting } = useRec();
   const [stats, setStats] = useState<DashboardStats>({
     testCases: 0,
     campaigns: 0,
@@ -63,6 +68,10 @@ const Dashboard: React.FC = () => {
   
   // Request deduplication to prevent duplicate calls
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
+  
+  // System control loading states
+  const [isRestartingService, setIsRestartingService] = useState(false);
+  const [isRebooting, setIsRebooting] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     // Prevent duplicate calls
@@ -149,6 +158,67 @@ const Dashboard: React.FC = () => {
       console.log(`View mode changed to ${newViewMode}`);
     }
   };
+
+  // System control handlers
+  const handleRestartService = useCallback(async (hostName?: string) => {
+    if (isRestartingService) return;
+    
+    setIsRestartingService(true);
+    try {
+      const hosts = hostName ? [availableHosts.find(h => h.host_name === hostName)].filter(Boolean) : availableHosts;
+      
+      for (const host of hosts) {
+        if (!host) continue;
+        
+        const response = await fetch(buildServerUrl('/server/restart/restartService'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host_name: host.host_name }),
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          console.log(`Successfully restarted vpt_host service on ${host.host_name}`);
+        } else {
+          console.error(`Failed to restart vpt_host service on ${host.host_name}:`, result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error restarting vpt_host service:', error);
+    } finally {
+      setIsRestartingService(false);
+    }
+  }, [availableHosts, isRestartingService]);
+
+  const handleReboot = useCallback(async (hostName?: string) => {
+    if (isRebooting) return;
+    
+    setIsRebooting(true);
+    try {
+      const hosts = hostName ? [availableHosts.find(h => h.host_name === hostName)].filter(Boolean) : availableHosts;
+      
+      for (const host of hosts) {
+        if (!host) continue;
+        
+        const response = await fetch(buildServerUrl('/server/restart/rebootHost'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host_name: host.host_name }),
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          console.log(`Successfully initiated reboot on ${host.host_name}`);
+        } else {
+          console.error(`Failed to reboot ${host.host_name}:`, result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error rebooting hosts:', error);
+    } finally {
+      setIsRebooting(false);
+    }
+  }, [availableHosts, isRebooting]);
 
   const getDeviceIcon = (deviceModel: string) => {
     switch (deviceModel) {
@@ -379,6 +449,46 @@ const Dashboard: React.FC = () => {
                 </AccordionDetails>
               </Accordion>
 
+              {/* Per-Host System Controls */}
+              <Box display="flex" alignItems="center" justifyContent="center" gap={0.5} sx={{ mb: 1 }}>
+                <Tooltip title="Restart vpt_host service">
+                  <span>
+                    <IconButton 
+                      onClick={() => handleRestartService(host.host_name)} 
+                      disabled={isRestartingService}
+                      size="small"
+                      color="warning"
+                    >
+                      <RestartServiceIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Reboot host">
+                  <span>
+                    <IconButton 
+                      onClick={() => handleReboot(host.host_name)} 
+                      disabled={isRebooting}
+                      size="small"
+                      color="error"
+                    >
+                      <RebootIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Restart streams">
+                  <span>
+                    <IconButton 
+                      onClick={() => restartStreams()} 
+                      disabled={isRestarting}
+                      size="small"
+                      color="info"
+                    >
+                      <RestartStreamIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+
               <Typography color="textSecondary" variant="caption" display="block">
                 Last seen: {formatLastSeen(host.last_seen)}
               </Typography>
@@ -407,6 +517,7 @@ const Dashboard: React.FC = () => {
             <TableCell>Disk</TableCell>
             <TableCell>Last Seen</TableCell>
             <TableCell>Registered</TableCell>
+            <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -534,6 +645,46 @@ const Dashboard: React.FC = () => {
               </TableCell>
               <TableCell>
                 <Typography variant="body2">{formatRegisteredAt(host.registered_at)}</Typography>
+              </TableCell>
+              <TableCell>
+                <Box display="flex" alignItems="center" gap={0.5}>
+                  <Tooltip title="Restart vpt_host service">
+                    <span>
+                      <IconButton 
+                        onClick={() => handleRestartService(host.host_name)} 
+                        disabled={isRestartingService}
+                        size="small"
+                        color="warning"
+                      >
+                        <RestartServiceIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Reboot host">
+                    <span>
+                      <IconButton 
+                        onClick={() => handleReboot(host.host_name)} 
+                        disabled={isRebooting}
+                        size="small"
+                        color="error"
+                      >
+                        <RebootIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Restart streams">
+                    <span>
+                      <IconButton 
+                        onClick={() => restartStreams()} 
+                        disabled={isRestarting}
+                        size="small"
+                        color="info"
+                      >
+                        <RestartStreamIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </TableCell>
             </TableRow>
           ))}
@@ -663,6 +814,44 @@ const Dashboard: React.FC = () => {
             {availableHosts.reduce((total, host) => total + (host.device_count || 0), 0)} Devices
           </Typography>
           <Box display="flex" alignItems="center" gap={1}>
+            {/* Global System Controls */}
+            <Tooltip title="Restart vpt_host service on all hosts">
+              <span>
+                <IconButton 
+                  onClick={() => handleRestartService()} 
+                  disabled={isRestartingService}
+                  size="small"
+                  color="warning"
+                >
+                  <RestartServiceIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Reboot all hosts">
+              <span>
+                <IconButton 
+                  onClick={() => handleReboot()} 
+                  disabled={isRebooting}
+                  size="small"
+                  color="error"
+                >
+                  <RebootIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Restart streams on all hosts">
+              <span>
+                <IconButton 
+                  onClick={() => restartStreams()} 
+                  disabled={isRestarting}
+                  size="small"
+                  color="info"
+                >
+                  <RestartStreamIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            
             <ToggleButtonGroup
               value={viewMode}
               exclusive

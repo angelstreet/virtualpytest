@@ -26,23 +26,18 @@ class HDMIStreamController(FFmpegCaptureController):
 
         
     def restart_stream(self) -> bool:
-        """Restart HDMI streaming using systemd service management."""
+        """Restart HDMI streaming using centralized system utilities."""
         try:
             print(f"HDMI[{self.capture_source}]: Restarting stream service")
             
-            # Restart the stream service
-            result = subprocess.run(
-                ['sudo', 'systemctl', 'restart', 'stream'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            from shared.src.lib.utils.system_utils import restart_systemd_service
+            result = restart_systemd_service('stream')
             
-            if result.returncode == 0:
+            if result['success']:
                 print(f"HDMI[{self.capture_source}]: Stream service restarted successfully")
                 return True
             else:
-                print(f"HDMI[{self.capture_source}]: Failed to restart stream service: {result.stderr}")
+                print(f"HDMI[{self.capture_source}]: Failed to restart stream service: {result.get('error', 'Unknown error')}")
                 return False
                 
         except Exception as e:

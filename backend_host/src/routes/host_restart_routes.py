@@ -550,6 +550,49 @@ def restart_stream():
 
 
 # =============================================================================
+# SYSTEM CONTROL ROUTES
+# =============================================================================
+
+@host_restart_bp.route('/restartService', methods=['POST'])
+def restart_vpt_host_service():
+    """Restart vpt_host systemd service"""
+    try:
+        from shared.src.lib.utils.system_utils import restart_systemd_service
+        
+        result = restart_systemd_service('vpt_host')
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to restart vpt_host service: {str(e)}'
+        }), 500
+
+@host_restart_bp.route('/rebootHost', methods=['POST'])
+def reboot_host_system():
+    """Reboot the host system"""
+    try:
+        from shared.src.lib.utils.system_utils import reboot_system
+        
+        result = reboot_system()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to reboot system: {str(e)}'
+        }), 500
+
+
+# =============================================================================
 # 4-Step Dubbing Process Routes
 # =============================================================================
 
