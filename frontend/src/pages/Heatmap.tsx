@@ -17,7 +17,7 @@ import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSec
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
-import { useHeatmap } from '../hooks/useHeatmapTimeline';
+import { useHeatmap } from '../hooks/useHeatmap';
 
 const Heatmap: React.FC = () => {
   const {
