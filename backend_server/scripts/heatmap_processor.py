@@ -426,12 +426,13 @@ class HeatmapProcessor:
             is_placeholder = image_data.get('is_placeholder', False)
             
             # Check for incidents (only for real captures, not placeholders)
+            has_incidents = False
             if not is_placeholder:
-            has_incidents = (
+                has_incidents = (
                     analysis.get('blackscreen', False) or
                     analysis.get('freeze', False) or
                     not analysis.get('audio', True)
-            )
+                )
             
             if has_incidents:
                 incidents_count += 1
