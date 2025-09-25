@@ -24,7 +24,7 @@ def auto_proxy(endpoint):
     """
     try:
         # Simple passthrough with method conversion for specific endpoints
-        data = request.get_json() or {}
+        data = request.get_json() if request.method in ['POST', 'PUT'] else None
         host_endpoint = f'/host/{endpoint}'
         
         # Extract standard parameters
@@ -33,9 +33,13 @@ def auto_proxy(endpoint):
         if team_id:
             query_params['team_id'] = team_id
             # For POST requests, also include team_id in request body
-            if request.method == 'POST':
+            if request.method == 'POST' and data is not None:
                 data['team_id'] = team_id
-        if data and 'device_id' in data:
+        
+        # For GET requests, pass all query parameters
+        if request.method == 'GET':
+            query_params.update(request.args.to_dict())
+        elif data and 'device_id' in data:
             query_params['device_id'] = data['device_id']
         
         # Handle method conversion for specific endpoints that need it
