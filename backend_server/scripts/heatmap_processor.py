@@ -468,8 +468,8 @@ class HeatmapProcessor:
         """Add colored border and label to device image"""
         from PIL import ImageDraw, ImageFont
         
-        # Check for incidents in raw analysis data
-        analysis_data = image_data.get('analysis_json', {})
+        # Check for incidents in raw analysis data - try both keys for compatibility
+        analysis_data = image_data.get('analysis_json', {}) or image_data.get('analysis', {})
         is_placeholder = image_data.get('is_placeholder', False)
         
         # Check if we have real analysis data (not just empty dict or None)
