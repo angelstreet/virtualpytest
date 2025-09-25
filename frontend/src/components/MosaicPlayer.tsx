@@ -242,15 +242,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   
   return (
     <Box>
-      {/* Header with time */}
-      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography variant="h6">
-            {formatDisplayTime(currentItem)}
-          </Typography>
-        </Box>
-        
-      </Box>
       
       {/* Loading indicator */}
       {isLoading && (

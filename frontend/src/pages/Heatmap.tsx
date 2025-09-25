@@ -144,6 +144,11 @@ const Heatmap: React.FC = () => {
               <Box display="flex" alignItems="center" gap={1}>
                 <HeatmapIcon color="primary" />
                 <Typography variant="h6">24h Heatmap</Typography>
+                {timeline[currentIndex] && (
+                  <Typography variant="body2" sx={{ ml: 2, color: 'text.primary' }}>
+                    {timeline[currentIndex].isToday ? 'Today' : 'Yesterday'} {timeline[currentIndex].displayTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+                  </Typography>
+                )}
                 <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
                   Frame {currentIndex + 1} / {timeline.length}
                 </Typography>
