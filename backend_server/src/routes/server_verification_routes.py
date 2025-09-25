@@ -19,6 +19,7 @@ def get_verifications():
     """Get available verifications for a device model (for frontend compatibility)."""
     try:
         device_model = request.args.get('device_model', 'android_mobile')
+        team_id = request.args.get('team_id')
         
         # Delegate to service layer (business logic moved out of route)
         from services.verification_service import verification_service

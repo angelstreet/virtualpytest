@@ -30,6 +30,7 @@ def get_actions():
     """Get available actions for a device model (for frontend compatibility)."""
     try:
         device_model = request.args.get('device_model', 'android_mobile')
+        team_id = request.args.get('team_id')
         
         # Return basic action types available for the device model
         # This is mainly for frontend compatibility - actions are now embedded in edges
