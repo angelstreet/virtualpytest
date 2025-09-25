@@ -48,17 +48,7 @@ def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: 
         
         heatmap_data = []
         
-        # Add the selected mosaic first
-        heatmap_data.append({
-            'timestamp': f"{selected_time_key[:2]}:{selected_time_key[2:]}",
-            'mosaic_url': selected_mosaic_url,
-            'analysis_data': selected_devices,
-            'incidents': [],
-            'incidents_count': selected_incidents_count,
-            'is_selected': True  # Mark as the selected frame
-        })
-        
-        # Get previous 9 time keys
+        # Get previous 9 time keys first (these will be on the left)
         previous_time_keys = generate_previous_time_keys(selected_time_key, 9)
         
         for time_key in previous_time_keys:
@@ -92,6 +82,16 @@ def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: 
                 'is_selected': False,
                 'analysis_url': analysis_url
             })
+        
+        # Add the selected mosaic last (this will be on the far right)
+        heatmap_data.append({
+            'timestamp': f"{selected_time_key[:2]}:{selected_time_key[2:]}",
+            'mosaic_url': selected_mosaic_url,
+            'analysis_data': selected_devices,
+            'incidents': [],
+            'incidents_count': selected_incidents_count,
+            'is_selected': True  # Mark as the selected frame
+        })
         
         print(f"[@generate_timeline_heatmap_data] Generated timeline with {len(heatmap_data)} frames")
         return heatmap_data

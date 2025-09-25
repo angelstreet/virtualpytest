@@ -34,10 +34,6 @@ def create_heatmap_html_template() -> str:
             margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.05); 
             border-radius: 8px; display: flex; align-items: center; gap: 15px;
         }}
-        .play-btn {{ 
-            background: #4a90e2; color: white; border: none; border-radius: 50%; 
-            width: 40px; height: 40px; cursor: pointer; font-size: 16px;
-        }}
         .timeline {{ flex: 1; position: relative; }}
         .timeline-slider {{ width: 100%; -webkit-appearance: none; height: 6px; background: #ddd; border-radius: 3px; }}
         .timeline-slider::-webkit-slider-thumb {{ 
@@ -88,14 +84,13 @@ def create_heatmap_html_template() -> str:
             </div>
             
             <div class="timeline-controls">
-                <button id="playBtn" class="play-btn" onclick="togglePlay()">▶</button>
                 <div class="timeline">
-                    <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="{max_frame}" value="0" oninput="changeFrame(this.value)">
+                    <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="{max_frame}" value="{max_frame}" oninput="changeFrame(this.value)">
                     <div class="timeline-marks">
                         {timeline_marks}
                     </div>
                 </div>
-                <div id="frameCounter" class="frame-counter">1 / {total_timestamps}</div>
+                <div id="frameCounter" class="frame-counter">{total_timestamps} / {total_timestamps}</div>
             </div>
         </div>
         
@@ -128,9 +123,7 @@ def create_heatmap_html_template() -> str:
     <script>
         // Data for all timestamps
         const mosaicData = {mosaic_data_json};
-        let currentFrame = 0;
-        let isPlaying = false;
-        let playInterval = null;
+        let currentFrame = mosaicData.length - 1; // Start at latest frame (far right)
         
         function changeFrame(frameIndex) {{
             currentFrame = parseInt(frameIndex);
@@ -157,22 +150,10 @@ def create_heatmap_html_template() -> str:
             document.getElementById('currentAnalysis').getElementsByTagName('tbody')[0].innerHTML = data.analysis_html;
         }}
         
-        function togglePlay() {{
-            isPlaying = !isPlaying;
-            const btn = document.getElementById('playBtn');
-            
-            if (isPlaying) {{
-                btn.textContent = '⏸';
-                playInterval = setInterval(() => {{
-                    currentFrame = (currentFrame + 1) % mosaicData.length;
-                    document.getElementById('timelineSlider').value = currentFrame;
-                    changeFrame(currentFrame);
-                }}, 1000);
-            }} else {{
-                btn.textContent = '▶';
-                clearInterval(playInterval);
-            }}
-        }}
+        // Initialize to latest frame on page load
+        window.addEventListener('load', function() {{
+            changeFrame(currentFrame);
+        }});
         
         function openModal() {{ document.getElementById('modal').classList.add('active'); }}
         function closeModal() {{ document.getElementById('modal').classList.remove('active'); }}

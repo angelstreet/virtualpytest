@@ -109,8 +109,8 @@ def generate_comprehensive_heatmap_html(all_heatmap_data: List[Dict]) -> str:
             mark_position = (i / max(1, total_timestamps - 1)) * 100
             timestamp = heatmap_data.get('timestamp', '')
             
-            # First frame is current by default
-            current_class = "current" if i == 0 else ""
+            # Latest frame (last in array) is current by default
+            current_class = "current" if i == total_timestamps - 1 else ""
             
             timeline_marks.append(f"""
             <div class="timeline-mark {current_class}" style="left: {mark_position}%" onclick="changeFrame({i})">
@@ -119,11 +119,11 @@ def generate_comprehensive_heatmap_html(all_heatmap_data: List[Dict]) -> str:
             </div>
             """)
         
-        # Get first frame data safely
-        first_data = all_heatmap_data[0] if all_heatmap_data else {}
-        first_mosaic_url = first_data.get('mosaic_url', '') if first_data else ''
-        first_analysis_items = mosaic_data_for_js[0]['analysis_html'] if mosaic_data_for_js else ''
-        first_timestamp = first_data.get('timestamp', '') if first_data else ''
+        # Get latest frame data safely (last item in array is now the latest)
+        latest_data = all_heatmap_data[-1] if all_heatmap_data else {}
+        first_mosaic_url = latest_data.get('mosaic_url', '') if latest_data else ''
+        first_analysis_items = mosaic_data_for_js[-1]['analysis_html'] if mosaic_data_for_js else ''
+        first_timestamp = latest_data.get('timestamp', '') if latest_data else ''
         
         # Create timeframe string
         if total_timestamps > 1 and all_heatmap_data:

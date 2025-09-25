@@ -426,6 +426,15 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
               const position = (hourIndex / Math.max(1, timeline.length - 1)) * 100;
               const timelineItem = timeline[hourIndex];
               
+              // Calculate dynamic hour based on current time
+              const now = new Date();
+              const currentHour = now.getHours();
+              const displayHour = (currentHour - i + 24) % 24; // Go backwards from current hour
+              
+              // Check if this hour mark corresponds to the current timeline position
+              const isCurrentHour = timelineItem && 
+                timelineItem.displayTime.getHours() === (currentItem?.displayTime.getHours() || -1);
+              
               return (
                 <Tooltip 
                   key={i}
@@ -440,12 +449,18 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
                       fontSize: '10px',
                       cursor: 'pointer',
                       textAlign: 'center',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                      border: isCurrentHour ? '2px solid #4a90e2' : '2px solid transparent',
+                      backgroundColor: isCurrentHour ? 'rgba(74, 144, 226, 0.1)' : 'transparent',
+                      fontWeight: isCurrentHour ? 'bold' : 'normal',
+                      color: isCurrentHour ? '#4a90e2' : 'inherit',
                       '&:hover': { fontWeight: 'bold' }
                     }}
                     onClick={() => onIndexChange(hourIndex)}
                   >
                     <Typography variant="caption" sx={{ fontSize: '10px', display: 'block' }}>
-                      {String(23 - i).padStart(2, '0')}h
+                      {String(displayHour).padStart(2, '0')}h
                     </Typography>
                     {timelineItem && (
                       <Typography variant="caption" sx={{ fontSize: '8px', color: 'text.secondary', display: 'block' }}>
