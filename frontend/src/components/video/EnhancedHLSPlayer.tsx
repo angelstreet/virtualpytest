@@ -191,35 +191,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           sx={{ width: '100%', height: '100%' }}
         />
 
-        {/* Play/Pause Control Overlay - Only visible in 24h Archive mode */}
-        {!isLiveMode && (
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: duration > 0 ? 80 : 16, // Align with timeline when present
-              left: 16,
-              zIndex: 10,
-            }}
-          >
-            <IconButton
-              onClick={togglePlayPause}
-              sx={{
-                backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                color: 'white',
-                border: '2px solid rgba(255, 255, 255, 0.7)',
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                  border: '2px solid rgba(255, 255, 255, 1)',
-                },
-              }}
-              size="small"
-            >
-              {isPlaying ? <PlayArrow /> : <Pause />}
-            </IconButton>
-          </Box>
-        )}
-
-        {/* Archive Timeline Overlay */}
+        {/* Archive Timeline Overlay with integrated Play/Pause button */}
         {!isLiveMode && duration > 0 && (
           <Box
             sx={{
@@ -231,13 +203,45 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               p: 2,
             }}
           >
-            <Slider
-              value={currentTime}
-              max={duration}
-              onChange={handleSeek}
-              sx={{ color: 'primary.main', mb: 1 }}
-            />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            {/* Timeline controls row */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+              {/* Play/Pause Button */}
+              <IconButton
+                onClick={togglePlayPause}
+                sx={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  color: 'white',
+                  border: '2px solid rgba(255, 255, 255, 0.7)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    border: '2px solid rgba(255, 255, 255, 1)',
+                  },
+                  minWidth: 40,
+                  height: 40,
+                }}
+                size="small"
+              >
+                {isPlaying ? <PlayArrow /> : <Pause />}
+              </IconButton>
+              
+              {/* Timeline Slider */}
+              <Slider
+                value={currentTime}
+                max={duration}
+                onChange={handleSeek}
+                sx={{ 
+                  color: 'primary.main', 
+                  flex: 1,
+                  '& .MuiSlider-thumb': {
+                    width: 16,
+                    height: 16,
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Time display row */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', pl: 7 }}>
               <Typography variant="caption" sx={{ color: 'white' }}>
                 {formatTime(currentTime)}
               </Typography>

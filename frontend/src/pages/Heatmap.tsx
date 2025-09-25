@@ -23,6 +23,7 @@ import { ModalProvider } from '../contexts/ModalContext';
 import { HostManagerProvider } from '../contexts/HostManagerProvider';
 import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
+import { useHostManager } from '../hooks/useHostManager';
 import { Host, Device } from '../types/common/Host_Types';
 
 const HeatmapContent: React.FC = () => {
@@ -37,6 +38,9 @@ const HeatmapContent: React.FC = () => {
     hasDataError,
     generateReport
   } = useHeatmap();
+
+  // Access to real host/device data
+  const { getHostByName, getDevicesFromHost } = useHostManager();
 
   // UI state
   const [error, setError] = useState<string | null>(null);
@@ -62,23 +66,48 @@ const HeatmapContent: React.FC = () => {
 
   // Handle overlay click to open stream modal
   const handleOverlayClick = (deviceData: any) => {
-    // Convert heatmap device data to Host/Device format for RecHostStreamModal
-    const device: Device = {
+    console.log('[@Heatmap] Opening stream modal for device:', deviceData);
+    
+    // Try to get real host and device data from HostManagerProvider
+    const realHost = getHostByName(deviceData.host_name);
+    let realDevice: Device | null = null;
+    
+    if (realHost) {
+      // Look for the specific device in the host's devices
+      const hostDevices = getDevicesFromHost(deviceData.host_name);
+      realDevice = hostDevices.find(d => d.device_id === deviceData.device_id) || null;
+      
+      console.log('[@Heatmap] Found real host:', realHost);
+      console.log('[@Heatmap] Found real device:', realDevice);
+      
+      if (realDevice) {
+        // Use real data
+        setStreamModalHost(realHost);
+        setStreamModalDevice(realDevice);
+        setStreamModalOpen(true);
+        return;
+      }
+    }
+    
+    // Fallback: Create mock data if real data not available
+    console.log('[@Heatmap] Real device data not found, using fallback mock data');
+    
+    const fallbackDevice: Device = {
       device_id: deviceData.device_id,
       device_name: deviceData.device_name || deviceData.device_id,
-      device_model: 'android_tv', // Default to android_tv for remote capability
+      device_model: 'android_mobile', // Default fallback - will show appropriate remote
       device_capabilities: {
-        av: 'hdmi_stream', // Assume HDMI stream capability
-        remote: 'android_tv', // Enable remote control
-        power: 'adb' // Enable power control
+        av: 'hdmi_stream',
+        remote: 'android_mobile', // Match the device model
+        power: 'adb'
       }
     };
 
-    const host: Host = {
+    const fallbackHost: Host = {
       host_name: deviceData.host_name,
-      host_url: `http://${deviceData.host_name}:6109`, // Default host URL
+      host_url: `http://${deviceData.host_name}:6109`,
       host_port: 6109,
-      devices: [device], // Include the device in the host
+      devices: [fallbackDevice],
       device_count: 1,
       status: 'online',
       last_seen: Date.now(),
@@ -94,8 +123,8 @@ const HeatmapContent: React.FC = () => {
       isLocked: false
     };
 
-    setStreamModalHost(host);
-    setStreamModalDevice(device);
+    setStreamModalHost(fallbackHost);
+    setStreamModalDevice(fallbackDevice);
     setStreamModalOpen(true);
   };
 
