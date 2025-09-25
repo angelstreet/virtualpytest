@@ -23,6 +23,7 @@ interface HeatMapFreezeModalProps {
   freezeModalImage: HeatmapImage | null;
   onClose: () => void;
   constructFrameUrl: (filename: string, baseUrl: string) => string;
+  timestamp?: string; // Add timestamp for metadata display
 }
 
 export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
@@ -30,6 +31,7 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
   freezeModalImage,
   onClose,
   constructFrameUrl,
+  timestamp,
 }) => {
   if (!freezeModalOpen || !freezeModalImage) return null;
 
@@ -84,6 +86,50 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
           >
             <CloseIcon />
           </IconButton>
+        </Box>
+
+        {/* Title and Timestamp Metadata */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            p: 1,
+            bgcolor: 'rgba(0,0,0,0.8)',
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'white',
+              fontWeight: 'bold',
+              mb: 0.5,
+            }}
+          >
+            Capture
+          </Typography>
+          {timestamp && (
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'rgba(255,255,255,0.8)',
+                fontSize: '0.875rem',
+              }}
+            >
+              {new Date(timestamp).toLocaleString()}
+            </Typography>
+          )}
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'rgba(255,255,255,0.6)',
+              fontSize: '0.75rem',
+              mt: 0.5,
+            }}
+          >
+            Device: {freezeModalImage.host_name}-{freezeModalImage.device_id}
+          </Typography>
         </Box>
 
         {/* 3 Images side by side */}

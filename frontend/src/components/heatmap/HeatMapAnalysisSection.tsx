@@ -36,12 +36,14 @@ interface HeatMapAnalysisSectionProps {
   images: DeviceData[];
   analysisExpanded: boolean;
   onToggleExpanded: () => void;
+  onFreezeClick?: (deviceData: DeviceData) => void;
 }
 
 export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
   images,
   analysisExpanded,
   onToggleExpanded,
+  onFreezeClick,
 }) => {
   // Calculate summary from images - only count devices with actual analysis data
   const devicesWithAnalysis = images.filter((image) => image.analysis_json && typeof image.analysis_json === 'object');
@@ -210,6 +212,21 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
                               <Typography
                                 variant="caption"
                                 color={analysisJson.freeze ? 'error' : 'success'}
+                                sx={{
+                                  cursor: analysisJson.freeze ? 'pointer' : 'default',
+                                  textDecoration: analysisJson.freeze ? 'underline' : 'none',
+                                  '&:hover': analysisJson.freeze ? {
+                                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                                    borderRadius: '4px',
+                                    padding: '2px 4px',
+                                    margin: '-2px -4px'
+                                  } : {}
+                                }}
+                                onClick={() => {
+                                  if (analysisJson.freeze && onFreezeClick) {
+                                    onFreezeClick(image);
+                                  }
+                                }}
                               >
                                 {analysisJson.freeze
                                   ? `Yes (${(analysisJson.freeze_diffs || []).length} diffs)`

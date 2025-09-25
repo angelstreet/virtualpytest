@@ -696,7 +696,7 @@ class HeatmapProcessor:
             device_entry = {
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
-                'device_name': image_data.get('device_name', 'Unknown'),  # Include device_name for frontend tooltip
+                'device_name': image_data.get('device_name'),  # Include device_name for frontend tooltip
                 'image_url': image_data.get('image_url'),
                 'json_url': image_data.get('json_url'),
                 'sequence': image_data.get('sequence', 'missing'),

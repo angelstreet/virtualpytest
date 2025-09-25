@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
+import { HeatMapStreamModal } from '../components/heatmap/HeatMapStreamModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { useHeatmap } from '../hooks/useHeatmap';
@@ -41,13 +42,23 @@ const Heatmap: React.FC = () => {
   // Freeze modal state
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
   const [freezeModalImage, setFreezeModalImage] = useState<any>(null);
+  
+  // Stream modal state
+  const [streamModalOpen, setStreamModalOpen] = useState(false);
+  const [streamModalDevice, setStreamModalDevice] = useState<any>(null);
 
-  // Handle device cell click for freeze analysis
-  const handleCellClick = (deviceData: any) => {
+  // Handle freeze click from analysis table
+  const handleFreezeClick = (deviceData: any) => {
     if (deviceData?.analysis_json?.freeze) {
       setFreezeModalImage(deviceData);
       setFreezeModalOpen(true);
     }
+  };
+
+  // Handle overlay click to open stream modal
+  const handleOverlayClick = (deviceData: any) => {
+    setStreamModalDevice(deviceData);
+    setStreamModalOpen(true);
   };
 
   // Helper function to construct frame URLs
@@ -144,7 +155,7 @@ const Heatmap: React.FC = () => {
           timeline={timeline}
           currentIndex={currentIndex}
           onIndexChange={setCurrentIndex}
-          onCellClick={handleCellClick}
+          onCellClick={handleOverlayClick}
           hasIncidents={hasIncidents()}
           isLoading={analysisLoading}
           hasDataError={hasDataError}
@@ -158,6 +169,7 @@ const Heatmap: React.FC = () => {
           images={analysisData?.devices || []}
           analysisExpanded={analysisExpanded}
           onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
+          onFreezeClick={handleFreezeClick}
         />
       </Box>
 
@@ -170,6 +182,15 @@ const Heatmap: React.FC = () => {
         freezeModalImage={freezeModalImage}
         onClose={() => setFreezeModalOpen(false)}
         constructFrameUrl={constructFrameUrl}
+        timestamp={analysisData?.timestamp}
+      />
+
+      {/* Stream Modal */}
+      <HeatMapStreamModal
+        isOpen={streamModalOpen}
+        onClose={() => setStreamModalOpen(false)}
+        deviceInfo={streamModalDevice}
+        timestamp={analysisData?.timestamp}
       />
     </Box>
   );

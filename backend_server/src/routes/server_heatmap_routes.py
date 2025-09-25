@@ -16,7 +16,7 @@ import os
 # Create blueprint
 server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/heatmap')
 
-def generate_previous_time_keys(selected_time_key: str, count: int = 10) -> list:
+def generate_previous_time_keys(selected_time_key: str, count: int = 9) -> list:
     """Generate the previous N time keys before the selected one"""
     try:
         # Parse the time key (format: "HHMM")
@@ -39,7 +39,7 @@ def generate_previous_time_keys(selected_time_key: str, count: int = 10) -> list
         return []
 
 def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: str, selected_devices: list, selected_incidents_count: int) -> list:
-    """Generate heatmap data for selected mosaic + 10 previous mosaics"""
+    """Generate heatmap data for selected mosaic + 9 previous mosaics"""
     try:
         # Get R2 base URL from environment
         R2_BASE_URL = os.getenv('CLOUDFLARE_R2_PUBLIC_URL', '')
@@ -56,8 +56,8 @@ def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: 
             'is_selected': True  # Mark as the selected frame
         })
         
-        # Get previous 10 time keys
-        previous_time_keys = generate_previous_time_keys(selected_time_key, 10)
+        # Get previous 9 time keys
+        previous_time_keys = generate_previous_time_keys(selected_time_key, 9)
         
         for time_key in previous_time_keys:
             # Generate URLs for previous mosaics (they may or may not exist)
