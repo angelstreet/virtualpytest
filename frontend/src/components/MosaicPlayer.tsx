@@ -18,169 +18,6 @@ import {
 
 import { TimelineItem } from '../hooks/useHeatmap';
 
-// Device Overlays Component
-interface DeviceOverlaysProps {
-  devices: any[];
-  containerRef: React.RefObject<HTMLImageElement>;
-  onCellClick?: (deviceData: any) => void;
-}
-
-const DeviceOverlays: React.FC<DeviceOverlaysProps> = ({ devices, containerRef, onCellClick }) => {
-  const [overlayPositions, setOverlayPositions] = useState<Array<{
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  }>>([]);
-
-  // Calculate overlay positions based on actual image dimensions
-  useEffect(() => {
-    const calculatePositions = () => {
-      if (!containerRef.current) return;
-
-      const img = containerRef.current;
-      const containerElement = img.parentElement;
-      if (!containerElement) return;
-
-      // Get container dimensions
-      const containerRect = containerElement.getBoundingClientRect();
-      const containerWidth = containerRect.width;
-      const containerHeight = containerRect.height;
-
-      // Get actual image dimensions (natural size)
-      const imageNaturalWidth = img.naturalWidth;
-      const imageNaturalHeight = img.naturalHeight;
-
-      if (imageNaturalWidth === 0 || imageNaturalHeight === 0) return;
-
-      // Calculate how the image is displayed with object-fit: contain
-      const containerAspectRatio = containerWidth / containerHeight;
-      const imageAspectRatio = imageNaturalWidth / imageNaturalHeight;
-
-      let displayedImageWidth: number;
-      let displayedImageHeight: number;
-      let offsetX: number;
-      let offsetY: number;
-
-      if (imageAspectRatio > containerAspectRatio) {
-        // Image is wider - constrained by width
-        displayedImageWidth = containerWidth;
-        displayedImageHeight = containerWidth / imageAspectRatio;
-        offsetX = 0;
-        offsetY = (containerHeight - displayedImageHeight) / 2;
-      } else {
-        // Image is taller - constrained by height
-        displayedImageWidth = containerHeight * imageAspectRatio;
-        displayedImageHeight = containerHeight;
-        offsetX = (containerWidth - displayedImageWidth) / 2;
-        offsetY = 0;
-      }
-
-      // Calculate grid layout (same as backend)
-      const deviceCount = devices.length;
-      let cols: number, rows: number;
-      if (deviceCount <= 1) {
-        cols = 1; rows = 1;
-      } else if (deviceCount === 2) {
-        cols = 2; rows = 1;
-      } else if (deviceCount <= 4) {
-        cols = 2; rows = 2;
-      } else if (deviceCount <= 6) {
-        cols = 3; rows = 2;
-      } else if (deviceCount <= 9) {
-        cols = 3; rows = 3;
-      } else {
-        cols = Math.ceil(Math.sqrt(deviceCount));
-        rows = Math.ceil(deviceCount / cols);
-      }
-
-      // Calculate cell dimensions within the displayed image
-      const cellWidth = displayedImageWidth / cols;
-      const cellHeight = displayedImageHeight / rows;
-
-      // Calculate positions for each device
-      const positions = devices.map((_, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-
-        return {
-          left: offsetX + (col * cellWidth),
-          top: offsetY + (row * cellHeight),
-          width: cellWidth,
-          height: cellHeight
-        };
-      });
-
-      setOverlayPositions(positions);
-    };
-
-    // Calculate on image load and resize
-    if (containerRef.current) {
-      const img = containerRef.current;
-      if (img.complete) {
-        calculatePositions();
-      } else {
-        img.addEventListener('load', calculatePositions);
-      }
-    }
-
-    // Recalculate on window resize
-    window.addEventListener('resize', calculatePositions);
-
-    return () => {
-      if (containerRef.current) {
-        containerRef.current.removeEventListener('load', calculatePositions);
-      }
-      window.removeEventListener('resize', calculatePositions);
-    };
-  }, [devices, containerRef]);
-
-  return (
-    <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-      {devices.map((device: any, index: number) => {
-        const position = overlayPositions[index];
-        if (!position) return null;
-
-        const analysis = device.analysis_json || {};
-        
-        // Fix device_name undefined issue
-        const deviceName = device.device_name || device.device_id || 'Unknown';
-        
-        const tooltipText = `${device.host_name}-${deviceName}
-Audio: ${analysis.audio ? 'Yes' : 'No'}
-Video: ${!analysis.blackscreen && !analysis.freeze ? 'Yes' : 'No'}
-${analysis.volume_percentage !== undefined ? `Volume: ${analysis.volume_percentage}%` : ''}
-${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''}`;
-
-        return (
-          <Tooltip key={`${device.host_name}-${device.device_id}`} title={tooltipText} arrow>
-            <Box
-              sx={{
-                position: 'absolute',
-                left: `${position.left}px`,
-                top: `${position.top}px`,
-                width: `${position.width}px`,
-                height: `${position.height}px`,
-                cursor: 'pointer',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  border: '2px solid #fff'
-                }
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onCellClick) {
-                  onCellClick(device);
-                }
-              }}
-            />
-          </Tooltip>
-        );
-      })}
-    </Box>
-  );
-};
-
 // Add type alias for filter
 type FilterType = 'ALL' | 'OK' | 'KO';
 
@@ -213,7 +50,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const [imageLoading, setImageLoading] = useState(true);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const currentImageRef = useRef<HTMLImageElement | null>(null);
-  const displayedImageRef = useRef<HTMLImageElement | null>(null);
   
   const currentItem = timeline[currentIndex];
   const mosaicSrc = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem?.mosaicUrl || '';
@@ -362,7 +198,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
         ) : (
           <>
             <img
-              ref={displayedImageRef}
               src={mosaicSrc}
               alt={`Heatmap ${currentItem.timeKey} - ${filter}`}
               style={{
@@ -374,11 +209,65 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
             
             {/* Device Overlays */}
             {!imageLoading && analysisData?.devices && (
-              <DeviceOverlays 
-                devices={analysisData.devices}
-                containerRef={displayedImageRef}
-                onCellClick={onCellClick}
-              />
+              <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                {analysisData.devices.map((device: any, index: number) => {
+                  const deviceCount = analysisData.devices.length;
+                  
+                  // Use exact same grid layout algorithm as heatmap_processor.py
+                  let cols: number, rows: number;
+                  if (deviceCount <= 1) {
+                    cols = 1; rows = 1;
+                  } else if (deviceCount === 2) {
+                    cols = 2; rows = 1;
+                  } else if (deviceCount <= 4) {
+                    cols = 2; rows = 2;
+                  } else if (deviceCount <= 6) {
+                    cols = 3; rows = 2;
+                  } else if (deviceCount <= 9) {
+                    cols = 3; rows = 3;
+                  } else {
+                    cols = Math.ceil(Math.sqrt(deviceCount));
+                    rows = Math.ceil(deviceCount / cols);
+                  }
+                  
+                  const col = index % cols;
+                  const row = Math.floor(index / cols);
+                  
+                  const cellWidth = 100 / cols;
+                  const cellHeight = 100 / rows;
+                  
+                  const analysis = device.analysis_json || {};
+                  
+                  const tooltipText = `${device.host_name}-${device.device_name}
+Audio: ${analysis.audio ? 'Yes' : 'No'}
+Video: ${!analysis.blackscreen && !analysis.freeze ? 'Yes' : 'No'}
+${analysis.volume_percentage !== undefined ? `Volume: ${analysis.volume_percentage}%` : ''}
+${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''}`;
+
+                  return (
+                    <Tooltip key={`${device.host_name}-${device.device_id}`} title={tooltipText} arrow>
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: `${col * cellWidth}%`,
+                          top: `${row * cellHeight}%`,
+                          width: `${cellWidth}%`,
+                          height: `${cellHeight}%`,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            border: '2px solid #fff'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCellClick?.(device);
+                        }}
+                      />
+                    </Tooltip>
+                  );
+                })}
+              </Box>
             )}
           </>
         )}

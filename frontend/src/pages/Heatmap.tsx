@@ -16,10 +16,11 @@ import React, { useState } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
-import { HeatMapStreamModal } from '../components/heatmap/HeatMapStreamModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
+import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 import { useHeatmap } from '../hooks/useHeatmap';
+import { Host, Device } from '../types/common/Host_Types';
 
 const Heatmap: React.FC = () => {
   const {
@@ -45,7 +46,8 @@ const Heatmap: React.FC = () => {
   
   // Stream modal state
   const [streamModalOpen, setStreamModalOpen] = useState(false);
-  const [streamModalDevice, setStreamModalDevice] = useState<any>(null);
+  const [streamModalHost, setStreamModalHost] = useState<Host | null>(null);
+  const [streamModalDevice, setStreamModalDevice] = useState<Device | null>(null);
 
   // Handle freeze click from analysis table
   const handleFreezeClick = (deviceData: any) => {
@@ -57,7 +59,40 @@ const Heatmap: React.FC = () => {
 
   // Handle overlay click to open stream modal
   const handleOverlayClick = (deviceData: any) => {
-    setStreamModalDevice(deviceData);
+    // Convert heatmap device data to Host/Device format for RecHostStreamModal
+    const host: Host = {
+      host_name: deviceData.host_name,
+      host_url: `http://${deviceData.host_name}:6109`, // Default host URL
+      host_port: 6109,
+      devices: [],
+      device_count: 1,
+      status: 'online',
+      last_seen: Date.now(),
+      registered_at: new Date().toISOString(),
+      system_stats: {
+        cpu_percent: 0,
+        memory_percent: 0,
+        disk_percent: 0,
+        platform: 'unknown',
+        architecture: 'unknown',
+        python_version: 'unknown'
+      },
+      isLocked: false
+    };
+
+    const device: Device = {
+      device_id: deviceData.device_id,
+      device_name: deviceData.device_name || deviceData.device_id,
+      device_model: 'unknown', // Not available in heatmap data
+      device_capabilities: {
+        av: 'hdmi_stream', // Assume HDMI stream capability
+        remote: undefined,
+        power: undefined
+      }
+    };
+
+    setStreamModalHost(host);
+    setStreamModalDevice(device);
     setStreamModalOpen(true);
   };
 
@@ -186,12 +221,19 @@ const Heatmap: React.FC = () => {
       />
 
       {/* Stream Modal */}
-      <HeatMapStreamModal
-        isOpen={streamModalOpen}
-        onClose={() => setStreamModalOpen(false)}
-        deviceInfo={streamModalDevice}
-        timestamp={analysisData?.timestamp}
-      />
+      {streamModalHost && streamModalDevice && (
+        <RecHostStreamModal
+          host={streamModalHost}
+          device={streamModalDevice}
+          isOpen={streamModalOpen}
+          onClose={() => {
+            setStreamModalOpen(false);
+            setStreamModalHost(null);
+            setStreamModalDevice(null);
+          }}
+          showRemoteByDefault={false}
+        />
+      )}
     </Box>
   );
 };
