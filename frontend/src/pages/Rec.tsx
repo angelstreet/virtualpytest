@@ -114,6 +114,19 @@ const RecContent: React.FC = () => {
     setFlagFilter('');
   };
 
+  // Edit mode toggle handler
+  const handleEditModeToggle = useCallback(() => {
+    setIsEditMode(prev => {
+      const newEditMode = !prev;
+      if (prev) {
+        // Exiting edit mode - clear selections and pending changes
+        setSelectedDevices(new Set());
+        setPendingChanges(new Map());
+      }
+      return newEditMode;
+    });
+  }, []);
+
   // Selection handlers
   const handleDeviceSelection = useCallback((deviceKey: string, selected: boolean) => {
     setSelectedDevices(prev => {
@@ -299,11 +312,7 @@ const RecContent: React.FC = () => {
           <Button
             variant="text"
             size="small"
-            onClick={() => {
-              setIsEditMode(!isEditMode);
-              setSelectedDevices(new Set());
-              setPendingChanges(new Map()); // Clear pending changes when toggling edit mode
-            }}
+            onClick={handleEditModeToggle}
             sx={{ 
               color: '#1976d2', 
               textTransform: 'none',
