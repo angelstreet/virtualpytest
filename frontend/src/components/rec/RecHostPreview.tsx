@@ -198,24 +198,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             position: 'relative',
           }}
         >
-          {/* Selection checkbox in edit mode */}
-          {isEditMode && (
-            <Checkbox
-              size="small"
-              checked={isSelected}
-              onChange={(e) => onSelectionChange?.(e.target.checked)}
-              sx={{ 
-                position: 'absolute',
-                top: -4,
-                left: -4,
-                zIndex: 1,
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                borderRadius: '4px',
-                '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.8)' }
-              }}
-            />
-          )}
-
           <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 1, minWidth: 0 }}>
             {displayName}
           </Typography>
@@ -238,6 +220,21 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
               size="small"
               variant="outlined"
               sx={{ fontSize: '0.6rem', height: 16, minWidth: 20 }}
+            />
+          )}
+          
+          {/* Selection checkbox in edit mode - positioned before status chip */}
+          {isEditMode && (
+            <Checkbox
+              size="small"
+              checked={isSelected}
+              onChange={(e) => onSelectionChange?.(e.target.checked)}
+              sx={{ 
+                p: 0.5,
+                '& .MuiSvgIcon-root': {
+                  fontSize: '1rem'
+                }
+              }}
             />
           )}
           
