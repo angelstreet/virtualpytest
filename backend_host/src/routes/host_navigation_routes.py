@@ -125,9 +125,44 @@ def navigation_preview(tree_id, target_node_id):
             'error': f'Host navigation preview failed: {str(e)}'
         }), 500
 
+@host_navigation_bp.route('/cache/check/<tree_id>', methods=['GET'])
+def check_navigation_cache(tree_id):
+    """Check if unified navigation cache exists for tree"""
+    try:
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        # Check if cache exists
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        
+        exists = cached_graph is not None
+        nodes_count = len(cached_graph.nodes) if cached_graph else 0
+        edges_count = len(cached_graph.edges) if cached_graph else 0
+        
+        print(f"[@route:host_navigation:check_navigation_cache] Cache exists for tree {tree_id}: {exists}")
+        
+        return jsonify({
+            'success': True,
+            'exists': exists,
+            'nodes_count': nodes_count,
+            'edges_count': edges_count
+        })
+        
+    except Exception as e:
+        print(f"[@route:host_navigation:check_navigation_cache] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Cache check failed: {str(e)}'
+        }), 500
+
 @host_navigation_bp.route('/cache/populate/<tree_id>', methods=['POST'])
 def populate_navigation_cache(tree_id):
-    """Populate unified navigation cache in host process"""
+    """Populate unified navigation cache in host process (with duplicate protection)"""
     try:
         print(f"[@route:host_navigation:populate_navigation_cache] Populating cache for tree: {tree_id}")
         
@@ -135,6 +170,7 @@ def populate_navigation_cache(tree_id):
         data = request.get_json() or {}
         team_id = request.args.get('team_id') or data.get('team_id')
         all_trees_data = data.get('all_trees_data', [])
+        force_repopulate = data.get('force_repopulate', False)
         
         # Validate required parameters
         if not team_id:
@@ -149,17 +185,32 @@ def populate_navigation_cache(tree_id):
                 'error': 'all_trees_data is required'
             }), 400
         
+        # Check if cache already exists (protection against re-population)
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache
+        existing_cache = get_cached_unified_graph(tree_id, team_id)
+        
+        if existing_cache and not force_repopulate:
+            print(f"[@route:host_navigation:populate_navigation_cache] Cache already exists for tree {tree_id}, skipping re-population")
+            return jsonify({
+                'success': True,
+                'nodes_count': len(existing_cache.nodes),
+                'edges_count': len(existing_cache.edges),
+                'message': f'Cache already exists for tree {tree_id}',
+                'already_cached': True
+            })
+        
         # Populate unified cache in host process
-        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
         unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
         
         if unified_graph:
-            print(f"[@route:host_navigation:populate_navigation_cache] Successfully populated cache: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+            action = 'Re-populated' if force_repopulate else 'Populated'
+            print(f"[@route:host_navigation:populate_navigation_cache] {action} cache: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
             return jsonify({
                 'success': True,
                 'nodes_count': len(unified_graph.nodes),
                 'edges_count': len(unified_graph.edges),
-                'message': f'Cache populated for tree {tree_id}'
+                'message': f'Cache {action.lower()} for tree {tree_id}',
+                'repopulated': force_repopulate
             })
         else:
             return jsonify({

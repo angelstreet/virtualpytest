@@ -21,6 +21,7 @@ from typing import Dict, Any, Optional
 from shared.src.lib.utils.build_url_utils import buildHostUrl
 from  backend_server.src.lib.utils.server_utils import get_host_manager
 from  backend_server.src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_direct
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')
@@ -88,6 +89,21 @@ def take_control():
                     result = response.json()
                     if result.get('success'):
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
+                        
+                        # Populate navigation cache for the controlled device (if tree_id provided)
+                        tree_id = data.get('tree_id')
+                        team_id = data.get('team_id')
+                        if tree_id and team_id:
+                            try:
+                                print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
+                                cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+                                if cache_success:
+                                    print(f"✅ [CONTROL] Navigation cache populated successfully")
+                                else:
+                                    print(f"⚠️ [CONTROL] Navigation cache population failed (non-critical)")
+                            except Exception as cache_error:
+                                print(f"⚠️ [CONTROL] Navigation cache population error: {cache_error}")
+                        
                         return jsonify({
                             'success': True,
                             'message': f'Successfully took control of host: {host_name}, device: {device_id}',
@@ -471,4 +487,94 @@ def get_all_controllers():
         return jsonify({
             'success': False,
             'error': f'Failed to get controller types: {str(e)}'
-        }), 500 
+        }), 500
+
+
+# =====================================================
+# NAVIGATION CACHE POPULATION HELPER
+# =====================================================
+
+def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name: str) -> bool:
+    """
+    Populate navigation cache when taking control of a device
+    
+    Args:
+        tree_id: Navigation tree ID
+        team_id: Team ID
+        host_name: Host name to populate cache on
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Get host info
+        host_manager = get_host_manager()
+        host_info = host_manager.get_host(host_name)
+        if not host_info:
+            print(f"[@control:cache] Host {host_name} not found")
+            return False
+        
+        # Check if cache already exists (avoid re-population)
+        check_result, status_code = proxy_to_host_direct(
+            host_info,
+            f'/host/navigation/cache/check/{tree_id}?team_id={team_id}',
+            'GET'
+        )
+        
+        if check_result and check_result.get('success') and check_result.get('exists'):
+            print(f"[@control:cache] Cache already exists for tree {tree_id}, skipping population")
+            return True
+        
+        # Load tree data from database
+        from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
+        
+        # Try to load complete hierarchy first (for nested trees)
+        hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+        
+        if hierarchy_result.get('success'):
+            all_trees_data = hierarchy_result.get('all_trees_data', [])
+            print(f"[@control:cache] Loaded tree hierarchy: {len(all_trees_data)} trees")
+        else:
+            # Fallback: Load single tree
+            tree_result = get_full_tree(tree_id, team_id)
+            if not tree_result.get('success'):
+                print(f"[@control:cache] Failed to load tree {tree_id}: {tree_result.get('error', 'Unknown error')}")
+                return False
+            
+            # Format as single-tree hierarchy for unified cache
+            all_trees_data = [{
+                'tree_id': tree_id,
+                'tree_info': {
+                    'name': tree_result['tree'].get('name', 'Unknown'),
+                    'is_root_tree': True,
+                    'tree_depth': 0,
+                    'parent_tree_id': None,
+                    'parent_node_id': None
+                },
+                'nodes': tree_result['nodes'],
+                'edges': tree_result['edges']
+            }]
+            print(f"[@control:cache] Loaded single tree as fallback")
+        
+        # Populate cache on host
+        cache_result, status_code = proxy_to_host_direct(
+            host_info,
+            f'/host/navigation/cache/populate/{tree_id}',
+            'POST',
+            {
+                'team_id': team_id,
+                'all_trees_data': all_trees_data,
+                'force_repopulate': False
+            }
+        )
+        
+        if cache_result and cache_result.get('success'):
+            print(f"[@control:cache] Successfully populated cache on {host_name}: {cache_result.get('nodes_count', 0)} nodes")
+            return True
+        else:
+            print(f"[@control:cache] Cache population failed: {cache_result.get('error', 'Unknown error') if cache_result else 'No response'}")
+            return False
+            
+    except Exception as e:
+        print(f"[@control:cache] Error populating cache: {str(e)}")
+        return False 
