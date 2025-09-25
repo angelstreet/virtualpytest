@@ -105,7 +105,7 @@ const Heatmap: React.FC = () => {
       )}
 
       {/* Header */}
-      <Box sx={{ mb: 0 }}>
+      <Box>
         <Card>
           <CardContent sx={{ py: 0.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -153,23 +153,27 @@ const Heatmap: React.FC = () => {
       </Box>
 
       {/* Mosaic Player */}
-      <MosaicPlayer
-        timeline={timeline}
-        currentIndex={currentIndex}
-        onIndexChange={setCurrentIndex}
-        onCellClick={handleCellClick}
-        hasIncidents={hasIncidents()}
-        isLoading={analysisLoading}
-        hasDataError={hasDataError}
-        analysisData={analysisData}
-      />
+      <Box sx={{ mb: 3 }}>
+        <MosaicPlayer
+          timeline={timeline}
+          currentIndex={currentIndex}
+          onIndexChange={setCurrentIndex}
+          onCellClick={handleCellClick}
+          hasIncidents={hasIncidents()}
+          isLoading={analysisLoading}
+          hasDataError={hasDataError}
+          analysisData={analysisData}
+        />
+      </Box>
 
       {/* Analysis Section */}
-      <HeatMapAnalysisSection
-        images={analysisData?.devices || []}
-        analysisExpanded={analysisExpanded}
-        onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
-      />
+      <Box sx={{ mb: 3 }}>
+        <HeatMapAnalysisSection
+          images={analysisData?.devices || []}
+          analysisExpanded={analysisExpanded}
+          onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
+        />
+      </Box>
 
       {/* History Section */}
       <HeatMapHistory />
