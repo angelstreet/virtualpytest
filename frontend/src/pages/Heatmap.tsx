@@ -138,7 +138,7 @@ const HeatmapContent: React.FC = () => {
       )}
 
       {/* Header */}
-      <Box>
+      <Box sx={{ mb: 2 }}>
         <Card>
           <CardContent sx={{ py: 0.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
