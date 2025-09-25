@@ -75,14 +75,14 @@ def get_navigation_stats(tree_id):
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import get_cached_graph
+            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
             from backend_host.src.lib.utils.navigation_graph import validate_graph, get_entry_points
             
-            G = get_cached_graph(tree_id, team_id)
+            G = get_cached_unified_graph(tree_id, team_id)
             if not G:
                 return jsonify({
                     'success': False,
-                    'error': 'Navigation graph not found'
+                    'error': 'Unified navigation graph not found - ensure tree is loaded first'
                 }), 404
             
             # Get basic graph statistics
