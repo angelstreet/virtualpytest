@@ -14,6 +14,7 @@ import {
   Button,
   SelectChangeEvent,
   TextField,
+  Autocomplete,
 } from '@mui/material';
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 
@@ -63,6 +64,7 @@ const RecContent: React.FC = () => {
   const [selectedDevices, setSelectedDevices] = useState<Set<string>>(new Set());
   const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingTags, setPendingTags] = useState<string[]>([]);
 
   useEffect(() => {
     console.log('[@Rec] RecContent mounted');
@@ -496,38 +498,56 @@ const RecContent: React.FC = () => {
           {/* Edit Mode - Bulk Actions */}
           {isEditMode && (
             <>
-              <TextField
-                size="small"
-                placeholder={selectedDevices.size === 0 ? "Select devices first..." : "Add flag..."}
-                disabled={selectedDevices.size === 0}
-                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                  if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                    handleBulkAddFlag(e.currentTarget.value.trim());
-                    e.currentTarget.value = '';
-                  }
-                }}
-                sx={{ minWidth: 140 }}
-              />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  size="small"
+                  options={uniqueFlags}
+                  value={pendingTags}
+                  onChange={(_, newValue) => setPendingTags(newValue)}
+                  renderTags={() => null}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={selectedDevices.size === 0 ? "Select devices first..." : "Add tags..."}
+                      disabled={selectedDevices.size === 0}
+                    />
+                  )}
+                  sx={{ minWidth: 200 }}
+                />
+                
+                {/* Tags Preview */}
+                {selectedDevices.size > 0 && (pendingTags.length > 0 || selectedDevices.size === 1) && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selectedDevices.size === 1 && (() => {
+                      const deviceKey = Array.from(selectedDevices)[0];
+                      const [hostName, deviceId] = deviceKey.split('-');
+                      const existingTags = getCurrentFlags(hostName, deviceId);
+                      return existingTags.map(tag => (
+                        <Chip key={`existing-${tag}`} label={tag} size="small" color="default" 
+                              onDelete={() => handleBulkRemoveFlag(tag)} />
+                      ));
+                    })()}
+                    {pendingTags.map((tag, i) => (
+                      <Chip key={`pending-${i}`} label={tag} size="small" color="primary" variant="outlined"
+                            onDelete={() => setPendingTags(prev => prev.filter((_, idx) => idx !== i))} />
+                    ))}
+                  </Box>
+                )}
+              </Box>
 
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Remove Flag</InputLabel>
-                <Select
-                  value=""
-                  label="Remove Flag"
-                  disabled={selectedDevices.size === 0}
-                  onChange={(e: SelectChangeEvent) => {
-                    if (e.target.value) {
-                      handleBulkRemoveFlag(e.target.value);
-                    }
-                  }}
-                >
-                  {uniqueFlags.map((flag: string) => (
-                    <MenuItem key={flag} value={flag}>
-                      {flag}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={pendingTags.length === 0}
+                onClick={() => {
+                  pendingTags.forEach(tag => handleBulkAddFlag(tag));
+                  setPendingTags([]);
+                }}
+              >
+                Save ({pendingTags.length})
+              </Button>
 
               <Button
                 size="small"
