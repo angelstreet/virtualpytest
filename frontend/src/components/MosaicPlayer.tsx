@@ -5,23 +5,16 @@
  * Shows mosaic images and provides timeline navigation controls.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Slider,
   Typography,
   Alert,
-  IconButton,
   Chip,
-  LinearProgress
+  LinearProgress,
+  Tooltip
 } from '@mui/material';
-import {
-  PlayArrow,
-  Pause,
-  SkipNext,
-  SkipPrevious,
-  Refresh
-} from '@mui/icons-material';
 
 import { TimelineItem } from '../hooks/useHeatmap';
 
@@ -33,6 +26,7 @@ interface MosaicPlayerProps {
   hasIncidents?: boolean;
   isLoading?: boolean;
   hasDataError?: boolean;
+  analysisData?: any; // Device analysis data for overlays
 }
 
 export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
@@ -42,76 +36,15 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   onCellClick,
   hasIncidents = false,
   isLoading = false,
-  hasDataError = false
+  hasDataError = false,
+  analysisData
 }) => {
   const [imageError, setImageError] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
-  
-  const playInterval = useRef<NodeJS.Timeout | null>(null);
   
   const currentItem = timeline[currentIndex];
   
-  /**
-   * Format time for display
-   */
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
   
-  /**
-   * Auto-play functionality
-   */
-  const startPlaying = useCallback(() => {
-    if (playInterval.current) return;
-    
-    setIsPlaying(true);
-    playInterval.current = setInterval(() => {
-      onIndexChange(prev => {
-        const next = prev + 1;
-        if (next >= timeline.length) {
-          setIsPlaying(false);
-          return timeline.length - 1;
-        }
-        return next;
-      });
-    }, 1000); // 1 second per frame
-  }, [onIndexChange, timeline.length]);
-  
-  const stopPlaying = useCallback(() => {
-    if (playInterval.current) {
-      clearInterval(playInterval.current);
-      playInterval.current = null;
-    }
-    setIsPlaying(false);
-  }, []);
-  
-  const togglePlayPause = () => {
-    if (isPlaying) {
-      stopPlaying();
-    } else {
-      startPlaying();
-    }
-  };
-  
-  /**
-   * Navigation controls
-   */
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      onIndexChange(currentIndex - 1);
-    }
-  };
-  
-  const goToNext = () => {
-    if (currentIndex < timeline.length - 1) {
-      onIndexChange(currentIndex + 1);
-    }
-  };
   
   
   /**
@@ -140,26 +73,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
     }
   };
   
-  /**
-   * Get timeline tick colors for incidents
-   */
-  const getTimelineTicks = () => {
-    // For now, we'll just show basic ticks
-    // In the future, we could load incident data for all timeline items
-    return timeline.map((_, index) => ({
-      value: index,
-      hasIncident: false // We'd need to load this data
-    }));
-  };
-  
-  // Cleanup interval on unmount
-  React.useEffect(() => {
-    return () => {
-      if (playInterval.current) {
-        clearInterval(playInterval.current);
-      }
-    };
-  }, []);
   
   if (!currentItem) {
     return (
@@ -232,27 +145,72 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
             No mosaic available for {currentItem.timeKey}
           </Alert>
         ) : (
-          <img
-            src={currentItem.mosaicUrl}
-            alt={`Heatmap ${currentItem.timeKey}`}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain'
-            }}
-            onLoad={() => {
-              setImageLoading(false);
-              setImageError(false);
-            }}
-            onError={() => {
-              setImageLoading(false);
-              setImageError(true);
-            }}
-            onClick={() => {
-              // Open image in new tab
-              window.open(currentItem.mosaicUrl, '_blank');
-            }}
-          />
+          <>
+            <img
+              src={currentItem.mosaicUrl}
+              alt={`Heatmap ${currentItem.timeKey}`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+              onLoad={() => {
+                setImageLoading(false);
+                setImageError(false);
+              }}
+              onError={() => {
+                setImageLoading(false);
+                setImageError(true);
+              }}
+            />
+            
+            {/* Device Overlays */}
+            {!imageLoading && analysisData?.devices && (
+              <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                {analysisData.devices.map((device: any, index: number) => {
+                  const deviceCount = analysisData.devices.length;
+                  const cols = deviceCount <= 4 ? Math.ceil(Math.sqrt(deviceCount)) : 3;
+                  const rows = Math.ceil(deviceCount / cols);
+                  const col = index % cols;
+                  const row = Math.floor(index / cols);
+                  
+                  const cellWidth = 100 / cols;
+                  const cellHeight = 100 / rows;
+                  
+                  const analysis = device.analysis_json || {};
+                  
+                  const tooltipText = `${device.host_name}-${device.device_id}
+Audio: ${analysis.audio ? 'Yes' : 'No'}
+Video: ${!analysis.blackscreen && !analysis.freeze ? 'Yes' : 'No'}
+${analysis.volume_percentage !== undefined ? `Volume: ${analysis.volume_percentage}%` : ''}
+${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''}`;
+
+                  return (
+                    <Tooltip key={`${device.host_name}-${device.device_id}`} title={tooltipText} arrow>
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: `${col * cellWidth}%`,
+                          top: `${row * cellHeight}%`,
+                          width: `${cellWidth}%`,
+                          height: `${cellHeight}%`,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            border: '2px solid #fff'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCellClick?.(device);
+                        }}
+                      />
+                    </Tooltip>
+                  );
+                })}
+              </Box>
+            )}
+          </>
         )}
         
         {imageLoading && (

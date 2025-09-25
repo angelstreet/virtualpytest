@@ -161,6 +161,7 @@ const Heatmap: React.FC = () => {
         hasIncidents={hasIncidents()}
         isLoading={analysisLoading}
         hasDataError={hasDataError}
+        analysisData={analysisData}
       />
 
       {/* Analysis Section */}

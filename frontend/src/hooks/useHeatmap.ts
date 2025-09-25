@@ -43,6 +43,8 @@ export const useHeatmap = () => {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [hasDataError, setHasDataError] = useState(false);
   const [corsBlocked, setCorsBlocked] = useState(false);
+  const [retryAttempts, setRetryAttempts] = useState(0);
+  const [lastSuccessfulIndex, setLastSuccessfulIndex] = useState<number | null>(null);
   
   // Get R2 base URL from environment
   const R2_BASE_URL = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
@@ -89,8 +91,11 @@ export const useHeatmap = () => {
       if (response.ok) {
         const data = await response.json();
         setAnalysisData(data);
-        // Success - reset error flags
-        setHasDataError(false); // Reset error flag on success
+        // Success - reset error flags and track success
+        setHasDataError(false);
+        setCorsBlocked(false);
+        setRetryAttempts(0);
+        setLastSuccessfulIndex(timeline.findIndex(t => t.timeKey === item.timeKey));
       } else if (response.status === 404 && retryCount < 10) {
         // File not generated yet, try previous minute
         const itemIndex = timeline.findIndex(t => t.timeKey === item.timeKey);
@@ -113,9 +118,21 @@ export const useHeatmap = () => {
       
       if (isCorsError) {
         console.warn(`CORS error detected for ${item.timeKey}. This may affect subsequent requests.`);
-        setCorsBlocked(true); // Mark CORS as blocked
-        setAnalysisData(null);
-        setHasDataError(true);
+        setCorsBlocked(true);
+        setRetryAttempts(prev => prev + 1);
+        
+        // Auto-fallback to last successful timeframe if available
+        if (lastSuccessfulIndex !== null && retryAttempts < 3) {
+          console.log(`Attempting fallback to last successful timeframe (index ${lastSuccessfulIndex})`);
+          setTimeout(() => {
+            if (timeline[lastSuccessfulIndex]) {
+              loadAnalysisData(timeline[lastSuccessfulIndex], 0);
+            }
+          }, 1000 * Math.pow(2, retryAttempts)); // Exponential backoff
+        } else {
+          setAnalysisData(null);
+          setHasDataError(true);
+        }
       } else {
         console.log(`No analysis data available for ${item.timeKey}:`, error.message);
         setAnalysisData(null);
@@ -185,10 +202,36 @@ export const useHeatmap = () => {
     setCorsBlocked(false);
     setHasDataError(false);
     setAnalysisData(null);
+    setRetryAttempts(0);
     
-    // Force a page refresh as last resort to clear browser CORS state
+    // Try to find a working timeframe by going back in time
+    const findWorkingTimeframe = async () => {
+      for (let i = currentIndex - 1; i >= Math.max(0, currentIndex - 60); i--) {
+        if (timeline[i]) {
+          try {
+            const response = await fetch(timeline[i].analysisUrl, {
+              mode: 'cors',
+              credentials: 'omit',
+              cache: 'no-cache'
+            });
+            if (response.ok) {
+              console.log(`Found working timeframe at index ${i} (${timeline[i].timeKey})`);
+              setLastSuccessfulIndex(i);
+              loadAnalysisData(timeline[i], 0);
+              return;
+            }
+          } catch (error) {
+            // Continue searching
+            continue;
+          }
+        }
+      }
+      console.warn('No working timeframes found. Consider refreshing the page.');
+    };
+    
     if (corsBlocked) {
-      console.warn('CORS cascade detected. Consider refreshing the page to reset browser state.');
+      console.warn('CORS cascade detected. Searching for working timeframes...');
+      findWorkingTimeframe();
     }
   };
   
@@ -208,6 +251,20 @@ export const useHeatmap = () => {
    */
   const goToLatest = () => {
     setCurrentIndex(1438); // Go to current-1 minute
+    setRetryAttempts(0); // Reset retry count when manually navigating
+  };
+
+  /**
+   * Smart navigation that avoids problematic timeframes
+   */
+  const navigateToIndex = (index: number) => {
+    // If CORS is blocked and we have a last successful index, suggest alternative
+    if (corsBlocked && lastSuccessfulIndex !== null && Math.abs(index - lastSuccessfulIndex) > 10) {
+      console.warn(`CORS issues detected. Consider using timeframe near ${timeline[lastSuccessfulIndex]?.timeKey} instead.`);
+    }
+    
+    setCurrentIndex(index);
+    setRetryAttempts(0); // Reset retry count when manually navigating
   };
   
   /**
@@ -222,7 +279,7 @@ export const useHeatmap = () => {
     // Timeline data
     timeline,
     currentIndex,
-    setCurrentIndex,
+    setCurrentIndex: navigateToIndex, // Use smart navigation
     currentItem: timeline[currentIndex] || null,
     
     // Analysis data
@@ -230,6 +287,8 @@ export const useHeatmap = () => {
     analysisLoading,
     hasDataError,
     corsBlocked,
+    retryAttempts,
+    lastSuccessfulIndex,
     
     // Navigation helpers
     goToTime,
@@ -237,9 +296,13 @@ export const useHeatmap = () => {
     hasIncidents,
     refreshCurrentData,
     recoverFromCorsBlock,
+    navigateToIndex,
     
     // Timeline info
     totalMinutes: timeline.length,
-    isAtLatest: currentIndex === 1438
+    isAtLatest: currentIndex === 1438,
+    
+    // Recovery status
+    canRecover: lastSuccessfulIndex !== null && corsBlocked
   };
 };
