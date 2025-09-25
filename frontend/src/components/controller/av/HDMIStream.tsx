@@ -194,6 +194,7 @@ export const HDMIStream = React.memo(
         setIsMinimized(false);
         setIsExpanded(false);
         onMinimizedChange?.(false);
+        onCollapsedChange?.(true); // Notify parent that panel is now collapsed
         console.log(
           `[@component:HDMIStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );
@@ -210,6 +211,8 @@ export const HDMIStream = React.memo(
         // First restore from minimized to collapsed, then user can click again to expand
         setIsMinimized(false);
         setIsExpanded(false);
+        onMinimizedChange?.(false);
+        onCollapsedChange?.(true); // Notify parent that panel is now collapsed
         console.log(
           `[@component:HDMIStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );

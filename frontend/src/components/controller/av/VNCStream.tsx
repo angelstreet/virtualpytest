@@ -285,6 +285,7 @@ export const VNCStream = React.memo(
         setIsMinimized(false);
         setIsVNCExpanded(false);
         onMinimizedChange?.(false);
+        onCollapsedChange?.(true); // Notify parent that panel is now collapsed
         console.log(
           `[@component:VNCStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );
@@ -299,6 +300,8 @@ export const VNCStream = React.memo(
       if (isMinimized) {
         setIsMinimized(false);
         setIsVNCExpanded(false);
+        onMinimizedChange?.(false);
+        onCollapsedChange?.(true); // Notify parent that panel is now collapsed
         console.log(
           `[@component:VNCStream] Restored from minimized to collapsed for ${effectiveDeviceModel}`,
         );
