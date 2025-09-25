@@ -170,12 +170,16 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
                             </TableCell>
                             <TableCell>
                               <Typography variant="caption">
-                                {analysisJson.volume_percentage || 0}%
+                                {analysisJson.volume_percentage !== undefined 
+                                  ? `${analysisJson.volume_percentage}%` 
+                                  : 'N/A'}
                               </Typography>
                             </TableCell>
                             <TableCell>
                               <Typography variant="caption">
-                                {analysisJson.mean_volume_db || -100} dB
+                                {analysisJson.mean_volume_db !== undefined 
+                                  ? `${analysisJson.mean_volume_db} dB` 
+                                  : 'N/A'}
                               </Typography>
                             </TableCell>
                             <TableCell>
@@ -183,9 +187,7 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
                                 variant="caption"
                                 color={analysisJson.blackscreen ? 'error' : 'success'}
                               >
-                                {analysisJson.blackscreen
-                                  ? `Yes (${analysisJson.blackscreen_percentage || 0}%)`
-                                  : 'No'}
+                                {analysisJson.blackscreen ? 'Yes' : 'No'}
                               </Typography>
                             </TableCell>
                             <TableCell>
@@ -194,7 +196,7 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
                                 color={analysisJson.freeze ? 'error' : 'success'}
                               >
                                 {analysisJson.freeze
-                                  ? `Yes (${(analysisJson.freeze_diffs || []).join(', ')})`
+                                  ? `Yes (${(analysisJson.freeze_diffs || []).length} diffs)`
                                   : 'No'}
                               </Typography>
                             </TableCell>

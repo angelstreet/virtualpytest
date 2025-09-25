@@ -41,11 +41,11 @@ export const useHeatmap = () => {
   const [currentIndex, setCurrentIndex] = useState(1438); // Start at current-1 minute
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [errorRetryCount, setErrorRetryCount] = useState(0);
   const [hasDataError, setHasDataError] = useState(false);
+  const [corsBlocked, setCorsBlocked] = useState(false);
   
   // Get R2 base URL from environment
-  const R2_BASE_URL = import.meta.env.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
+  const R2_BASE_URL = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
   
   /**
    * Generate 24-hour timeline with predictable file names
@@ -73,17 +73,23 @@ export const useHeatmap = () => {
   
   /**
    * Load analysis data with retry logic (max 10 attempts)
+   * Includes CORS error detection to prevent cascade failures
    */
   const loadAnalysisData = async (item: TimelineItem, retryCount: number = 0) => {
     if (!item) return;
     
     setAnalysisLoading(true);
     try {
-      const response = await fetch(item.analysisUrl);
+      const response = await fetch(item.analysisUrl, {
+        mode: 'cors',
+        credentials: 'omit', // Don't send credentials to prevent CORS issues
+        cache: 'no-cache' // Prevent caching of failed requests
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setAnalysisData(data);
-        setErrorRetryCount(0); // Reset error count on success
+        // Success - reset error flags
         setHasDataError(false); // Reset error flag on success
       } else if (response.status === 404 && retryCount < 10) {
         // File not generated yet, try previous minute
@@ -99,10 +105,22 @@ export const useHeatmap = () => {
         setAnalysisData(null); // Stop retrying after 10 attempts
         setHasDataError(true); // Mark as having data error
       }
-    } catch (error) {
-      console.log(`No analysis data available for ${item.timeKey}`);
-      setAnalysisData(null);
-      setHasDataError(true); // Mark as having data error
+    } catch (error: any) {
+      // Detect CORS errors specifically
+      const isCorsError = error.message?.includes('CORS') || 
+                         error.message?.includes('Access-Control-Allow-Origin') ||
+                         error.name === 'TypeError' && error.message?.includes('fetch');
+      
+      if (isCorsError) {
+        console.warn(`CORS error detected for ${item.timeKey}. This may affect subsequent requests.`);
+        setCorsBlocked(true); // Mark CORS as blocked
+        setAnalysisData(null);
+        setHasDataError(true);
+      } else {
+        console.log(`No analysis data available for ${item.timeKey}:`, error.message);
+        setAnalysisData(null);
+        setHasDataError(true);
+      }
     } finally {
       setAnalysisLoading(false);
     }
@@ -154,7 +172,23 @@ export const useHeatmap = () => {
     if (timeline[currentIndex]) {
       setAnalysisData(null); // Clear current data first
       setHasDataError(false); // Reset error flag
+      setCorsBlocked(false); // Reset CORS blocked flag
       loadAnalysisData(timeline[currentIndex]);
+    }
+  };
+
+  /**
+   * Recovery method for CORS cascade issues
+   * Call this when CORS errors block subsequent requests
+   */
+  const recoverFromCorsBlock = () => {
+    setCorsBlocked(false);
+    setHasDataError(false);
+    setAnalysisData(null);
+    
+    // Force a page refresh as last resort to clear browser CORS state
+    if (corsBlocked) {
+      console.warn('CORS cascade detected. Consider refreshing the page to reset browser state.');
     }
   };
   
@@ -174,7 +208,6 @@ export const useHeatmap = () => {
    */
   const goToLatest = () => {
     setCurrentIndex(1438); // Go to current-1 minute
-    setErrorRetryCount(0); // Reset retry count
   };
   
   /**
@@ -196,12 +229,14 @@ export const useHeatmap = () => {
     analysisData,
     analysisLoading,
     hasDataError,
+    corsBlocked,
     
     // Navigation helpers
     goToTime,
     goToLatest,
     hasIncidents,
     refreshCurrentData,
+    recoverFromCorsBlock,
     
     // Timeline info
     totalMinutes: timeline.length,

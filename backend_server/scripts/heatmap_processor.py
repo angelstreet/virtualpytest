@@ -163,6 +163,7 @@ class HeatmapProcessor:
                             hosts_devices.append({
                                 'host_name': host_name,
                                 'device_id': device_id,
+                                'device_name': device_name,
                                 'host_data': host_data
                             })
                 else:
@@ -173,7 +174,8 @@ class HeatmapProcessor:
                     if (isinstance(host_capabilities, dict) and 'av' in host_capabilities and av_capability):
                         hosts_devices.append({
                             'host_name': host_name,
-                            'device_id': 'device1',
+                            'device_id': 'host',
+                            'device_name': 'host',
                             'host_data': host_data
                         })
             
@@ -232,21 +234,29 @@ class HeatmapProcessor:
                                 json_response = requests.get(json_url, timeout=5)
                                 if json_response.status_code == 200:
                                     full_json_data = json_response.json()
-                                    # Extract analysis data from the JSON structure
+                                    # Extract complete analysis data including detailed fields for freeze modal
                                     analysis_data = {
                                         'analyzed': True,
-                                        'blackscreen': full_json_data.get('blackscreen', False),
-                                        'freeze': full_json_data.get('freeze', False),
-                                        'audio': full_json_data.get('audio', True)
+                                        # Complete analysis_json structure matching frontend interface
+                                        'analysis_json': {
+                                            'audio': full_json_data.get('audio', True),
+                                            'blackscreen': full_json_data.get('blackscreen', False),
+                                            'freeze': full_json_data.get('freeze', False),
+                                            'volume_percentage': full_json_data.get('volume_percentage'),
+                                            'mean_volume_db': full_json_data.get('mean_volume_db'),
+                                            'freeze_diffs': full_json_data.get('freeze_diffs', []),
+                                            'last_3_filenames': full_json_data.get('last_3_filenames', [])
+                                        }
                                     }
-                                    print(f"🔍 Analysis for {host_name}/{device_id}: blackscreen={analysis_data['blackscreen']}, freeze={analysis_data['freeze']}, audio={analysis_data['audio']}")
+                                    print(f"🔍 Analysis for {host_name}/{device_id}: blackscreen={analysis_data['analysis_json']['blackscreen']}, freeze={analysis_data['analysis_json']['freeze']}, audio={analysis_data['analysis_json']['audio']}")
                                 else:
-                                    analysis_data = {'analyzed': False}
+                                    analysis_data = {'analyzed': False, 'analysis_json': {}}
                                 
                                 current_captures.append({
                                     'host_name': host_name,
                                     'device_id': device_id,
-                            'image_url': image_url,
+                                    'device_name': device.get('device_name', 'Unknown'),
+                                    'image_url': image_url,
                                     'json_url': json_url,
                                     'analysis': analysis_data,
                                     'timestamp': result.get('timestamp', ''),
@@ -296,6 +306,7 @@ class HeatmapProcessor:
                 placeholder = {
                     'host_name': host_name,
                     'device_id': device_id,
+                    'device_name': device.get('device_name', 'Unknown'),
                     'image_url': None,  # No image available
                     'json_url': None,   # No JSON available
                     'analysis': {},     # Empty analysis
@@ -348,19 +359,20 @@ class HeatmapProcessor:
                 
             # Check for incidents
             analysis = device.get('analysis', {})
+            analysis_json = analysis.get('analysis_json', {})
             has_incident = (
-                analysis.get('blackscreen', False) or
-                analysis.get('freeze', False) or
-                not analysis.get('audio', True)
+                analysis_json.get('blackscreen', False) or
+                analysis_json.get('freeze', False) or
+                not analysis_json.get('audio', True)
             )
             
             if has_incident and device['status'] != 'missing':
                 incident_types = []
-                if analysis.get('blackscreen', False):
+                if analysis_json.get('blackscreen', False):
                     incident_types.append('blackscreen')
-                if analysis.get('freeze', False):
+                if analysis_json.get('freeze', False):
                     incident_types.append('freeze')
-                if not analysis.get('audio', True):
+                if not analysis_json.get('audio', True):
                     incident_types.append('no_audio')
                 
                 incident_devices.append({
@@ -409,14 +421,15 @@ class HeatmapProcessor:
         for device in devices_data:
             # Check for incidents in analysis data
             analysis = device.get('analysis', {})
+            analysis_json = analysis.get('analysis_json', {})
             is_placeholder = device.get('is_placeholder', False)
             
             has_incident = False
             if not is_placeholder:
                 has_incident = (
-                    analysis.get('blackscreen', False) or
-                    analysis.get('freeze', False) or
-                    not analysis.get('audio', True)
+                    analysis_json.get('blackscreen', False) or
+                    analysis_json.get('freeze', False) or
+                    not analysis_json.get('audio', True)
                 )
             
             # Also check for error image URL (legacy support)
@@ -432,14 +445,15 @@ class HeatmapProcessor:
         
         # Check for incidents in analysis data
         analysis = image_data.get('analysis', {})
+        analysis_json = analysis.get('analysis_json', {})
         is_placeholder = image_data.get('is_placeholder', False)
         
         has_incident = False
         if not is_placeholder:
             has_incident = (
-                analysis.get('blackscreen', False) or
-                analysis.get('freeze', False) or
-                not analysis.get('audio', True)
+                analysis_json.get('blackscreen', False) or
+                analysis_json.get('freeze', False) or
+                not analysis_json.get('audio', True)
             )
         
         # Add border (red for incident, green for OK, grey for placeholder)
@@ -453,9 +467,26 @@ class HeatmapProcessor:
         draw = ImageDraw.Draw(img)
         draw.rectangle([0, 0, cell_width-1, cell_height-1], outline=border_color, width=4)
         
-        # Add label in bottom right
-        label = f"{image_data.get('host_name', '')}_{image_data.get('device_id', '')}"
-        draw.text((cell_width-150, cell_height-20), label, fill='white', font=ImageFont.load_default())
+        # Add label in bottom right corner (very close to edge)
+        host_name = image_data.get('host_name', '')
+        device_name = image_data.get('device_name', image_data.get('device_id', ''))
+        label = f"{host_name}_{device_name}"
+        
+        # Calculate text size to position it very close to right edge
+        try:
+            font = ImageFont.load_default()
+            bbox = draw.textbbox((0, 0), label, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Position very close to right and bottom edges (5px margin)
+            x_pos = cell_width - text_width - 5
+            y_pos = cell_height - text_height - 5
+            
+            draw.text((x_pos, y_pos), label, fill='white', font=font)
+        except:
+            # Fallback to original positioning if text measurement fails
+            draw.text((cell_width-150, cell_height-20), label, fill='white', font=ImageFont.load_default())
         
         return img
     
@@ -527,11 +558,11 @@ class HeatmapProcessor:
                     
                     # Device info text
                     host_name = image_data['host_name']
-                    device_id = image_data['device_id']
+                    device_name = image_data.get('device_name', image_data.get('device_id', 'Unknown'))
                     
                     # Center the text
                     text1 = f"{host_name}"
-                    text2 = f"{device_id}"
+                    text2 = f"{device_name}"
                     text3 = "NO CAPTURE" if is_placeholder else "NOT FOUND"
                     
                     # Calculate text positions (centered)
@@ -597,7 +628,7 @@ class HeatmapProcessor:
         return mosaic
     
     def create_analysis_json(self, images_data: List[Dict], time_key: str) -> Dict:
-        """Create analysis JSON for the minute"""
+        """Create analysis JSON for the minute matching frontend interface"""
         devices = []
         incidents_count = 0
         
@@ -605,28 +636,27 @@ class HeatmapProcessor:
             analysis = image_data.get('analysis', {})
             is_placeholder = image_data.get('is_placeholder', False)
             
+            # Get the complete analysis_json data
+            analysis_json = analysis.get('analysis_json', {}) if not is_placeholder else {}
+            
             # Check for incidents (only for real captures, not placeholders)
             has_incidents = False
-            if not is_placeholder:
+            if not is_placeholder and analysis_json:
                 has_incidents = (
-                    analysis.get('blackscreen', False) or
-                    analysis.get('freeze', False) or
-                    not analysis.get('audio', True)
+                    analysis_json.get('blackscreen', False) or
+                    analysis_json.get('freeze', False) or
+                    not analysis_json.get('audio', True)
                 )
             
             if has_incidents:
                 incidents_count += 1
             
-            # Build device entry
+            # Build device entry matching frontend AnalysisData interface
             device_entry = {
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
                 'image_url': image_data.get('image_url'),
-                'json_url': image_data.get('json_url'),
-                'sequence': image_data.get('sequence', 'missing'),
-                'analysis': analysis,
-                'status': 'missing' if is_placeholder else 'active',
-                'is_placeholder': is_placeholder
+                'analysis_json': analysis_json  # Use analysis_json instead of analysis
             }
             
             devices.append(device_entry)
