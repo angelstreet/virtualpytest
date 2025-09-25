@@ -290,14 +290,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       handleDisconnectComplete,
     } = useHostManager();
 
-    // Initialize edge hook for action set filtering
-    console.log('[@NavigationEditor] DEBUG actualTreeId for useEdge:', actualTreeId);
-    const edgeHook = useEdge({
-      selectedHost: selectedHost || null,
-      selectedDeviceId: selectedDeviceId || null,
-      isControlActive,
-      treeId: actualTreeId,
-    });
+    // Initialize edge hook conditionally - only when we have the required context
+    const edgeHook = useEdge(
+      selectedEdge ? {
+        selectedHost: selectedHost || null,
+        selectedDeviceId: selectedDeviceId || null,
+        isControlActive,
+        treeId: actualTreeId,
+      } : undefined
+    );
 
     // Initialize metrics hook
     const metricsHook = useMetrics({
@@ -990,6 +991,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                         console.log('[@NavigationEditor] Rendering edge panels for selectedEdge:', selectedEdge);
                         console.log('[@NavigationEditor] selectedEdge.bidirectionalEdge:', selectedEdge.bidirectionalEdge);
                         
+                        // Edge hook is now conditionally initialized at component level
+                        
                         // Post-migration: Only show the selected edge, no bidirectional logic
                         const edgesToShow = [selectedEdge];
 
@@ -1003,11 +1006,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                           const panels = [];
                           
                           // Use filtered action sets for display - only forward direction for action edges
-                          const displayActionSets = edgeHook.getDisplayActionSets(edge);
+                          const displayActionSets = edgeHook?.getDisplayActionSets(edge) || [];
                           
                           if (displayActionSets.length > 0) {
                             console.log('[@NavigationEditor] Edge has', displayActionSets.length, 'display action sets (filtered for action type)');
-                            console.log('[@NavigationEditor] Is action edge:', edgeHook.isActionEdge(edge));
+                            console.log('[@NavigationEditor] Is action edge:', edgeHook?.isActionEdge(edge));
                             // Render panels for each display action set in this edge
                             displayActionSets.forEach((actionSet: any, actionSetIndex: number) => {
                               console.log('[@NavigationEditor] Creating panel for action set:', actionSet.id, 'at index:', panelIndexOffset + actionSetIndex);
@@ -1039,7 +1042,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                             
                             // Add fallback panel only for non-action edges that have less than 2 action sets
                             // Action edges should only show forward direction - no fallback for missing reverse
-                            const isActionEdge = edgeHook.isActionEdge(edge);
+                            const isActionEdge = edgeHook?.isActionEdge(edge) || false;
                             if (!isActionEdge && edge.data.action_sets.length < 2) {
                               console.log('[@NavigationEditor] Adding fallback panel for missing direction at index:', panelIndexOffset + displayActionSets.length);
                               panels.push(
