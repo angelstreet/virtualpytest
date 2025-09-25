@@ -144,7 +144,7 @@ start_grabber() {
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 40 -maxrate 300k -bufsize 600k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \
-      -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
+      -f hls -hls_time 4 -hls_list_size 5 -hls_flags omit_endlist \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 8 -f image2 \

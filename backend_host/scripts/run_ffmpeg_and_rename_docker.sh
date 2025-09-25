@@ -84,8 +84,6 @@ start_grabber() {
     return 1
   fi
 
-
-
   # Create capture directory
   mkdir -p "$capture_dir/captures"
 
@@ -122,7 +120,7 @@ start_grabber() {
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency -crf 35 -maxrate 500k -bufsize 1000k -g 120 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \
-      -f hls -hls_time 4 -hls_list_size 10 -hls_flags independent_segments \
+      -f hls -hls_time 4 -hls_list_size 5 -hls_flags independent_segments \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 8 -r 2 -f image2 \
@@ -133,8 +131,6 @@ start_grabber() {
     echo "ERROR: Unsupported source type: $source_type"
     return 1
   fi
-
-
 
   # Start ffmpeg
   echo "Starting ffmpeg for $source ($source_type) with audio: $audio_device..."
