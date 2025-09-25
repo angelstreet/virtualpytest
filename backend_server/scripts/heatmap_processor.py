@@ -358,21 +358,20 @@ class HeatmapProcessor:
                 active_count += 1
                 
             # Check for incidents
-            analysis = device.get('analysis', {})
-            analysis_json = analysis.get('analysis_json', {})
+            analysis_json_data = device.get('analysis_json', {})
             has_incident = (
-                analysis_json.get('blackscreen', False) or
-                analysis_json.get('freeze', False) or
-                not analysis_json.get('audio', True)
+                analysis_json_data.get('blackscreen', False) or
+                analysis_json_data.get('freeze', False) or
+                not analysis_json_data.get('audio', True)
             )
             
             if has_incident and device['status'] != 'missing':
                 incident_types = []
-                if analysis_json.get('blackscreen', False):
+                if analysis_json_data.get('blackscreen', False):
                     incident_types.append('blackscreen')
-                if analysis_json.get('freeze', False):
+                if analysis_json_data.get('freeze', False):
                     incident_types.append('freeze')
-                if not analysis_json.get('audio', True):
+                if not analysis_json_data.get('audio', True):
                     incident_types.append('no_audio')
                 
                 incident_devices.append({
@@ -656,7 +655,11 @@ class HeatmapProcessor:
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
                 'image_url': image_data.get('image_url'),
-                'analysis_json': analysis_json  # Use analysis_json instead of analysis
+                'json_url': image_data.get('json_url'),
+                'sequence': image_data.get('sequence', 'missing'),
+                'analysis_json': analysis_json,  # Use analysis_json for frontend
+                'status': 'missing' if is_placeholder else 'active',
+                'is_placeholder': is_placeholder
             }
             
             devices.append(device_entry)
