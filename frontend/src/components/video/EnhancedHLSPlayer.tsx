@@ -10,18 +10,24 @@ interface EnhancedHLSPlayerProps {
   height?: string | number;
   autoPlay?: boolean;
   className?: string;
+  isLiveMode?: boolean;
 }
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   deviceId,
   width = '100%',
   height = 400,
-  className
+  className,
+  isLiveMode: externalIsLiveMode
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isLiveMode, setIsLiveMode] = useState(true);
+  const [internalIsLiveMode] = useState(false); // Start in 24h mode
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true); // Start playing automatically
+  
+  // Use external control if provided, otherwise use internal state
+  const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
 
   // Dynamic stream URL based on mode - live uses output.m3u8, archive uses archive.m3u8
   const streamUrl = isLiveMode 
@@ -38,7 +44,19 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   };
 
-  // Video event handlers for timeline
+  // Play/pause control
+  const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  // Video event handlers for timeline and play state
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -47,34 +65,44 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleDurationChange = () => {
       setDuration(video.duration);
       
-      // When archive mode loads and we get duration, seek to live edge (rightmost position)
+      // When archive mode loads and we get duration, seek to beginning (leftmost position)
       if (!isLiveMode && video.duration && !isNaN(video.duration)) {
-        console.log('[@EnhancedHLSPlayer] Archive mode loaded, seeking to live edge:', video.duration);
-        video.currentTime = video.duration;
+        console.log('[@EnhancedHLSPlayer] Archive mode loaded, seeking to beginning');
+        video.currentTime = 0; // Start at beginning for 24h mode
       }
     };
 
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
     };
-  }, [isLiveMode]); // Add isLiveMode dependency to re-setup handlers when mode changes
+  }, [isLiveMode]);
 
-  // Mode toggle handler
-  const handleModeToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newIsLiveMode = event.target.checked;
-    setIsLiveMode(newIsLiveMode);
-    
-    // Always seek to live edge when switching modes
-    // For live mode: stay at live edge
-    // For archive mode: start at live edge (rightmost position) then allow scrubbing backwards
-    setTimeout(() => {
-      seekToLive();
+  // Handle mode changes and seeking
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLiveMode) {
+        seekToLive();
+      } else {
+        // For 24h mode, start at beginning
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+        }
+      }
     }, 500); // Small delay to allow HLS player to initialize with new manifest
-  };
+    
+    return () => clearTimeout(timer);
+  }, [isLiveMode]);
 
   // Archive timeline controls
   const handleSeek = (_event: Event, newValue: number | number[]) => {
@@ -95,13 +123,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
 
   return (
     <Box className={className} sx={{ width, position: 'relative' }}>
-      {/* Mode Toggle */}
-      <FormControlLabel
-        control={<Switch checked={isLiveMode} onChange={handleModeToggle} />}
-        label={isLiveMode ? '🔴 Live' : 'Restart 24h'}
-        sx={{ mb: 1 }}
-      />
-
       {/* Reuse HLSVideoPlayer for all streaming logic */}
       <Box sx={{ position: 'relative', height }}>
         <HLSVideoPlayer
@@ -113,6 +134,30 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           isArchiveMode={!isLiveMode} // Pass archive mode flag
           sx={{ width: '100%', height: '100%' }}
         />
+
+        {/* Play/Pause Control Overlay */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 10,
+          }}
+        >
+          <IconButton
+            onClick={togglePlayPause}
+            sx={{
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              },
+            }}
+            size="small"
+          >
+            {isPlaying ? <Pause /> : <PlayArrow />}
+          </IconButton>
+        </Box>
 
         {/* Archive Timeline Overlay */}
         {!isLiveMode && duration > 0 && (

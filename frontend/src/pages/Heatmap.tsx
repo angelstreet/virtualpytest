@@ -20,6 +20,8 @@ import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 import { ModalProvider } from '../contexts/ModalContext';
+import { HostManagerProvider } from '../contexts/HostManagerProvider';
+import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
 import { Host, Device } from '../types/common/Host_Types';
 
@@ -61,11 +63,22 @@ const HeatmapContent: React.FC = () => {
   // Handle overlay click to open stream modal
   const handleOverlayClick = (deviceData: any) => {
     // Convert heatmap device data to Host/Device format for RecHostStreamModal
+    const device: Device = {
+      device_id: deviceData.device_id,
+      device_name: deviceData.device_name || deviceData.device_id,
+      device_model: 'android_tv', // Default to android_tv for remote capability
+      device_capabilities: {
+        av: 'hdmi_stream', // Assume HDMI stream capability
+        remote: 'android_tv', // Enable remote control
+        power: 'adb' // Enable power control
+      }
+    };
+
     const host: Host = {
       host_name: deviceData.host_name,
       host_url: `http://${deviceData.host_name}:6109`, // Default host URL
       host_port: 6109,
-      devices: [],
+      devices: [device], // Include the device in the host
       device_count: 1,
       status: 'online',
       last_seen: Date.now(),
@@ -74,22 +87,11 @@ const HeatmapContent: React.FC = () => {
         cpu_percent: 0,
         memory_percent: 0,
         disk_percent: 0,
-        platform: 'unknown',
-        architecture: 'unknown',
-        python_version: 'unknown'
+        platform: 'linux',
+        architecture: 'x86_64',
+        python_version: '3.9'
       },
       isLocked: false
-    };
-
-    const device: Device = {
-      device_id: deviceData.device_id,
-      device_name: deviceData.device_name || deviceData.device_id,
-      device_model: 'unknown', // Not available in heatmap data
-      device_capabilities: {
-        av: 'hdmi_stream', // Assume HDMI stream capability
-        remote: undefined,
-        power: undefined
-      }
     };
 
     setStreamModalHost(host);
@@ -254,9 +256,13 @@ const HeatmapContent: React.FC = () => {
 
 const Heatmap: React.FC = () => {
   return (
-    <ModalProvider>
-      <HeatmapContent />
-    </ModalProvider>
+    <HostManagerProvider>
+      <DeviceDataProvider>
+        <ModalProvider>
+          <HeatmapContent />
+        </ModalProvider>
+      </DeviceDataProvider>
+    </HostManagerProvider>
   );
 };
 

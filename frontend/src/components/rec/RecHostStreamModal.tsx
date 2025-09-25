@@ -7,6 +7,8 @@ import {
   VolumeOff as VolumeOffIcon,
   VolumeUp as VolumeUpIcon,
   Refresh as RefreshIcon,
+  RadioButtonChecked as LiveIcon,
+  History as ArchiveIcon,
 } from '@mui/icons-material';
 import { Box, IconButton, Typography, Button, CircularProgress } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
@@ -78,6 +80,7 @@ const RecHostStreamModalContent: React.FC<{
   const [restartMode, setRestartMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
+  const [isLiveMode, setIsLiveMode] = useState<boolean>(false); // Start in 24h mode
 
   // Set global modal state when component mounts/unmounts
   useEffect(() => {
@@ -294,6 +297,15 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, [isControlActive, showWarning]);
 
+  // Handle live/24h mode toggle
+  const handleToggleLiveMode = useCallback(() => {
+    setIsLiveMode((prev) => {
+      const newMode = !prev;
+      console.log(`[@component:RecHostStreamModal] Live mode toggled: ${newMode ? 'Live' : '24h Archive'}`);
+      return newMode;
+    });
+  }, []);
+
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
 
@@ -400,10 +412,29 @@ const RecHostStreamModalContent: React.FC<{
         >
           <Typography variant="h6" component="h2">
             {device?.device_name || host.host_name} -{' '}
-            {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : 'Live Stream'}
+            {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live Stream' : '24h Archive'}
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Live/24h Mode Toggle Button - Only show when NOT in monitoring or restart mode */}
+            {!monitoringMode && !restartMode && (
+              <Button
+                variant={isLiveMode ? 'contained' : 'outlined'}
+                size="small"
+                onClick={handleToggleLiveMode}
+                startIcon={isLiveMode ? <LiveIcon /> : <ArchiveIcon />}
+                color={isLiveMode ? 'error' : 'primary'}
+                sx={{
+                  fontSize: '0.75rem',
+                  minWidth: 100,
+                  color: isLiveMode ? 'white' : 'inherit',
+                }}
+                title={isLiveMode ? 'Switch to 24h Archive' : 'Switch to Live Stream'}
+              >
+                {isLiveMode ? 'Live' : '24h'}
+              </Button>
+            )}
+
             {/* Volume Toggle Button - Only show when NOT in monitoring mode */}
             {!monitoringMode && !restartMode && (
               <IconButton
@@ -669,6 +700,7 @@ const RecHostStreamModalContent: React.FC<{
                     width="100%"
                     height={isMobileModel ? 600 : 400}
                     autoPlay={!isMuted}
+                    isLiveMode={isLiveMode}
                 />
               )
             ) : (
