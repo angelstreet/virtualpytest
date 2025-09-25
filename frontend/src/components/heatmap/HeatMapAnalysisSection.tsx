@@ -43,7 +43,7 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
   onToggleExpanded,
 }) => {
   // Calculate summary from images - only count devices with actual analysis data
-  const devicesWithAnalysis = images.filter((image) => image.analysis_json !== null);
+  const devicesWithAnalysis = images.filter((image) => image.analysis_json && typeof image.analysis_json === 'object');
   const totalDevices = devicesWithAnalysis.length;
   const devicesWithIncidents = devicesWithAnalysis.filter((image) => {
     const analysisJson = image.analysis_json || {};
@@ -135,7 +135,7 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
                   </TableHead>
                   <TableBody>
                     {images
-                      .filter((image) => image.analysis_json !== null) // Only show devices with actual analysis data
+                      .filter((image) => image.analysis_json && typeof image.analysis_json === 'object') // Only show devices with actual analysis data
                       .map((image, index) => {
                         const analysisJson = image.analysis_json || {};
                         const hasVideo = !analysisJson.blackscreen && !analysisJson.freeze;

@@ -262,7 +262,7 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
           />
           
           {/* Hour Marks */}
-          <Box sx={{ position: 'absolute', top: -25, left: 0, right: 0, height: 20 }}>
+          <Box sx={{ position: 'absolute', top: 35, left: 0, right: 0, height: 20 }}>
             {Array.from({ length: 24 }, (_, i) => {
               const hourIndex = i * 60; // Every hour (60 minutes)
               const position = (hourIndex / Math.max(1, timeline.length - 1)) * 100;
