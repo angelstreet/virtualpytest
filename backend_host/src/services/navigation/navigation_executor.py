@@ -475,10 +475,10 @@ class NavigationExecutor:
     
     def get_navigation_preview(self, tree_id: str, target_node_id: str, 
                              current_node_id: Optional[str] = None, team_id: str = None) -> Dict[str, Any]:
-        """Get navigation preview without executing - auto-loads tree if cache missing"""
+        """Get navigation preview without executing - expects unified cache to be pre-populated"""
         
         try:
-            # Try to get navigation path using unified cache
+            # Get navigation path using unified cache (should be pre-populated by tree loading)
             transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
             
             success = bool(transitions)
@@ -496,109 +496,20 @@ class NavigationExecutor:
             }
             
         except UnifiedCacheError as e:
-            # Cache missing - try to auto-populate by loading the tree
-            print(f"[@navigation_executor:get_navigation_preview] Unified cache missing for tree {tree_id}, attempting auto-load...")
-            
-            if not team_id:
-                return {
-                    'success': False,
-                    'error': 'team_id is required for auto-loading navigation tree',
-                    'tree_id': tree_id,
-                    'target_node_id': target_node_id,
-                    'current_node_id': current_node_id,
-                    'transitions': [],
-                    'total_transitions': 0,
-                    'total_actions': 0
-                }
-            
-            try:
-                # Auto-load tree to populate unified cache
-                from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
-                
-                # Try to load complete hierarchy first (for nested trees)
-                hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
-                
-                if hierarchy_result.get('success'):
-                    all_trees_data = hierarchy_result.get('all_trees_data', [])
-                    print(f"[@navigation_executor:get_navigation_preview] Auto-loaded tree hierarchy: {len(all_trees_data)} trees")
-                else:
-                    # Fallback: Load single tree
-                    tree_result = get_full_tree(tree_id, team_id)
-                    if not tree_result.get('success'):
-                        return {
-                            'success': False,
-                            'error': f'Failed to auto-load tree {tree_id}: {tree_result.get("error", "Unknown error")}',
-                            'tree_id': tree_id,
-                            'target_node_id': target_node_id,
-                            'current_node_id': current_node_id,
-                            'transitions': [],
-                            'total_transitions': 0,
-                            'total_actions': 0
-                        }
-                    
-                    # Format as single-tree hierarchy for unified cache
-                    all_trees_data = [{
-                        'tree_id': tree_id,
-                        'tree_info': {
-                            'name': tree_result['tree'].get('name', 'Unknown'),
-                            'is_root_tree': True,
-                            'tree_depth': 0,
-                            'parent_tree_id': None,
-                            'parent_node_id': None
-                        },
-                        'nodes': tree_result['nodes'],
-                        'edges': tree_result['edges']
-                    }]
-                    print(f"[@navigation_executor:get_navigation_preview] Auto-loaded single tree as fallback")
-                
-                # Populate unified cache
-                from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
-                unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
-                
-                if not unified_graph:
-                    return {
-                        'success': False,
-                        'error': f'Failed to populate unified cache for tree {tree_id}',
-                        'tree_id': tree_id,
-                        'target_node_id': target_node_id,
-                        'current_node_id': current_node_id,
-                        'transitions': [],
-                        'total_transitions': 0,
-                        'total_actions': 0
-                    }
-                
-                print(f"[@navigation_executor:get_navigation_preview] Successfully auto-populated unified cache: {len(unified_graph.nodes)} nodes")
-                
-                # Now retry pathfinding with populated cache
-                transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
-                
-                success = bool(transitions)
-                error_message = 'No navigation path found' if not success else ''
-                
-                return {
-                    'success': success,
-                    'error': error_message if not success else None,
-                    'tree_id': tree_id,
-                    'target_node_id': target_node_id,
-                    'current_node_id': current_node_id,
-                    'transitions': transitions or [],
-                    'total_transitions': len(transitions) if transitions else 0,
-                    'total_actions': sum(len(t.get('actions', [])) for t in transitions) if transitions else 0,
-                    'auto_loaded': True  # Indicate that cache was auto-populated
-                }
-                
-            except Exception as auto_load_error:
-                print(f"[@navigation_executor:get_navigation_preview] Auto-load failed: {str(auto_load_error)}")
-                return {
-                    'success': False,
-                    'error': f'Auto-load failed for tree {tree_id}: {str(auto_load_error)}',
-                    'tree_id': tree_id,
-                    'target_node_id': target_node_id,
-                    'current_node_id': current_node_id,
-                    'transitions': [],
-                    'total_transitions': 0,
-                    'total_actions': 0
-                }
+            # Cache missing - this indicates the tree wasn't loaded properly
+            print(f"[@navigation_executor:get_navigation_preview] Unified cache missing for tree {tree_id}")
+            print(f"[@navigation_executor:get_navigation_preview] This indicates the NavigationEditor didn't load the tree properly")
+            return {
+                'success': False,
+                'error': f'Navigation tree {tree_id} not loaded. Please reload the NavigationEditor to populate the navigation cache.',
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'transitions': [],
+                'total_transitions': 0,
+                'total_actions': 0,
+                'cache_missing': True
+            }
         
         except Exception as e:
             print(f"[@navigation_executor:get_navigation_preview] Unexpected error: {str(e)}")
