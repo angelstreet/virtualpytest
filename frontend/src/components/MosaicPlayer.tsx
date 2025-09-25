@@ -179,7 +179,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
                   
                   const analysis = device.analysis_json || {};
                   
-                  const tooltipText = `${device.host_name}-${device.device_id}
+                  const tooltipText = `${device.host_name}-${device.device_name}
 Audio: ${analysis.audio ? 'Yes' : 'No'}
 Video: ${!analysis.blackscreen && !analysis.freeze ? 'Yes' : 'No'}
 ${analysis.volume_percentage !== undefined ? `Volume: ${analysis.volume_percentage}%` : ''}

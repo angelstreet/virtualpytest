@@ -19,6 +19,7 @@ import React from 'react';
 interface DeviceData {
   host_name: string;
   device_id: string;
+  device_name?: string;
   image_url: string;
   analysis_json: {
     audio?: boolean;
@@ -167,7 +168,7 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
                             }}
                           >
                             <TableCell>
-                              {image.host_name}-{image.device_id}
+                              {image.host_name}-{image.device_name || image.device_id}
                             </TableCell>
                             <TableCell>
                               <Chip

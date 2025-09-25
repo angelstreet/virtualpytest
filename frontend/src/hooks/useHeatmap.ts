@@ -91,6 +91,7 @@ export const useHeatmap = () => {
       
       if (response.ok) {
         const data = await response.json();
+        console.log(`[useHeatmap] Successfully loaded analysis data for ${item.timeKey}:`, data);
         setAnalysisData(data);
         // Success - reset error flags and track success
         setHasDataError(false);
@@ -275,6 +276,106 @@ export const useHeatmap = () => {
     if (!analysisData) return false;
     return analysisData.incidents_count > 0;
   };
+
+  /**
+   * Generate HTML report for current frame
+   */
+  const generateReport = async (): Promise<void> => {
+    if (!timeline[currentIndex] || !analysisData) return;
+    
+    const currentItem = timeline[currentIndex];
+    
+    // Create HTML report content
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heatmap Report - ${currentItem.timeKey}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #4a90e2, #357abd); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+        .content { padding: 20px; }
+        .mosaic { text-align: center; margin: 20px 0; }
+        .mosaic img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .analysis { margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        .chip { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500; }
+        .chip.success { background-color: #e8f5e8; color: #2e7d32; }
+        .chip.error { background-color: #ffebee; color: #c62828; }
+        .text-success { color: #2e7d32; }
+        .text-error { color: #c62828; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Heatmap Report</h1>
+            <p>Time: ${currentItem.displayTime.toLocaleString()} | Devices: ${analysisData.devices.length} | Incidents: ${analysisData.incidents_count}</p>
+        </div>
+        <div class="content">
+            <div class="mosaic">
+                <img src="${currentItem.mosaicUrl}" alt="Heatmap Mosaic" />
+            </div>
+            <div class="analysis">
+                <h2>Device Analysis</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Audio</th>
+                            <th>Video</th>
+                            <th>Volume %</th>
+                            <th>Mean dB</th>
+                            <th>Blackscreen</th>
+                            <th>Freeze</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${analysisData.devices.map(device => {
+                          const analysis = device.analysis_json;
+                          const hasAudio = analysis.audio !== false;
+                          const hasVideo = !analysis.blackscreen && !analysis.freeze;
+                          const volumePercentage = analysis.volume_percentage || 0;
+                          const meanVolumeDb = analysis.mean_volume_db || -100;
+                          const freezeDiffs = analysis.freeze_diffs || [];
+                          
+                          return `
+                            <tr>
+                                <td>${device.host_name}-${device.device_id}</td>
+                                <td><span class="chip ${hasAudio ? 'success' : 'error'}">${hasAudio ? 'Yes' : 'No'}</span></td>
+                                <td><span class="chip ${hasVideo ? 'success' : 'error'}">${hasVideo ? 'Yes' : 'No'}</span></td>
+                                <td>${volumePercentage}%</td>
+                                <td>${meanVolumeDb} dB</td>
+                                <td><span class="${analysis.blackscreen ? 'text-error' : 'text-success'}">${analysis.blackscreen ? 'Yes' : 'No'}</span></td>
+                                <td><span class="${analysis.freeze ? 'text-error' : 'text-success'}">${analysis.freeze ? `Yes (${freezeDiffs.join(', ')})` : 'No'}</span></td>
+                            </tr>
+                          `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    // Download HTML file
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `heatmap_report_${currentItem.timeKey}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log(`Generated HTML report for ${currentItem.timeKey}`);
+  };
   
   return {
     // Timeline data
@@ -298,6 +399,7 @@ export const useHeatmap = () => {
     refreshCurrentData,
     recoverFromCorsBlock,
     navigateToIndex,
+    generateReport,
     
     // Timeline info
     totalMinutes: timeline.length,
