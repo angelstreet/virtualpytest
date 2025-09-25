@@ -93,7 +93,7 @@ def action_execute_batch():
         # Get request data
         data = request.get_json() or {}
         actions = data.get('actions', [])  # Array of embedded action objects
-        host = data.get('host', {})
+        host_name = data.get('host_name')
         device_id = data.get('device_id', 'device1')
         retry_actions = data.get('retry_actions', [])
         team_id = data.get('team_id')
@@ -104,15 +104,15 @@ def action_execute_batch():
         action_set_id = data.get('action_set_id')
         
         print(f"[@route:server_actions:action_execute_batch] Processing {len(actions)} main actions, {len(retry_actions)} retry actions")
-        print(f"[@route:server_actions:action_execute_batch] Host: {host.get('host_name')}, Device ID: {device_id}")
+        print(f"[@route:server_actions:action_execute_batch] Host: {host_name}, Device ID: {device_id}")
         print(f"[@route:server_actions:action_execute_batch] Navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
         
         # Validate
         if not actions:
             return jsonify({'success': False, 'error': 'actions are required'}), 400
         
-        if not host:
-            return jsonify({'success': False, 'error': 'host is required'}), 400
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name is required'}), 400
         
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
@@ -177,19 +177,19 @@ def action_execute_single():
         # Get request data
         data = request.get_json() or {}
         action = data.get('action', {})  # Single embedded action object
-        host = data.get('host', {})
+        host_name = data.get('host_name')
         device_id = data.get('device_id', 'device1')
         team_id = data.get('team_id')
         
         print(f"[@route:server_actions:action_execute_single] Executing action: {action.get('command', 'unknown_command')}")
-        print(f"[@route:server_actions:action_execute_single] Host: {host.get('host_name')}, Device ID: {device_id}")
+        print(f"[@route:server_actions:action_execute_single] Host: {host_name}, Device ID: {device_id}")
         
         # Validate
         if not action:
             return jsonify({'success': False, 'error': 'action is required'}), 400
         
-        if not host:
-            return jsonify({'success': False, 'error': 'host is required'}), 400
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name is required'}), 400
         
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
@@ -202,8 +202,7 @@ def action_execute_single():
             'actions': actions,
             'device_id': device_id,
             'retry_actions': [],
-            'team_id': team_id,
-            'host_name': host.get('host_name')  # Add host_name for proxy_to_host_with_params
+            'team_id': team_id
         }
         
         # Extract parameters for query string
@@ -213,7 +212,7 @@ def action_execute_single():
         if team_id:
             query_params['team_id'] = team_id
         
-        print(f"[@route:server_actions:action_execute_single] Proxying to host: {host.get('host_name')}")
+        print(f"[@route:server_actions:action_execute_single] Proxying to host: {host_name}")
         
         # Proxy to host with parameters
         response_data, status_code = proxy_to_host_with_params(
