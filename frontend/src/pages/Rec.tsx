@@ -150,6 +150,16 @@ const RecContent: React.FC = () => {
     setSelectedDevices(new Set());
   }, []);
 
+  // Clear only filtered device selections (keep selections for devices hidden by filters)
+  const handleClearFilteredSelection = useCallback(() => {
+    const filteredDeviceKeys = new Set(filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`));
+    setSelectedDevices(prev => {
+      const newSet = new Set(prev);
+      filteredDeviceKeys.forEach(deviceKey => newSet.delete(deviceKey));
+      return newSet;
+    });
+  }, [filteredDevices]);
+
   // Memoize device flags lookup to prevent unnecessary re-renders
   const deviceFlagsMap = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -308,15 +318,29 @@ const RecContent: React.FC = () => {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {isEditMode ? (
-              <>
-                Flag Edit Mode • {selectedDevices.size} selected
-                {hasUnsavedChanges && (
-                  <span style={{ color: '#ff9800', fontWeight: 500 }}>
-                    {' '}
-                    • {pendingChanges.size} unsaved changes
-                  </span>
-                )}
-              </>
+              (() => {
+                // Calculate how many of the currently filtered devices are selected
+                const filteredDeviceKeys = new Set(filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`));
+                const selectedFilteredCount = Array.from(selectedDevices).filter(deviceKey => filteredDeviceKeys.has(deviceKey)).length;
+                
+                return (
+                  <>
+                    Flag Edit Mode • {selectedFilteredCount} of {filteredDevices.length} selected
+                    {selectedDevices.size > selectedFilteredCount && (
+                      <span style={{ color: '#ff9800', fontWeight: 500 }}>
+                        {' '}
+                        ({selectedDevices.size - selectedFilteredCount} hidden by filters)
+                      </span>
+                    )}
+                    {hasUnsavedChanges && (
+                      <span style={{ color: '#ff9800', fontWeight: 500 }}>
+                        {' '}
+                        • {pendingChanges.size} unsaved changes
+                      </span>
+                    )}
+                  </>
+                );
+              })()
             ) : (
               <>
                 View and control connected devices
@@ -486,7 +510,12 @@ const RecContent: React.FC = () => {
               <Button
                 size="small"
                 onClick={handleSelectAll}
-                disabled={filteredDevices.length === 0 || selectedDevices.size === filteredDevices.length}
+                disabled={(() => {
+                  if (filteredDevices.length === 0) return true;
+                  // Check if all filtered devices are already selected
+                  const filteredDeviceKeys = filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`);
+                  return filteredDeviceKeys.every(deviceKey => selectedDevices.has(deviceKey));
+                })()}
                 sx={{ height: 32, textTransform: 'none' }}
               >
                 Select All ({filteredDevices.length})
@@ -494,11 +523,21 @@ const RecContent: React.FC = () => {
 
               <Button
                 size="small"
-                onClick={handleClearSelection}
-                disabled={selectedDevices.size === 0}
+                onClick={hasActiveFilters ? handleClearFilteredSelection : handleClearSelection}
+                disabled={(() => {
+                  if (hasActiveFilters) {
+                    // For filtered view, check if any filtered devices are selected
+                    const filteredDeviceKeys = filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`);
+                    return !filteredDeviceKeys.some(deviceKey => selectedDevices.has(deviceKey));
+                  } else {
+                    // For unfiltered view, check if any devices are selected
+                    return selectedDevices.size === 0;
+                  }
+                })()}
                 sx={{ height: 32, textTransform: 'none' }}
+                title={hasActiveFilters ? "Clear selection for visible devices only" : "Clear all selections"}
               >
-                Unselect All
+                {hasActiveFilters ? 'Clear Visible' : 'Clear All'}
               </Button>
 
               <Button

@@ -697,6 +697,8 @@ const RecHostStreamModalContent: React.FC<{
                 <EnhancedHLSPlayer
                     deviceId={device?.device_id || 'device1'}
                     hostName={host.host_name}
+                    host={host}
+                    streamUrl={streamUrl}
                     width="100%"
                     height={isMobileModel ? 600 : 400}
                     autoPlay={!isMuted}

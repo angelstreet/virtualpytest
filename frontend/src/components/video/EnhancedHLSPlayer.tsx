@@ -2,10 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Box, Slider, Typography, IconButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
+import { useStream } from '../../hooks/controller';
+import { Host } from '../../types/common/Host_Types';
 
 interface EnhancedHLSPlayerProps {
   deviceId: string;
   hostName: string;
+  host?: Host; // Host object for useStream hook
+  streamUrl?: string; // Server-provided stream URL
   width?: string | number;
   height?: string | number;
   autoPlay?: boolean;
@@ -15,6 +19,9 @@ interface EnhancedHLSPlayerProps {
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   deviceId,
+  hostName,
+  host,
+  streamUrl: providedStreamUrl,
   width = '100%',
   height = 400,
   className,
@@ -29,10 +36,34 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
 
-  // Dynamic stream URL based on mode - live uses output.m3u8, archive uses archive.m3u8
-  const streamUrl = isLiveMode 
+  // Use useStream hook when host is provided and no streamUrl is given (same as RecHostPreview)
+  const { streamUrl: hookStreamUrl } = useStream({
+    host: host || {
+      host_name: hostName,
+      host_url: `http://${hostName}:6109`,
+      host_port: 6109,
+      devices: [],
+      device_count: 0,
+      status: 'online',
+      last_seen: Date.now(),
+      registered_at: new Date().toISOString(),
+      system_stats: {
+        cpu_percent: 0,
+        memory_percent: 0,
+        disk_percent: 0,
+        platform: 'linux',
+        architecture: 'x86_64',
+        python_version: '3.9'
+      },
+      isLocked: false
+    },
+    device_id: deviceId,
+  });
+
+  // Use provided stream URL, then hook URL, then fallback to dynamic URL based on mode
+  const streamUrl = providedStreamUrl || hookStreamUrl || (isLiveMode 
     ? `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`
-    : `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
+    : `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`);
 
   // Seek to live edge when switching to live mode
   const seekToLive = () => {
