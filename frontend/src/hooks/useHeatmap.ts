@@ -322,7 +322,7 @@ export const useHeatmap = () => {
         },
         body: JSON.stringify({
           time_key: currentItem.timeKey,
-          mosaic_url: currentItem.mosaicUrl,
+          mosaic_url: currentItem.mosaicUrl, // Always use ALL mosaic for reports
           analysis_data: analysisData,
           analysis_url: currentItem.analysisUrl
         })

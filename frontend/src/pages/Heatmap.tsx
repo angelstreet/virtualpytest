@@ -93,7 +93,7 @@ const Heatmap: React.FC = () => {
       {/* Header */}
       <Box>
         <Card>
-          <CardContent sx={{ py: 0.25, px: 1 }}>
+          <CardContent sx={{ py: 0, px: 1 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Box display="flex" alignItems="center" gap={0.5}>
                 <HeatmapIcon color="primary" fontSize="small" />
@@ -112,7 +112,7 @@ const Heatmap: React.FC = () => {
                   <Select
                     value={filter}
                     onChange={(e) => setFilter(e.target.value as 'ALL' | 'OK' | 'KO')}
-                    sx={{ fontSize: '0.75rem', height: '24px' }}
+                    sx={{ fontSize: '0.75rem', height: '20px' }}
                   >
                     <MenuItem value="ALL">ALL</MenuItem>
                     <MenuItem value="OK">OK</MenuItem>
@@ -167,16 +167,6 @@ const Heatmap: React.FC = () => {
 
       {/* Analysis Section */}
       <Box sx={{ mb: 3 }}>
-        {/* Debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <Box sx={{ mb: 1, p: 1, bgcolor: 'grey.100', fontSize: '0.75rem' }}>
-            <Typography variant="caption">
-              Debug: analysisData={analysisData ? 'exists' : 'null'}, 
-              devices={analysisData?.devices?.length || 0}, 
-              hasDevicesArray={Array.isArray(analysisData?.devices)}
-            </Typography>
-          </Box>
-        )}
         <HeatMapAnalysisSection
           images={getFilteredDevices(analysisData?.devices || [], filter)}
           analysisExpanded={analysisExpanded}

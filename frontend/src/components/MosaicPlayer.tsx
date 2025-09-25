@@ -5,7 +5,7 @@
  * Shows mosaic images and provides timeline navigation controls.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Slider,
@@ -18,6 +18,9 @@ import {
 
 import { TimelineItem } from '../hooks/useHeatmap';
 
+// Add type alias for filter
+type FilterType = 'ALL' | 'OK' | 'KO';
+
 interface MosaicPlayerProps {
   timeline: TimelineItem[];
   currentIndex: number;
@@ -27,6 +30,8 @@ interface MosaicPlayerProps {
   isLoading?: boolean;
   hasDataError?: boolean;
   analysisData?: any; // Device analysis data for overlays
+  filter?: FilterType;
+  getMosaicUrl?: (item: TimelineItem, filter: FilterType) => string;
 }
 
 export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
@@ -37,14 +42,56 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   hasIncidents = false,
   isLoading = false,
   hasDataError = false,
-  analysisData
+  analysisData,
+  filter = 'ALL',
+  getMosaicUrl
 }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
+  const currentImageRef = useRef<HTMLImageElement | null>(null);
   
   const currentItem = timeline[currentIndex];
+  const mosaicSrc = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem.mosaicUrl;
   
+  // Reset loading state when filter or index changes
+  useEffect(() => {
+    setImageLoading(true);
+    setImageError(false);
+  }, [filter, currentIndex]);
   
+  // Preload and cache image
+  useEffect(() => {
+    if (!mosaicSrc) return;
+    
+    // Check if image is already cached
+    if (imageCache.current.has(mosaicSrc)) {
+      setImageLoading(false);
+      setImageError(false);
+      return;
+    }
+    
+    // Preload image
+    const img = new Image();
+    img.onload = () => {
+      imageCache.current.set(mosaicSrc, img);
+      setImageLoading(false);
+      setImageError(false);
+    };
+    img.onerror = () => {
+      setImageLoading(false);
+      setImageError(true);
+    };
+    img.src = mosaicSrc;
+    currentImageRef.current = img;
+    
+    return () => {
+      if (currentImageRef.current) {
+        currentImageRef.current.onload = null;
+        currentImageRef.current.onerror = null;
+      }
+    };
+  }, [mosaicSrc]);
   
   
   /**
@@ -147,20 +194,12 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
         ) : (
           <>
             <img
-              src={currentItem.mosaicUrl}
-              alt={`Heatmap ${currentItem.timeKey}`}
+              src={mosaicSrc}
+              alt={`Heatmap ${currentItem.timeKey} - ${filter}`}
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain'
-              }}
-              onLoad={() => {
-                setImageLoading(false);
-                setImageError(false);
-              }}
-              onError={() => {
-                setImageLoading(false);
-                setImageError(true);
               }}
             />
             
