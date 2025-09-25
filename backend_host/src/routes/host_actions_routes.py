@@ -65,6 +65,12 @@ def action_execute_batch():
         
         print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
         
+        # DEBUG: Verify attributes were set
+        print(f"[@route:host_actions:action_execute_batch] DEBUG: Verification after setting:")
+        print(f"  - device.action_executor.tree_id = {getattr(device.action_executor, 'tree_id', 'NOT_SET')}")
+        print(f"  - device.action_executor.edge_id = {getattr(device.action_executor, 'edge_id', 'NOT_SET')}")
+        print(f"  - device.action_executor.action_set_id = {getattr(device.action_executor, 'action_set_id', 'NOT_SET')}")
+        
         # Execute actions using device's ActionExecutor
         result = device.action_executor.execute_actions(
             actions=actions,

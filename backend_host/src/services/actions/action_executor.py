@@ -735,9 +735,14 @@ class ActionExecutor:
             # Get tree_id from ActionExecutor attributes first (for edge recording), 
             # then fall back to device navigation context (for full navigation)
             tree_id = getattr(self, 'tree_id', None)
+            print(f"[@action_executor:_record_edge_execution] DEBUG: self.tree_id = {tree_id}")
+            print(f"[@action_executor:_record_edge_execution] DEBUG: hasattr(self, 'tree_id') = {hasattr(self, 'tree_id')}")
+            print(f"[@action_executor:_record_edge_execution] DEBUG: ActionExecutor attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
+            
             if tree_id is None:
                 nav_context = self.device.navigation_context
                 tree_id = nav_context['current_tree_id']
+                print(f"[@action_executor:_record_edge_execution] DEBUG: Fallback to device nav_context tree_id = {tree_id}")
             
             # DEBUG: Log the values being recorded
             print(f"[@action_executor:_record_edge_execution] DEBUG Recording:")
