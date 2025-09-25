@@ -22,9 +22,8 @@ import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
 
-// Memoized RecHostPreview to prevent unnecessary re-renders
+// Update memoization to deep-compare host and device
 const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
-  // Only re-render if essential props change
   return (
     prevProps.host.host_name === nextProps.host.host_name &&
     prevProps.device?.device_id === nextProps.device?.device_id &&
@@ -32,7 +31,9 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.isSelected === nextProps.isSelected &&
     JSON.stringify(prevProps.deviceFlags) === JSON.stringify(nextProps.deviceFlags) &&
     prevProps.host.status === nextProps.host.status &&
-    JSON.stringify(prevProps.host.system_stats) === JSON.stringify(nextProps.host.system_stats)
+    JSON.stringify(prevProps.host.system_stats) === JSON.stringify(nextProps.host.system_stats) &&
+    JSON.stringify(prevProps.host) === JSON.stringify(nextProps.host) &&  // Deep compare host
+    JSON.stringify(prevProps.device) === JSON.stringify(nextProps.device)  // Deep compare device
   );
 });
 
