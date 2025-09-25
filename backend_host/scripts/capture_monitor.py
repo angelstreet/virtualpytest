@@ -6,6 +6,7 @@ Glues detector + incident_manager together
 import os
 import time
 import glob
+import json
 import logging
 from datetime import datetime
 from detector import detect_issues
@@ -114,10 +115,15 @@ def main():
                 
                 incident_manager.process_detection(capture_folder, detection_result, host_name)
                 
-                # Mark frame as analyzed
+                # Save complete analysis data to JSON file
                 json_file = frame_path.replace('.jpg', '.json')
                 with open(json_file, 'w') as f:
-                    f.write('{"analyzed": true}')
+                    # Save the complete detection result
+                    analysis_data = {
+                        "analyzed": True,
+                        **detection_result  # Include all detection data (freeze, blackscreen, audio, etc.)
+                    }
+                    json.dump(analysis_data, f, indent=2)
         
         time.sleep(2)  # Check every 2 seconds
         
