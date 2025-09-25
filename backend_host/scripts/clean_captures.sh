@@ -37,19 +37,28 @@ for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do
   # Get parent directory
   PARENT_DIR=$(dirname "$CAPTURE_DIR")
   
-  # Clean parent directory (only files, not folders) - PRESERVE SEGMENTS
+  # Clean parent directory - DELETE OLD SEGMENTS (24h retention)
   if [ -d "$PARENT_DIR" ]; then
-    echo "$(date): Cleaning parent directory $PARENT_DIR (preserving segments)" >> "$CLEAN_LOG"
-    # Clean other files but preserve segment files and m3u8 files
+    echo "$(date): Cleaning parent directory $PARENT_DIR (24h segment retention)" >> "$CLEAN_LOG"
+    
+    # Delete segment files older than 24 hours (1440 minutes)
+    find "$PARENT_DIR" -maxdepth 1 -name "segment_*.ts" -mmin +1440 -delete -printf "$(date): Deleted old segment %p\n" >> "$CLEAN_LOG" 2>&1
+    
+    # Clean other files but preserve recent segments and m3u8 files
     find "$PARENT_DIR" -maxdepth 1 -type f -not -name "segment_*.ts" -not -name "*.m3u8" -mmin +10 -delete -printf "$(date): Deleted parent file %p\n" >> "$CLEAN_LOG" 2>&1
     reset_log_if_large "$CLEAN_LOG"
   fi
   
-  # Clean captures directory - PRESERVE SEGMENTS
+  # Clean captures directory - DELETE OLD CAPTURE FILES (24h retention)
   if [ -d "$CAPTURE_DIR" ]; then
-    echo "$(date): Cleaning captures directory $CAPTURE_DIR (preserving segments)" >> "$CLEAN_LOG"
-    # Only delete non-segment files in captures directory
-    find "$CAPTURE_DIR" -type f -not -name "segment_*.ts" -not -name "*.m3u8" -mmin +10 -delete -printf "$(date): Deleted capture file %p\n" >> "$CLEAN_LOG" 2>&1
+    echo "$(date): Cleaning captures directory $CAPTURE_DIR (24h retention)" >> "$CLEAN_LOG"
+    
+    # Delete capture files older than 24 hours (1440 minutes)
+    find "$CAPTURE_DIR" -type f -name "capture_*.jpg" -mmin +1440 -delete -printf "$(date): Deleted old capture %p\n" >> "$CLEAN_LOG" 2>&1
+    find "$CAPTURE_DIR" -type f -name "capture_*.json" -mmin +1440 -delete -printf "$(date): Deleted old analysis %p\n" >> "$CLEAN_LOG" 2>&1
+    
+    # Clean other old files but preserve recent ones
+    find "$CAPTURE_DIR" -type f -not -name "capture_*" -mmin +10 -delete -printf "$(date): Deleted other file %p\n" >> "$CLEAN_LOG" 2>&1
     reset_log_if_large "$CLEAN_LOG"
   fi
 done

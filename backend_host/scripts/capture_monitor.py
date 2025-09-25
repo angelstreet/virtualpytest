@@ -38,6 +38,50 @@ def get_capture_folder(capture_dir):
     # /var/www/html/stream/capture1/captures -> capture1
     return os.path.basename(os.path.dirname(capture_dir))
 
+def update_archive_manifest(capture_dir):
+    """Generate archive.m3u8 from all available segments"""
+    try:
+        capture_folder = get_capture_folder(capture_dir)
+        stream_dir = capture_dir.replace('/captures', '')  # /var/www/html/stream/capture1
+        
+        # Find all segment files
+        segments = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
+        if not segments:
+            return
+            
+        # Sort segments by number (segment_001.ts, segment_002.ts, etc.)
+        segments.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
+        
+        # Generate archive manifest content
+        manifest_content = [
+            "#EXTM3U",
+            "#EXT-X-VERSION:3",
+            "#EXT-X-TARGETDURATION:4",
+            "#EXT-X-MEDIA-SEQUENCE:1"
+        ]
+        
+        for segment in segments:
+            segment_name = os.path.basename(segment)
+            manifest_content.extend([
+                "#EXTINF:1.000000,",
+                segment_name
+            ])
+        
+        manifest_content.append("#EXT-X-ENDLIST")
+        
+        # Write archive manifest
+        archive_path = os.path.join(stream_dir, 'archive.m3u8')
+        with open(archive_path + '.tmp', 'w') as f:
+            f.write('\n'.join(manifest_content))
+        
+        # Atomic move to prevent partial reads
+        os.rename(archive_path + '.tmp', archive_path)
+        
+        logger.debug(f"[{capture_folder}] Updated archive manifest with {len(segments)} segments")
+        
+    except Exception as e:
+        logger.error(f"Error updating archive manifest for {capture_dir}: {e}")
+
 def find_latest_frame(capture_dir):
     """Find most recent unanalyzed frame"""
     pattern = os.path.join(capture_dir, "capture_*.jpg")
@@ -97,6 +141,10 @@ def main():
     while True:
         for capture_dir in capture_dirs:
             capture_folder = get_capture_folder(capture_dir)
+            
+            # Update archive manifest every cycle (2 seconds)
+            update_archive_manifest(capture_dir)
+            
             frame_path = find_latest_frame(capture_dir)
             
             if frame_path:
