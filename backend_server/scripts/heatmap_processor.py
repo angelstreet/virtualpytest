@@ -132,6 +132,10 @@ class HeatmapProcessor:
             # Upload to R2 with time-only naming
             success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json, ok_mosaic_image, ko_mosaic_image)
             
+            # Log raw JSON data after upload
+            logger.info(f"📄 RAW JSON DATA for {time_key}:")
+            logger.info(json.dumps(analysis_json, indent=2))
+            
             logger.info(f"✅ Generated heatmap for {time_key} ({len(complete_device_list)} devices)")
             
         except Exception as e:
@@ -262,16 +266,17 @@ class HeatmapProcessor:
                                     raw_json_data = json_response.json()
                                     
                                     # DEBUG: Log the raw JSON data from monitor
-                                    logger.debug(f"🔍 RAW JSON for {host_name}/{device_id}: {raw_json_data}")
+                                    device_name = device.get('device_name', 'Unknown')
+                                    logger.debug(f"🔍 RAW JSON for {host_name}/{device_id}/{device_name}: {raw_json_data}")
                                     
                                     # Check if JSON has actual analysis data (not just {"analyzed": True})
                                     has_real_data = any(key in raw_json_data for key in ['blackscreen', 'freeze', 'audio'])
                                     if has_real_data:
                                         analysis_data = raw_json_data
-                                        logger.info(f"✅ Using raw analysis for {host_name}/{device_id}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
+                                        logger.info(f"✅ Using raw analysis for {host_name}/{device_id}/{device_name}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
                                     else:
                                         analysis_data = None  # No real analysis data
-                                        logger.warning(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}: {raw_json_data}")
+                                        logger.warning(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}/{device_name}: {raw_json_data}")
                                 else:
                                     analysis_data = None  # No JSON file
                                 
@@ -286,16 +291,19 @@ class HeatmapProcessor:
                                     'sequence': sequence
                                 })
                                 
-                                logger.info(f"✅ {host_name}/{device_id}: capture_{sequence}.jpg")
+                                logger.info(f"✅ {host_name}/{device_id}/{device_name}: capture_{sequence}.jpg")
                             else:
                                 logger.warning(f"⚠️ Could not extract sequence from {raw_json_url}")
                         else:
-                            logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}: {result.get('error', 'Unknown error')}")
+                            device_name = device.get('device_name', 'Unknown')
+                            logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {result.get('error', 'Unknown error')}")
                     else:
-                        logger.error(f"❌ API error for {host_name}/{device_id}: HTTP {response.status_code}")
+                        device_name = device.get('device_name', 'Unknown')
+                        logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {response.status_code}")
                         
                 except Exception as e:
-                    logger.error(f"❌ Error fetching current capture for {host_name}/{device_id}: {e}")
+                    device_name = device.get('device_name', 'Unknown')
+                    logger.error(f"❌ Error fetching current capture for {host_name}/{device_id}/{device_name}: {e}")
                     continue
             
             logger.info(f"🎯 Fetched {len(current_captures)} current captures from {len(hosts_devices)} devices")
@@ -397,8 +405,9 @@ class HeatmapProcessor:
                 if not analysis_data.get('audio', True):
                     incident_types.append('no_audio')
                 
+                device_name = device.get('device_name', 'Unknown')
                 incident_devices.append({
-                    'device': f"{device['host_name']}/{device['device_id']}",
+                    'device': f"{device['host_name']}/{device['device_id']}/{device_name}",
                     'incidents': incident_types
                 })
         
@@ -601,7 +610,8 @@ class HeatmapProcessor:
                 
                 mosaic.paste(placeholder, (x, y))
                 status_text = "placeholder" if is_placeholder else "not found"
-                logger.debug(f"📝 Added {status_text} for {image_data['host_name']}/{image_data['device_id']}")
+                device_name = image_data.get('device_name', 'Unknown')
+                logger.debug(f"📝 Added {status_text} for {image_data['host_name']}/{image_data['device_id']}/{device_name}")
                 
             else:
                 # Try to download and use actual image
@@ -616,7 +626,8 @@ class HeatmapProcessor:
                         # Add border and label to the image
                         img_with_border = self.add_border_and_label(img, image_data, cell_width, cell_height)
                         mosaic.paste(img_with_border, (x, y))
-                        logger.debug(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
+                        device_name = image_data.get('device_name', 'Unknown')
+                        logger.debug(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}/{device_name}")
                     else:
                         raise Exception(f"HTTP {response.status_code}")
                 except Exception as e:
