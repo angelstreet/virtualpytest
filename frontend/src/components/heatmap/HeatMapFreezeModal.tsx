@@ -2,7 +2,21 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { Modal, Box, IconButton, Typography } from '@mui/material';
 import React from 'react';
 
-import { HeatmapImage } from '../../hooks/pages/useHeatmap';
+// Import the device type from AnalysisData
+type HeatmapImage = {
+  host_name: string;
+  device_id: string;
+  image_url: string;
+  analysis_json: {
+    audio?: boolean;
+    blackscreen?: boolean;
+    freeze?: boolean;
+    volume_percentage?: number;
+    mean_volume_db?: number;
+    freeze_diffs?: number[];
+    last_3_filenames?: string[];
+  };
+};
 
 interface HeatMapFreezeModalProps {
   freezeModalOpen: boolean;
@@ -74,7 +88,7 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
 
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
-          {framesCompared.map((filename, index) => {
+          {framesCompared.map((filename: string, index: number) => {
             // Extract just the filename if it's a full path
             const cleanFilename = filename.includes('/')
               ? filename.split('/').pop() || filename

@@ -26,7 +26,6 @@ interface EnhancedHLSPlayerProps {
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   deviceId,
-  hostName,
   width = '100%',
   height = 400,
   autoPlay = true,
@@ -121,7 +120,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   };
 
-  const handleSeek = (event: Event, newValue: number | number[]) => {
+  const handleSeek = (_event: Event, newValue: number | number[]) => {
     const video = videoRef.current;
     if (!video || isLiveMode) return; // No seeking in live mode
 
@@ -130,7 +129,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     setCurrentTime(seekTime);
   };
 
-  const handleVolumeChange = (event: Event, newValue: number | number[]) => {
+  const handleVolumeChange = (_event: Event, newValue: number | number[]) => {
     const video = videoRef.current;
     if (!video) return;
 

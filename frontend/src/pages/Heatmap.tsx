@@ -11,9 +11,6 @@ import {
   Alert as MuiAlert,
   Tooltip,
   IconButton,
-  Select,
-  MenuItem,
-  FormControl,
 } from '@mui/material';
 import React, { useState } from 'react';
 
@@ -33,17 +30,13 @@ const Heatmap: React.FC = () => {
     hasIncidents,
     goToLatest,
     refreshCurrentData,
-    hasDataError,
-    generateReport,
-    getMosaicUrl,
-    getFilteredDevices
+    hasDataError
   } = useHeatmap();
 
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [filter, setFilter] = useState<'ALL' | 'OK' | 'KO'>('ALL');
   
   // Freeze modal state
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
@@ -59,11 +52,18 @@ const Heatmap: React.FC = () => {
 
   // Helper function to construct frame URLs
   const constructFrameUrl = (filename: string, originalImageUrl: string): string => {
+    // Handle full paths from last_3_filenames (e.g., "/path/to/captures/capture_370348.jpg")
     const cleanFilename = filename.includes('/') ? filename.split('/').pop() || filename : filename;
+    
+    // Get base URL from original image URL
     const lastSlashIndex = originalImageUrl.lastIndexOf('/');
     if (lastSlashIndex === -1) return cleanFilename;
     const baseUrl = originalImageUrl.substring(0, lastSlashIndex + 1);
-    return `${baseUrl}${cleanFilename}`;
+    
+    // Construct the full URL
+    const frameUrl = `${baseUrl}${cleanFilename}`;
+    console.log(`[@HeatMapFreezeModal] Constructing frame URL: ${filename} -> ${frameUrl}`);
+    return frameUrl;
   };
 
   // Generate report for current frame
@@ -72,8 +72,29 @@ const Heatmap: React.FC = () => {
     
     setIsGeneratingReport(true);
     try {
-      await generateReport();
-      console.log('HTML report generated for frame:', timeline[currentIndex].timeKey);
+      const currentItem = timeline[currentIndex];
+      const reportData = {
+        timeframe: 'single_frame',
+        timestamp: currentItem.displayTime.toISOString(),
+        time_key: currentItem.timeKey,
+        mosaic_url: currentItem.mosaicUrl,
+        analysis_data: analysisData,
+        devices_count: analysisData.devices.length,
+        incidents_count: analysisData.incidents_count
+      };
+
+      // For now, just download the data as JSON (we can enhance this later)
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `heatmap_report_${currentItem.timeKey}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('Report generated for frame:', currentItem.timeKey);
     } catch (error) {
       console.error('Error generating report:', error);
       setError('Failed to generate report');
@@ -93,32 +114,27 @@ const Heatmap: React.FC = () => {
       {/* Header */}
       <Box>
         <Card>
-          <CardContent sx={{ py: 0, px: 1 }}>
+          <CardContent sx={{ py: 0.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box display="flex" alignItems="center" gap={0.5}>
-                <HeatmapIcon color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight="bold">24h Heatmap</Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <HeatmapIcon color="primary" />
+                <Typography variant="h6">24h Heatmap</Typography>
               </Box>
 
-              <Box display="flex" alignItems="center" gap={2}>
-                <Box display="flex" alignItems="center" gap={0.5}>
-                  <Typography variant="caption">Devices</Typography>
-                  <Typography variant="caption" fontWeight="bold">
+              <Box display="flex" alignItems="center" gap={4}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Devices</Typography>
+                  <Typography variant="body2" fontWeight="bold">
                     {analysisData?.hosts_count || 0}
                   </Typography>
                 </Box>
                 
-                <FormControl size="small" sx={{ minWidth: 80 }}>
-                  <Select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value as 'ALL' | 'OK' | 'KO')}
-                    sx={{ fontSize: '0.75rem', height: '20px' }}
-                  >
-                    <MenuItem value="ALL">ALL</MenuItem>
-                    <MenuItem value="OK">OK</MenuItem>
-                    <MenuItem value="KO">KO</MenuItem>
-                  </Select>
-                </FormControl>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Status</Typography>
+                  <Typography variant="body2" fontWeight="bold" color={hasIncidents() ? 'error' : 'success'}>
+                    {hasIncidents() ? 'KO' : 'OK'}
+                  </Typography>
+                </Box>
 
                 {/* Go to Latest Button */}
                 <Tooltip title="Go to Latest">
@@ -128,17 +144,11 @@ const Heatmap: React.FC = () => {
                 </Tooltip>
                 
                 {/* Generate Report Button */}
-                <Tooltip title={
-                  !timeline[currentIndex] ? "No timeline data available" :
-                  !analysisData ? "No analysis data available - check if heatmap processor is running" :
-                  !analysisData.devices ? "Analysis data missing devices array" :
-                  isGeneratingReport ? "Generating report..." :
-                  "Generate Report for Current Frame"
-                }>
+                <Tooltip title="Generate Report for Current Frame">
                   <IconButton 
                     size="small" 
                     onClick={handleGenerateReport}
-                    disabled={isGeneratingReport || !analysisData || !analysisData.devices || !timeline[currentIndex]}
+                    disabled={isGeneratingReport || !analysisData || !timeline[currentIndex]}
                   >
                     <GridView />
                   </IconButton>
@@ -160,15 +170,13 @@ const Heatmap: React.FC = () => {
           isLoading={analysisLoading}
           hasDataError={hasDataError}
           analysisData={analysisData}
-          filter={filter}
-          getMosaicUrl={getMosaicUrl}
         />
       </Box>
 
       {/* Analysis Section */}
       <Box sx={{ mb: 3 }}>
         <HeatMapAnalysisSection
-          images={getFilteredDevices(analysisData?.devices || [], filter)}
+          images={analysisData?.devices || []}
           analysisExpanded={analysisExpanded}
           onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
         />

@@ -326,7 +326,8 @@ export const useHeatmap = () => {
           time_key: currentItem.timeKey,
           mosaic_url: currentItem.mosaicUrl, // Always use ALL mosaic for reports
           analysis_data: analysisData,
-          analysis_url: currentItem.analysisUrl
+          analysis_url: currentItem.analysisUrl,
+          include_timeline: true  // Generate timeline report with 10 previous mosaics
         })
       });
       

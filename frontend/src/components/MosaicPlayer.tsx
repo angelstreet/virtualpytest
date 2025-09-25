@@ -212,8 +212,24 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
               <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
                 {analysisData.devices.map((device: any, index: number) => {
                   const deviceCount = analysisData.devices.length;
-                  const cols = deviceCount <= 4 ? Math.ceil(Math.sqrt(deviceCount)) : 3;
-                  const rows = Math.ceil(deviceCount / cols);
+                  
+                  // Use exact same grid layout algorithm as heatmap_processor.py
+                  let cols: number, rows: number;
+                  if (deviceCount <= 1) {
+                    cols = 1; rows = 1;
+                  } else if (deviceCount === 2) {
+                    cols = 2; rows = 1;
+                  } else if (deviceCount <= 4) {
+                    cols = 2; rows = 2;
+                  } else if (deviceCount <= 6) {
+                    cols = 3; rows = 2;
+                  } else if (deviceCount <= 9) {
+                    cols = 3; rows = 3;
+                  } else {
+                    cols = Math.ceil(Math.sqrt(deviceCount));
+                    rows = Math.ceil(deviceCount / cols);
+                  }
+                  
                   const col = index % cols;
                   const row = Math.floor(index / cols);
                   

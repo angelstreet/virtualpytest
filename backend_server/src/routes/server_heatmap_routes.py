@@ -10,10 +10,83 @@ from shared.src.lib.supabase.heatmap_db import get_recent_heatmaps, save_heatmap
 from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 from shared.src.lib.utils.cloudflare_utils import upload_heatmap_html
 from backend_server.src.lib.utils.heatmap_report_utils import generate_comprehensive_heatmap_html
-from datetime import datetime
+from datetime import datetime, timedelta
+import os
 
 # Create blueprint
 server_heatmap_bp = Blueprint('server_heatmap', __name__, url_prefix='/server/heatmap')
+
+def generate_previous_time_keys(selected_time_key: str, count: int = 10) -> list:
+    """Generate the previous N time keys before the selected one"""
+    try:
+        # Parse the time key (format: "HHMM")
+        hour = int(selected_time_key[:2])
+        minute = int(selected_time_key[2:])
+        
+        # Create datetime for the selected time (using today as base)
+        base_time = datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        time_keys = []
+        for i in range(count):
+            # Go back i+1 minutes from the selected time
+            prev_time = base_time - timedelta(minutes=i+1)
+            time_key = f"{prev_time.hour:02d}{prev_time.minute:02d}"
+            time_keys.append(time_key)
+        
+        return time_keys
+    except Exception as e:
+        print(f"[@generate_previous_time_keys] Error: {e}")
+        return []
+
+def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: str, selected_devices: list, selected_incidents_count: int) -> list:
+    """Generate heatmap data for selected mosaic + 10 previous mosaics"""
+    try:
+        # Get R2 base URL from environment
+        R2_BASE_URL = os.getenv('CLOUDFLARE_R2_PUBLIC_URL', '')
+        
+        heatmap_data = []
+        
+        # Add the selected mosaic first
+        heatmap_data.append({
+            'timestamp': f"{selected_time_key[:2]}:{selected_time_key[2:]}",
+            'mosaic_url': selected_mosaic_url,
+            'analysis_data': selected_devices,
+            'incidents': [],
+            'incidents_count': selected_incidents_count,
+            'is_selected': True  # Mark as the selected frame
+        })
+        
+        # Get previous 10 time keys
+        previous_time_keys = generate_previous_time_keys(selected_time_key, 10)
+        
+        for time_key in previous_time_keys:
+            # Generate URLs for previous mosaics (they may or may not exist)
+            mosaic_url = f"{R2_BASE_URL}/heatmaps/{time_key}.jpg"
+            analysis_url = f"{R2_BASE_URL}/heatmaps/{time_key}.json"
+            
+            heatmap_data.append({
+                'timestamp': f"{time_key[:2]}:{time_key[2:]}",
+                'mosaic_url': mosaic_url,
+                'analysis_data': [],  # Empty for historical frames
+                'incidents': [],
+                'incidents_count': 0,  # Will be populated if analysis data is available
+                'is_selected': False,
+                'analysis_url': analysis_url  # For potential future loading
+            })
+        
+        print(f"[@generate_timeline_heatmap_data] Generated timeline with {len(heatmap_data)} frames")
+        return heatmap_data
+        
+    except Exception as e:
+        print(f"[@generate_timeline_heatmap_data] Error: {e}")
+        # Fallback to single frame
+        return [{
+            'timestamp': f"{selected_time_key[:2]}:{selected_time_key[2:]}",
+            'mosaic_url': selected_mosaic_url,
+            'analysis_data': selected_devices,
+            'incidents': [],
+            'incidents_count': selected_incidents_count
+        }]
 
 @server_heatmap_bp.route('/history', methods=['GET'])
 def get_heatmap_history():
@@ -72,6 +145,7 @@ def generate_html_report():
         time_key = data.get('time_key')
         mosaic_url = data.get('mosaic_url')
         analysis_data = data.get('analysis_data')
+        include_timeline = data.get('include_timeline', True)  # Default to timeline report
         
         if not all([time_key, mosaic_url, analysis_data]):
             return jsonify({
@@ -79,15 +153,26 @@ def generate_html_report():
                 'error': 'time_key, mosaic_url, and analysis_data are required'
             }), 400
         
-        print(f"[@route:server_heatmap:generate_html_report] Generating HTML report for {time_key}")
+        print(f"[@route:server_heatmap:generate_html_report] Generating HTML report for {time_key} (timeline: {include_timeline})")
         
-        # Prepare heatmap data for HTML generation
-        heatmap_data = [{
-            'timestamp': f"{time_key[:2]}:{time_key[2:]}",
-            'mosaic_url': mosaic_url,
-            'analysis_data': analysis_data.get('devices', []),
-            'incidents': []
-        }]
+        # Use the incidents_count from the analysis_data that was already calculated
+        incidents_count = analysis_data.get('incidents_count', 0)
+        devices = analysis_data.get('devices', [])
+        
+        print(f"[@route:server_heatmap:generate_html_report] Using incidents_count from analysis_data: {incidents_count}")
+        
+        # Generate timeline data if requested
+        if include_timeline:
+            heatmap_data = generate_timeline_heatmap_data(time_key, mosaic_url, devices, incidents_count)
+        else:
+            # Single frame report (original behavior)
+            heatmap_data = [{
+                'timestamp': f"{time_key[:2]}:{time_key[2:]}",
+                'mosaic_url': mosaic_url,
+                'analysis_data': devices,
+                'incidents': [],  # Keep empty as incidents are already counted in analysis_data
+                'incidents_count': incidents_count
+            }]
         
         # Generate HTML content
         html_content = generate_comprehensive_heatmap_html(heatmap_data)
@@ -117,7 +202,7 @@ def generate_html_report():
             html_r2_url=html_result['html_url'],
             hosts_included=len(analysis_data.get('devices', [])),
             hosts_total=len(analysis_data.get('devices', [])),
-            incidents_count=analysis_data.get('incidents_count', 0)
+            incidents_count=incidents_count
         )
         
         if heatmap_id:

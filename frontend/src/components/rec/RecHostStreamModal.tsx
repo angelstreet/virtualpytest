@@ -77,7 +77,7 @@ const RecHostStreamModalContent: React.FC<{
   const [aiAgentMode, setAiAgentMode] = useState<boolean>(false);
   const [restartMode, setRestartMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
-  const [isStreamActive, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
+  const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
 
   // Set global modal state when component mounts/unmounts
   useEffect(() => {
