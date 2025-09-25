@@ -11,7 +11,6 @@ import {
   Slider,
   Typography,
   Alert,
-  Chip,
   LinearProgress,
   Tooltip
 } from '@mui/material';
@@ -50,6 +49,13 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const [imageLoading, setImageLoading] = useState(true);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const currentImageRef = useRef<HTMLImageElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [overlayPositions, setOverlayPositions] = useState<Array<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }>>([]);
   
   const currentItem = timeline[currentIndex];
   const mosaicSrc = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem?.mosaicUrl || '';
@@ -59,6 +65,107 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
     setImageLoading(true);
     setImageError(false);
   }, [filter, currentIndex]);
+
+  // Calculate overlay positions based on actual image dimensions
+  useEffect(() => {
+    const calculatePositions = () => {
+      if (!currentImageRef.current || !containerRef.current || !analysisData?.devices) return;
+
+      const img = currentImageRef.current;
+      const container = containerRef.current;
+
+      // Get container dimensions
+      const containerRect = container.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      const containerHeight = containerRect.height;
+
+      // Get actual image dimensions (natural size)
+      const imageNaturalWidth = img.naturalWidth;
+      const imageNaturalHeight = img.naturalHeight;
+
+      if (imageNaturalWidth === 0 || imageNaturalHeight === 0) return;
+
+      // Calculate how the image is displayed with object-fit: contain
+      const containerAspectRatio = containerWidth / containerHeight;
+      const imageAspectRatio = imageNaturalWidth / imageNaturalHeight;
+
+      let displayedImageWidth: number;
+      let displayedImageHeight: number;
+      let offsetX: number;
+      let offsetY: number;
+
+      if (imageAspectRatio > containerAspectRatio) {
+        // Image is wider - constrained by width
+        displayedImageWidth = containerWidth;
+        displayedImageHeight = containerWidth / imageAspectRatio;
+        offsetX = 0;
+        offsetY = (containerHeight - displayedImageHeight) / 2;
+      } else {
+        // Image is taller - constrained by height
+        displayedImageWidth = containerHeight * imageAspectRatio;
+        displayedImageHeight = containerHeight;
+        offsetX = (containerWidth - displayedImageWidth) / 2;
+        offsetY = 0;
+      }
+
+      // Calculate grid layout (same as backend)
+      const deviceCount = analysisData.devices.length;
+      let cols: number, rows: number;
+      if (deviceCount <= 1) {
+        cols = 1; rows = 1;
+      } else if (deviceCount === 2) {
+        cols = 2; rows = 1;
+      } else if (deviceCount <= 4) {
+        cols = 2; rows = 2;
+      } else if (deviceCount <= 6) {
+        cols = 3; rows = 2;
+      } else if (deviceCount <= 9) {
+        cols = 3; rows = 3;
+      } else {
+        cols = Math.ceil(Math.sqrt(deviceCount));
+        rows = Math.ceil(deviceCount / cols);
+      }
+
+      // Calculate cell dimensions within the displayed image
+      const cellWidth = displayedImageWidth / cols;
+      const cellHeight = displayedImageHeight / rows;
+
+      // Calculate positions for each device
+      const positions = analysisData.devices.map((_: any, index: number) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+
+        return {
+          left: offsetX + (col * cellWidth),
+          top: offsetY + (row * cellHeight),
+          width: cellWidth,
+          height: cellHeight
+        };
+      });
+
+      setOverlayPositions(positions);
+    };
+
+    // Calculate on image load and when analysis data changes
+    if (currentImageRef.current) {
+      const img = currentImageRef.current;
+      if (img.complete && !imageLoading) {
+        calculatePositions();
+      } else {
+        img.addEventListener('load', calculatePositions);
+      }
+    }
+
+    // Recalculate on window resize
+    window.addEventListener('resize', calculatePositions);
+
+    return () => {
+      if (currentImageRef.current) {
+        currentImageRef.current.removeEventListener('load', calculatePositions);
+      }
+      window.removeEventListener('resize', calculatePositions);
+    };
+  }, [analysisData, imageLoading, mosaicSrc]);
   
   // Preload and cache image
   useEffect(() => {
@@ -135,24 +242,11 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   
   return (
     <Box>
-      {/* Header with time and status */}
+      {/* Header with time */}
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
           <Typography variant="h6">
             {formatDisplayTime(currentItem)}
-            <Typography component="span" variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
-              Frame {currentIndex + 1} / {timeline.length}
-            </Typography>
-            {hasIncidents && (
-              <Typography component="span" variant="body2" sx={{ ml: 2, color: 'error.main', fontWeight: 'bold' }}>
-                Incidents Detected
-              </Typography>
-            )}
-            {isLoading && (
-              <Typography component="span" variant="body2" sx={{ ml: 2, color: 'info.main' }}>
-                Loading...
-              </Typography>
-            )}
           </Typography>
         </Box>
         
@@ -165,6 +259,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
       
       {/* Mosaic Display */}
       <Box 
+        ref={containerRef}
         sx={{ 
           width: '100%', 
           height: '50vh',
@@ -190,6 +285,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
         ) : (
           <>
             <img
+              ref={currentImageRef}
               src={mosaicSrc}
               alt={`Heatmap ${currentItem.timeKey} - ${filter}`}
               style={{
@@ -200,37 +296,16 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
             />
             
             {/* Device Overlays */}
-            {!imageLoading && analysisData?.devices && (
+            {!imageLoading && analysisData?.devices && overlayPositions.length > 0 && (
               <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
                 {analysisData.devices.map((device: any, index: number) => {
-                  const deviceCount = analysisData.devices.length;
-                  
-                  // Use exact same grid layout algorithm as heatmap_processor.py
-                  let cols: number, rows: number;
-                  if (deviceCount <= 1) {
-                    cols = 1; rows = 1;
-                  } else if (deviceCount === 2) {
-                    cols = 2; rows = 1;
-                  } else if (deviceCount <= 4) {
-                    cols = 2; rows = 2;
-                  } else if (deviceCount <= 6) {
-                    cols = 3; rows = 2;
-                  } else if (deviceCount <= 9) {
-                    cols = 3; rows = 3;
-                  } else {
-                    cols = Math.ceil(Math.sqrt(deviceCount));
-                    rows = Math.ceil(deviceCount / cols);
-                  }
-                  
-                  const col = index % cols;
-                  const row = Math.floor(index / cols);
-                  
-                  const cellWidth = 100 / cols;
-                  const cellHeight = 100 / rows;
-                  
+                  const position = overlayPositions[index];
+                  if (!position) return null;
+
                   const analysis = device.analysis_json || {};
+                  const deviceName = device.device_name || device.device_id || 'Unknown';
                   
-                  const tooltipText = `${device.host_name}-${device.device_name}
+                  const tooltipText = `${device.host_name}-${deviceName}
 Audio: ${analysis.audio ? 'Yes' : 'No'}
 Video: ${!analysis.blackscreen && !analysis.freeze ? 'Yes' : 'No'}
 ${analysis.volume_percentage !== undefined ? `Volume: ${analysis.volume_percentage}%` : ''}
@@ -241,10 +316,10 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
                       <Box
                         sx={{
                           position: 'absolute',
-                          left: `${col * cellWidth}%`,
-                          top: `${row * cellHeight}%`,
-                          width: `${cellWidth}%`,
-                          height: `${cellHeight}%`,
+                          left: `${position.left}px`,
+                          top: `${position.top}px`,
+                          width: `${position.width}px`,
+                          height: `${position.height}px`,
                           cursor: 'pointer',
                           '&:hover': {
                             backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -312,12 +387,6 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
             }}
           />
           
-          {/* Current Time Indicator */}
-          <Box sx={{ position: 'absolute', top: -25, left: `${(currentIndex / Math.max(1, timeline.length - 1)) * 100}%`, transform: 'translateX(-50%)' }}>
-            <Typography variant="caption" sx={{ fontSize: '11px', fontWeight: 'bold', color: 'primary.main' }}>
-              {currentItem ? formatDisplayTime(currentItem) : ''}
-            </Typography>
-          </Box>
           
           {/* Hour Marks with Date/Time Display */}
           <Box sx={{ position: 'absolute', top: 35, left: 0, right: 0, height: 40 }}>

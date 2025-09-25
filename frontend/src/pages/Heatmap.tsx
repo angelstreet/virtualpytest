@@ -144,6 +144,14 @@ const Heatmap: React.FC = () => {
               <Box display="flex" alignItems="center" gap={1}>
                 <HeatmapIcon color="primary" />
                 <Typography variant="h6">24h Heatmap</Typography>
+                <Typography variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
+                  Frame {currentIndex + 1} / {timeline.length}
+                </Typography>
+                {hasIncidents() && (
+                  <Typography variant="body2" sx={{ ml: 2, color: 'error.main', fontWeight: 'bold' }}>
+                    Incidents Detected
+                  </Typography>
+                )}
               </Box>
 
               <Box display="flex" alignItems="center" gap={4}>
