@@ -64,6 +64,17 @@ const RecContent: React.FC = () => {
   const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    console.log('[@Rec] RecContent mounted');
+    return () => {
+      console.log('[@Rec] RecContent unmounted');
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('[@Rec] isEditMode changed:', isEditMode);
+  }, [isEditMode]);
+
   // Get unique host names, device models, and device names for filter dropdowns
   const { uniqueHosts, uniqueDeviceModels, uniqueDevices } = useMemo(() => {
     const hosts = new Set<string>();
@@ -296,7 +307,18 @@ const RecContent: React.FC = () => {
     console.log(`[@page:Rec] Filtered to ${filteredDevices.length} devices`);
   }, [avDevices.length, filteredDevices.length]);
 
+  useEffect(() => {
+    const deviceKeys = filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`);
+    console.log('[@Rec] filteredDevices keys:', deviceKeys);
+  }, [filteredDevices]);
+
   const hasActiveFilters = hostFilter || deviceModelFilter || deviceFilter || flagFilter;
+
+  console.log('[@Rec] RecContent render', {
+    isEditMode,
+    selectedDevicesCount: selectedDevices.size,
+    filteredDevicesCount: filteredDevices.length,
+  });
 
   return (
     <Box sx={{ p: 3 }}>
@@ -598,6 +620,11 @@ const RecContent: React.FC = () => {
         <Grid container spacing={2}>
           {filteredDevices.map(({ host, device }) => {
             const deviceKey = `${host.host_name}-${device.device_id}`;
+            console.log('[@Rec] Rendering device card', {
+              deviceKey,
+              isEditMode,
+              isSelected: selectedDevices.has(deviceKey),
+            });
             
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={deviceKey}>

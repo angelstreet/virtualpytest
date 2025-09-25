@@ -37,6 +37,29 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   onSelectionChange,
   deviceFlags = [], // Default to empty array
 }) => {
+  useEffect(() => {
+    console.log('[@RecHostPreview] mounted', {
+      host: host.host_name,
+      deviceId: device?.device_id,
+    });
+    return () => {
+      console.log('[@RecHostPreview] unmounted', {
+        host: host.host_name,
+        deviceId: device?.device_id,
+      });
+    };
+  }, [host.host_name, device?.device_id]);
+
+  useEffect(() => {
+    console.log('[@RecHostPreview] render', {
+      host: host.host_name,
+      deviceId: device?.device_id,
+      isEditMode,
+      isSelected,
+      deviceFlags,
+    });
+  });
+
   // States
   const [error] = useState<string | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
