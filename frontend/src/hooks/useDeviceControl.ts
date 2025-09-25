@@ -13,6 +13,7 @@ interface UseDeviceControlProps {
   device_id?: string;
   sessionId?: string;
   autoCleanup?: boolean; // Auto-release control on unmount
+  tree_id?: string; // Navigation tree ID for cache population
 }
 
 interface UseDeviceControlReturn {
@@ -39,6 +40,7 @@ export const useDeviceControl = ({
   device_id,
   sessionId,
   autoCleanup = true,
+  tree_id,
 }: UseDeviceControlProps): UseDeviceControlReturn => {
   // ========================================
   // STATE
@@ -72,7 +74,7 @@ export const useDeviceControl = ({
         `[useDeviceControl] Taking control of device: ${host.host_name}, device_id: ${device_id}`,
       );
 
-      const result = await takeControl(host, device_id, sessionId);
+      const result = await takeControl(host, device_id, sessionId, tree_id);
 
       if (result.success) {
         setIsControlActive(true);
@@ -109,7 +111,7 @@ export const useDeviceControl = ({
     } finally {
       setIsControlLoading(false);
     }
-  }, [host, device_id, sessionId, takeControl]);
+  }, [host, device_id, sessionId, tree_id, takeControl]);
 
   const handleReleaseControl = useCallback(async (): Promise<boolean> => {
     if (!host) {

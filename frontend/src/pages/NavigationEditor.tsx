@@ -295,7 +295,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       selectedHost: selectedEdge ? (selectedHost || null) : null,
       selectedDeviceId: selectedEdge ? (selectedDeviceId || null) : null,
       isControlActive: selectedEdge ? isControlActive : false,
-      treeId: selectedEdge ? actualTreeId : null,
+      treeId: actualTreeId, // Always pass actualTreeId for proper navigation context
     });
 
     // Initialize metrics hook

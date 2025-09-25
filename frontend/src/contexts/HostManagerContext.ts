@@ -34,6 +34,7 @@ export interface HostManagerContextType {
     host: Host,
     device_id?: string,
     sessionId?: string,
+    tree_id?: string,
   ) => Promise<{
     success: boolean;
     error?: string;

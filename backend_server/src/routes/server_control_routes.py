@@ -92,7 +92,7 @@ def take_control():
                         
                         # Populate navigation cache for the controlled device (if tree_id provided)
                         tree_id = data.get('tree_id')
-                        team_id = data.get('team_id')
+                        team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
                         if tree_id and team_id:
                             try:
                                 print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")

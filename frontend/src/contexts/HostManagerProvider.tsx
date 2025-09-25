@@ -271,6 +271,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       host: Host,
       device_id?: string,
       sessionId?: string,
+      tree_id?: string,
     ): Promise<{
       success: boolean;
       error?: string;
@@ -291,18 +292,30 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           `[@context:HostManagerProvider] Taking control of device: ${host.host_name}, device_id: ${effectiveDeviceId}`,
         );
         console.log(`[@context:HostManagerProvider] Using user ID for lock: ${userId}`);
+        if (tree_id) {
+          console.log(`[@context:HostManagerProvider] Including tree_id for cache population: ${tree_id}`);
+        }
+
+        // Build request body with optional tree_id for cache population
+        const requestBody: any = {
+          host_name: host.host_name,
+          device_id: effectiveDeviceId,
+          session_id: effectiveSessionId,
+          user_id: userId,
+        };
+
+        // Add tree_id if provided (for navigation cache population)
+        if (tree_id) {
+          requestBody.tree_id = tree_id;
+          // team_id is automatically added by buildServerUrl
+        }
 
         const response = await fetch(buildServerUrl('/server/control/takeControl'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            host_name: host.host_name,
-            device_id: effectiveDeviceId,
-            session_id: effectiveSessionId,
-            user_id: userId,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         const result = await response.json();

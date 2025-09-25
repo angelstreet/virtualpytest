@@ -95,6 +95,7 @@ export const NavigationEditorHeader: React.FC<{
     device_id: selectedDeviceId || 'device1', // Pass device_id for device-oriented control
     sessionId: 'navigation-editor-session',
     autoCleanup: true, // Auto-release on unmount
+    tree_id: treeId, // Pass tree_id for navigation cache population
   });
 
   // Function to reset current node ID
