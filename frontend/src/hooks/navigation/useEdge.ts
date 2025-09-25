@@ -16,6 +16,8 @@ export interface UseEdgeProps {
 }
 
 export const useEdge = (props?: UseEdgeProps) => {
+  console.log('[@useEdge] Hook initialized with props:', props);
+  
   // Action hook for edge operations
   const actionHook = useAction();
 
