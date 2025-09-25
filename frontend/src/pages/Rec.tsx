@@ -20,7 +20,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
-import { useDeviceFlags, DeviceFlag } from '../hooks/useDeviceFlags';
+import { useDeviceFlags } from '../hooks/useDeviceFlags';
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
 // No local HostManagerProvider needed since we only need AV capability filtering
@@ -82,7 +82,7 @@ const RecContent: React.FC = () => {
       // Flag filtering
       let matchesFlag = true;
       if (flagFilter) {
-        const deviceFlag = deviceFlags.find((df: DeviceFlag) => 
+        const deviceFlag = deviceFlags.find((df: any) => 
           df.host_name === host.host_name && df.device_id === device.device_id
         );
         matchesFlag = deviceFlag?.flags?.includes(flagFilter) || false;
@@ -128,7 +128,7 @@ const RecContent: React.FC = () => {
     if (pendingChanges.has(deviceKey)) {
       return pendingChanges.get(deviceKey) || [];
     }
-    return deviceFlags.find((df: DeviceFlag) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+    return deviceFlags.find((df: any) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
   }, [deviceFlags, pendingChanges]);
 
   // Bulk flag operations (now work with pending changes)
@@ -146,7 +146,7 @@ const RecContent: React.FC = () => {
         if (prev.has(deviceKey)) {
           currentFlags = prev.get(deviceKey) || [];
         } else {
-          currentFlags = deviceFlags.find((df: DeviceFlag) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+          currentFlags = deviceFlags.find((df: any) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
         }
         
         if (!currentFlags.includes(trimmedFlag)) {
@@ -169,7 +169,7 @@ const RecContent: React.FC = () => {
         if (prev.has(deviceKey)) {
           currentFlags = prev.get(deviceKey) || [];
         } else {
-          currentFlags = deviceFlags.find((df: DeviceFlag) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+          currentFlags = deviceFlags.find((df: any) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
         }
         
         const updatedFlags = currentFlags.filter(f => f !== flag);
