@@ -48,7 +48,7 @@ def mcp_execute_task():
             }), 400
         
         task = data.get('task')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         
         if not task:
             return jsonify({

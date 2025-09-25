@@ -79,7 +79,7 @@ def ai_execute_plan():
         plan_id = data.get('plan_id', '')
         plan = data.get('plan', {})
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         
         print(f"[@host_ai] Executing plan {plan_id} for device: {device_id}, team: {team_id}")
@@ -143,7 +143,7 @@ def ai_execute_prompt():
         data = request.get_json() or {}
         prompt = data.get('prompt', '')
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         current_node_id = data.get('current_node_id')
         
@@ -340,7 +340,7 @@ def ai_execute_test_case():
         data = request.get_json() or {}
         test_case_id = data.get('test_case_id')
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         
         print(f"[@host_ai] Executing test case {test_case_id} for device: {device_id}, team: {team_id}")
         

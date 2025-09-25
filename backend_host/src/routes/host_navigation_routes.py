@@ -19,7 +19,7 @@ def navigation_execute(tree_id, target_node_id):
         # Get request data
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
         

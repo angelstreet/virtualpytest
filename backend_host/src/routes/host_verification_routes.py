@@ -84,7 +84,7 @@ def verification_execute_batch():
         data = request.get_json() or {}
         verifications = data.get('verifications', [])
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         image_source_url = data.get('image_source_url')
         tree_id = data.get('tree_id')
         node_id = data.get('node_id')

@@ -21,7 +21,7 @@ def action_execute_batch():
         actions = data.get('actions', [])
         retry_actions = data.get('retry_actions', [])
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         tree_id = data.get('tree_id')
         edge_id = data.get('edge_id')
         action_set_id = data.get('action_set_id')

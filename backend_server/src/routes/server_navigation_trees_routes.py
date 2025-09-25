@@ -105,7 +105,7 @@ def create_tree_api():
                 'message': 'No tree data provided'
             }), 400
         
-        team_id = tree_data.get('team_id')
+        team_id = tree_request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,

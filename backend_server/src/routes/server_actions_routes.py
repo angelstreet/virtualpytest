@@ -96,7 +96,7 @@ def action_execute_batch():
         host_name = data.get('host_name')
         device_id = data.get('device_id', 'device1')
         retry_actions = data.get('retry_actions', [])
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         
         # NEW: Navigation context for proper metrics recording
         tree_id = data.get('tree_id')
@@ -179,7 +179,7 @@ def action_execute_single():
         action = data.get('action', {})  # Single embedded action object
         host_name = data.get('host_name')
         device_id = data.get('device_id', 'device1')
-        team_id = data.get('team_id')
+        team_id = request.args.get('team_id')
         
         print(f"[@route:server_actions:action_execute_single] Executing action: {action.get('command', 'unknown_command')}")
         print(f"[@route:server_actions:action_execute_single] Host: {host_name}, Device ID: {device_id}")

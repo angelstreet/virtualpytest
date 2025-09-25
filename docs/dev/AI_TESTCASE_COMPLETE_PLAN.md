@@ -664,7 +664,7 @@ def execute_test_case():
         request_data = request.get_json() or {}
         test_case = request_data.get('test_case')
         device_id = request_data.get('device_id')
-        team_id = request_data.get('team_id')
+        team_id = request_request.args.get('team_id')
         
         if not all([test_case, device_id, team_id]):
             return jsonify({
