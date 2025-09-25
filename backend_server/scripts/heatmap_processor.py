@@ -230,27 +230,19 @@ class HeatmapProcessor:
                                 # Build JSON URL by replacing .jpg with .json like useMonitoring line 272
                                 json_url = image_url.replace('.jpg', '.json')
                                 
-                                # Load JSON analysis data
+                                # Load JSON analysis data - use RAW data from monitor
                                 json_response = requests.get(json_url, timeout=5)
                                 if json_response.status_code == 200:
-                                    full_json_data = json_response.json()
-                                    # Extract complete analysis data including detailed fields for freeze modal
-                                    analysis_data = {
-                                        'analyzed': True,
-                                        # Complete analysis_json structure matching frontend interface
-                                        'analysis_json': {
-                                            'audio': full_json_data.get('audio', True),
-                                            'blackscreen': full_json_data.get('blackscreen', False),
-                                            'freeze': full_json_data.get('freeze', False),
-                                            'volume_percentage': full_json_data.get('volume_percentage'),
-                                            'mean_volume_db': full_json_data.get('mean_volume_db'),
-                                            'freeze_diffs': full_json_data.get('freeze_diffs', []),
-                                            'last_3_filenames': full_json_data.get('last_3_filenames', [])
-                                        }
-                                    }
-                                    print(f"🔍 Analysis for {host_name}/{device_id}: blackscreen={analysis_data['analysis_json']['blackscreen']}, freeze={analysis_data['analysis_json']['freeze']}, audio={analysis_data['analysis_json']['audio']}")
+                                    raw_json_data = json_response.json()
+                                    
+                                    # DEBUG: Log the raw JSON data from monitor
+                                    print(f"🔍 RAW JSON for {host_name}/{device_id}: {raw_json_data}")
+                                    
+                                    # Use the raw JSON directly - no reprocessing!
+                                    analysis_data = raw_json_data
+                                    print(f"✅ Using raw analysis for {host_name}/{device_id}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
                                 else:
-                                    analysis_data = {'analyzed': False, 'analysis_json': {}}
+                                    analysis_data = {'analyzed': False}
                                 
                                 current_captures.append({
                                     'host_name': host_name,
@@ -357,21 +349,21 @@ class HeatmapProcessor:
             else:
                 active_count += 1
                 
-            # Check for incidents
-            analysis_json_data = device.get('analysis_json', {})
+            # Check for incidents using raw analysis data
+            analysis_data = device.get('analysis_json', {})
             has_incident = (
-                analysis_json_data.get('blackscreen', False) or
-                analysis_json_data.get('freeze', False) or
-                not analysis_json_data.get('audio', True)
+                analysis_data.get('blackscreen', False) or
+                analysis_data.get('freeze', False) or
+                not analysis_data.get('audio', True)
             )
             
             if has_incident and device['status'] != 'missing':
                 incident_types = []
-                if analysis_json_data.get('blackscreen', False):
+                if analysis_data.get('blackscreen', False):
                     incident_types.append('blackscreen')
-                if analysis_json_data.get('freeze', False):
+                if analysis_data.get('freeze', False):
                     incident_types.append('freeze')
-                if not analysis_json_data.get('audio', True):
+                if not analysis_data.get('audio', True):
                     incident_types.append('no_audio')
                 
                 incident_devices.append({
@@ -418,17 +410,16 @@ class HeatmapProcessor:
         """Filter devices that have incidents (errors)"""
         error_devices = []
         for device in devices_data:
-            # Check for incidents in analysis data
-            analysis = device.get('analysis', {})
-            analysis_json = analysis.get('analysis_json', {})
+            # Check for incidents in raw analysis data
+            analysis_data = device.get('analysis_json', {})
             is_placeholder = device.get('is_placeholder', False)
             
             has_incident = False
             if not is_placeholder:
                 has_incident = (
-                    analysis_json.get('blackscreen', False) or
-                    analysis_json.get('freeze', False) or
-                    not analysis_json.get('audio', True)
+                    analysis_data.get('blackscreen', False) or
+                    analysis_data.get('freeze', False) or
+                    not analysis_data.get('audio', True)
                 )
             
             # Also check for error image URL (legacy support)
@@ -442,17 +433,16 @@ class HeatmapProcessor:
         """Add colored border and label to device image"""
         from PIL import ImageDraw, ImageFont
         
-        # Check for incidents in analysis data
-        analysis = image_data.get('analysis', {})
-        analysis_json = analysis.get('analysis_json', {})
+        # Check for incidents in raw analysis data
+        analysis_data = image_data.get('analysis_json', {})
         is_placeholder = image_data.get('is_placeholder', False)
         
         has_incident = False
         if not is_placeholder:
             has_incident = (
-                analysis_json.get('blackscreen', False) or
-                analysis_json.get('freeze', False) or
-                not analysis_json.get('audio', True)
+                analysis_data.get('blackscreen', False) or
+                analysis_data.get('freeze', False) or
+                not analysis_data.get('audio', True)
             )
         
         # Add border (red for incident, green for OK, grey for placeholder)
@@ -627,7 +617,7 @@ class HeatmapProcessor:
         return mosaic
     
     def create_analysis_json(self, images_data: List[Dict], time_key: str) -> Dict:
-        """Create analysis JSON for the minute matching frontend interface"""
+        """Create analysis JSON for the minute - just consolidate raw data"""
         devices = []
         incidents_count = 0
         
@@ -635,29 +625,26 @@ class HeatmapProcessor:
             analysis = image_data.get('analysis', {})
             is_placeholder = image_data.get('is_placeholder', False)
             
-            # Get the complete analysis_json data
-            analysis_json = analysis.get('analysis_json', {}) if not is_placeholder else {}
-            
-            # Check for incidents (only for real captures, not placeholders)
+            # Check for incidents using raw analysis data (only for real captures)
             has_incidents = False
-            if not is_placeholder and analysis_json:
+            if not is_placeholder and analysis:
                 has_incidents = (
-                    analysis_json.get('blackscreen', False) or
-                    analysis_json.get('freeze', False) or
-                    not analysis_json.get('audio', True)
+                    analysis.get('blackscreen', False) or
+                    analysis.get('freeze', False) or
+                    not analysis.get('audio', True)
                 )
             
             if has_incidents:
                 incidents_count += 1
             
-            # Build device entry matching frontend AnalysisData interface
+            # Build device entry - use raw analysis data directly
             device_entry = {
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
                 'image_url': image_data.get('image_url'),
                 'json_url': image_data.get('json_url'),
                 'sequence': image_data.get('sequence', 'missing'),
-                'analysis_json': analysis_json,  # Use analysis_json for frontend
+                'analysis_json': analysis,  # Raw JSON from monitor - let frontend parse it
                 'status': 'missing' if is_placeholder else 'active',
                 'is_placeholder': is_placeholder
             }
