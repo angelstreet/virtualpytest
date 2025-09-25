@@ -20,7 +20,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
-import { useDeviceFlags } from '../hooks/useDeviceFlags';
+import { useDeviceFlags, DeviceFlag } from '../hooks/useDeviceFlags';
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
 // No local HostManagerProvider needed since we only need AV capability filtering
@@ -82,7 +82,7 @@ const RecContent: React.FC = () => {
       // Flag filtering
       let matchesFlag = true;
       if (flagFilter) {
-        const deviceFlag = deviceFlags.find(df => 
+        const deviceFlag = deviceFlags.find((df: DeviceFlag) => 
           df.host_name === host.host_name && df.device_id === device.device_id
         );
         matchesFlag = deviceFlag?.flags?.includes(flagFilter) || false;
@@ -128,19 +128,13 @@ const RecContent: React.FC = () => {
     if (pendingChanges.has(deviceKey)) {
       return pendingChanges.get(deviceKey) || [];
     }
-    return deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+    return deviceFlags.find((df: DeviceFlag) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
   }, [deviceFlags, pendingChanges]);
 
   // Bulk flag operations (now work with pending changes)
   const handleBulkAddFlag = useCallback((flag: string) => {
     const trimmedFlag = flag.trim();
     if (!trimmedFlag) return;
-    
-    if (trimmedFlag.length < 3) {
-      console.log('[@handleBulkAddFlag] Warning: Short flag:', trimmedFlag);
-    }
-    
-    console.log('[@handleBulkAddFlag] Adding flag:', trimmedFlag, 'to devices:', Array.from(selectedDevices));
     
     setPendingChanges(prev => {
       const newChanges = new Map(prev);
@@ -152,19 +146,14 @@ const RecContent: React.FC = () => {
         if (prev.has(deviceKey)) {
           currentFlags = prev.get(deviceKey) || [];
         } else {
-          currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+          currentFlags = deviceFlags.find((df: DeviceFlag) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
         }
         
-        console.log('[@handleBulkAddFlag] Device:', deviceKey, 'current flags:', currentFlags);
         if (!currentFlags.includes(trimmedFlag)) {
           const updatedFlags = [...currentFlags, trimmedFlag];
           newChanges.set(deviceKey, updatedFlags);
-          console.log('[@handleBulkAddFlag] Updated flags for', deviceKey, ':', updatedFlags);
-        } else {
-          console.log('[@handleBulkAddFlag] Flag already exists for', deviceKey);
         }
       });
-      console.log('[@handleBulkAddFlag] Final pending changes:', newChanges);
       return newChanges;
     });
   }, [selectedDevices, deviceFlags]);
@@ -180,7 +169,7 @@ const RecContent: React.FC = () => {
         if (prev.has(deviceKey)) {
           currentFlags = prev.get(deviceKey) || [];
         } else {
-          currentFlags = deviceFlags.find(df => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
+          currentFlags = deviceFlags.find((df: DeviceFlag) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
         }
         
         const updatedFlags = currentFlags.filter(f => f !== flag);
@@ -215,10 +204,8 @@ const RecContent: React.FC = () => {
   // Check if there are unsaved changes
   const hasUnsavedChanges = pendingChanges.size > 0;
   
-  // Debug logging for save button state
-  console.log('[@Rec] hasUnsavedChanges:', hasUnsavedChanges, 'pendingChanges.size:', pendingChanges.size, 'isSaving:', isSaving);
-  console.log('[@Rec] selectedDevices.size:', selectedDevices.size, 'selectedDevices:', Array.from(selectedDevices));
-  console.log('[@Rec] pendingChanges:', pendingChanges);
+  // Debug logging for save button state (reduced)
+  // console.log('[@Rec] hasUnsavedChanges:', hasUnsavedChanges, 'pendingChanges.size:', pendingChanges.size, 'isSaving:', isSaving);
 
 
   // Log AV devices count
@@ -372,7 +359,7 @@ const RecContent: React.FC = () => {
                   <MenuItem value="">
                     <em>All Flags</em>
                   </MenuItem>
-                  {uniqueFlags.map((flag) => (
+                  {uniqueFlags.map((flag: string) => (
                     <MenuItem key={flag} value={flag}>
                       {flag}
                     </MenuItem>
@@ -401,7 +388,6 @@ const RecContent: React.FC = () => {
                 disabled={selectedDevices.size === 0}
                 onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                    console.log('[@TextField] Enter pressed, adding flag:', e.currentTarget.value.trim());
                     handleBulkAddFlag(e.currentTarget.value.trim());
                     e.currentTarget.value = '';
                   }
@@ -421,7 +407,7 @@ const RecContent: React.FC = () => {
                     }
                   }}
                 >
-                  {uniqueFlags.map((flag) => (
+                  {uniqueFlags.map((flag: string) => (
                     <MenuItem key={flag} value={flag}>
                       {flag}
                     </MenuItem>

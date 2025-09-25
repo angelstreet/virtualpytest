@@ -284,7 +284,9 @@ export const useHeatmap = () => {
   /**
    * Get mosaic URL based on filter
    */
-  const getMosaicUrl = (item: TimelineItem, filter: 'ALL' | 'OK' | 'KO'): string => {
+  const getMosaicUrl = (item: TimelineItem | null, filter: 'ALL' | 'OK' | 'KO'): string => {
+    if (!item) return '';
+    
     switch (filter) {
       case 'OK': return item.mosaicOkUrl;
       case 'KO': return item.mosaicKoUrl;

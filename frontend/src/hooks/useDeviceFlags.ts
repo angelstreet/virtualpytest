@@ -70,24 +70,22 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
       const result = await response.json();
       if (result.success) {
         // Update local state
-        setDeviceFlags(prev => 
-          prev.map(df => 
+        setDeviceFlags(prev => {
+          const updated = prev.map(df => 
             df.host_name === hostName && df.device_id === deviceId 
               ? { ...df, flags, updated_at: new Date().toISOString() }
               : df
-          )
-        );
-        
-        // Recalculate unique flags from updated device flags
-        const allFlags = new Set<string>();
-        deviceFlags.forEach(df => {
-          if (df.host_name === hostName && df.device_id === deviceId) {
-            flags.forEach(flag => allFlags.add(flag));
-          } else {
+          );
+          
+          // Recalculate unique flags from the updated device flags
+          const allFlags = new Set<string>();
+          updated.forEach(df => {
             df.flags.forEach(flag => allFlags.add(flag));
-          }
+          });
+          setUniqueFlags(Array.from(allFlags).sort());
+          
+          return updated;
         });
-        setUniqueFlags(Array.from(allFlags).sort());
         
         return true;
       } else {
@@ -98,7 +96,7 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
       setError(err instanceof Error ? err.message : 'Unknown error');
       return false;
     }
-  }, [deviceFlags]);
+  }, []); // Remove deviceFlags dependency
 
   const batchUpdateDeviceFlags = useCallback(async (updates: Array<{ hostName: string; deviceId: string; flags: string[] }>): Promise<boolean> => {
     try {
@@ -132,17 +130,16 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
                 updated[index] = { ...updated[index], flags, updated_at: new Date().toISOString() };
               }
             });
+            
+            // Recalculate unique flags from the updated device flags
+            const allFlags = new Set<string>();
+            updated.forEach(df => {
+              df.flags.forEach(flag => allFlags.add(flag));
+            });
+            setUniqueFlags(Array.from(allFlags).sort());
+            
             return updated;
           });
-          
-          // Recalculate unique flags
-          const allFlags = new Set<string>();
-          deviceFlags.forEach(df => {
-            const update = updates.find(u => u.hostName === df.host_name && u.deviceId === df.device_id);
-            const flagsToUse = update ? update.flags : df.flags;
-            flagsToUse.forEach(flag => allFlags.add(flag));
-          });
-          setUniqueFlags(Array.from(allFlags).sort());
           
           return true;
         } else {
@@ -156,7 +153,7 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
       setError(err instanceof Error ? err.message : 'Unknown error');
       return false;
     }
-  }, [deviceFlags]);
+  }, []); // Remove deviceFlags dependency
 
   const refreshFlags = useCallback(async () => {
     await fetchBatchFlags();

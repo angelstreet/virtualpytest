@@ -52,7 +52,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const currentImageRef = useRef<HTMLImageElement | null>(null);
   
   const currentItem = timeline[currentIndex];
-  const mosaicSrc = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem.mosaicUrl;
+  const mosaicSrc = getMosaicUrl ? getMosaicUrl(currentItem, filter) : currentItem?.mosaicUrl || '';
   
   // Reset loading state when filter or index changes
   useEffect(() => {
@@ -62,7 +62,11 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   
   // Preload and cache image
   useEffect(() => {
-    if (!mosaicSrc) return;
+    if (!mosaicSrc || mosaicSrc === '') {
+      setImageLoading(false);
+      setImageError(true);
+      return;
+    }
     
     // Check if image is already cached
     if (imageCache.current.has(mosaicSrc)) {
