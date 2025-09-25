@@ -7,7 +7,6 @@
 declare -A GRABBERS=(
   ["0"]=":1|null|/var/www/html/stream/capture1|2"
   ["1"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture2|10"
- 
 )
 
 # Simple log reset function - truncates log if over 30MB
@@ -67,9 +66,9 @@ kill_existing_processes() {
   
   # Clean up old files for fresh start
   echo "Cleaning old files for fresh start..."
-  rm -f "$output_dir"/segment_*.ts
+  find "$output_dir" -maxdepth 1 -name "segment_*.ts" -delete 2>/dev/null || true
   rm -f "$output_dir"/output.m3u8
-  rm -f "$output_dir"/captures/capture_*
+  find "$output_dir/captures" -name "capture_*" -delete 2>/dev/null || true
   echo "Cleaned up old files in $output_dir (segments, playlist, screenshots, metadata)"
 }
 
