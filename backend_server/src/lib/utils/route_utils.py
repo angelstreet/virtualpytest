@@ -13,7 +13,11 @@ def get_host_from_request():
     """Get host information from request data using host_name lookup"""
     try:
         # Check both JSON body (for POST requests) and query parameters (for GET requests)
-        data = request.get_json() or {}
+        try:
+            data = request.get_json() or {}
+        except:
+            # GET requests don't have JSON body, that's fine
+            data = {}
         host_name = data.get('host_name') or request.args.get('host_name')
         
         if not host_name:
