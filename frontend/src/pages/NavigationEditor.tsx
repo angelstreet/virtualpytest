@@ -291,6 +291,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     } = useHostManager();
 
     // Initialize edge hook for action set filtering
+    console.log('[@NavigationEditor] DEBUG actualTreeId for useEdge:', actualTreeId);
     const edgeHook = useEdge({
       selectedHost: selectedHost || null,
       selectedDeviceId: selectedDeviceId || null,
