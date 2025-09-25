@@ -55,9 +55,24 @@ export const HeatMapAnalysisSection: React.FC<HeatMapAnalysisSectionProps> = ({
       ? `${totalDevices} devices | ${devicesWithIncidents} with incidents`
       : 'No analysis data available';
 
-  // Don't show the analysis section at all if no devices have analysis data
+  // Show a message when no analysis data is available
   if (totalDevices === 0) {
-    return null;
+    return (
+      <Card sx={{ backgroundColor: 'transparent', boxShadow: 'none' }}>
+        <CardContent sx={{ py: 1 }}>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center" gap={1}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Device Analysis
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ({images.length} devices found, no analysis data available)
+              </Typography>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

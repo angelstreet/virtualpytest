@@ -174,6 +174,16 @@ const Heatmap: React.FC = () => {
 
       {/* Analysis Section */}
       <Box sx={{ mb: 3 }}>
+        {/* Debug info */}
+        {process.env.NODE_ENV === 'development' && (
+          <Box sx={{ mb: 1, p: 1, bgcolor: 'grey.100', fontSize: '0.75rem' }}>
+            <Typography variant="caption">
+              Debug: analysisData={analysisData ? 'exists' : 'null'}, 
+              devices={analysisData?.devices?.length || 0}, 
+              hasDevicesArray={Array.isArray(analysisData?.devices)}
+            </Typography>
+          </Box>
+        )}
         <HeatMapAnalysisSection
           images={analysisData?.devices || []}
           analysisExpanded={analysisExpanded}
