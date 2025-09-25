@@ -378,7 +378,7 @@ export const useHeatmap = () => {
     
     // Timeline info
     totalMinutes: timeline.length,
-    isAtLatest: currentIndex === 86340,
+    isAtLatest: currentIndex === 1438,
     
     // Recovery status
     canRecover: lastSuccessfulIndex !== null && corsBlocked
