@@ -22,9 +22,9 @@ def create_heatmap_html_template() -> str:
         .header {{ background: linear-gradient(135deg, #4a90e2, #357abd); color: white; padding: 10px 20px; }}
         .header h1 {{ font-size: 1.4em; margin: 0; line-height: 1.2; }}
         
-        .mosaic-player {{ padding: 20px; margin-bottom: 24px; }}
+        .mosaic-player {{ padding: 20px; margin-bottom: 8px; }}
         .mosaic-container {{ 
-            width: 90%; height: 50vh; margin: 0 auto; position: relative; 
+            width: 90%; height: 50vh; margin: 0 auto 12px auto; position: relative; 
             background: black; border-radius: 8px; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
         }}
