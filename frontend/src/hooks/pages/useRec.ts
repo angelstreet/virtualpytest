@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
@@ -54,6 +54,10 @@ export const useRec = (): UseRecReturn => {
   // Use the simplified HostManager function and loading state
   const { getDevicesByCapability, isLoading: isHostManagerLoading } = useHostManager();
 
+  // Use ref to store the latest getDevicesByCapability function to avoid dependency issues
+  const getDevicesByCapabilityRef = useRef(getDevicesByCapability);
+  getDevicesByCapabilityRef.current = getDevicesByCapability;
+
   // Remove unused initialization function - monitoring will handle its own URL patterns
 
   // Remove sync logic - no longer needed for simple monitoring patterns
@@ -69,7 +73,7 @@ export const useRec = (): UseRecReturn => {
     setError(null);
 
     try {
-      const devices = getDevicesByCapability('av');
+      const devices = getDevicesByCapabilityRef.current('av');
       setAvDevices(devices);
     } catch (error) {
       console.error('[@hook:useRec] Error refreshing devices:', error);
@@ -77,7 +81,7 @@ export const useRec = (): UseRecReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [getDevicesByCapability, isHostManagerLoading]);
+  }, [isHostManagerLoading]); // Only depend on isHostManagerLoading to prevent unnecessary re-renders
 
   // Trigger refresh when HostManager finishes loading
   useEffect(() => {
@@ -101,6 +105,10 @@ export const useRec = (): UseRecReturn => {
     };
   }, [refreshHosts]);
 
+  // Use ref to store the latest avDevices to avoid dependency issues
+  const avDevicesRef = useRef(avDevices);
+  avDevicesRef.current = avDevices;
+
   // Restart streams for all AV devices
   const restartStreams = useCallback(async (): Promise<void> => {
     if (isRestarting) return; // Prevent multiple concurrent restarts
@@ -109,10 +117,11 @@ export const useRec = (): UseRecReturn => {
     setError(null);
 
     try {
-      // console.log(`[@hook:useRec] Starting stream restart for ${avDevices.length} devices`);
+      const currentAvDevices = avDevicesRef.current;
+      // console.log(`[@hook:useRec] Starting stream restart for ${currentAvDevices.length} devices`);
 
       // Restart streams sequentially for each AV device
-      for (const { host, device } of avDevices) {
+      for (const { host, device } of currentAvDevices) {
         try {
           // console.log(`[@hook:useRec] Restarting stream for ${host.host_name}-${device.device_id}`);
 
@@ -160,7 +169,7 @@ export const useRec = (): UseRecReturn => {
     } finally {
       setIsRestarting(false);
     }
-  }, [avDevices, isRestarting]);
+  }, [isRestarting]); // Remove avDevices from dependencies to prevent unnecessary re-renders
 
   return {
     avDevices,

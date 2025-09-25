@@ -256,6 +256,30 @@ const RecContent: React.FC = () => {
   // console.log('[@Rec] hasUnsavedChanges:', hasUnsavedChanges, 'pendingChanges.size:', pendingChanges.size, 'isSaving:', isSaving);
 
 
+  // Clean up stale selections when devices change
+  useEffect(() => {
+    if (isEditMode && selectedDevices.size > 0) {
+      const currentDeviceKeys = new Set(avDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`));
+      const staleSelections = Array.from(selectedDevices).filter(deviceKey => !currentDeviceKeys.has(deviceKey));
+      
+      if (staleSelections.length > 0) {
+        console.log(`[@page:Rec] Cleaning up ${staleSelections.length} stale device selections`);
+        setSelectedDevices(prev => {
+          const newSet = new Set(prev);
+          staleSelections.forEach(staleKey => newSet.delete(staleKey));
+          return newSet;
+        });
+        
+        // Also clean up stale pending changes
+        setPendingChanges(prev => {
+          const newMap = new Map(prev);
+          staleSelections.forEach(staleKey => newMap.delete(staleKey));
+          return newMap;
+        });
+      }
+    }
+  }, [avDevices, isEditMode, selectedDevices]);
+
   // Log AV devices count
   useEffect(() => {
     console.log(`[@page:Rec] Found ${avDevices.length} devices with AV capability`);
@@ -462,10 +486,10 @@ const RecContent: React.FC = () => {
               <Button
                 size="small"
                 onClick={handleSelectAll}
-                disabled={selectedDevices.size === filteredDevices.length}
+                disabled={filteredDevices.length === 0 || selectedDevices.size === filteredDevices.length}
                 sx={{ height: 32, textTransform: 'none' }}
               >
-                Select All
+                Select All ({filteredDevices.length})
               </Button>
 
               <Button

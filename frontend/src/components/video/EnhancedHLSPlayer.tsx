@@ -21,7 +21,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isLiveMode: externalIsLiveMode
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [internalIsLiveMode] = useState(false); // Start in 24h mode
+  const [internalIsLiveMode] = useState(true); // Start in live mode
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Start playing automatically
@@ -135,12 +135,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           sx={{ width: '100%', height: '100%' }}
         />
 
-        {/* Play/Pause Control Overlay */}
+        {/* Play/Pause Control Overlay - Always visible */}
         <Box
           sx={{
             position: 'absolute',
-            top: 8,
-            left: 8,
+            bottom: !isLiveMode && duration > 0 ? 80 : 16, // Align with timeline when present
+            left: 16,
             zIndex: 10,
           }}
         >
@@ -155,7 +155,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             }}
             size="small"
           >
-            {isPlaying ? <Pause /> : <PlayArrow />}
+            {isPlaying ? <PlayArrow /> : <Pause />}
           </IconButton>
         </Box>
 
