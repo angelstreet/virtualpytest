@@ -24,6 +24,7 @@ except ImportError:
 # Now import everything else after typing fix
 import time
 import json
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from PIL import Image
@@ -31,6 +32,37 @@ import io
 import math
 
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+
+# Setup logging to /tmp/heatmap.log
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('/tmp/heatmap.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def cleanup_logs_on_startup():
+    """Clean up heatmap log file on service restart for fresh debugging"""
+    try:
+        log_file = '/tmp/heatmap.log'
+        
+        print(f"[@heatmap_processor] Cleaning heatmap log on service restart...")
+        
+        if os.path.exists(log_file):
+            # Truncate the file instead of deleting to avoid permission issues
+            with open(log_file, 'w') as f:
+                f.write(f"=== LOG CLEANED ON HEATMAP PROCESSOR RESTART: {datetime.now().isoformat()} ===\n")
+            print(f"[@heatmap_processor] ✓ Cleaned: {log_file}")
+        else:
+            print(f"[@heatmap_processor] ○ Not found (will be created): {log_file}")
+            
+        print(f"[@heatmap_processor] Log cleanup complete - fresh logs for debugging")
+            
+    except Exception as e:
+        print(f"[@heatmap_processor] Warning: Could not clean log file: {e}")
 
 class HeatmapProcessor:
     """Background processor for continuous heatmap generation"""
@@ -40,7 +72,8 @@ class HeatmapProcessor:
         
     def start(self):
         """Start continuous processing every minute"""
-        print("🚀 Starting HeatmapProcessor...")
+        cleanup_logs_on_startup()  # Clean logs on startup
+        logger.info("🚀 Starting HeatmapProcessor...")
         self.running = True
         
         while self.running:
@@ -48,10 +81,10 @@ class HeatmapProcessor:
                 self.process_current_minute()
                 self.wait_for_next_minute()
             except KeyboardInterrupt:
-                print("🛑 HeatmapProcessor stopped by user")
+                logger.info("🛑 HeatmapProcessor stopped by user")
                 self.running = False
             except Exception as e:
-                print(f"❌ HeatmapProcessor error: {e}")
+                logger.error(f"❌ HeatmapProcessor error: {e}")
                 time.sleep(60)  # Wait a minute before retrying
     
     def process_current_minute(self):
@@ -59,19 +92,19 @@ class HeatmapProcessor:
         now = datetime.now()
         time_key = f"{now.hour:02d}{now.minute:02d}"  # "1425"
         
-        print(f"🔄 Processing heatmap for {time_key}")
+        logger.info(f"🔄 Processing heatmap for {time_key}")
         
         try:
             # Get hosts and analysis data
             hosts_devices = self.get_hosts_devices()
             if not hosts_devices:
-                print(f"⚠️ No hosts available for {time_key}")
+                logger.warning(f"⚠️ No hosts available for {time_key}")
                 return
                 
             # Fetch current captures using latest-json endpoint (same as useMonitoring)
             current_captures = self.fetch_current_captures(hosts_devices)
             if not current_captures:
-                print(f"⚠️ No current captures retrieved for {time_key}")
+                logger.warning(f"⚠️ No current captures retrieved for {time_key}")
                 return
                 
                 
@@ -86,9 +119,9 @@ class HeatmapProcessor:
             error_mosaic_image = None
             if error_devices:
                 error_mosaic_image = self.create_mosaic_image(error_devices)
-                print(f"🚨 Created error mosaic with {len(error_devices)} error devices")
+                logger.info(f"🚨 Created error mosaic with {len(error_devices)} error devices")
             else:
-                print(f"✅ No error devices found for {time_key}")
+                logger.info(f"✅ No error devices found for {time_key}")
             
             # Create analysis JSON (includes all devices, even missing ones)
             analysis_json = self.create_analysis_json(complete_device_list, time_key)
@@ -100,16 +133,16 @@ class HeatmapProcessor:
             success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json, error_mosaic_image)
             
             if not success:
-                print(f"❌ Failed to upload files for {time_key}")
+                logger.error(f"❌ Failed to upload files for {time_key}")
                 return
             
             # Log uploaded URLs
             self.log_uploaded_urls(uploaded_urls, time_key)
             
-            print(f"✅ Generated heatmap for {time_key} ({len(complete_device_list)} devices)")
+            logger.info(f"✅ Generated heatmap for {time_key} ({len(complete_device_list)} devices)")
             
         except Exception as e:
-            print(f"❌ Error processing {time_key}: {e}")
+            logger.error(f"❌ Error processing {time_key}: {e}")
     
     def get_hosts_devices(self) -> List[Dict]:
         """Get hosts and devices via server API endpoint"""
@@ -127,22 +160,22 @@ class HeatmapProcessor:
             api_url = buildServerUrl('server/system/getAllHosts')
             
             # Call server API to get all hosts
-            print(f"📡 Making API request to: {api_url}")
+            logger.info(f"📡 Making API request to: {api_url}")
             response = requests.get(api_url, timeout=10)
-            print(f"📨 Response status: {response.status_code}")
+            logger.info(f"📨 Response status: {response.status_code}")
             
             if response.status_code != 200:
-                print(f"❌ Server API returned status {response.status_code}")
+                logger.error(f"❌ Server API returned status {response.status_code}")
                 return []
             
             api_result = response.json()
             if not api_result.get('success', False):
-                print(f"❌ Server API error: {api_result.get('error', 'Unknown error')}")
+                logger.error(f"❌ Server API error: {api_result.get('error', 'Unknown error')}")
                 return []
             
             # API returns hosts as a list, not a dict
             hosts_list = api_result.get('hosts', [])
-            print(f"✅ Successfully fetched {len(hosts_list)} hosts from server")
+            logger.info(f"✅ Successfully fetched {len(hosts_list)} hosts from server")
             
             all_hosts = {host['host_name']: host for host in hosts_list}
             hosts_devices = []
@@ -157,7 +190,7 @@ class HeatmapProcessor:
                         capabilities = device.get('device_capabilities', {})
                         av_capability = capabilities.get('av')
                         
-                        print(f"🔧 Device {device_id} ({device_name}): AV={av_capability}")
+                        logger.debug(f"🔧 Device {device_id} ({device_name}): AV={av_capability}")
                         
                         if (isinstance(capabilities, dict) and 'av' in capabilities and av_capability):
                             hosts_devices.append({
@@ -169,7 +202,7 @@ class HeatmapProcessor:
                 else:
                     host_capabilities = host_data.get('capabilities', {})
                     av_capability = host_capabilities.get('av')
-                    print(f"🔧 Host {host_name}: AV={av_capability}")
+                    logger.debug(f"🔧 Host {host_name}: AV={av_capability}")
                     
                     if (isinstance(host_capabilities, dict) and 'av' in host_capabilities and av_capability):
                         hosts_devices.append({
@@ -179,11 +212,11 @@ class HeatmapProcessor:
                             'host_data': host_data
                         })
             
-            print(f"🎯 Total AV devices found: {len(hosts_devices)}")
+            logger.info(f"🎯 Total AV devices found: {len(hosts_devices)}")
             return hosts_devices
             
         except Exception as e:
-            print(f"❌ Error getting hosts from API: {e}")
+            logger.error(f"❌ Error getting hosts from API: {e}")
             return []
     
     def fetch_current_captures(self, hosts_devices: List[Dict]) -> List[Dict]:
@@ -236,16 +269,16 @@ class HeatmapProcessor:
                                     raw_json_data = json_response.json()
                                     
                                     # DEBUG: Log the raw JSON data from monitor
-                                    print(f"🔍 RAW JSON for {host_name}/{device_id}: {raw_json_data}")
+                                    logger.debug(f"🔍 RAW JSON for {host_name}/{device_id}: {raw_json_data}")
                                     
                                     # Check if JSON has actual analysis data (not just {"analyzed": True})
                                     has_real_data = any(key in raw_json_data for key in ['blackscreen', 'freeze', 'audio'])
                                     if has_real_data:
                                         analysis_data = raw_json_data
-                                        print(f"✅ Using raw analysis for {host_name}/{device_id}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
+                                        logger.info(f"✅ Using raw analysis for {host_name}/{device_id}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
                                     else:
                                         analysis_data = None  # No real analysis data
-                                        print(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}: {raw_json_data}")
+                                        logger.warning(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}: {raw_json_data}")
                                 else:
                                     analysis_data = None  # No JSON file
                                 
@@ -260,23 +293,23 @@ class HeatmapProcessor:
                                     'sequence': sequence
                                 })
                                 
-                                print(f"✅ {host_name}/{device_id}: capture_{sequence}.jpg")
+                                logger.info(f"✅ {host_name}/{device_id}: capture_{sequence}.jpg")
                             else:
-                                print(f"⚠️ Could not extract sequence from {raw_json_url}")
+                                logger.warning(f"⚠️ Could not extract sequence from {raw_json_url}")
                         else:
-                            print(f"⚠️ No latest JSON for {host_name}/{device_id}: {result.get('error', 'Unknown error')}")
+                            logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}: {result.get('error', 'Unknown error')}")
                     else:
-                        print(f"❌ API error for {host_name}/{device_id}: HTTP {response.status_code}")
+                        logger.error(f"❌ API error for {host_name}/{device_id}: HTTP {response.status_code}")
                         
                 except Exception as e:
-                    print(f"❌ Error fetching current capture for {host_name}/{device_id}: {e}")
+                    logger.error(f"❌ Error fetching current capture for {host_name}/{device_id}: {e}")
                     continue
             
-            print(f"🎯 Fetched {len(current_captures)} current captures from {len(hosts_devices)} devices")
+            logger.info(f"🎯 Fetched {len(current_captures)} current captures from {len(hosts_devices)} devices")
             return current_captures
             
         except Exception as e:
-            print(f"❌ Error fetching current captures: {e}")
+            logger.error(f"❌ Error fetching current captures: {e}")
             return []
     
     def create_complete_device_list(self, hosts_devices: List[Dict], current_captures: List[Dict]) -> List[Dict]:
@@ -332,18 +365,18 @@ class HeatmapProcessor:
             return local_path
             
         except Exception as e:
-            print(f"⚠️ Could not save heatmap locally: {e}")
+            logger.warning(f"⚠️ Could not save heatmap locally: {e}")
             return "Failed to save locally"
     
     def log_consolidated_json(self, analysis_json: Dict):
         """Display consolidated JSON data in logs"""
-        print(f"\n📊 CONSOLIDATED JSON DATA:")
-        print(f"   🕐 Time Key: {analysis_json['time_key']}")
-        print(f"   📅 Timestamp: {analysis_json['timestamp']}")
-        print(f"   🖥️  Total Devices: {analysis_json['hosts_count']}")
-        print(f"   🚨 Incidents Count: {analysis_json['incidents_count']}")
+        logger.info(f"📊 CONSOLIDATED JSON DATA:")
+        logger.info(f"   🕐 Time Key: {analysis_json['time_key']}")
+        logger.info(f"   📅 Timestamp: {analysis_json['timestamp']}")
+        logger.info(f"   🖥️  Total Devices: {analysis_json['hosts_count']}")
+        logger.info(f"   🚨 Incidents Count: {analysis_json['incidents_count']}")
         
-        print(f"   📋 Device Status Summary:")
+        logger.info(f"   📋 Device Status Summary:")
         active_count = 0
         missing_count = 0
         incident_devices = []
@@ -376,40 +409,36 @@ class HeatmapProcessor:
                     'incidents': incident_types
                 })
         
-        print(f"      ✅ Active: {active_count}")
-        print(f"      ❌ Missing: {missing_count}")
+        logger.info(f"      ✅ Active: {active_count}")
+        logger.info(f"      ❌ Missing: {missing_count}")
         
         if incident_devices:
-            print(f"   🚨 Devices with Incidents:")
+            logger.info(f"   🚨 Devices with Incidents:")
             for incident_device in incident_devices:
                 incidents_str = ', '.join(incident_device['incidents'])
-                print(f"      🔴 {incident_device['device']}: {incidents_str}")
+                logger.info(f"      🔴 {incident_device['device']}: {incidents_str}")
         else:
-            print(f"   ✅ No incidents detected")
-        
-        print()  # Empty line for readability
+            logger.info(f"   ✅ No incidents detected")
     
     def log_uploaded_urls(self, uploaded_urls: Dict, time_key: str):
         """Log the uploaded URLs for mosaic and JSON"""
-        print(f"\n🔗 UPLOADED URLS for {time_key}:")
+        logger.info(f"🔗 UPLOADED URLS for {time_key}:")
         
         if uploaded_urls:
             mosaic_url = uploaded_urls.get('mosaic_url')
             json_url = uploaded_urls.get('json_url')
             
             if mosaic_url:
-                print(f"   🖼️  Mosaic Image: {mosaic_url}")
+                logger.info(f"   🖼️  Mosaic Image: {mosaic_url}")
             else:
-                print(f"   ❌ Mosaic Image: URL not available")
+                logger.warning(f"   ❌ Mosaic Image: URL not available")
                 
             if json_url:
-                print(f"   📄 JSON Data: {json_url}")
+                logger.info(f"   📄 JSON Data: {json_url}")
             else:
-                print(f"   ❌ JSON Data: URL not available")
+                logger.warning(f"   ❌ JSON Data: URL not available")
         else:
-            print(f"   ❌ No URLs available")
-        
-        print()  # Empty line for readability
+            logger.warning(f"   ❌ No URLs available")
     
     def filter_error_devices(self, devices_data: List[Dict]) -> List[Dict]:
         """Filter devices that have incidents (errors)"""
@@ -491,10 +520,10 @@ class HeatmapProcessor:
     def create_mosaic_image(self, images_data: List[Dict]) -> Image.Image:
         """Create mosaic image from device images"""
         if not images_data:
-            print("⚠️ No images provided for mosaic - creating empty black image")
+            logger.warning("⚠️ No images provided for mosaic - creating empty black image")
             return Image.new('RGB', (800, 600), color='black')
         
-        print(f"🎨 Creating mosaic from {len(images_data)} images")
+        logger.info(f"🎨 Creating mosaic from {len(images_data)} images")
         
         # Calculate grid layout
         count = len(images_data)
@@ -512,14 +541,14 @@ class HeatmapProcessor:
             cols = math.ceil(math.sqrt(count))
             rows = math.ceil(count / cols)
         
-        print(f"📐 Grid layout: {cols}x{rows} (total cells: {cols*rows})")
+        logger.info(f"📐 Grid layout: {cols}x{rows} (total cells: {cols*rows})")
         
         # Create mosaic
         cell_width, cell_height = 400, 300
         mosaic_width = cols * cell_width
         mosaic_height = rows * cell_height
         
-        print(f"🖼️ Mosaic dimensions: {mosaic_width}x{mosaic_height} pixels ({cell_width}x{cell_height} per cell)")
+        logger.info(f"🖼️ Mosaic dimensions: {mosaic_width}x{mosaic_height} pixels ({cell_width}x{cell_height} per cell)")
         mosaic = Image.new('RGB', (mosaic_width, mosaic_height), color='black')
         
         for i, image_data in enumerate(images_data):
@@ -578,17 +607,17 @@ class HeatmapProcessor:
                     draw.text((text3_x, cell_height//2 + 15), text3, fill='red', font=small_font)
                     
                 except Exception as e:
-                    print(f"⚠️ Could not add text to placeholder: {e}")
+                    logger.warning(f"⚠️ Could not add text to placeholder: {e}")
                 
                 mosaic.paste(placeholder, (x, y))
                 status_text = "placeholder" if is_placeholder else "not found"
-                print(f"📝 Added {status_text} for {image_data['host_name']}/{image_data['device_id']}")
+                logger.debug(f"📝 Added {status_text} for {image_data['host_name']}/{image_data['device_id']}")
                 
             else:
                 # Try to download and use actual image
                 try:
                     import requests
-                    print(f"📥 Downloading image: {image_url}")
+                    logger.debug(f"📥 Downloading image: {image_url}")
                     response = requests.get(image_url, timeout=10)
                     if response.status_code == 200:
                         img = Image.open(io.BytesIO(response.content))
@@ -597,11 +626,11 @@ class HeatmapProcessor:
                         # Add border and label to the image
                         img_with_border = self.add_border_and_label(img, image_data, cell_width, cell_height)
                         mosaic.paste(img_with_border, (x, y))
-                        print(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
+                        logger.debug(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}")
                     else:
                         raise Exception(f"HTTP {response.status_code}")
                 except Exception as e:
-                    print(f"❌ Error loading image {image_data['image_url']}: {e}")
+                    logger.error(f"❌ Error loading image {image_data['image_url']}: {e}")
                     # Create error placeholder
                     error_placeholder = Image.new('RGB', (cell_width, cell_height), color='#4a2a2a')  # Dark red
                     
@@ -736,7 +765,7 @@ class HeatmapProcessor:
                     )
                     
                     if all_urls_available:
-                        print(f"✅ Uploaded heatmap files for {time_key}")
+                        logger.info(f"✅ Uploaded heatmap files for {time_key}")
                         
                         # Extract URLs for return
                         uploaded_urls = {}
@@ -748,18 +777,18 @@ class HeatmapProcessor:
                         
                         return True, uploaded_urls
                     else:
-                        print(f"❌ Upload failed for {time_key}: Files uploaded but URLs not available")
+                        logger.error(f"❌ Upload failed for {time_key}: Files uploaded but URLs not available")
                         for uploaded in result['uploaded_files']:
                             url_status = uploaded.get('url', 'URL not available')
                             if not url_status or not url_status.strip():
                                 url_status = 'URL not available (CLOUDFLARE_R2_PUBLIC_URL not set)'
-                            print(f"   🔗 {uploaded['remote_path']}: {url_status}")
+                            logger.error(f"   🔗 {uploaded['remote_path']}: {url_status}")
                         return False, {}
                 else:
-                    print(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
+                    logger.error(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
                     if result.get('failed_uploads'):
                         for failed in result['failed_uploads']:
-                            print(f"   Failed: {failed['remote_path']} - {failed['error']}")
+                            logger.error(f"   Failed: {failed['remote_path']} - {failed['error']}")
                     return False, {}
                     
             finally:
@@ -772,14 +801,14 @@ class HeatmapProcessor:
                     os.unlink(error_img_temp_path)
                     
         except Exception as e:
-            print(f"❌ Error uploading heatmap files for {time_key}: {e}")
+            logger.error(f"❌ Error uploading heatmap files for {time_key}: {e}")
             return False, {}
     
     def wait_for_next_minute(self):
         """Wait until next minute boundary"""
         now = datetime.now()
         seconds_to_wait = 60 - now.second
-        print(f"⏳ Waiting {seconds_to_wait}s for next minute...")
+        logger.info(f"⏳ Waiting {seconds_to_wait}s for next minute...")
         time.sleep(seconds_to_wait)
 
 
