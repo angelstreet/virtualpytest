@@ -15,10 +15,11 @@ export interface UseEdgeProps {
   treeId?: string | null;
 }
 
-export const useEdge = (props?: UseEdgeProps) => {
-  console.log('[@useEdge] Hook initialized with props:', props);
-  if (!props) {
-    console.trace('[@useEdge] Called with undefined props - stack trace:');
+export const useEdge = (props: UseEdgeProps = {}) => {
+  // Only log when actually being used (not just initialized with empty params)
+  const isActive = props.selectedHost || props.isControlActive || props.treeId;
+  if (isActive) {
+    console.log('[@useEdge] Hook initialized with props:', props);
   }
   
   // Action hook for edge operations

@@ -290,15 +290,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       handleDisconnectComplete,
     } = useHostManager();
 
-    // Initialize edge hook conditionally - only when we have the required context
-    const edgeHook = useEdge(
-      selectedEdge ? {
-        selectedHost: selectedHost || null,
-        selectedDeviceId: selectedDeviceId || null,
-        isControlActive,
-        treeId: actualTreeId,
-      } : undefined
-    );
+    // Initialize edge hook - always call but with proper parameters
+    const edgeHook = useEdge({
+      selectedHost: selectedEdge ? (selectedHost || null) : null,
+      selectedDeviceId: selectedEdge ? (selectedDeviceId || null) : null,
+      isControlActive: selectedEdge ? isControlActive : false,
+      treeId: selectedEdge ? actualTreeId : null,
+    });
 
     // Initialize metrics hook
     const metricsHook = useMetrics({
