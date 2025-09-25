@@ -735,6 +735,16 @@ class ActionExecutor:
             
             nav_context = self.device.navigation_context
             tree_id = nav_context['current_tree_id']
+            
+            # DEBUG: Log the values being recorded
+            print(f"[@action_executor:_record_edge_execution] DEBUG Recording:")
+            print(f"  - edge_id: {self.edge_id}")
+            print(f"  - action_set_id: {self.action_set_id}")
+            print(f"  - tree_id: {tree_id}")
+            print(f"  - team_id: {team_id}")
+            print(f"  - success: {success}")
+            print(f"  - execution_time_ms: {execution_time_ms}")
+            
             result = record_edge_execution(
                 team_id=team_id,
                 tree_id=tree_id,
