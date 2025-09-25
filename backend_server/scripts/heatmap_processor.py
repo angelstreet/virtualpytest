@@ -132,13 +132,6 @@ class HeatmapProcessor:
             # Upload to R2 with time-only naming
             success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json, ok_mosaic_image, ko_mosaic_image)
             
-            if not success:
-                logger.error(f"❌ Failed to upload files for {time_key}")
-                return
-            
-            # Log uploaded URLs
-            self.log_uploaded_urls(uploaded_urls, time_key)
-            
             logger.info(f"✅ Generated heatmap for {time_key} ({len(complete_device_list)} devices)")
             
         except Exception as e:
@@ -420,25 +413,6 @@ class HeatmapProcessor:
         else:
             logger.info(f"   ✅ No incidents detected")
     
-    def log_uploaded_urls(self, uploaded_urls: Dict, time_key: str):
-        """Log the uploaded URLs for mosaic and JSON"""
-        logger.info(f"🔗 UPLOADED URLS for {time_key}:")
-        
-        if uploaded_urls:
-            mosaic_url = uploaded_urls.get('mosaic_url')
-            json_url = uploaded_urls.get('json_url')
-            
-            if mosaic_url:
-                logger.info(f"   🖼️  Mosaic Image: {mosaic_url}")
-            else:
-                logger.warning(f"   ❌ Mosaic Image: URL not available")
-                
-            if json_url:
-                logger.info(f"   📄 JSON Data: {json_url}")
-            else:
-                logger.warning(f"   ❌ JSON Data: URL not available")
-        else:
-            logger.warning(f"   ❌ No URLs available")
     
     def filter_ko_devices(self, devices_data: List[Dict]) -> List[Dict]:
         """Filter devices that have incidents (KO)"""
@@ -750,18 +724,15 @@ class HeatmapProcessor:
             
             try:
                 # Prepare file mappings for batch upload
-                img_remote_path = f'heatmaps/{time_key}.jpg'
-                json_remote_path = f'heatmaps/{time_key}.json'
-                
                 file_mappings = [
                     {
                         'local_path': img_temp_path,
-                        'remote_path': img_remote_path,
+                        'remote_path': f'heatmaps/{time_key}.jpg',
                         'content_type': 'image/jpeg'
                     },
                     {
                         'local_path': json_temp_path,
-                        'remote_path': json_remote_path,
+                        'remote_path': f'heatmaps/{time_key}.json',
                         'content_type': 'application/json'
                     }
                 ]
@@ -784,39 +755,26 @@ class HeatmapProcessor:
                 cloudflare_utils = get_cloudflare_utils()
                 result = cloudflare_utils.upload_files(file_mappings)
                 
-                if result['success'] and len(result['uploaded_files']) == 2:
-                    # Check if all files have valid URLs
-                    all_urls_available = all(
-                        uploaded.get('url') and uploaded.get('url').strip() and uploaded.get('url') != 'URL not available' 
-                        for uploaded in result['uploaded_files']
-                    )
-                    
-                    if all_urls_available:
-                        logger.info(f"✅ Uploaded heatmap files for {time_key}")
+                # Log all uploaded URLs
+                uploaded_urls = {}
+                if result.get('uploaded_files'):
+                    logger.info(f"✅ Uploaded {len(result['uploaded_files'])} files for {time_key}:")
+                    for uploaded in result['uploaded_files']:
+                        url = uploaded.get('url', 'URL not available')
+                        logger.info(f"   🔗 {uploaded['remote_path']}: {url}")
                         
-                        # Extract URLs for return
-                        uploaded_urls = {}
-                        for uploaded in result['uploaded_files']:
-                            if uploaded['remote_path'].endswith('.jpg'):
-                                uploaded_urls['mosaic_url'] = uploaded['url']
-                            elif uploaded['remote_path'].endswith('.json'):
-                                uploaded_urls['json_url'] = uploaded['url']
-                        
-                        return True, uploaded_urls
-                    else:
-                        logger.error(f"❌ Upload failed for {time_key}: Files uploaded but URLs not available")
-                        for uploaded in result['uploaded_files']:
-                            url_status = uploaded.get('url', 'URL not available')
-                            if not url_status or not url_status.strip():
-                                url_status = 'URL not available (CLOUDFLARE_R2_PUBLIC_URL not set)'
-                            logger.error(f"   🔗 {uploaded['remote_path']}: {url_status}")
-                        return False, {}
-                else:
-                    logger.error(f"❌ Upload failed for {time_key}: {result.get('error', 'Unknown error')}")
-                    if result.get('failed_uploads'):
-                        for failed in result['failed_uploads']:
-                            logger.error(f"   Failed: {failed['remote_path']} - {failed['error']}")
-                    return False, {}
+                        # Store main URLs for return
+                        if uploaded['remote_path'].endswith(f'{time_key}.jpg'):
+                            uploaded_urls['mosaic_url'] = url
+                        elif uploaded['remote_path'].endswith(f'{time_key}.json'):
+                            uploaded_urls['json_url'] = url
+                
+                if result.get('failed_uploads'):
+                    logger.error(f"❌ Failed uploads for {time_key}:")
+                    for failed in result['failed_uploads']:
+                        logger.error(f"   ❌ {failed['remote_path']}: {failed['error']}")
+                
+                return True, uploaded_urls
                     
             finally:
                 # Clean up temporary files
