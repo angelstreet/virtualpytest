@@ -56,10 +56,6 @@ def create_heatmap_html_template() -> str:
             border: 2px solid #4a90e2; border-radius: 4px; padding: 2px;
             font-weight: bold; color: #4a90e2;
         }}
-        .current-time-indicator {{ 
-            position: absolute; top: -25px; transform: translateX(-50%);
-            font-size: 11px; font-weight: bold; color: #4a90e2;
-        }}
         .frame-counter {{ font-size: 0.9em; min-width: 60px; text-align: right; }}
         
         .analysis-section {{ padding: 20px; }}
@@ -95,9 +91,6 @@ def create_heatmap_html_template() -> str:
                 <button id="playBtn" class="play-btn" onclick="togglePlay()">▶</button>
                 <div class="timeline">
                     <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="{max_frame}" value="0" oninput="changeFrame(this.value)">
-                    <div id="currentTimeIndicator" class="current-time-indicator" style="left: 0%;">
-                        {first_timestamp}
-                    </div>
                     <div class="timeline-marks">
                         {timeline_marks}
                     </div>
@@ -149,12 +142,6 @@ def create_heatmap_html_template() -> str:
             
             // Update frame counter
             document.getElementById('frameCounter').textContent = `${{currentFrame + 1}} / ${{mosaicData.length}}`;
-            
-            // Update current time indicator
-            const position = (currentFrame / Math.max(1, mosaicData.length - 1)) * 100;
-            const indicator = document.getElementById('currentTimeIndicator');
-            indicator.style.left = position + '%';
-            indicator.textContent = data.timestamp;
             
             // Update timeline marks - highlight current
             const marks = document.querySelectorAll('.timeline-mark');
