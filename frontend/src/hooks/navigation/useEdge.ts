@@ -12,6 +12,7 @@ export interface UseEdgeProps {
   selectedDeviceId?: string | null;
   isControlActive?: boolean;
   availableActions?: Actions;
+  treeId?: string | null;
 }
 
 export const useEdge = (props?: UseEdgeProps) => {
@@ -199,10 +200,18 @@ export const useEdge = (props?: UseEdgeProps) => {
       setRunResult(null);
 
       try {
+        // Include navigation context for proper metrics recording
+        const navigationContext = {
+          tree_id: props?.treeId || undefined,
+          edge_id: edge.id,
+          action_set_id: defaultSet.id
+        };
+        
         const result = await actionHook.executeActions(
           actions.map(convertToControllerAction),
           retryActions.map(convertToControllerAction),
           failureActions.map(convertToControllerAction),
+          navigationContext
         );
 
         const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));
