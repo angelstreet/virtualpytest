@@ -68,63 +68,31 @@ const HeatmapContent: React.FC = () => {
   const handleOverlayClick = (deviceData: any) => {
     console.log('[@Heatmap] Opening stream modal for device:', deviceData);
     
-    // Try to get real host and device data from HostManagerProvider
+    // Get real host and device data from HostManagerProvider
     const realHost = getHostByName(deviceData.host_name);
-    let realDevice: Device | null = null;
     
-    if (realHost) {
-      // Look for the specific device in the host's devices
-      const hostDevices = getDevicesFromHost(deviceData.host_name);
-      realDevice = hostDevices.find(d => d.device_id === deviceData.device_id) || null;
-      
-      console.log('[@Heatmap] Found real host:', realHost);
-      console.log('[@Heatmap] Found real device:', realDevice);
-      
-      if (realDevice) {
-        // Use real data
-        setStreamModalHost(realHost);
-        setStreamModalDevice(realDevice);
-        setStreamModalOpen(true);
-        return;
-      }
+    if (!realHost) {
+      console.error('[@Heatmap] Host not found:', deviceData.host_name);
+      setError(`Host "${deviceData.host_name}" not found`);
+      return;
     }
     
-    // Fallback: Create mock data if real data not available
-    console.log('[@Heatmap] Real device data not found, using fallback mock data');
+    // Look for the specific device in the host's devices
+    const hostDevices = getDevicesFromHost(deviceData.host_name);
+    const realDevice = hostDevices.find(d => d.device_id === deviceData.device_id);
     
-    const fallbackDevice: Device = {
-      device_id: deviceData.device_id,
-      device_name: deviceData.device_name || deviceData.device_id,
-      device_model: 'android_mobile', // Default fallback - will show appropriate remote
-      device_capabilities: {
-        av: 'hdmi_stream',
-        remote: 'android_mobile', // Match the device model
-        power: 'adb'
-      }
-    };
-
-    const fallbackHost: Host = {
-      host_name: deviceData.host_name,
-      host_url: `http://${deviceData.host_name}:6109`,
-      host_port: 6109,
-      devices: [fallbackDevice],
-      device_count: 1,
-      status: 'online',
-      last_seen: Date.now(),
-      registered_at: new Date().toISOString(),
-      system_stats: {
-        cpu_percent: 0,
-        memory_percent: 0,
-        disk_percent: 0,
-        platform: 'linux',
-        architecture: 'x86_64',
-        python_version: '3.9'
-      },
-      isLocked: false
-    };
-
-    setStreamModalHost(fallbackHost);
-    setStreamModalDevice(fallbackDevice);
+    if (!realDevice) {
+      console.error('[@Heatmap] Device not found:', deviceData.device_id, 'in host:', deviceData.host_name);
+      setError(`Device "${deviceData.device_id}" not found in host "${deviceData.host_name}"`);
+      return;
+    }
+    
+    console.log('[@Heatmap] Found real host:', realHost);
+    console.log('[@Heatmap] Found real device:', realDevice);
+    
+    // Use real data
+    setStreamModalHost(realHost);
+    setStreamModalDevice(realDevice);
     setStreamModalOpen(true);
   };
 
