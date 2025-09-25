@@ -1027,7 +1027,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                     setEdgeLabels({ fromLabel, toLabel })
                                   }
                                   currentEdgeForm={edgeForm}
-                                  edgeMetrics={metricsHook.getEdgeMetrics(edge.id)}
+                                  edgeMetrics={actionSet ? metricsHook.getEdgeDirectionMetrics(edge.id, actionSet.id) : metricsHook.getEdgeMetrics(edge.id)}
                                 />
                               );
                             });
@@ -1055,7 +1055,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                     setEdgeLabels({ fromLabel, toLabel })
                                   }
                                   currentEdgeForm={edgeForm}
-                                  edgeMetrics={metricsHook.getEdgeMetrics(edge.id)}
+                                  edgeMetrics={actionSet ? metricsHook.getEdgeDirectionMetrics(edge.id, actionSet.id) : metricsHook.getEdgeMetrics(edge.id)}
                                 />
                               );
                               panelIndexOffset += 2; // Always reserve space for 2 panels (defined + fallback)
