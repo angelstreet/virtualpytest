@@ -54,6 +54,35 @@ def update_device_flags(host_name, device_id):
         print(f"❌ [device_flags] Error updating device flags: {e}")
         return jsonify({'error': str(e)}), 500
 
+@device_flags_bp.route('/batch', methods=['GET'])
+def get_batch_device_flags():
+    """Get both device flags and unique flags in one request"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Get all device flags
+        device_flags_result = supabase.table('device_flags').select('*').execute()
+        device_flags = device_flags_result.data
+        
+        # Extract unique flags from all devices
+        unique_flags = set()
+        for row in device_flags:
+            flags = row.get('flags', [])
+            if flags:
+                unique_flags.update(flags)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'device_flags': device_flags,
+                'unique_flags': sorted(list(unique_flags))
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ [device_flags] Error fetching batch device flags: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @device_flags_bp.route('/flags', methods=['GET'])
 def get_unique_flags():
     """Get all unique flags across all devices"""
