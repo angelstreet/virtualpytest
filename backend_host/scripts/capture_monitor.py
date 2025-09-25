@@ -102,12 +102,6 @@ def main():
             if frame_path:
                 detection_result = detect_issues(frame_path)
                 
-                # DEBUG: Log what detect_issues returned
-                logger.info(f"[{capture_folder}] DEBUG: detection_result = {detection_result}")
-                logger.info(f"[{capture_folder}] DEBUG: detection_result type = {type(detection_result)}")
-                if detection_result:
-                    logger.info(f"[{capture_folder}] DEBUG: detection_result keys = {list(detection_result.keys()) if isinstance(detection_result, dict) else 'not a dict'}")
-                
                 issues = []
                 if detection_result and detection_result.get('blackscreen', False):
                     issues.append('blackscreen')
@@ -124,7 +118,6 @@ def main():
                 # Save complete analysis data to JSON file
                 json_file = frame_path.replace('.jpg', '.json')
                 try:
-                    # Debug: Log what we're about to save
                     if detection_result:
                         analysis_data = {
                             "analyzed": True,
@@ -137,15 +130,8 @@ def main():
                             "error": "detection_result_was_none"
                         }
                     
-                    logger.info(f"[{capture_folder}] Saving analysis data: {list(analysis_data.keys())}")
-                    
                     with open(json_file, 'w') as f:
                         json.dump(analysis_data, f, indent=2)
-                    
-                    # Verify what was actually written
-                    with open(json_file, 'r') as f:
-                        saved_data = json.load(f)
-                        logger.info(f"[{capture_folder}] Verified saved keys: {list(saved_data.keys())}")
                         
                 except Exception as e:
                     logger.error(f"[{capture_folder}] Error saving analysis data: {e}")
