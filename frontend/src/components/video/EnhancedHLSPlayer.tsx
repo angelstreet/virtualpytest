@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Switch, FormControlLabel, Slider, Typography } from '@mui/material';
+import { Box, Slider, Typography, IconButton } from '@mui/material';
+import { PlayArrow, Pause } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 interface EnhancedHLSPlayerProps {

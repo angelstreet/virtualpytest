@@ -430,12 +430,24 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
             arrow
             placement="top"
             PopperProps={{
+              anchorEl: null,
               style: isDragging ? {
                 position: 'fixed',
-                left: mousePosition.x - 50, // Center tooltip on mouse
-                top: mousePosition.y - 60,  // Position above mouse
-                zIndex: 9999
-              } : undefined
+                left: `${mousePosition.x - 50}px`, // Center tooltip on mouse
+                top: `${mousePosition.y - 60}px`,  // Position above mouse
+                zIndex: 9999,
+                pointerEvents: 'none'
+              } : undefined,
+              modifiers: [
+                {
+                  name: 'offset',
+                  enabled: false,
+                },
+                {
+                  name: 'preventOverflow',
+                  enabled: false,
+                },
+              ],
             }}
           >
             <Slider
