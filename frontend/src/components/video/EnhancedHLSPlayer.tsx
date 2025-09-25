@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Box, Slider, Typography, IconButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
@@ -60,10 +60,35 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     device_id: deviceId,
   });
 
-  // Use provided stream URL, then hook URL, then fallback to dynamic URL based on mode
-  const streamUrl = providedStreamUrl || hookStreamUrl || (isLiveMode 
-    ? `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`
-    : `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`);
+  // Build the appropriate stream URL based on mode
+  const streamUrl = useMemo(() => {
+    // If explicit streamUrl provided, modify it based on mode
+    if (providedStreamUrl) {
+      if (isLiveMode) {
+        // Ensure live URL uses output.m3u8
+        return providedStreamUrl.replace(/archive\.m3u8$/, 'output.m3u8');
+      } else {
+        // Ensure archive URL uses archive.m3u8
+        return providedStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
+      }
+    }
+    
+    // If hook provided URL, modify it based on mode
+    if (hookStreamUrl) {
+      if (isLiveMode) {
+        // Ensure live URL uses output.m3u8
+        return hookStreamUrl.replace(/archive\.m3u8$/, 'output.m3u8');
+      } else {
+        // Ensure archive URL uses archive.m3u8
+        return hookStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
+      }
+    }
+    
+    // Fallback to dynamic URL based on mode
+    return isLiveMode 
+      ? `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`
+      : `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
+  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId]);
 
   // Seek to live edge when switching to live mode
   const seekToLive = () => {
@@ -166,29 +191,33 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           sx={{ width: '100%', height: '100%' }}
         />
 
-        {/* Play/Pause Control Overlay - Always visible */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: !isLiveMode && duration > 0 ? 80 : 16, // Align with timeline when present
-            left: 16,
-            zIndex: 10,
-          }}
-        >
-          <IconButton
-            onClick={togglePlayPause}
+        {/* Play/Pause Control Overlay - Only visible in 24h Archive mode */}
+        {!isLiveMode && (
+          <Box
             sx={{
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              color: 'white',
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              },
+              position: 'absolute',
+              bottom: duration > 0 ? 80 : 16, // Align with timeline when present
+              left: 16,
+              zIndex: 10,
             }}
-            size="small"
           >
-            {isPlaying ? <PlayArrow /> : <Pause />}
-          </IconButton>
-        </Box>
+            <IconButton
+              onClick={togglePlayPause}
+              sx={{
+                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                color: 'white',
+                border: '2px solid rgba(255, 255, 255, 0.7)',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  border: '2px solid rgba(255, 255, 255, 1)',
+                },
+              }}
+              size="small"
+            >
+              {isPlaying ? <PlayArrow /> : <Pause />}
+            </IconButton>
+          </Box>
+        )}
 
         {/* Archive Timeline Overlay */}
         {!isLiveMode && duration > 0 && (

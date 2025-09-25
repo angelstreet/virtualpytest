@@ -80,7 +80,7 @@ const RecHostStreamModalContent: React.FC<{
   const [restartMode, setRestartMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
-  const [isLiveMode, setIsLiveMode] = useState<boolean>(false); // Start in 24h mode
+  const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
 
   // Set global modal state when component mounts/unmounts
   useEffect(() => {
