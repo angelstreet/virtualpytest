@@ -197,6 +197,7 @@ def record_edge_execution(
         }
         
         print(f"[@db:execution_results:record_edge_execution] {execution_id[:8]} | {action_set_id or 'N/A'} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
+        print(f"[@db:execution_results:record_edge_execution] DEBUG: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
         
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()
