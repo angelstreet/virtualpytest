@@ -1009,6 +1009,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                             // Render panels for each display action set in this edge
                             displayActionSets.forEach((actionSet: any, actionSetIndex: number) => {
                               console.log('[@NavigationEditor] Creating panel for action set:', actionSet.id, 'at index:', panelIndexOffset + actionSetIndex);
+                              const edgeMetrics = metricsHook.getEdgeDirectionMetrics(edge.id, actionSet.id);
+                              console.log('[@NavigationEditor] Edge metrics for', edge.id, 'actionSet', actionSet.id, ':', edgeMetrics);
                               panels.push(
                                 <EdgeSelectionPanel
                                   key={`${edge.id}-${actionSet.id}-${actionSet.actions?.length || 0}`}
@@ -1027,7 +1029,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                     setEdgeLabels({ fromLabel, toLabel })
                                   }
                                   currentEdgeForm={edgeForm}
-                                  edgeMetrics={actionSet ? metricsHook.getEdgeDirectionMetrics(edge.id, actionSet.id) : metricsHook.getEdgeMetrics(edge.id)}
+                                  edgeMetrics={edgeMetrics}
                                 />
                               );
                             });

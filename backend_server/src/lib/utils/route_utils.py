@@ -12,11 +12,12 @@ import json
 def get_host_from_request():
     """Get host information from request data using host_name lookup"""
     try:
+        # Check both JSON body (for POST requests) and query parameters (for GET requests)
         data = request.get_json() or {}
-        host_name = data.get('host_name')
+        host_name = data.get('host_name') or request.args.get('host_name')
         
         if not host_name:
-            return None, 'host_name required in request body'
+            return None, 'host_name required in request body or query parameters'
             
         from  backend_server.src.lib.utils.server_utils import get_host_manager
         host_manager = get_host_manager()
