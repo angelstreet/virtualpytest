@@ -107,24 +107,24 @@ const Heatmap: React.FC = () => {
       {/* Header */}
       <Box>
         <Card>
-          <CardContent sx={{ py: 0.5 }}>
+          <CardContent sx={{ py: 0.25, px: 1 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box display="flex" alignItems="center" gap={1}>
-                <HeatmapIcon color="primary" />
-                <Typography variant="h6">24h Heatmap</Typography>
+              <Box display="flex" alignItems="center" gap={0.5}>
+                <HeatmapIcon color="primary" fontSize="small" />
+                <Typography variant="subtitle1" fontWeight="bold">24h Heatmap</Typography>
               </Box>
 
-              <Box display="flex" alignItems="center" gap={4}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Devices</Typography>
-                  <Typography variant="body2" fontWeight="bold">
+              <Box display="flex" alignItems="center" gap={2}>
+                <Box display="flex" alignItems="center" gap={0.5}>
+                  <Typography variant="caption">Devices</Typography>
+                  <Typography variant="caption" fontWeight="bold">
                     {analysisData?.hosts_count || 0}
                   </Typography>
                 </Box>
                 
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Status</Typography>
-                  <Typography variant="body2" fontWeight="bold" color={hasIncidents() ? 'error' : 'success'}>
+                <Box display="flex" alignItems="center" gap={0.5}>
+                  <Typography variant="caption">Status</Typography>
+                  <Typography variant="caption" fontWeight="bold" color={hasIncidents() ? 'error' : 'success'}>
                     {hasIncidents() ? 'KO' : 'OK'}
                   </Typography>
                 </Box>
@@ -137,11 +137,17 @@ const Heatmap: React.FC = () => {
                 </Tooltip>
                 
                 {/* Generate Report Button */}
-                <Tooltip title="Generate Report for Current Frame">
+                <Tooltip title={
+                  !timeline[currentIndex] ? "No timeline data available" :
+                  !analysisData ? "No analysis data available - check if heatmap processor is running" :
+                  !analysisData.devices ? "Analysis data missing devices array" :
+                  isGeneratingReport ? "Generating report..." :
+                  "Generate Report for Current Frame"
+                }>
                   <IconButton 
                     size="small" 
                     onClick={handleGenerateReport}
-                    disabled={isGeneratingReport || !analysisData || !timeline[currentIndex]}
+                    disabled={isGeneratingReport || !analysisData || !analysisData.devices || !timeline[currentIndex]}
                   >
                     <GridView />
                   </IconButton>
