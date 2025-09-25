@@ -49,6 +49,7 @@ export const useHeatmap = () => {
   // Get R2 base URL from environment
   const R2_BASE_URL = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
   
+  
   /**
    * Generate 24-hour timeline with predictable file names
    */
