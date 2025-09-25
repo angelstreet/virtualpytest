@@ -47,6 +47,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null); // For drag preview
+  const [isDragging, setIsDragging] = useState(false);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const currentImageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -206,11 +208,41 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   
   
   /**
-   * Timeline slider change handler
+   * Timeline slider change handler (during drag - for preview only)
    */
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
     const index = newValue as number;
+    setPreviewIndex(index);
+    setIsDragging(true);
+  };
+
+  /**
+   * Timeline slider change committed handler (on mouse release - actual change)
+   */
+  const handleSliderChangeCommitted = (_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    const index = newValue as number;
+    setIsDragging(false);
+    setPreviewIndex(null);
     onIndexChange(index);
+  };
+
+  /**
+   * Format time for tooltip during drag
+   */
+  const formatTimeForTooltip = (index: number): string => {
+    const item = timeline[index];
+    if (!item) return '';
+    
+    const time = item.displayTime;
+    const timeStr = time.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    
+    const dateStr = item.isToday ? 'Today' : 'Yesterday';
+    return `${dateStr} ${timeStr}`;
   };
   
   /**
@@ -357,26 +389,34 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
         
         {/* Timeline Scrubber */}
         <Box sx={{ position: 'relative', pb: 5 }}>
-          <Slider
-            value={currentIndex}
-            min={0}
-            max={Math.max(0, timeline.length - 1)}
-            onChange={handleSliderChange}
-            sx={{
-              color: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
-              '& .MuiSlider-thumb': {
-                width: 16,
-                height: 16,
-                backgroundColor: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
-              },
-              '& .MuiSlider-track': {
-                backgroundColor: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
-              },
-              '& .MuiSlider-rail': {
-                backgroundColor: '#CCCCCC',
-              }
-            }}
-          />
+          <Tooltip
+            title={isDragging && previewIndex !== null ? formatTimeForTooltip(previewIndex) : ''}
+            open={isDragging}
+            arrow
+            placement="top"
+          >
+            <Slider
+              value={isDragging && previewIndex !== null ? previewIndex : currentIndex}
+              min={0}
+              max={Math.max(0, timeline.length - 1)}
+              onChange={handleSliderChange}
+              onChangeCommitted={handleSliderChangeCommitted}
+              sx={{
+                color: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
+                '& .MuiSlider-thumb': {
+                  width: 16,
+                  height: 16,
+                  backgroundColor: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
+                },
+                '& .MuiSlider-track': {
+                  backgroundColor: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
+                },
+                '& .MuiSlider-rail': {
+                  backgroundColor: '#CCCCCC',
+                }
+              }}
+            />
+          </Tooltip>
           
           
           {/* Hour Marks with Date/Time Display */}

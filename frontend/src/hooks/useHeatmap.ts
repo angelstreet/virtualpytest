@@ -40,7 +40,7 @@ export interface AnalysisData {
 
 export const useHeatmap = () => {
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(1438); // Start at current-1 minute
+  const [currentIndex, setCurrentIndex] = useState(86340); // Start at current-1 minute (86400 - 60)
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [hasDataError, setHasDataError] = useState(false);
@@ -53,15 +53,15 @@ export const useHeatmap = () => {
   
   
   /**
-   * Generate 24-hour timeline with predictable file names
+   * Generate 24-hour timeline with predictable file names (86400 seconds)
    */
   const generateTimeline = (): TimelineItem[] => {
     const now = new Date();
     const items: TimelineItem[] = [];
     
-    // Generate 1440 minutes (24 hours)
-    for (let i = 0; i < 1440; i++) {
-      const time = new Date(now.getTime() - (i * 60000)); // Go back i minutes
+    // Generate 86400 seconds (24 hours)
+    for (let i = 0; i < 86400; i++) {
+      const time = new Date(now.getTime() - (i * 1000)); // Go back i seconds
       const timeKey = `${time.getHours().toString().padStart(2, '0')}${time.getMinutes().toString().padStart(2, '0')}`;
       
       items.push({
@@ -171,8 +171,8 @@ export const useHeatmap = () => {
       setTimeline(newTimeline);
       
       // If we're at the latest position, stay there with new data
-      if (currentIndex === 1438 && newTimeline[1438]) {
-        loadAnalysisData(newTimeline[1438]);
+      if (currentIndex === 86340 && newTimeline[86340]) {
+        loadAnalysisData(newTimeline[86340]);
       }
     }, 60000); // Refresh every minute
     
@@ -256,7 +256,7 @@ export const useHeatmap = () => {
    * Navigate to latest available data (current-1 minute)
    */
   const goToLatest = () => {
-    setCurrentIndex(1438); // Go to current-1 minute
+    setCurrentIndex(86340); // Go to current-1 minute (86400 - 60)
     setRetryAttempts(0); // Reset retry count when manually navigating
   };
 
@@ -378,7 +378,7 @@ export const useHeatmap = () => {
     
     // Timeline info
     totalMinutes: timeline.length,
-    isAtLatest: currentIndex === 1438,
+    isAtLatest: currentIndex === 86340,
     
     // Recovery status
     canRecover: lastSuccessfulIndex !== null && corsBlocked
