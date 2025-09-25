@@ -19,10 +19,11 @@ import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
+import { ModalProvider } from '../contexts/ModalContext';
 import { useHeatmap } from '../hooks/useHeatmap';
 import { Host, Device } from '../types/common/Host_Types';
 
-const Heatmap: React.FC = () => {
+const HeatmapContent: React.FC = () => {
   const {
     timeline,
     currentIndex,
@@ -248,6 +249,14 @@ const Heatmap: React.FC = () => {
         />
       )}
     </Box>
+  );
+};
+
+const Heatmap: React.FC = () => {
+  return (
+    <ModalProvider>
+      <HeatmapContent />
+    </ModalProvider>
   );
 };
 
