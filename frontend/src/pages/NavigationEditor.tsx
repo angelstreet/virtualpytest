@@ -960,10 +960,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               </div>
 
               {/* Side Panels */}
-              {selectedNode || selectedEdge ? (
-                <>
-                  {selectedNode ? (
-                    <>
+              {selectedNode ? (
+                      <>
                       {/* Node Selection Panel */}
                       <NodeSelectionPanel
                         selectedNode={selectedNode}
@@ -983,7 +981,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                         nodeMetrics={metricsHook.getNodeMetrics(selectedNode.id)}
                       />
                     </>
-                  ) : selectedEdge ? (
+              ) : null}
+              
+              {selectedEdge ? (
                     <>
                       {/* Edge Selection Panels - show panels for both edges if bidirectional */}
                       {(() => {
@@ -1101,8 +1101,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                         }).flat();
                       })()}
                     </>
-                  ) : null}
-                </>
               ) : null}
             </>
           </Box>
