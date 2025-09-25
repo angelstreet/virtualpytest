@@ -43,7 +43,15 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     if (!video) return;
 
     const handleTimeUpdate = () => setCurrentTime(video.currentTime);
-    const handleDurationChange = () => setDuration(video.duration);
+    const handleDurationChange = () => {
+      setDuration(video.duration);
+      
+      // When archive mode loads and we get duration, seek to live edge (rightmost position)
+      if (!isLiveMode && video.duration && !isNaN(video.duration)) {
+        console.log('[@EnhancedHLSPlayer] Archive mode loaded, seeking to live edge:', video.duration);
+        video.currentTime = video.duration;
+      }
+    };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
@@ -52,16 +60,19 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
     };
-  }, []);
+  }, [isLiveMode]); // Add isLiveMode dependency to re-setup handlers when mode changes
 
   // Mode toggle handler
   const handleModeToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newIsLiveMode = event.target.checked;
     setIsLiveMode(newIsLiveMode);
     
-    if (newIsLiveMode) {
+    // Always seek to live edge when switching modes
+    // For live mode: stay at live edge
+    // For archive mode: start at live edge (rightmost position) then allow scrubbing backwards
+    setTimeout(() => {
       seekToLive();
-    }
+    }, 500); // Small delay to allow HLS player to initialize with new manifest
   };
 
   // Archive timeline controls
