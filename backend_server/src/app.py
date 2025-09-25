@@ -118,7 +118,9 @@ def register_all_server_routes(app):
         from routes import server_control_routes
         print("[@backend_server:routes] ✅ server_control_routes imported successfully")
         
-        # server_actions_routes replaced by auto_proxy
+        print("[@backend_server:routes] 🔍 Importing server_actions_routes...")
+        from routes import server_actions_routes
+        print("[@backend_server:routes] ✅ server_actions_routes imported successfully")
         
         print("[@backend_server:routes] 🔍 Importing server_device_routes...")
         from routes import server_device_routes
@@ -248,6 +250,7 @@ def register_all_server_routes(app):
             (server_web_routes.server_web_bp, 'Web interface'),
             (server_core_routes.server_core_bp, 'Server core API'),
             (server_control_routes.server_control_bp, 'Device control operations'),
+            (server_actions_routes.server_actions_bp, 'Action operations'),
             (server_device_routes.server_device_bp, 'Device management'),
             (server_navigation_routes.server_navigation_bp, 'Navigation operations'),
             (server_navigation_trees_routes.server_navigation_trees_bp, 'Navigation trees'),
