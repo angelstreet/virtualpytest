@@ -140,28 +140,20 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
         <Box>
           <Typography variant="h6">
             {formatDisplayTime(currentItem)}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-            <Chip 
-              label={`Frame ${currentIndex + 1} / ${timeline.length}`}
-              size="small"
-              variant="outlined"
-            />
+            <Typography component="span" variant="body2" sx={{ ml: 2, color: 'text.secondary' }}>
+              Frame {currentIndex + 1} / {timeline.length}
+            </Typography>
             {hasIncidents && (
-              <Chip 
-                label="Incidents Detected"
-                size="small"
-                color="error"
-              />
+              <Typography component="span" variant="body2" sx={{ ml: 2, color: 'error.main', fontWeight: 'bold' }}>
+                Incidents Detected
+              </Typography>
             )}
             {isLoading && (
-              <Chip 
-                label="Loading..."
-                size="small"
-                color="info"
-              />
+              <Typography component="span" variant="body2" sx={{ ml: 2, color: 'info.main' }}>
+                Loading...
+              </Typography>
             )}
-          </Box>
+          </Typography>
         </Box>
         
       </Box>
