@@ -9,6 +9,7 @@ import threading
 import time
 import os
 import psutil
+import subprocess
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
@@ -131,6 +132,30 @@ def get_host_manager() -> HostManager:
     return _host_manager
 
 
+def get_cpu_temperature():
+    """Get CPU temperature for server with fallback to thermal zones"""
+    try:
+        # Method 1: vcgencmd (Raspberry Pi specific)
+        result = subprocess.run(['vcgencmd', 'measure_temp'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            temp_str = result.stdout.strip()  # "temp=42.8'C"
+            temp_value = float(temp_str.split('=')[1].replace("'C", ""))
+            return temp_value
+    except Exception:
+        pass
+    
+    try:
+        # Method 2: thermal zone (more universal Linux)
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            temp_millidegrees = int(f.read().strip())
+            return temp_millidegrees / 1000.0
+    except Exception:
+        pass
+    
+    return None  # Temperature not available
+
+
 def get_server_system_stats():
     """Get comprehensive system statistics for the server"""
     try:
@@ -143,6 +168,12 @@ def get_server_system_stats():
             'architecture': os.uname().machine if hasattr(os, 'uname') else 'unknown',
             'timestamp': datetime.now().isoformat()
         }
+        
+        # Add CPU temperature if available
+        cpu_temp = get_cpu_temperature()
+        if cpu_temp is not None:
+            stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
+        
         return stats
     except Exception as e:
         print(f"❌ Error getting server system stats: {e}")
