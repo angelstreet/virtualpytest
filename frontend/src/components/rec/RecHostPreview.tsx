@@ -11,6 +11,19 @@ import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
 import { RecHostStreamModal } from './RecHostStreamModal';
 
+// Memoized HLS player declared outside the component to retain identity across renders
+const MemoizedHLSPlayer = memo(HLSVideoPlayer, (prevProps, nextProps) => {
+  // Only re-render if stream URL or essential props change
+  return (
+    prevProps.streamUrl === nextProps.streamUrl &&
+    prevProps.isStreamActive === nextProps.isStreamActive &&
+    prevProps.isCapturing === nextProps.isCapturing &&
+    prevProps.model === nextProps.model &&
+    prevProps.muted === nextProps.muted &&
+    JSON.stringify(prevProps.layoutConfig) === JSON.stringify(nextProps.layoutConfig)
+  );
+});
+
 interface RecHostPreviewProps {
   host: Host;
   device?: Device;
@@ -69,19 +82,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   const isMobile = useMemo(() => {
   return isMobileModel(device?.device_model);
 }, [device?.device_model]);
-
-// Memoized HLS player to prevent unnecessary stream restarts
-const MemoizedHLSPlayer = memo(HLSVideoPlayer, (prevProps, nextProps) => {
-  // Only re-render if stream URL or essential props change
-  return (
-    prevProps.streamUrl === nextProps.streamUrl &&
-    prevProps.isStreamActive === nextProps.isStreamActive &&
-    prevProps.isCapturing === nextProps.isCapturing &&
-    prevProps.model === nextProps.model &&
-    prevProps.muted === nextProps.muted &&
-    JSON.stringify(prevProps.layoutConfig) === JSON.stringify(nextProps.layoutConfig)
-  );
-});
 
   // Check if this is a VNC device
   const isVncDevice = useMemo(() => {
