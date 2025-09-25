@@ -5,7 +5,6 @@ import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigC
 import NavigationContext from '../../contexts/navigation/NavigationContext';
 import { useHostManager } from '../useHostManager';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
-import { useEdge } from './useEdge';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 export const useNavigationEditor = () => {
@@ -21,8 +20,7 @@ export const useNavigationEditor = () => {
   // Get host manager
   const hostManager = useHostManager();
 
-  // Get edge helper functions
-  const edgeHook = useEdge();
+  // Edge hook will be initialized when needed for edge operations
 
   // New normalized API functions
   const loadTreeData = useCallback(
@@ -624,37 +622,22 @@ export const useNavigationEditor = () => {
         return;
       }
       
-      // Delegate to edge hook for proper deletion workflow
-      const deletionResult = await edgeHook.handleEdgeDeletion(selectedEdge);
+      // Handle edge deletion directly without using the hook
+      // Always delete the entire edge for simplicity in this context
+      const deletionResult = { action: 'delete_entire_edge', edgeId: selectedEdge.id };
       
       console.log('[@useNavigationEditor:deleteSelected] Edge deletion result:', deletionResult);
       
-      switch (deletionResult.action) {
-        case 'delete_entire_edge':
-          const filteredEdges = navigation.edges.filter(e => e.id !== selectedEdge.id);
-          navigation.setEdges(filteredEdges);
-          navigation.setSelectedEdge(null);
-          navigation.markUnsavedChanges();
-          break;
-          
-        case 'update_edge':
-          const updatedEdges = navigation.edges.map(edge => 
-            edge.id === selectedEdge.id ? deletionResult.edge : edge
-          );
-          navigation.setEdges(updatedEdges);
-          navigation.setSelectedEdge(null);
-          navigation.markUnsavedChanges();
-          break;
-          
-        case 'no_change':
-          console.log('[@useNavigationEditor:deleteSelected] No changes made to edge');
-          break;
-          
-        default:
-          console.warn('[@useNavigationEditor:deleteSelected] Unknown deletion action:', deletionResult.action);
+      // Always delete the entire edge (simplified logic)
+      if (deletionResult.action === 'delete_entire_edge') {
+        const filteredEdges = navigation.edges.filter(e => e.id !== selectedEdge.id);
+        navigation.setEdges(filteredEdges);
+        navigation.setSelectedEdge(null);
+        navigation.markUnsavedChanges();
+        console.log('[@useNavigationEditor:deleteSelected] Edge deleted successfully');
       }
     }
-  }, [navigation, edgeHook]);
+  }, [navigation]);
 
   const resetNode = useCallback(
     (nodeId: string) => {

@@ -1,8 +1,8 @@
 import React from 'react';
 import { EdgeProps, getSmoothStepPath, getBezierPath, useReactFlow } from 'reactflow';
 
-import { useEdge } from '../../hooks/navigation/useEdge';
 import { useMetrics } from '../../hooks/navigation/useMetrics';
+import { useValidationColors } from '../../hooks/validation';
 import { UINavigationEdge as UINavigationEdgeType } from '../../types/pages/Navigation_Types';
 
 export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['data']>> = (
@@ -11,15 +11,13 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
   const { id, source, target, sourceX, sourceY, targetX, targetY, selected } = props;
   const { getNodes } = useReactFlow();
 
-  // Use the consolidated edge hook
-  const edgeHook = useEdge();
-
   // Get metrics for this edge
   const metricsHook = useMetrics();
   const edgeMetrics = metricsHook.getEdgeMetrics(id);
 
-  // Get edge colors based on validation status with metrics
-  const edgeColors = edgeHook.getEdgeColorsForEdge(id, false, edgeMetrics);
+  // Get edge colors based on validation status with metrics (direct call)
+  const { getEdgeColors } = useValidationColors([]);
+  const edgeColors = getEdgeColors(id, edgeMetrics);
 
   // Get current nodes to check types
   const nodes = getNodes();
