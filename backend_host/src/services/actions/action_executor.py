@@ -309,16 +309,8 @@ class ActionExecutor:
         # Calculate total execution time
         total_execution_time = sum(r.get('execution_time_ms', 0) for r in results)
         
-        # Record edge execution to database if we have navigation context
-        nav_context = self.device.navigation_context
-        tree_id = nav_context['current_tree_id']
-        if tree_id and self.edge_id and valid_actions:
-            self._record_edge_execution(
-                success=overall_success,
-                execution_time_ms=total_execution_time,
-                error_details=error_message if not overall_success else None,
-                team_id=team_id
-            )
+        # Individual action recording is handled in _execute_single_action()
+        # No batch-level recording needed
         
         return {
             'success': overall_success,
@@ -712,10 +704,8 @@ class ActionExecutor:
             # Get tree_id from ActionExecutor attributes first (for edge recording), 
             # then fall back to device navigation context (for full navigation)
             tree_id = getattr(self, 'tree_id', None)
-            print(f"[@action_executor:_record_execution_to_database] DEBUG: self.tree_id = {tree_id}")
             if tree_id is None:
                 tree_id = nav_context['current_tree_id']
-                print(f"[@action_executor:_record_execution_to_database] DEBUG: Fallback to nav_context tree_id = {tree_id}")
             record_edge_execution(
                 team_id=team_id,
                 tree_id=tree_id,
@@ -735,47 +725,3 @@ class ActionExecutor:
             print(f"[@lib:action_executor:_record_execution_to_database] Database recording error: {e}")
     
     
-    def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None, team_id: str = None):
-        """Record edge execution to database (same as old system)"""
-        try:
-            # Get tree_id from ActionExecutor attributes first (for edge recording), 
-            # then fall back to device navigation context (for full navigation)
-            tree_id = getattr(self, 'tree_id', None)
-            print(f"[@action_executor:_record_edge_execution] DEBUG: self.tree_id = {tree_id}")
-            print(f"[@action_executor:_record_edge_execution] DEBUG: hasattr(self, 'tree_id') = {hasattr(self, 'tree_id')}")
-            print(f"[@action_executor:_record_edge_execution] DEBUG: ActionExecutor attributes: {[attr for attr in dir(self) if not attr.startswith('_')]}")
-            
-            if tree_id is None:
-                nav_context = self.device.navigation_context
-                tree_id = nav_context['current_tree_id']
-                print(f"[@action_executor:_record_edge_execution] DEBUG: Fallback to device nav_context tree_id = {tree_id}")
-            
-            # DEBUG: Log the values being recorded
-            print(f"[@action_executor:_record_edge_execution] DEBUG Recording:")
-            print(f"  - edge_id: {self.edge_id}")
-            print(f"  - action_set_id: {self.action_set_id}")
-            print(f"  - tree_id: {tree_id}")
-            print(f"  - team_id: {team_id}")
-            print(f"  - success: {success}")
-            print(f"  - execution_time_ms: {execution_time_ms}")
-            
-            result = record_edge_execution(
-                team_id=team_id,
-                tree_id=tree_id,
-                edge_id=self.edge_id,
-                host_name=self.host_name,
-                device_model=self.device_model,
-                success=success,
-                execution_time_ms=execution_time_ms,
-                message='Navigation actions completed' if success else 'Navigation actions failed',
-                error_details=error_details,
-                action_set_id=self.action_set_id
-            )
-            
-            if result:
-                print(f"[@action_executor] ✅ Edge execution recorded: {result}")
-            else:
-                print(f"[@action_executor] ❌ Edge execution recording failed")
-                
-        except Exception as e:
-            print(f"[@action_executor] ❌ Edge execution recording error: {e}") 
