@@ -86,7 +86,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       {/* Mode Toggle */}
       <FormControlLabel
         control={<Switch checked={isLiveMode} onChange={handleModeToggle} />}
-        label={isLiveMode ? '🔴 Live' : '📼 24h Archive'}
+        label={isLiveMode ? '🔴 Live' : 'Restart 24h'}
         sx={{ mb: 1 }}
       />
 

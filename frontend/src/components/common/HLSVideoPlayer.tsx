@@ -279,8 +279,8 @@ export function HLSVideoPlayer({
         // Archive mode - optimized for seeking and timeline navigation
         enableWorker: false,
         lowLatencyMode: false,         // Disable low latency for archive
-        liveSyncDuration: 0,           // No live sync needed
-        liveMaxLatencyDuration: 0,     // No latency limits
+        // Note: liveSyncDuration and liveMaxLatencyDuration omitted for archive mode
+        // to avoid validation errors and let HLS.js use defaults
         maxBufferLength: 30,           // Larger buffer for smooth seeking
         maxMaxBufferLength: 60,        // Allow more buffering
         backBufferLength: 30,          // Keep back buffer for seeking
