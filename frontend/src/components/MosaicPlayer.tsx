@@ -208,12 +208,13 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   
   
   /**
-   * Timeline slider change handler (during drag - for preview only)
+   * Timeline slider change handler (during drag - for tooltip only)
    */
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
     const index = newValue as number;
     setPreviewIndex(index);
     setIsDragging(true);
+    // Don't call onIndexChange here - only update tooltip
   };
 
   /**
@@ -223,7 +224,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
     const index = newValue as number;
     setIsDragging(false);
     setPreviewIndex(null);
-    onIndexChange(index);
+    onIndexChange(index); // Only change heatmap on mouse release
   };
 
   /**
@@ -396,7 +397,7 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
             placement="top"
           >
             <Slider
-              value={isDragging && previewIndex !== null ? previewIndex : currentIndex}
+              value={currentIndex}
               min={0}
               max={Math.max(0, timeline.length - 1)}
               onChange={handleSliderChange}
