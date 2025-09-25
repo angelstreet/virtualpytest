@@ -1032,6 +1032,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                   }
                                   currentEdgeForm={edgeForm}
                                   edgeMetrics={edgeMetrics}
+                                  treeId={actualTreeId}
                                 />
                               );
                             });
@@ -1060,6 +1061,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                   }
                                   currentEdgeForm={edgeForm}
                                   edgeMetrics={metricsHook.getEdgeMetrics(edge.id)}
+                                  treeId={actualTreeId}
                                 />
                               );
                               panelIndexOffset += 2; // Always reserve space for 2 panels (defined + fallback)
@@ -1088,6 +1090,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                                 }
                                 currentEdgeForm={edgeForm}
                                 edgeMetrics={metricsHook.getEdgeMetrics(edge.id)}
+                                treeId={actualTreeId}
                               />
                             );
                             panelIndexOffset += 1;

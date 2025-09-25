@@ -36,6 +36,8 @@ interface EdgeSelectionPanelProps {
   actionSet?: any;
   // Metrics props - passed from NavigationEditor
   edgeMetrics?: MetricData | null;
+  // Tree ID for navigation context
+  treeId?: string | null;
 }
 
 export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
@@ -54,6 +56,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     onEditWithLabels,
     actionSet, // NEW: specific action set to display
     edgeMetrics,
+    treeId,
   }) => {
     const { getNodes } = useReactFlow();
 
@@ -79,11 +82,12 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       return { fromLabel: sourceLabel, toLabel: targetLabel };
     }, [getNodes, selectedEdge.source, selectedEdge.target, actionSet]);
 
-    // Use edge hook only for action execution
+    // Use edge hook only for action execution - initialize lazily
     const edgeHook = useEdge({
       selectedHost: selectedHost || null,
       selectedDeviceId: selectedDeviceId || null,
       isControlActive,
+      treeId: treeId || null,
     });
     
     // Get validation colors for confidence-based styling

@@ -23,6 +23,8 @@ export interface UseNodeProps {
 }
 
 export const useNode = (props?: UseNodeProps) => {
+  console.log('[@useNode] Hook initialized with props:', props);
+  
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
   const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, rootTreeId } =
     useNavigation();

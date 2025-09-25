@@ -203,13 +203,16 @@ export const useEdge = (props?: UseEdgeProps) => {
 
       try {
         // Include navigation context for proper metrics recording
+        // Use current props value to avoid stale closure
+        const currentTreeId = props?.treeId;
         const navigationContext = {
-          tree_id: props?.treeId || undefined,
+          tree_id: currentTreeId || undefined,
           edge_id: edge.id,
           action_set_id: defaultSet.id
         };
         
         console.log('[@useEdge:executeEdgeActions] DEBUG Navigation Context:', navigationContext);
+        console.log('[@useEdge:executeEdgeActions] currentTreeId:', currentTreeId);
         console.log('[@useEdge:executeEdgeActions] props?.treeId:', props?.treeId);
         console.log('[@useEdge:executeEdgeActions] edge.id:', edge.id);
         console.log('[@useEdge:executeEdgeActions] defaultSet.id:', defaultSet.id);
@@ -256,7 +259,9 @@ export const useEdge = (props?: UseEdgeProps) => {
       formatRunResult,
       props?.isControlActive,
       props?.selectedHost,
+      props?.treeId,
       updateCurrentPosition,
+      nodes,
     ],
   );
 
