@@ -334,9 +334,7 @@ export function HLSVideoPlayer({
 
         // Ignore buffer stall errors - they are temporary and self-recovering
         if (data.details === 'bufferStalledError') {
-          //console.log(
-          //  '[@component:HLSVideoPlayer] Buffer stall detected, ignoring (will self-recover)',
-          //);
+          // Silently ignore buffer stalls - they are normal and self-recovering
           return;
         }
 
@@ -481,9 +479,14 @@ export function HLSVideoPlayer({
       return;
     }
 
-    // Only initialize once when we first get a URL and stream becomes active
-    if (streamUrl && isStreamActive && videoRef.current && !currentStreamUrl) {
-      console.log('[@component:HLSVideoPlayer] Initializing stream for the first time:', streamUrl);
+    // Only initialize when we have a new URL or stream becomes active
+    if (streamUrl && isStreamActive && videoRef.current) {
+      // If we already have this stream URL loaded and working, don't reinitialize
+      if (currentStreamUrl === streamUrl && streamLoaded && !streamError) {
+        return;
+      }
+      
+      console.log('[@component:HLSVideoPlayer] Initializing stream:', streamUrl);
       setUseNativePlayer(false);
       setRetryCount(0);
       setStreamLoaded(false);

@@ -15,12 +15,26 @@ import {
   SelectChangeEvent,
   TextField,
 } from '@mui/material';
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
+
+// Memoized RecHostPreview to prevent unnecessary re-renders
+const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
+  // Only re-render if essential props change
+  return (
+    prevProps.host.host_name === nextProps.host.host_name &&
+    prevProps.device?.device_id === nextProps.device?.device_id &&
+    prevProps.isEditMode === nextProps.isEditMode &&
+    prevProps.isSelected === nextProps.isSelected &&
+    JSON.stringify(prevProps.deviceFlags) === JSON.stringify(nextProps.deviceFlags) &&
+    prevProps.host.status === nextProps.host.status &&
+    JSON.stringify(prevProps.host.system_stats) === JSON.stringify(nextProps.host.system_stats)
+  );
+});
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
 // No local HostManagerProvider needed since we only need AV capability filtering
@@ -122,14 +136,24 @@ const RecContent: React.FC = () => {
     setSelectedDevices(new Set());
   }, []);
 
+  // Memoize device flags lookup to prevent unnecessary re-renders
+  const deviceFlagsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    deviceFlags.forEach((df: any) => {
+      const key = `${df.host_name}-${df.device_id}`;
+      map.set(key, df.flags || []);
+    });
+    return map;
+  }, [deviceFlags]);
+
   // Get current flags for a device (considering pending changes)
   const getCurrentFlags = useCallback((hostName: string, deviceId: string): string[] => {
     const deviceKey = `${hostName}-${deviceId}`;
     if (pendingChanges.has(deviceKey)) {
       return pendingChanges.get(deviceKey) || [];
     }
-    return deviceFlags.find((df: any) => df.host_name === hostName && df.device_id === deviceId)?.flags || [];
-  }, [deviceFlags, pendingChanges]);
+    return deviceFlagsMap.get(deviceKey) || [];
+  }, [deviceFlagsMap, pendingChanges]);
 
   // Bulk flag operations (now work with pending changes)
   const handleBulkAddFlag = useCallback((flag: string) => {
@@ -491,18 +515,16 @@ const RecContent: React.FC = () => {
         <Grid container spacing={2}>
           {filteredDevices.map(({ host, device }) => {
             const deviceKey = `${host.host_name}-${device.device_id}`;
-            // Get current flags (including pending changes)
-            const currentDeviceFlags = getCurrentFlags(host.host_name, device.device_id);
             
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={deviceKey}>
-                <RecHostPreview
+                <MemoizedRecHostPreview
                   host={host}
                   device={device}
                   isEditMode={isEditMode}
                   isSelected={selectedDevices.has(deviceKey)}
                   onSelectionChange={(selected) => handleDeviceSelection(deviceKey, selected)}
-                  deviceFlags={currentDeviceFlags}
+                  deviceFlags={getCurrentFlags(host.host_name, device.device_id)}
                 />
               </Grid>
             );

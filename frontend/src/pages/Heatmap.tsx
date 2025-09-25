@@ -29,8 +29,8 @@ const Heatmap: React.FC = () => {
     analysisLoading,
     hasIncidents,
     goToLatest,
-    refreshCurrentData,
-    hasDataError
+    hasDataError,
+    generateReport
   } = useHeatmap();
 
   // UI state
@@ -72,29 +72,8 @@ const Heatmap: React.FC = () => {
     
     setIsGeneratingReport(true);
     try {
-      const currentItem = timeline[currentIndex];
-      const reportData = {
-        timeframe: 'single_frame',
-        timestamp: currentItem.displayTime.toISOString(),
-        time_key: currentItem.timeKey,
-        mosaic_url: currentItem.mosaicUrl,
-        analysis_data: analysisData,
-        devices_count: analysisData.devices.length,
-        incidents_count: analysisData.incidents_count
-      };
-
-      // For now, just download the data as JSON (we can enhance this later)
-      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `heatmap_report_${currentItem.timeKey}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      console.log('Report generated for frame:', currentItem.timeKey);
+      await generateReport();
+      console.log('HTML report generated for frame:', timeline[currentIndex].timeKey);
     } catch (error) {
       console.error('Error generating report:', error);
       setError('Failed to generate report');

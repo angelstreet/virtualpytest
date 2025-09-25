@@ -1,6 +1,6 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress, Checkbox } from '@mui/material';
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, memo } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useStream } from '../../hooks/controller';
@@ -44,8 +44,21 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
-    return isMobileModel(device?.device_model);
-  }, [device?.device_model]);
+  return isMobileModel(device?.device_model);
+}, [device?.device_model]);
+
+// Memoized HLS player to prevent unnecessary stream restarts
+const MemoizedHLSPlayer = memo(HLSVideoPlayer, (prevProps, nextProps) => {
+  // Only re-render if stream URL or essential props change
+  return (
+    prevProps.streamUrl === nextProps.streamUrl &&
+    prevProps.isStreamActive === nextProps.isStreamActive &&
+    prevProps.isCapturing === nextProps.isCapturing &&
+    prevProps.model === nextProps.model &&
+    prevProps.muted === nextProps.muted &&
+    JSON.stringify(prevProps.layoutConfig) === JSON.stringify(nextProps.layoutConfig)
+  );
+});
 
   // Check if this is a VNC device
   const isVncDevice = useMemo(() => {
@@ -57,6 +70,16 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     host,
     device_id: device?.device_id || 'device1',
   });
+
+  // Memoize layout config to prevent unnecessary re-renders
+  const layoutConfig = useMemo(() => ({
+    minHeight: '150px',
+    aspectRatio: isMobile 
+      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
+      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+    objectFit: (isMobile ? 'fill' : 'contain') as 'fill' | 'contain' | 'cover',
+    isMobileModel: isMobile,
+  }), [isMobile]);
 
   // Device flags are now passed as props from parent
 
@@ -278,19 +301,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                <HLSVideoPlayer
+                <MemoizedHLSPlayer
                     streamUrl={streamUrl}
                     isStreamActive={isStreamActive}
                     isCapturing={false}
                     model={device?.device_model || 'unknown'}
-                    layoutConfig={{
-                      minHeight: '150px',
-                      aspectRatio: isMobile 
-                        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` 
-                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: isMobile ? 'fill' : 'contain',
-                      isMobileModel: isMobile,
-                    }}
+                    layoutConfig={layoutConfig}
                     isExpanded={false}
                     muted={true} // Always muted in preview
                   />
