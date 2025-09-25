@@ -78,8 +78,16 @@ def navigation_preview(tree_id, target_node_id):
         # Get query parameters
         device_id = request.args.get('device_id', 'device1')
         current_node_id = request.args.get('current_node_id')
+        team_id = request.args.get('team_id')
         
-        print(f"[@route:host_navigation:navigation_preview] Device: {device_id}, Tree: {tree_id}")
+        print(f"[@route:host_navigation:navigation_preview] Device: {device_id}, Tree: {tree_id}, Team: {team_id}")
+        
+        # Validate team_id for auto-loading capability
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id query parameter is required for navigation preview'
+            }), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -98,11 +106,12 @@ def navigation_preview(tree_id, target_node_id):
                 'error': f'Device {device_id} does not have NavigationExecutor initialized'
             }), 500
         
-        # Get navigation preview using device's NavigationExecutor
+        # Get navigation preview using device's NavigationExecutor with team_id for auto-loading
         result = device.navigation_executor.get_navigation_preview(
             tree_id=tree_id,
             target_node_id=target_node_id,
-            current_node_id=current_node_id
+            current_node_id=current_node_id,
+            team_id=team_id
         )
         
         print(f"[@route:host_navigation:navigation_preview] Preview completed: success={result.get('success')}")

@@ -273,10 +273,10 @@ export const useNode = (props?: UseNodeProps) => {
 
         // Use rootTreeId for pathfinding (unified cache is keyed by root tree)
         const pathfindingTreeId = rootTreeId || props.treeId;
-        const url = new URL(
-          `/server/navigation/preview/${pathfindingTreeId}/${selectedNode.id}`,
-          window.location.origin,
-        );
+        
+        // Use buildServerUrl to ensure team_id is automatically included
+        const baseUrl = buildServerUrl(`/server/navigation/preview/${pathfindingTreeId}/${selectedNode.id}`);
+        const url = new URL(baseUrl);
 
         // Add required host_name parameter from props (same as execution)
         if (props.selectedHost?.host_name) {

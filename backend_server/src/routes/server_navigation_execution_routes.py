@@ -103,7 +103,8 @@ def get_navigation_preview_with_executor(tree_id, node_id):
         # Proxy to host navigation preview endpoint
         query_params = {
             'device_id': device_id,
-            'current_node_id': current_node_id
+            'current_node_id': current_node_id,
+            'team_id': team_id
         }
         
         # Remove None values
