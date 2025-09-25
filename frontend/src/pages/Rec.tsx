@@ -146,7 +146,7 @@ const RecContent: React.FC = () => {
     return map;
   }, [deviceFlags]);
 
-  // Get current flags for a device (considering pending changes)
+  // Get current flags for a device (considering pending changes) - memoized per device
   const getCurrentFlags = useCallback((hostName: string, deviceId: string): string[] => {
     const deviceKey = `${hostName}-${deviceId}`;
     if (pendingChanges.has(deviceKey)) {
@@ -154,6 +154,16 @@ const RecContent: React.FC = () => {
     }
     return deviceFlagsMap.get(deviceKey) || [];
   }, [deviceFlagsMap, pendingChanges]);
+
+  // Memoize device flags per device to prevent unnecessary re-renders
+  const memoizedDeviceFlags = useMemo(() => {
+    const flagsMap = new Map<string, string[]>();
+    filteredDevices.forEach(({ host, device }) => {
+      const deviceKey = `${host.host_name}-${device.device_id}`;
+      flagsMap.set(deviceKey, getCurrentFlags(host.host_name, device.device_id));
+    });
+    return flagsMap;
+  }, [filteredDevices, getCurrentFlags]);
 
   // Bulk flag operations (now work with pending changes)
   const handleBulkAddFlag = useCallback((flag: string) => {
@@ -524,7 +534,7 @@ const RecContent: React.FC = () => {
                   isEditMode={isEditMode}
                   isSelected={selectedDevices.has(deviceKey)}
                   onSelectionChange={(selected) => handleDeviceSelection(deviceKey, selected)}
-                  deviceFlags={getCurrentFlags(host.host_name, device.device_id)}
+                  deviceFlags={memoizedDeviceFlags.get(deviceKey) || []}
                 />
               </Grid>
             );
