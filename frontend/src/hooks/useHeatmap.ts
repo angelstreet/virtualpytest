@@ -12,6 +12,8 @@ export interface TimelineItem {
   displayTime: Date;      // Full date for display
   isToday: boolean;       // Whether this time is from today
   mosaicUrl: string;      // Direct R2 URL to mosaic image
+  mosaicOkUrl: string;    // Direct R2 URL to OK-only mosaic
+  mosaicKoUrl: string;    // Direct R2 URL to KO-only mosaic
   analysisUrl: string;    // Direct R2 URL to analysis JSON
 }
 
@@ -67,6 +69,8 @@ export const useHeatmap = () => {
         displayTime: time,
         isToday: time.toDateString() === now.toDateString(),
         mosaicUrl: `${R2_BASE_URL}/heatmaps/${timeKey}.jpg`,
+        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${timeKey}_ok.jpg`,
+        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${timeKey}_ko.jpg`,
         analysisUrl: `${R2_BASE_URL}/heatmaps/${timeKey}.json`
       });
     }
@@ -278,6 +282,30 @@ export const useHeatmap = () => {
   };
 
   /**
+   * Get mosaic URL based on filter
+   */
+  const getMosaicUrl = (item: TimelineItem, filter: 'ALL' | 'OK' | 'KO'): string => {
+    switch (filter) {
+      case 'OK': return item.mosaicOkUrl;
+      case 'KO': return item.mosaicKoUrl;
+      default: return item.mosaicUrl;
+    }
+  };
+
+  /**
+   * Filter devices based on filter type
+   */
+  const getFilteredDevices = (devices: any[], filter: 'ALL' | 'OK' | 'KO') => {
+    if (filter === 'ALL') return devices;
+    
+    return devices.filter(device => {
+      const analysis = device.analysis_json || {};
+      const hasIncident = analysis.blackscreen || analysis.freeze || !analysis.audio;
+      return filter === 'OK' ? !hasIncident : hasIncident;
+    });
+  };
+
+  /**
    * Generate HTML report for current frame
    */
   const generateReport = async (): Promise<void> => {
@@ -285,96 +313,38 @@ export const useHeatmap = () => {
     
     const currentItem = timeline[currentIndex];
     
-    // Create HTML report content
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Heatmap Report - ${currentItem.timeKey}</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #4a90e2, #357abd); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .content { padding: 20px; }
-        .mosaic { text-align: center; margin: 20px 0; }
-        .mosaic img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        .analysis { margin-top: 30px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #f8f9fa; font-weight: 600; }
-        .chip { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 500; }
-        .chip.success { background-color: #e8f5e8; color: #2e7d32; }
-        .chip.error { background-color: #ffebee; color: #c62828; }
-        .text-success { color: #2e7d32; }
-        .text-error { color: #c62828; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Heatmap Report</h1>
-            <p>Time: ${currentItem.displayTime.toLocaleString()} | Devices: ${analysisData.devices.length} | Incidents: ${analysisData.incidents_count}</p>
-        </div>
-        <div class="content">
-            <div class="mosaic">
-                <img src="${currentItem.mosaicUrl}" alt="Heatmap Mosaic" />
-            </div>
-            <div class="analysis">
-                <h2>Device Analysis</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Device</th>
-                            <th>Audio</th>
-                            <th>Video</th>
-                            <th>Volume %</th>
-                            <th>Mean dB</th>
-                            <th>Blackscreen</th>
-                            <th>Freeze</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${analysisData.devices.map(device => {
-                          const analysis = device.analysis_json;
-                          const hasAudio = analysis.audio !== false;
-                          const hasVideo = !analysis.blackscreen && !analysis.freeze;
-                          const volumePercentage = analysis.volume_percentage || 0;
-                          const meanVolumeDb = analysis.mean_volume_db || -100;
-                          const freezeDiffs = analysis.freeze_diffs || [];
-                          
-                          return `
-                            <tr>
-                                <td>${device.host_name}-${device.device_id}</td>
-                                <td><span class="chip ${hasAudio ? 'success' : 'error'}">${hasAudio ? 'Yes' : 'No'}</span></td>
-                                <td><span class="chip ${hasVideo ? 'success' : 'error'}">${hasVideo ? 'Yes' : 'No'}</span></td>
-                                <td>${volumePercentage}%</td>
-                                <td>${meanVolumeDb} dB</td>
-                                <td><span class="${analysis.blackscreen ? 'text-error' : 'text-success'}">${analysis.blackscreen ? 'Yes' : 'No'}</span></td>
-                                <td><span class="${analysis.freeze ? 'text-error' : 'text-success'}">${analysis.freeze ? `Yes (${freezeDiffs.join(', ')})` : 'No'}</span></td>
-                            </tr>
-                          `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`;
-
-    // Download HTML file
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `heatmap_report_${currentItem.timeKey}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    console.log(`Generated HTML report for ${currentItem.timeKey}`);
+    try {
+      // Call backend to generate HTML report
+      const response = await fetch('/server/heatmap/generateReport', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          time_key: currentItem.timeKey,
+          mosaic_url: currentItem.mosaicUrl,
+          analysis_data: analysisData,
+          analysis_url: currentItem.analysisUrl
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success && result.html_url) {
+        // Open HTML report in new tab
+        window.open(result.html_url, '_blank');
+        console.log(`Generated HTML report for ${currentItem.timeKey}: ${result.html_url}`);
+      } else {
+        throw new Error(result.error || 'Failed to generate report');
+      }
+    } catch (error) {
+      console.error('Error generating HTML report:', error);
+      throw error;
+    }
   };
   
   return {
@@ -400,6 +370,8 @@ export const useHeatmap = () => {
     recoverFromCorsBlock,
     navigateToIndex,
     generateReport,
+    getMosaicUrl,
+    getFilteredDevices,
     
     // Timeline info
     totalMinutes: timeline.length,

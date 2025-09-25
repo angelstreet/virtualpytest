@@ -11,6 +11,9 @@ import {
   Alert as MuiAlert,
   Tooltip,
   IconButton,
+  Select,
+  MenuItem,
+  FormControl,
 } from '@mui/material';
 import React, { useState } from 'react';
 
@@ -31,13 +34,16 @@ const Heatmap: React.FC = () => {
     goToLatest,
     refreshCurrentData,
     hasDataError,
-    generateReport
+    generateReport,
+    getMosaicUrl,
+    getFilteredDevices
   } = useHeatmap();
 
   // UI state
   const [error, setError] = useState<string | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [filter, setFilter] = useState<'ALL' | 'OK' | 'KO'>('ALL');
   
   // Freeze modal state
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
@@ -102,12 +108,17 @@ const Heatmap: React.FC = () => {
                   </Typography>
                 </Box>
                 
-                <Box display="flex" alignItems="center" gap={0.5}>
-                  <Typography variant="caption">Status</Typography>
-                  <Typography variant="caption" fontWeight="bold" color={hasIncidents() ? 'error' : 'success'}>
-                    {hasIncidents() ? 'KO' : 'OK'}
-                  </Typography>
-                </Box>
+                <FormControl size="small" sx={{ minWidth: 80 }}>
+                  <Select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value as 'ALL' | 'OK' | 'KO')}
+                    sx={{ fontSize: '0.75rem', height: '24px' }}
+                  >
+                    <MenuItem value="ALL">ALL</MenuItem>
+                    <MenuItem value="OK">OK</MenuItem>
+                    <MenuItem value="KO">KO</MenuItem>
+                  </Select>
+                </FormControl>
 
                 {/* Go to Latest Button */}
                 <Tooltip title="Go to Latest">
@@ -149,6 +160,8 @@ const Heatmap: React.FC = () => {
           isLoading={analysisLoading}
           hasDataError={hasDataError}
           analysisData={analysisData}
+          filter={filter}
+          getMosaicUrl={getMosaicUrl}
         />
       </Box>
 
@@ -165,7 +178,7 @@ const Heatmap: React.FC = () => {
           </Box>
         )}
         <HeatMapAnalysisSection
-          images={analysisData?.devices || []}
+          images={getFilteredDevices(analysisData?.devices || [], filter)}
           analysisExpanded={analysisExpanded}
           onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
         />

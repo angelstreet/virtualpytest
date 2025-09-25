@@ -114,14 +114,14 @@ class HeatmapProcessor:
             # Create mosaic image (always full grid)
             mosaic_image = self.create_mosaic_image(complete_device_list)
             
-            # Create error-only mosaic
-            error_devices = self.filter_error_devices(complete_device_list)
-            error_mosaic_image = None
-            if error_devices:
-                error_mosaic_image = self.create_mosaic_image(error_devices)
-                logger.info(f"🚨 Created error mosaic with {len(error_devices)} error devices")
-            else:
-                logger.info(f"✅ No error devices found for {time_key}")
+            # Create OK and KO mosaics
+            ko_devices = self.filter_ko_devices(complete_device_list)
+            ok_devices = self.filter_ok_devices(complete_device_list)
+            
+            ko_mosaic_image = self.create_mosaic_image(ko_devices) if ko_devices else None
+            ok_mosaic_image = self.create_mosaic_image(ok_devices) if ok_devices else None
+            
+            logger.info(f"📊 Created mosaics: ALL({len(complete_device_list)}), OK({len(ok_devices)}), KO({len(ko_devices)})")
             
             # Create analysis JSON (includes all devices, even missing ones)
             analysis_json = self.create_analysis_json(complete_device_list, time_key)
@@ -130,7 +130,7 @@ class HeatmapProcessor:
             self.log_consolidated_json(analysis_json)
             
             # Upload to R2 with time-only naming
-            success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json, error_mosaic_image)
+            success, uploaded_urls = self.upload_heatmap_files(time_key, mosaic_image, analysis_json, ok_mosaic_image, ko_mosaic_image)
             
             if not success:
                 logger.error(f"❌ Failed to upload files for {time_key}")
@@ -440,12 +440,11 @@ class HeatmapProcessor:
         else:
             logger.warning(f"   ❌ No URLs available")
     
-    def filter_error_devices(self, devices_data: List[Dict]) -> List[Dict]:
-        """Filter devices that have incidents (errors)"""
-        error_devices = []
+    def filter_ko_devices(self, devices_data: List[Dict]) -> List[Dict]:
+        """Filter devices that have incidents (KO)"""
+        ko_devices = []
         for device in devices_data:
-            # Check for incidents in raw analysis data (only if we have real data)
-            analysis_data = device.get('analysis_json', {})
+            analysis_data = device.get('analysis', {})
             is_placeholder = device.get('is_placeholder', False)
             
             has_incident = False
@@ -457,12 +456,29 @@ class HeatmapProcessor:
                     not analysis_data.get('audio', True)
                 )
             
-            # Also check for error image URL (legacy support)
-            has_error_url = device.get('image_url') and '_error.jpg' in device.get('image_url', '')
+            if has_incident:
+                ko_devices.append(device)
+        return ko_devices
+    
+    def filter_ok_devices(self, devices_data: List[Dict]) -> List[Dict]:
+        """Filter devices that are OK (no incidents)"""
+        ok_devices = []
+        for device in devices_data:
+            analysis_data = device.get('analysis', {})
+            is_placeholder = device.get('is_placeholder', False)
             
-            if has_incident or has_error_url:
-                error_devices.append(device)
-        return error_devices
+            has_incident = False
+            has_real_analysis = analysis_data and any(key in analysis_data for key in ['blackscreen', 'freeze', 'audio'])
+            if not is_placeholder and has_real_analysis:
+                has_incident = (
+                    analysis_data.get('blackscreen', False) or
+                    analysis_data.get('freeze', False) or
+                    not analysis_data.get('audio', True)
+                )
+            
+            if not has_incident and has_real_analysis:
+                ok_devices.append(device)
+        return ok_devices
     
     def add_border_and_label(self, img: Image.Image, image_data: Dict, cell_width: int, cell_height: int) -> Image.Image:
         """Add colored border and label to device image"""
@@ -704,7 +720,7 @@ class HeatmapProcessor:
         image.save(buffer, format='JPEG', quality=85)
         return buffer.getvalue()
     
-    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict, error_mosaic_image: Optional[Image.Image] = None) -> Tuple[bool, Dict]:
+    def upload_heatmap_files(self, time_key: str, mosaic_image: Image.Image, analysis_json: Dict, ok_mosaic_image: Optional[Image.Image] = None, ko_mosaic_image: Optional[Image.Image] = None) -> Tuple[bool, Dict]:
         """Upload mosaic image and analysis JSON to R2"""
         try:
             import tempfile
@@ -719,12 +735,17 @@ class HeatmapProcessor:
                 json.dump(analysis_json, json_temp, indent=2)
                 json_temp_path = json_temp.name
             
-            # Handle error mosaic if provided
-            error_img_temp_path = None
-            if error_mosaic_image:
-                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as error_img_temp:
-                    error_mosaic_image.save(error_img_temp.name, format='JPEG', quality=85)
-                    error_img_temp_path = error_img_temp.name
+            # Handle OK and KO mosaics if provided
+            ok_img_temp_path = None
+            ko_img_temp_path = None
+            if ok_mosaic_image:
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as ok_img_temp:
+                    ok_mosaic_image.save(ok_img_temp.name, format='JPEG', quality=85)
+                    ok_img_temp_path = ok_img_temp.name
+            if ko_mosaic_image:
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as ko_img_temp:
+                    ko_mosaic_image.save(ko_img_temp.name, format='JPEG', quality=85)
+                    ko_img_temp_path = ko_img_temp.name
             
             try:
                 # Prepare file mappings for batch upload
@@ -744,12 +765,17 @@ class HeatmapProcessor:
                     }
                 ]
                 
-                # Add error mosaic if available
-                if error_img_temp_path:
-                    error_remote_path = f'heatmaps/{time_key}_errors.jpg'
+                # Add OK and KO mosaics if available
+                if ok_img_temp_path:
                     file_mappings.append({
-                        'local_path': error_img_temp_path,
-                        'remote_path': error_remote_path,
+                        'local_path': ok_img_temp_path,
+                        'remote_path': f'heatmaps/{time_key}_ok.jpg',
+                        'content_type': 'image/jpeg'
+                    })
+                if ko_img_temp_path:
+                    file_mappings.append({
+                        'local_path': ko_img_temp_path,
+                        'remote_path': f'heatmaps/{time_key}_ko.jpg',
                         'content_type': 'image/jpeg'
                     })
                 
@@ -797,8 +823,10 @@ class HeatmapProcessor:
                     os.unlink(img_temp_path)
                 if os.path.exists(json_temp_path):
                     os.unlink(json_temp_path)
-                if error_img_temp_path and os.path.exists(error_img_temp_path):
-                    os.unlink(error_img_temp_path)
+                if ok_img_temp_path and os.path.exists(ok_img_temp_path):
+                    os.unlink(ok_img_temp_path)
+                if ko_img_temp_path and os.path.exists(ko_img_temp_path):
+                    os.unlink(ko_img_temp_path)
                     
         except Exception as e:
             logger.error(f"❌ Error uploading heatmap files for {time_key}: {e}")
