@@ -701,7 +701,7 @@ const RecHostStreamModalContent: React.FC<{
                     streamUrl={streamUrl}
                     width="100%"
                     height={isMobileModel ? 600 : 400}
-                    autoPlay={!isMuted}
+                    muted={isMuted}
                     isLiveMode={isLiveMode}
                 />
               )

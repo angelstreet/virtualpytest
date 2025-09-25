@@ -25,7 +25,6 @@ export const EnhancedHLSPlayerTest: React.FC = () => {
         hostName="test-host"
         width="100%"
         height={400}
-        autoPlay={false}
       />
       
       <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>

@@ -12,7 +12,7 @@ interface EnhancedHLSPlayerProps {
   streamUrl?: string; // Server-provided stream URL
   width?: string | number;
   height?: string | number;
-  autoPlay?: boolean;
+  muted?: boolean; // Add muted prop for audio control
   className?: string;
   isLiveMode?: boolean;
 }
@@ -24,6 +24,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   streamUrl: providedStreamUrl,
   width = '100%',
   height = 400,
+  muted = true, // Default to muted for autoplay compliance
   className,
   isLiveMode: externalIsLiveMode
 }) => {
@@ -186,7 +187,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           streamUrl={streamUrl}
           isStreamActive={true}
           videoElementRef={videoRef}
-          muted={false}
+          muted={muted} // Use the muted prop from parent
           isArchiveMode={!isLiveMode} // Pass archive mode flag
           sx={{ width: '100%', height: '100%' }}
         />
