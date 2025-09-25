@@ -61,6 +61,7 @@ export const useAction = () => {
       console.log('[useAction] Number of actions:', actions.length);
       console.log('[useAction] Number of retry actions:', retryActions.length);
       console.log('[useAction] Number of failure actions:', failureActions.length);
+      console.log('[useAction] Navigation Context:', navigationContext);
 
       // Filter out empty/invalid actions before execution
       const validActions = actions.filter((action, index) => {

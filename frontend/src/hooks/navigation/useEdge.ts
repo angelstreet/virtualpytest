@@ -207,6 +207,11 @@ export const useEdge = (props?: UseEdgeProps) => {
           action_set_id: defaultSet.id
         };
         
+        console.log('[@useEdge:executeEdgeActions] DEBUG Navigation Context:', navigationContext);
+        console.log('[@useEdge:executeEdgeActions] props?.treeId:', props?.treeId);
+        console.log('[@useEdge:executeEdgeActions] edge.id:', edge.id);
+        console.log('[@useEdge:executeEdgeActions] defaultSet.id:', defaultSet.id);
+        
         const result = await actionHook.executeActions(
           actions.map(convertToControllerAction),
           retryActions.map(convertToControllerAction),
