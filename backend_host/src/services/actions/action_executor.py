@@ -709,7 +709,13 @@ class ActionExecutor:
             script_result_id = nav_context.get('script_id')
             script_context = nav_context.get('script_context', 'direct')
             
-            tree_id = nav_context['current_tree_id']
+            # Get tree_id from ActionExecutor attributes first (for edge recording), 
+            # then fall back to device navigation context (for full navigation)
+            tree_id = getattr(self, 'tree_id', None)
+            print(f"[@action_executor:_record_execution_to_database] DEBUG: self.tree_id = {tree_id}")
+            if tree_id is None:
+                tree_id = nav_context['current_tree_id']
+                print(f"[@action_executor:_record_execution_to_database] DEBUG: Fallback to nav_context tree_id = {tree_id}")
             record_edge_execution(
                 team_id=team_id,
                 tree_id=tree_id,
