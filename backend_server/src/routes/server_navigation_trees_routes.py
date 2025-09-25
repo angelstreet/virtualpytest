@@ -646,7 +646,7 @@ def get_full_tree_api(tree_id):
                 }]
                 
                 # Proxy cache population to host process
-                cache_result = proxy_to_host(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
+                cache_result, status_code = proxy_to_host(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
                     'team_id': team_id,
                     'all_trees_data': tree_data_for_unified
                 })
@@ -752,7 +752,7 @@ def get_tree_by_userinterface_id(userinterface_id):
                     }]
                     
                     # Proxy cache population to host process
-                    cache_result = proxy_to_host(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
+                    cache_result, status_code = proxy_to_host(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
                         'team_id': team_id,
                         'all_trees_data': tree_data_for_unified
                     })
