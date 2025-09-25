@@ -22,7 +22,7 @@ def create_heatmap_html_template() -> str:
         .header {{ background: linear-gradient(135deg, #4a90e2, #357abd); color: white; padding: 10px 20px; }}
         .header h1 {{ font-size: 1.4em; margin: 0; line-height: 1.2; }}
         
-        .mosaic-player {{ padding: 20px; }}
+        .mosaic-player {{ padding: 20px; margin-bottom: 24px; }}
         .mosaic-container {{ 
             width: 90%; height: 50vh; margin: 0 auto; position: relative; 
             background: black; border-radius: 8px; overflow: hidden;
@@ -31,7 +31,7 @@ def create_heatmap_html_template() -> str:
         .mosaic-img {{ max-width: 100%; max-height: 100%; object-fit: contain; }}
         
         .timeline-controls {{ 
-            margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.05); 
+            margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.05); 
             border-radius: 8px; display: flex; align-items: center; gap: 15px;
         }}
         .play-btn {{ 
@@ -44,21 +44,21 @@ def create_heatmap_html_template() -> str:
             -webkit-appearance: none; width: 16px; height: 16px; background: #4a90e2; 
             border-radius: 50%; cursor: pointer;
         }}
-        .timeline-marks {{ position: absolute; top: -40px; left: 0; right: 0; height: 40px; }}
+        .timeline-marks {{ position: absolute; top: -25px; left: 0; right: 0; height: 25px; }}
         .timeline-mark {{ 
             position: absolute; transform: translateX(-50%); cursor: pointer;
-            font-size: 10px; text-align: center;
+            font-size: 10px; text-align: center; line-height: 1.2;
         }}
         .timeline-mark:hover {{ font-weight: bold; }}
-        .timeline-mark .time-label {{ font-size: 10px; display: block; }}
-        .timeline-mark .date-label {{ font-size: 8px; color: #666; display: block; }}
+        .timeline-mark .time-label {{ font-size: 10px; display: inline; }}
+        .timeline-mark .date-label {{ font-size: 8px; color: #666; display: inline; margin-left: 4px; }}
         .timeline-mark.current {{ 
             border: 2px solid #4a90e2; border-radius: 4px; padding: 2px;
             font-weight: bold; color: #4a90e2;
         }}
         .frame-counter {{ font-size: 0.9em; min-width: 60px; text-align: right; }}
         
-        .analysis-section {{ padding: 20px; }}
+        .analysis-section {{ padding: 10px 20px; }}
         .analysis-section h2 {{ margin: 0 0 15px 0; }}
         .analysis-table {{ width: 100%; border-collapse: collapse; margin-top: 0; background: white; }}
         .analysis-table th {{ background: #f5f5f5; padding: 12px 8px; text-align: left; font-weight: bold; border-bottom: 1px solid #ddd; }}
