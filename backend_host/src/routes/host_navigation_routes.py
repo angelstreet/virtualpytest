@@ -125,6 +125,55 @@ def navigation_preview(tree_id, target_node_id):
             'error': f'Host navigation preview failed: {str(e)}'
         }), 500
 
+@host_navigation_bp.route('/cache/populate/<tree_id>', methods=['POST'])
+def populate_navigation_cache(tree_id):
+    """Populate unified navigation cache in host process"""
+    try:
+        print(f"[@route:host_navigation:populate_navigation_cache] Populating cache for tree: {tree_id}")
+        
+        # Get request data
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id') or data.get('team_id')
+        all_trees_data = data.get('all_trees_data', [])
+        
+        # Validate required parameters
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+            
+        if not all_trees_data:
+            return jsonify({
+                'success': False,
+                'error': 'all_trees_data is required'
+            }), 400
+        
+        # Populate unified cache in host process
+        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+        unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
+        
+        if unified_graph:
+            print(f"[@route:host_navigation:populate_navigation_cache] Successfully populated cache: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+            return jsonify({
+                'success': True,
+                'nodes_count': len(unified_graph.nodes),
+                'edges_count': len(unified_graph.edges),
+                'message': f'Cache populated for tree {tree_id}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to populate unified cache'
+            }), 500
+            
+    except Exception as e:
+        print(f"[@route:host_navigation:populate_navigation_cache] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Cache population failed: {str(e)}'
+        }), 500
+
 @host_navigation_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for host navigation service"""

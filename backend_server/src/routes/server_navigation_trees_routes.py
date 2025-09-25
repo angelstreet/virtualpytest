@@ -625,13 +625,13 @@ def get_full_tree_api(tree_id):
         result = get_full_tree(tree_id, team_id)
         
         if result['success']:
-            # Populate unified navigation cache only (single cache system)
+            # Proxy unified cache population to host (single cache system)
             try:
-                from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+                from backend_server.src.lib.utils.route_utils import proxy_to_host
                 nodes = result.get('nodes', [])
                 edges = result.get('edges', [])
                 
-                # Populate unified cache for single tree case (treat as root tree)
+                # Prepare unified cache data for single tree case (treat as root tree)
                 tree_data_for_unified = [{
                     'tree_id': tree_id,
                     'tree_info': {
@@ -645,8 +645,16 @@ def get_full_tree_api(tree_id):
                     'edges': edges
                 }]
                 
-                populate_unified_cache(tree_id, team_id, tree_data_for_unified)
-                print(f'[@route:navigation_trees:get_full_tree] Successfully populated unified cache for tree: {tree_id}')
+                # Proxy cache population to host process
+                cache_result = proxy_to_host(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
+                    'team_id': team_id,
+                    'all_trees_data': tree_data_for_unified
+                })
+                
+                if cache_result and cache_result.get('success'):
+                    print(f'[@route:navigation_trees:get_full_tree] Successfully populated unified cache in host for tree: {tree_id}')
+                else:
+                    print(f'[@route:navigation_trees:get_full_tree] Host cache population failed: {cache_result.get("error", "Unknown error") if cache_result else "No response"}')
                 
             except Exception as cache_error:
                 print(f'[@route:navigation_trees:get_full_tree] Cache population failed: {cache_error}')
@@ -723,13 +731,13 @@ def get_tree_by_userinterface_id(userinterface_id):
             result = get_full_tree(tree_id, team_id)
             
             if result['success']:
-                # Populate unified navigation cache (same as /full endpoint)
+                # Proxy unified cache population to host (where NavigationExecutor runs)
                 try:
-                    from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+                    from backend_server.src.lib.utils.route_utils import proxy_to_host
                     nodes = result.get('nodes', [])
                     edges = result.get('edges', [])
                     
-                    # Populate unified cache for single tree case (treat as root tree)
+                    # Prepare unified cache data for single tree case (treat as root tree)
                     tree_data_for_unified = [{
                         'tree_id': tree_id,
                         'tree_info': {
@@ -743,11 +751,19 @@ def get_tree_by_userinterface_id(userinterface_id):
                         'edges': edges
                     }]
                     
-                    populate_unified_cache(tree_id, team_id, tree_data_for_unified)
-                    print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully populated unified cache for tree: {tree_id}')
+                    # Proxy cache population to host process
+                    cache_result = proxy_to_host(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
+                        'team_id': team_id,
+                        'all_trees_data': tree_data_for_unified
+                    })
+                    
+                    if cache_result and cache_result.get('success'):
+                        print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Successfully populated unified cache in host for tree: {tree_id}')
+                    else:
+                        print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Host cache population failed: {cache_result.get("error", "Unknown error") if cache_result else "No response"}')
                     
                 except Exception as cache_error:
-                    print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Cache population failed: {cache_error}')
+                    print(f'[@route:navigation_trees:get_tree_by_userinterface_id] Cache population proxy failed: {cache_error}')
                     # Don't fail the request if cache population fails
                 
                 # Return tree data in the expected format
