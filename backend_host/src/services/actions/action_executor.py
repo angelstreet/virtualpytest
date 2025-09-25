@@ -732,9 +732,12 @@ class ActionExecutor:
     def _record_edge_execution(self, success: bool, execution_time_ms: int, error_details: Optional[str] = None, team_id: str = None):
         """Record edge execution to database (same as old system)"""
         try:
-            
-            nav_context = self.device.navigation_context
-            tree_id = nav_context['current_tree_id']
+            # Get tree_id from ActionExecutor attributes first (for edge recording), 
+            # then fall back to device navigation context (for full navigation)
+            tree_id = getattr(self, 'tree_id', None)
+            if tree_id is None:
+                nav_context = self.device.navigation_context
+                tree_id = nav_context['current_tree_id']
             
             # DEBUG: Log the values being recorded
             print(f"[@action_executor:_record_edge_execution] DEBUG Recording:")

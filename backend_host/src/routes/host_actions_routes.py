@@ -55,6 +55,16 @@ def action_execute_batch():
                 'error': f'Device {device_id} does not have ActionExecutor initialized'
             }), 500
         
+        # Set navigation context on ActionExecutor for proper metrics recording
+        if tree_id:
+            device.action_executor.tree_id = tree_id
+        if edge_id:
+            device.action_executor.edge_id = edge_id
+        if action_set_id:
+            device.action_executor.action_set_id = action_set_id
+        
+        print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
+        
         # Execute actions using device's ActionExecutor
         result = device.action_executor.execute_actions(
             actions=actions,
