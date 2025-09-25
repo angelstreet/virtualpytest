@@ -44,13 +44,22 @@ def create_heatmap_html_template() -> str:
             -webkit-appearance: none; width: 16px; height: 16px; background: #4a90e2; 
             border-radius: 50%; cursor: pointer;
         }}
-        .timeline-ticks {{ position: absolute; top: -15px; left: 0; right: 0; height: 12px; }}
-        .timeline-tick {{ 
-            position: absolute; width: 3px; height: 12px; border-radius: 1px; 
-            transform: translateX(-50%); cursor: pointer;
+        .timeline-marks {{ position: absolute; top: -40px; left: 0; right: 0; height: 40px; }}
+        .timeline-mark {{ 
+            position: absolute; transform: translateX(-50%); cursor: pointer;
+            font-size: 10px; text-align: center;
         }}
-        .timeline-tick.incident {{ background: #ff0000; }}
-        .timeline-tick.normal {{ background: #00ff00; }}
+        .timeline-mark:hover {{ font-weight: bold; }}
+        .timeline-mark .time-label {{ font-size: 10px; display: block; }}
+        .timeline-mark .date-label {{ font-size: 8px; color: #666; display: block; }}
+        .timeline-mark.current {{ 
+            border: 2px solid #4a90e2; border-radius: 4px; padding: 2px;
+            font-weight: bold; color: #4a90e2;
+        }}
+        .current-time-indicator {{ 
+            position: absolute; top: -25px; transform: translateX(-50%);
+            font-size: 11px; font-weight: bold; color: #4a90e2;
+        }}
         .frame-counter {{ font-size: 0.9em; min-width: 60px; text-align: right; }}
         
         .analysis-section {{ padding: 20px; }}
@@ -86,8 +95,11 @@ def create_heatmap_html_template() -> str:
                 <button id="playBtn" class="play-btn" onclick="togglePlay()">▶</button>
                 <div class="timeline">
                     <input type="range" id="timelineSlider" class="timeline-slider" min="0" max="{max_frame}" value="0" oninput="changeFrame(this.value)">
-                    <div class="timeline-ticks">
-                        {timeline_ticks}
+                    <div id="currentTimeIndicator" class="current-time-indicator" style="left: 0%;">
+                        {first_timestamp}
+                    </div>
+                    <div class="timeline-marks">
+                        {timeline_marks}
                     </div>
                 </div>
                 <div id="frameCounter" class="frame-counter">1 / {total_timestamps}</div>
@@ -137,6 +149,22 @@ def create_heatmap_html_template() -> str:
             
             // Update frame counter
             document.getElementById('frameCounter').textContent = `${{currentFrame + 1}} / ${{mosaicData.length}}`;
+            
+            // Update current time indicator
+            const position = (currentFrame / Math.max(1, mosaicData.length - 1)) * 100;
+            const indicator = document.getElementById('currentTimeIndicator');
+            indicator.style.left = position + '%';
+            indicator.textContent = data.timestamp;
+            
+            // Update timeline marks - highlight current
+            const marks = document.querySelectorAll('.timeline-mark');
+            marks.forEach((mark, index) => {{
+                if (index === currentFrame) {{
+                    mark.classList.add('current');
+                }} else {{
+                    mark.classList.remove('current');
+                }}
+            }});
             
             // Update analysis
             document.getElementById('currentAnalysis').getElementsByTagName('tbody')[0].innerHTML = data.analysis_html;

@@ -37,7 +37,7 @@ def generate_comprehensive_heatmap_html(all_heatmap_data: List[Dict]) -> str:
         
         # Prepare data for JavaScript
         mosaic_data_for_js = []
-        timeline_ticks = []
+        timeline_marks = []
         
         for i, heatmap_data in enumerate(all_heatmap_data):
             # Skip if heatmap_data is None or not a dict
@@ -105,25 +105,32 @@ def generate_comprehensive_heatmap_html(all_heatmap_data: List[Dict]) -> str:
                 'has_incidents': has_incidents
             })
             
-            # Create timeline tick
-            tick_position = (i / max(1, total_timestamps - 1)) * 100
-            tick_class = "incident" if has_incidents else "normal"
-            timeline_ticks.append(f"""
-            <div class="timeline-tick {tick_class}" style="left: {tick_position}%" title="{heatmap_data.get('timestamp', '')}"></div>
+            # Create timeline mark with time label (like in React MosaicPlayer)
+            mark_position = (i / max(1, total_timestamps - 1)) * 100
+            timestamp = heatmap_data.get('timestamp', '')
+            
+            # First frame is current by default
+            current_class = "current" if i == 0 else ""
+            
+            timeline_marks.append(f"""
+            <div class="timeline-mark {current_class}" style="left: {mark_position}%" onclick="changeFrame({i})">
+                <span class="time-label">{timestamp}</span>
+                <span class="date-label">Today</span>
+            </div>
             """)
         
         # Get first frame data safely
         first_data = all_heatmap_data[0] if all_heatmap_data else {}
         first_mosaic_url = first_data.get('mosaic_url', '') if first_data else ''
         first_analysis_items = mosaic_data_for_js[0]['analysis_html'] if mosaic_data_for_js else ''
+        first_timestamp = first_data.get('timestamp', '') if first_data else ''
         
         # Create timeframe string
         if total_timestamps > 1 and all_heatmap_data:
-            first_timestamp = all_heatmap_data[0].get('timestamp', '') if all_heatmap_data[0] else ''
             last_timestamp = all_heatmap_data[-1].get('timestamp', '') if all_heatmap_data[-1] else ''
             timeframe = f"{first_timestamp} - {last_timestamp}"
         else:
-            timeframe = first_data.get('timestamp', '') if first_data else ''
+            timeframe = first_timestamp
         
         # Fill template
         html_content = template.format(
@@ -133,8 +140,9 @@ def generate_comprehensive_heatmap_html(all_heatmap_data: List[Dict]) -> str:
             total_timestamps=total_timestamps,
             incidents_count=incidents_count,
             first_mosaic_url=first_mosaic_url,
+            first_timestamp=first_timestamp,
             max_frame=max(0, total_timestamps - 1),
-            timeline_ticks=''.join(timeline_ticks),
+            timeline_marks=''.join(timeline_marks),
             first_analysis_items=first_analysis_items,
             mosaic_data_json=json.dumps(mosaic_data_for_js)
         )

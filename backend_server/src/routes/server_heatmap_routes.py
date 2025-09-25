@@ -39,7 +39,9 @@ def generate_previous_time_keys(selected_time_key: str, count: int = 9) -> list:
         return []
 
 def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: str, selected_devices: list, selected_incidents_count: int) -> list:
-    """Generate heatmap data for selected mosaic + 9 previous mosaics"""
+    """Generate heatmap data for selected mosaic + 9 previous mosaics with actual analysis data"""
+    import requests
+    
     try:
         # Get R2 base URL from environment
         R2_BASE_URL = os.getenv('CLOUDFLARE_R2_PUBLIC_URL', '')
@@ -64,14 +66,31 @@ def generate_timeline_heatmap_data(selected_time_key: str, selected_mosaic_url: 
             mosaic_url = f"{R2_BASE_URL}/heatmaps/{time_key}.jpg"
             analysis_url = f"{R2_BASE_URL}/heatmaps/{time_key}.json"
             
+            # Try to fetch actual analysis data from R2
+            analysis_data = []
+            incidents_count = 0
+            
+            try:
+                print(f"[@generate_timeline_heatmap_data] Fetching analysis data for {time_key} from {analysis_url}")
+                response = requests.get(analysis_url, timeout=5)
+                if response.status_code == 200:
+                    json_data = response.json()
+                    analysis_data = json_data.get('devices', [])
+                    incidents_count = json_data.get('incidents_count', 0)
+                    print(f"[@generate_timeline_heatmap_data] Successfully loaded {len(analysis_data)} devices for {time_key}")
+                else:
+                    print(f"[@generate_timeline_heatmap_data] No analysis data found for {time_key} (HTTP {response.status_code})")
+            except Exception as fetch_error:
+                print(f"[@generate_timeline_heatmap_data] Failed to fetch analysis for {time_key}: {fetch_error}")
+            
             heatmap_data.append({
                 'timestamp': f"{time_key[:2]}:{time_key[2:]}",
                 'mosaic_url': mosaic_url,
-                'analysis_data': [],  # Empty for historical frames
+                'analysis_data': analysis_data,  # Now populated with actual data if available
                 'incidents': [],
-                'incidents_count': 0,  # Will be populated if analysis data is available
+                'incidents_count': incidents_count,  # Now populated with actual count
                 'is_selected': False,
-                'analysis_url': analysis_url  # For potential future loading
+                'analysis_url': analysis_url
             })
         
         print(f"[@generate_timeline_heatmap_data] Generated timeline with {len(heatmap_data)} frames")
