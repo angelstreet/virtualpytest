@@ -241,6 +241,10 @@ def register_all_server_routes(app):
         from routes import server_device_flags_routes
         print("[@backend_server:routes] ✅ server_device_flags_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_restart_routes...")
+        from routes import server_restart_routes
+        print("[@backend_server:routes] ✅ server_restart_routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -275,9 +279,10 @@ def register_all_server_routes(app):
             (server_ai_queue_routes.server_ai_queue_bp, 'AI queue monitoring'),
             (server_api_testing_routes.server_api_testing_bp, 'API testing system'),
             (server_device_flags_routes.device_flags_bp, 'Device flags management'),
+            (server_restart_routes.server_restart_bp, 'Restart operations'),
             
             # Auto proxy (replaces 12 pure proxy route files + 18 verification proxy routes)
-            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, navigation-execution, power, remote, restart, translation + 18 verification routes)')
+            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, navigation-execution, power, remote, translation + 18 verification routes)')
         ]
         
         for blueprint, description in blueprints:
