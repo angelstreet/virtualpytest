@@ -467,7 +467,7 @@ export const VNCStream = React.memo(
                     fontWeight: 'bold',
                   }}
                 >
-                  VNC Stream
+                  VNC
                 </Typography>
               </Box>
 

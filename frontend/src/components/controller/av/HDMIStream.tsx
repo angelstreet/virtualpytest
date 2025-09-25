@@ -383,7 +383,7 @@ export const HDMIStream = React.memo(
                   textAlign: 'center',
                 }}
               >
-                HDMI Stream
+                HDMI
               </Typography>
 
               {/* Right side: Minimize and Expand/Collapse buttons */}

@@ -120,10 +120,8 @@ export const useVerification = ({
   // Handle verifications change
   const handleVerificationsChange = useCallback((newVerifications: Verification[]) => {
     setVerifications(prevVerifications => {
-      // Only clear test results if verifications are being cleared completely
-      // or if this is a completely new set of verifications
-      if (newVerifications.length === 0 || 
-          (prevVerifications.length > 0 && newVerifications.length !== prevVerifications.length)) {
+      // Clear test results when verifications change (any change, not just length)
+      if (JSON.stringify(prevVerifications) !== JSON.stringify(newVerifications)) {
         setTestResults([]);
       }
       return newVerifications;
