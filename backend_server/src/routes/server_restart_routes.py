@@ -94,7 +94,11 @@ def generate_restart_report():
     """Generate restart report"""
     try:
         request_data = request.get_json() or {}
+        host_name = request_data.get('host_name')
         device_id = request_data.get('device_id', 'device1')
+
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name required in request body'}), 400
 
         # Let proxy_to_host_with_params handle host lookup via get_host_from_request()
         response_data, status_code = proxy_to_host_with_params(

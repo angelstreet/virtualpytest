@@ -21,7 +21,7 @@ import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { AIExecutionPanel } from '../ai';
-import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
+import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
 import { DesktopPanel } from '../controller/desktop/DesktopPanel';
 import { PowerButton } from '../controller/power/PowerButton';
 import { RemotePanel } from '../controller/remote/RemotePanel';
@@ -663,21 +663,12 @@ const RecHostStreamModalContent: React.FC<{
                   );
                 })()
               ) : (
-                <HLSVideoPlayer
-                    streamUrl={streamUrl}
-                    isStreamActive={isStreamActive}
-                    isCapturing={false}
-                    model={device?.device_model || 'unknown'}
-                    layoutConfig={{
-                      minHeight: '300px',
-                      aspectRatio: isMobileModel 
-                        ? '9/16' // Fixed mobile aspect ratio
-                        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                      objectFit: 'contain', // Always use contain to maintain aspect ratio
-                      isMobileModel, // Use our mobile detection result
-                    }}
-                    isExpanded={false}
-                    muted={isMuted}
+                <EnhancedHLSPlayer
+                    deviceId={device?.device_id || 'device1'}
+                    hostName={host.host_name}
+                    width="100%"
+                    height={isMobileModel ? 600 : 400}
+                    autoPlay={!isMuted}
                 />
               )
             ) : (

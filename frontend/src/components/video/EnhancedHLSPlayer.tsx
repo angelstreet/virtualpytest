@@ -41,9 +41,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [volume, setVolume] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // HLS URLs
-  const liveUrl = `/stream/capture${deviceId === 'device1' ? '1' : '2'}/live.m3u8`;
-  const archiveUrl = `/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+  // HLS URLs - match your existing stream paths
+  const streamPath = `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+  const liveUrl = streamPath; // For now, both use same 24h playlist
+  const archiveUrl = streamPath; // In future, could be separate live vs archive playlists
 
   // Current URL based on mode
   const currentUrl = isLiveMode ? liveUrl : archiveUrl;
@@ -53,19 +54,25 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
-    // For now, use native HLS support or fall back to basic video
-    // In production, you'd use hls.js here
+    console.log(`📺 Loading HLS stream: ${currentUrl} (${isLiveMode ? 'Live' : 'Archive'} mode)`);
+
+    // Check for native HLS support (Safari, iOS)
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      console.log('📺 Using native HLS support');
       video.src = currentUrl;
     } else {
-      console.warn('HLS not natively supported, would need hls.js');
-      // Fallback or hls.js implementation
+      // For other browsers, we'd use hls.js here
+      // For now, try direct loading
+      console.log('📺 Native HLS not supported, trying direct load');
+      video.src = currentUrl;
     }
 
     if (autoPlay && isPlaying) {
-      video.play().catch(console.error);
+      video.play().catch(error => {
+        console.warn('📺 Autoplay failed:', error);
+      });
     }
-  }, [currentUrl, autoPlay, isPlaying]);
+  }, [currentUrl, autoPlay, isPlaying, isLiveMode]);
 
   // Video event handlers
   useEffect(() => {

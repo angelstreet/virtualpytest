@@ -619,7 +619,7 @@ class ZapExecutor:
                 'detected_language': result.audio_language,
                 'combined_transcript': result.audio_transcript,
                 'message': verification_result.get('message', ''),
-                'audio_urls': verification_result.get('audio_urls', [])
+                'audio_urls': audio_details.get('audio_urls', [])  # Extract from details, not top level
             }
             
         elif analysis_type == 'macroblocks':
