@@ -22,8 +22,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Same stream URL for both modes - nginx provides 24h rolling playlist
-  const streamUrl = `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+  // Dynamic stream URL based on mode - live uses output.m3u8, archive uses archive.m3u8
+  const streamUrl = isLiveMode 
+    ? `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`
+    : `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
 
   // Seek to live edge when switching to live mode
   const seekToLive = () => {
@@ -91,10 +93,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       {/* Reuse HLSVideoPlayer for all streaming logic */}
       <Box sx={{ position: 'relative', height }}>
         <HLSVideoPlayer
+          key={streamUrl} // Force remount when URL changes
           streamUrl={streamUrl}
           isStreamActive={true}
           videoElementRef={videoRef}
           muted={false}
+          isArchiveMode={!isLiveMode} // Pass archive mode flag
           sx={{ width: '100%', height: '100%' }}
         />
 

@@ -14,6 +14,7 @@ interface HLSVideoPlayerProps {
   layoutConfig?: StreamViewerLayoutConfig;
   isExpanded?: boolean;
   muted?: boolean; // Add muted prop
+  isArchiveMode?: boolean; // Add archive mode prop
 }
 
 /**
@@ -40,6 +41,7 @@ export function HLSVideoPlayer({
   model,
   layoutConfig,
   muted = true, // Default to muted for autoplay compliance
+  isArchiveMode = false, // Default to live mode
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
@@ -272,23 +274,42 @@ export function HLSVideoPlayer({
         return;
       }
 
-      // Balanced HLS configuration - low latency without over-engineering
-      const hls = new HLS({
+      // Dynamic HLS configuration based on mode
+      const hlsConfig = isArchiveMode ? {
+        // Archive mode - optimized for seeking and timeline navigation
+        enableWorker: false,
+        lowLatencyMode: false,         // Disable low latency for archive
+        liveSyncDuration: 0,           // No live sync needed
+        liveMaxLatencyDuration: 0,     // No latency limits
+        maxBufferLength: 30,           // Larger buffer for smooth seeking
+        maxMaxBufferLength: 60,        // Allow more buffering
+        backBufferLength: 30,          // Keep back buffer for seeking
+        maxBufferSize: 10 * 1000 * 1000, // Larger buffer size
+        maxBufferHole: 2,              // More tolerance for gaps
+        fragLoadingTimeOut: 10000,     // More time for fragment loading
+        manifestLoadingTimeOut: 5000,  // Standard timeout
+        levelLoadingTimeOut: 5000,     // Standard timeout
+        liveBackBufferLength: 30,      // Keep back buffer
+        liveDurationInfinity: false,   // Finite duration for archive
+      } : {
+        // Live mode - low latency configuration
         enableWorker: false,
         lowLatencyMode: true,
-        liveSyncDuration: 1,           // Reduced from 3 to 1 - stay closer to live edge
-        liveMaxLatencyDuration: 3,     // Reduced from 10 to 3 - max allowed latency
-        maxBufferLength: 2,            // Reduced from 3 to 2 - minimal buffering
-        maxMaxBufferLength: 4,         // Reduced from 60 to 4 - prevent over-buffering
-        backBufferLength: 0,           // Reduced from 10 to 0 - no back buffer
+        liveSyncDuration: 1,           // Stay closer to live edge
+        liveMaxLatencyDuration: 3,     // Max allowed latency
+        maxBufferLength: 2,            // Minimal buffering
+        maxMaxBufferLength: 4,         // Prevent over-buffering
+        backBufferLength: 0,           // No back buffer
         maxBufferSize: 2 * 1000 * 1000, // Reduced buffer size
-        maxBufferHole: 0.1,            // Reduced from 0.5 to 0.1 - fill gaps faster
-        fragLoadingTimeOut: 5000,      // Reduced from 20000 to 5000 - fail faster
-        manifestLoadingTimeOut: 3000,  // Reduced from 10000 to 3000 - fail faster
-        levelLoadingTimeOut: 3000,     // Reduced from 10000 to 3000 - fail faster
+        maxBufferHole: 0.1,            // Fill gaps faster
+        fragLoadingTimeOut: 5000,      // Fail faster
+        manifestLoadingTimeOut: 3000,  // Fail faster
+        levelLoadingTimeOut: 3000,     // Fail faster
         liveBackBufferLength: 0,       // No live back buffer
         liveDurationInfinity: true,    // Allow infinite live duration
-      });
+      };
+
+      const hls = new HLS(hlsConfig);
 
       hlsRef.current = hls;
 
@@ -307,8 +328,8 @@ export function HLSVideoPlayer({
         setSegmentFailureCount(0);
       });
 
-      // Single latency correction mechanism - only when really needed
-      const latencyCheckInterval = setInterval(() => {
+      // Single latency correction mechanism - only for live mode
+      const latencyCheckInterval = !isArchiveMode ? setInterval(() => {
         if (videoRef.current && hls.liveSyncPosition !== undefined && hls.liveSyncPosition !== null && !videoRef.current.paused) {
           const currentTime = videoRef.current.currentTime;
           const liveEdge = hls.liveSyncPosition;
@@ -320,12 +341,14 @@ export function HLSVideoPlayer({
             videoRef.current.currentTime = liveEdge - 2; // Stay 2s behind live edge for stability
           }
         }
-      }, 5000); // Check every 5 seconds - less frequent
+      }, 5000) : null; // Check every 5 seconds - less frequent, disabled for archive
 
       // Cleanup interval when HLS is destroyed
       const originalDestroy = hls.destroy.bind(hls);
       hls.destroy = () => {
-        clearInterval(latencyCheckInterval);
+        if (latencyCheckInterval) {
+          clearInterval(latencyCheckInterval);
+        }
         originalDestroy();
       };
 
