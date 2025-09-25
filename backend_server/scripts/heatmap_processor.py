@@ -238,11 +238,16 @@ class HeatmapProcessor:
                                     # DEBUG: Log the raw JSON data from monitor
                                     print(f"🔍 RAW JSON for {host_name}/{device_id}: {raw_json_data}")
                                     
-                                    # Use the raw JSON directly - no reprocessing!
-                                    analysis_data = raw_json_data
-                                    print(f"✅ Using raw analysis for {host_name}/{device_id}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
+                                    # Check if JSON has actual analysis data (not just {"analyzed": True})
+                                    has_real_data = any(key in raw_json_data for key in ['blackscreen', 'freeze', 'audio'])
+                                    if has_real_data:
+                                        analysis_data = raw_json_data
+                                        print(f"✅ Using raw analysis for {host_name}/{device_id}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
+                                    else:
+                                        analysis_data = None  # No real analysis data
+                                        print(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}: {raw_json_data}")
                                 else:
-                                    analysis_data = {'analyzed': False}
+                                    analysis_data = None  # No JSON file
                                 
                                 current_captures.append({
                                     'host_name': host_name,
@@ -410,12 +415,13 @@ class HeatmapProcessor:
         """Filter devices that have incidents (errors)"""
         error_devices = []
         for device in devices_data:
-            # Check for incidents in raw analysis data
+            # Check for incidents in raw analysis data (only if we have real data)
             analysis_data = device.get('analysis_json', {})
             is_placeholder = device.get('is_placeholder', False)
             
             has_incident = False
-            if not is_placeholder:
+            has_real_analysis = analysis_data and any(key in analysis_data for key in ['blackscreen', 'freeze', 'audio'])
+            if not is_placeholder and has_real_analysis:
                 has_incident = (
                     analysis_data.get('blackscreen', False) or
                     analysis_data.get('freeze', False) or
@@ -437,21 +443,24 @@ class HeatmapProcessor:
         analysis_data = image_data.get('analysis_json', {})
         is_placeholder = image_data.get('is_placeholder', False)
         
+        # Check if we have real analysis data (not just empty dict or None)
+        has_real_analysis = analysis_data and any(key in analysis_data for key in ['blackscreen', 'freeze', 'audio'])
+        
         has_incident = False
-        if not is_placeholder:
+        if not is_placeholder and has_real_analysis:
             has_incident = (
                 analysis_data.get('blackscreen', False) or
                 analysis_data.get('freeze', False) or
                 not analysis_data.get('audio', True)
             )
         
-        # Add border (red for incident, green for OK, grey for placeholder)
-        if is_placeholder:
-            border_color = (128, 128, 128)  # Grey for placeholder
+        # Add border (red for incident, green for OK, grey for placeholder/missing data)
+        if is_placeholder or not has_real_analysis:
+            border_color = (128, 128, 128)  # Grey for placeholder OR missing JSON data
         elif has_incident:
             border_color = (255, 0, 0)  # Red for incident
         else:
-            border_color = (0, 255, 0)  # Green for OK
+            border_color = (0, 255, 0)  # Green for OK (only when we have real data)
             
         draw = ImageDraw.Draw(img)
         draw.rectangle([0, 0, cell_width-1, cell_height-1], outline=border_color, width=4)
@@ -625,9 +634,10 @@ class HeatmapProcessor:
             analysis = image_data.get('analysis', {})
             is_placeholder = image_data.get('is_placeholder', False)
             
-            # Check for incidents using raw analysis data (only for real captures)
+            # Check for incidents using raw analysis data (only for real captures with real data)
             has_incidents = False
-            if not is_placeholder and analysis:
+            has_real_analysis = analysis and any(key in analysis for key in ['blackscreen', 'freeze', 'audio'])
+            if not is_placeholder and has_real_analysis:
                 has_incidents = (
                     analysis.get('blackscreen', False) or
                     analysis.get('freeze', False) or

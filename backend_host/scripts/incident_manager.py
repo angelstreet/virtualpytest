@@ -75,6 +75,7 @@ INCIDENT = 1
 class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}}}
+        self.device_mapping_cache = {}  # Cache device mappings to avoid repeated lookups
         self._load_active_incidents_from_db()
         
     def get_device_state(self, device_id):
@@ -141,29 +142,31 @@ class IncidentManager:
             # Continue with empty state - don't crash the service
     
     def get_device_info_from_capture_folder(self, capture_folder):
-        """Get device info from .env by matching capture path"""
+        """Get device info from .env by matching capture path - with caching to reduce log spam"""
+        # Check cache first
+        if capture_folder in self.device_mapping_cache:
+            return self.device_mapping_cache[capture_folder]
+        
         import os
         capture_path = f"/var/www/html/stream/{capture_folder}"
         
-        logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: Starting lookup for capture_folder='{capture_folder}'")
-        logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: Constructed capture_path='{capture_path}'")
+        logger.debug(f"[{capture_folder}] Performing device mapping lookup for capture_folder='{capture_folder}'")
         
         # Check HOST first
         host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
-        logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: HOST_VIDEO_CAPTURE_PATH='{host_capture_path}'")
         
         if host_capture_path == capture_path:
             host_name = os.getenv('HOST_NAME', 'unknown')
             host_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')
-            logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✓ MATCHED HOST! host_name='{host_name}', stream_path='{host_stream_path}'")
-            return {
+            device_info = {
                 'device_id': 'host',
                 'device_name': f"{host_name}_Host",
                 'stream_path': host_stream_path,
                 'capture_path': capture_folder
             }
-        else:
-            logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ HOST no match: '{host_capture_path}' != '{capture_path}'")
+            logger.info(f"[{capture_folder}] Mapped to HOST device: {host_name}_Host")
+            self.device_mapping_cache[capture_folder] = device_info
+            return device_info
         
         # Check DEVICE1-4
         for i in range(1, 5):
@@ -171,21 +174,22 @@ class IncidentManager:
             device_name = os.getenv(f'DEVICE{i}_NAME', f'device{i}')
             device_stream_path = os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH')
             
-            logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: DEVICE{i}_VIDEO_CAPTURE_PATH='{device_capture_path}', NAME='{device_name}', STREAM='{device_stream_path}'")
-            
             if device_capture_path == capture_path:
-                logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✓ MATCHED DEVICE{i}! device_name='{device_name}', stream_path='{device_stream_path}'")
-                return {
+                device_info = {
                     'device_id': f'device{i}',
                     'device_name': device_name,
                     'stream_path': device_stream_path,
                     'capture_path': capture_folder
                 }
-            else:
-                logger.info(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ DEVICE{i} no match: '{device_capture_path}' != '{capture_path}'")
+                logger.info(f"[{capture_folder}] Mapped to DEVICE{i}: {device_name}")
+                self.device_mapping_cache[capture_folder] = device_info
+                return device_info
         
-        logger.warning(f"[{capture_folder}] DEVICE MAPPING DEBUG: ✗ NO MATCHES FOUND! Falling back to capture_folder='{capture_folder}' as device_name")
-        return {'device_id': capture_folder, 'device_name': capture_folder, 'stream_path': None, 'capture_path': capture_folder}
+        # Fallback
+        logger.warning(f"[{capture_folder}] No device mapping found, using capture_folder as fallback")
+        device_info = {'device_id': capture_folder, 'device_name': capture_folder, 'stream_path': None, 'capture_path': capture_folder}
+        self.device_mapping_cache[capture_folder] = device_info
+        return device_info
     
     def create_incident(self, capture_folder, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
