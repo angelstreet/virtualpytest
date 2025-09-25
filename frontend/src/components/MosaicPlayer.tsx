@@ -50,6 +50,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null); // For drag preview
   const [isDragging, setIsDragging] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const sliderRef = useRef<HTMLDivElement>(null);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const currentImageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -208,6 +209,30 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   }, [mosaicSrc]);
   
   
+  /**
+   * Calculate timeline index from mouse position
+   */
+  const calculateIndexFromMousePosition = (clientX: number): number => {
+    if (!sliderRef.current) return currentIndex;
+    
+    const rect = sliderRef.current.getBoundingClientRect();
+    const relativeX = clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, relativeX / rect.width));
+    const maxIndex = Math.max(0, timeline.length - 1);
+    return Math.round(percentage * maxIndex);
+  };
+
+  /**
+   * Handle mouse move during drag
+   */
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (isDragging) {
+      const newIndex = calculateIndexFromMousePosition(event.clientX);
+      setPreviewIndex(newIndex);
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
+  };
+
   /**
    * Timeline slider change handler (during drag - for tooltip only)
    */
@@ -394,7 +419,11 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
       >
         
         {/* Timeline Scrubber */}
-        <Box sx={{ position: 'relative', pb: 5 }}>
+        <Box 
+          ref={sliderRef}
+          sx={{ position: 'relative', pb: 5 }}
+          onMouseMove={handleMouseMove}
+        >
           <Tooltip
             title={isDragging && previewIndex !== null ? formatTimeForTooltip(previewIndex) : ''}
             open={isDragging}
@@ -410,16 +439,11 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
             }}
           >
             <Slider
-              value={currentIndex}
+              value={isDragging && previewIndex !== null ? previewIndex : currentIndex}
               min={0}
               max={Math.max(0, timeline.length - 1)}
               onChange={handleSliderChange}
               onChangeCommitted={handleSliderChangeCommitted}
-              onMouseMove={(event) => {
-                if (isDragging) {
-                  setMousePosition({ x: event.clientX, y: event.clientY });
-                }
-              }}
               sx={{
                 color: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
                 '& .MuiSlider-thumb': {
