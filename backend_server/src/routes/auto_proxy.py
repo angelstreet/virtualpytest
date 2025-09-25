@@ -32,6 +32,9 @@ def auto_proxy(endpoint):
         team_id = request.args.get('team_id')
         if team_id:
             query_params['team_id'] = team_id
+            # For POST requests, also include team_id in request body
+            if request.method == 'POST':
+                data['team_id'] = team_id
         if data and 'device_id' in data:
             query_params['device_id'] = data['device_id']
         
