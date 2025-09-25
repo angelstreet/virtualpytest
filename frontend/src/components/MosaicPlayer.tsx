@@ -49,6 +49,7 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   const [imageLoading, setImageLoading] = useState(true);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null); // For drag preview
   const [isDragging, setIsDragging] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const currentImageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -210,10 +211,15 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   /**
    * Timeline slider change handler (during drag - for tooltip only)
    */
-  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
+  const handleSliderChange = (event: Event, newValue: number | number[]) => {
     const index = newValue as number;
     setPreviewIndex(index);
     setIsDragging(true);
+    
+    // Track mouse position for tooltip
+    if (event instanceof MouseEvent) {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
     // Don't call onIndexChange here - only update tooltip
   };
 
@@ -394,6 +400,14 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
             open={isDragging}
             arrow
             placement="top"
+            PopperProps={{
+              style: isDragging ? {
+                position: 'fixed',
+                left: mousePosition.x - 50, // Center tooltip on mouse
+                top: mousePosition.y - 60,  // Position above mouse
+                zIndex: 9999
+              } : undefined
+            }}
           >
             <Slider
               value={currentIndex}
@@ -401,6 +415,11 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
               max={Math.max(0, timeline.length - 1)}
               onChange={handleSliderChange}
               onChangeCommitted={handleSliderChangeCommitted}
+              onMouseMove={(event) => {
+                if (isDragging) {
+                  setMousePosition({ x: event.clientX, y: event.clientY });
+                }
+              }}
               sx={{
                 color: (!currentItem || hasDataError) ? '#888888' : (hasIncidents ? '#FF0000' : '#00AA00'),
                 '& .MuiSlider-thumb': {
@@ -426,14 +445,12 @@ ${analysis.freeze ? `Freeze: ${(analysis.freeze_diffs || []).length} diffs` : ''
               const position = (hourIndex / Math.max(1, timeline.length - 1)) * 100;
               const timelineItem = timeline[hourIndex];
               
-              // Calculate dynamic hour based on current time
-              const now = new Date();
-              const currentHour = now.getHours();
-              const displayHour = (currentHour - i + 24) % 24; // Go backwards from current hour
+              // Get the actual hour from the timeline item at this position
+              const displayHour = timelineItem ? timelineItem.displayTime.getHours() : 0;
               
               // Check if this hour mark corresponds to the current timeline position
-              const isCurrentHour = timelineItem && 
-                timelineItem.displayTime.getHours() === (currentItem?.displayTime.getHours() || -1);
+              // We need to check if the current timeline index falls within this hour range
+              const isCurrentHour = currentIndex >= hourIndex && currentIndex < hourIndex + 60;
               
               return (
                 <Tooltip 
