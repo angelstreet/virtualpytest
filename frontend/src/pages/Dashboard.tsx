@@ -438,6 +438,9 @@ const Dashboard: React.FC = () => {
                 '&:hover': {
                   backgroundColor: 'transparent !important',
                 },
+                '&.MuiTableRow-hover:hover': {
+                  backgroundColor: 'transparent !important',
+                },
               }}
             >
               <TableCell>
@@ -613,11 +616,17 @@ const Dashboard: React.FC = () => {
   }
 
   const getServerDisplayName = (serverUrl: string) => {
-    const serverData = serverHostsData.find(s => s.server_info.server_url === serverUrl);
-    if (serverData) {
-      return `${serverData.server_info.server_name} (${serverUrl.replace(/^https?:\/\//, '')})`;
+    // Try to find server data by matching the base URL (without protocol)
+    const baseUrl = serverUrl.replace(/^https?:\/\//, '');
+    const serverData = serverHostsData.find(s => {
+      const serverBaseUrl = s.server_info.server_url.replace(/^https?:\/\//, '');
+      return serverBaseUrl === baseUrl || s.server_info.server_url === serverUrl;
+    });
+    
+    if (serverData && serverData.server_info.server_name) {
+      return `${serverData.server_info.server_name} (${baseUrl})`;
     }
-    return serverUrl.replace(/^https?:\/\//, '');
+    return baseUrl;
   };
 
   return (
@@ -634,8 +643,8 @@ const Dashboard: React.FC = () => {
             label="Primary Server"
             onChange={(e) => setSelectedServer(e.target.value)}
           >
-            {availableServers.map((serverUrl) => (
-              <MenuItem key={serverUrl} value={serverUrl}>
+            {availableServers.map((serverUrl, index) => (
+              <MenuItem key={`${serverUrl}-${index}`} value={serverUrl}>
                 {getServerDisplayName(serverUrl)}
               </MenuItem>
             ))}
@@ -839,7 +848,7 @@ const Dashboard: React.FC = () => {
               <Box 
                 key={index} 
                 sx={{ 
-                  backgroundColor: 'grey.50', 
+                  backgroundColor: 'transparent', 
                   borderRadius: 2, 
                   p: 2, 
                   mb: 2,

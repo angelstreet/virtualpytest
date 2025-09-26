@@ -48,20 +48,53 @@ export const buildServerUrl = (endpoint: string): string => {
 
 /**
  * Get all configured server URLs (primary + slave servers)
+ * 
+ * Environment variables:
+ * - VITE_SERVER_URL: Primary server URL (string)
+ * - VITE_SLAVE_SERVER_URL: Slave server URLs (JSON array, comma-separated, or single URL)
+ * 
+ * Examples for VITE_SLAVE_SERVER_URL:
+ * - JSON array: ["http://192.168.1.103:5109", "http://192.168.1.104:5109"]
+ * - Comma-separated: "http://192.168.1.103:5109, http://192.168.1.104:5109"
+ * - Single URL: "http://192.168.1.103:5109"
+ * 
  * @returns Array of server URLs
  */
 export const getAllServerUrls = (): string[] => {
-  const urls = [];
+  const urls: string[] = [];
   
   // Primary server (always first)
   const primaryUrl = (import.meta as any).env?.VITE_SERVER_URL;
-  if (primaryUrl) urls.push(primaryUrl);
+  if (primaryUrl && typeof primaryUrl === 'string') {
+    urls.push(primaryUrl);
+  }
   
-  // Slave server (if configured)
-  const slaveUrl = (import.meta as any).env?.VITE_SLAVE_SERVER_URL;
-  if (slaveUrl) urls.push(slaveUrl);
+  // Slave servers (can be multiple URLs)
+  const slaveUrls = (import.meta as any).env?.VITE_SLAVE_SERVER_URL;
+  if (slaveUrls && typeof slaveUrls === 'string') {
+    try {
+      // Try to parse as JSON array first
+      const parsedUrls = JSON.parse(slaveUrls);
+      if (Array.isArray(parsedUrls)) {
+        urls.push(...parsedUrls.filter(url => typeof url === 'string'));
+      } else {
+        // If not an array, treat as single URL
+        urls.push(slaveUrls);
+      }
+    } catch (error) {
+      // If JSON parsing fails, try comma-separated values
+      const commaSeparated = slaveUrls.split(',').map(url => url.trim()).filter(url => url.length > 0);
+      urls.push(...commaSeparated);
+    }
+  }
   
-  return urls.length > 0 ? urls : ['http://localhost:5109'];
+  // Fallback to localhost if no URLs configured
+  if (urls.length === 0) {
+    urls.push('http://localhost:5109');
+  }
+  
+  console.log('getAllServerUrls:', urls);
+  return urls;
 };
 
 /**
