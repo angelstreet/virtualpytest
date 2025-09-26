@@ -537,7 +537,8 @@ class HeatmapProcessor:
         elif count <= 9:
             cols, rows = 3, 3
         else:
-            cols = math.ceil(math.sqrt(count))
+            # For more than 9 devices, use 6 columns max
+            cols = min(6, count)
             rows = math.ceil(count / cols)
         
         logger.info(f"📐 Grid layout: {cols}x{rows} (total cells: {cols*rows})")

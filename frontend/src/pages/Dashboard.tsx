@@ -632,7 +632,7 @@ const Dashboard: React.FC = () => {
   return (
     <Box>
       {/* Server Selector */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
         <Typography variant="h4" component="h1">
           Dashboard
         </Typography>
@@ -653,16 +653,13 @@ const Dashboard: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 1 }}>
           {error}
         </Alert>
       )}
 
       {/* Statistics Cards */}
       <Box mb={1}>
-        <Typography variant="body2" color="textSecondary">
-          Statistics from: {getServerDisplayName(selectedServer)}
-        </Typography>
       </Box>
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>

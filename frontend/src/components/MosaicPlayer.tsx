@@ -125,7 +125,8 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
       } else if (deviceCount <= 9) {
         cols = 3; rows = 3;
       } else {
-        cols = Math.ceil(Math.sqrt(deviceCount));
+        // For more than 9 devices, use 6 columns max
+        cols = Math.min(6, deviceCount);
         rows = Math.ceil(deviceCount / cols);
       }
 
