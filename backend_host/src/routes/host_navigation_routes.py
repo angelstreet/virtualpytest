@@ -225,6 +225,57 @@ def populate_navigation_cache(tree_id):
             'error': f'Cache population failed: {str(e)}'
         }), 500
 
+@host_navigation_bp.route('/validation_sequence', methods=['POST'])
+def get_validation_sequence():
+    """Get optimal validation sequence for tree edges"""
+    try:
+        print(f"[@route:host_navigation:get_validation_sequence] Getting validation sequence")
+        
+        # Get request data
+        data = request.get_json() or {}
+        tree_id = data.get('tree_id')
+        team_id = data.get('team_id')
+        
+        if not tree_id:
+            return jsonify({
+                'success': False,
+                'error': 'tree_id is required'
+            }), 400
+            
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        print(f"[@route:host_navigation:get_validation_sequence] Tree: {tree_id}, Team: {team_id}")
+        
+        # Get validation sequence using pathfinding service
+        from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+        
+        validation_sequence = find_optimal_edge_validation_sequence(tree_id, team_id)
+        
+        if validation_sequence:
+            print(f"[@route:host_navigation:get_validation_sequence] Generated {len(validation_sequence)} validation steps")
+            return jsonify({
+                'success': True,
+                'sequence': validation_sequence,
+                'total_steps': len(validation_sequence)
+            })
+        else:
+            print(f"[@route:host_navigation:get_validation_sequence] No validation sequence found")
+            return jsonify({
+                'success': False,
+                'error': 'No validation sequence found - tree may be empty or have no traversable edges'
+            }), 400
+            
+    except Exception as e:
+        print(f"[@route:host_navigation:get_validation_sequence] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Validation sequence generation failed: {str(e)}'
+        }), 500
+
 @host_navigation_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for host navigation service"""

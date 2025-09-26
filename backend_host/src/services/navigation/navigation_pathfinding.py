@@ -302,10 +302,28 @@ def find_optimal_edge_validation_sequence(tree_id: str, team_id: str) -> List[Di
     
     # Get all edges that need validation
     edges_to_validate = []
+    total_edges = 0
+    virtual_edges = 0
+    
     for u, v, data in G.edges(data=True):
-        # Skip virtual cross-tree edges for validation
-        if not data.get('is_virtual', False):
-            edges_to_validate.append((u, v, data))
+        total_edges += 1
+        is_virtual = data.get('is_virtual', False)
+        
+        if is_virtual:
+            virtual_edges += 1
+            print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Skipping virtual edge: {u} → {v}")
+        else:
+            # Check if edge has actions to validate
+            action_sets = data.get('action_sets', [])
+            has_actions = any(action_set.get('actions') for action_set in action_sets if action_set)
+            
+            if has_actions:
+                edges_to_validate.append((u, v, data))
+                print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Adding edge for validation: {u} → {v} (has actions)")
+            else:
+                print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Skipping edge without actions: {u} → {v}")
+    
+    print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] Edge analysis: {total_edges} total, {virtual_edges} virtual, {len(edges_to_validate)} with actions to validate")
     
     if not edges_to_validate:
         print(f"[@navigation:pathfinding:find_optimal_edge_validation_sequence] No edges to validate")
