@@ -79,6 +79,16 @@ export const buildServerUrlForServer = (serverUrl: string, endpoint: string): st
   return `${url}${url.includes('?') ? '&' : '?'}team_id=${teamId}`;
 };
 
+/**
+ * Build URL using a specific selected server
+ * @param endpoint - API endpoint
+ * @param selectedServerUrl - The currently selected server URL
+ * @returns Complete URL with team_id
+ */
+export const buildSelectedServerUrl = (endpoint: string, selectedServerUrl: string): string => {
+  return buildServerUrlForServer(selectedServerUrl, endpoint);
+};
+
 // =====================================================
 // HOST URL BUILDING (Frontend to Device Hosts)
 // =====================================================

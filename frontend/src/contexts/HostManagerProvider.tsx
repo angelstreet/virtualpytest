@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 
 import { useUserSession } from '../hooks/useUserSession';
 import { Host, Device } from '../types/common/Host_Types';
-import { buildServerUrl } from '../utils/buildUrlUtils';
+import { buildServerUrl, getAllServerUrls } from '../utils/buildUrlUtils';
 
 import { HostManagerContext } from './HostManagerContext';
 
@@ -25,6 +25,10 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // ========================================
   // STATE
   // ========================================
+
+  // Server selection state
+  const availableServers = getAllServerUrls();
+  const [selectedServer, setSelectedServer] = useState<string>(availableServers[0] || '');
 
   // Host data state
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);
@@ -659,6 +663,11 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       showAVPanel,
       isVerificationActive,
 
+      // Server selection state
+      selectedServer,
+      availableServers,
+      setSelectedServer,
+
       // Host data (filtered by interface models)
       availableHosts: filteredAvailableHosts,
       getHostByName,
@@ -702,7 +711,6 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       handleDisconnectComplete,
     }),
     [
-      // Include all dependencies
       selectedHost,
       selectedDeviceId,
       isControlActive,
@@ -710,8 +718,9 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       showRemotePanel,
       showAVPanel,
       isVerificationActive,
+      selectedServer,
+      availableServers,
       filteredAvailableHosts,
-      getHostByName,
       isLoading,
       error,
       getAllHosts,

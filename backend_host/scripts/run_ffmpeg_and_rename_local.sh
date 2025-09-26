@@ -53,7 +53,7 @@ reset_video_device() {
   sleep 3
 }
 
-# Function to kill existing processes and clean up files for a specific grabber
+# Function to kill existing processes and clean up essential files for a specific grabber
 kill_existing_processes() {
   local output_dir=$1 source=$2
   echo "Checking for existing processes for $source..."
@@ -64,12 +64,12 @@ kill_existing_processes() {
   # Wait for processes to fully stop
   sleep 2
   
-  # Clean up old files for fresh start
-  echo "Cleaning old files for fresh start..."
-  find "$output_dir" -maxdepth 1 -name "segment_*.ts" -delete 2>/dev/null || true
+  # Clean up only essential files for FFmpeg startup - let clean script handle images
+  echo "Cleaning essential files for FFmpeg startup..."
   rm -f "$output_dir"/output.m3u8
-  find "$output_dir/captures" -name "capture_*" -delete 2>/dev/null || true
-  echo "Cleaned up old files in $output_dir (segments, playlist, screenshots, metadata)"
+  rm -f "$output_dir"/archive.m3u8
+  find "$output_dir" -maxdepth 1 -name "segment_*.ts" -delete 2>/dev/null || true
+  echo "Cleaned up essential files in $output_dir (playlist files and segments only)"
 }
 
 # Cleanup function

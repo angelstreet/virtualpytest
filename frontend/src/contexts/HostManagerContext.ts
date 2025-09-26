@@ -16,6 +16,11 @@ export interface HostManagerContextType {
   showAVPanel: boolean;
   isVerificationActive: boolean;
 
+  // Server selection state
+  selectedServer: string;
+  availableServers: string[];
+  setSelectedServer: (serverUrl: string) => void;
+
   // Host data (filtered by interface models)
   availableHosts: Host[];
   getHostByName: (name: string) => Host | null;

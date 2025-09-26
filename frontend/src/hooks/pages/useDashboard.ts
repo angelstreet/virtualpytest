@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { buildServerUrl, getAllServerUrls, buildServerUrlForServer } from '../../utils/buildUrlUtils';
+import { getAllServerUrls, buildServerUrlForServer, buildSelectedServerUrl } from '../../utils/buildUrlUtils';
+import { useHostManager } from '../useHostManager';
 import { TestCase, Campaign, Tree } from '../../types';
 import { Host } from '../../types/common/Host_Types';
 import { DashboardStats, RecentActivity } from '../../types/pages/Dashboard_Types';
@@ -29,6 +30,7 @@ export interface UseDashboardReturn {
 }
 
 export const useDashboard = (): UseDashboardReturn => {
+  const { selectedServer } = useHostManager();
   const [stats, setStats] = useState<DashboardStats>({
     testCases: 0,
     campaigns: 0,
@@ -56,6 +58,12 @@ export const useDashboard = (): UseDashboardReturn => {
       // Get all configured server URLs
       const serverUrls = getAllServerUrls();
       
+      // Don't proceed if no selected server yet
+      if (!selectedServer) {
+        console.log('[@useDashboard] No selected server yet, skipping fetch');
+        return;
+      }
+      
       // Fetch from all servers in parallel
       const serverDataPromises = serverUrls.map(async (serverUrl) => {
         try {
@@ -80,11 +88,11 @@ export const useDashboard = (): UseDashboardReturn => {
       const serverHostsData = (await Promise.all(serverDataPromises)).filter(Boolean) as ServerHostData[];
       setServerHostsData(serverHostsData);
       
-      // Continue with existing logic for campaigns, testcases, trees using primary server
+      // Continue with existing logic for campaigns, testcases, trees using selected server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
-        fetch(buildServerUrl('/server/campaigns/getAllCampaigns')),
-        fetch(buildServerUrl('/server/testcases/getAllTestCases')),
-        fetch(buildServerUrl('/server/navigationTrees')), // Automatically includes team_id
+        fetch(buildSelectedServerUrl('/server/campaigns/getAllCampaigns', selectedServer)),
+        fetch(buildSelectedServerUrl('/server/testcases/getAllTestCases', selectedServer)),
+        fetch(buildSelectedServerUrl('/server/navigationTrees', selectedServer)), // Automatically includes team_id
       ]);
 
       let testCases: TestCase[] = [];
@@ -143,7 +151,7 @@ export const useDashboard = (): UseDashboardReturn => {
       setLoading(false);
       setIsRequestInProgress(false);
     }
-  }, [isRequestInProgress]);
+  }, [isRequestInProgress, selectedServer]);
 
   const refreshData = useCallback(async () => {
     await fetchDashboardData();

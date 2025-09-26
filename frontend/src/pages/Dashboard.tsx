@@ -44,6 +44,10 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 
 import { useHostManager } from '../hooks/useHostManager';
@@ -53,7 +57,7 @@ import { Host } from '../types/common/Host_Types';
 import { ViewMode } from '../types/pages/Dashboard_Types';
 
 const Dashboard: React.FC = () => {
-  const { getAllHosts } = useHostManager();
+  const { getAllHosts, availableServers, selectedServer, setSelectedServer } = useHostManager();
   const availableHosts = useMemo(() => getAllHosts(), [getAllHosts]);
   const { restartStreams, isRestarting } = useRec();
   const { stats, serverHostsData, loading, error } = useDashboard();
@@ -608,8 +612,37 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  const getServerDisplayName = (serverUrl: string) => {
+    const serverData = serverHostsData.find(s => s.server_info.server_url === serverUrl);
+    if (serverData) {
+      return `${serverData.server_info.server_name} (${serverUrl.replace(/^https?:\/\//, '')})`;
+    }
+    return serverUrl.replace(/^https?:\/\//, '');
+  };
+
   return (
     <Box>
+      {/* Server Selector */}
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+        <Typography variant="h4" component="h1">
+          Dashboard
+        </Typography>
+        <FormControl size="small" sx={{ minWidth: 300 }}>
+          <InputLabel>Primary Server</InputLabel>
+          <Select
+            value={selectedServer}
+            label="Primary Server"
+            onChange={(e) => setSelectedServer(e.target.value)}
+          >
+            {availableServers.map((serverUrl) => (
+              <MenuItem key={serverUrl} value={serverUrl}>
+                {getServerDisplayName(serverUrl)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -617,6 +650,11 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Statistics Cards */}
+      <Box mb={1}>
+        <Typography variant="body2" color="textSecondary">
+          Statistics from: {getServerDisplayName(selectedServer)}
+        </Typography>
+      </Box>
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
