@@ -25,7 +25,6 @@ interface MosaicPlayerProps {
   onIndexChange: (index: number) => void;
   onCellClick?: (deviceData: any) => void;
   hasIncidents?: boolean;
-  isLoading?: boolean;
   hasDataError?: boolean;
   analysisData?: any; // Device analysis data for overlays
   filter?: FilterType;
@@ -38,7 +37,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   onIndexChange,
   onCellClick,
   hasIncidents = false,
-  isLoading = false,
   hasDataError = false,
   analysisData,
   filter = 'ALL',

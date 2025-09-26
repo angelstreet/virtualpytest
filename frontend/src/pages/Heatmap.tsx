@@ -35,7 +35,6 @@ const HeatmapContent: React.FC = () => {
     currentIndex,
     setCurrentIndex,
     analysisData,
-    analysisLoading,
     hasIncidents,
     goToLatest,
     hasDataError,
@@ -216,7 +215,6 @@ const HeatmapContent: React.FC = () => {
           onIndexChange={setCurrentIndex}
           onCellClick={handleOverlayClick}
           hasIncidents={hasIncidents()}
-          isLoading={analysisLoading}
           hasDataError={hasDataError}
           analysisData={analysisData}
           filter={filter}
