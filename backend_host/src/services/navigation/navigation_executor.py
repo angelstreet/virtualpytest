@@ -171,7 +171,8 @@ class NavigationExecutor:
     
     def execute_navigation(self, 
                           tree_id: str, 
-                          target_node_id: str,
+                          target_node_id: str = None,
+                          target_node_label: str = None,
                           current_node_id: Optional[str] = None,
                           image_source_url: Optional[str] = None,
                           team_id: str = None,
@@ -182,7 +183,8 @@ class NavigationExecutor:
         
         Args:
             tree_id: Navigation tree ID
-            target_node_id: ID of the target node to navigate to
+            target_node_id: ID of the target node to navigate to (mutually exclusive with target_node_label)
+            target_node_label: Label of the target node to navigate to (mutually exclusive with target_node_id)
             current_node_id: Optional current node ID for starting point
             image_source_url: Optional image source URL
             team_id: Team ID for security
@@ -192,6 +194,33 @@ class NavigationExecutor:
             Dict with success status and navigation details
         """
         start_time = time.time()
+        
+        # Validate parameters - exactly one of target_node_id or target_node_label must be provided
+        if not target_node_id and not target_node_label:
+            return self._build_result(
+                False, 
+                "Either target_node_id or target_node_label must be provided",
+                tree_id, None, current_node_id, start_time
+            )
+        
+        if target_node_id and target_node_label:
+            return self._build_result(
+                False, 
+                "Cannot provide both target_node_id and target_node_label - use only one",
+                tree_id, target_node_id, current_node_id, start_time
+            )
+        
+        # Convert target_node_label to target_node_id if needed
+        if target_node_label:
+            try:
+                target_node_id = self.get_node_id(target_node_label)
+                print(f"[@navigation_executor:execute_navigation] Resolved label '{target_node_label}' to node_id '{target_node_id}'")
+            except ValueError as e:
+                return self._build_result(
+                    False, 
+                    f"Could not resolve target_node_label '{target_node_label}' to node_id: {str(e)}",
+                    tree_id, None, current_node_id, start_time
+                )
         
         # Update shared navigation context with team_id
         if team_id:
