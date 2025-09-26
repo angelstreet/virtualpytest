@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getAllServerUrls, buildServerUrlForServer, buildSelectedServerUrl } from '../../utils/buildUrlUtils';
 import { useHostManager } from '../useHostManager';
 import { TestCase, Campaign, Tree } from '../../types';
@@ -25,7 +25,6 @@ export interface UseDashboardReturn {
   isRequestInProgress: boolean;
   
   // Actions
-  fetchDashboardData: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -42,6 +41,15 @@ export const useDashboard = (): UseDashboardReturn => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
+  
+  // Use ref to track the current selectedServer to avoid dependency issues
+  const selectedServerRef = useRef(selectedServer);
+  selectedServerRef.current = selectedServer;
+  
+  // Debug: Log when selectedServer changes
+  useEffect(() => {
+    console.log('[@useDashboard] selectedServer changed to:', selectedServer);
+  }, [selectedServer]);
 
   const fetchDashboardData = useCallback(async () => {
     // Prevent duplicate calls
@@ -59,7 +67,7 @@ export const useDashboard = (): UseDashboardReturn => {
       const serverUrls = getAllServerUrls();
       
       // Don't proceed if no selected server yet
-      if (!selectedServer) {
+      if (!selectedServerRef.current) {
         console.log('[@useDashboard] No selected server yet, skipping fetch');
         setLoading(false);
         setIsRequestInProgress(false);
@@ -92,9 +100,9 @@ export const useDashboard = (): UseDashboardReturn => {
       
       // Continue with existing logic for campaigns, testcases, trees using selected server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
-        fetch(buildSelectedServerUrl('/server/campaigns/getAllCampaigns', selectedServer)),
-        fetch(buildSelectedServerUrl('/server/testcases/getAllTestCases', selectedServer)),
-        fetch(buildSelectedServerUrl('/server/navigationTrees', selectedServer)), // Automatically includes team_id
+        fetch(buildSelectedServerUrl('/server/campaigns/getAllCampaigns', selectedServerRef.current)),
+        fetch(buildSelectedServerUrl('/server/testcases/getAllTestCases', selectedServerRef.current)),
+        fetch(buildSelectedServerUrl('/server/navigationTrees', selectedServerRef.current)), // Automatically includes team_id
       ]);
 
       let testCases: TestCase[] = [];
@@ -157,20 +165,15 @@ export const useDashboard = (): UseDashboardReturn => {
 
   const refreshData = useCallback(async () => {
     await fetchDashboardData();
-  }, [fetchDashboardData]);
+  }, []);
 
-  // Load data on mount
-  useEffect(() => {
-    fetchDashboardData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reload data when selectedServer changes
+  // Load data on mount and when selectedServer changes
   useEffect(() => {
     if (selectedServer) {
       console.log('[@useDashboard] Selected server changed, refreshing data...');
       fetchDashboardData();
     }
-  }, [selectedServer, fetchDashboardData]);
+  }, [selectedServer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     // Data
@@ -183,7 +186,6 @@ export const useDashboard = (): UseDashboardReturn => {
     isRequestInProgress,
     
     // Actions
-    fetchDashboardData,
     refreshData,
   };
 };

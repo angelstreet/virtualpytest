@@ -26,15 +26,16 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // STATE
   // ========================================
 
-  // Server selection state
-  const availableServers = getAllServerUrls();
+  // Server selection state - memoize to prevent re-renders
+  const availableServers = useMemo(() => getAllServerUrls(), []);
   const [selectedServer, setSelectedServerState] = useState<string>(() => {
     // Initialize from localStorage if available, otherwise use first available server
+    const servers = getAllServerUrls();
     try {
       const saved = localStorage.getItem('selectedServer');
-      return saved && availableServers.includes(saved) ? saved : availableServers[0] || '';
+      return saved && servers.includes(saved) ? saved : servers[0] || '';
     } catch {
-      return availableServers[0] || '';
+      return servers[0] || '';
     }
   });
 
