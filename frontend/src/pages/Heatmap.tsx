@@ -11,6 +11,9 @@ import {
   Alert as MuiAlert,
   Tooltip,
   IconButton,
+  Select,
+  MenuItem,
+  FormControl,
 } from '@mui/material';
 import React, { useState } from 'react';
 
@@ -36,7 +39,9 @@ const HeatmapContent: React.FC = () => {
     hasIncidents,
     goToLatest,
     hasDataError,
-    generateReport
+    generateReport,
+    getMosaicUrl,
+    getFilteredDevices
   } = useHeatmap();
 
   // Access to real host/device data
@@ -46,6 +51,7 @@ const HeatmapContent: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [filter, setFilter] = useState<'ALL' | 'OK' | 'KO'>('ALL');
   
   // Freeze modal state
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
@@ -167,12 +173,17 @@ const HeatmapContent: React.FC = () => {
                   </Typography>
                 </Box>
                 
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Status</Typography>
-                  <Typography variant="body2" fontWeight="bold" color={hasIncidents() ? 'error' : 'success'}>
-                    {hasIncidents() ? 'KO' : 'OK'}
-                  </Typography>
-                </Box>
+                <FormControl size="small" sx={{ minWidth: 80 }}>
+                  <Select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value as 'ALL' | 'OK' | 'KO')}
+                    sx={{ fontSize: '0.75rem', height: '24px' }}
+                  >
+                    <MenuItem value="ALL">ALL</MenuItem>
+                    <MenuItem value="OK">OK</MenuItem>
+                    <MenuItem value="KO">KO</MenuItem>
+                  </Select>
+                </FormControl>
 
                 {/* Go to Latest Button */}
                 <Tooltip title="Go to Latest">
@@ -208,13 +219,15 @@ const HeatmapContent: React.FC = () => {
           isLoading={analysisLoading}
           hasDataError={hasDataError}
           analysisData={analysisData}
+          filter={filter}
+          getMosaicUrl={getMosaicUrl}
         />
       </Box>
 
       {/* Analysis Section */}
       <Box sx={{ mb: 3 }}>
         <HeatMapAnalysisSection
-          images={analysisData?.devices || []}
+          images={getFilteredDevices(analysisData?.devices || [], filter)}
           analysisExpanded={analysisExpanded}
           onToggleExpanded={() => setAnalysisExpanded(!analysisExpanded)}
           onFreezeClick={handleFreezeClick}

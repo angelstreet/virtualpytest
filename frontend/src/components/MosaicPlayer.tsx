@@ -11,7 +11,6 @@ import {
   Slider,
   Typography,
   Alert,
-  LinearProgress,
   Tooltip
 } from '@mui/material';
 
@@ -305,12 +304,6 @@ export const MosaicPlayer: React.FC<MosaicPlayerProps> = ({
   
   return (
     <Box>
-      
-      {/* Loading indicator */}
-      {isLoading && (
-        <LinearProgress sx={{ mb: 1 }} />
-      )}
-      
       {/* Mosaic Display */}
       <Box 
         ref={containerRef}
