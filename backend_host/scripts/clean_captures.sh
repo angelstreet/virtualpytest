@@ -31,7 +31,6 @@ CAPTURE_DIRS=(
   "/var/www/html/stream/capture3/captures"
   "/var/www/html/stream/capture4/captures"
   "/var/www/html/stream/capture5/captures"
-  "/var/www/html/stream/capture6/captures"
 )
 
 # Process each directory - clean both parent and captures directory in one loop
