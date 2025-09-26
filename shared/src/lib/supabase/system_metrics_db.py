@@ -216,16 +216,22 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
             'cpu_temperature_celsius': metrics_data.get('cpu_temperature_celsius')
         }
         
+        # Add server_name only if it's provided in metrics_data (server-specific)
+        if 'server_name' in metrics_data:
+            insert_data['server_name'] = metrics_data['server_name']
+        
         result = supabase.table('system_metrics').insert(insert_data).execute()
         
         if result.data:
-            print(f"✅ Server metrics stored: {host_name}")
+            server_info = f" (server: {metrics_data.get('server_name')})" if 'server_name' in metrics_data else ""
+            print(f"✅ Server metrics stored: {host_name}{server_info}")
             return True
         else:
             return False
             
     except Exception as e:
-        print(f"❌ Error storing server metrics for {host_name}: {e}")
+        server_info = f" (server: {metrics_data.get('server_name')})" if 'server_name' in metrics_data else ""
+        print(f"❌ Error storing server metrics for {host_name}{server_info}: {e}")
         return False
 
 

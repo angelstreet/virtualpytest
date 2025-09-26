@@ -11,6 +11,7 @@ DROP SEQUENCE IF EXISTS system_incident_incident_id_seq CASCADE;
 CREATE TABLE system_metrics (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     host_name text NOT NULL,
+    server_name text,
     timestamp timestamp with time zone NOT NULL DEFAULT now(),
     cpu_percent numeric NOT NULL DEFAULT 0,
     memory_percent numeric NOT NULL DEFAULT 0,
@@ -98,6 +99,7 @@ CREATE TABLE system_incident (
 
 -- Add indexes for performance
 CREATE INDEX idx_system_metrics_host_name ON system_metrics(host_name);
+CREATE INDEX idx_system_metrics_server_name ON system_metrics(server_name);
 CREATE INDEX idx_system_metrics_timestamp ON system_metrics(timestamp);
 CREATE INDEX idx_system_metrics_created_at ON system_metrics(created_at);
 
@@ -120,6 +122,7 @@ CREATE INDEX idx_system_incident_severity ON system_incident(severity);
 COMMENT ON TABLE system_metrics IS 'Retention: Keep 7 days of 1-minute data, 30 days of hourly aggregates';
 COMMENT ON COLUMN system_metrics.timestamp IS 'UTC timestamp for system metrics collection';
 COMMENT ON COLUMN system_metrics.created_at IS 'UTC timestamp for record creation';
+COMMENT ON COLUMN system_metrics.server_name IS 'Server identifier for grouping metrics across multiple servers (from SERVER_NAME env var)';
 COMMENT ON COLUMN system_metrics.ffmpeg_service_uptime_seconds IS 'Duration FFmpeg service has been continuously active in seconds';
 COMMENT ON COLUMN system_metrics.monitor_service_uptime_seconds IS 'Duration Monitor service has been continuously active in seconds';
 COMMENT ON COLUMN system_metrics.cpu_temperature_celsius IS 'CPU temperature in Celsius from vcgencmd or thermal zones';

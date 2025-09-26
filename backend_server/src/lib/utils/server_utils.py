@@ -159,6 +159,9 @@ def get_cpu_temperature():
 def get_server_system_stats():
     """Get comprehensive system statistics for the server"""
     try:
+        # Get server name from environment
+        server_name = os.getenv('SERVER_NAME') or 'server'
+        
         stats = {
             'cpu_percent': psutil.cpu_percent(interval=1),
             'memory_percent': psutil.virtual_memory().percent,
@@ -166,7 +169,8 @@ def get_server_system_stats():
             'uptime_seconds': int(time.time() - psutil.boot_time()),
             'platform': os.uname().sysname if hasattr(os, 'uname') else 'unknown',
             'architecture': os.uname().machine if hasattr(os, 'uname') else 'unknown',
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'server_name': server_name  # Add server name for grouping
         }
         
         # Add CPU temperature if available
