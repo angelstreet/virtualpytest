@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 import {
@@ -60,20 +60,14 @@ const Dashboard: React.FC = () => {
   const { getAllHosts, availableServers, selectedServer, setSelectedServer } = useHostManager();
   const availableHosts = useMemo(() => getAllHosts(), [getAllHosts]);
   const { restartStreams, isRestarting } = useRec();
-  const { stats, serverHostsData, loading, error, refreshData } = useDashboard();
+  const { stats, serverHostsData, loading, error } = useDashboard();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   
   // System control loading states
   const [isRestartingService, setIsRestartingService] = useState(false);
   const [isRebooting, setIsRebooting] = useState(false);
 
-  // Refresh data when server selection changes
-  useEffect(() => {
-    if (selectedServer) {
-      console.log(`Dashboard: Server selection changed to ${selectedServer}, refreshing data...`);
-      refreshData();
-    }
-  }, [selectedServer, refreshData]);
+  // Note: Data refresh on server selection is now handled internally by useDashboard hook
 
 
   const handleViewModeChange = (_event: React.MouseEvent<HTMLElement>, newViewMode: ViewMode) => {

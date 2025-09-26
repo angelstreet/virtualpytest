@@ -61,6 +61,8 @@ export const useDashboard = (): UseDashboardReturn => {
       // Don't proceed if no selected server yet
       if (!selectedServer) {
         console.log('[@useDashboard] No selected server yet, skipping fetch');
+        setLoading(false);
+        setIsRequestInProgress(false);
         return;
       }
       
@@ -151,16 +153,24 @@ export const useDashboard = (): UseDashboardReturn => {
       setLoading(false);
       setIsRequestInProgress(false);
     }
-  }, [isRequestInProgress, selectedServer]);
+  }, [isRequestInProgress]);
 
   const refreshData = useCallback(async () => {
     await fetchDashboardData();
   }, [fetchDashboardData]);
 
+  // Load data on mount
   useEffect(() => {
     fetchDashboardData();
-    // Load data on mount and when selectedServer changes
-  }, [fetchDashboardData]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload data when selectedServer changes
+  useEffect(() => {
+    if (selectedServer) {
+      console.log('[@useDashboard] Selected server changed, refreshing data...');
+      fetchDashboardData();
+    }
+  }, [selectedServer, fetchDashboardData]);
 
   return {
     // Data
@@ -177,3 +187,4 @@ export const useDashboard = (): UseDashboardReturn => {
     refreshData,
   };
 };
+
