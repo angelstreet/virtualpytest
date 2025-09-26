@@ -86,18 +86,17 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       const stdout = scriptResult.stdout || '';
       
       // Parse current validation script output format
-      const successfulMatch = stdout.match(/Successful: (\d+)/);
-      const failedMatch = stdout.match(/Failed: (\d+)/);
-      const totalMatch = stdout.match(/Steps: (\d+)/);
-      const timeMatch = stdout.match(/Time: ([\d.]+)/);
+      const failedMatch = stdout.match(/❌ Failed: (\d+)/);
+      const stepsMatch = stdout.match(/📊 Steps: (\d+)\/(\d+) steps successful/);
+      const timeMatch = stdout.match(/⏱️  Total Time: ([\d.]+)s/);
       
-      if (!totalMatch) {
+      if (!stepsMatch) {
         console.error('Could not parse total steps from validation output');
         return null;
       }
 
-      const total = parseInt(totalMatch[1]);
-      const successful = successfulMatch ? parseInt(successfulMatch[1]) : 0;
+      const successful = stepsMatch ? parseInt(stepsMatch[1]) : 0;
+      const total = stepsMatch ? parseInt(stepsMatch[2]) : 0;
       const failed = failedMatch ? parseInt(failedMatch[1]) : total - successful;
       const executionTime = timeMatch ? parseFloat(timeMatch[1]) : 0;
 
