@@ -296,11 +296,8 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           `[@context:HostManagerProvider] Taking control of device: ${host.host_name}, device_id: ${effectiveDeviceId}`,
         );
         console.log(`[@context:HostManagerProvider] Using user ID for lock: ${userId}`);
-        console.log(`[@context:HostManagerProvider] tree_id parameter: ${tree_id}`);
         if (tree_id) {
-          console.log(`[@context:HostManagerProvider] ✅ Including tree_id for cache population: ${tree_id}`);
-        } else {
-          console.log(`[@context:HostManagerProvider] ⚠️ NO tree_id provided - cache population will be skipped`);
+          console.log(`[@context:HostManagerProvider] Including tree_id for cache population: ${tree_id}`);
         }
 
         // Build request body with optional tree_id for cache population
@@ -317,9 +314,6 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           // team_id is automatically added by buildServerUrl
         }
 
-        console.log(`[@context:HostManagerProvider] Request body:`, requestBody);
-        console.log(`[@context:HostManagerProvider] Making API call to: ${buildServerUrl('/server/control/takeControl')}`);
-        
         const response = await fetch(buildServerUrl('/server/control/takeControl'), {
           method: 'POST',
           headers: {
