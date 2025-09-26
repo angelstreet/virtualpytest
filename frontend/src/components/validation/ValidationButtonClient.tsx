@@ -14,7 +14,6 @@ import React, { useState } from 'react';
 
 import { useValidation } from '../../hooks/validation';
 import ValidationPreviewClient from './ValidationPreviewClient';
-import ValidationResultsClient from './ValidationResultsClient';
 import { ValidationProgressClient } from './ValidationProgressClient';
 
 
@@ -78,11 +77,11 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
           <ListItemText>Run Validation</ListItemText>
         </MenuItem>
 
-        {validation.hasResults && (
+        {validation.hasLastResults && (
           <MenuItem
             onClick={() => {
               handleClose();
-              validation.setShowResults(true);
+              validation.viewLastValidationResults();
             }}
           >
             <ListItemIcon>
@@ -112,14 +111,7 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
         />
       )}
 
-      {/* Results dialog - shows after validation completes */}
-      {validation.showResults && (
-        <ValidationResultsClient 
-          treeId={treeId}
-          selectedHost={selectedHost}
-          selectedDeviceId={selectedDeviceId}
-        />
-      )}
+      {/* Results are now shown in new tab via report URL - no modal needed */}
 
     </>
   );
