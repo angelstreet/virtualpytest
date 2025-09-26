@@ -16,7 +16,7 @@ def get_validation_preview(tree_id: str):
     Uses unified cache system - requires proper cache population
     """
     try:
-        team_id = request.args.get('team_id') or (request.get_json() or {}).get('team_id')
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({
                 'success': False,
@@ -25,7 +25,7 @@ def get_validation_preview(tree_id: str):
         
         # Check if unified cache is populated for this tree via host API
         from  backend_server.src.lib.utils.route_utils import proxy_to_host
-        cache_check_result = proxy_to_host('/host/navigation/cache/check_unified', 'POST', {
+        cache_check_result, _ = proxy_to_host('/host/navigation/cache/check_unified', 'POST', {
             'tree_id': tree_id,
             'team_id': team_id
         })
@@ -45,7 +45,7 @@ def get_validation_preview(tree_id: str):
         # Use optimal edge validation sequence with unified cache
         from  backend_server.src.lib.utils.route_utils import proxy_to_host
         
-        proxy_result = proxy_to_host('/host/navigation/validation_sequence', 'POST', {
+        proxy_result, _ = proxy_to_host('/host/navigation/validation_sequence', 'POST', {
             'tree_id': tree_id,
             'team_id': team_id
         })
@@ -117,7 +117,7 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str) -> bool:
         
         # Populate unified cache via host API
         from  backend_server.src.lib.utils.route_utils import proxy_to_host
-        populate_result = proxy_to_host('/host/navigation/cache/populate_unified', 'POST', {
+        populate_result, _ = proxy_to_host('/host/navigation/cache/populate_unified', 'POST', {
             'tree_id': tree_id,
             'team_id': team_id,
             'all_trees_data': all_trees_data
@@ -170,7 +170,7 @@ def ensure_single_tree_cache_populated(tree_id: str, team_id: str) -> bool:
         
         # Populate unified cache with single tree via host API
         from  backend_server.src.lib.utils.route_utils import proxy_to_host
-        populate_result = proxy_to_host('/host/navigation/cache/populate_unified', 'POST', {
+        populate_result, _ = proxy_to_host('/host/navigation/cache/populate_unified', 'POST', {
             'tree_id': tree_id,
             'team_id': team_id,
             'all_trees_data': single_tree_data
