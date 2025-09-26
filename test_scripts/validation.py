@@ -14,6 +14,7 @@ Example:
 
 import sys
 import os
+import time
 
 # Add project root to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -121,7 +122,12 @@ def validate_with_recovery(max_iteration: int = None) -> bool:
     successful = 0
     for i, step in enumerate(validation_sequence):
         target = step.get('to_node_label', 'unknown')
-        print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: → {target}")
+        from_node = step.get('from_node_label', 'unknown')
+        
+        print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {target}")
+        
+        # Record step start time
+        step_start_time = time.time()
         
         # Use NavigationExecutor directly
         device = context.selected_device
@@ -131,6 +137,36 @@ def validate_with_recovery(max_iteration: int = None) -> bool:
             team_id=context.team_id,
             context=context
         )
+        
+        # Calculate step execution time
+        step_execution_time = int((time.time() - step_start_time) * 1000)
+        
+        # Record step result in context for report generation
+        step_result = {
+            'step_number': i + 1,
+            'success': result.get('success', False),
+            'from_node': from_node,
+            'to_node': target,
+            'execution_time_ms': step_execution_time,
+            'transitions_executed': result.get('transitions_executed', 0),
+            'actions_executed': result.get('actions_executed', 0),
+            'total_transitions': result.get('total_transitions', 1),
+            'total_actions': result.get('total_actions', 1),
+            'step_category': 'validation',
+            'error': result.get('error') if not result.get('success', False) else None,
+            'screenshots': [],  # Screenshots are handled by NavigationExecutor
+            'message': f"Validation step {i+1}: {from_node} → {target}",
+            'start_time': step_start_time,
+            'end_time': time.time(),
+            # Add additional fields that might be used by report formatting
+            'from_node_label': from_node,
+            'to_node_label': target,
+            'fromName': from_node,
+            'toName': target
+        }
+        
+        # Record the step in context
+        context.record_step_dict(step_result)
         
         if result.get('success', False):
             successful += 1

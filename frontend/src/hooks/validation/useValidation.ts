@@ -268,6 +268,24 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         // Validation scripts can complete but report validation failures (which is normal)
         const validationResults = parseScriptResultToValidation(scriptResult);
         
+        // Check if we have a report URL - if so, use that instead of parsing
+        if (scriptResult.report_url) {
+          console.log(`[@hook:useValidation] Report URL available: ${scriptResult.report_url}`);
+          console.log(`[@hook:useValidation] Opening validation report in new tab instead of parsing results`);
+          
+          // Open the report URL in a new tab - this shows the actual step results with proper node labels
+          window.open(scriptResult.report_url, '_blank');
+          
+          // Still update state to show that validation completed
+          updateValidationState(treeId, {
+            results: null, // Don't store parsed results
+            showResults: false, // Don't show the modal
+            validationError: null,
+          });
+          
+          return; // Exit early - no need to parse
+        }
+        
         if (validationResults) {
           // Save results to persistent storage
           saveValidationResults(treeId, validationResults);

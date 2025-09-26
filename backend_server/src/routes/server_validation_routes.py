@@ -58,21 +58,33 @@ def get_validation_preview(tree_id: str):
                 'error': 'No validation sequence found - tree may be empty or have no traversable edges'
             }), 400
         
-        # Convert validation sequence to preview format
+        # Convert validation sequence to preview format - include cross-tree navigation details
         edges = []
+        step_counter = 1
+        
         for validation_step in validation_sequence:
-            edge_info = {
-                'step_number': validation_step['step_number'],
-                'from_node': validation_step['from_node_id'],
-                'to_node': validation_step['to_node_id'],
-                'from_name': validation_step['from_node_label'],
-                'to_name': validation_step['to_node_label'],
-                'selected': True,
-                'actions': validation_step.get('actions', []),
-                'has_verifications': validation_step.get('total_verifications', 0) > 0,
-                'step_type': validation_step.get('step_type', 'unknown')
-            }
-            edges.append(edge_info)
+            step_type = validation_step.get('step_type', 'unknown')
+            
+            # Include all validation steps EXCEPT forced transitions
+            # This includes transitional_return steps which contain cross-tree navigation details
+            if step_type != 'forced_transition':
+                edge_info = {
+                    'step_number': step_counter,
+                    'from_node': validation_step['from_node_id'],
+                    'to_node': validation_step['to_node_id'],
+                    'from_name': validation_step['from_node_label'],
+                    'to_name': validation_step['to_node_label'],
+                    'selected': True,
+                    'actions': validation_step.get('actions', []),
+                    'has_verifications': validation_step.get('total_verifications', 0) > 0,
+                    'step_type': step_type,
+                    'transition_type': validation_step.get('transition_type', 'NORMAL'),
+                    'is_cross_tree': validation_step.get('tree_context_change', False)
+                }
+                edges.append(edge_info)
+                step_counter += 1
+        
+        print(f"[@route:get_validation_preview] Filtered {len(validation_sequence)} total steps to {len(edges)} optimized validation steps (including cross-tree navigation)")
         
         return jsonify({
             'success': True,
