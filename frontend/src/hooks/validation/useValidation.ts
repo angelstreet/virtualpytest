@@ -82,10 +82,8 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
    * Parse script execution result into ValidationResults format
    */
   const parseScriptResultToValidation = useCallback((scriptResult: any): ValidationResults | null => {
-    if (!scriptResult.success) {
-      return null;
-    }
-
+    // Parse validation results regardless of script success status
+    // Validation scripts can complete successfully but report validation failures
     try {
       // Parse the stdout to extract validation results
       const stdout = scriptResult.stdout || '';
@@ -95,16 +93,29 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       
       // Fallback patterns for different output formats
       if (!summaryMatch) {
-        // Try alternative patterns
+        // Try alternative patterns from the actual validation output
+        const resultsMatch = stdout.match(/🎉 \[validation\] Results: (\d+)\/(\d+) successful/);
         const successfulMatch = stdout.match(/✅ Successful: (\d+)/);
         const failedMatch = stdout.match(/❌ Failed: (\d+)/);
-        const totalMatch = stdout.match(/📊 Steps: (\d+) total/);
+        const totalMatch = stdout.match(/📊 Steps: (\d+) executed/);
+        const stepsMatch = stdout.match(/📊 Steps: (\d+)\/(\d+) successful/);
         
-        if (successfulMatch && (failedMatch || totalMatch)) {
+        if (resultsMatch) {
+          // Pattern: "🎉 [validation] Results: 5/8 successful"
+          summaryMatch = [null, resultsMatch[1], resultsMatch[2]];
+        } else if (stepsMatch) {
+          // Pattern: "📊 Steps: 5/8 successful"
+          summaryMatch = [null, stepsMatch[1], stepsMatch[2]];
+        } else if (successfulMatch && (failedMatch || totalMatch)) {
+          // Pattern: "✅ Successful: 5" and "❌ Failed: 3" or "📊 Steps: 8 executed"
           const successful = parseInt(successfulMatch[1]);
           const failed = failedMatch ? parseInt(failedMatch[1]) : 0;
           const total = totalMatch ? parseInt(totalMatch[1]) : successful + failed;
-          summaryMatch = [null, successful.toString(), total.toString()]; // Fake match array
+          summaryMatch = [null, successful.toString(), total.toString()];
+        } else if (totalMatch) {
+          // Pattern: "📊 Steps: 8 executed" - assume all failed if no success info
+          const total = parseInt(totalMatch[1]);
+          summaryMatch = [null, '0', total.toString()];
         }
       }
       
@@ -279,21 +290,23 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         console.log(`[@hook:useValidation] Validation script completed:`, scriptResult);
         console.log(`[@hook:useValidation] Script stdout excerpt:`, scriptResult.stdout?.substring(0, 500) + '...');
 
-        if (scriptResult.success) {
-          // Parse the script result into validation format
-          const validationResults = parseScriptResultToValidation(scriptResult);
-          
-          if (validationResults) {
-            updateValidationState(treeId, {
-              results: validationResults,
-              showResults: true,
-            });
-            console.log(`[@hook:useValidation] Validation results parsed successfully`);
+        // Always try to parse validation results, regardless of script success status
+        // Validation scripts can complete but report validation failures (which is normal)
+        const validationResults = parseScriptResultToValidation(scriptResult);
+        
+        if (validationResults) {
+          updateValidationState(treeId, {
+            results: validationResults,
+            showResults: true,
+          });
+          console.log(`[@hook:useValidation] Validation results parsed successfully`);
+        } else {
+          // If we can't parse results, check if the script actually failed to execute
+          if (!scriptResult.success && scriptResult.stderr) {
+            throw new Error(scriptResult.stderr || 'Validation script execution failed');
           } else {
             throw new Error('Failed to parse validation results from script output');
           }
-        } else {
-          throw new Error(scriptResult.stderr || 'Validation script failed');
         }
 
       } catch (error) {
