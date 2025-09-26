@@ -57,7 +57,12 @@ def execute_navigation(tree_id, node_id):
             'host_name': host_name
         }
         
-        response_data, status_code = proxy_to_host(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, timeout=120)
+        # Pass team_id as query parameter to host
+        query_params = {}
+        if team_id:
+            query_params['team_id'] = team_id
+        
+        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, query_params, timeout=120)
         
         print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={response_data.get('success')}")
         
@@ -191,13 +196,18 @@ def batch_execute_navigation():
                 print(f"[@route:navigation_execution:batch_execute_navigation] Executing navigation {i+1}/{len(navigations)}: {tree_id} -> {target_node_id}")
                 
                 # Proxy to host for actual navigation execution
-                proxy_result = proxy_to_host('/host/navigation/execute', 'POST', {
+                batch_payload = {
                     'device_id': device_id,
-                    'tree_id': tree_id,
-                    'target_node_id': target_node_id,
                     'current_node_id': current_node_id,
-                    'team_id': request.args.get('team_id')
-                })
+                    'host_name': host_name
+                }
+                
+                # Pass team_id as query parameter to host
+                batch_query_params = {}
+                if team_id:
+                    batch_query_params['team_id'] = team_id
+                
+                proxy_result, proxy_status = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}/{target_node_id}', 'POST', batch_payload, batch_query_params, timeout=120)
                 
                 result = proxy_result if proxy_result else {'success': False, 'error': 'Host proxy failed'}
                 result['navigation_index'] = i
