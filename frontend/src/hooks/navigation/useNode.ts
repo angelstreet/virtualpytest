@@ -353,8 +353,12 @@ export const useNode = (props?: UseNodeProps) => {
         // For now, keeping the original API call but through centralized method
         // Use rootTreeId for execution (unified cache is keyed by root tree)
         const executionTreeId = rootTreeId || navigationConfig.actualTreeId;
+        
+        // Use buildServerUrl to ensure team_id is automatically included (same as preview)
+        const executionUrl = buildServerUrl(`/server/navigation/execute/${executionTreeId}/${selectedNode.id}`);
+        
         const result = await fetch(
-          `/server/navigation/execute/${executionTreeId}/${selectedNode.id}`,
+          executionUrl,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
