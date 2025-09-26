@@ -640,21 +640,11 @@ const Dashboard: React.FC = () => {
                 if (!aIsPrimary && bIsPrimary) return 1;
                 return 0;
               })
-              .map((serverData, index) => {
-                const isSelected = selectedServer === serverData.server_info.server_url;
-                return (
-                  <MenuItem 
-                    key={`${serverData.server_info.server_url}-${index}`} 
-                    value={serverData.server_info.server_url}
-                    sx={{ 
-                      color: isSelected ? 'primary.main' : 'inherit',
-                      fontWeight: isSelected ? 'bold' : 'normal'
-                    }}
-                  >
-                    {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
-                  </MenuItem>
-                );
-              })}
+              .map((serverData, index) => (
+              <MenuItem key={`${serverData.server_info.server_url}-${index}`} value={serverData.server_info.server_url}>
+                {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>
@@ -847,6 +837,7 @@ const Dashboard: React.FC = () => {
             const hostCount = serverData.hosts.length;
             const deviceCount = serverData.hosts.reduce((total, host) => total + (host.device_count || 0), 0);
             const serverIp = serverData.server_info.server_url.replace(/^https?:\/\//, '');
+            const isSelected = selectedServer === serverData.server_info.server_url;
             
             return (
               <Box 
