@@ -227,24 +227,16 @@ def calculate_grid_layout(num_devices: int) -> Tuple[int, int]:
         return (1, 1)
     elif num_devices == 2:
         return (2, 1)  # 2 devices side by side, no wasted vertical space
-    elif num_devices == 3:
-        return (2, 2)  # 3 devices in 2x2 grid (one cell empty, but better aspect ratio)
-    elif num_devices == 4:
-        return (2, 2)  # Perfect 2x2 grid
+    elif num_devices <= 4:
+        return (2, 2)  # 2x2 grid for 3-4 devices
     elif num_devices <= 6:
         return (3, 2)  # 3x2 grid for 5-6 devices
     elif num_devices <= 9:
         return (3, 3)
-    elif num_devices <= 12:
-        return (4, 3)  # 4x3 grid for 10-12 devices
-    elif num_devices <= 16:
-        return (4, 4)
-    elif num_devices <= 25:
-        return (5, 5)
     else:
-        # For larger numbers, try to keep aspect ratio reasonable
+        # For more than 9 devices, use 6 columns max (consistent with heatmap_processor.py and MosaicPlayer.tsx)
         import math
-        cols = math.ceil(math.sqrt(num_devices))
+        cols = min(6, num_devices)
         rows = math.ceil(num_devices / cols)
         return (cols, rows)
 
