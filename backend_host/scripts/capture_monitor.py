@@ -29,7 +29,9 @@ def get_capture_directories():
                 "/var/www/html/stream/capture1/captures",
                 "/var/www/html/stream/capture2/captures", 
                 "/var/www/html/stream/capture3/captures",
-                "/var/www/html/stream/capture4/captures"
+                "/var/www/html/stream/capture4/captures",
+                "/var/www/html/stream/capture5/captures",
+                "/var/www/html/stream/capture6/captures"
             ]
     return [d for d in base_dirs if os.path.exists(d)]
 
