@@ -56,6 +56,33 @@ install_postgresql() {
     echo "✅ PostgreSQL installed successfully"
 }
 
+# Function to install VNC and noVNC tools
+install_vnc() {
+    echo "🖥️ Installing VNC and noVNC tools..."
+    
+    # Install on Linux
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y tigervnc-standalone-server xvfb xfce4 xfce4-goodies novnc websockify
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y tigervnc-server xorg-x11-server-Xvfb xfce4-session novnc python3-websockify
+    elif command -v pacman &> /dev/null; then
+        sudo pacman -S tigervnc xorg-server-xvfb xfce4 xfce4-goodies novnc python-websockify
+    else
+        echo "❌ Unsupported Linux distribution. Please install VNC tools manually."
+        exit 1
+    fi
+    
+    # Setup noVNC if not already present
+    if [ -d "/usr/share/novnc" ]; then
+        echo "✅ noVNC web interface installed"
+    else
+        echo "⚠️ noVNC may need manual setup if package installation failed"
+    fi
+    
+    echo "✅ VNC and noVNC tools installed successfully"
+}
+
 # Function to setup Grafana metrics database
 setup_grafana_database() {
     echo "📊 Setting up Grafana metrics database..."
@@ -144,6 +171,10 @@ if ! check_postgresql; then
 else
     echo "✅ PostgreSQL already installed"
 fi
+
+# Install VNC and noVNC tools
+echo "🔍 Installing VNC and noVNC tools..."
+install_vnc
 
 # Setup Grafana database
 echo "🔍 Checking Grafana database setup..."
@@ -287,6 +318,12 @@ echo "🔧 Grafana Configuration:"
 echo "   • Local PostgreSQL database created for metrics storage"
 echo "   • Supabase connection configured as read-only"
 echo "   • Access Grafana at: http://localhost:3000 (when server is running)"
+echo ""
+echo "🖥️ VNC Configuration:"
+echo "   • TigerVNC server installed for remote desktop access"
+echo "   • noVNC web interface installed for browser-based VNC"
+echo "   • XFCE4 desktop environment installed"
+echo "   • Additional setup may be needed for VNC services"
 echo ""
 echo "🔧 Heatmap Processor Service:"
 echo "   • Service installed and enabled: heatmap_processor.service"
