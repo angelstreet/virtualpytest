@@ -49,6 +49,21 @@ def execute_navigation(tree_id, node_id):
                 'error': 'host_name is required'
             }), 400
         
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        # Ensure unified cache is populated before execution (same as preview/validation routes)
+        print(f"[@route:navigation_execution:execute_navigation] Checking unified cache for tree {tree_id}")
+        cache_populated = ensure_unified_cache_populated(tree_id, team_id, host_name)
+        if not cache_populated:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to populate unified navigation cache. Tree may need to be loaded first.'
+            }), 400
+        
         # Proxy to host navigation execution endpoint
         execution_payload = {
             'device_id': device_id,
@@ -174,6 +189,23 @@ def batch_execute_navigation():
                 'error': 'navigations array is required'
             }), 400
         
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        # Ensure unified cache is populated for all trees in batch
+        unique_tree_ids = list(set(nav.get('tree_id') for nav in navigations if nav.get('tree_id')))
+        for tree_id in unique_tree_ids:
+            print(f"[@route:navigation_execution:batch_execute_navigation] Ensuring cache for tree {tree_id}")
+            cache_populated = ensure_unified_cache_populated(tree_id, team_id, host_name)
+            if not cache_populated:
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to populate unified navigation cache for tree {tree_id}. Tree may need to be loaded first.'
+                }), 400
+        
         # Proxy navigation execution to host
         from  backend_server.src.lib.utils.route_utils import proxy_to_host
         from shared.src.lib.utils.app_utils import get_team_id
@@ -239,4 +271,76 @@ def batch_execute_navigation():
         return jsonify({
             'success': False,
             'error': f'Batch navigation execution error: {str(e)}'
-        }), 500 
+        }), 500
+
+
+def ensure_unified_cache_populated(tree_id: str, team_id: str, host_name: str) -> bool:
+    """
+    Ensure unified cache is populated for the given tree on the specified host
+    Uses the same pattern as validation routes
+    """
+    try:
+        print(f"[@route:ensure_unified_cache_populated] Populating unified cache for tree {tree_id} on host {host_name}")
+        
+        # Check if cache already exists on host (avoid re-population)
+        from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
+        cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=30)
+        
+        if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
+            print(f"[@route:ensure_unified_cache_populated] Cache already exists for tree {tree_id}, skipping population")
+            return True
+        
+        # Get complete tree hierarchy from database
+        from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
+        
+        # Try to load complete hierarchy first (for nested trees)
+        hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+        
+        if hierarchy_result.get('success'):
+            all_trees_data = hierarchy_result.get('all_trees_data', [])
+            print(f"[@route:ensure_unified_cache_populated] Loaded tree hierarchy: {len(all_trees_data)} trees")
+        else:
+            print(f"[@route:ensure_unified_cache_populated] get_complete_tree_hierarchy failed: {hierarchy_result.get('error')}")
+            
+            # Fallback: Load single tree
+            tree_result = get_full_tree(tree_id, team_id)
+            if not tree_result.get('success'):
+                print(f"[@route:ensure_unified_cache_populated] Failed to load tree {tree_id}: {tree_result.get('error', 'Unknown error')}")
+                return False
+            
+            # Format as single-tree hierarchy for unified cache
+            all_trees_data = [{
+                'tree_id': tree_id,
+                'tree_info': {
+                    'name': tree_result['tree'].get('name', 'Unknown'),
+                    'is_root_tree': True,
+                    'tree_depth': 0,
+                    'parent_tree_id': None,
+                    'parent_node_id': None
+                },
+                'nodes': tree_result['nodes'],
+                'edges': tree_result['edges']
+            }]
+            print(f"[@route:ensure_unified_cache_populated] Loaded single tree as fallback")
+        
+        if not all_trees_data:
+            print(f"[@route:ensure_unified_cache_populated] No tree data found for tree {tree_id}")
+            return False
+        
+        # Populate cache on host
+        populate_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
+            'team_id': team_id,
+            'all_trees_data': all_trees_data,
+            'force_repopulate': False
+        }, {}, timeout=60)
+        
+        if populate_result and populate_result.get('success'):
+            print(f"[@route:ensure_unified_cache_populated] Successfully populated cache: {populate_result.get('nodes_count', 0)} nodes")
+            return True
+        else:
+            print(f"[@route:ensure_unified_cache_populated] Cache population failed: {populate_result.get('error', 'Unknown error') if populate_result else 'No response'}")
+            return False
+            
+    except Exception as e:
+        print(f"[@route:ensure_unified_cache_populated] Error: {str(e)}")
+        return False 
