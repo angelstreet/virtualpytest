@@ -640,11 +640,25 @@ const Dashboard: React.FC = () => {
                 if (!aIsPrimary && bIsPrimary) return 1;
                 return 0;
               })
-              .map((serverData, index) => (
-              <MenuItem key={`${serverData.server_info.server_url}-${index}`} value={serverData.server_info.server_url}>
-                {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
-              </MenuItem>
-            ))}
+              .map((serverData, index) => {
+                const isSelected = selectedServer === serverData.server_info.server_url;
+                return (
+                  <MenuItem 
+                    key={`${serverData.server_info.server_url}-${index}`} 
+                    value={serverData.server_info.server_url}
+                    sx={{
+                      fontWeight: isSelected ? 'bold' : 'normal',
+                      color: isSelected ? 'primary.main' : 'text.primary',
+                      backgroundColor: isSelected ? 'primary.light' : 'transparent',
+                      '&:hover': {
+                        backgroundColor: isSelected ? 'primary.light' : 'action.hover',
+                      }
+                    }}
+                  >
+                    {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
+                  </MenuItem>
+                );
+              })}
           </Select>
         </FormControl>
       </Box>
