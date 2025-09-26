@@ -335,8 +335,14 @@ class FFmpegCaptureController(AVControllerInterface):
             print(f"{self.capture_source}[{self.capture_source}]: Starting take_screenshot process")
             print(f"{self.capture_source}[{self.capture_source}]: Video capture path: {self.video_capture_path}")
             
-            # Check if capture path exists
-            captures_path = os.path.join(self.video_capture_path, 'captures')
+            # Check if capture path exists - handle both cases:
+            # 1. video_capture_path already includes /captures (e.g., /var/www/html/stream/capture1/captures)
+            # 2. video_capture_path needs /captures appended (e.g., /var/www/html/stream/capture1)
+            if self.video_capture_path.endswith('/captures'):
+                captures_path = self.video_capture_path
+            else:
+                captures_path = os.path.join(self.video_capture_path, 'captures')
+                
             if not os.path.exists(captures_path):
                 print(f"{self.capture_source}[{self.capture_source}]: ERROR - Captures directory does not exist: {captures_path}")
                 return None
