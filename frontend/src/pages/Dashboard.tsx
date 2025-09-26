@@ -615,23 +615,6 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const getServerDisplayName = (serverUrl: string) => {
-    // Try to find server data by matching the base URL (without protocol)
-    const baseUrl = serverUrl.replace(/^https?:\/\//, '');
-    const serverData = serverHostsData.find(s => {
-      const serverBaseUrl = s.server_info.server_url.replace(/^https?:\/\//, '');
-      // Match both with and without protocol, and handle port differences
-      return serverBaseUrl === baseUrl || 
-             s.server_info.server_url === serverUrl ||
-             baseUrl.includes(serverBaseUrl) ||
-             serverBaseUrl.includes(baseUrl);
-    });
-    
-    if (serverData && serverData.server_info.server_name) {
-      return `${serverData.server_info.server_name} (${baseUrl})`;
-    }
-    return baseUrl;
-  };
 
   return (
     <Box>
@@ -647,9 +630,19 @@ const Dashboard: React.FC = () => {
             label="Primary Server"
             onChange={(e) => setSelectedServer(e.target.value)}
           >
-            {availableServers.map((serverUrl, index) => (
-              <MenuItem key={`${serverUrl}-${index}`} value={serverUrl}>
-                {getServerDisplayName(serverUrl)}
+            {serverHostsData
+              .sort((a, b) => {
+                // Ensure primary server (first in availableServers) appears first
+                const primaryServerUrl = availableServers[0];
+                const aIsPrimary = a.server_info.server_url.includes(primaryServerUrl?.replace(/^https?:\/\//, '') || '');
+                const bIsPrimary = b.server_info.server_url.includes(primaryServerUrl?.replace(/^https?:\/\//, '') || '');
+                if (aIsPrimary && !bIsPrimary) return -1;
+                if (!aIsPrimary && bIsPrimary) return 1;
+                return 0;
+              })
+              .map((serverData, index) => (
+              <MenuItem key={`${serverData.server_info.server_url}-${index}`} value={serverData.server_info.server_url}>
+                {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
               </MenuItem>
             ))}
           </Select>
