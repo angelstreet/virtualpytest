@@ -46,6 +46,39 @@ export const buildServerUrl = (endpoint: string): string => {
   return `${url}${url.includes('?') ? '&' : '?'}team_id=${teamId}`;
 };
 
+/**
+ * Get all configured server URLs (primary + slave servers)
+ * @returns Array of server URLs
+ */
+export const getAllServerUrls = (): string[] => {
+  const urls = [];
+  
+  // Primary server (always first)
+  const primaryUrl = (import.meta as any).env?.VITE_SERVER_URL;
+  if (primaryUrl) urls.push(primaryUrl);
+  
+  // Slave server (if configured)
+  const slaveUrl = (import.meta as any).env?.VITE_SLAVE_SERVER_URL;
+  if (slaveUrl) urls.push(slaveUrl);
+  
+  return urls.length > 0 ? urls : ['http://localhost:5109'];
+};
+
+/**
+ * Build URL for specific server with team_id
+ * @param serverUrl - The server base URL
+ * @param endpoint - API endpoint
+ * @returns Complete URL with team_id
+ */
+export const buildServerUrlForServer = (serverUrl: string, endpoint: string): string => {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  const url = `${serverUrl}/${cleanEndpoint}`;
+  
+  // Always add team_id to all server URLs
+  const teamId = "7fdeb4bb-3639-4ec3-959f-b54769a219ce";
+  return `${url}${url.includes('?') ? '&' : '?'}team_id=${teamId}`;
+};
+
 // =====================================================
 // HOST URL BUILDING (Frontend to Device Hosts)
 // =====================================================

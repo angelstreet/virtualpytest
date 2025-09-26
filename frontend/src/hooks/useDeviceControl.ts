@@ -73,6 +73,8 @@ export const useDeviceControl = ({
       console.log(
         `[useDeviceControl] Taking control of device: ${host.host_name}, device_id: ${device_id}`,
       );
+      console.log(`[useDeviceControl] tree_id being passed: ${tree_id}`);
+      console.log(`[useDeviceControl] sessionId: ${sessionId}`);
 
       const result = await takeControl(host, device_id, sessionId, tree_id);
 

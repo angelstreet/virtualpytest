@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { buildServerUrl } from '../utils/buildUrlUtils';
+import { buildServerUrl, getAllServerUrls, buildServerUrlForServer } from '../utils/buildUrlUtils';
 
 import {
   Computer as ComputerIcon,
@@ -66,6 +66,12 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   
+  // Multi-server host data
+  const [serverHostsData, setServerHostsData] = useState<Array<{
+    server_info: { server_name: string; server_url: string; server_port: string };
+    hosts: Host[];
+  }>>([]);
+  
   // Request deduplication to prevent duplicate calls
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
   
@@ -83,6 +89,38 @@ const Dashboard: React.FC = () => {
     try {
       setIsRequestInProgress(true);
       setLoading(true);
+      
+      // Get all configured server URLs
+      const serverUrls = getAllServerUrls();
+      
+      // Fetch from all servers in parallel
+      const serverDataPromises = serverUrls.map(async (serverUrl) => {
+        try {
+          const response = await fetch(buildServerUrlForServer(serverUrl, '/server/getAllHosts'));
+          if (response.ok) {
+            const data = await response.json();
+            return {
+              server_info: data.server_info || {
+                server_name: `Server (${serverUrl})`,
+                server_url: serverUrl,
+                server_port: serverUrl.split(':').pop() || 'Unknown'
+              },
+              hosts: data.hosts || []
+            };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch from ${serverUrl}:`, error);
+        }
+        return null;
+      });
+      
+      const serverHostsData = (await Promise.all(serverDataPromises)).filter(Boolean) as Array<{
+        server_info: { server_name: string; server_url: string; server_port: string };
+        hosts: Host[];
+      }>;
+      setServerHostsData(serverHostsData);
+      
+      // Continue with existing logic for campaigns, testcases, trees using primary server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch(buildServerUrl('/server/campaigns/getAllCampaigns')),
         fetch(buildServerUrl('/server/testcases/getAllTestCases')),
@@ -341,169 +379,163 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const renderDevicesGrid = () => (
-    <Grid container spacing={2}>
-      {availableHosts.map((host) => (
-        <Grid item xs={12} sm={6} md={4} lg={3} key={host.host_name}>
-          <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              {/* Host Header */}
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <ComputerIcon color="primary" />
-                  <Typography variant="h6" component="div" noWrap>
-                    {host.host_name}
+  const renderHostCard = (host: Host) => (
+    <Card variant="outlined" sx={{ height: '100%' }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        {/* Host Header */}
+        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <ComputerIcon color="primary" />
+            <Typography variant="h6" component="div" noWrap>
+              {host.host_name}
+            </Typography>
+            <Chip
+              label={`${host.device_count} device${host.device_count > 1 ? 's' : ''}`}
+              size="small"
+              variant="outlined"
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Box>
+          <Chip
+            label={host.status}
+            size="small"
+            color={host.status === 'online' ? 'success' : 'error'}
+            variant="outlined"
+          />
+        </Box>
+
+        <Typography color="textSecondary" variant="body2" gutterBottom>
+          {host.host_url}
+        </Typography>
+
+        {/* System Stats - Compact */}
+        <Box sx={{ mb: 1.5 }}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 0.5 }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              System Stats
+            </Typography>
+            <Typography variant="caption" color="textSecondary">
+              {host.system_stats?.platform} ({host.system_stats?.architecture})
+            </Typography>
+          </Box>
+          <SystemStatsDisplay stats={host.system_stats} />
+        </Box>
+
+        {/* Devices - Collapsible Accordion */}
+        <Accordion
+          sx={{
+            mb: 1.5,
+            boxShadow: 'none',
+            border: '1px solid #e0e0e0',
+            '&:before': { display: 'none' },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={{ minHeight: '36px', '& .MuiAccordionSummary-content': { margin: '6px 0' } }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              Devices ({host.device_count})
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0, pb: 0.5, px: 1 }}>
+            <Box sx={{ maxHeight: '150px', overflowY: 'auto', overflowX: 'hidden' }}>
+              {host.devices.map((device) => (
+                <Box
+                  key={device.device_id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    py: 0.2,
+                    px: 0,
+                    borderRadius: 1,
+                    '&:hover': { backgroundColor: 'grey.100' },
+                  }}
+                >
+                  {getDeviceIcon(device.device_model)}
+                  <Typography
+                    variant="body2"
+                    sx={{ minWidth: '70px', fontWeight: 500, fontSize: '0.8rem' }}
+                  >
+                    {device.device_name}
                   </Typography>
                   <Chip
-                    label={`${host.device_count} device${host.device_count > 1 ? 's' : ''}`}
+                    label={device.device_model}
                     size="small"
                     variant="outlined"
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '0.6rem', height: '18px' }}
                   />
-                </Box>
-                <Chip
-                  label={host.status}
-                  size="small"
-                  color={host.status === 'online' ? 'success' : 'error'}
-                  variant="outlined"
-                />
-              </Box>
-
-              <Typography color="textSecondary" variant="body2" gutterBottom>
-                {host.host_url}
-              </Typography>
-
-              {/* System Stats - Compact */}
-              <Box sx={{ mb: 1.5 }}>
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="space-between"
-                  sx={{ mb: 0.5 }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                    System Stats
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {host.system_stats?.platform} ({host.system_stats?.architecture})
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ ml: 'auto', fontFamily: 'monospace', fontSize: '0.7rem' }}
+                  >
+                    {device.device_ip}:{device.device_port}
                   </Typography>
                 </Box>
-                <SystemStatsDisplay stats={host.system_stats} />
-              </Box>
+              ))}
+            </Box>
+          </AccordionDetails>
+        </Accordion>
 
-              {/* Devices - Collapsible Accordion */}
-              <Accordion
-                sx={{
-                  mb: 1.5,
-                  boxShadow: 'none',
-                  border: '1px solid #e0e0e0',
-                  '&:before': { display: 'none' },
-                }}
+        {/* Per-Host System Controls */}
+        <Box display="flex" alignItems="center" justifyContent="center" gap={0.5} sx={{ mb: 1 }}>
+          <Tooltip title="Restart vpt_host service">
+            <span>
+              <IconButton 
+                onClick={() => handleRestartService(host.host_name)} 
+                disabled={isRestartingService}
+                size="small"
+                color="warning"
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{ minHeight: '36px', '& .MuiAccordionSummary-content': { margin: '6px 0' } }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                    Devices ({host.device_count})
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ pt: 0, pb: 0.5, px: 1 }}>
-                  <Box sx={{ maxHeight: '150px', overflowY: 'auto', overflowX: 'hidden' }}>
-                    {host.devices.map((device) => (
-                      <Box
-                        key={device.device_id}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          py: 0.2,
-                          px: 0,
-                          borderRadius: 1,
-                          '&:hover': { backgroundColor: 'grey.100' },
-                        }}
-                      >
-                        {getDeviceIcon(device.device_model)}
-                        <Typography
-                          variant="body2"
-                          sx={{ minWidth: '70px', fontWeight: 500, fontSize: '0.8rem' }}
-                        >
-                          {device.device_name}
-                        </Typography>
-                        <Chip
-                          label={device.device_model}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontSize: '0.6rem', height: '18px' }}
-                        />
-                        <Typography
-                          variant="caption"
-                          color="textSecondary"
-                          sx={{ ml: 'auto', fontFamily: 'monospace', fontSize: '0.7rem' }}
-                        >
-                          {device.device_ip}:{device.device_port}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
+                <RestartServiceIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Reboot host">
+            <span>
+              <IconButton 
+                onClick={() => handleReboot(host.host_name)} 
+                disabled={isRebooting}
+                size="small"
+                color="error"
+              >
+                <RebootIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Restart streams">
+            <span>
+              <IconButton 
+                onClick={() => restartStreams()} 
+                disabled={isRestarting}
+                size="small"
+                color="info"
+              >
+                <RestartStreamIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
 
-              {/* Per-Host System Controls */}
-              <Box display="flex" alignItems="center" justifyContent="center" gap={0.5} sx={{ mb: 1 }}>
-                <Tooltip title="Restart vpt_host service">
-                  <span>
-                    <IconButton 
-                      onClick={() => handleRestartService(host.host_name)} 
-                      disabled={isRestartingService}
-                      size="small"
-                      color="warning"
-                    >
-                      <RestartServiceIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Reboot host">
-                  <span>
-                    <IconButton 
-                      onClick={() => handleReboot(host.host_name)} 
-                      disabled={isRebooting}
-                      size="small"
-                      color="error"
-                    >
-                      <RebootIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Restart streams">
-                  <span>
-                    <IconButton 
-                      onClick={() => restartStreams()} 
-                      disabled={isRestarting}
-                      size="small"
-                      color="info"
-                    >
-                      <RestartStreamIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </Box>
+        <Typography color="textSecondary" variant="caption" display="block">
+          Last seen: {formatLastSeen(host.last_seen)}
+        </Typography>
 
-              <Typography color="textSecondary" variant="caption" display="block">
-                Last seen: {formatLastSeen(host.last_seen)}
-              </Typography>
-
-              <Typography color="textSecondary" variant="caption" display="block">
-                Registered: {formatRegisteredAt(host.registered_at)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
+        <Typography color="textSecondary" variant="caption" display="block">
+          Registered: {formatRegisteredAt(host.registered_at)}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 
-  const renderDevicesTable = () => (
+  const renderHostTable = (hosts: Host[]) => (
     <TableContainer component={Paper} variant="outlined">
       <Table>
         <TableHead>
@@ -521,10 +553,9 @@ const Dashboard: React.FC = () => {
           </TableRow>
         </TableHead>
         <TableBody>
-          {availableHosts.map((host) => (
+          {hosts.map((host) => (
             <TableRow
               key={host.host_name}
-              hover
               sx={{
                 '&:hover': {
                   backgroundColor: 'transparent !important',
@@ -693,6 +724,8 @@ const Dashboard: React.FC = () => {
     </TableContainer>
   );
 
+
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -768,7 +801,9 @@ const Dashboard: React.FC = () => {
                     Connected Devices
                   </Typography>
                   <Typography variant="h4">
-                    {availableHosts.reduce((total, host) => total + (host.device_count || 0), 0)}
+                    {serverHostsData.reduce((total, serverData) => 
+                      total + serverData.hosts.reduce((hostTotal, host) => hostTotal + (host.device_count || 0), 0), 0
+                    )}
                   </Typography>
                 </Box>
                 <DevicesIcon color="success" sx={{ fontSize: 40 }} />
@@ -810,8 +845,11 @@ const Dashboard: React.FC = () => {
       <Paper sx={{ p: 2, mt: 3 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
           <Typography variant="h6">
-            Registered Hosts ({availableHosts.length}) -{' '}
-            {availableHosts.reduce((total, host) => total + (host.device_count || 0), 0)} Devices
+            Registered Servers ({serverHostsData.length}) -{' '}
+            {serverHostsData.reduce((total, serverData) => total + serverData.hosts.length, 0)} Hosts -{' '}
+            {serverHostsData.reduce((total, serverData) => 
+              total + serverData.hosts.reduce((hostTotal, host) => hostTotal + (host.device_count || 0), 0), 0
+            )} Devices
           </Typography>
           <Box display="flex" alignItems="center" gap={1}>
             {/* Global System Controls */}
@@ -879,17 +917,36 @@ const Dashboard: React.FC = () => {
           </Box>
         </Box>
 
-        {availableHosts.length > 0 ? (
-          viewMode === 'grid' ? (
-            renderDevicesGrid()
-          ) : (
-            renderDevicesTable()
-          )
+        {serverHostsData.length > 0 ? (
+          serverHostsData.map((serverData, index) => (
+            <Paper key={index} sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                {serverData.server_info.server_name} ({serverData.server_info.server_url})
+              </Typography>
+              
+              {serverData.hosts.length > 0 ? (
+                viewMode === 'grid' ? (
+                  <Grid container spacing={2}>
+                    {serverData.hosts.map((host) => (
+                      <Grid item xs={12} sm={6} md={4} lg={4} xl={3} key={host.host_name}>
+                        {/* Reuse existing host card rendering */}
+                        {renderHostCard(host)}
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  renderHostTable(serverData.hosts)
+                )
+              ) : (
+                <Typography color="textSecondary">No hosts connected to this server</Typography>
+              )}
+            </Paper>
+          ))
         ) : (
           <Box textAlign="center" py={4}>
             <DevicesIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
             <Typography color="textSecondary" variant="h6" gutterBottom>
-              No hosts connected
+              No servers connected
             </Typography>
           </Box>
         )}

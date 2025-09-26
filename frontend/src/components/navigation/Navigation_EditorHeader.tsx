@@ -116,15 +116,19 @@ export const NavigationEditorHeader: React.FC<{
     if (isControlActive) {
       // Release device control only
       console.log('[@component:NavigationEditorHeader] Releasing device control');
+      console.log('[@component:NavigationEditorHeader] Current treeId:', treeId);
       await handleReleaseControl();
       // Reset current node ID when control is released
       resetCurrentNodeId();
     } else {
       // Take device control only
       console.log('[@component:NavigationEditorHeader] Taking device control');
+      console.log('[@component:NavigationEditorHeader] Current treeId:', treeId);
+      console.log('[@component:NavigationEditorHeader] Selected host:', selectedHost?.host_name);
+      console.log('[@component:NavigationEditorHeader] Selected device:', selectedDeviceId);
       await handleTakeControl();
     }
-  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId]);
+  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId, treeId, selectedHost, selectedDeviceId]);
 
   // Sync control state with parent component (only device control)
   React.useEffect(() => {

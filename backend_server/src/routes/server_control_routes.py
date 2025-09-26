@@ -37,6 +37,13 @@ def take_control():
         data = request.get_json()
         host_name = data.get('host_name')
         device_id = data.get('device_id')
+        tree_id = data.get('tree_id')
+        
+        print(f"🎮 [CONTROL] Take control request received:")
+        print(f"🎮 [CONTROL]   host_name: {host_name}")
+        print(f"🎮 [CONTROL]   device_id: {device_id}")
+        print(f"🎮 [CONTROL]   tree_id: {tree_id}")
+        print(f"🎮 [CONTROL]   Full request data: {data}")
         
         if not host_name:
             return jsonify({'error': 'host_name is required'}), 400
@@ -91,11 +98,14 @@ def take_control():
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
                         # Populate navigation cache for the controlled device (if tree_id provided)
-                        tree_id = data.get('tree_id')
                         team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
+                        print(f"🗺️ [CONTROL] Cache population check:")
+                        print(f"🗺️ [CONTROL]   tree_id: {tree_id}")
+                        print(f"🗺️ [CONTROL]   team_id: {team_id}")
+                        
                         if tree_id and team_id:
                             try:
-                                print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
+                                print(f"🗺️ [CONTROL] ✅ Starting navigation cache population for tree: {tree_id}")
                                 cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
                                 if cache_success:
                                     print(f"✅ [CONTROL] Navigation cache populated successfully")
@@ -103,6 +113,10 @@ def take_control():
                                     print(f"⚠️ [CONTROL] Navigation cache population failed (non-critical)")
                             except Exception as cache_error:
                                 print(f"⚠️ [CONTROL] Navigation cache population error: {cache_error}")
+                        elif not tree_id:
+                            print(f"⚠️ [CONTROL] No tree_id provided - skipping cache population")
+                        elif not team_id:
+                            print(f"⚠️ [CONTROL] No team_id found - skipping cache population")
                         
                         return jsonify({
                             'success': True,
@@ -507,23 +521,35 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
         True if successful, False otherwise
     """
     try:
+        print(f"📋 [@control:cache] Starting cache population:")
+        print(f"📋 [@control:cache]   tree_id: {tree_id}")
+        print(f"📋 [@control:cache]   team_id: {team_id}")
+        print(f"📋 [@control:cache]   host_name: {host_name}")
+        
         # Get host info
         host_manager = get_host_manager()
         host_info = host_manager.get_host(host_name)
         if not host_info:
-            print(f"[@control:cache] Host {host_name} not found")
+            print(f"❌ [@control:cache] Host {host_name} not found")
             return False
         
+        print(f"✅ [@control:cache] Host {host_name} found: {host_info.get('host_url', 'No URL')}")
+        
         # Check if cache already exists (avoid re-population)
+        print(f"🔍 [@control:cache] Checking if cache already exists...")
         check_result, status_code = proxy_to_host_direct(
             host_info,
             f'/host/navigation/cache/check/{tree_id}?team_id={team_id}',
             'GET'
         )
         
+        print(f"🔍 [@control:cache] Cache check result: {check_result}, status: {status_code}")
+        
         if check_result and check_result.get('success') and check_result.get('exists'):
-            print(f"[@control:cache] Cache already exists for tree {tree_id}, skipping population")
+            print(f"✅ [@control:cache] Cache already exists for tree {tree_id}, skipping population")
             return True
+        
+        print(f"📥 [@control:cache] Cache does not exist, proceeding with population...")
         
         # Load tree data from database
         from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree

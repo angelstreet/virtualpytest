@@ -118,7 +118,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5073,
     strictPort: true, // Don't try other ports if 5073 is unavailable
-    allowedHosts: ['virtualpytest.com', 'www.virtualpytest.com', 'dev.virtualpytest.com', 'virtualpytest-server.onrender.com', 'virtualpytest.vercel.app', '*.vercel.app', 'localhost', '127.0.0.1'],
+    allowedHosts: ['virtualpytest.com', 'www.virtualpytest.com', 'dev.virtualpytest.com', 'virtualpytest-server.onrender.com', 'virtualpytest.vercel.app', '*.vercel.app', 'localhost', '127.0.0.1', '192.168.1.103', '192.168.1.34'],
     https: shouldUseHttps
       ? hasCertificates
         ? {
