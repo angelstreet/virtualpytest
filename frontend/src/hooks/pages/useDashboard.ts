@@ -59,7 +59,7 @@ export const useDashboard = (): UseDashboardReturn => {
       // Fetch from all servers in parallel
       const serverDataPromises = serverUrls.map(async (serverUrl) => {
         try {
-          const response = await fetch(buildServerUrlForServer(serverUrl, '/server/getAllHosts'));
+          const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'));
           if (response.ok) {
             const data = await response.json();
             return {
