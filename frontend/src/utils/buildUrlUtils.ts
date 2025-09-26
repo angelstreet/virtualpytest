@@ -24,8 +24,8 @@
 /**
  * Build server URL for backend API endpoints (Frontend to backend_server)
  * 
- * Uses VITE_SERVER_URL environment variable to determine the backend server location.
- * This ensures requests go to the correct backend regardless of deployment environment.
+ * Uses the selected server from localStorage if available, otherwise falls back to VITE_SERVER_URL.
+ * This ensures requests go to the correct backend server based on user selection.
  * 
  * Examples:
  * - Development: buildServerUrl('/server/control/lockedDevices') 
@@ -37,7 +37,16 @@
  * @returns Complete URL to backend server endpoint with team_id
  */
 export const buildServerUrl = (endpoint: string): string => {
-  const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
+  // Try to get selected server from localStorage first, fallback to env variable
+  let serverUrl: string;
+  try {
+    const selectedServer = localStorage.getItem('selectedServer');
+    serverUrl = selectedServer || (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
+  } catch {
+    // Fallback if localStorage is not available
+    serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
+  }
+  
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `${serverUrl}/${cleanEndpoint}`;
   

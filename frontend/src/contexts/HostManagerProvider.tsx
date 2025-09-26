@@ -28,7 +28,25 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
 
   // Server selection state
   const availableServers = getAllServerUrls();
-  const [selectedServer, setSelectedServer] = useState<string>(availableServers[0] || '');
+  const [selectedServer, setSelectedServerState] = useState<string>(() => {
+    // Initialize from localStorage if available, otherwise use first available server
+    try {
+      const saved = localStorage.getItem('selectedServer');
+      return saved && availableServers.includes(saved) ? saved : availableServers[0] || '';
+    } catch {
+      return availableServers[0] || '';
+    }
+  });
+
+  // Wrapper to persist server selection to localStorage
+  const setSelectedServer = useCallback((serverUrl: string) => {
+    setSelectedServerState(serverUrl);
+    try {
+      localStorage.setItem('selectedServer', serverUrl);
+    } catch (error) {
+      console.warn('Failed to save selected server to localStorage:', error);
+    }
+  }, []);
 
   // Host data state
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);
