@@ -12,12 +12,13 @@ import { useScript } from '../script/useScript';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
-// Simplified shared state store for validation
+// Simplified shared state store for validation with persistence
 const validationStore: Record<
   string,
   {
     isValidating: boolean;
     results: ValidationResults | null;
+    lastValidationResults: ValidationResults | null; // Persistent storage for last results
     showResults: boolean;
     preview: ValidationPreviewData | null;
     isLoadingPreview: boolean;
@@ -26,11 +27,35 @@ const validationStore: Record<
   }
 > = {};
 
+// Load persisted validation results from localStorage on initialization
+const loadPersistedValidationResults = (treeId: string): ValidationResults | null => {
+  try {
+    const key = `validation_results_${treeId}`;
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    console.warn('Failed to load persisted validation results:', error);
+    return null;
+  }
+};
+
+// Save validation results to localStorage for persistence
+const saveValidationResults = (treeId: string, results: ValidationResults) => {
+  try {
+    const key = `validation_results_${treeId}`;
+    localStorage.setItem(key, JSON.stringify(results));
+  } catch (error) {
+    console.warn('Failed to save validation results:', error);
+  }
+};
+
 const getValidationState = (treeId: string) => {
   if (!validationStore[treeId]) {
+    const persistedResults = loadPersistedValidationResults(treeId);
     validationStore[treeId] = {
       isValidating: false,
-      results: null,
+      results: persistedResults, // Load persisted results on initialization
+      lastValidationResults: persistedResults,
       showResults: false,
       preview: null,
       isLoadingPreview: false,
@@ -85,9 +110,21 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     try {
       const stdout = scriptResult.stdout || '';
       
-      // Parse current validation script output format
+      // Parse current validation script output format - handle multiple possible formats
       const failedMatch = stdout.match(/❌ Failed: (\d+)/);
-      const stepsMatch = stdout.match(/📊 Steps: (\d+)\/(\d+) steps successful/);
+      const successfulMatch = stdout.match(/✅ Successful: (\d+)/);
+      
+      // Try different step formats
+      let stepsMatch = stdout.match(/📊 Steps: (\d+)\/(\d+) steps successful/);
+      if (!stepsMatch) {
+        // Alternative format: "📊 Steps: X executed"
+        const executedMatch = stdout.match(/📊 Steps: (\d+) executed/);
+        const resultsMatch = stdout.match(/🎉 \[validation\] Results: (\d+)\/(\d+) successful/);
+        if (executedMatch && resultsMatch) {
+          stepsMatch = [null, resultsMatch[1], resultsMatch[2]]; // [full_match, successful, total]
+        }
+      }
+      
       const timeMatch = stdout.match(/⏱️  Total Time: ([\d.]+)s/);
       
       if (!stepsMatch) {
@@ -95,7 +132,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         return null;
       }
 
-      const successful = stepsMatch ? parseInt(stepsMatch[1]) : 0;
+      const successful = stepsMatch ? parseInt(stepsMatch[1]) : (successfulMatch ? parseInt(successfulMatch[1]) : 0);
       const total = stepsMatch ? parseInt(stepsMatch[2]) : 0;
       const failed = failedMatch ? parseInt(failedMatch[1]) : total - successful;
       const executionTime = timeMatch ? parseFloat(timeMatch[1]) : 0;
@@ -232,11 +269,15 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         const validationResults = parseScriptResultToValidation(scriptResult);
         
         if (validationResults) {
+          // Save results to persistent storage
+          saveValidationResults(treeId, validationResults);
+          
           updateValidationState(treeId, {
             results: validationResults,
+            lastValidationResults: validationResults, // Keep a copy for persistence
             showResults: true,
           });
-          console.log(`[@hook:useValidation] Validation results parsed successfully`);
+          console.log(`[@hook:useValidation] Validation results parsed and saved successfully`);
         } else {
           // If we can't parse results, check if the script actually failed to execute
           if (!scriptResult.success && scriptResult.stderr) {
@@ -270,6 +311,22 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     [treeId],
   );
 
+  /**
+   * Restore last validation results from persistent storage
+   */
+  const restoreLastValidationResults = useCallback(() => {
+    const state = getValidationState(treeId);
+    if (state.lastValidationResults) {
+      updateValidationState(treeId, {
+        results: state.lastValidationResults,
+        showResults: true,
+      });
+      console.log(`[@hook:useValidation] Restored last validation results for tree ${treeId}`);
+      return true;
+    }
+    return false;
+  }, [treeId]);
+
   return {
     // State
     isValidating: state.isValidating,
@@ -282,10 +339,12 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     // Computed properties for button logic
     canRunValidation: !state.isValidating, // Always enabled when not validating
     hasResults: !!state.results,
+    hasLastResults: !!state.lastValidationResults, // Check if we have persisted results
 
     // Actions
     loadPreview,
     runValidation,
     setShowResults,
+    restoreLastValidationResults,
   };
 };
