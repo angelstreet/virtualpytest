@@ -171,7 +171,7 @@ class NavigationExecutor:
     
     def execute_navigation(self, 
                           tree_id: str, 
-                          target_node_label: str, 
+                          target_node_id: str,
                           current_node_id: Optional[str] = None,
                           image_source_url: Optional[str] = None,
                           team_id: str = None,
@@ -182,7 +182,7 @@ class NavigationExecutor:
         
         Args:
             tree_id: Navigation tree ID
-            target_node_label: Label of the target node (e.g., 'home', 'live', 'settings')
+            target_node_id: ID of the target node to navigate to
             current_node_id: Optional current node ID for starting point
             image_source_url: Optional image source URL
             team_id: Team ID for security
@@ -202,13 +202,14 @@ class NavigationExecutor:
         nav_context['previous_node_id'] = nav_context['current_node_id']
         nav_context['previous_node_label'] = nav_context['current_node_label']
         
-        # Get target node ID for final position update
-        target_node_id = None
+        # Get target node label for logging (if unified graph is available)
+        target_node_label = None
         if self.unified_graph:
             try:
-                target_node_id = self.get_node_id(target_node_label)
+                target_node_label = self.get_node_label(target_node_id)
             except ValueError:
-                print(f"[@navigation_executor:execute_navigation] Could not find node_id for '{target_node_label}' - will use label as fallback")
+                print(f"[@navigation_executor:execute_navigation] Could not find label for node_id '{target_node_id}' - will use ID for logging")
+                target_node_label = target_node_id
         
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
@@ -226,18 +227,18 @@ class NavigationExecutor:
             else:
                 print(f"[@navigation_executor:execute_navigation] Starting from default entry point (no current location)")
             
-            print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label}' using unified pathfinding")
+            print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label or target_node_id}' using unified pathfinding")
             
             # Use unified pathfinding with current navigation context position
-            navigation_path = find_shortest_path(tree_id, target_node_label, team_id, nav_context.get('current_node_id'))
+            navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))
             
             if not navigation_path:
                 # Mark navigation as failed
                 nav_context['current_node_navigation_success'] = False
                 return self._build_result(
                     False, 
-                    f"No unified path found to '{target_node_label}'",
-                    tree_id, target_node_label, current_node_id, start_time,
+                    f"No unified path found to '{target_node_label or target_node_id}'",
+                    tree_id, target_node_id, current_node_id, start_time,
                     unified_pathfinding_used=True
                 )
             
@@ -398,7 +399,7 @@ class NavigationExecutor:
                     return self._build_result(
                         False, 
                         detailed_error_msg,
-                        tree_id, target_node_label, current_node_id, start_time,
+                        tree_id, target_node_id, current_node_id, start_time,
                         transitions_executed=transitions_executed,
                         total_transitions=len(navigation_path),
                         actions_executed=actions_executed,
@@ -418,19 +419,19 @@ class NavigationExecutor:
             
             # Get final destination for consolidated success message
             final_step = navigation_path[-1] if navigation_path else {}
-            target_node_id = final_step.get('to_node_id')
+            final_node_id = final_step.get('to_node_id')
             
             # Update current location in context after successful navigation
-            if context and hasattr(context, 'current_node_id') and target_node_id:
-                context.current_node_id = target_node_id
+            if context and hasattr(context, 'current_node_id') and final_node_id:
+                context.current_node_id = final_node_id
             
             # Consolidated success message with timing and final position
             total_time = int((time.time() - start_time) * 1000)
-            print(f"[@navigation_executor] Navigation to '{target_node_label}' completed successfully in {total_time}ms → {target_node_id}")
+            print(f"[@navigation_executor] Navigation to '{target_node_label or target_node_id}' completed successfully in {total_time}ms → {final_node_id}")
             
             # Update position if navigation succeeded
             if navigation_path:
-                self.update_current_position(target_node_id, tree_id, target_node_label)
+                self.update_current_position(final_node_id, tree_id, target_node_label)
             
             # Mark navigation as successful
             nav_context['current_node_navigation_success'] = True
@@ -440,8 +441,8 @@ class NavigationExecutor:
             
             return self._build_result(
                 True,
-                f"Successfully navigated to '{target_node_label}' in {len(navigation_path)} steps",
-                tree_id, target_node_label, current_node_id, start_time,
+                f"Successfully navigated to '{target_node_label or target_node_id}' in {len(navigation_path)} steps",
+                tree_id, target_node_id, current_node_id, start_time,
                 transitions_executed=transitions_executed,
                 total_transitions=len(navigation_path),
                 actions_executed=actions_executed,
@@ -458,18 +459,18 @@ class NavigationExecutor:
             return self._build_result(
                 False,
                 str(e),
-                tree_id, target_node_label, current_node_id, start_time,
+                tree_id, target_node_id, current_node_id, start_time,
                 unified_pathfinding_required=True
             )
         except Exception as e:
-            error_msg = f"Unexpected navigation error to '{target_node_label}': {str(e)}"
+            error_msg = f"Unexpected navigation error to '{target_node_label or target_node_id}': {str(e)}"
             print(f"❌ [@navigation_executor:execute_navigation] ERROR: {error_msg}")
             # Mark navigation as failed
             self.device.navigation_context['current_node_navigation_success'] = False
             return self._build_result(
                 False,
                 error_msg,
-                tree_id, target_node_label, current_node_id, start_time,
+                tree_id, target_node_id, current_node_id, start_time,
                 unified_pathfinding_used=True
             )
     

@@ -846,10 +846,17 @@ class ScriptExecutor:
             context.nodes = nav_result.get('nodes', [])
             context.edges = nav_result.get('edges', [])
             
-            # Execute navigation
+            # Execute navigation - convert target_node (label) to node_id
+            # For script executor, target_node is typically a label, so we need to convert it
+            try:
+                target_node_id = context.selected_device.navigation_executor.get_node_id(target_node)
+            except ValueError:
+                # If conversion fails, assume target_node is already a node_id
+                target_node_id = target_node
+            
             navigation_result = context.selected_device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
-                target_node_label=target_node,
+                target_node_id=target_node_id,
                 team_id=context.team_id,
                 context=context
             )

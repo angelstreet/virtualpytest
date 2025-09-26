@@ -122,7 +122,7 @@ class MockMCPServer:
             
             # Use the new NavigationExecutor
             executor = NavigationExecutor(host, None, team_id)
-            result = executor.execute_navigation(tree_id, target_node_id, current_node_id)
+            result = executor.execute_navigation(tree_id, target_node_id=target_node_id, current_node_id=current_node_id)
             
             success = result.get('success', False)
             message = result.get('message', f"Navigation to {target_node_id} {'completed' if success else 'failed'}")
