@@ -620,7 +620,11 @@ const Dashboard: React.FC = () => {
     const baseUrl = serverUrl.replace(/^https?:\/\//, '');
     const serverData = serverHostsData.find(s => {
       const serverBaseUrl = s.server_info.server_url.replace(/^https?:\/\//, '');
-      return serverBaseUrl === baseUrl || s.server_info.server_url === serverUrl;
+      // Match both with and without protocol, and handle port differences
+      return serverBaseUrl === baseUrl || 
+             s.server_info.server_url === serverUrl ||
+             baseUrl.includes(serverBaseUrl) ||
+             serverBaseUrl.includes(baseUrl);
     });
     
     if (serverData && serverData.server_info.server_name) {
