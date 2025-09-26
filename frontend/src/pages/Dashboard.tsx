@@ -640,11 +640,21 @@ const Dashboard: React.FC = () => {
                 if (!aIsPrimary && bIsPrimary) return 1;
                 return 0;
               })
-              .map((serverData, index) => (
-              <MenuItem key={`${serverData.server_info.server_url}-${index}`} value={serverData.server_info.server_url}>
-                {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
-              </MenuItem>
-            ))}
+              .map((serverData, index) => {
+                const isSelected = selectedServer === serverData.server_info.server_url;
+                return (
+                  <MenuItem 
+                    key={`${serverData.server_info.server_url}-${index}`} 
+                    value={serverData.server_info.server_url}
+                    sx={{ 
+                      color: isSelected ? 'primary.main' : 'inherit',
+                      fontWeight: isSelected ? 'bold' : 'normal'
+                    }}
+                  >
+                    {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
+                  </MenuItem>
+                );
+              })}
           </Select>
         </FormControl>
       </Box>
@@ -837,18 +847,17 @@ const Dashboard: React.FC = () => {
             const hostCount = serverData.hosts.length;
             const deviceCount = serverData.hosts.reduce((total, host) => total + (host.device_count || 0), 0);
             const serverIp = serverData.server_info.server_url.replace(/^https?:\/\//, '');
-            const isSelected = selectedServer === serverData.server_info.server_url;
             
             return (
               <Box 
                 key={index} 
                 sx={{ 
-                  backgroundColor: isSelected ? 'primary.light' : 'transparent', 
+                  backgroundColor: 'transparent', 
                   borderRadius: 2, 
                   p: 2, 
                   mb: 2,
-                  border: '2px solid',
-                  borderColor: isSelected ? 'primary.main' : 'grey.200'
+                  border: '1px solid',
+                  borderColor: 'grey.200'
                 }}
               >
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>

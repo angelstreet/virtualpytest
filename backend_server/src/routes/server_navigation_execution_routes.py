@@ -56,13 +56,17 @@ def execute_navigation(tree_id, node_id):
             }), 400
         
         # Ensure unified cache is populated before execution (same as preview/validation routes)
-        print(f"[@route:navigation_execution:execute_navigation] Checking unified cache for tree {tree_id}")
+        print(f"[@route:navigation_execution:execute_navigation] Checking unified cache for tree {tree_id}, team_id {team_id}")
+        print(f"[@route:navigation_execution:execute_navigation] About to call ensure_unified_cache_populated...")
         cache_populated = ensure_unified_cache_populated(tree_id, team_id, host_name)
+        print(f"[@route:navigation_execution:execute_navigation] Cache population result: {cache_populated}")
         if not cache_populated:
+            print(f"[@route:navigation_execution:execute_navigation] Cache population FAILED for tree {tree_id}")
             return jsonify({
                 'success': False,
                 'error': 'Failed to populate unified navigation cache. Tree may need to be loaded first.'
             }), 400
+        print(f"[@route:navigation_execution:execute_navigation] Cache population SUCCESS, proceeding with execution")
         
         # Proxy to host navigation execution endpoint
         execution_payload = {
@@ -280,11 +284,13 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str, host_name: str) -
     Uses the same pattern as validation routes
     """
     try:
-        print(f"[@route:ensure_unified_cache_populated] Populating unified cache for tree {tree_id} on host {host_name}")
+        print(f"[@route:ensure_unified_cache_populated] Starting cache population for tree {tree_id} on host {host_name}, team_id {team_id}")
         
         # Check if cache already exists on host (avoid re-population)
         from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
-        cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=30)
+        print(f"[@route:ensure_unified_cache_populated] Checking if cache exists...")
+        cache_check_result, check_status = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=30)
+        print(f"[@route:ensure_unified_cache_populated] Cache check result: {cache_check_result}, status: {check_status}")
         
         if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
             print(f"[@route:ensure_unified_cache_populated] Cache already exists for tree {tree_id}, skipping population")
@@ -324,15 +330,17 @@ def ensure_unified_cache_populated(tree_id: str, team_id: str, host_name: str) -
             print(f"[@route:ensure_unified_cache_populated] Loaded single tree as fallback")
         
         if not all_trees_data:
-            print(f"[@route:ensure_unified_cache_populated] No tree data found for tree {tree_id}")
+            print(f"[@route:ensure_unified_cache_populated] ERROR: No tree data found for tree {tree_id}")
             return False
         
         # Populate cache on host
-        populate_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
+        print(f"[@route:ensure_unified_cache_populated] Calling host cache populate endpoint...")
+        populate_result, populate_status = proxy_to_host_with_params(f'/host/navigation/cache/populate/{tree_id}', 'POST', {
             'team_id': team_id,
             'all_trees_data': all_trees_data,
             'force_repopulate': False
         }, {}, timeout=60)
+        print(f"[@route:ensure_unified_cache_populated] Cache populate result: {populate_result}, status: {populate_status}")
         
         if populate_result and populate_result.get('success'):
             print(f"[@route:ensure_unified_cache_populated] Successfully populated cache: {populate_result.get('nodes_count', 0)} nodes")
