@@ -13,7 +13,7 @@
 # from . import server_alerts_routes
 # from . import server_verification_routes
 # from . import server_heatmap_routes
-# from . import server_navigation_execution_routes
+from . import server_navigation_execution_routes
 # from . import server_devicemodel_routes
 # from . import server_remote_routes
 # from . import server_ai_execution_routes

@@ -146,7 +146,9 @@ def register_all_server_routes(app):
         from routes import server_verification_routes
         print("[@backend_server:routes] ✅ server_verification_routes imported successfully")
         
-        # server_navigation_execution_routes replaced by auto_proxy
+        print("[@backend_server:routes] 🔍 Importing server_navigation_execution_routes...")
+        from routes import server_navigation_execution_routes
+        print("[@backend_server:routes] ✅ server_navigation_execution_routes imported successfully")
         
         print("[@backend_server:routes] 🔍 Importing server_devicemodel_routes...")
         from routes import server_devicemodel_routes
@@ -280,9 +282,10 @@ def register_all_server_routes(app):
             (server_api_testing_routes.server_api_testing_bp, 'API testing system'),
             (server_device_flags_routes.device_flags_bp, 'Device flags management'),
             (server_restart_routes.server_restart_bp, 'Restart operations'),
+            (server_navigation_execution_routes.server_navigation_execution_bp, 'Navigation execution with cache population'),
             
-            # Auto proxy (replaces 12 pure proxy route files + 18 verification proxy routes)
-            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, navigation-execution, power, remote, translation + 18 verification routes)')
+            # Auto proxy (replaces 11 pure proxy route files + 18 verification proxy routes - navigation-execution now handled separately)
+            (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, power, remote, translation + 18 verification routes)')
         ]
         
         for blueprint, description in blueprints:
