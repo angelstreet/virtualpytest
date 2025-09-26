@@ -422,14 +422,17 @@ def _get_remote_params(implementation: str, device_config: dict) -> dict:
             device_num = device_id.replace('device', '').upper()
             missing_env_vars = [var.replace('DEVICE1', f'DEVICE{device_num}') for var in missing_vars]
             
-            print(f"[@controller_factory:_get_remote_params] ERROR: Missing IR configuration for {device_id}")
-            print(f"[@controller_factory:_get_remote_params] ERROR: Please set these environment variables:")
+            print(f"[@controller_factory:_get_remote_params] WARNING: Missing IR configuration for {device_id} - skipping IR remote controller")
+            print(f"[@controller_factory:_get_remote_params] WARNING: To enable IR remote, set these environment variables:")
             for var in missing_env_vars:
                 if 'IR_PATH' in var:
-                    print(f"[@controller_factory:_get_remote_params] ERROR:   {var}=/dev/lirc0  # Path to your IR device")
+                    print(f"[@controller_factory:_get_remote_params] WARNING:   {var}=/dev/lirc0  # Path to your IR device")
                 elif 'IR_TYPE' in var:
-                    print(f"[@controller_factory:_get_remote_params] ERROR:   {var}=appletv    # IR config type (appletv, samsung, firetv, eos)")
-            print(f"[@controller_factory:_get_remote_params] ERROR: Available IR types: appletv, samsung, firetv, eos")
+                    print(f"[@controller_factory:_get_remote_params] WARNING:   {var}=appletv    # IR config type (appletv, samsung, firetv, eos)")
+            print(f"[@controller_factory:_get_remote_params] WARNING: Available IR types: appletv, samsung, firetv, eos")
+            
+            # Return special marker to indicate this controller should be skipped
+            return {'_skip_controller': True, 'reason': 'Missing IR configuration'}
         
         params = {
             'ir_path': ir_path,

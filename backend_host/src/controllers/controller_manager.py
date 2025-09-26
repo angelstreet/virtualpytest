@@ -343,6 +343,12 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
+        # Check if controller should be skipped due to missing configuration
+        if controller_params.get('_skip_controller'):
+            reason = controller_params.get('reason', 'Unknown reason')
+            print(f"[@controller_manager:_create_device_with_controllers] ⚠️  Skipping {implementation} controller: {reason}")
+            continue
+        
         controller = _create_controller_instance(controller_type, implementation, controller_params)
         if controller:
             device.add_controller(controller_type, controller)
