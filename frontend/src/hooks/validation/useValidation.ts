@@ -213,12 +213,17 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
    * Load validation preview
    */
   const loadPreview = useCallback(async () => {
-    if (!treeId) return;
+    if (!treeId || !selectedHost) return;
 
     updateValidationState(treeId, { isLoadingPreview: true });
 
     try {
-      const response = await fetch(buildServerUrl(`/server/validation/preview/${treeId}`));
+      // Add host_name parameter like navigation preview does
+      const baseUrl = buildServerUrl(`/server/validation/preview/${treeId}`);
+      const url = new URL(baseUrl);
+      url.searchParams.append('host_name', selectedHost.host_name);
+      
+      const response = await fetch(url.toString());
       const result = await response.json();
 
       if (result.success) {
