@@ -55,22 +55,30 @@ def execute_navigation(tree_id, node_id):
                 'error': 'team_id is required'
             }), 400
         
-        # Debug: Check what tree ID we're using vs what's cached
+        # Handle cache miss resilience - reuse take control cache population logic
         print(f"[@route:navigation_execution:execute_navigation] Navigation execution for tree {tree_id}, team_id {team_id}")
-        print(f"[@route:navigation_execution:execute_navigation] Cache should already exist from take control")
         
-        # Check if cache exists for this tree ID
+        # Check if cache exists, if not, populate it (race condition resilience)
         from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
         cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
         
-        if cache_check_result and cache_check_result.get('success'):
-            if cache_check_result.get('exists'):
-                print(f"[@route:navigation_execution:execute_navigation] ✅ Cache EXISTS for tree {tree_id}")
-            else:
-                print(f"[@route:navigation_execution:execute_navigation] ❌ Cache MISSING for tree {tree_id}")
-                print(f"[@route:navigation_execution:execute_navigation] This suggests tree ID mismatch between take control and navigation execution")
+        if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
+            print(f"[@route:navigation_execution:execute_navigation] ✅ Cache exists for tree {tree_id}")
         else:
-            print(f"[@route:navigation_execution:execute_navigation] ⚠️ Cache check failed: {cache_check_result}")
+            print(f"[@route:navigation_execution:execute_navigation] ⚠️ Cache missing for tree {tree_id} - auto-populating (race condition recovery)")
+            
+            # Reuse the take control cache population logic
+            from backend_server.src.routes.server_control_routes import populate_navigation_cache_for_control
+            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+            
+            if cache_populated:
+                print(f"[@route:navigation_execution:execute_navigation] ✅ Cache auto-populated successfully")
+            else:
+                print(f"[@route:navigation_execution:execute_navigation] ❌ Cache auto-population failed")
+                return jsonify({
+                    'success': False,
+                    'error': 'Navigation cache missing and auto-population failed. Please try taking control again.'
+                }), 400
         
         # Proxy to host navigation execution endpoint
         execution_payload = {

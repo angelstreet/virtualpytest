@@ -159,8 +159,8 @@ export const useDashboard = (): UseDashboardReturn => {
 
   useEffect(() => {
     fetchDashboardData();
-    // Load data once on mount only - no polling needed
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Load data on mount and when selectedServer changes
+  }, [fetchDashboardData]);
 
   return {
     // Data
