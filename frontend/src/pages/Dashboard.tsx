@@ -792,11 +792,42 @@ const Dashboard: React.FC = () => {
         </Box>
 
         {serverHostsData.length > 0 ? (
-          serverHostsData.map((serverData, index) => (
-            <Paper key={index} sx={{ p: 2, mb: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                {serverData.server_info.server_name} ({serverData.server_info.server_url})
-              </Typography>
+          serverHostsData.map((serverData, index) => {
+            const hostCount = serverData.hosts.length;
+            const deviceCount = serverData.hosts.reduce((total, host) => total + (host.device_count || 0), 0);
+            const serverIp = serverData.server_info.server_url.replace(/^https?:\/\//, '');
+            
+            return (
+              <Box 
+                key={index} 
+                sx={{ 
+                  backgroundColor: 'grey.50', 
+                  borderRadius: 2, 
+                  p: 2, 
+                  mb: 2,
+                  border: '1px solid',
+                  borderColor: 'grey.200'
+                }}
+              >
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                  <Typography variant="h6">
+                    Server: {serverData.server_info.server_name} ({serverIp})
+                  </Typography>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Chip 
+                      label={`${hostCount} host${hostCount !== 1 ? 's' : ''}`}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                    <Chip 
+                      label={`${deviceCount} device${deviceCount !== 1 ? 's' : ''}`}
+                      size="small"
+                      variant="outlined"
+                      color="secondary"
+                    />
+                  </Box>
+                </Box>
               
               {serverData.hosts.length > 0 ? (
                 viewMode === 'grid' ? (
@@ -814,8 +845,8 @@ const Dashboard: React.FC = () => {
               ) : (
                 <Typography color="textSecondary">No hosts connected to this server</Typography>
               )}
-            </Paper>
-          ))
+            </Box>
+          )})
         ) : (
           <Box textAlign="center" py={4}>
             <DevicesIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />

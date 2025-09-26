@@ -222,7 +222,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                 }}
                 size="small"
               >
-                {isPlaying ? <PlayArrow /> : <Pause />}
+                {isPlaying ? <Pause /> : <PlayArrow />}
               </IconButton>
               
               {/* Timeline Slider */}

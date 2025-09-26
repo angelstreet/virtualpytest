@@ -66,7 +66,7 @@ export const useDashboard = (): UseDashboardReturn => {
               server_info: data.server_info || {
                 server_name: `Server (${serverUrl})`,
                 server_url: serverUrl,
-                server_port: serverUrl.split(':').pop() || 'Unknown'
+                server_port: serverUrl.split(':').pop()
               },
               hosts: data.hosts || []
             };

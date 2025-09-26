@@ -42,17 +42,17 @@ def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
 # TREE METADATA OPERATIONS
 # ============================================================================
 
-def get_all_trees(team_id: str) -> List[Dict]:
+def get_all_trees(team_id: str) -> Dict:
     """Get all navigation trees metadata for a team."""
     try:
         supabase = get_supabase()
         result = supabase.table('navigation_trees').select('*').eq('team_id', team_id).order('created_at').execute()
         
         print(f"[@db:navigation_trees:get_all_trees] Retrieved {len(result.data)} trees")
-        return result.data
+        return {'success': True, 'trees': result.data}
     except Exception as e:
         print(f"[@db:navigation_trees:get_all_trees] Error: {e}")
-        return []
+        return {'success': False, 'error': str(e), 'trees': []}
 
 def get_tree_metadata(tree_id: str, team_id: str) -> Dict:
     """Get tree basic information."""

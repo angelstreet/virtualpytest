@@ -255,8 +255,18 @@ def getAllHosts():
             device_count = host.get('device_count', 0)
             print(f"   Host: {host['host_name']} ({host['host_url']}) - {device_count} device(s)")
         
+        # Get server info from environment variables
+        server_name = os.getenv('SERVER_NAME', 'Unknown Server')
+        server_url = os.getenv('SERVER_URL', 'Unknown URL')
+        server_port = os.getenv('SERVER_PORT', 'Unknown Port')
+        
         return jsonify({
             'success': True,
+            'server_info': {
+                'server_name': server_name,
+                'server_url': server_url,
+                'server_port': server_port
+            },
             'hosts': valid_hosts
         }), 200
         
