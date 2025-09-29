@@ -82,28 +82,45 @@ def test_optimal_path(userinterface_name: str, team_id: str, host_name: str):
             return False
         print(f"✅ Host is available and online")
         
-        # Step 2: Check if tree exists
-        print("📋 Step 2: Checking if navigation tree exists...")
-        tree_url = f"{base_url}/server/navigation/tree/{userinterface_name}"
-        tree_params = {'team_id': team_id}
+        # Step 2: Get userinterface and tree info
+        print("📋 Step 2: Getting userinterface and navigation tree...")
+        ui_url = f"{base_url}/server/userinterface/getAllUserInterfaces"
+        ui_response = requests.get(ui_url, params={'team_id': team_id}, timeout=10)
         
-        tree_response = requests.get(tree_url, params=tree_params, timeout=30)
-        
-        if tree_response.status_code != 200:
-            print(f"❌ Failed to check tree: HTTP {tree_response.status_code}")
-            print(f"   Response: {tree_response.text}")
+        if ui_response.status_code != 200:
+            print(f"❌ Failed to get userinterfaces: HTTP {ui_response.status_code}")
             return False
             
-        tree_result = tree_response.json()
-        if not tree_result.get('success'):
-            print(f"❌ Tree check failed: {tree_result.get('error')}")
+        all_uis = ui_response.json()
+        target_ui = None
+        
+        for ui in all_uis:
+            if ui.get('name') == userinterface_name:
+                target_ui = ui
+                break
+                
+        if not target_ui:
+            print(f"❌ Userinterface '{userinterface_name}' not found")
+            print(f"💡 Available userinterfaces:")
+            for ui in all_uis[:5]:
+                print(f"   - {ui.get('name', 'unknown')}")
             return False
             
-        print(f"✅ Navigation tree exists")
+        # Check if it has a root tree
+        root_tree = target_ui.get('root_tree')
+        if not root_tree:
+            print(f"❌ Userinterface exists but has no navigation tree")
+            print(f"💡 You need to create a navigation tree for this userinterface")
+            return False
+            
+        tree_id = root_tree.get('id')
+        print(f"✅ Navigation tree found")
+        print(f"   Tree ID: {tree_id}")
+        print(f"   Tree name: {root_tree.get('name', 'unknown')}")
         
         # Step 3: Test validation preview (this will auto-populate cache)
         print("🧪 Step 3: Testing validation preview...")
-        preview_url = f"{base_url}/server/validation/preview/{userinterface_name}"
+        preview_url = f"{base_url}/server/validation/preview/{tree_id}"  # Use tree_id, not userinterface_name
         preview_params = {
             'team_id': team_id,
             'host_name': host_name
@@ -155,10 +172,10 @@ def test_optimal_path(userinterface_name: str, team_id: str, host_name: str):
 def main():
     """Main function"""
     
-    # Test configuration
+    # Test configuration - CORRECTED VALUES
     userinterface_name = "horizon_android_mobile"
     team_id = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
-    host_name = "sunri-pi1"
+    host_name = "sunri-pi2"  # Corrected: sunri-pi1 doesn't exist, use sunri-pi2
     
     # Run test
     success = test_optimal_path(userinterface_name, team_id, host_name)

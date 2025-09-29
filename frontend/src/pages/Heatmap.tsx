@@ -22,6 +22,7 @@ import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
+import { ServerSelector } from '../components/common/ServerSelector';
 import { ModalProvider } from '../contexts/ModalContext';
 import { HostManagerProvider } from '../contexts/HostManagerProvider';
 import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
@@ -162,6 +163,13 @@ const HeatmapContent: React.FC = () => {
                     Incidents Detected
                   </Typography>
                 )}
+                
+                {/* Server Selection */}
+                <ServerSelector 
+                  size="small" 
+                  minWidth={180} 
+                  label="Server"
+                />
               </Box>
 
               <Box display="flex" alignItems="center" gap={4}>
