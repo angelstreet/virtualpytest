@@ -69,6 +69,17 @@ class HeatmapProcessor:
     
     def __init__(self):
         self.running = False
+        self.server_path = self._get_server_path()
+        logger.info(f"🏷️ HeatmapProcessor server path: {self.server_path}")
+    
+    def _get_server_path(self) -> str:
+        """Get server path for R2 storage"""
+        server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
+        import re
+        match = re.search(r'://([^/]+)', server_url)
+        if match:
+            return f"server-{match.group(1).replace('.', '-').replace(':', '-')}"
+        return "server-unknown"
         
     def start(self):
         """Start continuous processing every minute"""
@@ -739,12 +750,12 @@ class HeatmapProcessor:
                 file_mappings = [
                     {
                         'local_path': img_temp_path,
-                        'remote_path': f'heatmaps/{time_key}.jpg',
+                        'remote_path': f'heatmaps/{self.server_path}/{time_key}.jpg',
                         'content_type': 'image/jpeg'
                     },
                     {
                         'local_path': json_temp_path,
-                        'remote_path': f'heatmaps/{time_key}.json',
+                        'remote_path': f'heatmaps/{self.server_path}/{time_key}.json',
                         'content_type': 'application/json'
                     }
                 ]
@@ -753,13 +764,13 @@ class HeatmapProcessor:
                 if ok_img_temp_path:
                     file_mappings.append({
                         'local_path': ok_img_temp_path,
-                        'remote_path': f'heatmaps/{time_key}_ok.jpg',
+                        'remote_path': f'heatmaps/{self.server_path}/{time_key}_ok.jpg',
                         'content_type': 'image/jpeg'
                     })
                 if ko_img_temp_path:
                     file_mappings.append({
                         'local_path': ko_img_temp_path,
-                        'remote_path': f'heatmaps/{time_key}_ko.jpg',
+                        'remote_path': f'heatmaps/{self.server_path}/{time_key}_ko.jpg',
                         'content_type': 'image/jpeg'
                     })
                 

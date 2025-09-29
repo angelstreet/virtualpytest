@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useHostManager } from './useHostManager';
 
 export interface TimelineItem {
   timeKey: string;        // "1425" (2:25 PM)
@@ -39,6 +40,7 @@ export interface AnalysisData {
 }
 
 export const useHeatmap = () => {
+  const { selectedServer } = useHostManager();
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(1438); // Start at current-1 minute
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
@@ -51,13 +53,23 @@ export const useHeatmap = () => {
   // Get R2 base URL from environment
   const R2_BASE_URL = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
   
+  // Get server path for R2 URLs
+  const getServerPath = (serverUrl: string): string => {
+    if (!serverUrl) return 'server-unknown';
+    const match = serverUrl.match(/\/\/([^/]+)/);
+    return match ? `server-${match[1].replace(/\./g, '-').replace(/:/g, '-')}` : 'server-unknown';
+  };
+  
   
   /**
    * Generate 24-hour timeline with predictable file names
    */
   const generateTimeline = (): TimelineItem[] => {
+    if (!selectedServer) return [];
+    
     const now = new Date();
     const items: TimelineItem[] = [];
+    const serverPath = getServerPath(selectedServer);
     
     // Generate 1440 minutes (24 hours)
     for (let i = 0; i < 1440; i++) {
@@ -68,10 +80,10 @@ export const useHeatmap = () => {
         timeKey,
         displayTime: time,
         isToday: time.toDateString() === now.toDateString(),
-        mosaicUrl: `${R2_BASE_URL}/heatmaps/${timeKey}.jpg`,
-        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${timeKey}_ok.jpg`,
-        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${timeKey}_ko.jpg`,
-        analysisUrl: `${R2_BASE_URL}/heatmaps/${timeKey}.json`
+        mosaicUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.jpg`,
+        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ok.jpg`,
+        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ko.jpg`,
+        analysisUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.json`
       });
     }
     
@@ -150,7 +162,7 @@ export const useHeatmap = () => {
   };
   
   /**
-   * Initialize timeline on mount
+   * Initialize timeline on mount and when server changes
    */
   useEffect(() => {
     const newTimeline = generateTimeline();
@@ -160,7 +172,7 @@ export const useHeatmap = () => {
     if (newTimeline[currentIndex]) {
       loadAnalysisData(newTimeline[currentIndex]);
     }
-  }, []);
+  }, [selectedServer]);
   
   /**
    * Refresh timeline every minute to get latest data
@@ -177,7 +189,7 @@ export const useHeatmap = () => {
     }, 60000); // Refresh every minute
     
     return () => clearInterval(interval);
-  }, [currentIndex]);
+  }, [currentIndex, selectedServer]);
   
   /**
    * Load analysis when timeline position changes
