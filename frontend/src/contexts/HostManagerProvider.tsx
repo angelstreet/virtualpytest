@@ -27,13 +27,18 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // STATE
   // ========================================
 
-  // Get server selection from ServerManager (now centralized)
-  const { selectedServer, availableServers, setSelectedServer } = useServerManager();
+  // Get server selection and server data from ServerManager (now centralized)
+  const { selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading: serverLoading, error: serverError } = useServerManager();
 
-  // Host data state
+  // Extract hosts from server data (all hosts from all servers)
+  const allHostsFromServers = useMemo(() => {
+    return serverHostsData.flatMap(serverData => serverData.hosts);
+  }, [serverHostsData]);
+
+  // Use hosts from ServerManager instead of fetching separately
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const isLoading = serverLoading;
+  const error = serverError;
 
   // Panel and UI state
   const [selectedHost, setSelectedHost] = useState<Host | null>(null);
@@ -51,9 +56,6 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   const [activeLocks, setActiveLocks] = useState<Map<string, string>>(new Map());
   const reclaimInProgressRef = useRef(false);
   const initializedRef = useRef(false);
-  
-  // Ref to prevent duplicate API calls in React Strict Mode
-  const isLoadingHostsRef = useRef<boolean>(false);
 
   // Use shared user session for consistent identification
   const { userId, sessionId: browserSessionId, isOurLock } = useUserSession();
@@ -65,56 +67,11 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // Memoize userInterface to prevent unnecessary re-renders
   const stableUserInterface = useMemo(() => userInterface, [userInterface]);
 
-  // Host loading logic
-  const loadHosts = useCallback(async (): Promise<{ hosts: Host[]; error: string | null }> => {
-    try {
-      const fullUrl = buildServerUrl('/server/system/getAllHosts');
-      const response = await fetch(fullUrl);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        const rawHosts = result.hosts || [];
-        return { hosts: rawHosts, error: null };
-      } else {
-        throw new Error(result.error || 'Server returned success: false');
-      }
-    } catch (err: any) {
-      console.error('[@context:HostManagerProvider] Error fetching hosts:', err);
-      return { hosts: [], error: err.message || 'Failed to fetch hosts' };
-    }
-  }, []);
-
-  // Auto-load hosts on mount and when server changes
+  // Update availableHosts when server data changes (from ServerManager)
   useEffect(() => {
-    const loadHostsOnMount = async () => {
-      // Prevent duplicate calls in React Strict Mode
-      if (isLoadingHostsRef.current) {
-        console.log('[@context:HostManagerProvider] Host loading already in progress, skipping duplicate call');
-        return;
-      }
-      
-      isLoadingHostsRef.current = true;
-      setIsLoading(true);
-      setError(null);
-
-      console.log('[@context:HostManagerProvider] Loading hosts from API...');
-      const result = await loadHosts();
-
-      setAvailableHosts(result.hosts);
-      setError(result.error);
-      setIsLoading(false);
-      isLoadingHostsRef.current = false;
-      
-      console.log('[@context:HostManagerProvider] Hosts loaded successfully:', result.hosts.length);
-    };
-
-    loadHostsOnMount();
-  }, [loadHosts, selectedServer]); // ✅ Added selectedServer dependency
+    console.log('[@context:HostManagerProvider] Updating hosts from ServerManager:', allHostsFromServers.length);
+    setAvailableHosts(allHostsFromServers);
+  }, [allHostsFromServers]);
 
   // ========================================
   // DIRECT DATA ACCESS FUNCTIONS
