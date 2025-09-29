@@ -116,9 +116,9 @@ def test_validation_preview(tree_id: str, team_id: str, host_name: str) -> Dict[
             print(f"   Step {step['step']}: {step['from']} → {step['to']} ({step['actions']} actions)")
         print()
         
-        # Show first 10 steps in detail
-        print(f"📋 First 10 Validation Steps:")
-        for i, edge in enumerate(edges[:10], 1):
+        # Show all validation steps in detail
+        print(f"📋 All {total_edges} Validation Steps:")
+        for i, edge in enumerate(edges, 1):
             from_name = edge.get('from_name', 'unknown')
             to_name = edge.get('to_name', 'unknown')
             step_type = edge.get('step_type', 'unknown')
@@ -135,9 +135,6 @@ def test_validation_preview(tree_id: str, team_id: str, host_name: str) -> Dict[
             
             print(f"   {i:2d}. {step_desc}")
             print(f"       Type: {step_type}, Actions: {actions_count}")
-        
-        if total_edges > 10:
-            print(f"   ... and {total_edges - 10} more steps")
         print()
         
         return {
