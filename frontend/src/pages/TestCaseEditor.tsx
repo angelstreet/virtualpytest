@@ -31,8 +31,7 @@ import React, { useState, useEffect } from 'react';
 import { TestCase } from '../types';
 import { AITestCaseGenerator } from '../components/testcase/AITestCaseGenerator';
 import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
-
-
+import { AIStepDisplay } from '../components/ai/AIStepDisplay';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
@@ -415,11 +414,20 @@ const TestCaseEditor: React.FC = () => {
                   Actions:
                 </Typography>
                 {getStepsForDisplay(selectedTestCase).length > 0 ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2, pl: 2 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 2 }}>
                     {getStepsForDisplay(selectedTestCase).map((step, index) => (
-                      <Typography key={index} variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
-                        {index + 1}. {step.target_node || step.description || step.command || 'Unknown step'}
-                      </Typography>
+                      <AIStepDisplay
+                        key={index}
+                        step={{
+                          stepNumber: index + 1,
+                          command: step.command || 'unknown',
+                          params: step.params,
+                          description: step.description || step.target_node,
+                          status: 'pending'
+                        }}
+                        showExpand={false}
+                        compact={true}
+                      />
                     ))}
                   </Box>
                 ) : (

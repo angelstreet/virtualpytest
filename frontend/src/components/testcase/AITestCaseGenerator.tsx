@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-// import { useAI } from '../../hooks/useAI';
+import { AIStepDisplay } from '../ai/AIStepDisplay';
 import { AIAnalysisResponse, TestCase } from '../../types/pages/TestCase_Types';
 
 interface AITestCaseGeneratorProps {
@@ -350,78 +350,21 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               borderColor: 'primary.light',
               boxShadow: 1
             }}>
-              {analysis.step_preview.map((step, index) => {
-                const expanded = expandedSteps.has(index);
-                
-                return (
-                  <Box key={index} sx={{ 
-                    borderBottom: index < analysis.step_preview.length - 1 ? '1px solid' : 'none',
-                    borderColor: 'divider'
-                  }}>
-                    {/* Main Step Row - Clickable */}
-                    <Box 
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 1, 
-                        py: 0.5,
-                        px: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { bgcolor: 'action.hover' },
-                        borderRadius: 0.5
-                      }}
-                      onClick={() => handleStepToggle(index)}
-                    >
-                      <Chip 
-                        label={step.step} 
-                        size="small" 
-                        color="primary" 
-                        sx={{ minWidth: 28, height: 20, fontSize: '0.7rem' }}
-                      />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1 }}>
-                        {step.type === 'action' ? (
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                            🧭 {step.description}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}>
-                            🔍 {step.description}
-                          </Typography>
-                        )}
-                      </Box>
-                      <Chip 
-                        label={step.type} 
-                        size="small" 
-                        variant="outlined"
-                        color={step.type === 'action' ? 'primary' : 'secondary'}
-                        sx={{ fontSize: '0.7rem', height: 20 }}
-                      />
-                      <IconButton size="small">
-                        {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                      </IconButton>
-                    </Box>
-                    
-                    {/* Expanded Details - Compact one-line format */}
-                    <Collapse in={expanded}>
-                      <Box sx={{ ml: 6, mr: 2, mb: 1 }}>
-                        {step.type === 'action' ? (
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
-                            {step.command}({Object.entries(step.params || {}).map(([key, value]) => 
-                              `${key}='${value}'`
-                            ).join(', ')})
-                          </Typography>
-                        ) : (
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.primary' }}>
-                            {step.verification_type && `${step.verification_type}.`}{step.command}({Object.entries(step.params || {}).map(([key, value]) => 
-                              `${key}='${value}'`
-                            ).join(', ')})
-                          </Typography>
-                        )}
-                      </Box>
-                    </Collapse>
-                  </Box>
-                );
-              })}
+              {analysis.step_preview.map((step, index) => (
+                <AIStepDisplay
+                  key={index}
+                  step={{
+                    stepNumber: step.step,
+                    command: step.command,
+                    params: step.params,
+                    description: step.description,
+                    type: step.type,
+                    status: 'pending'
+                  }}
+                  showExpand={false}
+                  compact={true}
+                />
+              ))}
             </Box>
           </Box>
         )}
