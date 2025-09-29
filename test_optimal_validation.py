@@ -9,11 +9,42 @@ import os
 import sys
 import requests
 import json
+import socket
 from typing import Dict, Any
 
 # Add project paths
 sys.path.append('/Users/cpeengineering/virtualpytest')
 sys.path.append('/Users/cpeengineering/virtualpytest/shared/src')
+
+def get_server_url() -> str:
+    """
+    Automatically detect the appropriate server URL based on environment
+    
+    Returns:
+        The server URL to use for API requests
+    """
+    # Check if we're on a remote server (raspberry pi or similar)
+    hostname = socket.gethostname()
+    
+    # If we're on a raspberry pi or remote server, use the production URL
+    if 'raspberrypi' in hostname.lower() or 'sunri-pi' in hostname.lower():
+        return "https://dev.virtualpytest.com"
+    
+    # Check for local development environment
+    if os.path.exists('/Users/cpeengineering/virtualpytest'):
+        # Local development - check if local server is running
+        try:
+            response = requests.get("http://localhost:5109/health", timeout=2)
+            if response.status_code == 200:
+                return "http://localhost:5109"
+        except:
+            pass
+        
+        # Fallback to remote server if local not available
+        return "https://dev.virtualpytest.com"
+    
+    # Default to remote server
+    return "https://dev.virtualpytest.com"
 
 def test_validation_preview(tree_id: str, team_id: str, host_name: str) -> Dict[str, Any]:
     """
@@ -33,8 +64,8 @@ def test_validation_preview(tree_id: str, team_id: str, host_name: str) -> Dict[
     print("="*80)
     
     try:
-        # Build the validation preview URL
-        base_url = "http://localhost:5002"  # Backend server URL
+        # Build the validation preview URL - use remote server for testing
+        base_url = "https://dev.virtualpytest.com"  # Remote server URL
         url = f"{base_url}/server/validation/preview/{tree_id}"
         
         params = {
@@ -218,10 +249,11 @@ def main():
             print(f"   Exception Type: {result['exception_type']}")
         
         print("\n💡 Troubleshooting:")
-        print("   1. Make sure the backend server is running on localhost:5002")
+        print("   1. Make sure the remote server https://dev.virtualpytest.com is accessible")
         print("   2. Verify the horizon_android_mobile userinterface exists")
         print("   3. Check that the host 'sunri-pi1' is available")
         print("   4. Ensure the team_id is correct")
+        print("   5. Check network connectivity to the remote server")
     
     print("="*80)
     return result['success']
