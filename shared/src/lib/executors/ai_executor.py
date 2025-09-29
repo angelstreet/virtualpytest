@@ -885,20 +885,24 @@ When target node doesn't exist, use this pattern:
 {{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}}},
 {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "target_name", "remaining_goal": "find and click target_name", "action_type": "navigation"}}}}
 
-CRITICAL: You MUST include an "analysis" field explaining your reasoning.
+CRITICAL: You MUST include an "analysis" field with Goal and Thinking.
+
+Analysis format:
+- Goal: [What needs to be achieved]
+- Thinking: [Brief explanation of approach/reasoning]
 
 Example response formats:
 
 Direct navigation (exact node exists):
-{{"analysis": "Task requires navigating to home_replay. Since 'home_replay' node is available in the navigation list, I'll navigate there directly in one step.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate directly to home_replay"}}]}}
+{{"analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate directly to home_replay"}}]}}
 
 Navigation with reassessment (exact node doesn't exist):
-{{"analysis": "Task requires finding 'replay' but only 'home_replay' node exists. I'll navigate to 'home_replay' as the closest match, then use visual reassessment to locate the specific 'replay' element.", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate to closest node home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "Visually locate replay on screen"}}]}}
+{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate to closest node home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "Visually locate replay on screen"}}]}}
 
 If task is not possible:
-{{"analysis": "Task cannot be completed because no relevant navigation nodes exist and no visual reassessment can help.", "feasible": false, "plan": []}}
+{{"analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
 
-RESPOND WITH JSON ONLY. ANALYSIS FIELD IS REQUIRED"""
+RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."""
 
         # Log the full prompt for debugging
         print(f"[@ai_executor] AI Prompt (length: {len(ai_prompt)} chars):")

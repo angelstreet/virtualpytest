@@ -18,6 +18,7 @@ import {
 import { Host, Device } from '../../types/common/Host_Types';
 import { useAI } from '../../hooks/useAI';
 import { getZIndex } from '../../utils/zIndexUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 interface AIExecutionPanelProps {
   host: Host;
@@ -34,9 +35,13 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
 }) => {
   // Local state
   const [taskInput, setTaskInput] = useState('');
-  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false);
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(true); // Default to expanded
   // Controls whether to use cached AI plans for similar tasks (does not affect plan storage)
   const [useAIPlanCache, setUseAIPlanCache] = useState(true);
+  
+  // Navigation step expansion state
+  const [expandedNavSteps, setExpandedNavSteps] = useState<Set<number>>(new Set());
+  const [navPreviews, setNavPreviews] = useState<Map<number, any>>(new Map());
 
   // AI Agent hook
   const {
@@ -57,12 +62,12 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     mode: 'real-time'
   });
 
-  // Reset local state when new execution starts (simple reset)
+  // Auto-expand analysis when new plan arrives
   useEffect(() => {
-    if (isAIExecuting && !aiPlan) {
-      setIsAnalysisExpanded(false);
+    if (aiPlan && aiPlan.analysis) {
+      setIsAnalysisExpanded(true);
     }
-  }, [isAIExecuting, aiPlan]);
+  }, [aiPlan]);
 
   // DEBUG: Log plan changes
   useEffect(() => {
@@ -78,6 +83,49 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       });
     }
   }, [aiPlan, isPlanFeasible]);
+
+  // Toggle navigation step expansion and fetch preview if needed
+  const toggleNavStep = async (stepNumber: number, targetNode: string) => {
+    const isExpanded = expandedNavSteps.has(stepNumber);
+    
+    if (isExpanded) {
+      // Collapse
+      const newExpanded = new Set(expandedNavSteps);
+      newExpanded.delete(stepNumber);
+      setExpandedNavSteps(newExpanded);
+    } else {
+      // Expand - fetch preview if not already loaded
+      if (!navPreviews.has(stepNumber)) {
+        try {
+          // Get tree_id from userinterface lookup (horizon_android_mobile -> tree_id)
+          const interfaceResponse = await fetch(buildServerUrl('/server/navigation/getTreeIdForInterface'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userinterface_name: 'horizon_android_mobile' })
+          });
+          const interfaceData = await interfaceResponse.json();
+          const treeId = interfaceData.tree_id || 'default';
+          
+          const url = buildServerUrl(`/server/navigation/preview/${treeId}/${targetNode}`);
+          const params = new URLSearchParams({ host_name: host.host_name });
+          const response = await fetch(`${url}?${params}`);
+          const result = await response.json();
+          
+          if (result.success) {
+            const newPreviews = new Map(navPreviews);
+            newPreviews.set(stepNumber, result.transitions || []);
+            setNavPreviews(newPreviews);
+          }
+        } catch (error) {
+          console.error('[@AIExecutionPanel] Failed to fetch navigation preview:', error);
+        }
+      }
+      
+      const newExpanded = new Set(expandedNavSteps);
+      newExpanded.add(stepNumber);
+      setExpandedNavSteps(newExpanded);
+    }
+  };
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -281,9 +329,32 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                       mb: 1
                     }}
                   >
-                    <Typography variant="body2" sx={{ color: !isPlanFeasible ? '#ffffff' : '#cccccc' }}>
-                      {aiPlan.analysis}
-                    </Typography>
+                    {/* Format analysis with Goal and Thinking structure */}
+                    {aiPlan.analysis.includes('Goal:') && aiPlan.analysis.includes('Thinking:') ? (
+                      <Box>
+                        {aiPlan.analysis.split('\n').map((line, idx) => {
+                          if (line.startsWith('Goal:')) {
+                            return (
+                              <Typography key={idx} variant="body2" sx={{ color: '#ffffff', fontWeight: 'bold', mb: 0.5 }}>
+                                🎯 {line.replace('Goal:', '').trim()}
+                              </Typography>
+                            );
+                          } else if (line.startsWith('Thinking:')) {
+                            return (
+                              <Typography key={idx} variant="body2" sx={{ color: '#cccccc', fontSize: '0.85rem' }}>
+                                💭 {line.replace('Thinking:', '').trim()}
+                              </Typography>
+                            );
+                          }
+                          return null;
+                        })}
+                      </Box>
+                    ) : (
+                      // Fallback for legacy format
+                      <Typography variant="body2" sx={{ color: !isPlanFeasible ? '#ffffff' : '#cccccc' }}>
+                        {aiPlan.analysis}
+                      </Typography>
+                    )}
                   </Box>
                 )}
               </Box>
@@ -349,6 +420,15 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                       borderColor = 'transparent';
                     }
                     
+                    // Navigation step - show command/params only (no AI description)
+                    const isNavigation = step.command === 'execute_navigation';
+                    const displayText = isNavigation 
+                      ? `${step.command}(${step.params?.target_node || 'unknown'})`
+                      : step.description;
+                    
+                    const isExpanded = expandedNavSteps.has(step.stepNumber);
+                    const transitions = navPreviews.get(step.stepNumber) || [];
+                    
                     return (
                       <Box
                         key={`${aiPlan?.id || 'current'}-step-${step.stepNumber}-${index}`}
@@ -362,15 +442,59 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                       >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                           {statusIcon}
-                          <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                            {step.stepNumber}. {step.description}
+                          <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold', fontFamily: isNavigation ? 'monospace' : 'inherit', flex: 1 }}>
+                            {step.stepNumber}. {displayText}
                             {step.duration && ` (${step.duration.toFixed(1)}s)`}
                           </Typography>
+                          {isNavigation && (
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleNavStep(step.stepNumber, step.params?.target_node)}
+                              sx={{ color: '#aaa', p: 0.25 }}
+                            >
+                              {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                            </IconButton>
+                          )}
                         </Box>
-                        <Typography variant="caption" sx={{ color: '#aaa', display: 'block', ml: 2 }}>
-                          {step.type && `[${step.type}] `}{step.command}
-                          {step.params && Object.keys(step.params).length > 0 && ` | ${JSON.stringify(step.params)}`}
-                        </Typography>
+                        
+                        {/* Navigation transitions (when expanded) */}
+                        {isNavigation && isExpanded && transitions.length > 0 && (
+                          <Box sx={{ ml: 2, mt: 1, borderLeft: '2px solid #444', pl: 1 }}>
+                            {transitions.map((transition: any, tIdx: number) => (
+                              <Box key={tIdx} sx={{ mb: 1 }}>
+                                <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 'bold', display: 'block' }}>
+                                  {transition.from_node_label} → {transition.to_node_label}
+                                </Typography>
+                                {transition.actions?.map((action: any, aIdx: number) => {
+                                  const firstParam = action.params ? Object.values(action.params)[0] : '';
+                                  const paramStr = typeof firstParam === 'string' ? firstParam : JSON.stringify(firstParam);
+                                  return (
+                                    <Typography key={aIdx} variant="caption" sx={{ color: '#aaa', display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                                      - {action.command}({paramStr})
+                                    </Typography>
+                                  );
+                                })}
+                                {transition.verifications?.length > 0 && (
+                                  <Box sx={{ ml: 1, mt: 0.5 }}>
+                                    <Typography variant="caption" sx={{ color: '#888', fontSize: '0.65rem' }}>Verifications:</Typography>
+                                    {transition.verifications.map((verification: any, vIdx: number) => (
+                                      <Typography key={vIdx} variant="caption" sx={{ color: '#888', display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                                        - {verification.command} ({verification.verification_type})
+                                      </Typography>
+                                    ))}
+                                  </Box>
+                                )}
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                        
+                        {!isNavigation && (
+                          <Typography variant="caption" sx={{ color: '#aaa', display: 'block', ml: 2, fontFamily: 'monospace' }}>
+                            {step.command}
+                            {step.params && Object.keys(step.params).length > 0 && ` | ${JSON.stringify(step.params)}`}
+                          </Typography>
+                        )}
                       </Box>
                     );
                   })}
