@@ -73,12 +73,38 @@ class HeatmapProcessor:
         logger.info(f"🏷️ HeatmapProcessor server path: {self.server_path}")
     
     def _get_server_path(self) -> str:
-        """Get server path for R2 storage"""
+        """Get server path for R2 storage - use same URL as buildServerUrl for consistency"""
+        try:
+            # Load environment and use buildServerUrl to get the public-facing URL
+            from shared.src.lib.utils.app_utils import load_environment_variables
+            from shared.src.lib.utils.build_url_utils import buildServerUrl
+            
+            # Load environment to ensure proper URL resolution
+            load_environment_variables(mode='server')
+            
+            # Get the server URL that buildServerUrl would use (it builds full URLs)
+            # We just need the base, so we'll parse it from a sample URL
+            sample_url = buildServerUrl('test')  # e.g., "https://dev.virtualpytest.com/test?team_id=..."
+            
+            import re
+            match = re.search(r'://([^/?]+)', sample_url)
+            if match:
+                server_host = match.group(1)
+                server_path = f"server-{server_host.replace('.', '-').replace(':', '-')}"
+                logger.info(f"📍 Resolved server path from buildServerUrl: {server_path} (from {sample_url})")
+                return server_path
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Could not resolve server path from buildServerUrl: {e}")
+        
+        # Fallback to SERVER_URL env var
         server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
         import re
         match = re.search(r'://([^/]+)', server_url)
         if match:
-            return f"server-{match.group(1).replace('.', '-').replace(':', '-')}"
+            fallback_path = f"server-{match.group(1).replace('.', '-').replace(':', '-')}"
+            logger.warning(f"⚠️ Using fallback server path: {fallback_path}")
+            return fallback_path
         return "server-unknown"
         
     def start(self):
