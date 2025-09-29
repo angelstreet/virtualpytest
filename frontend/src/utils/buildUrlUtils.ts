@@ -159,9 +159,7 @@ const internalBuildHostUrl = (host: any, endpoint: string): string => {
       }
     }
     
-    const finalUrl = `${hostUrl}/${cleanEndpoint}`;
-    console.log(`[@buildUrlUtils] Built URL: ${host.host_name} + ${endpoint} -> ${finalUrl}`);
-    return finalUrl;
+    return `${hostUrl}/${cleanEndpoint}`;
   }
 
   throw new Error('Host must have either host_url or both host_ip and host_port');

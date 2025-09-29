@@ -189,9 +189,11 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
         # Get device-specific stream path
         stream_path = _get_device_stream_path(host_info, device_id)
         
-        # Return relative URL - browser will use current protocol (HTTPS) and host
-        # This avoids CORS and mixed content issues
-        return f"/host{stream_path}/output.m3u8"
+        # Use proper host_url with nginx proxy prefixes (e.g., https://virtualpytest.com/pi2)
+        # For static files (streams), use nginx (port 80) not Flask server port
+        host_url = _get_nginx_host_url(host_info)
+        
+        return f"{host_url}/host{stream_path}/output.m3u8"
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
