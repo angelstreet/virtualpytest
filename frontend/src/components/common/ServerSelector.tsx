@@ -1,7 +1,6 @@
 import React from 'react';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useHostManager } from '../../hooks/useHostManager';
-import { useDashboard } from '../../hooks/pages/useDashboard';
 
 interface ServerSelectorProps {
   size?: 'small' | 'medium';
@@ -16,8 +15,7 @@ export const ServerSelector: React.FC<ServerSelectorProps> = ({
   label = 'Server',
   variant = 'outlined'
 }) => {
-  const { selectedServer, setSelectedServer } = useHostManager();
-  const { serverHostsData } = useDashboard();
+  const { selectedServer, setSelectedServer, availableServers } = useHostManager();
 
   return (
     <FormControl size={size} sx={{ minWidth }} variant={variant}>
@@ -27,12 +25,12 @@ export const ServerSelector: React.FC<ServerSelectorProps> = ({
         label={label}
         onChange={(e) => setSelectedServer(e.target.value)}
       >
-        {serverHostsData.map((serverData) => (
+        {availableServers.map((serverUrl) => (
           <MenuItem 
-            key={serverData.server_info.server_url} 
-            value={serverData.server_info.server_url}
+            key={serverUrl} 
+            value={serverUrl}
           >
-            {serverData.server_info.server_name.replace('Server (', '').replace(')', '')}
+            {serverUrl.replace(/^https?:\/\//, '')}
           </MenuItem>
         ))}
       </Select>
