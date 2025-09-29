@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router-dom';
 
 import { useUserSession } from '../hooks/useUserSession';
+import { useServerManager } from '../hooks/useServerManager';
 import { Host, Device } from '../types/common/Host_Types';
-import { buildServerUrl, getAllServerUrls } from '../utils/buildUrlUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 import { HostManagerContext } from './HostManagerContext';
 
@@ -26,28 +27,8 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // STATE
   // ========================================
 
-  // Server selection state - memoize to prevent re-renders
-  const availableServers = useMemo(() => getAllServerUrls(), []);
-  const [selectedServer, setSelectedServerState] = useState<string>(() => {
-    // Initialize from localStorage if available, otherwise use first available server
-    const servers = getAllServerUrls();
-    try {
-      const saved = localStorage.getItem('selectedServer');
-      return saved && servers.includes(saved) ? saved : servers[0] || '';
-    } catch {
-      return servers[0] || '';
-    }
-  });
-
-  // Wrapper to persist server selection to localStorage
-  const setSelectedServer = useCallback((serverUrl: string) => {
-    setSelectedServerState(serverUrl);
-    try {
-      localStorage.setItem('selectedServer', serverUrl);
-    } catch (error) {
-      console.warn('Failed to save selected server to localStorage:', error);
-    }
-  }, []);
+  // Get server selection from ServerManager (now centralized)
+  const { selectedServer, availableServers, setSelectedServer } = useServerManager();
 
   // Host data state
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);

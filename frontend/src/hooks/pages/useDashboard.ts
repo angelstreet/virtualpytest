@@ -1,23 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getAllServerUrls, buildServerUrlForServer, buildSelectedServerUrl } from '../../utils/buildUrlUtils';
-import { useHostManager } from '../useHostManager';
+import { buildSelectedServerUrl } from '../../utils/buildUrlUtils';
+import { useServerManager } from '../useServerManager';
 import { TestCase, Campaign, Tree } from '../../types';
-import { Host } from '../../types/common/Host_Types';
 import { DashboardStats, RecentActivity } from '../../types/pages/Dashboard_Types';
-
-export interface ServerHostData {
-  server_info: { 
-    server_name: string; 
-    server_url: string; 
-    server_port: string; 
-  };
-  hosts: Host[];
-}
 
 export interface UseDashboardReturn {
   // Data
   stats: DashboardStats;
-  serverHostsData: ServerHostData[];
   
   // Loading states
   loading: boolean;
@@ -29,7 +18,7 @@ export interface UseDashboardReturn {
 }
 
 export const useDashboard = (): UseDashboardReturn => {
-  const { selectedServer } = useHostManager();
+  const { selectedServer } = useServerManager();
   const [stats, setStats] = useState<DashboardStats>({
     testCases: 0,
     campaigns: 0,
@@ -37,7 +26,6 @@ export const useDashboard = (): UseDashboardReturn => {
     recentActivity: [],
   });
   
-  const [serverHostsData, setServerHostsData] = useState<ServerHostData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
@@ -63,9 +51,6 @@ export const useDashboard = (): UseDashboardReturn => {
       setLoading(true);
       setError(null);
       
-      // Get all configured server URLs
-      const serverUrls = getAllServerUrls();
-      
       // Don't proceed if no selected server yet
       if (!selectedServerRef.current) {
         console.log('[@useDashboard] No selected server yet, skipping fetch');
@@ -74,34 +59,7 @@ export const useDashboard = (): UseDashboardReturn => {
         return;
       }
       
-      // Fetch from all servers in parallel
-      const serverDataPromises = serverUrls.map(async (serverUrl) => {
-        try {
-          const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'));
-          if (response.ok) {
-            const data = await response.json();
-            // Use backend's SERVER_NAME but clean up the URL (remove protocol/port for display)
-            const urlParts = new URL(serverUrl);
-            const cleanUrl = serverUrl.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
-            return {
-              server_info: {
-                server_name: data.server_info?.server_name || 'Unknown Server',
-                server_url: cleanUrl,
-                server_port: urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80')
-              },
-              hosts: data.hosts || []
-            };
-          }
-        } catch (error) {
-          console.error(`Failed to fetch from ${serverUrl}:`, error);
-        }
-        return null;
-      });
-      
-      const serverHostsData = (await Promise.all(serverDataPromises)).filter(Boolean) as ServerHostData[];
-      setServerHostsData(serverHostsData);
-      
-      // Continue with existing logic for campaigns, testcases, trees using selected server
+      // Fetch campaigns, testcases, trees using selected server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch(buildSelectedServerUrl('/server/campaigns/getAllCampaigns', selectedServerRef.current)),
         fetch(buildSelectedServerUrl('/server/testcases/getAllTestCases', selectedServerRef.current)),
@@ -181,7 +139,6 @@ export const useDashboard = (): UseDashboardReturn => {
   return {
     // Data
     stats,
-    serverHostsData,
     
     // Loading states
     loading,

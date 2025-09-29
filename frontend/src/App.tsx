@@ -10,6 +10,7 @@ import { ServerSelector } from './components/common/ServerSelector';
 import ThemeToggle from './components/common/ThemeToggle';
 import { MCPTaskInput } from './components/mcp/MCPTaskInput';
 import { HostManagerProvider } from './contexts/HostManagerProvider';
+import { ServerManagerProvider } from './contexts/ServerManagerProvider';
 import { ToastProvider } from './contexts/ToastContext';
 
 // Lazy load all pages for better performance and to avoid loading everything at once
@@ -133,8 +134,9 @@ const App: React.FC = () => {
   return (
         <Router basename={getBasename()}>
       <ToastProvider>
-        <HostManagerProvider>
-          <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <ServerManagerProvider>
+          <HostManagerProvider>
+            <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <AppBar position="static" elevation={1}>
               <Toolbar>
                 <Science sx={{ mr: 2 }} />
@@ -233,7 +235,8 @@ const App: React.FC = () => {
 
             <Footer />
           </Box>
-        </HostManagerProvider>
+          </HostManagerProvider>
+        </ServerManagerProvider>
       </ToastProvider>
     </Router>
   );

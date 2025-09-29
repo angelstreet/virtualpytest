@@ -51,16 +51,22 @@ import {
 } from '@mui/material';
 
 import { useHostManager } from '../hooks/useHostManager';
+import { useServerManager } from '../hooks/useServerManager';
 import { useRec } from '../hooks/pages/useRec';
 import { useDashboard } from '../hooks/pages/useDashboard';
 import { Host } from '../types/common/Host_Types';
 import { ViewMode } from '../types/pages/Dashboard_Types';
 
 const Dashboard: React.FC = () => {
-  const { getAllHosts, availableServers, selectedServer, setSelectedServer } = useHostManager();
+  const { getAllHosts } = useHostManager();
+  const { availableServers, selectedServer, setSelectedServer, serverHostsData, isLoading: serverLoading, error: serverError } = useServerManager();
   const availableHosts = useMemo(() => getAllHosts(), [getAllHosts]);
   const { restartStreams, isRestarting } = useRec();
-  const { stats, serverHostsData, loading, error } = useDashboard();
+  const { stats, loading: statsLoading, error: statsError } = useDashboard();
+  
+  // Combine loading and error states
+  const loading = serverLoading || statsLoading;
+  const error = serverError || statsError;
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   
   // Memoize the resolved server value to avoid computation on every render
@@ -680,7 +686,7 @@ const Dashboard: React.FC = () => {
                       }
                     }}
                   >
-                    {serverData.server_info.server_name} - {serverData.server_info.server_url}
+                    {serverData.server_info.server_name} - {serverData.server_info.server_url_display}
                   </MenuItem>
                 );
               })}
@@ -890,7 +896,7 @@ const Dashboard: React.FC = () => {
               >
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                   <Typography variant="h6">
-                    Server: {serverData.server_info.server_name} - {serverData.server_info.server_url}
+                    Server: {serverData.server_info.server_name} - {serverData.server_info.server_url_display}
                   </Typography>
                   <Box display="flex" alignItems="center" gap={2}>
                     <Chip 
