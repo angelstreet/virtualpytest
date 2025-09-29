@@ -53,7 +53,7 @@ def buildHostUrl(host_info: dict, endpoint: str) -> str:
         
     Example:
         buildHostUrl(host_data, '/host/av/takeScreenshot')
-        -> 'https://virtualpytest.com/host/av/takeScreenshot'
+        -> 'http://192.168.1.34:6109/host/av/takeScreenshot' (HTTP for internal communication)
     """
     if not host_info:
         raise ValueError("host_info is required for buildHostUrl")
@@ -62,6 +62,12 @@ def buildHostUrl(host_info: dict, endpoint: str) -> str:
     host_base_url = host_info.get('host_url')
     if not host_base_url:
         raise ValueError(f"Host missing host_url: {host_info.get('host_name', 'unknown')}")
+    
+    # Convert HTTPS to HTTP for internal server-to-server communication
+    # This avoids SSL certificate issues while keeping frontend-to-backend HTTPS
+    if host_base_url.startswith('https://'):
+        host_base_url = host_base_url.replace('https://', 'http://', 1)
+        print(f"🔄 [buildHostUrl] Converting HTTPS to HTTP for internal communication: {host_info.get('host_url')} -> {host_base_url}")
     
     # Clean endpoint
     clean_endpoint = endpoint.lstrip('/')
