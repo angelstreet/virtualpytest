@@ -108,7 +108,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     }
   }, []);
 
-  // Auto-load hosts on mount
+  // Auto-load hosts on mount and when server changes
   useEffect(() => {
     const loadHostsOnMount = async () => {
       // Prevent duplicate calls in React Strict Mode
@@ -133,7 +133,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     };
 
     loadHostsOnMount();
-  }, [loadHosts]);
+  }, [loadHosts, selectedServer]); // ✅ Added selectedServer dependency
 
   // ========================================
   // DIRECT DATA ACCESS FUNCTIONS
