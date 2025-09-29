@@ -131,17 +131,27 @@ def setup_flask_app(app_name="VirtualPyTest"):
     
     app.secret_key = secret_key
 
-    # Configure CORS for development
+    # Configure CORS for development and production
+    # Allow specific origins to prevent duplicate header issues with nginx
+    allowed_origins = [
+        "https://dev.virtualpytest.com",
+        "https://virtualpytest.com", 
+        "https://www.virtualpytest.com",
+        "http://localhost:5073",  # Local development
+        "https://localhost:5073",  # Local development with SSL
+        "https://192.168.1.34:5073"
+    ]
+    
     CORS(app, 
-         origins="*",
+         origins=allowed_origins,
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         allow_headers=["Content-Type", "Authorization", "Accept"],
+         allow_headers=["Content-Type", "Authorization", "Accept", "DNT", "User-Agent", "X-Requested-With", "If-Modified-Since", "Cache-Control"],
          supports_credentials=False
     )
 
     # Add WebSocket support for async task notifications
     from flask_socketio import SocketIO
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading', path='/server/socket.io')
+    socketio = SocketIO(app, cors_allowed_origins=allowed_origins, async_mode='threading', path='/server/socket.io')
     app.socketio = socketio
 
     return app
