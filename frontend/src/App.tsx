@@ -122,8 +122,16 @@ const LoadingSpinner: React.FC = () => (
 );
 
 const App: React.FC = () => {
+  // Detect if app is running under a proxy path (e.g., /pi4/)
+  // Check if current path starts with /piX/ pattern
+  const getBasename = () => {
+    const path = window.location.pathname;
+    const proxyMatch = path.match(/^\/(pi\d+|mac)\//);
+    return proxyMatch ? proxyMatch[0].slice(0, -1) : '';  // Return /pi4 (without trailing slash)
+  };
+  
   return (
-        <Router>
+        <Router basename={getBasename()}>
       <ToastProvider>
         <HostManagerProvider>
           <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
