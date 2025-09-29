@@ -193,10 +193,10 @@ export default defineConfig({
       origin: true, // Allow all origins in development
       credentials: true, // Allow cookies to be sent with requests
     },
-    // Add headers to support embedding in iframes
+    // Add headers to support embedding in iframes and mixed content
     headers: {
       'X-Frame-Options': 'SAMEORIGIN',
-      'Content-Security-Policy': "frame-ancestors 'self' http://localhost:3000 https://localhost:3000",
+      'Content-Security-Policy': "frame-ancestors 'self' http://localhost:3000 https://localhost:3000 https://dev.virtualpytest.com https://virtualpytest.com; upgrade-insecure-requests",
     },
   },
   // Configure build for proper SPA handling
