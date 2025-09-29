@@ -150,15 +150,18 @@ const internalBuildHostUrl = (host: any, endpoint: string): string => {
   if (host.host_url) {
     let hostUrl = host.host_url;
     
-    // For static files (images, streams), strip port for local IPs to use nginx
+    // For static files (images, streams), strip port ONLY for direct local IP addresses
+    // This logic is not needed when hosts register with proper nginx proxy URLs
     if (endpoint.includes('host/stream/') || endpoint.includes('host/captures/')) {
-      const isLocalIp = hostUrl.includes('192.168.') || hostUrl.includes('10.') || hostUrl.includes('127.0.0.1');
-      if (isLocalIp && hostUrl.includes(':')) {
+      const isDirectLocalIp = hostUrl.match(/^https?:\/\/(192\.168\.|10\.|127\.0\.0\.1)/);
+      if (isDirectLocalIp && hostUrl.includes(':')) {
         hostUrl = hostUrl.replace(/:\d+$/, '');
       }
     }
     
-    return `${hostUrl}/${cleanEndpoint}`;
+    const finalUrl = `${hostUrl}/${cleanEndpoint}`;
+    console.log(`[@buildUrlUtils] Built URL: ${host.host_name} + ${endpoint} -> ${finalUrl}`);
+    return finalUrl;
   }
 
   throw new Error('Host must have either host_url or both host_ip and host_port');
