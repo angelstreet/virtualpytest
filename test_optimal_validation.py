@@ -170,11 +170,11 @@ def main():
     print("Testing cross-tree navigation details in validation preview")
     print("="*80)
     
-    # Test configuration
+    # Test configuration - CORRECTED VALUES
     test_config = {
-        'tree_id': 'horizon_android_mobile',  # The userinterface to test
+        'tree_id': 'bbf2d95d-72c2-4701-80a7-0b9d131a5c38',  # The actual tree ID (not userinterface name)
         'team_id': '7fdeb4bb-3639-4ec3-959f-b54769a219ce',  # Default team ID
-        'host_name': 'sunri-pi1'  # Host name from the logs
+        'host_name': 'sunri-pi2'  # Corrected: sunri-pi1 doesn't exist, use sunri-pi2
     }
     
     print(f"🎯 Test Configuration:")
