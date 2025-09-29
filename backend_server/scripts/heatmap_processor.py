@@ -83,24 +83,19 @@ class HeatmapProcessor:
         # Try VITE_SERVER_URL first (public URL - same as frontend uses)
         vite_server_url = os.getenv('VITE_SERVER_URL', '').strip()
         if vite_server_url:
-            match = re.search(r'://([^/?]+)', vite_server_url)
-            if match:
-                domain = match.group(1)
-                server_path = domain.replace('.', '-').replace(':', '-')
-                logger.info(f"📍 Using VITE_SERVER_URL: {vite_server_url} → {server_path}")
-                return server_path
+            # Remove protocol and replace all special chars (. : /) with -
+            without_protocol = re.sub(r'^https?://', '', vite_server_url)
+            server_path = re.sub(r'[.:/]', '-', without_protocol)
+            logger.info(f"📍 Using VITE_SERVER_URL: {vite_server_url} → {server_path}")
+            return server_path
         
         # Fallback to SERVER_URL if VITE_SERVER_URL not set
         logger.warning(f"⚠️ VITE_SERVER_URL not found in .env, falling back to SERVER_URL")
         server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
-        match = re.search(r'://([^/?]+)', server_url)
-        if match:
-            domain = match.group(1)
-            fallback_path = domain.replace('.', '-').replace(':', '-')
-            logger.warning(f"⚠️ Using SERVER_URL: {server_url} → {fallback_path}")
-            return fallback_path
-        
-        return "server-unknown"
+        without_protocol = re.sub(r'^https?://', '', server_url)
+        server_path = re.sub(r'[.:/]', '-', without_protocol)
+        logger.info(f"📍 Using SERVER_URL fallback: {server_url} → {server_path}")
+        return server_path
         
     def start(self):
         """Start continuous processing every minute"""
