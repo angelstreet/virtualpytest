@@ -711,6 +711,12 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
     # Adjust step number for the actual validation step
     actual_step_number = step_number + len(forced_steps)
     
+    # Add cross-tree detection logic
+    transition_type = edge_data.get('edge_type', 'NORMAL')
+    from_tree_id = from_info.get('tree_id', '')
+    to_tree_id = to_info.get('tree_id', '')
+    tree_context_change = from_tree_id != to_tree_id
+    
     validation_step = {
         'step_number': actual_step_number,
         'step_type': step_type,
@@ -731,7 +737,12 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         'finalWaitTime': edge_data.get('finalWaitTime', 2000),
         'edge_id': edge_data.get('edge_id', 'unknown'),
         'transition_direction': 'return' if 'return' in step_type else 'forward',  # Track direction
-        'description': f"Validate transition: {from_info.get('label', from_node)} → {to_info.get('label', to_node)}"
+        'description': f"Validate transition: {from_info.get('label', from_node)} → {to_info.get('label', to_node)}",
+        # Add cross-tree metadata
+        'transition_type': transition_type,
+        'tree_context_change': tree_context_change,
+        'from_tree_id': from_tree_id,
+        'to_tree_id': to_tree_id
     }
     
     return forced_steps, validation_step
