@@ -63,6 +63,29 @@ const Dashboard: React.FC = () => {
   const { stats, serverHostsData, loading, error } = useDashboard();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   
+  // Memoize the resolved server value to avoid computation on every render
+  const resolvedSelectedServer = useMemo(() => {
+    // If selectedServer doesn't match any MenuItem value, find the best match
+    const hasExactMatch = serverHostsData.some(serverData => 
+      serverData.server_info.server_url === selectedServer
+    );
+    
+    if (hasExactMatch) {
+      return selectedServer;
+    }
+    
+    // Find a matching server by comparing normalized URLs
+    const normalizeUrl = (url: string) => url.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
+    const normalizedSelected = normalizeUrl(selectedServer);
+    
+    const matchingServer = serverHostsData.find(serverData => {
+      const normalizedServerUrl = normalizeUrl(serverData.server_info.server_url);
+      return normalizedSelected === normalizedServerUrl;
+    });
+    
+    return matchingServer ? matchingServer.server_info.server_url : '';
+  }, [selectedServer, serverHostsData]);
+  
   // System control loading states
   const [isRestartingService, setIsRestartingService] = useState(false);
   const [isRebooting, setIsRebooting] = useState(false);
@@ -628,27 +651,7 @@ const Dashboard: React.FC = () => {
         <FormControl size="small" sx={{ minWidth: 300 }}>
           <InputLabel>Primary Server</InputLabel>
           <Select
-            value={(() => {
-              // If selectedServer doesn't match any MenuItem value, find the best match
-              const hasExactMatch = serverHostsData.some(serverData => 
-                serverData.server_info.server_url === selectedServer
-              );
-              
-              if (hasExactMatch) {
-                return selectedServer;
-              }
-              
-              // Find a matching server by comparing normalized URLs
-              const normalizeUrl = (url: string) => url.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
-              const normalizedSelected = normalizeUrl(selectedServer);
-              
-              const matchingServer = serverHostsData.find(serverData => {
-                const normalizedServerUrl = normalizeUrl(serverData.server_info.server_url);
-                return normalizedSelected === normalizedServerUrl;
-              });
-              
-              return matchingServer ? matchingServer.server_info.server_url : '';
-            })()}
+            value={resolvedSelectedServer}
             label="Primary Server"
             onChange={(e) => setSelectedServer(e.target.value)}
           >
