@@ -319,10 +319,47 @@ def start_server(app):
     debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
     server_url = os.getenv('SERVER_URL', f'http://localhost:{server_port}')
     
+    # SSL/HTTPS Configuration - Auto-detect certificates
+    ssl_context = None
+    
+    # Get user home directory dynamically
+    user_home = os.path.expanduser('~')
+    
+    cert_paths = [
+        # User-specific certificate paths (dynamic)
+        (f'{user_home}/vite-certs/fullchain.pem', f'{user_home}/vite-certs/privkey.pem'),
+        (f'{user_home}/.ssl/cert.pem', f'{user_home}/.ssl/key.pem'),
+        # Project-relative certificate paths
+        ('cert.pem', 'key.pem'),
+        ('ssl/cert.pem', 'ssl/key.pem'),
+        ('certs/cert.pem', 'certs/key.pem'),
+        # Environment-specific paths
+        (os.getenv('SSL_CERT_PATH', ''), os.getenv('SSL_KEY_PATH', '')),
+        # System certificate paths
+        ('/etc/ssl/certs/server.crt', '/etc/ssl/private/server.key')
+    ]
+    
+    for cert_path, key_path in cert_paths:
+        # Skip empty paths from environment variables
+        if not cert_path or not key_path:
+            continue
+        if os.path.exists(cert_path) and os.path.exists(key_path):
+            ssl_context = (cert_path, key_path)
+            print(f"[@backend_server:start] ✅ SSL certificates found: {cert_path}")
+            break
+    
+    # Determine if we should use HTTPS based on SERVER_URL or certificate availability
+    use_https = server_url.startswith('https://') or ssl_context is not None
+    
     print(f"[@backend_server:start] Server Information:")
     print(f"[@backend_server:start]    Server URL: {server_url}")
     print(f"[@backend_server:start]    Server Port: {server_port}")
     print(f"[@backend_server:start]    Debug Mode: {debug_mode}")
+    print(f"[@backend_server:start]    HTTPS Mode: {use_https}")
+    if ssl_context:
+        print(f"[@backend_server:start]    SSL Certificate: {ssl_context[0]}")
+    else:
+        print(f"[@backend_server:start]    SSL Certificate: None (HTTP mode)")
     
     print("[@backend_server:start] 🎉 backend_server ready!")
     print(f"[@backend_server:start] 🚀 Starting API server on port {server_port} with SocketIO support")
@@ -413,6 +450,7 @@ def start_server(app):
                     host='0.0.0.0', 
                     port=server_port, 
                     debug=debug_mode,
+                    ssl_context=ssl_context,
                     allow_unsafe_werkzeug=True,
                     log_output=True,
                     use_reloader=False)

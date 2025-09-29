@@ -7,10 +7,67 @@ import { defineConfig } from 'vite';
 const serverUrl = process.env.VITE_SERVER_URL || 'http://localhost:5109';
 const shouldUseHttps = serverUrl.startsWith('https://');
 
-// Certificate paths (only used if HTTPS is needed)
-const certPath = '/home/sunri-pi1/vite-certs/fullchain.pem';
-const keyPath = '/home/sunri-pi1/vite-certs/privkey.pem';
-const hasCertificates = fs.existsSync(certPath) && fs.existsSync(keyPath);
+// Get user home directory dynamically
+const userHome = process.env.HOME || process.env.USERPROFILE || process.cwd();
+
+// Certificate paths - check multiple locations
+const certificatePaths = [
+  // User-specific certificate paths (dynamic)
+  {
+    cert: `${userHome}/vite-certs/fullchain.pem`,
+    key: `${userHome}/vite-certs/privkey.pem`
+  },
+  {
+    cert: `${userHome}/.ssl/cert.pem`,
+    key: `${userHome}/.ssl/key.pem`
+  },
+  // Project-relative certificate paths
+  {
+    cert: 'cert.pem',
+    key: 'key.pem'
+  },
+  {
+    cert: 'ssl/cert.pem',
+    key: 'ssl/key.pem'
+  },
+  {
+    cert: 'certs/cert.pem',
+    key: 'certs/key.pem'
+  },
+  // Environment-specific paths
+  {
+    cert: process.env.SSL_CERT_PATH || '',
+    key: process.env.SSL_KEY_PATH || ''
+  },
+  // System certificate paths
+  {
+    cert: '/etc/ssl/certs/server.crt',
+    key: '/etc/ssl/private/server.key'
+  }
+];
+
+// Find available certificates
+let certPath = '';
+let keyPath = '';
+let hasCertificates = false;
+
+for (const paths of certificatePaths) {
+  // Skip empty paths from environment variables
+  if (!paths.cert || !paths.key) {
+    continue;
+  }
+  if (fs.existsSync(paths.cert) && fs.existsSync(paths.key)) {
+    certPath = paths.cert;
+    keyPath = paths.key;
+    hasCertificates = true;
+    console.log(`✅ SSL certificates found: ${certPath}`);
+    break;
+  }
+}
+
+if (shouldUseHttps && !hasCertificates) {
+  console.log('⚠️ HTTPS requested but no certificates found - Vite will generate self-signed certificates');
+}
 
 // Kill any process using port 5073 synchronously
 const killPort5073 = () => {
