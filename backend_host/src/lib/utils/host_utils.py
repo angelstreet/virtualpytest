@@ -225,14 +225,21 @@ def register_host_with_server():
         # Get enhanced system stats for registration
         system_stats = get_enhanced_system_stats()
         
-        # Get HOST_URL from environment variable instead of constructing it
+        # Get HOST_URL from environment variable (for browser/frontend access via nginx)
         host_url = os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
-        print(f"   Registration URL: {host_url} (from HOST_URL env var)")
+        
+        # Get HOST_API_URL for direct server-to-server communication (HTTP, no SSL)
+        # This allows servers to bypass nginx and talk directly to each other
+        host_api_url = os.getenv('HOST_API_URL', f"http://{host.host_ip}:{host.host_port}")
+        
+        print(f"   Browser URL (via nginx): {host_url}")
+        print(f"   API URL (direct): {host_api_url}")
         
         # Create registration payload
         registration_data = {
             'host_name': host.host_name,
-            'host_url': host_url,  # Use environment variable directly
+            'host_url': host_url,  # For browser: HTTPS via nginx proxy
+            'host_api_url': host_api_url,  # For server: HTTP direct connection
             'host_port': host.host_port,
             'host_ip': host.host_ip,
             'device_count': host.get_device_count(),

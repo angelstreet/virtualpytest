@@ -42,45 +42,36 @@ def _get_nginx_host_url(host_info: dict) -> str:
 
 def buildHostUrl(host_info: dict, endpoint: str) -> str:
     """
-    Core URL builder - Build URLs for host API endpoints using provided host data
+    Build URL for SERVER-TO-SERVER API calls to host
+    
+    This function is used by backend servers to call host APIs directly.
+    It uses host_api_url (HTTP direct connection) instead of host_url (HTTPS via nginx).
     
     Args:
-        host_info: Complete host information (from frontend or direct data)
+        host_info: Complete host information (from registration)
         endpoint: The endpoint path to append
         
     Returns:
-        Complete URL to the host API endpoint
+        Complete URL to the host API endpoint for direct server-to-server communication
         
-    Example:
+    Examples:
+        # Same network (direct HTTP):
         buildHostUrl(host_data, '/host/av/takeScreenshot')
-        -> 'http://192.168.1.34:6109/host/av/takeScreenshot' (HTTP for internal communication)
+        -> 'http://192.168.1.34:6109/host/av/takeScreenshot'
+        
+        # Different networks (HTTPS):
+        buildHostUrl(host_data, '/host/av/takeScreenshot')
+        -> 'https://remote-host.com/host/av/takeScreenshot'
     """
     if not host_info:
         raise ValueError("host_info is required for buildHostUrl")
     
-    # Use host_url from provided host data (modern approach)
-    host_base_url = host_info.get('host_url')
-    if not host_base_url:
-        raise ValueError(f"Host missing host_url: {host_info.get('host_name', 'unknown')}")
+    # Prefer host_api_url for server-to-server communication (direct, HTTP)
+    # Falls back to host_url if host_api_url not available (backward compatibility)
+    host_base_url = host_info.get('host_api_url') or host_info.get('host_url')
     
-    # Convert HTTPS to HTTP for LOCAL network communication only
-    # This avoids SSL certificate issues for local servers while keeping HTTPS for remote servers
-    if host_base_url.startswith('https://') and _is_local_network_host(host_base_url):
-        original_url = host_base_url
-        host_base_url = host_base_url.replace('https://', 'http://', 1)
-        
-        # Also convert HTTPS port (443) to HTTP port if present
-        if ':443' in host_base_url:
-            # Replace :443 with the appropriate HTTP port
-            # For host services, typically port 6109 (not 443)
-            host_base_url = host_base_url.replace(':443', ':6109')
-        elif host_base_url.endswith(':443/') or '/443/' in host_base_url:
-            # Handle cases where 443 appears in different positions
-            host_base_url = host_base_url.replace(':443/', ':6109/')
-            
-        print(f"🔄 [buildHostUrl] Converting HTTPS to HTTP for LOCAL network: {original_url} -> {host_base_url}")
-    elif host_base_url.startswith('https://'):
-        print(f"🌐 [buildHostUrl] Keeping HTTPS for REMOTE server: {host_base_url}")
+    if not host_base_url:
+        raise ValueError(f"Host missing host_api_url and host_url: {host_info.get('host_name', 'unknown')}")
     
     # Clean endpoint
     clean_endpoint = endpoint.lstrip('/')
@@ -237,18 +228,21 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
-    Build URL for any image stored on the host (nginx-served, not Flask)
+    Build URL for BROWSER to access images stored on host (nginx-served, not Flask)
+    
+    This function is used by frontend/browser to fetch static files (images, videos).
+    It uses host_url (HTTPS via nginx proxy) instead of host_api_url (direct HTTP).
     
     Args:
         host_info: Host information from registry
         image_path: Relative or absolute image path on host
         
     Returns:
-        Complete URL to host-served image
+        Complete URL to host-served image for browser access via nginx
         
     Example:
         buildHostImageUrl(host_info, '/stream/captures/screenshot.jpg')
-        -> 'https://host/host/stream/captures/screenshot.jpg'
+        -> 'https://dev.virtualpytest.com/pi4-server/host/stream/captures/screenshot.jpg'
     """
     # Handle absolute paths by converting to relative
     if image_path.startswith('/var/www/html/'):
@@ -257,7 +251,7 @@ def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     # Ensure path doesn't start with /
     clean_path = image_path.lstrip('/')
     
-    # For static files (images), use nginx (port 80) not Flask server port
+    # For static files (images), use host_url (browser access via nginx)
     host_url = _get_nginx_host_url(host_info)
     
     return f"{host_url}/host/{clean_path}"
