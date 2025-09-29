@@ -189,13 +189,9 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
         # Get device-specific stream path
         stream_path = _get_device_stream_path(host_info, device_id)
         
-        # For local IPs, strip port (nginx serves streams)
-        host_url = host_info.get('host_url', '')
-        if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
-            host_url = _get_nginx_host_url(host_info)
-            return f"{host_url}/host{stream_path}/output.m3u8"
-        
-        return buildHostUrl(host_info, f'host{stream_path}/output.m3u8')
+        # Return relative URL - browser will use current protocol (HTTPS) and host
+        # This avoids CORS and mixed content issues
+        return f"/host{stream_path}/output.m3u8"
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
