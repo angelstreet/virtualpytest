@@ -37,29 +37,14 @@
  * @returns Complete URL to backend server endpoint with team_id
  */
 export const buildServerUrl = (endpoint: string): string => {
-  // Auto-detect local server usage based on current window location
+  // Try to get selected server from localStorage first, fallback to env variable
   let serverUrl: string;
-  
   try {
-    // Check if we're running on a local IP address
-    const currentHost = window.location.hostname;
-    const currentOrigin = window.location.origin;
-    
-    // If accessing via local IP, use local server
-    if (currentHost.match(/^192\.168\.\d+\.\d+$/) || currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      // Use the same origin but with /server path for local access
-      serverUrl = currentOrigin;
-      console.log(`[@buildServerUrl] Auto-detected local server access: ${serverUrl}`);
-    } else {
-      // For remote access, try localStorage first, then env variable
-      const selectedServer = localStorage.getItem('selectedServer');
-      serverUrl = selectedServer || (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
-      console.log(`[@buildServerUrl] Using configured server: ${serverUrl}`);
-    }
+    const selectedServer = localStorage.getItem('selectedServer');
+    serverUrl = selectedServer || (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
   } catch {
-    // Fallback if window is not available (SSR) or other errors
+    // Fallback if localStorage is not available
     serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
-    console.log(`[@buildServerUrl] Fallback server: ${serverUrl}`);
   }
   
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
