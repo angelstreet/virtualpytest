@@ -63,11 +63,24 @@ def buildHostUrl(host_info: dict, endpoint: str) -> str:
     if not host_base_url:
         raise ValueError(f"Host missing host_url: {host_info.get('host_name', 'unknown')}")
     
-    # Convert HTTPS to HTTP for internal server-to-server communication
-    # This avoids SSL certificate issues while keeping frontend-to-backend HTTPS
-    if host_base_url.startswith('https://'):
+    # Convert HTTPS to HTTP for LOCAL network communication only
+    # This avoids SSL certificate issues for local servers while keeping HTTPS for remote servers
+    if host_base_url.startswith('https://') and _is_local_network_host(host_base_url):
+        original_url = host_base_url
         host_base_url = host_base_url.replace('https://', 'http://', 1)
-        print(f"🔄 [buildHostUrl] Converting HTTPS to HTTP for internal communication: {host_info.get('host_url')} -> {host_base_url}")
+        
+        # Also convert HTTPS port (443) to HTTP port if present
+        if ':443' in host_base_url:
+            # Replace :443 with the appropriate HTTP port
+            # For host services, typically port 6109 (not 443)
+            host_base_url = host_base_url.replace(':443', ':6109')
+        elif host_base_url.endswith(':443/') or '/443/' in host_base_url:
+            # Handle cases where 443 appears in different positions
+            host_base_url = host_base_url.replace(':443/', ':6109/')
+            
+        print(f"🔄 [buildHostUrl] Converting HTTPS to HTTP for LOCAL network: {original_url} -> {host_base_url}")
+    elif host_base_url.startswith('https://'):
+        print(f"🌐 [buildHostUrl] Keeping HTTPS for REMOTE server: {host_base_url}")
     
     # Clean endpoint
     clean_endpoint = endpoint.lstrip('/')
@@ -298,6 +311,42 @@ def buildServerUrl(endpoint: str) -> str:
     clean_endpoint = endpoint.lstrip('/')
     
     return f"{server_url}/{clean_endpoint}"
+
+def _is_local_network_host(host_url: str) -> bool:
+    """
+    Check if a host URL is on the local network (should use HTTP instead of HTTPS)
+    
+    Args:
+        host_url: The host URL to check
+        
+    Returns:
+        True if the host is on local network, False if remote
+    """
+    import re
+    
+    # Extract hostname/IP from URL
+    match = re.search(r'://([^:/]+)', host_url)
+    if not match:
+        return False
+    
+    hostname = match.group(1).lower()
+    
+    # Local network patterns
+    local_patterns = [
+        r'^192\.168\.',      # 192.168.x.x (most common home/office networks)
+        r'^10\.',            # 10.x.x.x (corporate networks)
+        r'^172\.(1[6-9]|2[0-9]|3[0-1])\.',  # 172.16.x.x - 172.31.x.x (private networks)
+        r'^127\.',           # 127.x.x.x (localhost)
+        r'^localhost$',      # localhost
+        r'^.*\.local$',      # .local domains (mDNS)
+    ]
+    
+    # Check if hostname matches any local pattern
+    for pattern in local_patterns:
+        if re.match(pattern, hostname):
+            return True
+    
+    return False
 
 def _is_local_installation(server_url: str) -> bool:
     """
