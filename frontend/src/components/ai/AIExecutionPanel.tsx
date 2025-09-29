@@ -64,6 +64,21 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     }
   }, [isAIExecuting, aiPlan]);
 
+  // DEBUG: Log plan changes
+  useEffect(() => {
+    if (aiPlan) {
+      console.log('[@AIExecutionPanel] Plan updated:', {
+        id: aiPlan.id,
+        has_analysis: !!aiPlan.analysis,
+        analysis_length: aiPlan.analysis?.length || 0,
+        has_steps: !!aiPlan.steps,
+        steps_count: aiPlan.steps?.length || 0,
+        feasible: aiPlan.feasible,
+        isPlanFeasible: isPlanFeasible
+      });
+    }
+  }, [aiPlan, isPlanFeasible]);
+
   // Don't render if not visible
   if (!isVisible) return null;
 

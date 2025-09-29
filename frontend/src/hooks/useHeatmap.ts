@@ -53,11 +53,20 @@ export const useHeatmap = () => {
   // Get R2 base URL from environment
   const R2_BASE_URL = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
   
-  // Get server path for R2 URLs
-  const getServerPath = (serverUrl: string): string => {
-    if (!serverUrl) return 'server-unknown';
-    const match = serverUrl.match(/\/\/([^/]+)/);
-    return match ? `server-${match[1].replace(/\./g, '-').replace(/:/g, '-')}` : 'server-unknown';
+  // Get server path for R2 URLs using VITE_SERVER_URL (matches backend logic)
+  const getServerPath = (): string => {
+    // Use VITE_SERVER_URL directly (same source as backend)
+    const viteServerUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
+    if (!viteServerUrl) return 'server-unknown';
+    
+    // Extract domain and convert to path format (same as backend)
+    const match = viteServerUrl.match(/\/\/([^/?]+)/);
+    if (!match) return 'server-unknown';
+    
+    const domain = match[1];
+    const serverPath = domain.replace(/\./g, '-').replace(/:/g, '-');
+    console.log(`[@useHeatmap] Using VITE_SERVER_URL: ${viteServerUrl} → ${serverPath}`);
+    return serverPath;
   };
   
   
@@ -65,11 +74,9 @@ export const useHeatmap = () => {
    * Generate 24-hour timeline with predictable file names
    */
   const generateTimeline = (): TimelineItem[] => {
-    if (!selectedServer) return [];
-    
     const now = new Date();
     const items: TimelineItem[] = [];
-    const serverPath = getServerPath(selectedServer);
+    const serverPath = getServerPath();
     
     // Generate 1440 minutes (24 hours)
     for (let i = 0; i < 1440; i++) {

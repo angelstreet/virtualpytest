@@ -73,38 +73,33 @@ class HeatmapProcessor:
         logger.info(f"🏷️ HeatmapProcessor server path: {self.server_path}")
     
     def _get_server_path(self) -> str:
-        """Get server path for R2 storage - use same URL as buildServerUrl for consistency"""
-        try:
-            # Load environment and use buildServerUrl to get the public-facing URL
-            from shared.src.lib.utils.app_utils import load_environment_variables
-            from shared.src.lib.utils.build_url_utils import buildServerUrl
-            
-            # Load environment to ensure proper URL resolution
-            load_environment_variables(mode='server')
-            
-            # Get the server URL that buildServerUrl would use (it builds full URLs)
-            # We just need the base, so we'll parse it from a sample URL
-            sample_url = buildServerUrl('test')  # e.g., "https://dev.virtualpytest.com/test?team_id=..."
-            
-            import re
-            match = re.search(r'://([^/?]+)', sample_url)
-            if match:
-                server_host = match.group(1)
-                server_path = f"server-{server_host.replace('.', '-').replace(':', '-')}"
-                logger.info(f"📍 Resolved server path from buildServerUrl: {server_path} (from {sample_url})")
-                return server_path
-                
-        except Exception as e:
-            logger.warning(f"⚠️ Could not resolve server path from buildServerUrl: {e}")
+        """Get server path for R2 storage - use VITE_SERVER_URL (same as frontend)"""
+        # Load environment
+        from shared.src.lib.utils.app_utils import load_environment_variables
+        load_environment_variables(mode='server')
         
-        # Fallback to SERVER_URL env var
-        server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
         import re
-        match = re.search(r'://([^/]+)', server_url)
+        
+        # Try VITE_SERVER_URL first (public URL - same as frontend uses)
+        vite_server_url = os.getenv('VITE_SERVER_URL', '').strip()
+        if vite_server_url:
+            match = re.search(r'://([^/?]+)', vite_server_url)
+            if match:
+                domain = match.group(1)
+                server_path = domain.replace('.', '-').replace(':', '-')
+                logger.info(f"📍 Using VITE_SERVER_URL: {vite_server_url} → {server_path}")
+                return server_path
+        
+        # Fallback to SERVER_URL if VITE_SERVER_URL not set
+        logger.warning(f"⚠️ VITE_SERVER_URL not found in .env, falling back to SERVER_URL")
+        server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
+        match = re.search(r'://([^/?]+)', server_url)
         if match:
-            fallback_path = f"server-{match.group(1).replace('.', '-').replace(':', '-')}"
-            logger.warning(f"⚠️ Using fallback server path: {fallback_path}")
+            domain = match.group(1)
+            fallback_path = domain.replace('.', '-').replace(':', '-')
+            logger.warning(f"⚠️ Using SERVER_URL: {server_url} → {fallback_path}")
             return fallback_path
+        
         return "server-unknown"
         
     def start(self):

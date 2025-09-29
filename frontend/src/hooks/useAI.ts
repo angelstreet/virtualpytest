@@ -299,8 +299,24 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
           setExecutionStatus(status);
 
+          // DEBUG: Log the status response to see what we're getting
+          console.log('[@useAI] Status response received:', {
+            has_plan: !!status.plan,
+            plan_keys: status.plan ? Object.keys(status.plan) : [],
+            has_analysis: status.plan?.analysis ? true : false,
+            analysis_preview: status.plan?.analysis?.substring(0, 50),
+            execution_log_length: status.execution_log?.length || 0
+          });
+
           // Extract and set plan if available from status.plan (new backend format)
           if (!currentPlan && status.plan) {
+            console.log('[@useAI] Setting plan from status.plan:', {
+              id: status.plan.id,
+              has_analysis: !!status.plan.analysis,
+              has_steps: !!status.plan.steps,
+              steps_count: status.plan.steps?.length || 0,
+              feasible: status.plan.feasible
+            });
             setCurrentPlan(status.plan);
             const planToastKey = `plan-generated-${status.plan.id || 'unknown'}`;
             if (!shownToasts.current.has(planToastKey)) {
