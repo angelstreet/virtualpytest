@@ -203,11 +203,18 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
         # Get device-specific stream path
         stream_path = _get_device_stream_path(host_info, device_id)
         
-        # Use proper host_url with nginx proxy prefixes (e.g., https://virtualpytest.com/pi2)
-        # For static files (streams), use nginx (port 80) not Flask server port
-        host_url = _get_nginx_host_url(host_info)
+        # For local access, use relative URLs to avoid CORS and SSL overhead
+        # For remote access via nginx proxy, use absolute URLs with proper prefixes
+        host_url = host_info.get('host_url', '')
         
-        return f"{host_url}/host{stream_path}/output.m3u8"
+        # Check if this is a local IP access (direct to pi4)
+        if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
+            # Use relative URL for local access - much faster, no CORS issues
+            return f"/host{stream_path}/output.m3u8"
+        else:
+            # Use absolute URL with nginx proxy prefixes for remote access
+            nginx_host_url = _get_nginx_host_url(host_info)
+            return f"{nginx_host_url}/host{stream_path}/output.m3u8"
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
