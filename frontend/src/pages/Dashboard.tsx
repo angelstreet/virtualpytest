@@ -19,6 +19,7 @@ import {
   RestartAlt as RestartServiceIcon,
   PowerSettingsNew as RebootIcon,
   VideoSettings as RestartStreamIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -48,6 +49,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Drawer,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 
 import { useHostManager } from '../hooks/useHostManager';
@@ -58,6 +62,9 @@ import { Host } from '../types/common/Host_Types';
 import { ViewMode } from '../types/pages/Dashboard_Types';
 
 const Dashboard: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
   const { getAllHosts } = useHostManager();
   const { availableServers, selectedServer, setSelectedServer, serverHostsData, isLoading: serverLoading, error: serverError } = useServerManager();
   const availableHosts = useMemo(() => getAllHosts(), [getAllHosts]);
@@ -68,6 +75,10 @@ const Dashboard: React.FC = () => {
   const loading = serverLoading || statsLoading;
   const error = serverError || statsError;
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  
+  // Force grid view on mobile
+  const effectiveViewMode = isMobile ? 'grid' : viewMode;
   
   // Memoize the resolved server value to avoid computation on every render
   const resolvedSelectedServer = useMemo(() => {
@@ -290,12 +301,29 @@ const Dashboard: React.FC = () => {
 
   const renderHostCard = (host: Host) => (
     <Card variant="outlined" sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+      <CardContent 
+        sx={{ 
+          p: { xs: 1.5, md: 2 },
+          '&:last-child': { pb: { xs: 1.5, md: 2 } }
+        }}
+      >
         {/* Host Header */}
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
+        <Box 
+          display="flex" 
+          flexDirection={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between" 
+          gap={{ xs: 1, sm: 0 }}
+          mb={1.5}
+        >
           <Box display="flex" alignItems="center" gap={1}>
             <ComputerIcon color="primary" />
-            <Typography variant="h6" component="div" noWrap>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}
+              noWrap
+            >
               {host.host_name}
             </Typography>
             <Chip
@@ -394,41 +422,90 @@ const Dashboard: React.FC = () => {
         </Accordion>
 
         {/* Per-Host System Controls */}
-        <Box display="flex" alignItems="center" justifyContent="center" gap={0.5} sx={{ mb: 1 }}>
+        <Box 
+          display="flex" 
+          flexDirection={{ xs: 'column', sm: 'row' }}
+          alignItems="center" 
+          justifyContent="center" 
+          gap={{ xs: 1, sm: 0.5 }}
+          sx={{ mb: 1 }}
+        >
           <Tooltip title="Restart vpt_host service">
-            <span>
-              <IconButton 
-                onClick={() => handleRestartService(host.host_name)} 
-                disabled={isRestartingService}
-                size="small"
-                color="warning"
-              >
-                <RestartServiceIcon fontSize="small" />
-              </IconButton>
+            <span style={{ width: isMobile ? '100%' : 'auto' }}>
+              {isMobile ? (
+                <Button
+                  onClick={() => handleRestartService(host.host_name)} 
+                  disabled={isRestartingService}
+                  size="small"
+                  color="warning"
+                  startIcon={<RestartServiceIcon />}
+                  fullWidth
+                  sx={{ minHeight: 44 }}
+                >
+                  Restart Service
+                </Button>
+              ) : (
+                <IconButton 
+                  onClick={() => handleRestartService(host.host_name)} 
+                  disabled={isRestartingService}
+                  size="small"
+                  color="warning"
+                >
+                  <RestartServiceIcon fontSize="small" />
+                </IconButton>
+              )}
             </span>
           </Tooltip>
           <Tooltip title="Reboot host">
-            <span>
-              <IconButton 
-                onClick={() => handleReboot(host.host_name)} 
-                disabled={isRebooting}
-                size="small"
-                color="error"
-              >
-                <RebootIcon fontSize="small" />
-              </IconButton>
+            <span style={{ width: isMobile ? '100%' : 'auto' }}>
+              {isMobile ? (
+                <Button
+                  onClick={() => handleReboot(host.host_name)} 
+                  disabled={isRebooting}
+                  size="small"
+                  color="error"
+                  startIcon={<RebootIcon />}
+                  fullWidth
+                  sx={{ minHeight: 44 }}
+                >
+                  Reboot Host
+                </Button>
+              ) : (
+                <IconButton 
+                  onClick={() => handleReboot(host.host_name)} 
+                  disabled={isRebooting}
+                  size="small"
+                  color="error"
+                >
+                  <RebootIcon fontSize="small" />
+                </IconButton>
+              )}
             </span>
           </Tooltip>
           <Tooltip title="Restart streams">
-            <span>
-              <IconButton 
-                onClick={() => restartStreams()} 
-                disabled={isRestarting}
-                size="small"
-                color="info"
-              >
-                <RestartStreamIcon fontSize="small" />
-              </IconButton>
+            <span style={{ width: isMobile ? '100%' : 'auto' }}>
+              {isMobile ? (
+                <Button
+                  onClick={() => restartStreams()} 
+                  disabled={isRestarting}
+                  size="small"
+                  color="info"
+                  startIcon={<RestartStreamIcon />}
+                  fullWidth
+                  sx={{ minHeight: 44 }}
+                >
+                  Restart Streams
+                </Button>
+              ) : (
+                <IconButton 
+                  onClick={() => restartStreams()} 
+                  disabled={isRestarting}
+                  size="small"
+                  color="info"
+                >
+                  <RestartStreamIcon fontSize="small" />
+                </IconButton>
+              )}
             </span>
           </Tooltip>
         </Box>
@@ -650,11 +727,25 @@ const Dashboard: React.FC = () => {
   return (
     <Box>
       {/* Server Selector */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+      <Box 
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'stretch', md: 'center' },
+          justifyContent: { xs: 'flex-start', md: 'space-between' },
+          gap: { xs: 2, md: 0 },
+          mb: { xs: 2, md: 1 }
+        }}
+      >
         <Typography variant="h4" component="h1">
           Dashboard
         </Typography>
-        <FormControl size="small" sx={{ minWidth: 300 }}>
+        <FormControl 
+          size="small" 
+          sx={{ 
+            minWidth: { xs: '100%', md: 300 },
+          }}
+        >
           <InputLabel>Primary Server</InputLabel>
           <Select
             value={resolvedSelectedServer}
@@ -703,7 +794,7 @@ const Dashboard: React.FC = () => {
       {/* Statistics Cards */}
       <Box mb={1}>
       </Box>
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: { xs: 2, md: 3 } }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
@@ -781,7 +872,13 @@ const Dashboard: React.FC = () => {
               Quick Actions
             </Typography>
             <Box display="flex" flexDirection="column" gap={2}>
-              <Button variant="contained" startIcon={<AddIcon />} href="/testcases" fullWidth>
+              <Button 
+                variant="contained" 
+                startIcon={<AddIcon />} 
+                href="/testcases" 
+                fullWidth
+                sx={{ minHeight: { xs: 48, md: 36 } }}
+              >
                 Create New Test Case
               </Button>
               <Button
@@ -790,10 +887,17 @@ const Dashboard: React.FC = () => {
                 href="/campaigns"
                 fullWidth
                 color="secondary"
+                sx={{ minHeight: { xs: 48, md: 36 } }}
               >
                 Create New Campaign
               </Button>
-              <Button variant="outlined" startIcon={<PlayIcon />} fullWidth disabled>
+              <Button 
+                variant="outlined" 
+                startIcon={<PlayIcon />} 
+                fullWidth 
+                disabled
+                sx={{ minHeight: { xs: 48, md: 36 } }}
+              >
                 Run Test Campaign (Coming Soon)
               </Button>
             </Box>
@@ -812,49 +916,65 @@ const Dashboard: React.FC = () => {
             )} Devices
           </Typography>
           <Box display="flex" alignItems="center" gap={1}>
-            {/* Global System Controls */}
-            <Tooltip title="Restart vpt_host service on all hosts">
-              <span>
-                <IconButton 
-                  onClick={() => handleRestartService()} 
-                  disabled={isRestartingService}
-                  size="small"
-                  color="warning"
-                >
-                  <RestartServiceIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Reboot all hosts">
-              <span>
-                <IconButton 
-                  onClick={() => handleReboot()} 
-                  disabled={isRebooting}
-                  size="small"
-                  color="error"
-                >
-                  <RebootIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Restart streams on all hosts">
-              <span>
-                <IconButton 
-                  onClick={() => restartStreams()} 
-                  disabled={isRestarting}
-                  size="small"
-                  color="info"
-                >
-                  <RestartStreamIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
+            {/* Mobile: Show drawer button */}
+            <IconButton
+              onClick={() => setMobileActionsOpen(true)}
+              sx={{ 
+                display: { xs: 'inline-flex', md: 'none' },
+                minWidth: 44,
+                minHeight: 44
+              }}
+            >
+              <MoreVertIcon />
+            </IconButton>
+
+            {/* Desktop: Show inline buttons */}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
+              {/* Global System Controls */}
+              <Tooltip title="Restart vpt_host service on all hosts">
+                <span>
+                  <IconButton 
+                    onClick={() => handleRestartService()} 
+                    disabled={isRestartingService}
+                    size="small"
+                    color="warning"
+                  >
+                    <RestartServiceIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Reboot all hosts">
+                <span>
+                  <IconButton 
+                    onClick={() => handleReboot()} 
+                    disabled={isRebooting}
+                    size="small"
+                    color="error"
+                  >
+                    <RebootIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Restart streams on all hosts">
+                <span>
+                  <IconButton 
+                    onClick={() => restartStreams()} 
+                    disabled={isRestarting}
+                    size="small"
+                    color="info"
+                  >
+                    <RestartStreamIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Box>
             
             <ToggleButtonGroup
               value={viewMode}
               exclusive
               onChange={handleViewModeChange}
               size="small"
+              sx={{ display: { xs: 'none', md: 'flex' } }}
             >
               <ToggleButton value="grid">
                 <Tooltip title="Grid View">
@@ -915,7 +1035,7 @@ const Dashboard: React.FC = () => {
                 </Box>
               
               {serverData.hosts.length > 0 ? (
-                viewMode === 'grid' ? (
+                effectiveViewMode === 'grid' ? (
                   <Grid container spacing={2}>
                     {serverData.hosts.map((host) => (
                       <Grid item xs={12} sm={6} md={4} lg={4} xl={3} key={host.host_name}>
@@ -959,6 +1079,69 @@ const Dashboard: React.FC = () => {
           </Grid>
         </Grid>
       </Paper>
+
+      {/* Mobile Actions Drawer */}
+      <Drawer
+        anchor="bottom"
+        open={mobileActionsOpen}
+        onClose={() => setMobileActionsOpen(false)}
+        sx={{ display: { xs: 'block', md: 'none' } }}
+        PaperProps={{
+          sx: {
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          },
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>System Actions</Typography>
+          
+          <Button
+            fullWidth
+            variant="outlined"
+            color="warning"
+            startIcon={<RestartServiceIcon />}
+            onClick={() => {
+              handleRestartService();
+              setMobileActionsOpen(false);
+            }}
+            disabled={isRestartingService}
+            sx={{ mb: 1.5, minHeight: 48 }}
+          >
+            Restart All Services
+          </Button>
+          
+          <Button
+            fullWidth
+            variant="outlined"
+            color="error"
+            startIcon={<RebootIcon />}
+            onClick={() => {
+              handleReboot();
+              setMobileActionsOpen(false);
+            }}
+            disabled={isRebooting}
+            sx={{ mb: 1.5, minHeight: 48 }}
+          >
+            Reboot All Hosts
+          </Button>
+          
+          <Button
+            fullWidth
+            variant="outlined"
+            color="info"
+            startIcon={<RestartStreamIcon />}
+            onClick={() => {
+              restartStreams();
+              setMobileActionsOpen(false);
+            }}
+            disabled={isRestarting}
+            sx={{ minHeight: 48 }}
+          >
+            Restart All Streams
+          </Button>
+        </Box>
+      </Drawer>
     </Box>
   );
 };
