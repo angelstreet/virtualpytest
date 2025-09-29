@@ -139,7 +139,12 @@ def setup_flask_app(app_name="VirtualPyTest"):
         "https://www.virtualpytest.com",
         "http://localhost:5073",  # Local development
         "https://localhost:5073",  # Local development with SSL
-        "https://192.168.1.34:5073"
+        "https://192.168.1.34:5073",  # Local development on pi4 with port
+        "https://192.168.1.34",  # Local development on pi4 without port
+        "http://192.168.1.34",  # Local development on pi4 HTTP
+        "https://192.168.1.150",  # pi2 server
+        "https://192.168.1.144",  # pi3 server
+        "https://192.168.1.67"   # mac server
     ]
     
     CORS(app, 
