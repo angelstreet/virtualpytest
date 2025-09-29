@@ -18,12 +18,26 @@ def _get_nginx_host_url(host_info: dict) -> str:
         host_info: Host information from registry
         
     Returns:
-        Host URL without port for nginx serving (port 80)
+        Host URL without port for nginx serving (preserves HTTPS for local access)
     """
     host_url = host_info.get('host_url', '')
+    
+    # Strip port numbers but preserve protocol
     if ':' in host_url:
         import re
-        host_url = re.sub(r':\d+$', '', host_url)
+        # Only strip port numbers, not the protocol
+        # This preserves HTTPS for local access (e.g., https://192.168.1.34:8084 -> https://192.168.1.34)
+        host_url = re.sub(r':(\d+)$', '', host_url)
+    
+    # For local IP addresses, ensure HTTPS if the original had HTTPS or if it's missing protocol
+    if host_url and ('192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url):
+        if not host_url.startswith(('http://', 'https://')):
+            # No protocol specified, default to HTTPS for local IPs
+            host_url = f'https://{host_url}'
+        elif host_url.startswith('http://'):
+            # Convert HTTP to HTTPS for local IPs to avoid mixed content issues
+            host_url = host_url.replace('http://', 'https://', 1)
+    
     return host_url
 
 def buildHostUrl(host_info: dict, endpoint: str) -> str:
