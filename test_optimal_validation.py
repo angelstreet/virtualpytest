@@ -9,42 +9,11 @@ import os
 import sys
 import requests
 import json
-import socket
 from typing import Dict, Any
 
 # Add project paths
 sys.path.append('/Users/cpeengineering/virtualpytest')
 sys.path.append('/Users/cpeengineering/virtualpytest/shared/src')
-
-def get_server_url() -> str:
-    """
-    Automatically detect the appropriate server URL based on environment
-    
-    Returns:
-        The server URL to use for API requests
-    """
-    # Check if we're on a remote server (raspberry pi or similar)
-    hostname = socket.gethostname()
-    
-    # If we're on a raspberry pi or remote server, use the production URL
-    if 'raspberrypi' in hostname.lower() or 'sunri-pi' in hostname.lower():
-        return "https://dev.virtualpytest.com"
-    
-    # Check for local development environment
-    if os.path.exists('/Users/cpeengineering/virtualpytest'):
-        # Local development - check if local server is running
-        try:
-            response = requests.get("http://localhost:5109/health", timeout=2)
-            if response.status_code == 200:
-                return "http://localhost:5109"
-        except:
-            pass
-        
-        # Fallback to remote server if local not available
-        return "https://dev.virtualpytest.com"
-    
-    # Default to remote server
-    return "https://dev.virtualpytest.com"
 
 def test_validation_preview(tree_id: str, team_id: str, host_name: str) -> Dict[str, Any]:
     """
@@ -64,8 +33,8 @@ def test_validation_preview(tree_id: str, team_id: str, host_name: str) -> Dict[
     print("="*80)
     
     try:
-        # Build the validation preview URL - use remote server for testing
-        base_url = "https://dev.virtualpytest.com"  # Remote server URL
+        # Build the validation preview URL - use remote server
+        base_url = "https://dev.virtualpytest.com"
         url = f"{base_url}/server/validation/preview/{tree_id}"
         
         params = {
