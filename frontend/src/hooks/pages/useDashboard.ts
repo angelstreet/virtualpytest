@@ -80,13 +80,13 @@ export const useDashboard = (): UseDashboardReturn => {
           const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'));
           if (response.ok) {
             const data = await response.json();
-            // Always use environment URL as authoritative server info
-            // Don't trust data.server_info as it might have localhost URLs
+            // Use backend's SERVER_NAME but clean up the URL (remove protocol/port for display)
             const urlParts = new URL(serverUrl);
+            const cleanUrl = serverUrl.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
             return {
               server_info: {
-                server_name: `Server (${urlParts.hostname}:${urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80')})`,
-                server_url: serverUrl,
+                server_name: data.server_info?.server_name || 'Unknown Server',
+                server_url: cleanUrl,
                 server_port: urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80')
               },
               hosts: data.hosts || []

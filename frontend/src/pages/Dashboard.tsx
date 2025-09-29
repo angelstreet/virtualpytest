@@ -680,7 +680,7 @@ const Dashboard: React.FC = () => {
                       }
                     }}
                   >
-                    {serverData.server_info.server_name} ({serverData.server_info.server_url.replace(/^https?:\/\//, '')})
+                    {serverData.server_info.server_name} - {serverData.server_info.server_url}
                   </MenuItem>
                 );
               })}
@@ -875,7 +875,6 @@ const Dashboard: React.FC = () => {
           serverHostsData.map((serverData, index) => {
             const hostCount = serverData.hosts.length;
             const deviceCount = serverData.hosts.reduce((total, host) => total + (host.device_count || 0), 0);
-            const serverIp = serverData.server_info.server_url.replace(/^https?:\/\//, '');
             
             return (
               <Box 
@@ -891,7 +890,7 @@ const Dashboard: React.FC = () => {
               >
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                   <Typography variant="h6">
-                    Server: {serverData.server_info.server_name} ({serverIp})
+                    Server: {serverData.server_info.server_name} - {serverData.server_info.server_url}
                   </Typography>
                   <Box display="flex" alignItems="center" gap={2}>
                     <Chip 
