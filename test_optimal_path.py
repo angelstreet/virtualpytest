@@ -1,18 +1,67 @@
 #!/usr/bin/env python3
 """
-Simple test script for optimal path validation preview
-Tests the validation preview endpoint after ensuring the tree is loaded.
+Complete test script for optimal path validation preview
+Checks host availability, loads tree, and tests validation preview.
 """
 
 import sys
 import os
 import requests
 import json
+import time
 
 # Add project root to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
+
+def check_host_availability(base_url: str, host_name: str, team_id: str) -> bool:
+    """Check if the host is registered and available"""
+    try:
+        print(f"🔍 Checking host availability: {host_name}")
+        
+        # Get all hosts
+        hosts_url = f"{base_url}/server/system/getAllHosts"
+        response = requests.get(hosts_url, timeout=10)
+        
+        if response.status_code != 200:
+            print(f"❌ Failed to get hosts: HTTP {response.status_code}")
+            return False
+            
+        result = response.json()
+        if not result.get('success'):
+            print(f"❌ Failed to get hosts: {result.get('error')}")
+            return False
+            
+        hosts = result.get('hosts', [])
+        host_found = False
+        
+        for host in hosts:
+            if host.get('host_name') == host_name:
+                host_found = True
+                status = host.get('status', 'unknown')
+                last_seen = host.get('last_seen', 0)
+                time_since_seen = time.time() - last_seen if last_seen else float('inf')
+                
+                print(f"✅ Host found: {host_name}")
+                print(f"   Status: {status}")
+                print(f"   Last seen: {time_since_seen:.1f}s ago")
+                print(f"   URL: {host.get('host_url', 'unknown')}")
+                
+                if status == 'online' and time_since_seen < 300:  # 5 minutes
+                    return True
+                else:
+                    print(f"⚠️  Host is not online or stale")
+                    return False
+                    
+        if not host_found:
+            print(f"❌ Host {host_name} not found in registered hosts")
+            print(f"   Available hosts: {[h.get('host_name') for h in hosts]}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Error checking host availability: {e}")
+        return False
 
 def test_optimal_path(userinterface_name: str, team_id: str, host_name: str):
     """Test optimal path validation preview"""
@@ -25,27 +74,35 @@ def test_optimal_path(userinterface_name: str, team_id: str, host_name: str):
     print("="*60)
     
     try:
-        # Step 1: Load the navigation tree first
-        print("📋 Step 1: Loading navigation tree...")
-        load_url = f"{base_url}/server/navigation/tree/{userinterface_name}"
-        load_params = {'team_id': team_id}
+        # Step 1: Check host availability
+        print("🔍 Step 1: Checking host availability...")
+        if not check_host_availability(base_url, host_name, team_id):
+            print(f"❌ Host {host_name} is not available")
+            print(f"💡 Make sure the host is running and registered with the server")
+            return False
+        print(f"✅ Host is available and online")
         
-        load_response = requests.get(load_url, params=load_params, timeout=30)
+        # Step 2: Check if tree exists
+        print("📋 Step 2: Checking if navigation tree exists...")
+        tree_url = f"{base_url}/server/navigation/tree/{userinterface_name}"
+        tree_params = {'team_id': team_id}
         
-        if load_response.status_code != 200:
-            print(f"❌ Failed to load tree: HTTP {load_response.status_code}")
-            print(f"   Response: {load_response.text}")
+        tree_response = requests.get(tree_url, params=tree_params, timeout=30)
+        
+        if tree_response.status_code != 200:
+            print(f"❌ Failed to check tree: HTTP {tree_response.status_code}")
+            print(f"   Response: {tree_response.text}")
             return False
             
-        load_result = load_response.json()
-        if not load_result.get('success'):
-            print(f"❌ Tree loading failed: {load_result.get('error')}")
+        tree_result = tree_response.json()
+        if not tree_result.get('success'):
+            print(f"❌ Tree check failed: {tree_result.get('error')}")
             return False
             
-        print(f"✅ Tree loaded successfully")
+        print(f"✅ Navigation tree exists")
         
-        # Step 2: Test validation preview
-        print("🧪 Step 2: Testing validation preview...")
+        # Step 3: Test validation preview (this will auto-populate cache)
+        print("🧪 Step 3: Testing validation preview...")
         preview_url = f"{base_url}/server/validation/preview/{userinterface_name}"
         preview_params = {
             'team_id': team_id,
