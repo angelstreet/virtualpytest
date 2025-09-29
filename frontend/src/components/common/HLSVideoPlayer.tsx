@@ -353,13 +353,13 @@ export function HLSVideoPlayer({
       };
 
       hls.on(HLS.Events.ERROR, (_event, data) => {
-        console.warn('[@component:HLSVideoPlayer] HLS error:', data.type, data.details, data.fatal, data);
-
-        // Ignore buffer stall errors - they are temporary and self-recovering
-        if (data.details === 'bufferStalledError') {
-          // Silently ignore buffer stalls - they are normal and self-recovering
+        // Ignore buffer-related errors - they are temporary and self-recovering
+        if (data.details === 'bufferStalledError' || data.details === 'bufferSeekOverHole') {
+          // Silently ignore buffer stalls and seek holes - they are normal and self-recovering
           return;
         }
+
+        console.warn('[@component:HLSVideoPlayer] HLS error:', data.type, data.details, data.fatal, data);
 
         // Check for segment loading failures (404 errors indicating FFmpeg stuck)
         if (data.details === 'fragLoadError' && data.response?.code === 404) {
