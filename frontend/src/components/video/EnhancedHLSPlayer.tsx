@@ -95,7 +95,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const seekToLive = () => {
     if (videoRef.current) {
       const video = videoRef.current;
-      if (video.duration && !isNaN(video.duration)) {
+      if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
         video.currentTime = video.duration;
       }
     }
