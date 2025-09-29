@@ -30,10 +30,29 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // Get server selection and server data from ServerManager (now centralized)
   const { selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading: serverLoading, error: serverError } = useServerManager();
 
-  // Extract hosts from server data (all hosts from all servers)
+  // Extract hosts from server data, filtering by selected server only
+  // This ensures we only show hosts from the currently selected server
   const allHostsFromServers = useMemo(() => {
-    return serverHostsData.flatMap(serverData => serverData.hosts);
-  }, [serverHostsData]);
+    if (!selectedServer) return [];
+    
+    // Find the server data that matches the selected server
+    const selectedServerData = serverHostsData.find(
+      serverData => serverData.server_info.server_url === selectedServer
+    );
+    
+    if (!selectedServerData) {
+      console.warn('[@HostManagerProvider] No server data found for selected server:', selectedServer);
+      return [];
+    }
+    
+    console.log('[@HostManagerProvider] Using hosts from selected server:', {
+      serverUrl: selectedServer,
+      serverName: selectedServerData.server_info.server_name,
+      hostCount: selectedServerData.hosts.length
+    });
+    
+    return selectedServerData.hosts;
+  }, [serverHostsData, selectedServer]);
 
   // Use hosts from ServerManager instead of fetching separately
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);
