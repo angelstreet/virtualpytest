@@ -148,15 +148,16 @@ class VideoMonitoringHelpers:
                     filename.endswith('.json')):
                     filepath = os.path.join(capture_folder, filename)
                     if os.path.isfile(filepath):
-                        # Extract sequence number from filename for consistent sorting
+                        # Use file creation time instead of sequence number to handle FFmpeg restarts
+                        file_ctime = os.path.getctime(filepath)
                         sequence_match = re.search(r'capture_(\d+)\.json', filename)
-                        if sequence_match:
-                            sequence_number = sequence_match.group(1)
-                            json_files.append({
-                                'filename': filename,
-                                'timestamp': int(sequence_number),  # Use sequence number for sorting
-                                'filepath': filepath
-                            })
+                        sequence_number = sequence_match.group(1) if sequence_match else '0'
+                        json_files.append({
+                            'filename': filename,
+                            'timestamp': file_ctime,  # Use file creation time for sorting
+                            'sequence': sequence_number,  # Keep sequence for reference
+                            'filepath': filepath
+                        })
             
             if not json_files:
                 return {
@@ -164,7 +165,7 @@ class VideoMonitoringHelpers:
                     'error': 'No JSON analysis files found'
                 }
             
-            # Sort by sequence number (newest first) and get the latest
+            # Sort by file creation time (newest first) and get the latest
             json_files.sort(key=lambda x: x['timestamp'], reverse=True)
             latest_json = json_files[0]
             
