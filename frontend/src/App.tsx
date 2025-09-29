@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 // Import navigation components (keep these as regular imports since they're always needed)
 import Footer from './components/common/Footer';
 import NavigationBar from './components/common/Navigation_Bar';
+import { ServerSelector } from './components/common/ServerSelector';
 import ThemeToggle from './components/common/ThemeToggle';
 import { MCPTaskInput } from './components/mcp/MCPTaskInput';
 import { HostManagerProvider } from './contexts/HostManagerProvider';
@@ -129,10 +130,11 @@ const App: React.FC = () => {
             <AppBar position="static" elevation={1}>
               <Toolbar>
                 <Science sx={{ mr: 2 }} />
-                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                <Typography variant="h6" component="div" sx={{ mr: 3 }}>
                   VirtualPyTest
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                <ServerSelector size="small" minWidth={160} />
+                <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, mr: 2 }}>
                   <NavigationBar />
                 </Box>
                 <ThemeToggle />

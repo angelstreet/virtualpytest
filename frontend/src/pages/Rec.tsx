@@ -19,7 +19,6 @@ import {
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 
 import { RecHostPreview } from '../components/rec/RecHostPreview';
-import { ServerSelector } from '../components/common/ServerSelector';
 import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
@@ -483,13 +482,6 @@ const RecContent: React.FC = () => {
                   ))}
                 </Select>
               </FormControl>
-
-              {/* Server Selection */}
-              <ServerSelector 
-                size="small" 
-                minWidth={140} 
-                label="Server"
-              />
 
               {hasActiveFilters && (
                 <Chip
