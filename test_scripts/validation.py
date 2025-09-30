@@ -100,7 +100,7 @@ def capture_validation_summary(context, userinterface_name: str, max_iteration: 
     return "\n".join(lines)
 
 
-def validate_with_recovery(max_iteration: int = None) -> bool:
+def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool:
     """Execute validation - test all transitions using NavigationExecutor directly"""
     context = get_context()
     
@@ -112,6 +112,16 @@ def validate_with_recovery(max_iteration: int = None) -> bool:
         return False
     
     print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
+    
+    # Filter by selected edges if provided
+    if edges:
+        selected_edges = set(edges.split(','))
+        original_count = len(validation_sequence)
+        validation_sequence = [
+            step for step in validation_sequence
+            if f"{step.get('from_node')}-{step.get('to_node')}" in selected_edges
+        ]
+        print(f"🎯 [validation] Filtered to {len(validation_sequence)} selected transitions (from {original_count} total)")
     
     # Apply max_iteration limit
     if max_iteration and max_iteration > 0:
@@ -190,8 +200,8 @@ def main():
     context = get_context()
     args = get_args()
     
-    # Execute validation
-    result = validate_with_recovery(args.max_iteration)
+    # Execute validation with selected edges if provided
+    result = validate_with_recovery(args.max_iteration, args.edges)
     
     # Always capture summary for report (regardless of success/failure)
     summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
@@ -201,7 +211,10 @@ def main():
 
 
 # Define script-specific arguments
-main._script_args = ['--max-iteration:int:10']
+main._script_args = [
+    '--max-iteration:int:10',
+    '--edges:str:None'  # Comma-separated list of edge IDs (from_node-to_node)
+]
 
 if __name__ == "__main__":
     main()

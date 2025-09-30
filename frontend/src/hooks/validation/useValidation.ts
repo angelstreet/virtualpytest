@@ -145,7 +145,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
    * Run validation using the existing useScript infrastructure
    */
   const runValidation = useCallback(
-    async () => {
+    async (selectedEdgeIds?: string[]) => {
       if (!treeId || !selectedHost || !selectedDeviceId || !state.preview) {
         updateValidationState(treeId, {
           validationError: 'Tree ID, host, device, and preview data are required',
@@ -165,7 +165,14 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
         // Use the validation script with the existing useScript infrastructure
         const userinterface_name = treeName || currentTreeName || treeId;
-        const parameters = `${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
+        let parameters = `${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
+        
+        // Add selected edges if provided (format: "from-to,from-to,...")
+        if (selectedEdgeIds && selectedEdgeIds.length > 0) {
+          const edgesParam = selectedEdgeIds.join(',');
+          parameters += ` --edges "${edgesParam}"`;
+          console.log(`[@hook:useValidation] Running validation with ${selectedEdgeIds.length} selected transitions`);
+        }
 
         const scriptResult = await executeScript(
           'validation',

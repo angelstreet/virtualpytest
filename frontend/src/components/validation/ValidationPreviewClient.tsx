@@ -86,7 +86,9 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
   const handleRunValidation = () => {
     if (!validation.preview?.edges) return;
 
-    validation.runValidation();
+    // Convert selected edge IDs to array for validation
+    const selectedEdgeArray = Array.from(selectedEdges);
+    validation.runValidation(selectedEdgeArray);
   };
 
   // Show error dialog if there's a persistent error
