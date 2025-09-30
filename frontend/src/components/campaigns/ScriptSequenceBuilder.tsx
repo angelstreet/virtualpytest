@@ -111,6 +111,7 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
     // Filter parameters to show only required ones and important optional ones
     const displayParameters = analysis.parameters.filter((param: any) => 
       (param.required && param.name !== 'host' && param.name !== 'device') ||
+      param.name === 'userinterface_name' ||  // Always show userinterface selection
       param.name === 'blackscreen_area' ||
       param.name === 'node'
     );
