@@ -9,6 +9,7 @@ import {
   AIErrorType,
   AI_CONSTANTS 
 } from '../types/aiagent/AIAgent_Types';
+import type { DisambiguationData } from '../types/aiagent/AIDisambiguation_Types';
 
 interface UseAIProps {
   host: Host;
@@ -22,6 +23,13 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
   const [executionStatus, setExecutionStatus] = useState<AIExecutionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [taskResult, setTaskResult] = useState<{ success: boolean; message: string } | null>(null);
+  
+  // Disambiguation state (NEW)
+  const [disambiguationData, setDisambiguationData] = useState<DisambiguationData | null>(null);
+  const pendingExecution = useRef<{
+    userinterface_name: string;
+    useCache: boolean;
+  } | null>(null);
   
   // Toast notifications
   const toast = useToast();
@@ -238,11 +246,13 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
    * @param useCache - Whether to use cached AI plans for similar tasks. 
    *                   When false, always generates fresh plans but successful plans are still stored.
    *                   When true, attempts to reuse compatible cached plans.
+   * @param skipAnalysis - Whether to skip pre-analysis (used after disambiguation)
    */
   const executeTask = useCallback(async (
     prompt: string, 
     userinterface_name: string, 
-    useCache: boolean = false
+    useCache: boolean = false,
+    skipAnalysis: boolean = false
   ) => {
     if (isExecuting) return;
 
@@ -261,6 +271,52 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     setIsExecuting(true);
 
     try {
+      // STEP 1: Pre-analyze prompt (unless skipped after disambiguation)
+      if (!skipAnalysis) {
+        try {
+          const analysisResponse = await fetch(buildServerUrl('/host/ai-disambiguation/analyzePrompt'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt,
+              userinterface_name,
+              device_id: device.device_id,
+              team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+            })
+          });
+
+          const analysisResult = await analysisResponse.json();
+
+          if (analysisResult.success && analysisResult.analysis) {
+            const { status, analysis } = analysisResult;
+
+            // Handle needs disambiguation
+            if (analysis.status === 'needs_disambiguation') {
+              setIsExecuting(false);
+              setDisambiguationData({
+                ...analysis,
+                available_nodes: analysisResult.available_nodes || []
+              });
+              pendingExecution.current = { userinterface_name, useCache };
+              return; // Pause execution until user resolves
+            }
+
+            // Handle auto-correction
+            if (analysis.status === 'auto_corrected') {
+              toast.showInfo(
+                `✅ Auto-corrected ${analysis.corrections.length} reference(s)`,
+                { duration: 3000 }
+              );
+              // Use corrected prompt for execution
+              prompt = analysis.corrected_prompt;
+            }
+          }
+        } catch (err) {
+          console.warn('[@useAI] Pre-analysis failed, proceeding with execution:', err);
+        }
+      }
+
+      // STEP 2: Execute task (existing code)
       // Show start notification (only major state changes)
       toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
@@ -502,6 +558,59 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     setError(null);
   }, []);
 
+  // Disambiguation handlers
+  const handleDisambiguationResolve = useCallback(async (
+    selections: Record<string, string>,
+    saveToDb: boolean
+  ) => {
+    const pending = pendingExecution.current;
+    if (!pending) return;
+
+    // Save to database if requested
+    if (saveToDb && Object.keys(selections).length > 0) {
+      try {
+        const selectionsArray = Object.entries(selections).map(([phrase, resolved]) => ({
+          phrase,
+          resolved
+        }));
+
+        await fetch(buildServerUrl('/host/ai-disambiguation/saveDisambiguation'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
+            userinterface_name: pending.userinterface_name,
+            selections: selectionsArray
+          })
+        });
+
+        toast.showSuccess(`🎓 Saved ${selectionsArray.length} preference(s)`, { duration: 3000 });
+      } catch (err) {
+        console.error('[@useAI] Failed to save disambiguation:', err);
+      }
+    }
+
+    // Clear modal
+    setDisambiguationData(null);
+
+    // Build resolved prompt by replacing phrases
+    let resolvedPrompt = disambiguationData?.original_prompt || '';
+    Object.entries(selections).forEach(([phrase, resolved]) => {
+      resolvedPrompt = resolvedPrompt.replace(new RegExp(phrase, 'gi'), resolved);
+    });
+
+    // Clear pending execution
+    pendingExecution.current = null;
+
+    // Re-execute with resolved prompt (skip analysis since we already resolved it)
+    executeTask(resolvedPrompt, pending.userinterface_name, pending.useCache, true);
+  }, [disambiguationData, executeTask, toast]);
+
+  const handleDisambiguationCancel = useCallback(() => {
+    setDisambiguationData(null);
+    pendingExecution.current = null;
+  }, []);
+
   return {
     // State
     isExecuting,
@@ -510,6 +619,11 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     error,
     taskResult,
     executionSummary,
+
+    // Disambiguation state (NEW)
+    disambiguationData,
+    handleDisambiguationResolve,
+    handleDisambiguationCancel,
 
     // Computed values for backward compatibility
     executionLog: executionStatus?.execution_log || [],

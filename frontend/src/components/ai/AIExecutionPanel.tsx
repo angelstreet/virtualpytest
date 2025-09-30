@@ -21,6 +21,7 @@ import { useAICacheReset } from '../../hooks/aiagent';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { AIStepDisplay } from './AIStepDisplay';
 import { UserinterfaceSelector } from '../common';
+import { PromptDisambiguation } from './PromptDisambiguation';
 
 interface AIExecutionPanelProps {
   host: Host;
@@ -56,7 +57,11 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     progressPercentage,
     isPlanFeasible,
     // Processed data for UI
-    processedSteps
+    processedSteps,
+    // Disambiguation (NEW)
+    disambiguationData,
+    handleDisambiguationResolve,
+    handleDisambiguationCancel
   } = useAI({
     host,
     device,
@@ -504,6 +509,17 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           </Box>
         )}
       </Box>
+
+      {/* Disambiguation Modal (NEW) */}
+      {disambiguationData && (
+        <PromptDisambiguation
+          ambiguities={disambiguationData.ambiguities}
+          autoCorrections={disambiguationData.auto_corrections}
+          availableNodes={disambiguationData.available_nodes}
+          onResolve={handleDisambiguationResolve}
+          onCancel={handleDisambiguationCancel}
+        />
+      )}
     </Box>
   );
 };
