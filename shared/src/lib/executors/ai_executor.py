@@ -116,10 +116,8 @@ class AIExecutor:
         start_time = time.time()
         execution_id = str(uuid.uuid4())
         
-        # CRITICAL: Start execution tracking BEFORE generating plan
-        # This ensures frontend can query status even if plan generation fails
-        dummy_plan = {'id': execution_id, 'prompt': prompt, 'analysis': 'Generating plan...', 'feasible': True, 'plan': []}
-        self._start_execution_tracking(execution_id, dummy_plan)
+        # Initialize execution tracking immediately (no plan yet)
+        self._init_execution_tracking(execution_id, prompt, start_time)
         
         try:
             # Get current position if not provided
@@ -145,7 +143,8 @@ class AIExecutor:
                     
                     # Execute cached plan
                     if async_execution:
-                        self._start_execution_tracking(execution_id, plan_dict)
+                        # Set plan and start execution
+                        self._set_execution_plan(execution_id, plan_dict)
                         threading.Thread(
                             target=self._execute_cached_plan_async, 
                             args=(execution_id, cached_plan, context, team_id)
@@ -159,7 +158,10 @@ class AIExecutor:
                             'execution_time': time.time() - start_time
                         }
                     else:
+                        # Synchronous cached execution
+                        self._set_execution_plan(execution_id, plan_dict)
                         result = self._execute_cached_plan_sync(cached_plan, context, team_id)
+                        self._complete_execution_tracking(execution_id, result)
                         return {
                             'success': result.success,
                             'execution_id': execution_id,
@@ -194,8 +196,8 @@ class AIExecutor:
             
             # Execute plan
             if async_execution:
-                # Start async execution
-                self._start_execution_tracking(execution_id, plan_dict)
+                # Set plan and start execution
+                self._set_execution_plan(execution_id, plan_dict)
                 threading.Thread(
                     target=self._execute_new_plan_async, 
                     args=(execution_id, plan_dict, context, prompt, use_cache, debug_mode, team_id)
@@ -211,7 +213,7 @@ class AIExecutor:
                 }
             else:
                 # Synchronous execution
-                self._start_execution_tracking(execution_id, plan_dict)
+                self._set_execution_plan(execution_id, plan_dict)
                 result = self._execute_plan_sync(plan_dict, context)
                 self._complete_execution_tracking(execution_id, result)
                 
@@ -230,25 +232,22 @@ class AIExecutor:
                 }
                 
         except Exception as e:
-            # Update plan in tracking to show error instead of "Generating plan..."
-            if execution_id in self._executions:
-                error_plan = {
-                    'id': execution_id,
-                    'prompt': prompt,
-                    'analysis': f'Goal: {prompt}\nThinking: Plan generation failed - {str(e)}',
-                    'feasible': False,
-                    'plan': []
-                }
-                self._executions[execution_id]['plan'] = error_plan
+            # Set error plan and mark as failed
+            error_plan = {
+                'id': execution_id,
+                'prompt': prompt,
+                'analysis': f'Goal: {prompt}\nThinking: Plan generation failed - {str(e)}',
+                'feasible': False,
+                'steps': []
+            }
             
-            # Mark execution as failed so frontend stops polling
-            error_result = type('ErrorResult', (), {
-                'success': False,
-                'error': f'AI execution error: {str(e)}',
-                'step_results': [],
-                'total_time_ms': int((time.time() - start_time) * 1000)
-            })()
-            self._complete_execution_tracking(execution_id, error_result)
+            if execution_id in AIExecutor._executions:
+                AIExecutor._executions[execution_id]['plan'] = error_plan
+                AIExecutor._executions[execution_id]['status'] = 'failed'
+                AIExecutor._executions[execution_id]['current_step'] = f'Error: {str(e)}'
+                AIExecutor._executions[execution_id]['end_time'] = time.time()
+            
+            print(f"[@ai_executor] Execution {execution_id} failed: {str(e)}")
             
             return {
                 'success': False,
@@ -279,7 +278,9 @@ class AIExecutor:
             
             # Execute stored plan synchronously
             execution_id = str(uuid.uuid4())
-            self._start_execution_tracking(execution_id, stored_plan)
+            start_time = time.time()
+            self._init_execution_tracking(execution_id, f"Test case: {test_case_id}", start_time)
+            self._set_execution_plan(execution_id, stored_plan)
             
             # Load minimal context for execution
             userinterface_name = stored_plan.get('userinterface_name', 'horizon_android_mobile')
@@ -304,19 +305,35 @@ class AIExecutor:
             }
     
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
-        """Get execution status - simplified tracking"""
-        print(f"[@ai_executor] Looking for execution {execution_id}, available executions: {list(self._executions.keys())}")
+        """Get execution status - use class variable explicitly"""
+        print(f"[@ai_executor] Looking for execution {execution_id}, available executions: {list(AIExecutor._executions.keys())}")
         
-        if execution_id not in self._executions:
+        if execution_id not in AIExecutor._executions:
             print(f"[@ai_executor] Execution {execution_id} not found in tracking")
             return {
                 'success': False,
                 'error': f'Execution {execution_id} not found',
-                'is_executing': False  # Explicitly set to prevent frontend confusion
+                'is_executing': False
             }
         
-        execution = self._executions[execution_id]
-        plan_steps = execution['plan'].get('steps', [])
+        execution = AIExecutor._executions[execution_id]
+        plan = execution.get('plan')
+        
+        # Handle case where plan hasn't been generated yet
+        if not plan:
+            return {
+                'success': True,
+                'execution_id': execution_id,
+                'status': execution['status'],
+                'current_step': execution['current_step'],
+                'progress_percentage': 0,
+                'plan': None,
+                'step_results': [],
+                'execution_log': [],
+                'is_executing': execution['status'] in ['generating_plan', 'executing']
+            }
+        
+        plan_steps = plan.get('steps', [])
         completed_steps = len([r for r in execution['step_results'] if r.get('success')])
         
         # Convert step_results to execution_log format for frontend compatibility
@@ -424,25 +441,35 @@ class AIExecutor:
         match = re.search(r'(?:go to|navigate to|goto)\s+(\w+)', prompt.lower())
         return match.group(1) if match else None
     
-    def _start_execution_tracking(self, execution_id: str, plan_dict: Dict):
-        """Start tracking execution"""
-        plan_steps = plan_dict.get('steps', [])
-        initial_step_msg = f"Starting execution with {len(plan_steps)} steps..." if plan_steps else "Starting execution..."
-        
-        self._executions[execution_id] = {
-            'plan': plan_dict,
-            'status': 'executing',
-            'current_step': initial_step_msg,
+    def _init_execution_tracking(self, execution_id: str, prompt: str, start_time: float):
+        """Initialize execution tracking - plan will be added when generated"""
+        AIExecutor._executions[execution_id] = {
+            'plan': None,  # Will be set when plan is generated
+            'prompt': prompt,
+            'status': 'generating_plan',
+            'current_step': 'Generating AI plan...',
             'step_results': [],
-            'start_time': time.time()
+            'start_time': start_time
         }
-        print(f"[@ai_executor] Started tracking execution {execution_id} with {len(plan_steps)} steps")
-        print(f"[@ai_executor] Total executions now tracked: {len(self._executions)}, keys: {list(self._executions.keys())}")
+        print(f"[@ai_executor] Initialized tracking for execution {execution_id}")
+        print(f"[@ai_executor] Total executions tracked: {len(AIExecutor._executions)}")
+    
+    def _set_execution_plan(self, execution_id: str, plan_dict: Dict):
+        """Set plan for execution and update status to executing"""
+        if execution_id not in AIExecutor._executions:
+            print(f"[@ai_executor] ERROR: Execution {execution_id} not found when setting plan")
+            return
+        
+        plan_steps = plan_dict.get('steps', [])
+        AIExecutor._executions[execution_id]['plan'] = plan_dict
+        AIExecutor._executions[execution_id]['status'] = 'executing'
+        AIExecutor._executions[execution_id]['current_step'] = f"Starting execution with {len(plan_steps)} steps..."
+        print(f"[@ai_executor] Set plan for execution {execution_id} with {len(plan_steps)} steps")
     
     def _complete_execution_tracking(self, execution_id: str, result: ExecutionResult):
-        """Complete execution tracking"""
-        if execution_id in self._executions:
-            execution = self._executions[execution_id]
+        """Complete execution tracking - use class variable explicitly"""
+        if execution_id in AIExecutor._executions:
+            execution = AIExecutor._executions[execution_id]
             execution['status'] = 'completed' if result.success else 'failed'
             execution['result'] = result
             execution['end_time'] = time.time()
@@ -508,16 +535,16 @@ class AIExecutor:
             return command
     
     def _update_current_step_tracking(self, plan_id: str, step_number: int, step_description: str):
-        """Update current step in real-time tracking"""
-        for exec_id, exec_data in self._executions.items():
+        """Update current step in real-time tracking - use class variable explicitly"""
+        for exec_id, exec_data in AIExecutor._executions.items():
             if exec_data.get('plan', {}).get('id') == plan_id:
                 exec_data['current_step'] = step_description
                 print(f"[@ai_executor] Step {step_number} started for execution {exec_id}: {step_description}")
                 break
     
     def _update_step_result_tracking(self, plan_id: str, step_number: int, step_result: Dict[str, Any], all_step_results: List[Dict[str, Any]]):
-        """Update step result in real-time tracking"""
-        for exec_id, exec_data in self._executions.items():
+        """Update step result in real-time tracking - use class variable explicitly"""
+        for exec_id, exec_data in AIExecutor._executions.items():
             if exec_data.get('plan', {}).get('id') == plan_id:
                 exec_data['step_results'] = all_step_results
                 success = step_result.get('success', False)
@@ -639,8 +666,8 @@ class AIExecutor:
                 # Append reassessment analysis to main plan analysis
                 if reassessment_analysis and plan_dict.get('analysis'):
                     plan_dict['analysis'] += f"\n\n🔍 Reassessment:\n{reassessment_analysis}"
-                    # Update tracking with enhanced analysis
-                    for exec_id, exec_data in self._executions.items():
+                    # Update tracking with enhanced analysis - use class variable explicitly
+                    for exec_id, exec_data in AIExecutor._executions.items():
                         if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
                             exec_data['plan']['analysis'] = plan_dict['analysis']
                             break
@@ -654,8 +681,8 @@ class AIExecutor:
                     injected_step['injected_from_step'] = step_number
                     plan_steps.insert(i + j + 1, injected_step)
                 
-                # Update plan in tracking to include injected steps
-                for exec_id, exec_data in self._executions.items():
+                # Update plan in tracking to include injected steps - use class variable explicitly
+                for exec_id, exec_data in AIExecutor._executions.items():
                     if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
                         exec_data['plan']['steps'] = plan_steps
                         break

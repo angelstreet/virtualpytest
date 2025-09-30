@@ -19,7 +19,6 @@ import {
 import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
 
 import { RecHostPreview } from '../components/rec/RecHostPreview';
-import { ModalProvider } from '../contexts/ModalContext';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
 
@@ -666,11 +665,7 @@ const RecContent: React.FC = () => {
 };
 
 const Rec: React.FC = () => {
-  return (
-    <ModalProvider>
-      <RecContent />
-    </ModalProvider>
-  );
+  return <RecContent />;
 };
 
 export default Rec;

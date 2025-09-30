@@ -340,22 +340,34 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
             execution_log_length: status.execution_log?.length || 0
           });
 
-          // Extract and set plan if available from status.plan (new backend format)
-          if (!currentPlan && status.plan) {
-            console.log('[@useAI] Setting plan from status.plan:', {
-              id: status.plan.id,
-              has_analysis: !!status.plan.analysis,
-              has_steps: !!status.plan.steps,
-              steps_count: status.plan.steps?.length || 0,
-              feasible: status.plan.feasible
-            });
-            setCurrentPlan(status.plan);
-            const planToastKey = `plan-generated-${status.plan.id || 'unknown'}`;
-            if (!shownToasts.current.has(planToastKey)) {
-              shownToasts.current.add(planToastKey);
-              toast.showSuccess(`📋 AI plan generated with ${status.plan.steps?.length || 0} steps`, { 
-                duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+          // Extract and set plan if available from status.plan
+          // Plan will be null while generating, then set once AI responds
+          if (status.plan && status.plan !== null) {
+            const shouldUpdate = !currentPlan || 
+                                (currentPlan.steps?.length || 0) < (status.plan.steps?.length || 0) ||
+                                currentPlan.analysis !== status.plan.analysis;
+            
+            if (shouldUpdate) {
+              console.log('[@useAI] Setting/updating plan from status.plan:', {
+                id: status.plan.id,
+                has_analysis: !!status.plan.analysis,
+                has_steps: !!status.plan.steps,
+                steps_count: status.plan.steps?.length || 0,
+                feasible: status.plan.feasible,
+                was_update: !!currentPlan
               });
+              setCurrentPlan(status.plan);
+              
+              // Show toast when plan is generated (has steps)
+              if (status.plan.steps && status.plan.steps.length > 0) {
+                const planToastKey = `plan-generated-${status.plan.id || 'unknown'}`;
+                if (!shownToasts.current.has(planToastKey)) {
+                  shownToasts.current.add(planToastKey);
+                  toast.showSuccess(`📋 AI plan generated with ${status.plan.steps.length} steps`, { 
+                    duration: AI_CONSTANTS.TOAST_DURATION.INFO 
+                  });
+                }
+              }
             }
           }
 

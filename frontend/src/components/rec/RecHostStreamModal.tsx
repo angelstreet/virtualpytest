@@ -14,7 +14,6 @@ import { Box, IconButton, Typography, Button, CircularProgress } from '@mui/mate
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
-import { useModal } from '../../contexts/ModalContext';
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
 import { useStream } from '../../hooks/controller';
 import { useRec } from '../../hooks/pages/useRec';
@@ -69,9 +68,6 @@ const RecHostStreamModalContent: React.FC<{
   onClose: () => void;
   showRemoteByDefault: boolean;
 }> = ({ host, device, onClose, showRemoteByDefault }) => {
-  // Global modal state
-  const { setAnyModalOpen } = useModal();
-
   // Local state
   const [showRemote, setShowRemote] = useState<boolean>(showRemoteByDefault);
   const [showWeb, setShowWeb] = useState<boolean>(false);
@@ -81,14 +77,6 @@ const RecHostStreamModalContent: React.FC<{
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
-
-  // Set global modal state when component mounts/unmounts
-  useEffect(() => {
-    setAnyModalOpen(true);
-    return () => {
-      setAnyModalOpen(false);
-    };
-  }, [setAnyModalOpen]);
 
   // Cleanup stream when component unmounts
   useEffect(() => {
