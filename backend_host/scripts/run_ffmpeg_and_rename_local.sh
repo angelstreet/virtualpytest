@@ -1,13 +1,77 @@
 #!/bin/bash
 
-# Configuration array for grabbers: source|audio_device|capture_dir|input_fps
-# Hardware video devices: /dev/video0, /dev/video2, etc.
-# VNC displays: :1, :99, etc. no audio for now then pulseaudio
-# input_fps = device capability, output stays fixed at 5 FPS for hardware, 2 FPS for VNC
-declare -A GRABBERS=(
-  ["0"]=":1|null|/var/www/html/stream/capture1|2"
-  ["1"]="/dev/video0|plughw:2,0|/var/www/html/stream/capture2|10"
-)
+# ============================================================================
+# MASTER CAPTURE CONFIGURATION - READS FROM .env FILE
+# ============================================================================
+# This script reads capture configuration from backend_host/src/.env file.
+# The .env file is the SINGLE SOURCE OF TRUTH for all capture settings.
+#
+# To add a new capture: Edit backend_host/src/.env and restart service.
+# To disable a capture: Prefix variable name with 'x' or comment with '#'
+#
+# Required .env variables per device:
+#   HOST_VIDEO_SOURCE, HOST_VIDEO_AUDIO, HOST_VIDEO_CAPTURE_PATH, HOST_VIDEO_FPS
+#   DEVICE*_VIDEO, DEVICE*_VIDEO_AUDIO, DEVICE*_VIDEO_CAPTURE_PATH, DEVICE*_VIDEO_FPS
+#
+# See CAPTURE_CONFIG.md for details.
+# ============================================================================
+
+# Find and load .env file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_HOST_DIR="$(dirname "$SCRIPT_DIR")"
+ENV_FILE="$BACKEND_HOST_DIR/src/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: .env file not found at $ENV_FILE"
+    exit 1
+fi
+
+echo "Loading configuration from $ENV_FILE..."
+
+# Load .env file (filter out comments and empty lines)
+set -a
+source <(grep -v '^#' "$ENV_FILE" | grep -v '^$' | grep -v '^x')
+set +a
+
+# Build GRABBERS array dynamically from .env
+# Format: source|audio_device|capture_dir|input_fps
+declare -A GRABBERS=()
+
+# Check HOST configuration (if VIDEO_SOURCE is set and not disabled)
+if [ -n "$HOST_VIDEO_SOURCE" ]; then
+    GRABBERS["host"]="$HOST_VIDEO_SOURCE|${HOST_VIDEO_AUDIO:-null}|${HOST_VIDEO_CAPTURE_PATH}|${HOST_VIDEO_FPS:-2}"
+    echo "✓ Added HOST: $HOST_VIDEO_SOURCE -> $HOST_VIDEO_CAPTURE_PATH (${HOST_VIDEO_FPS:-2} FPS)"
+fi
+
+# Check DEVICE1-10 configuration
+for i in {1..10}; do
+    # Use indirect variable expansion to get DEVICE*_VIDEO value
+    video_var="DEVICE${i}_VIDEO"
+    audio_var="DEVICE${i}_VIDEO_AUDIO"
+    capture_var="DEVICE${i}_VIDEO_CAPTURE_PATH"
+    fps_var="DEVICE${i}_VIDEO_FPS"
+    name_var="DEVICE${i}_NAME"
+    
+    video_source="${!video_var}"
+    audio_device="${!audio_var}"
+    capture_path="${!capture_var}"
+    fps="${!fps_var}"
+    device_name="${!name_var:-device$i}"
+    
+    # Only add if VIDEO source is defined and not empty
+    if [ -n "$video_source" ]; then
+        GRABBERS["device$i"]="$video_source|${audio_device:-null}|${capture_path}|${fps:-10}"
+        echo "✓ Added DEVICE$i ($device_name): $video_source -> $capture_path (${fps:-10} FPS)"
+    fi
+done
+
+# Check if we have any grabbers configured
+if [ ${#GRABBERS[@]} -eq 0 ]; then
+    echo "ERROR: No capture devices configured in .env file!"
+    exit 1
+fi
+
+echo "Total active captures: ${#GRABBERS[@]}"
 
 # Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
@@ -107,55 +171,65 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
-    FFMPEG_CMD="/usr/bin/ffmpeg -y -re -fflags nobuffer+genpts -probesize 32 -analyzeduration 0 -avioflags direct \
-      -flags low_delay -strict -2 -thread_queue_size 32 \
-      -fix_sub_duration -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
-      -f alsa -thread_queue_size 512 -async 1 -i \"$audio_device\" \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=640:360[streamout];[capture]fps=5[captureout];[thumb]fps=5,scale=320:180[thumbout]\" \
+    # Optimized: single fps operation, balanced queues, CBR encoding for stable streaming
+    FFMPEG_CMD="/usr/bin/ffmpeg -y \
+      -fflags +nobuffer+genpts+flush_packets \
+      -use_wallclock_as_timestamps 1 \
+      -thread_queue_size 512 \
+      -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
+      -thread_queue_size 512 -f alsa -async 1 -i \"$audio_device\" \
+      -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
+        [str]scale=640:360:flags=fast_bilinear,fps=$input_fps[streamout]; \
+        [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" -map 1:a \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 28 -maxrate 400k -bufsize 800k -force_key_frames \"expr:gte(t,n_forced*0.5)\" \
-      -pix_fmt yuv420p -profile:v baseline -level 3.0 -fps_mode passthrough \
+      -c:v libx264 -preset ultrafast -tune zerolatency \
+      -b:v 350k -maxrate 400k -bufsize 800k \
+      -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
+      -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 5 -f image2 \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - Optimized for low CPU usage: dual output only (stream + captures)
-    
+    # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
+    # Optimized: single fps operation, no mouse cursor, CBR encoding, faster scaling
     # Setup X11 display environment
     export DISPLAY="$source"
     export XAUTHORITY=~/.Xauthority
-    
     # Allow local connections and set resolution
     echo "Setting up X11 display $source..."
     xhost +local: 2>/dev/null || echo "Warning: xhost command failed"
     xrandr -display "$source" -s 1280x720 2>/dev/null || echo "Warning: xrandr resolution set failed"
-    
     local resolution=$(get_vnc_resolution "$source")
 
-    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y -f x11grab -video_size $resolution -framerate $input_fps -i $source \
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y \
+      -probesize 32M -analyzeduration 0 \
+      -draw_mouse 0 -show_region 0 \
+      -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
-      -filter_complex \"[0:v]split=3[stream][capture][thumb];[stream]scale=480:360:flags=fast_bilinear[streamout];[capture]fps=2[captureout];[thumb]fps=2,scale=320:180[thumbout]\" \
+      -filter_complex \"[0:v]fps=2[v2];[v2]split=3[str][cap][thm]; \
+        [str]scale=480:360:flags=neighbor[streamout]; \
+        [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" \
-      -c:v libx264 -preset ultrafast -tune zerolatency -crf 40 -maxrate 300k -bufsize 600k \
-      -pix_fmt yuv420p -profile:v baseline -level 3.0 -x264opts keyint=120:min-keyint=120:no-scenecut:ref=1:me=dia:subme=0:trellis=0 \
-      -f hls -hls_time 4 -hls_list_size 5 -hls_flags omit_endlist \
+      -c:v libx264 -preset ultrafast -tune zerolatency \
+      -b:v 250k -maxrate 300k -bufsize 600k \
+      -pix_fmt yuv420p -profile:v baseline -level 3.0 \
+      -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
+      -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
       -hls_segment_filename $capture_dir/segment_%03d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 8 -f image2 \
+      -map \"[thumbout]\" -c:v mjpeg -q:v 10 -f image2 \
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
   fi
-
-
 
   # Start ffmpeg
   echo "Starting ffmpeg for $source ($source_type) with audio: $audio_device..."

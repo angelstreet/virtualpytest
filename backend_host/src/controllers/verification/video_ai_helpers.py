@@ -85,7 +85,7 @@ class VideoAIHelpers:
             height, width = image.shape[:2]
             print(f"VideoAI[{self.device_name}]: Analyzing cv2 image array: {width}x{height} pixels")
             
-            prompt = "Analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
+            prompt = "Quickly analyze this image for subtitles. Respond with JSON: {\"subtitles_detected\": true/false, \"extracted_text\": \"text or empty\", \"detected_language\": \"language or unknown\", \"confidence\": 0.0-1.0}"
             
             print(f"VideoAI[{self.device_name}]: Calling AI with prompt: {prompt[:100]}...")
             result = call_vision_ai(prompt, image, max_tokens=300, temperature=0.0)
@@ -459,7 +459,7 @@ class VideoAIHelpers:
     
     def analyze_full_image_with_ai(self, image_path: str, user_question: str) -> str:
         """
-        Analyze full image with AI using user's question.
+        Quickly analyze full image with AI using user's question.
         
         Args:
             image_path: Path to image file
@@ -574,7 +574,7 @@ Be specific about what you see on the device interface."""
             from shared.src.lib.utils.ai_utils import call_vision_ai
             
             # Single combined prompt for both subtitles and description
-            prompt = """Analyze this image and provide both subtitle detection and description. Respond with JSON:
+            prompt = """Quickly analyze this image and provide both subtitle detection and description. Respond with JSON:
 {
   "subtitle_analysis": {
     "subtitles_detected": true/false,
@@ -584,7 +584,7 @@ Be specific about what you see on the device interface."""
   },
   "description_analysis": {
     "success": true,
-    "response": "concise description of what you see in this image"
+    "response": "fast and concise description of what you see in this image"
   }
 }"""
             

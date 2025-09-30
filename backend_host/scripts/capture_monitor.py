@@ -24,16 +24,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def get_capture_directories():
-    """Find active capture directories"""
+    """Find active capture directories from /tmp/active_captures.conf (centralized config)"""
+    active_captures_file = '/tmp/active_captures.conf'
+    
+    # Read from centralized config file written by run_ffmpeg_and_rename_local.sh
+    if os.path.exists(active_captures_file):
+        try:
+            with open(active_captures_file, 'r') as f:
+                # Each line contains a capture directory path (e.g., /var/www/html/stream/capture1)
+                base_dirs = []
+                for line in f:
+                    capture_base = line.strip()
+                    if capture_base:
+                        # Add /captures subdirectory
+                        capture_dir = os.path.join(capture_base, 'captures')
+                        if os.path.exists(capture_dir):
+                            base_dirs.append(capture_dir)
+                
+                logger.info(f"✅ Loaded {len(base_dirs)} capture directories from {active_captures_file}")
+                return base_dirs
+        except Exception as e:
+            logger.error(f"❌ Error reading {active_captures_file}: {e}")
+    
+    # Fallback to default directories if config file doesn't exist
+    logger.warning(f"⚠️ {active_captures_file} not found, using fallback directories")
     base_dirs = [
-                "/var/www/html/stream/capture1/captures",
-                "/var/www/html/stream/capture2/captures", 
-                "/var/www/html/stream/capture3/captures",
-                "/var/www/html/stream/capture4/captures",
-                "/var/www/html/stream/capture5/captures",
-                "/var/www/html/stream/capture6/captures",
-                 "/var/www/html/stream/capture7/captures"
-            ]
+        "/var/www/html/stream/capture1/captures",
+        "/var/www/html/stream/capture2/captures", 
+    ]
     return [d for d in base_dirs if os.path.exists(d)]
 
 def get_capture_folder(capture_dir):
@@ -86,20 +104,32 @@ def update_archive_manifest(capture_dir):
         logger.error(f"Error updating archive manifest for {capture_dir}: {e}")
 
 def find_latest_frame(capture_dir):
-    """Find most recent unanalyzed frame"""
-    pattern = os.path.join(capture_dir, "capture_*.jpg")
-    frames = [f for f in glob.glob(pattern) if '_thumbnail' not in f]
-    
-    if not frames:
+    """Find most recent unanalyzed frame - OPTIMIZED with scandir"""
+    try:
+        entries = []
+        with os.scandir(capture_dir) as it:
+            for entry in it:
+                if (entry.name.startswith('capture_') and 
+                    entry.name.endswith('.jpg') and 
+                    '_thumbnail' not in entry.name):
+                    # Get stat info once during scandir (faster than separate os.path.getmtime)
+                    entries.append((entry.path, entry.stat().st_mtime))
+        
+        if not entries:
+            return None
+        
+        # Sort by mtime (already retrieved during scandir)
+        entries.sort(key=lambda x: x[1], reverse=True)
+        
+        # Check last 3 frames for unanalyzed
+        for frame_path, _ in entries[:3]:
+            json_file = frame_path.replace('.jpg', '.json')
+            if not os.path.exists(json_file):
+                return frame_path
         return None
-    
-    # Get most recent frame that doesn't have a JSON file
-    frames.sort(key=os.path.getmtime, reverse=True)
-    for frame in frames[:3]:  # Check last 3 frames
-        json_file = frame.replace('.jpg', '.json')
-        if not os.path.exists(json_file):
-            return frame
-    return None
+    except Exception as e:
+        logger.error(f"Error finding latest frame in {capture_dir}: {e}")
+        return None
 
 def cleanup_logs_on_startup():
     """Clean up all monitoring log files on service restart for fresh debugging - EXACT COPY"""
@@ -141,12 +171,19 @@ def main():
         capture_folder = get_capture_folder(capture_dir)
         logger.info(f"Monitoring: {capture_dir} -> {capture_folder}")
     
+    # Performance: Throttle manifest updates to once per 60 seconds per capture directory
+    last_manifest_update = {}
+    
     while True:
+        current_time = time.time()
+        
         for capture_dir in capture_dirs:
             capture_folder = get_capture_folder(capture_dir)
             
-            # Update archive manifest every cycle (2 seconds)
-            update_archive_manifest(capture_dir)
+            # Update archive manifest only every 60 seconds (performance optimization)
+            if current_time - last_manifest_update.get(capture_folder, 0) >= 60:
+                update_archive_manifest(capture_dir)
+                last_manifest_update[capture_folder] = current_time
             
             frame_path = find_latest_frame(capture_dir)
             

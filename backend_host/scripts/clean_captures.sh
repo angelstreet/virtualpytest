@@ -23,14 +23,32 @@ CLEAN_LOG="/tmp/clean.log"
 > "$CLEAN_LOG"
 echo "$(date): Starting cleanup run" >> "$CLEAN_LOG"
 
-# Array of possible capture directories
-CAPTURE_DIRS=(
-  "/var/www/html/stream/capture/captures"
-  "/var/www/html/stream/capture1/captures"
-  "/var/www/html/stream/capture2/captures"
-  "/var/www/html/stream/capture3/captures"
-  "/var/www/html/stream/capture4/captures"
-)
+# Read active capture directories from centralized config file
+ACTIVE_CAPTURES_FILE="/tmp/active_captures.conf"
+
+if [ -f "$ACTIVE_CAPTURES_FILE" ]; then
+  echo "$(date): Loading capture directories from $ACTIVE_CAPTURES_FILE" >> "$CLEAN_LOG"
+  
+  # Read capture directories from config file (one per line)
+  CAPTURE_DIRS=()
+  while IFS= read -r capture_base; do
+    # Each line contains base capture directory (e.g., /var/www/html/stream/capture1)
+    if [ -n "$capture_base" ]; then
+      # Add /captures subdirectory
+      CAPTURE_DIRS+=("${capture_base}/captures")
+    fi
+  done < "$ACTIVE_CAPTURES_FILE"
+  
+  echo "$(date): Loaded ${#CAPTURE_DIRS[@]} capture directories from config" >> "$CLEAN_LOG"
+else
+  echo "$(date): WARNING: $ACTIVE_CAPTURES_FILE not found, using fallback directories" >> "$CLEAN_LOG"
+  
+  # Fallback to default directories if config file doesn't exist
+  CAPTURE_DIRS=(
+    "/var/www/html/stream/capture1/captures"
+    "/var/www/html/stream/capture2/captures"
+  )
+fi
 
 # Process each directory - clean both parent and captures directory in one loop
 for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do

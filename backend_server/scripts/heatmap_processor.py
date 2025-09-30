@@ -30,6 +30,7 @@ from typing import Dict, List, Optional, Tuple
 from PIL import Image
 import io
 import math
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
 
@@ -70,6 +71,11 @@ class HeatmapProcessor:
     def __init__(self):
         self.running = False
         self.server_path = self._get_server_path()
+        # Performance: Reuse session for connection pooling
+        import requests
+        self.session = requests.Session()
+        # Performance: Cache fonts to avoid repeated loading
+        self._fonts_cache = {}
         logger.info(f"🏷️ HeatmapProcessor server path: {self.server_path}")
     
     def _get_server_path(self) -> str:
@@ -153,9 +159,8 @@ class HeatmapProcessor:
             # Create mosaic image (always full grid)
             mosaic_image = self.create_mosaic_image(complete_device_list)
             
-            # Create OK and KO mosaics
-            ko_devices = self.filter_ko_devices(complete_device_list)
-            ok_devices = self.filter_ok_devices(complete_device_list)
+            # Create OK and KO mosaics - OPTIMIZED: single pass filtering
+            ok_devices, ko_devices = self.filter_devices_by_status(complete_device_list)
             
             ko_mosaic_image = self.create_mosaic_image(ko_devices) if ko_devices else None
             ok_mosaic_image = self.create_mosaic_image(ok_devices) if ok_devices else None
@@ -255,97 +260,110 @@ class HeatmapProcessor:
             logger.error(f"❌ Error getting hosts from API: {e}")
             return []
     
-    def fetch_current_captures(self, hosts_devices: List[Dict]) -> List[Dict]:
-        """Fetch current capture (latest JSON + image) for each device using latest-json endpoint"""
+    def _fetch_device_capture(self, device: Dict) -> Optional[Dict]:
+        """Fetch current capture for a single device (for parallel execution)"""
         try:
-            import requests
             from shared.src.lib.utils.build_url_utils import buildServerUrl
+            
+            host_name = device['host_name']
+            device_id = device['device_id']
+            device_name = device.get('device_name', 'Unknown')
+            
+            # Use same endpoint as useMonitoring
+            api_url = buildServerUrl('server/monitoring/latest-json')
+            
+            response = self.session.post(
+                api_url,
+                json={
+                    'host_name': host_name,
+                    'device_id': device_id
+                },
+                timeout=10
+            )
+                    
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('success') and result.get('latest_json_url'):
+                    raw_json_url = result['latest_json_url']
+                    
+                    # Extract sequence using same regex as useMonitoring
+                    import re
+                    sequence_match = re.search(r'capture_(\d+)', raw_json_url)
+                    sequence = sequence_match.group(1) if sequence_match else ''
+                    
+                    if sequence:
+                        from shared.src.lib.utils.build_url_utils import buildCaptureUrl
+                        filename = f"capture_{sequence}.jpg"
+                        image_url = buildCaptureUrl(device['host_data'], filename, device_id)
+                        json_url = image_url.replace('.jpg', '.json')
+                        
+                        # Load JSON analysis data
+                        json_response = self.session.get(json_url, timeout=5)
+                        if json_response.status_code == 200:
+                            raw_json_data = json_response.json()
+                            
+                            logger.debug(f"🔍 RAW JSON for {host_name}/{device_id}/{device_name}: {raw_json_data}")
+                            
+                            has_real_data = any(key in raw_json_data for key in ['blackscreen', 'freeze', 'audio'])
+                            if has_real_data:
+                                analysis_data = raw_json_data
+                                logger.info(f"✅ Using raw analysis for {host_name}/{device_id}/{device_name}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
+                            else:
+                                analysis_data = None
+                                logger.warning(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}/{device_name}: {raw_json_data}")
+                        else:
+                            analysis_data = None
+                        
+                        return {
+                            'host_name': host_name,
+                            'device_id': device_id,
+                            'device_name': device_name,
+                            'image_url': image_url,
+                            'json_url': json_url,
+                            'analysis': analysis_data,
+                            'timestamp': result.get('timestamp', ''),
+                            'sequence': sequence
+                        }
+                    else:
+                        logger.warning(f"⚠️ Could not extract sequence from {raw_json_url}")
+                else:
+                    logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {result.get('error', 'Unknown error')}")
+            else:
+                logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {response.status_code}")
+        except Exception as e:
+            logger.error(f"❌ Error fetching capture for {host_name}/{device_id}/{device_name}: {e}")
+        
+        return None
+    
+    def fetch_current_captures(self, hosts_devices: List[Dict]) -> List[Dict]:
+        """Fetch current captures for all devices IN PARALLEL (OPTIMIZED)"""
+        try:
+            logger.info(f"🚀 Fetching captures for {len(hosts_devices)} devices in parallel...")
+            start_time = time.time()
             
             current_captures = []
             
-            for device in hosts_devices:
-                host_name = device['host_name']
-                device_id = device['device_id']
+            # PERFORMANCE: Parallel execution with ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(10, len(hosts_devices))) as executor:
+                # Submit all tasks
+                future_to_device = {
+                    executor.submit(self._fetch_device_capture, device): device 
+                    for device in hosts_devices
+                }
                 
-                try:
-                    # Use same endpoint as useMonitoring - proven to work
-                    api_url = buildServerUrl('server/monitoring/latest-json')
-                    
-                    response = requests.post(
-                        api_url,
-                        json={
-                            'host_name': host_name,
-                            'device_id': device_id
-                        },
-                        timeout=10
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        if result.get('success') and result.get('latest_json_url'):
-                            # Use exact same logic as useMonitoring.ts lines 268-272
-                            raw_json_url = result['latest_json_url']
-                            
-                            # Extract sequence using same regex as useMonitoring
-                            import re
-                            sequence_match = re.search(r'capture_(\d+)', raw_json_url)
-                            sequence = sequence_match.group(1) if sequence_match else ''
-                            
-                            if sequence:
-                                from shared.src.lib.utils.build_url_utils import buildCaptureUrl
-                                # Build filename like capture_24487.jpg (Python version expects full filename)
-                                filename = f"capture_{sequence}.jpg"
-                                image_url = buildCaptureUrl(device['host_data'], filename, device_id)
-                                # Build JSON URL by replacing .jpg with .json like useMonitoring line 272
-                                json_url = image_url.replace('.jpg', '.json')
-                                
-                                # Load JSON analysis data - use RAW data from monitor
-                                json_response = requests.get(json_url, timeout=5)
-                                if json_response.status_code == 200:
-                                    raw_json_data = json_response.json()
-                                    
-                                    # DEBUG: Log the raw JSON data from monitor
-                                    device_name = device.get('device_name', 'Unknown')
-                                    logger.debug(f"🔍 RAW JSON for {host_name}/{device_id}/{device_name}: {raw_json_data}")
-                                    
-                                    # Check if JSON has actual analysis data (not just {"analyzed": True})
-                                    has_real_data = any(key in raw_json_data for key in ['blackscreen', 'freeze', 'audio'])
-                                    if has_real_data:
-                                        analysis_data = raw_json_data
-                                        logger.info(f"✅ Using raw analysis for {host_name}/{device_id}/{device_name}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
-                                    else:
-                                        analysis_data = None  # No real analysis data
-                                        logger.warning(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}/{device_name}: {raw_json_data}")
-                                else:
-                                    analysis_data = None  # No JSON file
-                                
-                                current_captures.append({
-                                    'host_name': host_name,
-                                    'device_id': device_id,
-                                    'device_name': device.get('device_name', 'Unknown'),
-                                    'image_url': image_url,
-                                    'json_url': json_url,
-                                    'analysis': analysis_data,
-                                    'timestamp': result.get('timestamp', ''),
-                                    'sequence': sequence
-                                })
-                                
-                                logger.info(f"✅ {host_name}/{device_id}/{device_name}: capture_{sequence}.jpg")
-                            else:
-                                logger.warning(f"⚠️ Could not extract sequence from {raw_json_url}")
-                        else:
-                            device_name = device.get('device_name', 'Unknown')
-                            logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {result.get('error', 'Unknown error')}")
-                    else:
-                        device_name = device.get('device_name', 'Unknown')
-                        logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {response.status_code}")
-                        
-                except Exception as e:
-                    device_name = device.get('device_name', 'Unknown')
-                    logger.error(f"❌ Error fetching current capture for {host_name}/{device_id}/{device_name}: {e}")
-                    continue
+                # Collect results as they complete
+                for future in as_completed(future_to_device):
+                    device = future_to_device[future]
+                    try:
+                        result = future.result()
+                        if result:
+                            current_captures.append(result)
+                            logger.info(f"✅ {result['host_name']}/{result['device_id']}: capture_{result['sequence']}.jpg")
+                    except Exception as e:
+                        logger.error(f"❌ Future failed for {device.get('host_name')}/{device.get('device_id')}: {e}")
             
-            logger.info(f"🎯 Fetched {len(current_captures)} current captures from {len(hosts_devices)} devices")
+            elapsed = time.time() - start_time
+            logger.info(f"🎯 Fetched {len(current_captures)} captures from {len(hosts_devices)} devices in {elapsed:.2f}s (parallel)")
             return current_captures
             
         except Exception as e:
@@ -462,55 +480,57 @@ class HeatmapProcessor:
             logger.info(f"   ✅ No incidents detected")
     
     
-    def filter_ko_devices(self, devices_data: List[Dict]) -> List[Dict]:
-        """Filter devices that have incidents (KO)"""
-        ko_devices = []
-        for device in devices_data:
-            analysis_data = device.get('analysis', {})
-            is_placeholder = device.get('is_placeholder', False)
-            
-            has_incident = False
-            has_real_analysis = analysis_data and any(key in analysis_data for key in ['blackscreen', 'freeze', 'audio'])
-            if not is_placeholder and has_real_analysis:
-                has_incident = (
-                    analysis_data.get('blackscreen', False) or
-                    analysis_data.get('freeze', False) or
-                    not analysis_data.get('audio', True)
-                )
-            
-            if has_incident:
-                ko_devices.append(device)
-        return ko_devices
-    
-    def filter_ok_devices(self, devices_data: List[Dict]) -> List[Dict]:
-        """Filter devices that are OK (no incidents)"""
+    def filter_devices_by_status(self, devices_data: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+        """Filter devices into OK and KO lists in single pass (OPTIMIZED)"""
         ok_devices = []
+        ko_devices = []
+        
         for device in devices_data:
             analysis_data = device.get('analysis', {})
             is_placeholder = device.get('is_placeholder', False)
             
             has_incident = False
             has_real_analysis = analysis_data and any(key in analysis_data for key in ['blackscreen', 'freeze', 'audio'])
+            
             if not is_placeholder and has_real_analysis:
                 has_incident = (
                     analysis_data.get('blackscreen', False) or
                     analysis_data.get('freeze', False) or
                     not analysis_data.get('audio', True)
                 )
-            
-            if not has_incident and has_real_analysis:
-                ok_devices.append(device)
-        return ok_devices
+                
+                if has_incident:
+                    ko_devices.append(device)
+                else:
+                    ok_devices.append(device)
+        
+        return ok_devices, ko_devices
+    
+    def _get_cached_font(self, font_name: str, size: int = None):
+        """Get font from cache or load it (OPTIMIZED)"""
+        from PIL import ImageFont
+        
+        cache_key = f"{font_name}_{size}" if size else font_name
+        
+        if cache_key not in self._fonts_cache:
+            if font_name == 'default':
+                self._fonts_cache[cache_key] = ImageFont.load_default()
+            else:
+                try:
+                    self._fonts_cache[cache_key] = ImageFont.truetype(font_name, size)
+                except:
+                    self._fonts_cache[cache_key] = ImageFont.load_default()
+        
+        return self._fonts_cache[cache_key]
     
     def add_border_and_label(self, img: Image.Image, image_data: Dict, cell_width: int, cell_height: int) -> Image.Image:
         """Add colored border and label to device image"""
-        from PIL import ImageDraw, ImageFont
+        from PIL import ImageDraw
         
-        # Check for incidents in raw analysis data - try both keys for compatibility
+        # Check for incidents in raw analysis data
         analysis_data = image_data.get('analysis_json', {}) or image_data.get('analysis', {})
         is_placeholder = image_data.get('is_placeholder', False)
         
-        # Check if we have real analysis data (not just empty dict or None)
         has_real_analysis = analysis_data and any(key in analysis_data for key in ['blackscreen', 'freeze', 'audio'])
         
         has_incident = False
@@ -521,47 +541,66 @@ class HeatmapProcessor:
                 not analysis_data.get('audio', True)
             )
         
-        # Add border (red for incident, green for OK, grey for placeholder/missing data)
+        # Add border
         if is_placeholder or not has_real_analysis:
-            border_color = (128, 128, 128)  # Grey for placeholder OR missing JSON data
+            border_color = (128, 128, 128)
         elif has_incident:
-            border_color = (255, 0, 0)  # Red for incident
+            border_color = (255, 0, 0)
         else:
-            border_color = (0, 255, 0)  # Green for OK (only when we have real data)
+            border_color = (0, 255, 0)
             
         draw = ImageDraw.Draw(img)
         draw.rectangle([0, 0, cell_width-1, cell_height-1], outline=border_color, width=4)
         
-        # Add label in bottom right corner (very close to edge)
+        # Add label - use cached font (OPTIMIZED)
         host_name = image_data.get('host_name', '')
         device_name = image_data.get('device_name', image_data.get('device_id', ''))
         label = f"{host_name}_{device_name}"
         
-        # Calculate text size to position it very close to right edge
         try:
-            font = ImageFont.load_default()
+            font = self._get_cached_font('default')
             bbox = draw.textbbox((0, 0), label, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Position very close to right and bottom edges (5px margin)
             x_pos = cell_width - text_width - 5
             y_pos = cell_height - text_height - 5
             
             draw.text((x_pos, y_pos), label, fill='white', font=font)
         except:
-            # Fallback to original positioning if text measurement fails
-            draw.text((cell_width-150, cell_height-20), label, fill='white', font=ImageFont.load_default())
+            draw.text((cell_width-150, cell_height-20), label, fill='white', font=self._get_cached_font('default'))
         
         return img
     
+    def _download_and_process_image(self, image_data: Dict, cell_width: int, cell_height: int) -> Tuple[Optional[Image.Image], Dict]:
+        """Download and process a single image for mosaic (for parallel execution)"""
+        try:
+            image_url = image_data.get('image_url')
+            
+            if not image_url or image_url == 'None':
+                return None, image_data
+            
+            response = self.session.get(image_url, timeout=10)
+            if response.status_code == 200:
+                img = Image.open(io.BytesIO(response.content))
+                # PERFORMANCE: Use BILINEAR instead of LANCZOS (5x faster, minimal quality loss for thumbnails)
+                img = img.resize((cell_width, cell_height), Image.Resampling.BILINEAR)
+                img_with_border = self.add_border_and_label(img, image_data, cell_width, cell_height)
+                return img_with_border, image_data
+            else:
+                raise Exception(f"HTTP {response.status_code}")
+        except Exception as e:
+            logger.error(f"❌ Error loading image {image_data.get('image_url')}: {e}")
+            return None, image_data
+    
     def create_mosaic_image(self, images_data: List[Dict]) -> Image.Image:
-        """Create mosaic image from device images"""
+        """Create mosaic image from device images - OPTIMIZED with parallel downloads"""
         if not images_data:
             logger.warning("⚠️ No images provided for mosaic - creating empty black image")
             return Image.new('RGB', (800, 600), color='black')
         
         logger.info(f"🎨 Creating mosaic from {len(images_data)} images")
+        start_time = time.time()
         
         # Calculate grid layout
         count = len(images_data)
@@ -590,6 +629,41 @@ class HeatmapProcessor:
         logger.info(f"🖼️ Mosaic dimensions: {mosaic_width}x{mosaic_height} pixels ({cell_width}x{cell_height} per cell)")
         mosaic = Image.new('RGB', (mosaic_width, mosaic_height), color='black')
         
+        # PERFORMANCE: Download and process images in parallel
+        processed_images = {}
+        images_to_download = []
+        
+        for i, image_data in enumerate(images_data):
+            if i >= cols * rows:
+                break
+            
+            image_url = image_data.get('image_url')
+            is_placeholder = image_data.get('is_placeholder', False)
+            
+            if not is_placeholder and image_url and image_url != 'None':
+                images_to_download.append((i, image_data))
+        
+        # Download images in parallel if there are any
+        if images_to_download:
+            logger.info(f"📥 Downloading {len(images_to_download)} images in parallel...")
+            with ThreadPoolExecutor(max_workers=min(10, len(images_to_download))) as executor:
+                future_to_index = {
+                    executor.submit(self._download_and_process_image, img_data, cell_width, cell_height): idx
+                    for idx, img_data in images_to_download
+                }
+                
+                for future in as_completed(future_to_index):
+                    idx = future_to_index[future]
+                    try:
+                        result_img, img_data = future.result()
+                        if result_img:
+                            processed_images[idx] = result_img
+                            device_name = img_data.get('device_name', 'Unknown')
+                            logger.debug(f"✅ Downloaded {img_data['host_name']}/{img_data['device_id']}/{device_name}")
+                    except Exception as e:
+                        logger.error(f"❌ Future failed for image {idx}: {e}")
+        
+        # Now assemble the mosaic
         for i, image_data in enumerate(images_data):
             if i >= cols * rows:
                 break
@@ -600,27 +674,29 @@ class HeatmapProcessor:
             x = col * cell_width
             y = row * cell_height
             
-            # Check if this is a placeholder or has no image URL
+            # Check if we have a pre-downloaded image
+            if i in processed_images:
+                # Use pre-downloaded and processed image
+                mosaic.paste(processed_images[i], (x, y))
+                continue
+            
+            # Otherwise create placeholder
             image_url = image_data.get('image_url')
             is_placeholder = image_data.get('is_placeholder', False)
             
-            if is_placeholder or not image_url or image_url == 'None':
+            if True:  # Always create placeholder for non-downloaded images
                 # Create placeholder with device info
                 placeholder_color = '#2a2a2a' if is_placeholder else '#4a2a2a'  # Dark gray for missing, dark red for None
                 placeholder = Image.new('RGB', (cell_width, cell_height), color=placeholder_color)
                 
                 # Add text overlay with device info
                 try:
-                    from PIL import ImageDraw, ImageFont
+                    from PIL import ImageDraw
                     draw = ImageDraw.Draw(placeholder)
                     
-                    # Try to use a font, fallback to default
-                    try:
-                        font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 24)
-                        small_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 16)
-                    except:
-                        font = ImageFont.load_default()
-                        small_font = ImageFont.load_default()
+                    # Use cached fonts (OPTIMIZED)
+                    font = self._get_cached_font("/System/Library/Fonts/Arial.ttf", 24)
+                    small_font = self._get_cached_font("/System/Library/Fonts/Arial.ttf", 16)
                     
                     # Device info text
                     host_name = image_data['host_name']
@@ -652,47 +728,9 @@ class HeatmapProcessor:
                 status_text = "placeholder" if is_placeholder else "not found"
                 device_name = image_data.get('device_name', 'Unknown')
                 logger.debug(f"📝 Added {status_text} for {image_data['host_name']}/{image_data['device_id']}/{device_name}")
-                
-            else:
-                # Try to download and use actual image
-                try:
-                    import requests
-                    logger.debug(f"📥 Downloading image: {image_url}")
-                    response = requests.get(image_url, timeout=10)
-                    if response.status_code == 200:
-                        img = Image.open(io.BytesIO(response.content))
-                        img = img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
-                        
-                        # Add border and label to the image
-                        img_with_border = self.add_border_and_label(img, image_data, cell_width, cell_height)
-                        mosaic.paste(img_with_border, (x, y))
-                        device_name = image_data.get('device_name', 'Unknown')
-                        logger.debug(f"✅ Added image for {image_data['host_name']}/{image_data['device_id']}/{device_name}")
-                    else:
-                        raise Exception(f"HTTP {response.status_code}")
-                except Exception as e:
-                    logger.error(f"❌ Error loading image {image_data['image_url']}: {e}")
-                    # Create error placeholder
-                    error_placeholder = Image.new('RGB', (cell_width, cell_height), color='#4a2a2a')  # Dark red
-                    
-                    try:
-                        from PIL import ImageDraw, ImageFont
-                        draw = ImageDraw.Draw(error_placeholder)
-                        try:
-                            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 20)
-                        except:
-                            font = ImageFont.load_default()
-                        
-                        text = "IMAGE ERROR"
-                        bbox = draw.textbbox((0, 0), text, font=font)
-                        text_x = (cell_width - (bbox[2] - bbox[0])) // 2
-                        text_y = (cell_height - (bbox[3] - bbox[1])) // 2
-                        draw.text((text_x, text_y), text, fill='red', font=font)
-                    except:
-                        pass
-                    
-                    mosaic.paste(error_placeholder, (x, y))
         
+        elapsed = time.time() - start_time
+        logger.info(f"🎨 Mosaic created in {elapsed:.2f}s ({len(processed_images)} images downloaded in parallel)")
         return mosaic
     
     def create_analysis_json(self, images_data: List[Dict], time_key: str) -> Dict:
