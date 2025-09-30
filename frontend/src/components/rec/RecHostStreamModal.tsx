@@ -912,6 +912,12 @@ const RecHostStreamModalContent: React.FC<{
             disambiguationCancel();
             setDisambiguationData(null);
           }}
+          onEditPrompt={() => {
+            // Close modal and cancel AI execution so user can edit their prompt
+            disambiguationCancel();
+            setDisambiguationData(null);
+            // User can now edit the prompt in AIExecutionPanel
+          }}
         />
       )}
     </Box>
