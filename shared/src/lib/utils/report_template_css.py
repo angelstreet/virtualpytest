@@ -424,6 +424,92 @@ body {{
     border-left-color: #17a2b8;
 }}
 
+.retry-action-item {{
+    margin: 4px 0;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border-left: 3px solid #ffc107;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+}}
+
+.retry-action-item.executed {{
+    background: #fff8e1;
+    border-left-color: #ff9800;
+}}
+
+[data-theme="dark"] .retry-action-item.executed {{
+    background: #3a2e1a;
+}}
+
+.failure-action-item {{
+    margin: 4px 0;
+    padding: 4px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border-left: 3px solid #9e9e9e;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+}}
+
+.failure-action-item.executed {{
+    background: #fce4ec;
+    border-left-color: #e91e63;
+}}
+
+[data-theme="dark"] .failure-action-item.executed {{
+    background: #3a1a2e;
+}}
+
+.retry-status, .failure-status {{
+    font-size: 0.75em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 8px;
+}}
+
+.retry-status.available, .failure-status.available {{
+    background: #e0e0e0;
+    color: #666;
+}}
+
+.retry-status.executed {{
+    background: #ff9800;
+    color: white;
+}}
+
+.failure-status.executed {{
+    background: #e91e63;
+    color: white;
+}}
+
+[data-theme="dark"] .retry-status.available, 
+[data-theme="dark"] .failure-status.available {{
+    background: #404040;
+    color: #a0a0a0;
+}}
+
+.action-result-badge {{
+    display: inline-block;
+    font-size: 0.85em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin-left: 8px;
+}}
+
+.action-result-badge.success {{
+    background: var(--success-bg);
+    color: var(--success-text);
+}}
+
+.action-result-badge.failure {{
+    background: var(--failure-bg);
+    color: var(--failure-text);
+}}
+
 .verification-item {{
     border-left-color: #6f42c1;
 }}

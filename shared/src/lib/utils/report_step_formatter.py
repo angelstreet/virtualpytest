@@ -259,12 +259,19 @@ def format_step_error(step: Dict) -> str:
 
 
 def format_step_actions(step: Dict) -> str:
-    """Format actions section for a step."""
+    """Format actions section for a step with execution status."""
     actions = step.get('actions', [])
-    retry_actions = step.get('retryActions', [])
-    failure_actions = step.get('failureActions', [])
+    retry_actions = step.get('retry_actions', [])
+    failure_actions = step.get('failure_actions', [])
+    action_results = step.get('action_results', [])
     
     actions_html = ""
+    
+    # Determine which actions were executed based on action_results
+    executed_categories = set()
+    if action_results:
+        for result in action_results:
+            executed_categories.add(result.get('action_category', 'main'))
     
     # Regular actions
     if actions:
@@ -278,11 +285,25 @@ def format_step_actions(step: Dict) -> str:
             params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
             
             action_line = f"{action_index}. {command}({params_str})" if params_str else f"{action_index}. {command}"
+            
+            # Show result if available
+            if action_results and action_index <= len([r for r in action_results if r.get('action_category') == 'main']):
+                main_results = [r for r in action_results if r.get('action_category') == 'main']
+                if action_index - 1 < len(main_results):
+                    result = main_results[action_index - 1]
+                    success = result.get('success', False)
+                    status_badge = f'<span class="action-result-badge {"success" if success else "failure"}">{"✓" if success else "✗"}</span>'
+                    action_line += f" {status_badge}"
+            
             actions_html += f'<div class="action-item">{action_line}</div>'
     
     # Retry actions
     if retry_actions:
-        actions_html += "<div><strong>Retry Actions:</strong> <span class='retry-status available'>AVAILABLE</span></div>"
+        was_executed = 'retry' in executed_categories
+        status_label = 'EXECUTED' if was_executed else 'AVAILABLE'
+        status_class = 'executed' if was_executed else 'available'
+        
+        actions_html += f"<div><strong>Retry Actions:</strong> <span class='retry-status {status_class}'>{status_label}</span></div>"
         for retry_index, retry_action in enumerate(retry_actions, 1):
             command = retry_action.get('command', 'unknown')
             params = retry_action.get('params', {})
@@ -291,11 +312,25 @@ def format_step_actions(step: Dict) -> str:
             params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
             
             retry_line = f"{retry_index}. {command}({params_str})" if params_str else f"{retry_index}. {command}"
-            actions_html += f'<div class="retry-action-item available">{retry_line}</div>'
+            
+            # Show result if retry was executed
+            if was_executed and action_results:
+                retry_results = [r for r in action_results if r.get('action_category') == 'retry']
+                if retry_index - 1 < len(retry_results):
+                    result = retry_results[retry_index - 1]
+                    success = result.get('success', False)
+                    status_badge = f'<span class="action-result-badge {"success" if success else "failure"}">{"✓" if success else "✗"}</span>'
+                    retry_line += f" {status_badge}"
+            
+            actions_html += f'<div class="retry-action-item {status_class}">{retry_line}</div>'
     
     # Failure actions
     if failure_actions:
-        actions_html += "<div><strong>Failure Actions:</strong> <span class='failure-status available'>AVAILABLE</span></div>"
+        was_executed = 'failure' in executed_categories
+        status_label = 'EXECUTED' if was_executed else 'AVAILABLE'
+        status_class = 'executed' if was_executed else 'available'
+        
+        actions_html += f"<div><strong>Failure Actions:</strong> <span class='failure-status {status_class}'>{status_label}</span></div>"
         for failure_index, failure_action in enumerate(failure_actions, 1):
             command = failure_action.get('command', 'unknown')
             params = failure_action.get('params', {})
@@ -304,7 +339,17 @@ def format_step_actions(step: Dict) -> str:
             params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
             
             failure_line = f"{failure_index}. {command}({params_str})" if params_str else f"{failure_index}. {command}"
-            actions_html += f'<div class="failure-action-item available">{failure_line}</div>'
+            
+            # Show result if failure action was executed
+            if was_executed and action_results:
+                failure_results = [r for r in action_results if r.get('action_category') == 'failure']
+                if failure_index - 1 < len(failure_results):
+                    result = failure_results[failure_index - 1]
+                    success = result.get('success', False)
+                    status_badge = f'<span class="action-result-badge {"success" if success else "failure"}">{"✓" if success else "✗"}</span>'
+                    failure_line += f" {status_badge}"
+            
+            actions_html += f'<div class="failure-action-item {status_class}">{failure_line}</div>'
     
     return actions_html
 
@@ -922,15 +967,46 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         main_formatted_display = format_screenshot_display_name(main_screenshot_path)
         screenshots_for_step.append((f'{main_formatted_display}_{action_label}', main_screenshot_path, None, None))
     
-    # Action screenshots
+    # Action screenshots - use action_results to get correct command and category
     action_screenshots = step.get('action_screenshots', [])
-    actions = step.get('actions', [])
-    for i, screenshot_path in enumerate(action_screenshots):
-        action_cmd = actions[i].get('command', 'unknown') if i < len(actions) else 'unknown'
-        action_params = actions[i].get('params', {}) if i < len(actions) else {}
-        # Use enhanced formatting for action screenshots
-        action_formatted_display = format_screenshot_display_name(screenshot_path)
-        screenshots_for_step.append((f'{action_formatted_display}_action_{i+1}', screenshot_path, action_cmd, action_params))
+    action_results = step.get('action_results', [])
+    
+    # If we have action_results (new format with categories), use them
+    if action_results:
+        for i, screenshot_path in enumerate(action_screenshots):
+            if i < len(action_results):
+                result = action_results[i]
+                action_cmd = result.get('message', 'unknown').split('(')[0].strip()  # Extract command from message
+                action_category = result.get('action_category', 'main')  # main, retry, or failure
+                action_params = {}  # Results don't include params, but we have the command
+                
+                # Create label with category indicator
+                category_label = {
+                    'main': '',
+                    'retry': 'retry_',
+                    'failure': 'failure_'
+                }.get(action_category, '')
+                
+                # Use enhanced formatting for action screenshots
+                action_formatted_display = format_screenshot_display_name(screenshot_path)
+                screenshots_for_step.append((f'{action_formatted_display}_{category_label}{action_cmd}', screenshot_path, action_cmd, action_params))
+            else:
+                # Fallback if screenshot has no matching result
+                action_formatted_display = format_screenshot_display_name(screenshot_path)
+                screenshots_for_step.append((f'{action_formatted_display}_action_{i+1}', screenshot_path, 'unknown', {}))
+    else:
+        # Fallback to old method: combine all actions (main + retry + failure)
+        all_actions = []
+        all_actions.extend(step.get('actions', []))
+        all_actions.extend(step.get('retry_actions', []))
+        all_actions.extend(step.get('failure_actions', []))
+        
+        for i, screenshot_path in enumerate(action_screenshots):
+            action_cmd = all_actions[i].get('command', 'unknown') if i < len(all_actions) else 'unknown'
+            action_params = all_actions[i].get('params', {}) if i < len(all_actions) else {}
+            # Use enhanced formatting for action screenshots
+            action_formatted_display = format_screenshot_display_name(screenshot_path)
+            screenshots_for_step.append((f'{action_formatted_display}_action_{i+1}', screenshot_path, action_cmd, action_params))
     
     # Step end screenshot
     if step.get('step_end_screenshot_path'):
