@@ -68,7 +68,8 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
 // No local HostManagerProvider needed since we only need AV capability filtering
-const RecContent: React.FC = () => {
+// Memoized to prevent re-renders when HostManagerProvider updates (e.g., take/release control)
+const RecContent: React.FC = memo(() => {
   const {
     avDevices,
     isLoading,
@@ -717,7 +718,10 @@ const RecContent: React.FC = () => {
       )}
     </Box>
   );
-};
+});
+
+// Add display name for debugging
+RecContent.displayName = 'RecContent';
 
 const Rec: React.FC = () => {
   return <RecContent />;
