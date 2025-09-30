@@ -176,6 +176,7 @@ const RunCampaigns: React.FC = () => {
             getDevicesFromHost={getDevicesFromHost}
             onConfigChange={updateCampaignConfig}
             errors={validation.errors}
+            deviceModel={getDeviceModel()}
           />
         );
       case 1:

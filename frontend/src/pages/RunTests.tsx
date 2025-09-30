@@ -80,6 +80,7 @@ const RunTests: React.FC = () => {
   const [selectedHost, setSelectedHost] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<string>('');
+  const [selectedUserinterface, setSelectedUserinterface] = useState<string>(''); // Framework-level parameter
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
 
@@ -296,13 +297,18 @@ const RunTests: React.FC = () => {
     const targetHost = deviceHost || selectedHost;
     const targetDevice = deviceId || selectedDevice;
 
+    // FIRST: Add userinterface_name as positional argument (framework requirement)
+    if (selectedUserinterface) {
+      paramStrings.push(selectedUserinterface);
+    }
+
     // Add parameters from script analysis
     if (scriptAnalysis) {
       scriptAnalysis.parameters.forEach((param) => {
         const value = parameterValues[param.name]?.trim();
         
-        // Skip host and device parameters from script analysis - they'll be added separately
-        if (param.name === 'host' || param.name === 'device') {
+        // Skip host, device, and userinterface_name - they're framework parameters
+        if (param.name === 'host' || param.name === 'device' || param.name === 'userinterface_name') {
           return;
         }
         
@@ -527,20 +533,7 @@ const RunTests: React.FC = () => {
   const renderParameterInput = (param: ScriptParameter) => {
     const value = parameterValues[param.name] || '';
 
-    // Special handling for userinterface_name - use UserinterfaceSelector to fetch compatible interfaces
-    if (param.name === 'userinterface_name') {
-      return (
-        <UserinterfaceSelector
-          key={param.name}
-          deviceModel={getPrimaryDeviceModel()}
-          value={value}
-          onChange={(userinterface) => handleParameterChange(param.name, userinterface)}
-          label={`${param.name}${param.required ? ' *' : ''}`}
-          size="small"
-          fullWidth
-        />
-      );
-    }
+    // Note: userinterface_name is a framework parameter shown at top level, not here
 
     // Special handling for goto_live boolean parameter
     if (param.name === 'goto_live') {
@@ -591,11 +584,11 @@ const RunTests: React.FC = () => {
     );
   };
 
-  // Filter to show required parameters and important optional ones, excluding host/device (auto-filled)
+  // Filter to show required parameters and important optional ones
+  // Exclude framework parameters: host, device, userinterface_name (shown at top level)
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
-    (param.required && param.name !== 'host' && param.name !== 'device') ||
+    (param.required && param.name !== 'host' && param.name !== 'device' && param.name !== 'userinterface_name') ||
     param.name === 'node' ||  // Always show node parameter for goto scripts
-    param.name === 'userinterface_name' ||  // Always show userinterface selection
     (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live' || param.name === 'audio_analysis'))  // Show fullzap specific parameters
   ) || [];
 
@@ -706,6 +699,18 @@ const RunTests: React.FC = () => {
                           ))}
                         </Select>
                       </FormControl>
+                    </Box>
+
+                    {/* Userinterface - Framework parameter (like host/device) */}
+                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
+                      <UserinterfaceSelector
+                        deviceModel={getPrimaryDeviceModel()}
+                        value={selectedUserinterface}
+                        onChange={setSelectedUserinterface}
+                        label="Userinterface"
+                        size="small"
+                        fullWidth
+                      />
                     </Box>
 
                     {/* Parameters on the same row */}
@@ -830,6 +835,7 @@ const RunTests: React.FC = () => {
                         isExecuting ||  // EXECUTION LOCK: Prevent new executions while any are running
                         ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||  // Need at least one device
                         !selectedScript ||
+                        !selectedUserinterface ||  // Framework parameter required
                         loadingScripts ||
                         !validateParameters().valid
                       }
@@ -848,6 +854,7 @@ const RunTests: React.FC = () => {
                         setShowWizard(false);
                         setSelectedHost('');
                         setSelectedDevice('');
+                        setSelectedUserinterface('');
                         setAdditionalDevices([]);
                       }}
                       size="small"

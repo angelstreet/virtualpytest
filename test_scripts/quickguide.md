@@ -38,11 +38,13 @@ AI_SCRIPT_NAME=ai_testcase_123 python ai_testcase_executor.py horizon_android_mo
 
 ## Common Arguments
 
-All scripts support these standard arguments:
+All scripts **automatically** receive these framework-level arguments:
 
-- `userinterface_name` - Target interface (e.g., `horizon_android_mobile`)
+- `userinterface_name` - Target interface (e.g., `horizon_android_mobile`) - **REQUIRED positional argument**
 - `--host <host>` - Target host (default: auto-detected)
 - `--device <device>` - Target device (default: `device1`)
+
+**Note:** These are framework parameters, not script-specific. They are handled automatically by the `@script` decorator and should NOT be declared in `main._script_args`.
 
 ## Script-Specific Arguments
 

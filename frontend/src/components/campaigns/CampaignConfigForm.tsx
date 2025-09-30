@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { CampaignConfig, CampaignExecutionConfig } from '../../types/pages/Campaign_Types';
+import { UserinterfaceSelector } from '../common/UserinterfaceSelector';
 
 interface CampaignConfigFormProps {
   config: Partial<CampaignConfig>;
@@ -24,6 +25,7 @@ interface CampaignConfigFormProps {
   getDevicesFromHost: (hostName: string) => any[];
   onConfigChange: (updates: Partial<CampaignConfig>) => void;
   errors: string[];
+  deviceModel?: string; // For UserinterfaceSelector
 }
 
 export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
@@ -31,6 +33,7 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
   hosts,
   getDevicesFromHost,
   onConfigChange,
+  deviceModel,
 }) => {
   const handleBasicInfoChange = (field: keyof CampaignConfig, value: string) => {
     onConfigChange({ [field]: value });
@@ -114,19 +117,14 @@ export const CampaignConfigForm: React.FC<CampaignConfigFormProps> = ({
           </Select>
         </FormControl>
 
-        <FormControl fullWidth size="small">
-          <InputLabel>User Interface *</InputLabel>
-          <Select
-            value={config.userinterface_name || ''}
-            label="User Interface *"
-            onChange={(e) => handleBasicInfoChange('userinterface_name', e.target.value)}
-            error={!config.userinterface_name}
-          >
-            <MenuItem value="horizon_android_mobile">Horizon Android Mobile</MenuItem>
-            <MenuItem value="horizon_android_tv">Horizon Android TV</MenuItem>
-            <MenuItem value="perseus_360_web">Perseus 360 Web</MenuItem>
-          </Select>
-        </FormControl>
+        <UserinterfaceSelector
+          deviceModel={deviceModel}
+          value={config.userinterface_name || ''}
+          onChange={(userinterface) => handleBasicInfoChange('userinterface_name', userinterface)}
+          label="User Interface *"
+          size="small"
+          fullWidth
+        />
       </Box>
 
       {/* Simple execution settings */}
