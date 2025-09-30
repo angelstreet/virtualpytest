@@ -974,80 +974,6 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         cached_context = self._get_cached_context(context)
         ai_response = self._call_ai(prompt, cached_context)
         
-        # Handle position detection from vision AI with confidence-based logic
-        if 'detected_current_node' in ai_response:
-            detected_label = ai_response.get('detected_current_node')
-            confidence = ai_response.get('position_confidence', 'low')
-            
-            # Only act on HIGH confidence detection
-            if confidence == 'high' and detected_label:
-                try:
-                    # Convert label → node_id
-                    detected_node_id = self.device.navigation_executor.get_node_id(detected_label)
-                    
-                    if not current_node_id:
-                        # Case 1: NULL + confident detection → USE detected
-                        print(f"[@ai_executor] ✅ Position detected: {detected_label}")
-                        self.device.navigation_executor.update_current_position(
-                            detected_node_id,
-                            tree_id=context['tree_id'],
-                            node_label=detected_label
-                        )
-                        # Update context for AI planning
-                        context['current_node_id'] = detected_node_id
-                        
-                    else:
-                        # Get current label for comparison
-                        try:
-                            current_label = self.device.navigation_executor.get_node_label(current_node_id)
-                            
-                            if detected_label == current_label:
-                                # Case 2: Match + confident → CONFIRM
-                                print(f"[@ai_executor] ✅ Position confirmed: {detected_label}")
-                            else:
-                                # Mismatch but confident → DISCARD stored, USE detected
-                                print(f"[@ai_executor] ⚠️ Position drift: stored={current_label}, visual={detected_label}")
-                                self.device.navigation_executor.update_current_position(
-                                    detected_node_id,
-                                    tree_id=context['tree_id'],
-                                    node_label=detected_label
-                                )
-                                context['current_node_id'] = detected_node_id
-                        except ValueError:
-                            # Can't get current label, trust visual detection
-                            print(f"[@ai_executor] ⚠️ Stored position invalid, using visual: {detected_label}")
-                            self.device.navigation_executor.update_current_position(
-                                detected_node_id,
-                                tree_id=context['tree_id'],
-                                node_label=detected_label
-                            )
-                            context['current_node_id'] = detected_node_id
-                            
-                except ValueError as e:
-                    # Vision detected invalid label
-                    print(f"[@ai_executor] ⚠️ Vision detected '{detected_label}' but not in graph - using NULL")
-                    context['current_node_id'] = None
-                    
-            elif confidence != 'high':
-                # Case 3: LOW confidence → DISCARD stored, USE NULL
-                if current_node_id:
-                    print(f"[@ai_executor] ⚠️ Low confidence ({confidence}) - discarding stored position, using NULL")
-                    context['current_node_id'] = None
-                    self.device.navigation_executor.clear_current_position()
-                else:
-                    print(f"[@ai_executor] ⚠️ Low confidence ({confidence}) - no position available, using NULL")
-                    context['current_node_id'] = None
-                    
-            elif not detected_label:
-                # Vision couldn't detect anything
-                if current_node_id:
-                    print(f"[@ai_executor] ⚠️ Vision detection failed - discarding stored position, using NULL")
-                    context['current_node_id'] = None
-                    self.device.navigation_executor.clear_current_position()
-                else:
-                    print(f"[@ai_executor] ⚠️ Vision detection failed - no position available, using NULL")
-                    context['current_node_id'] = None
-        
         # Transform plan structure for frontend compatibility
         if 'plan' in ai_response:
             ai_response['steps'] = ai_response.pop('plan')  # Rename 'plan' to 'steps'
@@ -1128,7 +1054,7 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         return context
     
     def _call_ai(self, prompt: str, context: Dict) -> Dict:
-        """Integrated AI prompt logic with visual context"""
+        """Integrated AI prompt logic with all original sophistication"""
         available_nodes = context['available_nodes']
         available_actions = context['available_actions']
         available_verifications = context['available_verifications']
@@ -1138,37 +1064,13 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         
         print(f"[@ai_executor] _call_ai context: nodes={len(available_nodes)}, actions={len(available_actions)}, verifications={len(available_verifications)}, device_model={device_model}")
         
-        # Take screenshot for visual context
-        screenshot_b64 = None
-        try:
-            success, screenshot_b64, error = self.device.verification_executor.take_screenshot()
-            if not success:
-                print(f"[@ai_executor] Screenshot failed: {error}")
-        except Exception as e:
-            print(f"[@ai_executor] Screenshot error: {e}")
-        
         # Use context as-is from services
         navigation_context = available_nodes
         action_context = available_actions
         verification_context = available_verifications
         
-        # Build node list for position detection
-        node_list = "\n".join([f"- {node}" for node in available_nodes[:30]])
-        
-        # Integrated sophisticated AI prompt with visual position detection
+        # Integrated sophisticated AI prompt
         ai_prompt = f"""You are controlling a TV application on a device ({device_model}).
-You can SEE the current screen in the provided screenshot.
-
-STEP 1: IDENTIFY CURRENT POSITION
-Look at the screenshot and identify which navigation node we are currently on.
-Stated position: {current_node_label or 'UNKNOWN'}
-
-Available nodes to choose from:
-{node_list}
-
-Match what you SEE in the screenshot to one of these nodes. If unsure, set detected_current_node to null.
-
-STEP 2: GENERATE PLAN
 Your task is to navigate through the app using available commands provided.
 
 Task: "{prompt}"
@@ -1221,16 +1123,15 @@ DESCRIPTION FIELD RULES:
 Example response formats:
 
 Direct navigation (exact node exists):
-{{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}]}}
+{{"analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}]}}
 
 Navigation with reassessment (exact node doesn't exist):
-{{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: Find and access 'saved' button\nThinking: Exact 'saved' node not found → navigate to closest 'home_saved' → reassess visually to locate 'saved' button and generate follow-up actions", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_saved", "action_type": "navigation"}}, "description": "home_saved", "requires_reassessment": true, "reassessment_config": {{"original_target": "saved", "remaining_goal": "find and click saved button"}}}}]}}
+{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "reassess"}}]}}
 
 If task is not possible:
-{{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
+{{"analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
 
-RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure.
-Include detected_current_node from visual analysis (or null if unsure)."""
+RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."""
 
         # Log the full prompt for debugging
         print(f"[@ai_executor] AI Prompt (length: {len(ai_prompt)} chars):")
@@ -1238,24 +1139,13 @@ Include detected_current_node from visual analysis (or null if unsure)."""
         print(repr(ai_prompt))
         print("=" * 80)
 
-        # Call vision AI if screenshot available, otherwise text AI
-        if screenshot_b64:
-            print(f"[@ai_executor] Calling vision AI with screenshot")
-            from shared.src.lib.utils.ai_utils import call_vision_ai
-            result = call_vision_ai(
-                prompt=ai_prompt,
-                image_input=screenshot_b64,
-                max_tokens=2000,
-                temperature=0.0
-            )
-        else:
-            print(f"[@ai_executor] Calling text AI (no screenshot)")
-            result = call_text_ai(
-                prompt=ai_prompt,
-                max_tokens=2000,
-                temperature=0.0,
-                model=AI_CONFIG['providers']['openrouter']['models']['agent']
-            )
+        # Integrated AI call logic
+        result = call_text_ai(
+            prompt=ai_prompt,
+            max_tokens=2000,
+            temperature=0.0,
+            model=AI_CONFIG['providers']['openrouter']['models']['agent']
+        )
 
         print(f"[@ai_executor] AI Response received, content length: {len(result.get('content', '')) if result else 0} characters")
 
