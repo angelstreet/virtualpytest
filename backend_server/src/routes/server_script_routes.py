@@ -29,38 +29,83 @@ def analyze_script_parameters(script_path):
         
         script_content = '\n'.join(lines)
         
-        # Look for argparse patterns
+        # Look for both argparse patterns AND _script_args decorator patterns
         parameters = []
         
-        # Find argument parser creation and add_argument calls
+        # FIRST: Check for _script_args pattern (used by @script decorator framework)
+        # Format: main._script_args = ['--param:type:default', ...]
+        script_args_pattern = r"_script_args\s*=\s*\[(.*?)\]"
+        script_args_match = re.search(script_args_pattern, script_content, re.DOTALL)
+        
+        if script_args_match:
+            args_content = script_args_match.group(1)
+            # Parse each argument: '--param:type:default' or '--param:type'
+            arg_items = re.findall(r"['\"]([^'\"]+)['\"]", args_content)
+            print(f"[@analyze_script] Found _script_args: {arg_items}")
+            
+            for arg_item in arg_items:
+                # Parse format: --param-name:type:default or --param-name:type
+                parts = arg_item.split(':')
+                if len(parts) >= 2:
+                    param_name = parts[0].replace('--', '').replace('-', '_')
+                    param_type = parts[1] if len(parts) > 1 else 'str'
+                    default_value = parts[2] if len(parts) > 2 else None
+                    
+                    # Convert default values
+                    if default_value == 'None':
+                        default_value = None
+                    elif default_value == 'true' or default_value == 'True':
+                        default_value = 'true'
+                    elif default_value == 'false' or default_value == 'False':
+                        default_value = 'false'
+                    
+                    param = {
+                        'name': param_name,
+                        'type': 'optional',
+                        'required': False,
+                        'help': f'Parameter: {param_name}',
+                        'default': default_value
+                    }
+                    print(f"[@analyze_script] Parsed parameter from _script_args: {param}")
+                    parameters.append(param)
+        
+        # SECOND: Look for argparse patterns (fallback for scripts not using @script decorator)
         parser_patterns = [
             r"parser\.add_argument\(['\"]([^'\"]+)['\"][^)]*\)",
             r"parser\.add_argument\(['\"]--([^'\"]+)['\"][^)]*\)",
             r"parser\.add_argument\(['\"]([^'\"]+)['\"].*help=['\"]([^'\"]*)['\"]",
         ]
         
-        # Extract positional arguments (required)
+        # Extract positional arguments (required) - only if not already found in _script_args
         positional_pattern = r"parser\.add_argument\(['\"]([^-][^'\"]*)['\"](?:[^)]*help=['\"]([^'\"]*)['\"])?[^)]*\)"
         positional_matches = re.findall(positional_pattern, script_content, re.MULTILINE)
         
         for match in positional_matches:
             param_name = match[0]
             help_text = match[1] if len(match) > 1 else ''
-            parameters.append({
-                'name': param_name,
-                'type': 'positional',
-                'required': True,
-                'help': help_text or f'Required parameter: {param_name}',
-                'default': None
-            })
+            
+            # Skip if already added from _script_args
+            if not any(p['name'] == param_name for p in parameters):
+                parameters.append({
+                    'name': param_name,
+                    'type': 'positional',
+                    'required': True,
+                    'help': help_text or f'Required parameter: {param_name}',
+                    'default': None
+                })
         
         # Extract optional arguments with better multi-line handling
         # Look for parser.add_argument('--param_name', ... ) patterns that can span multiple lines
         optional_pattern = r"parser\.add_argument\(['\"]--([^'\"]+)['\"]([^)]*?)\)"
         
-        # Find all add_argument calls for optional parameters
+        # Find all add_argument calls for optional parameters - only if not already found in _script_args
         for match in re.finditer(optional_pattern, script_content, re.MULTILINE | re.DOTALL):
             param_name = match.group(1)
+            
+            # Skip if already added from _script_args
+            if any(p['name'] == param_name for p in parameters):
+                continue
+            
             args_content = match.group(2)  # Everything between the parameter name and closing )
             
             # Extract help text
@@ -95,9 +140,9 @@ def analyze_script_parameters(script_path):
                 'default': default_value
             })
         
-        # Add standard framework parameters that all scripts using ScriptExecutor have
-        # Check if script uses ScriptExecutor framework
-        if 'ScriptExecutor' in script_content or 'script_framework' in script_content:
+        # Add standard framework parameters that all scripts using ScriptExecutor or @script decorator have
+        # Check if script uses ScriptExecutor framework or @script decorator
+        if 'ScriptExecutor' in script_content or 'script_framework' in script_content or '@script' in script_content or 'from shared.src.lib.executors.script_decorators import script' in script_content:
             # Add userinterface_name as positional if not already present
             if not any(p['name'] == 'userinterface_name' for p in parameters):
                 parameters.insert(0, {
