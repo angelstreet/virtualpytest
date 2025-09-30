@@ -378,6 +378,10 @@ class NavigationExecutor:
                         'to_node': to_node,
                         'action_name': action_name,  # Store action name like old goto_node
                         'actions': step.get('actions', []),
+                        'retry_actions': step.get('retryActions', []),  # Include retry actions
+                        'failure_actions': step.get('failureActions', []),  # Include failure actions
+                        'action_results': result.get('results', []),  # Individual action results with categories and screenshots
+                        'action_screenshots': result.get('action_screenshots', []),  # All action screenshots
                         'verifications': step.get('verifications', []),
                         'verification_results': result.get('verification_results', []),
                         'error': result.get('error'),  # Store actual error message from action execution
