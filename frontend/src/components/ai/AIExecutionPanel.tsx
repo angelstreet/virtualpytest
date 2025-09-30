@@ -125,7 +125,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
         transform: 'translateY(-50%)',
         zIndex: getZIndex('MODAL_CONTENT'),
         pointerEvents: 'auto',
-        width: '420px',
+        width: '480px',
         backgroundColor: 'rgba(0,0,0,0.85)',
         borderRadius: 1,
         border: '1px solid rgba(255,255,255,0.2)',
