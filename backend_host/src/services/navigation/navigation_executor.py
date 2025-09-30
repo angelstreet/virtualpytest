@@ -122,8 +122,8 @@ class NavigationExecutor:
         if not tree_result['success']:
             raise ValueError(f"Failed to load navigation tree: {tree_result['error']}")
         
-        root_tree = tree_result['root_tree']
-        nodes = root_tree['nodes']
+        # Extract nodes directly from tree_result (load_navigation_tree returns 'nodes', not 'root_tree')
+        nodes = tree_result['nodes']
         # Extract node labels (not node_name) for consistency with cached path
         available_nodes = []
         for node in nodes:
