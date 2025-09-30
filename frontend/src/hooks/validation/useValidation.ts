@@ -168,10 +168,15 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         let parameters = `${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
         
         // Add selected edges if provided (format: "from-to,from-to,...")
+        // Only send --edges parameter if we have selected edges, otherwise validate all
         if (selectedEdgeIds && selectedEdgeIds.length > 0) {
           const edgesParam = selectedEdgeIds.join(',');
           parameters += ` --edges "${edgesParam}"`;
           console.log(`[@hook:useValidation] Running validation with ${selectedEdgeIds.length} selected transitions`);
+          console.log(`[@hook:useValidation] DEBUG: Sample edge IDs:`, selectedEdgeIds.slice(0, 3));
+          console.log(`[@hook:useValidation] DEBUG: Edges parameter:`, edgesParam.substring(0, 200));
+        } else {
+          console.log(`[@hook:useValidation] Running validation with ALL transitions (no selection)`);
         }
 
         const scriptResult = await executeScript(

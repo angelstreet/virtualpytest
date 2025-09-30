@@ -487,10 +487,10 @@ export const useNavigationEditor = () => {
         const sourceNode = navigation.nodes.find((n) => n.id === edge.source);
         const targetNode = navigation.nodes.find((n) => n.id === edge.target);
         const isUnidirectionalInvolved = (
-          sourceNode?.data.type === 'action' || 
-          targetNode?.data.type === 'action' ||
-          sourceNode?.data.type === 'entry' || 
-          targetNode?.data.type === 'entry'
+          sourceNode?.type === 'action' || 
+          targetNode?.type === 'action' ||
+          sourceNode?.type === 'entry' || 
+          targetNode?.type === 'entry'
         );
         
         if (isUnidirectionalInvolved) {

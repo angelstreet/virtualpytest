@@ -88,6 +88,8 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
 
     // Convert selected edge IDs to array for validation
     const selectedEdgeArray = Array.from(selectedEdges);
+    console.log(`[@component:ValidationPreview] Running validation with ${selectedEdgeArray.length} selected edges`);
+    console.log(`[@component:ValidationPreview] Sample selected edges:`, selectedEdgeArray.slice(0, 3));
     validation.runValidation(selectedEdgeArray);
   };
 

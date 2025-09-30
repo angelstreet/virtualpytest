@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { getUserinterfaceName } from '../utils/userinterfaceUtils';
 interface ScriptParameter {
   name: string;
   type: 'positional' | 'optional';
@@ -35,24 +36,6 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
   // Deduplication protection for script analysis
   const isAnalysisInProgress = useRef(false);
   const currentAnalysisKey = useRef<string | null>(null);
-
-  // Get userinterface name based on device model
-  const getUserinterfaceName = (model: string): string => {
-    const modelLower = model.toLowerCase();
-    if (modelLower.includes('mobile') || modelLower.includes('phone')) {
-      return 'horizon_android_mobile';
-    } else if (modelLower.includes('tv') || modelLower.includes('android_tv')) {
-      return 'horizon_android_tv';
-    } else if (modelLower.includes('host')) {
-      return 'perseus_360_web';
-    } else if (modelLower.includes('stb')) {
-      return 'horizon_tv';
-    } else if (modelLower.includes('apple_tv')) {
-      return 'horizon_appletv';
-    } else {
-      return 'horizon_android_mobile'; // default
-    }
-  };
 
   // Get default value for parameter
   const getDefaultParameterValue = (param: ScriptParameter): string => {

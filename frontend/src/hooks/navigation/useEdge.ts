@@ -236,7 +236,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         if (result && result.success !== false && edge.target) {
           const targetNode = nodes.find(n => n.id === edge.target);
           
-          if (targetNode?.data.type === 'action') {
+          if (targetNode?.type === 'action') {
             // For action nodes, position remains at source (where the action was triggered from)
             // Do not update current position since actions are transient operations
             console.log(`[@useEdge] Action node '${targetNode.data.label}' executed, position remains at source`);
@@ -491,10 +491,10 @@ export const useEdge = (props: UseEdgeProps = {}) => {
     const sourceNode = nodes.find((n) => n.id === edge.source);
     const targetNode = nodes.find((n) => n.id === edge.target);
     return (
-      sourceNode?.data.type === 'action' || 
-      targetNode?.data.type === 'action' ||
-      sourceNode?.data.type === 'entry' || 
-      targetNode?.data.type === 'entry'
+      sourceNode?.type === 'action' || 
+      targetNode?.type === 'action' ||
+      sourceNode?.type === 'entry' || 
+      targetNode?.type === 'entry'
     );
   }, [nodes]);
 

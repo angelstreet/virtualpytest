@@ -80,7 +80,7 @@ export const useNode = (props?: UseNodeProps) => {
   const getNodeFormWithVerifications = useCallback((node: UINavigationNode): NodeForm => {
     return {
       label: node.data.label,
-      type: node.data.type,
+      type: node.type as 'screen' | 'menu' | 'action' | 'entry',
       description: node.data.description || '',
       screenshot: node.data.screenshot,
       depth: node.data.depth || 0,
@@ -169,7 +169,7 @@ export const useNode = (props?: UseNodeProps) => {
         selectedNode.data.label,
         selectedNode.id,
         onUpdateNode,
-        selectedNode.data.type,
+        selectedNode.type,
       );
 
       if (result.success) {
@@ -259,7 +259,7 @@ export const useNode = (props?: UseNodeProps) => {
       if (!props?.treeId) return [];
 
       // Check if target is an action node - action nodes are not navigatable destinations
-      if (selectedNode.data.type === 'action') {
+      if (selectedNode.type === 'action') {
         setNavigationError('Cannot navigate to action nodes - they are operations, not destinations');
         return [];
       }
@@ -332,7 +332,7 @@ export const useNode = (props?: UseNodeProps) => {
       if (!props?.treeId) return;
 
       // Check if target is an action node - action nodes are not navigatable destinations
-      if (selectedNode.data.type === 'action') {
+      if (selectedNode.type === 'action') {
         setNavigationError('Cannot navigate to action nodes - they are operations, not destinations');
         return;
       }
@@ -460,7 +460,7 @@ export const useNode = (props?: UseNodeProps) => {
    * Check if node is an entry node
    */
   const isEntryNode = useCallback((node: UINavigationNode): boolean => {
-    return node.data.type === 'entry';
+    return node.type === 'entry';
   }, []);
 
   /**
@@ -469,7 +469,7 @@ export const useNode = (props?: UseNodeProps) => {
   const isProtectedNode = useCallback((node: UINavigationNode): boolean => {
     return (
       node.data.is_root ||
-      node.data.type === 'entry' ||
+      node.type === 'entry' ||
       node.id === 'entry-node' ||
       node.data.label?.toLowerCase() === 'home' ||
       node.id?.toLowerCase().includes('entry') ||

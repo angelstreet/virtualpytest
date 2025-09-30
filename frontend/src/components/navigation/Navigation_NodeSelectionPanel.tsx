@@ -68,7 +68,7 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
     nodeMetrics,
   }) => {
     // Don't render the panel for entry nodes - MUST be before any hooks
-    if ((selectedNode.data.type as string) === 'entry') {
+    if ((selectedNode.type as string) === 'entry') {
       return null;
     }
 
@@ -136,8 +136,8 @@ export const NodeSelectionPanel: React.FC<NodeSelectionPanelProps> = React.memo(
 
     // Get confidence-based colors for the node
     const nodeColors = useMemo(() => {
-      return getNodeColors(selectedNode.data.type as any, nodeMetrics);
-    }, [getNodeColors, selectedNode.data.type, nodeMetrics]);
+      return getNodeColors(selectedNode.type as any, nodeMetrics);
+    }, [getNodeColors, selectedNode.type, nodeMetrics]);
 
     // Format metrics display
     const metricsDisplay = useMemo(() => {

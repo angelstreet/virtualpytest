@@ -30,11 +30,10 @@ export const useNestedNavigation = ({
     // Convert to frontend format (same logic as NavigationEditor)
     const frontendNodes = (treeData.nodes || []).map((dbNode: any) => ({
       id: dbNode.node_id,
-      type: dbNode.data?.type || dbNode.node_type || 'screen', // Use data.type directly
+      type: dbNode.node_type || 'screen', // Use top-level node_type column
       position: { x: dbNode.position_x, y: dbNode.position_y },
       data: {
         label: dbNode.label,
-        type: dbNode.data?.type || dbNode.node_type || 'screen',
         description: dbNode.description,
         verifications: dbNode.verifications,
         has_subtree: dbNode.has_subtree,
@@ -97,11 +96,10 @@ export const useNestedNavigation = ({
         // Add parent node context to nested tree
         const parentWithContext = {
           id: node.id, // Use original parent node ID
-          type: node.data.type || 'screen', // Use data.type directly
+          type: node.type || 'screen', // Use ReactFlow type field
           position: { x: 200, y: 200 },
           data: {
             label: node.data.label,
-            type: node.data.type || 'screen',
             description: node.data.description || `Navigation for ${node.data.label}`,
             verifications: node.data.verifications || [],
             // ADD NESTED TREE CONTEXT
@@ -185,10 +183,9 @@ export const useNestedNavigation = ({
         label: parentNode.data.label,
         position_x: 200, // Default position in subtree
         position_y: 200,
-        node_type: parentNode.data.type || 'screen',
+        node_type: parentNode.type || 'screen', // Use ReactFlow type field
         style: {},
         data: {
-          type: parentNode.data.type || 'screen',
           description: parentNode.data.description || `Navigation for ${parentNode.data.label}`,
           screenshot: parentNode.data.screenshot,
           isParentReference: true,
@@ -208,11 +205,10 @@ export const useNestedNavigation = ({
       // Always start new subtree with parent node displayed graphically with context
       const frontendNodes = [{
         id: parentNode.id, // Use original parent node ID
-        type: parentNode.data.type || 'screen', // Use data.type directly
+        type: parentNode.type || 'screen', // Use ReactFlow type field
         position: { x: 200, y: 200 },
         data: {
           label: parentNode.data.label,
-          type: parentNode.data.type || 'screen',
           description: parentNode.data.description || `Navigation for ${parentNode.data.label}`,
           verifications: parentNode.data.verifications || [],
           // ADD NESTED TREE CONTEXT

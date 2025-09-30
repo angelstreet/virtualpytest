@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 import { Box, Typography, IconButton, CircularProgress } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { getUserinterfaceName } from '../../utils/userinterfaceUtils';
 import { Host, Device } from '../../types/common/Host_Types';
 
 interface AIStepDisplayProps {
@@ -88,10 +89,11 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
       setIsLoading(true);
       try {
         // Get tree_id from interface lookup
+        const userinterface_name = getUserinterfaceName(device.device_model);
         const interfaceResponse = await fetch(buildServerUrl('/server/navigation/getTreeIdForInterface'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userinterface_name: device.userinterface })
+          body: JSON.stringify({ userinterface_name })
         });
         const interfaceData = await interfaceResponse.json();
         const treeId = interfaceData.tree_id || 'default';

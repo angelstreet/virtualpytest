@@ -113,10 +113,22 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
     
     print(f"✅ [validation] Found {len(validation_sequence)} validation steps")
     
-    # Filter by selected edges if provided
-    if edges:
+    # Filter by selected edges if provided (skip if None or empty string)
+    if edges and edges.strip():
         selected_edges = set(edges.split(','))
         original_count = len(validation_sequence)
+        
+        # Debug: Show what we're comparing
+        print(f"🔍 [validation] DEBUG: Received {len(selected_edges)} selected edge IDs")
+        if len(selected_edges) > 0:
+            sample_selected = list(selected_edges)[:2]
+            print(f"🔍 [validation] DEBUG: Sample selected edges: {sample_selected}")
+        
+        if len(validation_sequence) > 0:
+            sample_step = validation_sequence[0]
+            constructed_id = f"{sample_step.get('from_node')}-{sample_step.get('to_node')}"
+            print(f"🔍 [validation] DEBUG: Sample step edge ID format: {constructed_id}")
+        
         validation_sequence = [
             step for step in validation_sequence
             if f"{step.get('from_node')}-{step.get('to_node')}" in selected_edges

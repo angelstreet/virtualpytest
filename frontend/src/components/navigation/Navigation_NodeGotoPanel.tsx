@@ -162,7 +162,7 @@ export const NodeGotoPanel: React.FC<NodeGotoPanelProps> = ({
           <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
             Target: {selectedNode.data.label}
           </Typography>
-          <Chip label={selectedNode.data.type} size="small" sx={{ fontSize: '0.75rem' }} />
+          <Chip label={selectedNode.type} size="small" sx={{ fontSize: '0.75rem' }} />
         </Box>
 
         <Box

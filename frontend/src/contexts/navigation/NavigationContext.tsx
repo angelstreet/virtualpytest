@@ -862,33 +862,31 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
            let updatedNodeData: any;
 
-           if (isNewNode) {
-             // Create new node - use data.type directly as ReactFlow type
-             updatedNodeData = {
-               id: nodeForm.id || `node-${Date.now()}`,
-               position: { x: 100, y: 100 },
-               type: nodeForm.type, // Use data.type directly (screen, menu, action)
-               data: {
-                 label: nodeForm.label,
-                 type: nodeForm.type,
-                 description: nodeForm.description,
-                 verifications: nodeForm.verifications || [],
-               },
-             };
-             setNodes([...nodes, updatedNodeData]);
-           } else if (selectedNode) {
-             // Update existing node - update ReactFlow type if data.type changed
-             updatedNodeData = {
-               ...selectedNode,
-               type: nodeForm.type, // Update ReactFlow type to match data.type
-               data: {
-                 ...selectedNode.data,
-                 label: nodeForm.label,
-                 type: nodeForm.type,
-                 description: nodeForm.description,
-                 verifications: nodeForm.verifications || [],
-               },
-             };
+          if (isNewNode) {
+            // Create new node - use ReactFlow type field only
+            updatedNodeData = {
+              id: nodeForm.id || `node-${Date.now()}`,
+              position: { x: 100, y: 100 },
+              type: nodeForm.type, // ReactFlow type field (screen, menu, action, entry)
+              data: {
+                label: nodeForm.label,
+                description: nodeForm.description,
+                verifications: nodeForm.verifications || [],
+              },
+            };
+            setNodes([...nodes, updatedNodeData]);
+          } else if (selectedNode) {
+            // Update existing node - update ReactFlow type field only
+            updatedNodeData = {
+              ...selectedNode,
+              type: nodeForm.type, // ReactFlow type field
+              data: {
+                ...selectedNode.data,
+                label: nodeForm.label,
+                description: nodeForm.description,
+                verifications: nodeForm.verifications || [],
+              },
+            };
              const updatedNodes = nodes.map((node) =>
                node.id === selectedNode?.id ? updatedNodeData : node,
              );
@@ -927,10 +925,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               label: updatedNodeData.data.label,
               position_x: currentPosition.x,
               position_y: currentPosition.y,
-              node_type: updatedNodeData.type || 'screen',
+              node_type: updatedNodeData.type || 'screen',  // Use top-level node_type column only
               verifications: updatedNodeData.data.verifications || [],
               data: {
                 // Only include non-verification data to avoid duplication
+                // NOTE: node_type is saved at top-level, NOT in data object
                 description: updatedNodeData.data.description,
                 screenshot: updatedNodeData.data.screenshot,
                 depth: updatedNodeData.data.depth,
@@ -1119,7 +1118,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             label: node.data.label,
             position_x: node.position?.x || 0,
             position_y: node.position?.y || 0,
-            node_type: node.data.type || 'default',
+            node_type: node.type || 'screen', // Use ReactFlow type field
             verifications: node.data.verifications || [],
             data: {
               // Only include non-verification data to avoid duplication
