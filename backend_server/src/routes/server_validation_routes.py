@@ -45,7 +45,7 @@ def get_validation_preview(tree_id: str):
         
         # Use optimal edge validation sequence with unified cache
         from  backend_server.src.lib.utils.route_utils import proxy_to_host_direct
-        from backend_server.src.lib.host_manager import get_host_manager
+        from  backend_server.src.lib.utils.server_utils import get_host_manager
         
         # Get host info
         host_manager = get_host_manager()
