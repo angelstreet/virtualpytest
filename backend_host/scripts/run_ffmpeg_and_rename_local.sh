@@ -248,9 +248,9 @@ start_grabber() {
 
   # Rename script removed - using sequential naming
 
-  # Start clean script
+  # Start clean script (using relative path - same directory)
   while true; do
-    /usr/local/bin/clean_captures.sh "$capture_dir"
+    "$SCRIPT_DIR/clean_captures.sh" "$capture_dir"
     sleep 300
   done &
   local CLEAN_PID=$!
