@@ -479,16 +479,33 @@ class AIExecutor:
     def _format_step_display(self, step_data: Dict) -> str:
         """
         Format step for display (same format as UI).
-        Shows command format for navigation, description for others.
+        Shows clean command format - NO verbose AI descriptions.
         """
         command = step_data.get('command', 'unknown')
+        params = step_data.get('params', {})
         
         if command == 'execute_navigation':
-            target_node = step_data.get('params', {}).get('target_node', 'unknown')
+            target_node = params.get('target_node', 'unknown')
             return f"{command}({target_node})"
+        elif command == 'navigation_reassessment':
+            original_target = params.get('original_target', 'unknown')
+            return f"reassess_navigation({original_target})"
+        elif command == 'click_element':
+            element_id = params.get('element_id', 'unknown')
+            return f"{command}({element_id})"
+        elif command == 'tap_coordinates':
+            x = params.get('x', '?')
+            y = params.get('y', '?')
+            return f"{command}(x={x}, y={y})"
+        elif command == 'press_key':
+            key = params.get('key', 'unknown')
+            return f"{command}({key})"
+        elif command.startswith('verify_'):
+            # For verification, show command name
+            return command
         else:
-            # For non-navigation steps, use description or command
-            return step_data.get('description', command)
+            # Default: show command name
+            return command
     
     def _update_current_step_tracking(self, plan_id: str, step_number: int, step_description: str):
         """Update current step in real-time tracking"""
@@ -615,13 +632,33 @@ class AIExecutor:
             # Handle step injection from reassessment
             if step_result.get('requires_step_injection') and step_result.get('updated_steps'):
                 injected_steps = step_result.get('updated_steps', [])
+                reassessment_analysis = step_result.get('analysis', '')
+                
                 print(f"[@ai_executor] Injecting {len(injected_steps)} steps from reassessment")
+                
+                # Append reassessment analysis to main plan analysis
+                if reassessment_analysis and plan_dict.get('analysis'):
+                    plan_dict['analysis'] += f"\n\n🔍 Reassessment:\n{reassessment_analysis}"
+                    # Update tracking with enhanced analysis
+                    for exec_id, exec_data in self._executions.items():
+                        if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
+                            exec_data['plan']['analysis'] = plan_dict['analysis']
+                            break
                 
                 # Insert new steps after current position
                 for j, injected_step in enumerate(injected_steps):
                     # Adjust step numbers to continue sequence
                     injected_step['step'] = step_number + j + 1
+                    # Mark as injected for frontend distinction
+                    injected_step['injected'] = True
+                    injected_step['injected_from_step'] = step_number
                     plan_steps.insert(i + j + 1, injected_step)
+                
+                # Update plan in tracking to include injected steps
+                for exec_id, exec_data in self._executions.items():
+                    if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
+                        exec_data['plan']['steps'] = plan_steps
+                        break
                 
                 print(f"[@ai_executor] Plan now has {len(plan_steps)} total steps")
             
@@ -806,8 +843,13 @@ Available actions you can use:
 - press_key: Press remote control keys (BACK, HOME, UP, DOWN, LEFT, RIGHT, OK, etc.)
 - swipe_up, swipe_down, swipe_left, swipe_right: Swipe gestures
 
+CRITICAL: Use MINIMAL descriptions (just element names or coordinates, NO verbose text)
+
 Respond with JSON only:
-{{"analysis": "I can see...", "feasible": true/false, "steps": [{{"step": 1, "command": "tap_coordinates", "params": {{"x": 100, "y": 200, "action_type": "remote"}}, "description": "Tap on replay button"}}]}}
+{{"analysis": "I can see...", "feasible": true/false, "steps": [{{"step": 1, "command": "tap_coordinates", "params": {{"x": 100, "y": 200, "action_type": "remote"}}, "description": "tap(100,200)"}}]}}
+
+Good descriptions: "tap(100,200)", "click home_saved", "press BACK"
+Bad descriptions: "Tap on the replay button located at coordinates", "Visually locate and click..."
 
 If feasible=false, the navigation will fail. Only return feasible=true if you can clearly see the target."""
 
@@ -1021,8 +1063,8 @@ Rules:
 
 Navigation Reassessment Format:
 When target node doesn't exist, use this pattern:
-{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}}},
-{{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "target_name", "remaining_goal": "find and click target_name", "action_type": "navigation"}}}}
+{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}, "description": "closest_node"}},
+{{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "target_name", "remaining_goal": "find and click target_name", "action_type": "navigation"}}, "description": "reassess"}}
 
 CRITICAL: You MUST include an "analysis" field with Goal and Thinking.
 
@@ -1042,7 +1084,7 @@ Direct navigation (exact node exists):
 {{"analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}]}}
 
 Navigation with reassessment (exact node doesn't exist):
-{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "reassess navigation"}}]}}
+{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "reassess"}}]}}
 
 If task is not possible:
 {{"analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
