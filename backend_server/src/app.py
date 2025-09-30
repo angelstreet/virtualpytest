@@ -156,7 +156,9 @@ def register_all_server_routes(app):
         
         # server_remote_routes replaced by auto_proxy
         
-        # server_ai_execution_routes replaced by auto_proxy
+        print("[@backend_server:routes] 🔍 Importing server_ai_execution_routes...")
+        from routes import server_ai_execution_routes
+        print("[@backend_server:routes] ✅ server_ai_execution_routes imported successfully")
         
         print("[@backend_server:routes] 🔍 Importing server_ai_testcase_routes...")
         from routes import server_ai_testcase_routes
@@ -264,6 +266,7 @@ def register_all_server_routes(app):
             (server_alerts_routes.server_alerts_bp, 'Alert management'),
             (server_verification_routes.server_verification_bp, 'Verification operations'),
             (server_devicemodel_routes.server_devicemodel_bp, 'Device model management'),
+            (server_ai_execution_routes.server_ai_execution_bp, 'AI execution operations'),
             (server_ai_testcase_routes.server_ai_testcase_bp, 'AI test case operations'),
             (server_ai_generation_routes.server_ai_generation_bp, 'AI interface generation'),
             (server_stream_proxy_routes.server_stream_proxy_bp, 'Stream proxy'),

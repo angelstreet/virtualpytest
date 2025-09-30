@@ -20,9 +20,9 @@ import {
   TableRow,
   Paper,
   TextField,
-  Autocomplete,
 } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
+import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 
 
 
@@ -119,8 +119,7 @@ const RunTests: React.FC = () => {
     scriptAnalysis, 
     parameterValues, 
     handleParameterChange,
-    validateParameters,
-    getUserinterfaceName 
+    validateParameters
   } = useRun({
     selectedScript,
     selectedDevice,
@@ -297,18 +296,10 @@ const RunTests: React.FC = () => {
     const targetHost = deviceHost || selectedHost;
     const targetDevice = deviceId || selectedDevice;
 
-    // Always add userinterface_name as the first positional parameter if we have script analysis
+    // Add parameters from script analysis
     if (scriptAnalysis) {
       scriptAnalysis.parameters.forEach((param) => {
-        let value = parameterValues[param.name]?.trim();
-        
-        // Override userinterface_name based on target device's model
-        if (param.name === 'userinterface_name' && targetHost && targetDevice) {
-          const hostDevices = getDevicesFromHost(targetHost);
-          const deviceObject = hostDevices.find(device => device.device_id === targetDevice);
-          const deviceModel = deviceObject?.device_model || 'unknown';
-          value = getUserinterfaceName(deviceModel);
-        }
+        const value = parameterValues[param.name]?.trim();
         
         // Skip host and device parameters from script analysis - they'll be added separately
         if (param.name === 'host' || param.name === 'device') {
@@ -323,16 +314,6 @@ const RunTests: React.FC = () => {
           }
         }
       });
-    } else {
-      // If no script analysis, determine userinterface_name based on device model
-      if (targetHost && targetDevice) {
-        const hostDevices = getDevicesFromHost(targetHost);
-        const deviceObject = hostDevices.find(device => device.device_id === targetDevice);
-        const deviceModel = deviceObject?.device_model || 'unknown';
-        paramStrings.push(getUserinterfaceName(deviceModel));
-      } else {
-        paramStrings.push('horizon_android_mobile');
-      }
     }
 
     // Always add --host and --device parameters
@@ -546,30 +527,17 @@ const RunTests: React.FC = () => {
   const renderParameterInput = (param: ScriptParameter) => {
     const value = parameterValues[param.name] || '';
 
-    // Special handling for userinterface_name with autocomplete
+    // Special handling for userinterface_name - use UserinterfaceSelector to fetch compatible interfaces
     if (param.name === 'userinterface_name') {
-      const options = ['horizon_android_mobile', 'horizon_android_tv', 'perseus_360_web', 'horizon_tv'];
-
       return (
-        <Autocomplete
+        <UserinterfaceSelector
           key={param.name}
-          options={options}
+          deviceModel={getPrimaryDeviceModel()}
           value={value}
-          onChange={(_event, newValue) => handleParameterChange(param.name, newValue || '')}
-          onInputChange={(_event, newInputValue) =>
-            handleParameterChange(param.name, newInputValue)
-          }
-          freeSolo
+          onChange={(userinterface) => handleParameterChange(param.name, userinterface)}
+          label={`${param.name}${param.required ? ' *' : ''}`}
           size="small"
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={`${param.name}${param.required ? ' *' : ''}`}
-              size="small"
-              fullWidth
-              error={param.required && !value.trim()}
-            />
-          )}
+          fullWidth
         />
       );
     }

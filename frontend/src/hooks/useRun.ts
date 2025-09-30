@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
-import { getUserinterfaceName } from '../utils/userinterfaceUtils';
+
 interface ScriptParameter {
   name: string;
   type: 'positional' | 'optional';
@@ -39,9 +39,9 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
 
   // Get default value for parameter
   const getDefaultParameterValue = (param: ScriptParameter): string => {
-    if (param.name === 'userinterface_name') {
-      return getUserinterfaceName(deviceModel);
-    } else if (param.name === 'node') {
+    // userinterface_name should be selected via UserinterfaceSelector component
+    // based on device model compatibility - don't auto-populate here
+    if (param.name === 'node') {
       return 'home';
     } else if (param.name === 'device') {
       return selectedDevice || '';
@@ -166,9 +166,8 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
       const updatedValues = { ...parameterValues };
       
       scriptAnalysis.parameters.forEach((param) => {
-        if (param.name === 'userinterface_name') {
-          updatedValues[param.name] = getUserinterfaceName(deviceModel);
-        } else if (param.name === 'device') {
+        // userinterface_name handled by UserinterfaceSelector - don't auto-update
+        if (param.name === 'device') {
           updatedValues[param.name] = selectedDevice || '';
         } else if (param.name === 'host') {
           updatedValues[param.name] = selectedHost || '';
@@ -177,7 +176,7 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
       
       setParameterValues(updatedValues);
     }
-  }, [selectedDevice, selectedHost, deviceModel, scriptAnalysis]);
+  }, [selectedDevice, selectedHost, scriptAnalysis]);
 
   const handleParameterChange = (paramName: string, value: string) => {
     setParameterValues((prev) => ({
@@ -207,6 +206,5 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
     analyzingScript,
     handleParameterChange,
     validateParameters,
-    getUserinterfaceName,
   };
 };

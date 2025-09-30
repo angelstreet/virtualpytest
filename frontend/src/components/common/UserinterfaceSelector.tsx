@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FormControl, InputLabel, Select, MenuItem, CircularProgress, SelectChangeEvent } from '@mui/material';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { useUserInterface } from '../../hooks/pages/useUserInterface';
 
 interface UserinterfaceSelectorProps {
   deviceModel?: string;  // Device model to find compatible interfaces for
@@ -43,6 +43,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
   const [interfaces, setInterfaces] = useState<UserinterfaceOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { getCompatibleInterfaces } = useUserInterface();
 
   useEffect(() => {
     const fetchInterfaces = async () => {
@@ -61,7 +62,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         return;
       }
 
-      // Otherwise, fetch from API based on device model
+      // Otherwise, fetch from API based on device model using centralized hook
       if (!deviceModel) {
         setError('No device model or compatible interfaces provided');
         return;
@@ -71,13 +72,10 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         setLoading(true);
         setError(null);
 
-        const response = await fetch(
-          buildServerUrl(`/server/userinterface/getCompatibleInterfaces?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce&device_model=${deviceModel}`)
-        );
-        const data = await response.json();
+        const compatibleList = await getCompatibleInterfaces(deviceModel);
 
-        if (data.success && data.interfaces && data.interfaces.length > 0) {
-          const options = data.interfaces.map((iface: any) => ({
+        if (compatibleList && compatibleList.length > 0) {
+          const options = compatibleList.map((iface: any) => ({
             id: iface.id,
             name: iface.name
           }));
@@ -101,7 +99,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
     };
 
     fetchInterfaces();
-  }, [deviceModel, compatibleInterfaces]);
+  }, [deviceModel, compatibleInterfaces, getCompatibleInterfaces]);
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);

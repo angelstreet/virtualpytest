@@ -389,6 +389,54 @@ export const useUserInterface = () => {
     [],
   );
 
+  /**
+   * Get compatible user interfaces for a device model
+   */
+  const getCompatibleInterfaces = useMemo(
+    () =>
+      async (deviceModel: string): Promise<UserInterface[]> => {
+        if (!deviceModel) {
+          console.warn('[@hook:useUserInterface:getCompatibleInterfaces] No device model provided');
+          return [];
+        }
+
+        try {
+          console.log(
+            `[@hook:useUserInterface:getCompatibleInterfaces] Fetching compatible interfaces for device model: ${deviceModel}`,
+          );
+
+          const response = await fetch(
+            buildServerUrl(`/server/userinterface/getCompatibleInterfaces?device_model=${deviceModel}`)
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch compatible interfaces: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.interfaces) {
+            console.log(
+              `[@hook:useUserInterface:getCompatibleInterfaces] Found ${data.interfaces.length} compatible interfaces`,
+            );
+            return data.interfaces;
+          } else {
+            console.log(
+              `[@hook:useUserInterface:getCompatibleInterfaces] No compatible interfaces found for ${deviceModel}`,
+            );
+            return [];
+          }
+        } catch (error) {
+          console.error(
+            `[@hook:useUserInterface:getCompatibleInterfaces] Error fetching compatible interfaces for ${deviceModel}:`,
+            error,
+          );
+          return [];
+        }
+      },
+    [],
+  );
+
   return {
     getAllUserInterfaces,
     getUserInterface,
@@ -397,5 +445,6 @@ export const useUserInterface = () => {
     updateUserInterface,
     deleteUserInterface,
     createEmptyNavigationConfig,
+    getCompatibleInterfaces,
   };
 };
