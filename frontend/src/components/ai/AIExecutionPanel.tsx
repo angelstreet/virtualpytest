@@ -17,8 +17,8 @@ import {
 
 import { Host, Device } from '../../types/common/Host_Types';
 import { useAI } from '../../hooks/useAI';
+import { useAICacheReset } from '../../hooks/aiagent';
 import { getZIndex } from '../../utils/zIndexUtils';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { AIStepDisplay } from './AIStepDisplay';
 import { UserinterfaceSelector } from '../common';
 
@@ -40,7 +40,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(true); // Default to expanded
   // Controls whether to use cached AI plans for similar tasks (does not affect plan storage)
   const [useAIPlanCache, setUseAIPlanCache] = useState(true);
-  const [isResettingCache, setIsResettingCache] = useState(false);
   
   // Userinterface selection state
   const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
@@ -62,6 +61,11 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     host,
     device,
     mode: 'real-time'
+  });
+
+  // Cache reset hook
+  const { resetCache, isResetting: isResettingCache } = useAICacheReset({
+    hostName: host.host_name
   });
 
   // Auto-expand analysis when new plan arrives
@@ -86,35 +90,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
     }
   }, [aiPlan, isPlanFeasible]);
 
-  // Handler for resetting AI plan cache
-  const handleResetCache = async () => {
-    setIsResettingCache(true);
-    try {
-      const response = await fetch(buildServerUrl('/server/ai-execution/resetCache'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
-          device_id: device.device_id
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log(`[@AIExecutionPanel] Cache reset successful: ${result.deleted_count} plans deleted`);
-        alert(`✅ Cache cleared: ${result.deleted_count} plans deleted`);
-      } else {
-        console.error('[@AIExecutionPanel] Cache reset failed:', result.error);
-        alert(`❌ Failed to reset cache: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('[@AIExecutionPanel] Error resetting cache:', error);
-      alert('❌ Error resetting cache');
-    } finally {
-      setIsResettingCache(false);
-    }
-  };
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -276,7 +251,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           <Button
             variant="outlined"
             size="small"
-            onClick={handleResetCache}
+            onClick={resetCache}
             disabled={isAIExecuting || isResettingCache}
             sx={{
               fontSize: '0.7rem',
@@ -294,7 +269,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               }
             }}
           >
-            {isResettingCache ? '...' : '🗑️ Reset Cache'}
+            {isResettingCache ? '...' : 'Reset Cache'}
           </Button>
         </Box>
 

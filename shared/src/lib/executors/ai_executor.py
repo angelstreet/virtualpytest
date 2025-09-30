@@ -1202,7 +1202,7 @@ Include detected_current_node from visual analysis (or null if unsure)."""
             from shared.src.lib.utils.ai_utils import call_vision_ai
             result = call_vision_ai(
                 prompt=ai_prompt,
-                image_base64=screenshot_b64,
+                image_input=screenshot_b64,
                 max_tokens=2000,
                 temperature=0.0
             )

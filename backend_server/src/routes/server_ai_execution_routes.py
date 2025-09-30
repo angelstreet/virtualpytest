@@ -141,11 +141,17 @@ def reset_cache():
         if not request_data:
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
-        team_id = request_data.get('team_id')
+        # Validate required parameters (following modern pattern)
+        host_name = request_data.get('host_name') or request.args.get('host_name')
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name required in request body or query parameters'}), 400
+        
+        # team_id is automatically added to query params by buildServerUrl in frontend
+        team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
-        print(f"[@server_ai_execution] Resetting AI plan cache for team: {team_id}")
+        print(f"[@server_ai_execution] Resetting AI plan cache for team: {team_id}, host: {host_name}")
         
         # Delete all cached plans for this team
         from shared.src.lib.supabase.supabase_client import get_supabase_client

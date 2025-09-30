@@ -171,6 +171,10 @@ def main():
         capture_folder = get_capture_folder(capture_dir)
         logger.info(f"Monitoring: {capture_dir} -> {capture_folder}")
     
+    # Auto-resolve orphaned incidents for capture folders no longer being monitored
+    monitored_capture_folders = [get_capture_folder(d) for d in capture_dirs]
+    incident_manager.cleanup_orphaned_incidents(monitored_capture_folders, host_name)
+    
     # Performance: Throttle manifest updates to once per 60 seconds per capture directory
     last_manifest_update = {}
     

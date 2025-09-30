@@ -145,6 +145,49 @@ class IncidentManager:
             logger.error(f"[@incident_manager] Error loading active incidents from database: {e}")
             # Continue with empty state - don't crash the service
     
+    def cleanup_orphaned_incidents(self, monitored_capture_folders, host_name):
+        """Auto-resolve incidents for capture folders that are no longer being monitored"""
+        try:
+            logger.info(f"[@incident_manager] Cleaning up orphaned incidents for unmonitored capture folders...")
+            
+            # Get list of device_ids we're currently monitoring
+            monitored_device_ids = set()
+            for capture_folder in monitored_capture_folders:
+                device_info = self.get_device_info_from_capture_folder(capture_folder)
+                device_id = device_info.get('device_id', capture_folder)
+                monitored_device_ids.add(device_id)
+            
+            logger.info(f"[@incident_manager] Monitored device IDs: {monitored_device_ids}")
+            
+            # Check all loaded device states for orphaned incidents
+            orphaned_count = 0
+            for device_id, device_state in list(self.device_states.items()):
+                # Skip if this device is being monitored
+                if device_id in monitored_device_ids:
+                    continue
+                
+                # This device has incidents but is NOT monitored locally - resolve all its incidents
+                active_incidents = device_state.get('active_incidents', {})
+                if active_incidents:
+                    logger.info(f"[@incident_manager] Found orphaned device '{device_id}' with {len(active_incidents)} active incidents - resolving...")
+                    
+                    for issue_type, incident_id in list(active_incidents.items()):
+                        logger.info(f"[@incident_manager] Resolving orphaned incident: {device_id} -> {issue_type} (alert_id: {incident_id})")
+                        success = self.resolve_incident(device_id, incident_id, issue_type)
+                        if success:
+                            orphaned_count += 1
+                    
+                    # Clear the device state after resolving all incidents
+                    del self.device_states[device_id]
+            
+            if orphaned_count > 0:
+                logger.info(f"[@incident_manager] ✅ Cleaned up {orphaned_count} orphaned incidents")
+            else:
+                logger.info(f"[@incident_manager] No orphaned incidents found")
+                
+        except Exception as e:
+            logger.error(f"[@incident_manager] Error cleaning up orphaned incidents: {e}")
+    
     def get_device_info_from_capture_folder(self, capture_folder):
         """Get device info from .env by matching capture path - with caching to reduce log spam"""
         # Check cache first
