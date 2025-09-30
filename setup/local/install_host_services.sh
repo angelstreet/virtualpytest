@@ -89,9 +89,10 @@ ExecStart=/bin/bash $PROJECT_ROOT/backend_host/scripts/run_ffmpeg_and_rename_loc
 Restart=always
 RestartSec=15
 TimeoutStopSec=20
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=virtualpytest-stream
+
+# Logging to files for easier debugging
+StandardOutput=append:/tmp/ffmpeg_service.log
+StandardError=append:/tmp/ffmpeg_service.log
 
 [Install]
 WantedBy=multi-user.target
@@ -227,6 +228,15 @@ fi
 # Enable and start all services
 echo ""
 echo "🚀 Enabling and starting all host services..."
+echo ""
+echo "📋 Service Management:"
+echo "   Start all:    sudo systemctl start stream monitor vncserver novnc"
+echo "   Stop all:     sudo systemctl stop stream monitor vncserver novnc"  
+echo "   Restart all:  sudo systemctl restart stream monitor"
+echo "   Status:       sudo systemctl status stream"
+echo "   FFmpeg logs:  tail -f /tmp/ffmpeg_service.log"
+echo "   Monitor logs: tail -f /tmp/capture_monitor.log"
+echo ""
 
 # Enable services for auto-start
 sudo systemctl enable monitor.service
@@ -424,7 +434,14 @@ echo "2. Manage services using systemctl:"
 echo "   sudo systemctl enable <service_name>       # Enable auto-start"
 echo "   sudo systemctl start <service_name>        # Start service"
 echo "   sudo systemctl status <service_name>       # Check status"
-echo "   sudo journalctl -u <service_name> -f       # View logs"
+echo ""
+echo "📋 Log Files:"
+echo "   /tmp/ffmpeg_service.log                    # FFmpeg capture logs"
+echo "   /tmp/capture_monitor.log                   # Monitoring logs"
+echo "   /tmp/ffmpeg_output_*.log                   # Individual FFmpeg process logs"
+echo "   /tmp/clean.log                             # Cleanup script logs"
+echo ""
+echo "   View logs: tail -f /tmp/ffmpeg_service.log"
 echo ""
 echo "🔧 Available services (matching backend_host/config/services/):"
 echo "   - monitor.service                   # Capture analysis & alerts"
