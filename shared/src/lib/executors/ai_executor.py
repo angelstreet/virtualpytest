@@ -642,12 +642,18 @@ class AIExecutor:
                     'execution_time_ms': 0
                 }
             
-            return {
+            step_result = {
                 'step_id': step_data.get('step', 1),
                 'success': result.get('success', False),
                 'message': result.get('message', step_data.get('description', '')),
                 'execution_time_ms': result.get('execution_time_ms', 0)
             }
+            
+            # Include navigation transitions if available (avoid re-fetching in UI)
+            if result.get('transitions'):
+                step_result['transitions'] = result['transitions']
+            
+            return step_result
             
         except Exception as e:
             return {
@@ -689,6 +695,10 @@ class AIExecutor:
         # Update context with position changes
         if result.get('success') and result.get('final_position_node_id'):
             context['final_position_node_id'] = result.get('final_position_node_id')
+        
+        # Include navigation_path in result for frontend (avoid re-fetching)
+        if result.get('navigation_path'):
+            result['transitions'] = result['navigation_path']  # Rename for frontend clarity
         
         return result
     
@@ -861,7 +871,54 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         # Add metadata to AI response and return dict directly
         ai_response['id'] = str(uuid.uuid4())
         ai_response['prompt'] = prompt
+        
+        # PRE-FETCH TRANSITIONS: Fetch navigation transitions for each navigation step
+        # This ensures transitions are ALWAYS available in the plan (no UI fetching needed)
+        if ai_response.get('steps'):
+            self._prefetch_navigation_transitions(ai_response['steps'], context)
+        
         return ai_response
+    
+    def _prefetch_navigation_transitions(self, steps: List[Dict], context: Dict) -> None:
+        """
+        Pre-fetch navigation transitions for all navigation steps in the plan.
+        This ensures transitions are embedded in the plan and NO UI fetching is needed.
+        
+        Args:
+            steps: List of plan steps
+            context: Execution context with tree_id and team_id
+        """
+        tree_id = context.get('tree_id')
+        team_id = context.get('team_id')
+        
+        if not tree_id or not team_id:
+            print(f"[@ai_executor:prefetch] Skipping transition prefetch - missing tree_id or team_id")
+            return
+        
+        for step in steps:
+            if step.get('command') == 'execute_navigation':
+                target_node = step.get('params', {}).get('target_node')
+                if not target_node:
+                    continue
+                
+                try:
+                    # Use navigation executor's preview functionality
+                    from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
+                    
+                    # Get navigation path (same logic as preview)
+                    navigation_path = find_shortest_path(tree_id, target_node, team_id, current_node_id=None)
+                    
+                    if navigation_path:
+                        # Store transitions directly in the step
+                        step['transitions'] = navigation_path
+                        print(f"[@ai_executor:prefetch] Pre-fetched {len(navigation_path)} transitions for step: {target_node}")
+                    else:
+                        print(f"[@ai_executor:prefetch] No path found for: {target_node}")
+                        step['transitions'] = []
+                        
+                except Exception as e:
+                    print(f"[@ai_executor:prefetch] Error fetching transitions for {target_node}: {str(e)}")
+                    step['transitions'] = []  # Empty transitions on error
     
     def _get_cached_context(self, context: Dict) -> Dict:
         """Apply caching logic to context"""

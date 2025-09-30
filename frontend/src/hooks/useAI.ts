@@ -161,6 +161,10 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       else if (isCurrent) status = 'current';
       else status = 'pending';
 
+      // Merge transitions from execution results (if available)
+      const stepResult = executionStatus?.step_results?.find((r: any) => r.step_id === stepNumber);
+      const transitions = stepResult?.transitions || step.transitions; // Prefer execution result, fallback to plan
+
       return {
         ...step,
         stepNumber,
@@ -168,7 +172,8 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         completedEntry,
         failedEntry,
         isCurrent,
-        duration: completedEntry?.data?.duration || failedEntry?.data?.duration
+        duration: completedEntry?.data?.duration || failedEntry?.data?.duration,
+        transitions  // Include transitions from execution or plan
       };
     });
     

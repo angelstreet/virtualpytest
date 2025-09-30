@@ -288,7 +288,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                     alignItems: 'center',
                     gap: 1
                   }}>
-                    {isPlanFeasible ? '✅' : '❌'} Task Analysis
+                    {isPlanFeasible ? '✅' : '❌'} AI Reasoning
                     {!isPlanFeasible && (
                       <Typography variant="caption" sx={{ color: '#f44336', ml: 0 }}>
                         (Not Feasible)
@@ -389,8 +389,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
                     <AIStepDisplay
                       key={`${aiPlan?.id || 'current'}-step-${step.stepNumber}`}
                       step={step}
-                      host={host}
-                      device={device}
                       showExpand={true}
                     />
                   ))}

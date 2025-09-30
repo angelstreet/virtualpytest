@@ -102,6 +102,13 @@ export interface AIExecutionStatus {
   execution_log: AIExecutionLogEntry[];
   progress_percentage: number;
   plan?: AIPlan;
+  step_results?: Array<{  // Execution results with transitions
+    step_id: number;
+    success: boolean;
+    message?: string;
+    execution_time_ms?: number;
+    transitions?: any[];  // Navigation transitions from execution
+  }>;
   execution_summary?: {
     total_steps: number;
     completed_steps: number;

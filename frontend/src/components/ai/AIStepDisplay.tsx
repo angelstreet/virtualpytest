@@ -8,15 +8,16 @@
  * 
  * Features:
  * - Shows command format (not AI descriptions)
- * - Expandable navigation steps with transitions
+ * - Expandable navigation steps with PRE-FETCHED transitions (no API calls)
  * - Status indicators (pending/current/completed/failed)
+ * 
+ * IMPORTANT: Transitions are ALWAYS pre-fetched during plan generation.
+ * No fallback, no legacy, no API fetching in UI.
  */
 
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, CircularProgress } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { Host, Device } from '../../types/common/Host_Types';
 
 interface AIStepDisplayProps {
   step: {
@@ -27,25 +28,21 @@ interface AIStepDisplayProps {
     type?: string;
     status?: 'pending' | 'current' | 'completed' | 'failed';
     duration?: number;
+    transitions?: any[]; // PRE-FETCHED transitions - always available, no UI fetching
   };
-  host?: Host; // Optional - needed for navigation preview
-  device?: Device; // Optional - needed for getting userinterface
   showExpand?: boolean; // Default true
   compact?: boolean; // Compact mode for lists
 }
 
 export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
   step,
-  host,
-  device,
   showExpand = true,
   compact = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [transitions, setTransitions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   const isNavigation = step.command === 'execute_navigation';
+  const transitions = step.transitions || []; // PRE-FETCHED - always available
 
   // Status styling
   const getStatusStyle = () => {
@@ -80,38 +77,9 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
     ? `${step.command}(${step.params?.target_node || 'unknown'})`
     : step.description || step.command;
 
-  // Fetch navigation preview on expand
-  const handleToggleExpand = async () => {
-    if (!isNavigation || !host || !device) return;
-
-    if (!isExpanded && transitions.length === 0) {
-      setIsLoading(true);
-      try {
-        // Get tree_id from interface lookup (use device.userinterface if available)
-        const userinterface_name = device.userinterface || 'horizon_android_mobile'; // Fallback for compatibility
-        const interfaceResponse = await fetch(buildServerUrl('/server/navigation/getTreeIdForInterface'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userinterface_name })
-        });
-        const interfaceData = await interfaceResponse.json();
-        const treeId = interfaceData.tree_id || 'default';
-        
-        const url = buildServerUrl(`/server/navigation/preview/${treeId}/${step.params?.target_node}`);
-        const params = new URLSearchParams({ host_name: host.host_name });
-        const response = await fetch(`${url}?${params}`);
-        const result = await response.json();
-        
-        if (result.success) {
-          setTransitions(result.transitions || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch navigation preview:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
+  // Simple toggle - transitions are ALWAYS pre-fetched, no API calls needed
+  const handleToggleExpand = () => {
+    if (!isNavigation) return;
     setIsExpanded(!isExpanded);
   };
 
@@ -141,16 +109,13 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
           {step.duration && ` (${step.duration.toFixed(1)}s)`}
         </Typography>
         
-        {isNavigation && showExpand && host && (
-          <IconButton
+        {isNavigation && showExpand && (
+          <IconButton 
             size="small"
             onClick={handleToggleExpand}
-            disabled={isLoading}
             sx={{ color: '#aaa', p: 0.25 }}
           >
-            {isLoading ? (
-              <CircularProgress size={16} />
-            ) : isExpanded ? (
+            {isExpanded ? (
               <ExpandLessIcon fontSize="small" />
             ) : (
               <ExpandMoreIcon fontSize="small" />

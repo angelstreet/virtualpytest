@@ -478,7 +478,8 @@ class NavigationExecutor:
                 total_actions=total_actions,
                 path_length=len(navigation_path),
                 cross_tree_transitions=cross_tree_transitions,
-                unified_pathfinding_used=True
+                unified_pathfinding_used=True,
+                navigation_path=navigation_path  # Include full transition data for AI/frontend
             )
             
         except (UnifiedCacheError, PathfindingError) as e:
