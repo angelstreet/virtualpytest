@@ -605,27 +605,32 @@ const RunTests: React.FC = () => {
       );
     }
 
-    // Default text field for all parameters
+    // Default text field for all parameters - use value from useRun hook (which handles defaults)
     return (
       <TextField
         key={param.name}
         label={`${param.name}${param.required ? ' *' : ''}`}
-        value={value || (param.name === 'node' ? 'home' : (param.name === 'goto_live' ? 'true' : (param.default || '')))}
+        value={value}
         onChange={(e) => handleParameterChange(param.name, e.target.value)}
         size="small"
         fullWidth
         error={param.required && !value.trim()}
-        placeholder={param.name === 'node' ? 'home' : (param.name === 'goto_live' ? 'true' : (param.default || ''))}
+        placeholder={param.default || ''}
+        helperText={param.default ? `Default: ${param.default}` : ''}
       />
     );
   };
 
   // Filter to show required parameters and important optional ones
   // Exclude framework parameters: host, device, userinterface_name (shown at top level)
+  // Important optional parameters to always show (even if not required)
+  const importantOptionalParams = ['node', 'max_iteration', 'action', 'goto_live', 'audio_analysis', 'edges'];
+  
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
+    // Show required parameters (except framework ones)
     (param.required && param.name !== 'host' && param.name !== 'device' && param.name !== 'userinterface_name') ||
-    param.name === 'node' ||  // Always show node parameter for goto scripts
-    (selectedScript.includes('fullzap') && (param.name === 'max_iteration' || param.name === 'goto_live' || param.name === 'audio_analysis'))  // Show fullzap specific parameters
+    // Show important optional parameters
+    importantOptionalParams.includes(param.name)
   ) || [];
 
 
