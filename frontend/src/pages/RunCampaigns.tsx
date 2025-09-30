@@ -77,6 +77,16 @@ const RunCampaigns: React.FC = () => {
   // Get hosts for device selection
   const allHosts = getAllHosts();
 
+  // Get device model for userinterface selection
+  const getDeviceModel = () => {
+    if (!campaignConfig.host || !campaignConfig.device) return 'unknown';
+    
+    const hostDevices = getDevicesFromHost(campaignConfig.host);
+    const deviceObject = hostDevices.find(device => device.device_id === campaignConfig.device);
+    
+    return deviceObject?.device_model || 'unknown';
+  };
+
   // Steps for campaign builder
   const steps = [
     'Campaign Configuration',
@@ -175,6 +185,7 @@ const RunCampaigns: React.FC = () => {
             availableScripts={availableScripts}
             aiTestCasesInfo={aiTestCasesInfo}
             scriptAnalysisCache={scriptAnalysisCache}
+            deviceModel={getDeviceModel()}
             onAddScript={addScript}
             onRemoveScript={removeScript}
 

@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { TextField, Autocomplete } from '@mui/material';
+import { UserinterfaceSelector } from '../UserinterfaceSelector';
 
 export interface ScriptParameter {
   name: string;
@@ -25,6 +26,7 @@ interface ParameterInputRendererProps {
   value: string;
   onChange: (name: string, value: string) => void;
   error?: boolean;
+  deviceModel?: string; // Device model for fetching compatible userinterfaces
 }
 
 export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
@@ -32,34 +34,23 @@ export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
   value,
   onChange,
   error = false,
+  deviceModel,
 }) => {
   const handleChange = (newValue: string) => {
     onChange(parameter.name, newValue);
   };
 
-  // Special handling for userinterface_name with autocomplete
+  // Special handling for userinterface_name - use UserinterfaceSelector to fetch compatible interfaces
   if (parameter.name === 'userinterface_name') {
-    const options = ['horizon_android_mobile', 'horizon_android_tv', 'perseus_360_web'];
-
     return (
-      <Autocomplete
+      <UserinterfaceSelector
         key={parameter.name}
-        options={options}
+        deviceModel={deviceModel}
         value={value}
-        onChange={(_event, newValue) => handleChange(newValue || '')}
-        onInputChange={(_event, newInputValue) => handleChange(newInputValue)}
-        freeSolo
+        onChange={(userinterface) => handleChange(userinterface)}
+        label={`${parameter.name}${parameter.required ? ' *' : ''}`}
         size="small"
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={`${parameter.name}${parameter.required ? ' *' : ''}`}
-            size="small"
-            fullWidth
-            error={parameter.required && !value.trim() || error}
-            helperText={parameter.help}
-          />
-        )}
+        fullWidth
       />
     );
   }
