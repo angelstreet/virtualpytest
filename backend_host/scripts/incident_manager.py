@@ -7,6 +7,7 @@ import os
 import sys
 import logging
 import threading
+import time
 from datetime import datetime
 
 # Add project paths
@@ -75,8 +76,9 @@ INCIDENT = 1
 
 class IncidentManager:
     def __init__(self):
-        self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}}}
+        self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
         self.device_mapping_cache = {}  # Cache device mappings to avoid repeated lookups
+        self.INCIDENT_REPORT_DELAY = 30  # Only report to DB after 30 seconds of continuous detection
         self._load_active_incidents_from_db()
         
     def get_device_state(self, device_id):
@@ -84,7 +86,8 @@ class IncidentManager:
         if device_id not in self.device_states:
             self.device_states[device_id] = {
                 'state': NORMAL,
-                'active_incidents': {}
+                'active_incidents': {},  # {issue_type: alert_id} - incidents in DB
+                'pending_incidents': {}  # {issue_type: first_detected_timestamp} - not yet in DB
             }
         return self.device_states[device_id]
     
@@ -292,13 +295,16 @@ class IncidentManager:
             return False
     
     def process_detection(self, capture_folder, detection_result, host_name):
-        """Process detection result and update state"""
+        """Process detection result and update state with 30-second delay before DB reporting"""
         # Get device_id from capture_folder
         device_info = self.get_device_info_from_capture_folder(capture_folder)
         device_id = device_info.get('device_id', capture_folder)
         
         device_state = self.get_device_state(device_id)
-        active_incidents = device_state['active_incidents']
+        active_incidents = device_state['active_incidents']      # {issue_type: alert_id} - in DB
+        pending_incidents = device_state['pending_incidents']    # {issue_type: timestamp} - not yet in DB
+        
+        current_time = time.time()
         
         # Check each issue type
         for issue_type in ['blackscreen', 'freeze', 'audio_loss']:
@@ -306,21 +312,56 @@ class IncidentManager:
                 is_detected = not detection_result.get('audio', True)
             else:
                 is_detected = detection_result.get(issue_type, False)
-            was_active = issue_type in active_incidents
             
-            if is_detected and not was_active:
-                incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
-                if incident_id:
-                    active_incidents[issue_type] = incident_id
-                    device_state['state'] = INCIDENT
+            is_in_db = issue_type in active_incidents
+            is_pending = issue_type in pending_incidents
+            
+            if is_detected:
+                # Issue is currently detected
+                if is_in_db:
+                    # Already reported to DB, nothing to do
+                    pass
                     
-            elif not is_detected and was_active:
-                incident_id = active_incidents[issue_type]
-                self.resolve_incident(device_id, incident_id, issue_type)
-                del active_incidents[issue_type]
-                
-                if not active_incidents:
-                    device_state['state'] = NORMAL
+                elif is_pending:
+                    # Check if it's been pending long enough to report to DB
+                    first_detected_time = pending_incidents[issue_type]
+                    elapsed_time = current_time - first_detected_time
+                    
+                    if elapsed_time >= self.INCIDENT_REPORT_DELAY:
+                        # Issue has persisted for 30+ seconds, report to DB
+                        logger.info(f"[{capture_folder}] {issue_type} persisted for {elapsed_time:.1f}s, reporting to DB")
+                        incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
+                        if incident_id:
+                            active_incidents[issue_type] = incident_id
+                            device_state['state'] = INCIDENT
+                            # Remove from pending since it's now active
+                            del pending_incidents[issue_type]
+                    else:
+                        # Still waiting for 30 seconds
+                        logger.debug(f"[{capture_folder}] {issue_type} detected, waiting {self.INCIDENT_REPORT_DELAY - elapsed_time:.1f}s more before reporting")
+                        
+                else:
+                    # First detection of this issue, add to pending
+                    pending_incidents[issue_type] = current_time
+                    logger.info(f"[{capture_folder}] {issue_type} first detected, will report to DB if persists for {self.INCIDENT_REPORT_DELAY}s")
+                    
+            else:
+                # Issue is NOT detected (cleared)
+                if is_in_db:
+                    # Issue was in DB, resolve it immediately
+                    incident_id = active_incidents[issue_type]
+                    logger.info(f"[{capture_folder}] {issue_type} cleared, resolving DB incident")
+                    self.resolve_incident(device_id, incident_id, issue_type)
+                    del active_incidents[issue_type]
+                    
+                    if not active_incidents:
+                        device_state['state'] = NORMAL
+                        
+                elif is_pending:
+                    # Issue was pending but cleared before reaching 30s threshold
+                    elapsed_time = current_time - pending_incidents[issue_type]
+                    logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time:.1f}s (never reported to DB)")
+                    del pending_incidents[issue_type]
 
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
         """Upload freeze incident frames to R2 storage - NON-BLOCKING with threading"""
