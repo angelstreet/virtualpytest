@@ -43,6 +43,14 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
 
   const isNavigation = step.command === 'execute_navigation';
   const transitions = step.transitions || []; // PRE-FETCHED - always available
+  
+  // DEBUG: Log step data to see if duration exists
+  console.log(`[@AIStepDisplay] Step ${step.stepNumber}:`, {
+    status: step.status,
+    duration: step.duration,
+    has_duration: !!step.duration,
+    full_step: step
+  });
 
   // Status styling
   const getStatusStyle = () => {

@@ -164,6 +164,17 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       // Merge transitions from execution results (if available)
       const stepResult = executionStatus?.step_results?.find((r: any) => r.step_id === stepNumber);
       const transitions = stepResult?.transitions || step.transitions; // Prefer execution result, fallback to plan
+      
+      // Extract duration from execution log
+      const duration = completedEntry?.data?.duration || failedEntry?.data?.duration;
+      
+      // DEBUG: Log duration extraction
+      console.log(`[@useAI:processedSteps] Step ${stepNumber}:`, {
+        status,
+        duration,
+        completedEntry: completedEntry?.data,
+        failedEntry: failedEntry?.data
+      });
 
       return {
         ...step,
@@ -172,7 +183,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
         completedEntry,
         failedEntry,
         isCurrent,
-        duration: completedEntry?.data?.duration || failedEntry?.data?.duration,
+        duration,
         transitions  // Include transitions from execution or plan
       };
     });
