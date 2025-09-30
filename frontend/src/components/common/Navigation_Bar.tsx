@@ -25,24 +25,61 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import NavigationDropdown from './Navigation_Dropdown';
+import NavigationGroupedDropdown from './Navigation_GroupedDropdown';
 
 const NavigationBar: React.FC = () => {
   const location = useLocation();
 
   // Navigation menu configuration
-  const testPlanItems = [
-    { label: 'Test Cases', path: '/test-plan/test-cases', icon: <TestIcon fontSize="small" /> },
-    { label: 'Campaigns', path: '/test-plan/campaigns', icon: <CampaignIcon fontSize="small" /> },
+  const testGroups = [
     {
-      label: 'Collections',
-      path: '/test-plan/collections',
-      icon: <CollectionIcon fontSize="small" />,
+      sectionLabel: 'Test Plan',
+      items: [
+        { label: 'Test Cases', path: '/test-plan/test-cases', icon: <TestIcon fontSize="small" /> },
+        { label: 'Campaigns', path: '/test-plan/campaigns', icon: <CampaignIcon fontSize="small" /> },
+        {
+          label: 'Collections',
+          path: '/test-plan/collections',
+          icon: <CollectionIcon fontSize="small" />,
+        },
+      ],
     },
-  ];
-
-  const testExecutionItems = [
-    { label: 'Run Tests', path: '/test-execution/run-tests', icon: <RunIcon fontSize="small" /> },
-    { label: 'Run Campaigns', path: '/test-execution/run-campaigns', icon: <CampaignIcon fontSize="small" /> },
+    {
+      sectionLabel: 'Execution',
+      items: [
+        { label: 'Run Tests', path: '/test-execution/run-tests', icon: <RunIcon fontSize="small" /> },
+        {
+          label: 'Run Campaigns',
+          path: '/test-execution/run-campaigns',
+          icon: <CampaignIcon fontSize="small" />,
+        },
+      ],
+    },
+    {
+      sectionLabel: 'Results',
+      items: [
+        {
+          label: 'Test Reports',
+          path: '/test-results/reports',
+          icon: <ReportsIcon fontSize="small" />,
+        },
+        {
+          label: 'Campaign Reports',
+          path: '/test-results/campaign-reports',
+          icon: <CampaignIcon fontSize="small" />,
+        },
+        {
+          label: 'Model Reports',
+          path: '/test-results/model-reports',
+          icon: <ModelIcon fontSize="small" />,
+        },
+        {
+          label: 'Dependency Report',
+          path: '/test-results/dependency-report',
+          icon: <LinkIcon fontSize="small" />,
+        },
+      ],
+    },
   ];
 
   const monitoringItems = [
@@ -63,29 +100,6 @@ const NavigationBar: React.FC = () => {
     },
   ];
 
-  const testResultsItems = [
-    {
-      label: 'Test Reports',
-      path: '/test-results/reports',
-      icon: <ReportsIcon fontSize="small" />,
-    },
-    {
-      label: 'Campaign Reports',
-      path: '/test-results/campaign-reports',
-      icon: <CampaignIcon fontSize="small" />,
-    },
-    {
-      label: 'Model Reports',
-      path: '/test-results/model-reports',
-      icon: <ModelIcon fontSize="small" />,
-    },
-    {
-      label: 'Dependency Report',
-      path: '/test-results/dependency-report',
-      icon: <LinkIcon fontSize="small" />,
-    },
-  ];
-
   const configurationItems = [
     {
       label: 'Device',
@@ -96,11 +110,6 @@ const NavigationBar: React.FC = () => {
       label: 'Models',
       path: '/configuration/models',
       icon: <ModelIcon fontSize="small" />,
-    },
-    {
-      label: 'User Interface',
-      path: '/configuration/interface',
-      icon: <TreeIcon fontSize="small" />,
     },
     {
       label: 'Controller',
@@ -174,17 +183,30 @@ const NavigationBar: React.FC = () => {
         Rec
       </Button>
 
-      {/* Test Plan Dropdown */}
-      <NavigationDropdown label="Test Plan" items={testPlanItems} />
+      {/* Test Grouped Dropdown (Plan, Execution, Results) */}
+      <NavigationGroupedDropdown label="Test" groups={testGroups} />
 
-      {/* Test Execution Dropdown */}
-      <NavigationDropdown label="Test Execution" items={testExecutionItems} />
+      {/* User Interface - Standalone button */}
+      <Button
+        component={Link}
+        to="/configuration/interface"
+        startIcon={<TreeIcon fontSize="small" />}
+        sx={{
+          color: location.pathname.startsWith('/configuration/interface') ? 'secondary.main' : 'inherit',
+          fontWeight: location.pathname.startsWith('/configuration/interface') ? 600 : 400,
+          textTransform: 'none',
+          px: 2,
+          py: 1,
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          },
+        }}
+      >
+        Interface
+      </Button>
 
       {/* Monitoring Dropdown */}
       <NavigationDropdown label="Monitoring" items={monitoringItems} />
-
-      {/* Test Results Dropdown */}
-      <NavigationDropdown label="Test Results" items={testResultsItems} />
 
       {/* Grafana Dashboard - Simple button */}
       <Button

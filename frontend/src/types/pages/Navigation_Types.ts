@@ -593,6 +593,16 @@ export interface NavigationDropdownProps {
   items: NavigationItem[];
 }
 
+export interface NavigationGroupedItem {
+  sectionLabel: string;
+  items: NavigationItem[];
+}
+
+export interface NavigationGroupedDropdownProps {
+  label: string;
+  groups: NavigationGroupedItem[];
+}
+
 // =====================================================
 // RE-EXPORT CONTEXT TYPES FROM SEPARATE FILES
 // =====================================================
