@@ -514,9 +514,6 @@ class AIExecutor:
         if command == 'execute_navigation':
             target_node = params.get('target_node', 'unknown')
             return f"{command}({target_node})"
-        elif command == 'navigation_reassessment':
-            original_target = params.get('original_target', 'unknown')
-            return f"reassess_navigation({original_target})"
         elif command == 'click_element':
             element_id = params.get('element_id', 'unknown')
             return f"{command}({element_id})"
@@ -716,8 +713,6 @@ class AIExecutor:
             # Pure orchestration - delegate to appropriate executor
             if step_type == 'navigation':
                 result = self._execute_navigation_step(step_data, context)
-            elif step_type == 'navigation_reassessment':
-                result = self._execute_navigation_reassessment_step(step_data, context)
             elif step_type == 'action':
                 result = self._execute_action_step(step_data, context)
             elif step_type == 'verification':
@@ -756,8 +751,6 @@ class AIExecutor:
         """Determine step type from command - simple classification"""
         if command == 'execute_navigation':
             return 'navigation'
-        elif command == 'navigation_reassessment':
-            return 'navigation_reassessment'
         elif command in ['press_key', 'click_element', 'input_text', 'tap_coordinates']:
             return 'action'
         elif command.startswith('verify_') or command.startswith('check_'):
@@ -788,6 +781,29 @@ class AIExecutor:
         # Include navigation_path in result for frontend (avoid re-fetching)
         if result.get('navigation_path'):
             result['transitions'] = result['navigation_path']  # Rename for frontend clarity
+        
+        # Check if AI flagged this step for reassessment
+        if result.get('success') and step_data.get('requires_reassessment'):
+            reassessment_config = step_data.get('reassessment_config', {})
+            
+            print(f"[@ai_executor] Navigation successful, triggering AI reassessment for '{reassessment_config.get('original_target')}'")
+            
+            # Trigger reassessment to find the original target
+            reassessment_result = self._execute_navigation_reassessment_step(
+                {
+                    'params': {
+                        'original_target': reassessment_config.get('original_target', ''),
+                        'remaining_goal': reassessment_config.get('remaining_goal', '')
+                    }
+                },
+                context
+            )
+            
+            # If reassessment succeeded, inject new steps
+            if reassessment_result.get('requires_step_injection'):
+                result['requires_step_injection'] = True
+                result['updated_steps'] = reassessment_result.get('updated_steps', [])
+                result['analysis'] = reassessment_result.get('analysis', '')
         
         return result
     
@@ -1176,7 +1192,7 @@ Rules:
 - If exact node exists → navigate directly: execute_navigation, target_node="X"
 - If exact node NOT exists:
   1. Check if SIMILAR/RELATED node exists (e.g., "live" for "live fullscreen")
-  2. If similar exists → navigate to similar node + add navigation_reassessment
+  2. If similar exists → navigate to similar node + add requires_reassessment metadata
   3. If NO similar node → set feasible=false (DO NOT guess or invent node names)
 - "click X" → click_element, element_id="X"  
 - "press X" → press_key, key="X"
@@ -1186,10 +1202,9 @@ Rules:
 - ALWAYS specify action_type in params
 - CRITICAL: When no relevant nodes exist, mark task as NOT FEASIBLE immediately
 
-Navigation Reassessment Format:
-When target node doesn't exist, use this pattern:
-{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}, "description": "closest_node"}},
-{{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "target_name", "remaining_goal": "find and click target_name", "action_type": "navigation"}}, "description": "reassess"}}
+Reassessment Metadata Format:
+When target node doesn't exist, add metadata to navigation step (NO separate reassessment step):
+{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}, "description": "closest_node", "requires_reassessment": true, "reassessment_config": {{"original_target": "target_name", "remaining_goal": "find and click target_name"}}}}
 
 CRITICAL: You MUST include an "analysis" field with Goal and Thinking.
 
@@ -1209,7 +1224,7 @@ Direct navigation (exact node exists):
 {{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}]}}
 
 Navigation with reassessment (exact node doesn't exist):
-{{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "reassess"}}]}}
+{{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: Find and access 'saved' button\nThinking: Exact 'saved' node not found → navigate to closest 'home_saved' → reassess visually to locate 'saved' button and generate follow-up actions", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_saved", "action_type": "navigation"}}, "description": "home_saved", "requires_reassessment": true, "reassessment_config": {{"original_target": "saved", "remaining_goal": "find and click saved button"}}}}]}}
 
 If task is not possible:
 {{"detected_current_node": "home", "position_confidence": "high", "analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
