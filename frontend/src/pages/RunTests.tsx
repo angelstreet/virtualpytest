@@ -616,7 +616,6 @@ const RunTests: React.FC = () => {
         fullWidth
         error={param.required && !value.trim()}
         placeholder={param.default || ''}
-        helperText={param.default ? `Default: ${param.default}` : ''}
       />
     );
   };
