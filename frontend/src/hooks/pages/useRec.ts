@@ -74,7 +74,25 @@ export const useRec = (): UseRecReturn => {
 
     try {
       const devices = getDevicesByCapabilityRef.current('av');
-      setAvDevices(devices);
+      
+      // Only update if devices actually changed (prevent unnecessary re-renders)
+      setAvDevices(prev => {
+        // Check if the device list actually changed
+        if (prev.length !== devices.length) {
+          return devices;
+        }
+        
+        // Compare device keys to detect changes
+        const prevKeys = prev.map(({ host, device }) => `${host.host_name}-${device.device_id}`).sort().join(',');
+        const newKeys = devices.map(({ host, device }) => `${host.host_name}-${device.device_id}`).sort().join(',');
+        
+        if (prevKeys !== newKeys) {
+          return devices;
+        }
+        
+        // No changes, keep previous reference to prevent re-renders
+        return prev;
+      });
     } catch (error) {
       console.error('[@hook:useRec] Error refreshing devices:', error);
       setError(error instanceof Error ? error.message : 'Failed to refresh devices');

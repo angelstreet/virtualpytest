@@ -22,7 +22,6 @@ import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
-import { ModalProvider } from '../contexts/ModalContext';
 import { HostManagerProvider } from '../contexts/HostManagerProvider';
 import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
@@ -266,9 +265,7 @@ const Heatmap: React.FC = () => {
   return (
     <HostManagerProvider>
       <DeviceDataProvider>
-        <ModalProvider>
-          <HeatmapContent />
-        </ModalProvider>
+        <HeatmapContent />
       </DeviceDataProvider>
     </HostManagerProvider>
   );

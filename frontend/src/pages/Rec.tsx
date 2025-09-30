@@ -16,25 +16,39 @@ import {
   TextField,
   Autocomplete,
 } from '@mui/material';
-import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from 'react';
 
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
 
-// Update memoization to deep-compare host and device
+// Optimized memoization with deep comparison to prevent re-renders from object reference changes
 const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
-  return (
+  // Quick reference check first - if references are same, no need for deep comparison
+  if (
+    prevProps.host === nextProps.host &&
+    prevProps.device === nextProps.device &&
+    prevProps.isEditMode === nextProps.isEditMode &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.deviceFlags === nextProps.deviceFlags &&
+    prevProps.onSelectionChange === nextProps.onSelectionChange
+  ) {
+    return true; // Props haven't changed, skip re-render
+  }
+
+  // Deep comparison when references differ
+  const areEqual = (
     prevProps.host.host_name === nextProps.host.host_name &&
     prevProps.device?.device_id === nextProps.device?.device_id &&
     prevProps.isEditMode === nextProps.isEditMode &&
     prevProps.isSelected === nextProps.isSelected &&
     JSON.stringify(prevProps.deviceFlags) === JSON.stringify(nextProps.deviceFlags) &&
-    prevProps.host.status === nextProps.host.status &&
-    JSON.stringify(prevProps.host.system_stats) === JSON.stringify(nextProps.host.system_stats) &&
-    JSON.stringify(prevProps.host) === JSON.stringify(nextProps.host) &&  // Deep compare host
-    JSON.stringify(prevProps.device) === JSON.stringify(nextProps.device)  // Deep compare device
+    JSON.stringify(prevProps.host) === JSON.stringify(nextProps.host) &&
+    JSON.stringify(prevProps.device) === JSON.stringify(nextProps.device) &&
+    prevProps.onSelectionChange === nextProps.onSelectionChange // Handler should be stable now
   );
+  
+  return areEqual; // Return true to skip re-render, false to re-render
 });
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
@@ -140,17 +154,26 @@ const RecContent: React.FC = () => {
     });
   }, []);
 
-  // Selection handlers
-  const handleDeviceSelection = useCallback((deviceKey: string, selected: boolean) => {
-    setSelectedDevices(prev => {
-      const newSet = new Set(prev);
-      if (selected) {
-        newSet.add(deviceKey);
-      } else {
-        newSet.delete(deviceKey);
-      }
-      return newSet;
-    });
+  // Create stable selection handlers per device using refs
+  const selectionHandlersRef = useRef<Map<string, (selected: boolean) => void>>(new Map());
+  
+  // Create or get stable handler for a device
+  const getSelectionHandler = useCallback((deviceKey: string) => {
+    if (!selectionHandlersRef.current.has(deviceKey)) {
+      const handler = (selected: boolean) => {
+        setSelectedDevices(prev => {
+          const newSet = new Set(prev);
+          if (selected) {
+            newSet.add(deviceKey);
+          } else {
+            newSet.delete(deviceKey);
+          }
+          return newSet;
+        });
+      };
+      selectionHandlersRef.current.set(deviceKey, handler);
+    }
+    return selectionHandlersRef.current.get(deviceKey)!;
   }, []);
 
   const handleSelectAll = useCallback(() => {
@@ -652,7 +675,7 @@ const RecContent: React.FC = () => {
                   device={device}
                   isEditMode={isEditMode}
                   isSelected={selectedDevices.has(deviceKey)}
-                  onSelectionChange={(selected) => handleDeviceSelection(deviceKey, selected)}
+                  onSelectionChange={getSelectionHandler(deviceKey)}
                   deviceFlags={memoizedDeviceFlags.get(deviceKey) || []}
                 />
               </Grid>
