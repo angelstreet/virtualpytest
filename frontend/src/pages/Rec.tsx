@@ -338,11 +338,23 @@ const RecContent: React.FC = () => {
 
   const hasActiveFilters = hostFilter || deviceModelFilter || deviceFilter || flagFilter;
 
+  // Track what's causing re-renders
+  const prevAvDevicesRef = useRef(avDevices);
+  const prevFilteredDevicesRef = useRef(filteredDevices);
+  const prevDeviceFlagsRef = useRef(deviceFlags);
+  
   console.log('[@Rec] RecContent render', {
     isEditMode,
     selectedDevicesCount: selectedDevices.size,
     filteredDevicesCount: filteredDevices.length,
+    avDevicesChanged: prevAvDevicesRef.current !== avDevices,
+    filteredDevicesChanged: prevFilteredDevicesRef.current !== filteredDevices,
+    deviceFlagsChanged: prevDeviceFlagsRef.current !== deviceFlags,
   });
+  
+  prevAvDevicesRef.current = avDevices;
+  prevFilteredDevicesRef.current = filteredDevices;
+  prevDeviceFlagsRef.current = deviceFlags;
 
   return (
     <Box sx={{ p: 3 }}>

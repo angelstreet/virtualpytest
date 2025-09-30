@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 export interface DeviceFlag {
@@ -163,7 +163,8 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
     fetchBatchFlags();
   }, [fetchBatchFlags]);
 
-  return {
+  // Memoize return value to prevent unnecessary re-renders in consuming components
+  return useMemo(() => ({
     deviceFlags,
     uniqueFlags,
     isLoading,
@@ -171,5 +172,13 @@ export const useDeviceFlags = (): UseDeviceFlagsReturn => {
     updateDeviceFlags,
     batchUpdateDeviceFlags,
     refreshFlags,
-  };
+  }), [
+    deviceFlags,
+    uniqueFlags,
+    isLoading,
+    error,
+    updateDeviceFlags,
+    batchUpdateDeviceFlags,
+    refreshFlags,
+  ]);
 };

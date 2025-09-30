@@ -36,6 +36,10 @@ export const useRec = (): UseRecReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
+  
+  // Track re-renders caused by useHostManager
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
 
   // Adaptive interval based on device count
   const adaptiveInterval = useMemo(() => {
@@ -53,14 +57,15 @@ export const useRec = (): UseRecReturn => {
 
   // Use the simplified HostManager function and loading state
   const { getDevicesByCapability, isLoading: isHostManagerLoading } = useHostManager();
+  
+  console.log(`[@hook:useRec] Hook render #${renderCountRef.current}`, {
+    isHostManagerLoading,
+    avDevicesCount: avDevices.length
+  });
 
   // Use ref to store the latest getDevicesByCapability function to avoid dependency issues
   const getDevicesByCapabilityRef = useRef(getDevicesByCapability);
   getDevicesByCapabilityRef.current = getDevicesByCapability;
-
-  // Remove unused initialization function - monitoring will handle its own URL patterns
-
-  // Remove sync logic - no longer needed for simple monitoring patterns
 
   // Get AV-capable devices - only when HostManager is ready
   const refreshHosts = useCallback(async (): Promise<void> => {
@@ -189,7 +194,9 @@ export const useRec = (): UseRecReturn => {
     }
   }, [isRestarting]); // Remove avDevices from dependencies to prevent unnecessary re-renders
 
-  return {
+  // Memoize return value to prevent RecContent re-renders when context changes
+  // but our actual values haven't changed
+  return useMemo(() => ({
     avDevices,
     isLoading,
     error,
@@ -199,5 +206,14 @@ export const useRec = (): UseRecReturn => {
     isRestarting,
     adaptiveInterval,
     calculateVncScaling, // Now using the imported version
-  };
+  }), [
+    avDevices,
+    isLoading,
+    error,
+    refreshHosts,
+    baseUrlPatterns,
+    restartStreams,
+    isRestarting,
+    adaptiveInterval,
+  ]);
 };
