@@ -161,7 +161,17 @@ const RunTests: React.FC = () => {
     // Get all selected device combinations (host:device pairs)
     const allSelectedDevices = [...additionalDevices];
     if (selectedHost && selectedDevice) {
-      allSelectedDevices.push({ hostName: selectedHost, deviceId: selectedDevice });
+      // Get device model for the selected device
+      const hostDevices = getDevicesFromHost(selectedHost);
+      const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
+      const deviceModel = deviceObject?.device_model || 'unknown';
+      
+      allSelectedDevices.push({ 
+        hostName: selectedHost, 
+        deviceId: selectedDevice,
+        deviceModel: deviceModel,
+        userinterface: selectedUserinterface
+      });
     }
     
     // Check each host to see if it has unselected devices

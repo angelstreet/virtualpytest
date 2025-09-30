@@ -867,34 +867,10 @@ class AIExecutor:
     
     def _navigation_reassess_with_visual(self, original_target: str, remaining_goal: str, 
                                        screenshot: str, context: Dict) -> Dict[str, Any]:
-        """Call AI with screenshot to find navigation target and generate next steps"""
+        """Call AI with screenshot AND UI dump to find navigation target and generate next steps"""
         
-        prompt = f"""You are looking at a screenshot of a TV interface. 
-        
-Original goal: {remaining_goal}
-Target you're looking for: "{original_target}"
-Current screen: You've navigated to the closest available node and now need to find "{original_target}".
-
-Analyze the screenshot and:
-1. Can you see "{original_target}" or something similar on the screen?
-2. If yes, provide the exact steps to reach it (click coordinates, press keys, etc.)
-3. If no, respond with feasible=false
-
-Available actions you can use:
-- click_element: Click on UI element by text/ID
-- tap_coordinates: Tap at specific screen coordinates  
-- press_key: Press remote control keys (BACK, HOME, UP, DOWN, LEFT, RIGHT, OK, etc.)
-- swipe_up, swipe_down, swipe_left, swipe_right: Swipe gestures
-
-CRITICAL: Use MINIMAL descriptions (just element names or coordinates, NO verbose text)
-
-Respond with JSON only:
-{{"analysis": "I can see...", "feasible": true/false, "steps": [{{"step": 1, "command": "tap_coordinates", "params": {{"x": 100, "y": 200, "action_type": "remote"}}, "description": "tap(100,200)"}}]}}
-
-Good descriptions: "tap(100,200)", "click home_saved", "press BACK"
-Bad descriptions: "Tap on the replay button located at coordinates", "Visually locate and click..."
-
-If feasible=false, the navigation will fail. Only return feasible=true if you can clearly see the target."""
+        # Get platform-specific prompt with dump
+        prompt = self._build_reassessment_prompt(original_target, remaining_goal)
 
         from shared.src.lib.utils.ai_utils import call_vision_ai
         
@@ -919,6 +895,158 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
             return {'success': False, 'error': f'Invalid AI response format: {str(e)}'}
         except Exception as e:
             return {'success': False, 'error': f'Vision analysis error: {str(e)}'}
+    
+    def _get_platform_type(self) -> str:
+        """Detect platform type: mobile, web, or tv"""
+        model_lower = self.device_model.lower()
+        device_type_lower = str(type(self.device)).lower()
+        
+        if 'mobile' in model_lower or 'android' in model_lower:
+            return 'mobile'
+        elif 'web' in model_lower or 'playwright' in device_type_lower:
+            return 'web'
+        else:
+            return 'tv'
+    
+    def _build_reassessment_prompt(self, original_target: str, remaining_goal: str) -> str:
+        """Build platform-specific reassessment prompt with UI dump"""
+        platform = self._get_platform_type()
+        dump_text = self._dump_ui_for_reassessment()
+        
+        # Platform-specific sections
+        if platform == 'mobile':
+            interface_desc = "mobile app interface"
+            dump_instructions = """CRITICAL: Use ONLY the element data above to identify elements:
+- Use resource_id, content_desc, text, bounds from dump
+- DO NOT rely on text visible in the image - use dump data ONLY."""
+            available_actions = """Available actions:
+- click_element: Use element text/resource_id/content_desc from dump
+- tap_coordinates: Use bounds/position from dump  
+- press_key: BACK, HOME
+- swipe_up, swipe_down, swipe_left, swipe_right"""
+        elif platform == 'web':
+            interface_desc = "web interface"
+            dump_instructions = """CRITICAL: Use ONLY the element data above to identify elements:
+- Use CSS selectors, IDs, aria-labels, textContent from dump
+- DO NOT rely on text visible in the image - use dump data ONLY."""
+            available_actions = """Available actions:
+- click_element: Use selector/text/aria-label from dump
+- tap_coordinates: Use position from dump  
+- press_key: BACK, ESCAPE, ENTER"""
+        else:  # tv
+            interface_desc = "TV interface"
+            dump_instructions = """Analyze the screenshot to identify elements."""
+            available_actions = """Available actions:
+- click_element: Click on UI element by text/ID
+- tap_coordinates: Tap at specific screen coordinates  
+- press_key: BACK, HOME, UP, DOWN, LEFT, RIGHT, OK"""
+        
+        # Common prompt structure
+        return f"""You are looking at a screenshot of a {interface_desc}.
+
+Original goal: {remaining_goal}
+Target: "{original_target}"
+Current screen: You've navigated to the closest available node and now need to find "{original_target}".
+
+===== AVAILABLE UI ELEMENTS =====
+{dump_text}
+================================================================
+
+{dump_instructions}
+
+Analyze and:
+1. Find "{original_target}" in the UI dump above
+2. If found, provide exact steps using dump data (IDs, selectors, coordinates from bounds)
+3. If not found in dump, respond with feasible=false
+
+{available_actions}
+
+CRITICAL: Use MINIMAL descriptions (just element names or coordinates, NO verbose text)
+
+Respond with JSON only:
+{{"analysis": "Found in dump...", "feasible": true/false, "steps": [{{"step": 1, "command": "click_element", "params": {{"element_id": "from_dump", "action_type": "remote"}}, "description": "click_element"}}]}}
+
+Good descriptions: "tap(100,200)", "click home_saved", "press BACK"
+Bad descriptions: "Tap on the replay button located at coordinates", "Visually locate and click..."
+
+If feasible=false, the navigation will fail. Only return feasible=true if you can find target in dump."""
+    
+    def _dump_ui_for_reassessment(self) -> str:
+        """Dump UI elements and format for AI consumption"""
+        try:
+            # Determine device type
+            is_mobile = 'mobile' in self.device_model.lower() or 'android' in self.device_model.lower()
+            is_web = 'web' in self.device_model.lower() or 'playwright' in str(type(self.device)).lower()
+            
+            if is_mobile:
+                # Mobile: Use remote controller's dump_ui_elements()
+                if hasattr(self.device, 'remote_controller') and hasattr(self.device.remote_controller, 'dump_ui_elements'):
+                    success, elements, error = self.device.remote_controller.dump_ui_elements()
+                    if success and elements:
+                        return self._format_mobile_dump(elements)
+                    else:
+                        return f"[UI Dump Failed: {error}]"
+                else:
+                    return "[No UI dump capability for this device]"
+                    
+            elif is_web:
+                # Web: Use web controller's dump_elements()
+                if hasattr(self.device, 'web_controller') and hasattr(self.device.web_controller, 'dump_elements'):
+                    result = self.device.web_controller.dump_elements()
+                    if result.get('success') and result.get('elements'):
+                        return self._format_web_dump(result['elements'])
+                    else:
+                        return f"[UI Dump Failed: {result.get('error', 'Unknown')}]"
+                else:
+                    return "[No UI dump capability for this device]"
+            else:
+                return "[Unknown device type - no dump available]"
+                
+        except Exception as e:
+            print(f"[@ai_executor] UI dump error during reassessment: {e}")
+            return f"[UI Dump Error: {str(e)}]"
+    
+    def _format_mobile_dump(self, elements: list) -> str:
+        """Format mobile UI elements for AI"""
+        lines = ["MOBILE UI ELEMENTS:"]
+        for i, element in enumerate(elements[:50], 1):  # Limit to 50 elements
+            # Extract bounds
+            bounds_str = ""
+            if hasattr(element, 'bounds') and element.bounds:
+                match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', element.bounds)
+                if match:
+                    x1, y1, x2, y2 = match.groups()
+                    bounds_str = f"bounds=[{x1},{y1}][{x2},{y2}]"
+            
+            # Format element
+            lines.append(
+                f"{i}. resource_id: {element.resource_id} | text: '{element.text}' | "
+                f"content_desc: '{element.content_desc}' | {bounds_str}"
+            )
+        
+        if len(elements) > 50:
+            lines.append(f"... and {len(elements) - 50} more elements")
+        
+        return "\n".join(lines)
+    
+    def _format_web_dump(self, elements: list) -> str:
+        """Format web UI elements for AI"""
+        lines = ["WEB UI ELEMENTS:"]
+        for i, element in enumerate(elements[:50], 1):  # Limit to 50 elements
+            pos = element.get('position', {})
+            selector = element.get('selector', 'N/A')
+            text = element.get('textContent', '')[:50]  # Truncate long text
+            aria = element.get('attributes', {}).get('aria-label', '')
+            
+            lines.append(
+                f"{i}. selector: {selector} | text: '{text}' | aria-label: '{aria}' | "
+                f"pos: x={pos.get('x',0)}, y={pos.get('y',0)}, w={pos.get('width',0)}, h={pos.get('height',0)}"
+            )
+        
+        if len(elements) > 50:
+            lines.append(f"... and {len(elements) - 50} more elements")
+        
+        return "\n".join(lines)
     
     def _execute_action_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
         """Execute action step via ActionExecutor"""
