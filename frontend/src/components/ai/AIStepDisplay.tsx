@@ -16,7 +16,6 @@ import React, { useState } from 'react';
 import { Box, Typography, IconButton, CircularProgress } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { getUserinterfaceName } from '../../utils/userinterfaceUtils';
 import { Host, Device } from '../../types/common/Host_Types';
 
 interface AIStepDisplayProps {
@@ -88,8 +87,8 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
     if (!isExpanded && transitions.length === 0) {
       setIsLoading(true);
       try {
-        // Get tree_id from interface lookup
-        const userinterface_name = getUserinterfaceName(device.device_model);
+        // Get tree_id from interface lookup (use device.userinterface if available)
+        const userinterface_name = device.userinterface || 'horizon_android_mobile'; // Fallback for compatibility
         const interfaceResponse = await fetch(buildServerUrl('/server/navigation/getTreeIdForInterface'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

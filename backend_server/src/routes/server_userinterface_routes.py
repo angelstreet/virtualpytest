@@ -31,6 +31,39 @@ server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix
 # USER INTERFACES ENDPOINTS
 # =====================================================
 
+@server_userinterface_bp.route('/getCompatibleInterfaces', methods=['GET'])
+def get_compatible_interfaces():
+    """Get user interfaces compatible with a specific device model"""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = request.args.get('team_id')
+    device_model = request.args.get('device_model')
+    
+    if not device_model:
+        return jsonify({'success': False, 'error': 'device_model parameter required'}), 400
+    
+    try:
+        # Get all interfaces for the team
+        all_interfaces = get_all_userinterfaces(team_id)
+        
+        # Filter to compatible ones (where device_model is in the models array)
+        compatible_interfaces = [
+            interface for interface in all_interfaces
+            if device_model in (interface.get('models') or [])
+        ]
+        
+        return jsonify({
+            'success': True,
+            'interfaces': compatible_interfaces,
+            'device_model': device_model,
+            'count': len(compatible_interfaces)
+        })
+    except Exception as e:
+        print(f"[@server_userinterface] Error getting compatible interfaces: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_userinterface_bp.route('/getAllUserInterfaces', methods=['GET'])
 def get_userinterfaces():
     """Get all user interfaces for the team"""
