@@ -116,6 +116,11 @@ class AIExecutor:
         start_time = time.time()
         execution_id = str(uuid.uuid4())
         
+        # CRITICAL: Start execution tracking BEFORE generating plan
+        # This ensures frontend can query status even if plan generation fails
+        dummy_plan = {'id': execution_id, 'prompt': prompt, 'analysis': 'Generating plan...', 'feasible': True, 'plan': []}
+        self._start_execution_tracking(execution_id, dummy_plan)
+        
         try:
             # Get current position if not provided
             if current_node_id is None:
@@ -215,6 +220,15 @@ class AIExecutor:
                 }
                 
         except Exception as e:
+            # Mark execution as failed so frontend stops polling
+            error_result = type('ErrorResult', (), {
+                'success': False,
+                'error': f'AI execution error: {str(e)}',
+                'step_results': [],
+                'total_time_ms': int((time.time() - start_time) * 1000)
+            })()
+            self._complete_execution_tracking(execution_id, error_result)
+            
             return {
                 'success': False,
                 'execution_id': execution_id,
@@ -871,14 +885,17 @@ Navigation System: Each node in the navigation list is a DIRECT destination you 
 Rules:
 - If already at target node, respond with feasible=true, plan=[]
 - If exact node exists → navigate directly: execute_navigation, target_node="X"
-- If exact node NOT exists → find closest node + plan reassessment:
-  1. Navigate to closest/most relevant node
-  2. Add navigation_reassessment step to visually find target
+- If exact node NOT exists:
+  1. Check if SIMILAR/RELATED node exists (e.g., "live" for "live fullscreen")
+  2. If similar exists → navigate to similar node + add navigation_reassessment
+  3. If NO similar node → set feasible=false (DO NOT guess or invent node names)
 - "click X" → click_element, element_id="X"  
 - "press X" → press_key, key="X"
 - NEVER break down node names (e.g., "home_replay" is ONE node, not "home" + "replay")
+- NEVER use node names not in the navigation list
 - PRIORITIZE navigation over manual actions
 - ALWAYS specify action_type in params
+- CRITICAL: When no relevant nodes exist, mark task as NOT FEASIBLE immediately
 
 Navigation Reassessment Format:
 When target node doesn't exist, use this pattern:
@@ -926,7 +943,7 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
         return self._extract_json_from_ai_response(result['content'])
     
     def _extract_json_from_ai_response(self, content: str) -> Dict[str, Any]:
-        """Extract JSON from AI response using existing codebase pattern"""
+        """Extract and sanitize JSON from AI response with robust error handling"""
         try:
             # Use existing codebase pattern (same as ai_utils.py, video_ai_helpers.py, ai_analyzer.py)
             cleaned_content = content.strip()
@@ -937,21 +954,67 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
             elif cleaned_content.startswith('```'):
                 cleaned_content = cleaned_content.replace('```', '').strip()
             
-            print(f"[@ai_executor] Cleaned content: {repr(cleaned_content)}")
+            # CRITICAL FIX: Sanitize control characters in JSON strings
+            # AI sometimes returns literal newlines in "analysis" field instead of \n
+            # This causes "Invalid control character" JSON parse errors
+            cleaned_content = self._sanitize_json_string(cleaned_content)
+            
+            print(f"[@ai_executor] Cleaned content (first 200 chars): {repr(cleaned_content[:200])}")
             
             # Parse JSON
             parsed_json = json.loads(cleaned_content)
-            print(f"[@ai_executor] Successfully parsed JSON with keys: {list(parsed_json.keys())}")
+            print(f"[@ai_executor] ✅ Successfully parsed JSON with keys: {list(parsed_json.keys())}")
+            
+            # Validate required fields
+            if 'analysis' not in parsed_json:
+                raise Exception("AI response missing required 'analysis' field")
+            if 'feasible' not in parsed_json:
+                print(f"[@ai_executor] ⚠️ Warning: 'feasible' field missing, defaulting to True")
+                parsed_json['feasible'] = True
+            if 'plan' not in parsed_json:
+                print(f"[@ai_executor] ⚠️ Warning: 'plan' field missing, defaulting to empty array")
+                parsed_json['plan'] = []
             
             return parsed_json
             
         except json.JSONDecodeError as e:
-            print(f"[@ai_executor] JSON parsing error: {e}")
-            print(f"[@ai_executor] Raw content: {repr(content)}")
-            raise Exception(f"AI returned invalid JSON: {e}")
+            # Enhanced error reporting
+            error_pos = e.pos if hasattr(e, 'pos') else 'unknown'
+            error_context = content[max(0, error_pos-50):error_pos+50] if error_pos != 'unknown' else content[:100]
+            
+            print(f"[@ai_executor] ❌ JSON parsing error at position {error_pos}: {e}")
+            print(f"[@ai_executor] Error context: {repr(error_context)}")
+            print(f"[@ai_executor] Full raw content (first 500 chars): {repr(content[:500])}")
+            
+            raise Exception(f"AI returned invalid JSON at position {error_pos}: {e}")
         except Exception as e:
-            print(f"[@ai_executor] JSON extraction error: {e}")
+            print(f"[@ai_executor] ❌ JSON extraction error: {e}")
+            print(f"[@ai_executor] Raw content (first 500 chars): {repr(content[:500])}")
             raise Exception(f"Failed to extract JSON from AI response: {e}")
+    
+    def _sanitize_json_string(self, json_str: str) -> str:
+        """Sanitize JSON string by escaping control characters in string values"""
+        import re
+        
+        # Find all string values in JSON (content between quotes not preceded by backslash)
+        # This regex finds "..." strings and escapes control characters inside them
+        def escape_control_chars(match):
+            string_content = match.group(1)
+            # Escape control characters
+            string_content = string_content.replace('\\', '\\\\')  # Escape backslashes first
+            string_content = string_content.replace('\n', '\\n')   # Escape newlines
+            string_content = string_content.replace('\r', '\\r')   # Escape carriage returns
+            string_content = string_content.replace('\t', '\\t')   # Escape tabs
+            string_content = string_content.replace('\b', '\\b')   # Escape backspace
+            string_content = string_content.replace('\f', '\\f')   # Escape form feed
+            return f'"{string_content}"'
+        
+        # Match quoted strings (but not already escaped quotes)
+        # This pattern matches: "any content that's not a quote or is an escaped quote"
+        pattern = r'"((?:[^"\\]|\\.)*)\"'
+        sanitized = re.sub(pattern, escape_control_chars, json_str)
+        
+        return sanitized
     
     def clear_context_cache(self, device_model: str = None, userinterface_name: str = None):
         """Clear context caches with all original cache clearing logic"""

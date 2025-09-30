@@ -269,9 +269,24 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       // Poll for status with rich updates
       const pollStatus = async () => {
         let previousLogLength = 0;
+        let notFoundCount = 0;
+        const maxNotFoundAttempts = 10; // Stop after 10 consecutive "not found" errors
+        const startTime = Date.now();
+        const maxPollTime = AI_CONSTANTS.MAX_WAIT_TIME; // 5 minutes
         
         while (true) {
           pollCount.current += 1;
+          
+          // FAIL-FAST: Stop polling after max wait time
+          const elapsedTime = Date.now() - startTime;
+          if (elapsedTime > maxPollTime) {
+            setIsExecuting(false);
+            setError('Execution timeout - stopped polling after 5 minutes');
+            toast.showError(`⏱️ AI execution timeout - stopped polling after ${Math.round(maxPollTime/1000)}s`, { 
+              duration: AI_CONSTANTS.TOAST_DURATION.ERROR 
+            });
+            break;
+          }
           
           // Minimal polling feedback - only on first poll
           if (pollCount.current === 1) {
@@ -291,11 +306,23 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           });
           const status = await statusResponse.json();
 
-          // If execution not found, treat as still running
+          // FAIL-FAST: If execution not found repeatedly, stop polling
           if (!status.success && status.error && status.error.includes('not found')) {
+            notFoundCount++;
+            if (notFoundCount >= maxNotFoundAttempts) {
+              setIsExecuting(false);
+              setError(`Execution not found after ${maxNotFoundAttempts} attempts - execution may have failed to start`);
+              toast.showError(`❌ Execution not found - stopped polling`, { 
+                duration: AI_CONSTANTS.TOAST_DURATION.ERROR 
+              });
+              break;
+            }
             await new Promise(resolve => setTimeout(resolve, AI_CONSTANTS.POLL_INTERVAL));
             continue;
           }
+          
+          // Reset not found counter if we got a valid response
+          notFoundCount = 0;
 
           setExecutionStatus(status);
 
