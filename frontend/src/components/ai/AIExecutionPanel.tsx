@@ -21,13 +21,18 @@ import { useAICacheReset } from '../../hooks/aiagent';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { AIStepDisplay } from './AIStepDisplay';
 import { UserinterfaceSelector } from '../common';
-import { PromptDisambiguation } from './PromptDisambiguation';
 
 interface AIExecutionPanelProps {
   host: Host;
   device: Device;
   isControlActive: boolean;
   isVisible: boolean;
+  // Export disambiguation state to parent for modal rendering
+  onDisambiguationDataChange?: (
+    data: any,
+    resolve: (selections: Record<string, string>, saveToDb: boolean) => void,
+    cancel: () => void
+  ) => void;
 }
 
 export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
@@ -35,6 +40,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   device,
   isControlActive,
   isVisible,
+  onDisambiguationDataChange,
 }) => {
   // Local state
   const [taskInput, setTaskInput] = useState('');
@@ -94,6 +100,17 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       });
     }
   }, [aiPlan, isPlanFeasible]);
+
+  // Notify parent when disambiguation data changes, including handlers
+  useEffect(() => {
+    if (onDisambiguationDataChange) {
+      onDisambiguationDataChange(
+        disambiguationData,
+        handleDisambiguationResolve,
+        handleDisambiguationCancel
+      );
+    }
+  }, [disambiguationData, onDisambiguationDataChange, handleDisambiguationResolve, handleDisambiguationCancel]);
 
 
   // Don't render if not visible
@@ -509,17 +526,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           </Box>
         )}
       </Box>
-
-      {/* Disambiguation Modal (NEW) */}
-      {disambiguationData && (
-        <PromptDisambiguation
-          ambiguities={disambiguationData.ambiguities}
-          autoCorrections={disambiguationData.auto_corrections}
-          availableNodes={disambiguationData.available_nodes}
-          onResolve={handleDisambiguationResolve}
-          onCancel={handleDisambiguationCancel}
-        />
-      )}
     </Box>
   );
 };

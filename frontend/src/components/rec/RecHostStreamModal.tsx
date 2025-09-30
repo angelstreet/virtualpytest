@@ -22,6 +22,7 @@ import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { AIExecutionPanel } from '../ai';
+import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
 import { DesktopPanel } from '../controller/desktop/DesktopPanel';
 import { PowerButton } from '../controller/power/PowerButton';
@@ -77,6 +78,22 @@ const RecHostStreamModalContent: React.FC<{
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
+  
+  // AI Disambiguation state and handlers
+  const [disambiguationData, setDisambiguationData] = useState<any>(null);
+  const [disambiguationResolve, setDisambiguationResolve] = useState<((selections: Record<string, string>, saveToDb: boolean) => void) | null>(null);
+  const [disambiguationCancel, setDisambiguationCancel] = useState<(() => void) | null>(null);
+
+  // Handler for disambiguation data changes from AIExecutionPanel
+  const handleDisambiguationDataChange = useCallback((
+    data: any,
+    resolve: (selections: Record<string, string>, saveToDb: boolean) => void,
+    cancel: () => void
+  ) => {
+    setDisambiguationData(data);
+    setDisambiguationResolve(() => resolve);
+    setDisambiguationCancel(() => cancel);
+  }, []);
 
   // Cleanup stream when component unmounts
   useEffect(() => {
@@ -876,9 +893,27 @@ const RecHostStreamModalContent: React.FC<{
             device={device!}
             isControlActive={isControlActive}
             isVisible={aiAgentMode && isControlActive}
+            onDisambiguationDataChange={handleDisambiguationDataChange}
           />
         </Box>
       </Box>
+
+      {/* AI Disambiguation Modal - Rendered at top level with proper z-index */}
+      {disambiguationData && disambiguationResolve && disambiguationCancel && (
+        <PromptDisambiguation
+          ambiguities={disambiguationData.ambiguities}
+          autoCorrections={disambiguationData.auto_corrections}
+          availableNodes={disambiguationData.available_nodes}
+          onResolve={(selections, saveToDb) => {
+            disambiguationResolve(selections, saveToDb);
+            setDisambiguationData(null);
+          }}
+          onCancel={() => {
+            disambiguationCancel();
+            setDisambiguationData(null);
+          }}
+        />
+      )}
     </Box>
   );
 };
