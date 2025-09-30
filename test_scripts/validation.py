@@ -185,35 +185,8 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             context=context
         )
         
-        # Calculate step execution time
-        step_execution_time = int((time.time() - step_start_time) * 1000)
-        
-        # Record step result in context for report generation
-        step_result = {
-            'step_number': i + 1,
-            'success': result.get('success', False),
-            'from_node': from_node,
-            'to_node': target,
-            'execution_time_ms': step_execution_time,
-            'transitions_executed': result.get('transitions_executed', 0),
-            'actions_executed': result.get('actions_executed', 0),
-            'total_transitions': result.get('total_transitions', 1),
-            'total_actions': result.get('total_actions', 1),
-            'step_category': 'validation',
-            'error': result.get('error') if not result.get('success', False) else None,
-            'screenshots': [],  # Screenshots are handled by NavigationExecutor
-            'message': f"Validation step {i+1}: {from_node} → {target}",
-            'start_time': step_start_time,
-            'end_time': time.time(),
-            # Add additional fields that might be used by report formatting
-            'from_node_label': from_node,
-            'to_node_label': target,
-            'fromName': from_node,
-            'toName': target
-        }
-        
-        # Record the step in context
-        context.record_step_dict(step_result)
+        # Note: Step recording is handled automatically by NavigationExecutor.execute_navigation()
+        # No need to manually record steps here - it would create duplicates in the report
         
         if result.get('success', False):
             successful += 1
