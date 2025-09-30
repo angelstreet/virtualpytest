@@ -73,7 +73,7 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 EOF
 
-# FFmpeg Capture Service (matches backend_host/config/services/stream.service)
+# FFmpeg Capture Service (uses project scripts - .env driven)
 cat > /tmp/stream.service << EOF
 [Unit]
 Description=VirtualPyTest FFmpeg Capture Service
@@ -81,15 +81,17 @@ After=network.target
 Wants=network.target
 
 [Service]
-Type=simple
+Type=forking
 User=$USER
 Group=$USER
-WorkingDirectory=/usr/local/bin
-ExecStart=/bin/bash /usr/local/bin/run_ffmpeg_and_rename.sh
+WorkingDirectory=$PROJECT_ROOT/backend_host/scripts
+ExecStart=/bin/bash $PROJECT_ROOT/backend_host/scripts/run_ffmpeg_and_rename_local.sh
 Restart=always
 RestartSec=15
-StandardOutput=append:/tmp/ffmpeg_service.log
-StandardError=append:/tmp/ffmpeg_service.log
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=virtualpytest-stream
 
 [Install]
 WantedBy=multi-user.target
@@ -156,13 +158,13 @@ sudo mkdir -p /var/www/html/stream/capture4/captures
 sudo chown -R $USER:$USER /var/www/html/stream
 echo "✅ Stream directories created"
 
-# Copy required scripts to system locations
-echo "📋 Installing system scripts..."
-sudo cp backend_host/scripts/run_ffmpeg_and_rename_local.sh /usr/local/bin/run_ffmpeg_and_rename.sh
-sudo cp backend_host/scripts/clean_captures.sh /usr/local/bin/clean_captures.sh
-sudo chmod +x /usr/local/bin/run_ffmpeg_and_rename.sh
-sudo chmod +x /usr/local/bin/clean_captures.sh
-echo "✅ Scripts installed to /usr/local/bin/"
+# Make project scripts executable (no copying needed - .env driven)
+echo "📋 Making project scripts executable..."
+chmod +x backend_host/scripts/run_ffmpeg_and_rename_local.sh
+chmod +x backend_host/scripts/clean_captures.sh
+chmod +x backend_host/scripts/capture_monitor.py
+echo "✅ Scripts made executable in project directory"
+echo "ℹ️  Scripts now read configuration from backend_host/src/.env (single source of truth)"
 
 # Install and configure nginx for local development
 echo ""
@@ -391,12 +393,32 @@ echo "🔄 Finishing installation..."
 echo ""
 echo "✅ backend_host services installation completed!"
 echo ""
-echo "📋 Configuration files created:"
-echo "   backend_host/src/.env                      # Device and hardware configuration"
+echo "📋 Configuration files:"
+echo "   backend_host/src/.env                      # MASTER config (edit here only)"
+echo ""
+echo "📝 Required .env variables for FFmpeg capture:"
+echo "   HOST_VIDEO_SOURCE, HOST_VIDEO_AUDIO, HOST_VIDEO_CAPTURE_PATH, HOST_VIDEO_FPS"
+echo "   DEVICE*_VIDEO, DEVICE*_VIDEO_AUDIO, DEVICE*_VIDEO_CAPTURE_PATH, DEVICE*_VIDEO_FPS"
+echo ""
+echo "📚 Documentation: backend_host/scripts/CAPTURE_CONFIG.md"
 echo ""
 echo "📋 Next steps (in order):"
-echo "1. Configure your devices FIRST:"
+echo "1. Configure your devices in .env file:"
 echo "   nano backend_host/src/.env"
+echo ""
+echo "   Example configuration:"
+echo "   HOST_VIDEO_SOURCE=:1              # VNC display"
+echo "   HOST_VIDEO_AUDIO=null"
+echo "   HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1"
+echo "   HOST_VIDEO_FPS=2"
+echo ""
+echo "   DEVICE1_VIDEO=/dev/video0         # Hardware device"
+echo "   DEVICE1_VIDEO_AUDIO=plughw:2,0"
+echo "   DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2"
+echo "   DEVICE1_VIDEO_FPS=10"
+echo ""
+echo "   # Disable with 'x' prefix or comment with '#'"
+echo "   xDEVICE2_VIDEO=/dev/video2"
 echo ""
 echo "2. Manage services using systemctl:"
 echo "   sudo systemctl enable <service_name>       # Enable auto-start"
