@@ -186,11 +186,13 @@ def populate_navigation_cache(tree_id):
             }), 400
         
         # Check if cache already exists (protection against re-population)
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache, refresh_cache_timestamp
         existing_cache = get_cached_unified_graph(tree_id, team_id)
         
         if existing_cache and not force_repopulate:
-            print(f"[@route:host_navigation:populate_navigation_cache] Cache already exists for tree {tree_id}, skipping re-population")
+            # Refresh timestamp to prevent TTL expiry between this check and next use
+            refresh_cache_timestamp(tree_id, team_id)
+            print(f"[@route:host_navigation:populate_navigation_cache] Cache already exists for tree {tree_id}, skipping re-population (timestamp refreshed)")
             return jsonify({
                 'success': True,
                 'nodes_count': len(existing_cache.nodes),

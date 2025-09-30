@@ -44,13 +44,22 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
     cache_key = f"unified_{root_tree_id}_{team_id}"
     
     if cache_key in _unified_graphs_cache:
-        # Check if cache is still valid (24-hour TTL)
+        # Check if cache has a timestamp
         cache_time = _unified_cache_timestamps.get(cache_key)
-        if cache_time and (datetime.now() - cache_time).total_seconds() < CACHE_TTL:
+        
+        if not cache_time:
+            # Cache exists but has no timestamp - this is a bug, but recover by setting timestamp
+            print(f"[@navigation:cache:get_cached_unified_graph] ⚠️ Cache exists but missing timestamp for tree {root_tree_id}, setting timestamp now")
+            _unified_cache_timestamps[cache_key] = datetime.now()
+            return _unified_graphs_cache[cache_key]
+        
+        # Check if cache is still valid (24-hour TTL)
+        age_seconds = (datetime.now() - cache_time).total_seconds()
+        if age_seconds < CACHE_TTL:
             return _unified_graphs_cache[cache_key]
         else:
             # Cache expired - remove it
-            print(f"[@navigation:cache:get_cached_unified_graph] Cache expired for root tree: {root_tree_id}, removing")
+            print(f"[@navigation:cache:get_cached_unified_graph] Cache expired for root tree: {root_tree_id} (age: {age_seconds/3600:.1f}h), removing")
             _unified_graphs_cache.pop(cache_key, None)
             _unified_cache_timestamps.pop(cache_key, None)
             # Also clear related hierarchy cache
@@ -59,6 +68,26 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
     
     print(f"[@navigation:cache:get_cached_unified_graph] No cached unified graph found for root tree: {root_tree_id}")
     return None
+
+def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:
+    """
+    Refresh the timestamp for an existing cache entry to prevent TTL expiry
+    
+    Args:
+        root_tree_id: Root navigation tree ID
+        team_id: Team ID for security
+        
+    Returns:
+        True if timestamp was refreshed, False if cache doesn't exist
+    """
+    cache_key = f"unified_{root_tree_id}_{team_id}"
+    
+    if cache_key in _unified_graphs_cache:
+        _unified_cache_timestamps[cache_key] = datetime.now()
+        print(f"[@navigation:cache:refresh_cache_timestamp] Refreshed timestamp for tree {root_tree_id}")
+        return True
+    
+    return False
 
 def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List[Dict]) -> Optional[nx.DiGraph]:
     """
