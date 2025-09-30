@@ -220,6 +220,17 @@ class AIExecutor:
                 }
                 
         except Exception as e:
+            # Update plan in tracking to show error instead of "Generating plan..."
+            if execution_id in self._executions:
+                error_plan = {
+                    'id': execution_id,
+                    'prompt': prompt,
+                    'analysis': f'Goal: {prompt}\nThinking: Plan generation failed - {str(e)}',
+                    'feasible': False,
+                    'plan': []
+                }
+                self._executions[execution_id]['plan'] = error_plan
+            
             # Mark execution as failed so frontend stops polling
             error_result = type('ErrorResult', (), {
                 'success': False,
@@ -425,6 +436,34 @@ class AIExecutor:
             execution['status'] = 'completed' if result.success else 'failed'
             execution['result'] = result
             execution['end_time'] = time.time()
+            
+            # Add completion log entry with error details if failed
+            if not result.success:
+                error_message = getattr(result, 'error', 'Unknown error')
+                total_duration = execution['end_time'] - execution.get('start_time', execution['end_time'])
+                
+                error_log_entry = {
+                    'timestamp': time.time(),
+                    'log_type': 'execution',
+                    'action_type': 'task_failed',
+                    'data': {
+                        'success': False,
+                        'duration': total_duration,
+                        'error': error_message,
+                        'message': error_message
+                    },
+                    'value': {
+                        'success': False,
+                        'duration': total_duration,
+                        'message': error_message
+                    },
+                    'description': f'Task failed: {error_message}'
+                }
+                
+                if 'execution_log' not in execution:
+                    execution['execution_log'] = []
+                execution['execution_log'].append(error_log_entry)
+            
             print(f"[@ai_executor] Completed execution {execution_id}: {'success' if result.success else 'failed'}")
     
     def _update_current_step_tracking(self, plan_id: str, step_number: int, step_description: str):
