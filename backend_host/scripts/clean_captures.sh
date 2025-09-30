@@ -55,12 +55,12 @@ for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do
   # Get parent directory
   PARENT_DIR=$(dirname "$CAPTURE_DIR")
   
-  # Clean parent directory - DELETE OLD SEGMENTS (24h retention)
+  # Clean parent directory - DELETE OLD SEGMENTS (24h retention - TIME-BASED)
   if [ -d "$PARENT_DIR" ]; then
     echo "$(date): Cleaning parent directory $PARENT_DIR (24h segment retention)" >> "$CLEAN_LOG"
     
-    # Keep only last 86400 segments (24h), delete the rest
-    find "$PARENT_DIR" -maxdepth 1 -name "segment_*.ts" -printf '%T@ %p\n' | sort -rn | tail -n +86401 | cut -d' ' -f2- | xargs -r rm -f
+    # Delete segments older than 24 hours (1440 minutes) - TIME-BASED for all segment durations
+    find "$PARENT_DIR" -maxdepth 1 -name "segment_*.ts" -mmin +1440 -delete -printf "$(date): Deleted old segment %p\n" >> "$CLEAN_LOG" 2>&1
     
     # Clean other files but preserve recent segments and m3u8 files
     find "$PARENT_DIR" -maxdepth 1 -type f -not -name "segment_*.ts" -not -name "*.m3u8" -mmin +10 -delete -printf "$(date): Deleted parent file %p\n" >> "$CLEAN_LOG" 2>&1

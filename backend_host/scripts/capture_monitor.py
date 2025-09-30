@@ -70,7 +70,7 @@ def update_archive_manifest(capture_dir):
         if not segments:
             return
             
-        # Sort segments by number (segment_001.ts, segment_002.ts, etc.)
+        # Sort segments by number (segment_00001.ts, segment_00002.ts, etc.)
         segments.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
         
         # Generate archive manifest content

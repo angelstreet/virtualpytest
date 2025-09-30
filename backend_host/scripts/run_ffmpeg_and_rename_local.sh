@@ -128,12 +128,11 @@ kill_existing_processes() {
   # Wait for processes to fully stop
   sleep 2
   
-  # Clean up only essential files for FFmpeg startup - let clean script handle images
-  echo "Cleaning essential files for FFmpeg startup..."
+  # Clean up only playlist files for FFmpeg startup - PRESERVE SEGMENTS FOR 24H RETENTION
+  echo "Cleaning playlist files for FFmpeg startup (preserving segments for 24h retention)..."
   rm -f "$output_dir"/output.m3u8
   rm -f "$output_dir"/archive.m3u8
-  find "$output_dir" -maxdepth 1 -name "segment_*.ts" -delete 2>/dev/null || true
-  echo "Cleaned up essential files in $output_dir (playlist files and segments only)"
+  echo "Cleaned up playlist files in $output_dir (segments preserved)"
 }
 
 # Cleanup function
@@ -188,7 +187,7 @@ start_grabber() {
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
-      -hls_segment_filename $capture_dir/segment_%03d.ts \
+      -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
@@ -220,7 +219,7 @@ start_grabber() {
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
       -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
-      -hls_segment_filename $capture_dir/segment_%03d.ts \
+      -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
