@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import { useValidation } from '../../hooks/validation';
 import ValidationPreviewClient from './ValidationPreviewClient';
 import { ValidationProgressClient } from './ValidationProgressClient';
+import ValidationResultsClient from './ValidationResultsClient';
 
 
 interface ValidationButtonClientProps {
@@ -111,8 +112,16 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
         />
       )}
 
-      {/* Results are now shown in new tab via report URL - no modal needed */}
-
+      {/* Results dialog - shows completion status */}
+      {validation.validationResult && (
+        <ValidationResultsClient
+          open={true}
+          onClose={validation.clearValidationResult}
+          success={validation.validationResult.success}
+          duration={validation.validationResult.duration}
+          reportUrl={validation.validationResult.reportUrl}
+        />
+      )}
     </>
   );
 }

@@ -21,6 +21,8 @@ const validationStore: Record<
     preview: ValidationPreviewData | null;
     isLoadingPreview: boolean;
     validationError: string | null;
+    validationResult: { success: boolean; duration: number; reportUrl?: string } | null;
+    startTime: number | null;
     listeners: Set<() => void>;
   }
 > = {};
@@ -55,6 +57,8 @@ const getValidationState = (treeId: string) => {
       preview: null,
       isLoadingPreview: false,
       validationError: null,
+      validationResult: null,
+      startTime: null,
       listeners: new Set(),
     };
   }
@@ -152,6 +156,8 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       updateValidationState(treeId, {
         isValidating: true,
         validationError: null,
+        validationResult: null,
+        startTime: Date.now(),
       });
 
       try {
@@ -170,19 +176,24 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
         console.log(`[@hook:useValidation] Validation script completed:`, scriptResult);
 
-        // Check if we have a report URL and open it
+        // Calculate duration
+        const duration = state.startTime ? (Date.now() - state.startTime) / 1000 : 0;
+        const success = scriptResult.script_success ?? scriptResult.success;
+
+        // Save report URL for "View Last Results" functionality
         if (scriptResult.report_url) {
-          console.log(`[@hook:useValidation] Opening validation report: ${scriptResult.report_url}`);
-          
-          // Save report URL for "View Last Results" functionality
           saveReportUrl(treeId, scriptResult.report_url);
-          updateValidationState(treeId, { lastReportUrl: scriptResult.report_url });
-          
-          // Open the report URL in a new tab
-          openValidationReport(scriptResult.report_url);
-        } else {
-          throw new Error('No report URL available from validation script');
         }
+
+        // Store validation result to show in dialog
+        updateValidationState(treeId, {
+          lastReportUrl: scriptResult.report_url || null,
+          validationResult: {
+            success,
+            duration,
+            reportUrl: scriptResult.report_url,
+          },
+        });
 
       } catch (error) {
         console.error('[@hook:useValidation] Validation error:', error);
@@ -192,6 +203,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
       } finally {
         updateValidationState(treeId, {
           isValidating: false,
+          startTime: null,
         });
       }
     },
@@ -212,12 +224,20 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     return false;
   }, [treeId, openValidationReport]);
 
+  /**
+   * Clear validation result (close the results dialog)
+   */
+  const clearValidationResult = useCallback(() => {
+    updateValidationState(treeId, { validationResult: null });
+  }, [treeId]);
+
   return {
     // State
     isValidating: state.isValidating,
     preview: state.preview,
     isLoadingPreview: state.isLoadingPreview,
     validationError: state.validationError,
+    validationResult: state.validationResult,
 
     // Computed properties for button logic
     canRunValidation: !state.isValidating, // Always enabled when not validating
@@ -227,5 +247,6 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
     loadPreview,
     runValidation,
     viewLastValidationResults,
+    clearValidationResult,
   };
 };
