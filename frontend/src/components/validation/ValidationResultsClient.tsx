@@ -1,8 +1,5 @@
 'use client';
 
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   Dialog,
   DialogTitle,
@@ -42,7 +39,6 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">Validation Complete</Typography>
           <Chip
-            icon={success ? <CheckCircleIcon /> : <ErrorIcon />}
             label={success ? 'Success' : 'Failed'}
             color={success ? 'success' : 'error'}
             size="small"
@@ -62,10 +58,9 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
                 variant="outlined"
                 color="primary"
                 fullWidth
-                endIcon={<OpenInNewIcon />}
                 onClick={() => window.open(reportUrl, '_blank')}
               >
-                View Detailed Report
+                View Detailed Report ↗
               </Button>
             </Box>
           )}
