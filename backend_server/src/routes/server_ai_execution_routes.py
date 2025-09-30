@@ -154,7 +154,7 @@ def reset_cache():
         print(f"[@server_ai_execution] Resetting AI plan cache for team: {team_id}, host: {host_name}")
         
         # Delete all cached plans for this team
-        from shared.src.lib.supabase.supabase_client import get_supabase_client
+        from shared.src.lib.utils.supabase_utils import get_supabase_client
         supabase = get_supabase_client()
         
         # Count before delete
