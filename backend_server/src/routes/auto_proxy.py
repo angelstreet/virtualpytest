@@ -21,6 +21,9 @@ def auto_proxy(endpoint):
     - /server/av/getStreamUrl -> /host/av/getStreamUrl (POST->GET conversion)
     - /server/verification/image/execute -> /host/verification/image/execute
     - /server/verification/text/execute -> /host/verification/text/execute
+    
+    Note: Blueprints registered BEFORE auto_proxy in app.py take precedence.
+    Example: server_ai_execution_routes handles /resetCache specifically, auto_proxy handles /executeTask
     """
     try:
         # Simple passthrough with method conversion for specific endpoints
