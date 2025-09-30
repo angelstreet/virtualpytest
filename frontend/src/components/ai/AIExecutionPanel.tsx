@@ -8,10 +8,6 @@ import {
   IconButton,
   Checkbox,
   FormControlLabel,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
 } from '@mui/material';
 import {
   SmartToy as AIIcon,
@@ -23,7 +19,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { useAI } from '../../hooks/useAI';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { AIStepDisplay } from './AIStepDisplay';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { UserinterfaceSelector } from '../common';
 
 interface AIExecutionPanelProps {
   host: Host;
@@ -45,9 +41,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   const [useAIPlanCache, setUseAIPlanCache] = useState(true);
   
   // Userinterface selection state
-  const [compatibleInterfaces, setCompatibleInterfaces] = useState<Array<{id: string; name: string}>>([]);
   const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
-  const [loadingInterfaces, setLoadingInterfaces] = useState(true);
 
   // AI Agent hook
   const {
@@ -74,41 +68,6 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       setIsAnalysisExpanded(true);
     }
   }, [aiPlan]);
-
-  // Fetch compatible userinterfaces for the device model
-  useEffect(() => {
-    const fetchCompatibleInterfaces = async () => {
-      try {
-        setLoadingInterfaces(true);
-        const response = await fetch(
-          buildServerUrl(`/server/userinterface/getCompatibleInterfaces?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce&device_model=${device.device_model}`)
-        );
-        const data = await response.json();
-        
-        if (data.success && data.interfaces && data.interfaces.length > 0) {
-          const interfaces = data.interfaces.map((iface: any) => ({
-            id: iface.id,
-            name: iface.name
-          }));
-          setCompatibleInterfaces(interfaces);
-          // Set default to first compatible interface
-          setSelectedUserinterface(interfaces[0].name);
-        } else {
-          console.warn('[@AIExecutionPanel] No compatible interfaces found for model:', device.device_model);
-          setCompatibleInterfaces([]);
-          setSelectedUserinterface('');
-        }
-      } catch (error) {
-        console.error('[@AIExecutionPanel] Error fetching compatible interfaces:', error);
-        setCompatibleInterfaces([]);
-        setSelectedUserinterface('');
-      } finally {
-        setLoadingInterfaces(false);
-      }
-    };
-    
-    fetchCompatibleInterfaces();
-  }, [device.device_model]);
 
   // DEBUG: Log plan changes
   useEffect(() => {
@@ -172,10 +131,13 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
 
         {/* Userinterface Selection */}
         <Box sx={{ mb: 0.5 }}>
-          <FormControl 
-            size="small" 
+          <UserinterfaceSelector
+            deviceModel={device.device_model}
+            value={selectedUserinterface}
+            onChange={setSelectedUserinterface}
+            label="Userinterface"
+            size="small"
             fullWidth
-            disabled={loadingInterfaces || compatibleInterfaces.length === 0}
             sx={{
               '& .MuiOutlinedInput-root': {
                 backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -186,23 +148,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               '& .MuiInputLabel-root': { color: '#aaa' },
               '& .MuiSelect-select': { color: '#ffffff' },
             }}
-          >
-            <InputLabel sx={{ color: '#aaa' }}>
-              {loadingInterfaces ? 'Loading...' : compatibleInterfaces.length === 0 ? 'No compatible interfaces' : 'Userinterface'}
-            </InputLabel>
-            <Select
-              value={selectedUserinterface}
-              onChange={(e) => setSelectedUserinterface(e.target.value)}
-              label="Userinterface"
-              sx={{ color: '#ffffff' }}
-            >
-              {compatibleInterfaces.map((iface) => (
-                <MenuItem key={iface.id} value={iface.name}>
-                  {iface.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          />
         </Box>
 
         {/* Task Input */}

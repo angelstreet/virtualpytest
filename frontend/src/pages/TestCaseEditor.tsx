@@ -32,6 +32,7 @@ import { TestCase } from '../types';
 import { AITestCaseGenerator } from '../components/testcase/AITestCaseGenerator';
 import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 import { AIStepDisplay } from '../components/ai/AIStepDisplay';
+import { UserinterfaceSelector } from '../components/common';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
@@ -66,7 +67,9 @@ const TestCaseEditor: React.FC = () => {
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isExecuteDialogOpen, setIsExecuteDialogOpen] = useState(false);
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null);
+  const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,14 +146,27 @@ const TestCaseEditor: React.FC = () => {
     setSelectedTestCase(null);
   };
 
-  const handleExecuteTestCase = (testCase: TestCase) => {
+  const handleOpenExecuteDialog = (testCase: TestCase) => {
+    setSelectedTestCase(testCase);
+    setSelectedUserinterface(''); // Will be auto-selected by UserinterfaceSelector
+    setIsExecuteDialogOpen(true);
+  };
+
+  const handleCloseExecuteDialog = () => {
+    setIsExecuteDialogOpen(false);
+    setSelectedTestCase(null);
+    setSelectedUserinterface('');
+  };
+
+  const handleConfirmExecute = () => {
+    if (!selectedTestCase || !selectedUserinterface) return;
+
     // Redirect to RunTests page with pre-filled data
-    const aiScriptName = `ai_testcase_${testCase.test_id}`;
-    const userinterface = testCase.compatible_userinterfaces?.[0] || 'horizon_android_mobile';
+    const aiScriptName = `ai_testcase_${selectedTestCase.test_id}`;
     
     // Store the script selection and parameters in localStorage for RunTests to pick up
     localStorage.setItem('preselected_script', aiScriptName);
-    localStorage.setItem('preselected_userinterface', userinterface);
+    localStorage.setItem('preselected_userinterface', selectedUserinterface);
     localStorage.setItem('preselected_from_testcase', 'true');
     
     // Navigate to RunTests page
@@ -307,7 +323,7 @@ const TestCaseEditor: React.FC = () => {
                       <IconButton 
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleExecuteTestCase(testCase);
+                          handleOpenExecuteDialog(testCase);
                         }} 
                         color="success"
                         size="small"
@@ -462,8 +478,8 @@ const TestCaseEditor: React.FC = () => {
             <Button 
               variant="contained" 
               onClick={() => {
-                handleExecuteTestCase(selectedTestCase);
                 handleCloseTestCaseDetails();
+                handleOpenExecuteDialog(selectedTestCase);
               }}
               startIcon={<SettingsIcon />}
             >
@@ -473,6 +489,59 @@ const TestCaseEditor: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Execute Test Case Dialog - Userinterface Selection */}
+      <Dialog 
+        open={isExecuteDialogOpen} 
+        onClose={handleCloseExecuteDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Execute Test Case
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Select the userinterface to run this test case on:
+            </Typography>
+            
+            {selectedTestCase && (
+              <>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Test Case: <strong>{selectedTestCase.name}</strong>
+                </Typography>
+                
+                <UserinterfaceSelector
+                  compatibleInterfaces={selectedTestCase.compatible_userinterfaces}
+                  value={selectedUserinterface}
+                  onChange={setSelectedUserinterface}
+                  label="Select Userinterface"
+                  size="medium"
+                />
+                
+                {selectedTestCase.compatible_userinterfaces && selectedTestCase.compatible_userinterfaces.length > 1 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    This test case is compatible with {selectedTestCase.compatible_userinterfaces.length} userinterfaces. Choose which one to execute.
+                  </Typography>
+                )}
+              </>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseExecuteDialog}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleConfirmExecute}
+            disabled={!selectedUserinterface}
+            startIcon={<PlayArrowIcon />}
+          >
+            Execute
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );
