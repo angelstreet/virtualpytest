@@ -707,6 +707,7 @@ class AIExecutor:
     def _execute_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
         """Execute a single step by delegating to appropriate executor"""
         try:
+            step_start_time = time.time()  # Track step timing
             command = step_data.get('command')
             step_type = step_data.get('step_type') or self._determine_step_type(command)
             
@@ -726,6 +727,10 @@ class AIExecutor:
                     'execution_time_ms': 0
                 }
             
+            # Calculate timing if not provided by executor
+            if 'execution_time_ms' not in result or result.get('execution_time_ms', 0) == 0:
+                result['execution_time_ms'] = int((time.time() - step_start_time) * 1000)
+            
             step_result = {
                 'step_id': step_data.get('step', 1),
                 'success': result.get('success', False),
@@ -740,11 +745,13 @@ class AIExecutor:
             return step_result
             
         except Exception as e:
+            # Calculate timing even on error
+            execution_time = int((time.time() - step_start_time) * 1000) if 'step_start_time' in locals() else 0
             return {
                 'step_id': step_data.get('step', 1),
                 'success': False,
                 'message': str(e),
-                'execution_time_ms': 0
+                'execution_time_ms': execution_time
             }
     
     def _determine_step_type(self, command: str) -> str:
@@ -1288,11 +1295,25 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
             # Use existing codebase pattern (same as ai_utils.py, video_ai_helpers.py, ai_analyzer.py)
             cleaned_content = content.strip()
             
-            # Handle markdown code blocks
-            if cleaned_content.startswith('```json'):
+            # Handle markdown code blocks (AI sometimes wraps JSON in explanation + code blocks)
+            # Pattern 1: Text followed by ```json ... ``` (most common with newer models)
+            json_match = re.search(r'```json\s*\n(.*?)```', cleaned_content, re.DOTALL)
+            if json_match:
+                cleaned_content = json_match.group(1).strip()
+                print(f"[@ai_executor] Extracted JSON from markdown code block (```json)")
+            # Pattern 2: Text followed by ``` ... ``` (generic code block)
+            elif '```' in cleaned_content:
+                json_match = re.search(r'```\s*\n(.*?)```', cleaned_content, re.DOTALL)
+                if json_match:
+                    cleaned_content = json_match.group(1).strip()
+                    print(f"[@ai_executor] Extracted JSON from generic markdown code block (```)")
+            # Pattern 3: JSON starts directly with ```json
+            elif cleaned_content.startswith('```json'):
                 cleaned_content = cleaned_content.replace('```json', '').replace('```', '').strip()
+                print(f"[@ai_executor] Cleaned direct ```json start")
             elif cleaned_content.startswith('```'):
                 cleaned_content = cleaned_content.replace('```', '').strip()
+                print(f"[@ai_executor] Cleaned direct ``` start")
             
             # CRITICAL FIX: Sanitize control characters in JSON strings
             # AI sometimes returns literal newlines in "analysis" field instead of \n

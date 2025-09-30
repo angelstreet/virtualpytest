@@ -175,14 +175,6 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       
       // Extract duration from execution log
       const duration = completedEntry?.data?.duration || failedEntry?.data?.duration;
-      
-      // DEBUG: Log duration extraction
-      console.log(`[@useAI:processedSteps] Step ${stepNumber}:`, {
-        status,
-        duration,
-        completedEntry: completedEntry?.data,
-        failedEntry: failedEntry?.data
-      });
 
       return {
         ...step,

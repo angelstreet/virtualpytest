@@ -16,7 +16,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, CircularProgress } from '@mui/material';
+import { Box, Typography, IconButton, CircularProgress, Tooltip } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 
 interface AIStepDisplayProps {
@@ -43,14 +43,6 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
 
   const isNavigation = step.command === 'execute_navigation';
   const transitions = step.transitions || []; // PRE-FETCHED - always available
-  
-  // DEBUG: Log step data to see if duration exists
-  console.log(`[@AIStepDisplay] Step ${step.stepNumber}:`, {
-    status: step.status,
-    duration: step.duration,
-    has_duration: !!step.duration,
-    full_step: step
-  });
 
   // Status styling
   const getStatusStyle = () => {
@@ -94,28 +86,35 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
   return (
     <Box
       sx={{
-        mb: compact ? 0.5 : 1,
-        p: compact ? 0.5 : 1,
+        mb: compact ? 0.25 : 0.5,
+        px: compact ? 0.5 : 0.75,
+        py: compact ? 0.25 : 0.5,
         backgroundColor: bgColor,
         borderRadius: 0.5,
         border: `1px solid ${borderColor}`,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {statusIcon}
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            color: '#fff', 
-            fontWeight: 'bold', 
-            fontFamily: isNavigation ? 'monospace' : 'inherit',
-            flex: 1,
-            fontSize: compact ? '0.75rem' : '0.875rem'
-          }}
-        >
-          {step.stepNumber}. {displayText}
-          {step.duration && ` (${step.duration.toFixed(1)}s)`}
-        </Typography>
+        <Tooltip title={`${step.stepNumber}. ${displayText}${step.duration ? ` (${step.duration.toFixed(1)}s)` : ''}`} arrow placement="top">
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: '#fff', 
+              fontWeight: 'bold', 
+              fontFamily: isNavigation ? 'monospace' : 'inherit',
+              flex: 1,
+              fontSize: compact ? '0.65rem' : '0.75rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              cursor: 'default'
+            }}
+          >
+            {step.stepNumber}. {displayText}
+            {step.duration && ` (${step.duration.toFixed(1)}s)`}
+          </Typography>
+        </Tooltip>
         
         {isNavigation && showExpand && (
           <IconButton 
@@ -132,28 +131,28 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
         )}
       </Box>
       
-      {/* Navigation transitions (when expanded) */}
+      {/* Navigation transitions (when expanded) - Compact vertical spacing */}
       {isNavigation && isExpanded && transitions.length > 0 && (
-        <Box sx={{ ml: 2, mt: 1, borderLeft: '2px solid #444', pl: 1 }}>
+        <Box sx={{ ml: 1.5, mt: 0.5, borderLeft: '2px solid #444', pl: 0.75 }}>
           {transitions.map((transition: any, tIdx: number) => (
-            <Box key={tIdx} sx={{ mb: 1 }}>
-              <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 'bold', display: 'block' }}>
+            <Box key={tIdx} sx={{ mb: 0.5 }}>
+              <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 'bold', display: 'block', fontSize: '0.7rem' }}>
                 {transition.from_node_label} → {transition.to_node_label}
               </Typography>
               {transition.actions?.map((action: any, aIdx: number) => {
                 const firstParam = action.params ? Object.values(action.params)[0] : '';
                 const paramStr = typeof firstParam === 'string' ? firstParam : JSON.stringify(firstParam);
                 return (
-                  <Typography key={aIdx} variant="caption" sx={{ color: '#aaa', display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                  <Typography key={aIdx} variant="caption" sx={{ color: '#aaa', display: 'block', ml: 0.75, fontFamily: 'monospace', fontSize: '0.65rem', lineHeight: 1.3 }}>
                     - {action.command}({paramStr})
                   </Typography>
                 );
               })}
               {transition.verifications?.length > 0 && (
-                <Box sx={{ ml: 1, mt: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: '#888', fontSize: '0.65rem' }}>Verifications:</Typography>
+                <Box sx={{ ml: 0.75, mt: 0.25 }}>
+                  <Typography variant="caption" sx={{ color: '#888', fontSize: '0.6rem' }}>Verifications:</Typography>
                   {transition.verifications.map((verification: any, vIdx: number) => (
-                    <Typography key={vIdx} variant="caption" sx={{ color: '#888', display: 'block', ml: 1, fontFamily: 'monospace', fontSize: '0.65rem' }}>
+                    <Typography key={vIdx} variant="caption" sx={{ color: '#888', display: 'block', ml: 0.75, fontFamily: 'monospace', fontSize: '0.6rem', lineHeight: 1.3 }}>
                       - {verification.command} ({verification.verification_type})
                     </Typography>
                   ))}
