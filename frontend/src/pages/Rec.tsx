@@ -69,16 +69,13 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
 // REC page - directly uses the global HostManagerProvider from App.tsx
 // No local HostManagerProvider needed since we only need AV capability filtering
 // Memoized to prevent re-renders when HostManagerProvider updates (e.g., take/release control)
-const RecContent: React.FC = memo(() => {
-  const {
-    avDevices,
-    isLoading,
-    error,
-    restartStreams,
-    isRestarting,
-  } = useRec();
-
-
+const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({ 
+  avDevices, 
+  isLoading, 
+  error, 
+  restartStreams, 
+  isRestarting 
+}) => {
   // Device flags hook
   const { deviceFlags, uniqueFlags, batchUpdateDeviceFlags } = useDeviceFlags();
 
@@ -724,7 +721,8 @@ const RecContent: React.FC = memo(() => {
 RecContent.displayName = 'RecContent';
 
 const Rec: React.FC = () => {
-  return <RecContent />;
+  const recProps = useRec();
+  return <RecContent {...recProps} />;
 };
 
 export default Rec;

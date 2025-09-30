@@ -63,8 +63,9 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
       }
 
       // Otherwise, fetch from API based on device model using centralized hook
-      if (!deviceModel) {
-        setError('No device model or compatible interfaces provided');
+      if (!deviceModel || deviceModel === 'unknown') {
+        setError('Select a device first');
+        setInterfaces([]);
         return;
       }
 
@@ -99,7 +100,8 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
     };
 
     fetchInterfaces();
-  }, [deviceModel, compatibleInterfaces, getCompatibleInterfaces]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceModel, compatibleInterfaces]); // getCompatibleInterfaces excluded to prevent unnecessary re-fetches
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);
@@ -122,9 +124,12 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
   }
 
   if (error || interfaces.length === 0) {
+    // Don't show as error if just waiting for device selection
+    const isWaitingForDevice = error === 'Select a device first';
+    
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
-        <InputLabel error>{error || 'No interfaces available'}</InputLabel>
+        <InputLabel error={!isWaitingForDevice}>{label}</InputLabel>
         <Select value="" label={label} disabled>
           <MenuItem value="">{error || 'No compatible interfaces'}</MenuItem>
         </Select>

@@ -1,4 +1,4 @@
-import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon } from '@mui/icons-material';
+import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -20,6 +20,7 @@ import {
   TableRow,
   Paper,
   TextField,
+  IconButton,
 } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
@@ -93,7 +94,13 @@ const RunTests: React.FC = () => {
   const isLoadingScriptsRef = useRef<boolean>(false);
 
   // Multi-device support state
-  const [additionalDevices, setAdditionalDevices] = useState<{hostName: string, deviceId: string}[]>([]);
+  interface AdditionalDevice {
+    hostName: string;
+    deviceId: string;
+    deviceModel: string;
+    userinterface: string;
+  }
+  const [additionalDevices, setAdditionalDevices] = useState<AdditionalDevice[]>([]);
   const [completionStats, setCompletionStats] = useState<{
     total: number;
     completed: number;
@@ -178,14 +185,23 @@ const RunTests: React.FC = () => {
 
   // Get all devices for grid display (primary device + additional devices)
   const getAllSelectedDevices = () => {
-    const allDevices: {hostName: string, deviceId: string}[] = [];
+    interface DeviceWithUserinterface {
+      hostName: string;
+      deviceId: string;
+      userinterface?: string; // Optional for backwards compatibility with DeviceStreamGrid
+    }
+    const allDevices: DeviceWithUserinterface[] = [];
     
     // Add primary device if selected
     if (selectedHost && selectedDevice) {
-      allDevices.push({ hostName: selectedHost, deviceId: selectedDevice });
+      allDevices.push({ 
+        hostName: selectedHost, 
+        deviceId: selectedDevice,
+        userinterface: selectedUserinterface 
+      });
     }
     
-    // Add additional devices
+    // Add additional devices (already have userinterface)
     allDevices.push(...additionalDevices);
     
     return allDevices;
@@ -290,16 +306,17 @@ const RunTests: React.FC = () => {
 
 
 
-  const buildParameterString = (deviceHost?: string, deviceId?: string) => {
+  const buildParameterString = (deviceHost?: string, deviceId?: string, deviceUserinterface?: string) => {
     const paramStrings: string[] = [];
 
     // Use provided device info or fall back to selected values
     const targetHost = deviceHost || selectedHost;
     const targetDevice = deviceId || selectedDevice;
+    const targetUserinterface = deviceUserinterface || selectedUserinterface;
 
     // FIRST: Add userinterface_name as positional argument (framework requirement)
-    if (selectedUserinterface) {
-      paramStrings.push(selectedUserinterface);
+    if (targetUserinterface) {
+      paramStrings.push(targetUserinterface);
     }
 
     // Add parameters from script analysis
@@ -353,11 +370,20 @@ const RunTests: React.FC = () => {
 
   const handleExecuteScript = async () => {
     // Build complete device list: primary device + additional devices
-    const allDevices: {hostName: string, deviceId: string}[] = [];
+    interface DeviceExecution {
+      hostName: string;
+      deviceId: string;
+      userinterface: string;
+    }
+    const allDevices: DeviceExecution[] = [];
     
     // Add primary device if selected
-    if (selectedHost && selectedDevice) {
-      allDevices.push({ hostName: selectedHost, deviceId: selectedDevice });
+    if (selectedHost && selectedDevice && selectedUserinterface) {
+      allDevices.push({ 
+        hostName: selectedHost, 
+        deviceId: selectedDevice,
+        userinterface: selectedUserinterface
+      });
     }
     
     // Add additional devices
@@ -381,7 +407,7 @@ const RunTests: React.FC = () => {
       scriptName: selectedScript,
       hostName: hostDevice.hostName,
       deviceId: hostDevice.deviceId,
-      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId), // Device-specific parameters
+      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId, hostDevice.userinterface), // Device-specific parameters including userinterface
     }));
 
     // Initialize completion stats
@@ -725,20 +751,31 @@ const RunTests: React.FC = () => {
                   {/* Second row: Add Device button aligned right - only show if more devices are available */}
                   {hasMoreDevicesAvailable() && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                      {selectedHost && selectedDevice && (
+                      {selectedHost && selectedDevice && selectedUserinterface && (
                         <Button
                           variant="outlined"
                           startIcon={<AddIcon />}
                           onClick={() => {
                             const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
                             if (!exists) {
-                              setAdditionalDevices(prev => [...prev, { hostName: selectedHost, deviceId: selectedDevice }]);
+                              // Get device model for the selected device
+                              const hostDevices = getDevicesFromHost(selectedHost);
+                              const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
+                              const deviceModel = deviceObject?.device_model || 'unknown';
+                              
+                              setAdditionalDevices(prev => [...prev, { 
+                                hostName: selectedHost, 
+                                deviceId: selectedDevice,
+                                deviceModel: deviceModel,
+                                userinterface: selectedUserinterface // Use currently selected userinterface
+                              }]);
                               // Reset current selection to allow adding different device
                               setSelectedHost('');
                               setSelectedDevice('');
+                              setSelectedUserinterface('');
                             }
                           }}
-                          disabled={!selectedHost || !selectedDevice}
+                          disabled={!selectedHost || !selectedDevice || !selectedUserinterface}
                           size="small"
                         >
                           Add Device
@@ -747,30 +784,64 @@ const RunTests: React.FC = () => {
                     </Box>
                   )}
 
-                  {/* Show additional devices as chips */}
+                  {/* Show additional devices with per-device userinterface selectors */}
                   {additionalDevices.length > 0 && (
                     <Box sx={{ mt: 2, mb: 1 }}>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        Additional devices ({additionalDevices.length}):
+                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        Additional Devices ({additionalDevices.length}):
                       </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {additionalDevices.map((hd, index) => {
-                          // Get device name for display
-                          const hostDevices = getDevicesFromHost(hd.hostName);
-                          const deviceObject = hostDevices.find(device => device.device_id === hd.deviceId);
-                          const deviceDisplayName = deviceObject?.device_name || hd.deviceId;
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {additionalDevices.map((device, index) => {
+                          // Get device name and model for display
+                          const hostDevices = getDevicesFromHost(device.hostName);
+                          const deviceObject = hostDevices.find(d => d.device_id === device.deviceId);
+                          const deviceDisplayName = deviceObject?.device_name || device.deviceId;
                           
                           return (
-                            <Chip
-                              key={`${hd.hostName}:${hd.deviceId}`}
-                              label={`${hd.hostName}:${deviceDisplayName}`}
-                              onDelete={() => {
-                                setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
-                              }}
-                              color="secondary"
+                            <Card 
+                              key={`${device.hostName}:${device.deviceId}`}
                               variant="outlined"
-                              size="small"
-                            />
+                              sx={{ p: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {/* Device Info */}
+                                <Box sx={{ flex: '0 0 200px' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                    📱 {device.hostName}:{deviceDisplayName}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {device.deviceModel}
+                                  </Typography>
+                                </Box>
+                                
+                                {/* Userinterface Selector */}
+                                <Box sx={{ flex: 1, minWidth: 200 }}>
+                                  <UserinterfaceSelector
+                                    deviceModel={device.deviceModel}
+                                    value={device.userinterface}
+                                    onChange={(newUserinterface) => {
+                                      setAdditionalDevices(prev => prev.map((d, i) => 
+                                        i === index ? { ...d, userinterface: newUserinterface } : d
+                                      ));
+                                    }}
+                                    label="Userinterface"
+                                    size="small"
+                                    fullWidth
+                                  />
+                                </Box>
+                                
+                                {/* Remove Button */}
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
+                                  }}
+                                  sx={{ ml: 'auto' }}
+                                >
+                                  <CloseIcon />
+                                </IconButton>
+                              </Box>
+                            </Card>
                           );
                         })}
                       </Box>
