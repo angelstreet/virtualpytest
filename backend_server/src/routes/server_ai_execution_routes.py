@@ -133,4 +133,51 @@ def stop_execution():
             'error': f'Server error: {str(e)}'
         }), 500
 
+@server_ai_execution_bp.route('/resetCache', methods=['POST'])
+def reset_cache():
+    """Reset AI plan cache - delete all cached plans for a team"""
+    try:
+        request_data = request.get_json()
+        if not request_data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+        
+        team_id = request_data.get('team_id')
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        print(f"[@server_ai_execution] Resetting AI plan cache for team: {team_id}")
+        
+        # Delete all cached plans for this team
+        from shared.src.lib.supabase.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        # Count before delete
+        count_result = supabase.table('ai_plan_generation')\
+            .select('id', count='exact')\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        deleted_count = count_result.count if count_result.count else 0
+        
+        # Delete all plans
+        delete_result = supabase.table('ai_plan_generation')\
+            .delete()\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        print(f"[@server_ai_execution] ✅ Cache reset complete: {deleted_count} plans deleted")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cache cleared: {deleted_count} plans deleted',
+            'deleted_count': deleted_count
+        }), 200
+        
+    except Exception as e:
+        print(f"[@server_ai_execution] ❌ Error resetting cache: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Error resetting cache: {str(e)}'
+        }), 500
+
 # Compatibility analysis moved to server_ai_generation_routes.py to match host structure

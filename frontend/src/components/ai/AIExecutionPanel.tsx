@@ -18,6 +18,7 @@ import {
 import { Host, Device } from '../../types/common/Host_Types';
 import { useAI } from '../../hooks/useAI';
 import { getZIndex } from '../../utils/zIndexUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { AIStepDisplay } from './AIStepDisplay';
 import { UserinterfaceSelector } from '../common';
 
@@ -39,6 +40,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(true); // Default to expanded
   // Controls whether to use cached AI plans for similar tasks (does not affect plan storage)
   const [useAIPlanCache, setUseAIPlanCache] = useState(true);
+  const [isResettingCache, setIsResettingCache] = useState(false);
   
   // Userinterface selection state
   const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
@@ -83,6 +85,36 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       });
     }
   }, [aiPlan, isPlanFeasible]);
+
+  // Handler for resetting AI plan cache
+  const handleResetCache = async () => {
+    setIsResettingCache(true);
+    try {
+      const response = await fetch(buildServerUrl('/server/ai-execution/resetCache'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
+          device_id: device.device_id
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log(`[@AIExecutionPanel] Cache reset successful: ${result.deleted_count} plans deleted`);
+        alert(`✅ Cache cleared: ${result.deleted_count} plans deleted`);
+      } else {
+        console.error('[@AIExecutionPanel] Cache reset failed:', result.error);
+        alert(`❌ Failed to reset cache: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[@AIExecutionPanel] Error resetting cache:', error);
+      alert('❌ Error resetting cache');
+    } finally {
+      setIsResettingCache(false);
+    }
+  };
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -240,6 +272,30 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             }
             sx={{ margin: 0 }}
           />
+          
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleResetCache}
+            disabled={isAIExecuting || isResettingCache}
+            sx={{
+              fontSize: '0.7rem',
+              padding: '2px 8px',
+              minWidth: 'auto',
+              borderColor: '#f44336',
+              color: '#f44336',
+              '&:hover': {
+                borderColor: '#d32f2f',
+                backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              },
+              '&.Mui-disabled': {
+                borderColor: '#444',
+                color: '#666',
+              }
+            }}
+          >
+            {isResettingCache ? '...' : '🗑️ Reset Cache'}
+          </Button>
         </Box>
 
         {/* AI Plan Display */}
@@ -366,8 +422,13 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
             {aiPlan && isPlanFeasible && (
               <Box sx={{ mt: 0.5, mb: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="caption" sx={{ color: '#aaa' }}>
-                    Task Execution:
+                  <Typography variant="subtitle2" sx={{ 
+                    color: '#2196f3',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    🎯 Task Execution
                   </Typography>
                   {taskResult && !isAIExecuting && (
                     <Typography variant="caption" sx={{ 

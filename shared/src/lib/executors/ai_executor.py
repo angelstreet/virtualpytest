@@ -466,6 +466,20 @@ class AIExecutor:
             
             print(f"[@ai_executor] Completed execution {execution_id}: {'success' if result.success else 'failed'}")
     
+    def _format_step_display(self, step_data: Dict) -> str:
+        """
+        Format step for display (same format as UI).
+        Shows command format for navigation, description for others.
+        """
+        command = step_data.get('command', 'unknown')
+        
+        if command == 'execute_navigation':
+            target_node = step_data.get('params', {}).get('target_node', 'unknown')
+            return f"{command}({target_node})"
+        else:
+            # For non-navigation steps, use description or command
+            return step_data.get('description', command)
+    
     def _update_current_step_tracking(self, plan_id: str, step_number: int, step_description: str):
         """Update current step in real-time tracking"""
         for exec_id, exec_data in self._executions.items():
@@ -581,8 +595,9 @@ class AIExecutor:
         for i, step_data in enumerate(plan_steps):
             step_number = step_data.get('step', i + 1)
             
-            # Update current step in tracking BEFORE execution
-            self._update_current_step_tracking(plan_dict.get('id'), step_number, f"Executing step {step_number}: {step_data.get('description', step_data.get('command', 'Unknown step'))}")
+            # Update current step in tracking BEFORE execution (use formatted display)
+            formatted_step = self._format_step_display(step_data)
+            self._update_current_step_tracking(plan_dict.get('id'), step_number, f"Executing step {step_number}: {formatted_step}")
             
             step_result = self._execute_step(step_data, context)
             step_results.append(step_result)
