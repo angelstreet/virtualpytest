@@ -126,12 +126,12 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         
         if len(validation_sequence) > 0:
             sample_step = validation_sequence[0]
-            constructed_id = f"{sample_step.get('from_node')}-{sample_step.get('to_node')}"
+            constructed_id = f"{sample_step.get('from_node_id')}-{sample_step.get('to_node_id')}"
             print(f"🔍 [validation] DEBUG: Sample step edge ID format: {constructed_id}")
         
         validation_sequence = [
             step for step in validation_sequence
-            if f"{step.get('from_node')}-{step.get('to_node')}" in selected_edges
+            if f"{step.get('from_node_id')}-{step.get('to_node_id')}" in selected_edges
         ]
         print(f"🎯 [validation] Filtered to {len(validation_sequence)} selected transitions (from {original_count} total)")
     
