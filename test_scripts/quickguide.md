@@ -89,15 +89,23 @@ if __name__ == "__main__":
 
 ## Script Argument Definition
 
-Each script defines its own arguments using a simple one-line pattern **after** the function definition:
+Each script defines its **own** script-specific arguments using a simple one-line pattern **after** the function definition.
+
+**⚠️ IMPORTANT:** Do NOT declare framework parameters (`userinterface_name`, `--host`, `--device`) in `_script_args` - they are automatic!
 
 ```python
 @script("my_script", "Description")
 def main():
     # Script logic here
+    # Framework parameters are already available:
+    args = get_args()
+    print(args.userinterface_name)  # Automatic - don't declare this!
+    print(args.host)                # Automatic - don't declare this!
+    print(args.device)              # Automatic - don't declare this!
+    
     return True
 
-# Define arguments AFTER function definition
+# Define ONLY script-specific arguments (not framework parameters!)
 main._script_args = [
     '--max-iteration:int:50',      # Integer argument with default 50
     '--action:str:live_chup',      # String argument with default 'live_chup'
@@ -114,6 +122,10 @@ main._script_args = [
 **Argument Naming Best Practice:**
 - Use hyphens for multi-word arguments: `--max-iteration`, `--goto-live`, `--audio-analysis`
 - The framework automatically converts hyphens to underscores in code: `args.max_iteration`, `args.goto_live`, `args.audio_analysis`
+
+**Framework vs Script Arguments:**
+- **Framework**: `userinterface_name`, `--host`, `--device` → Always available, never declare
+- **Script-specific**: `--node`, `--max-iteration`, etc. → Declare in `main._script_args`
 
 ## Helper Functions Available
 

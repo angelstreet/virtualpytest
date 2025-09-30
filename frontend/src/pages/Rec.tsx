@@ -21,7 +21,6 @@ import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from '
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
-import { Host, Device } from '../types/common/Host_Types';
 
 // Optimized memoization with deep comparison to prevent re-renders from object reference changes
 const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
@@ -35,6 +34,21 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.onSelectionChange === nextProps.onSelectionChange
   ) {
     return true; // Props haven't changed, skip re-render
+  }
+
+  // Log what changed for debugging
+  const deviceKey = `${nextProps.host.host_name}-${nextProps.device?.device_id}`;
+  const changes = {
+    host: prevProps.host !== nextProps.host,
+    device: prevProps.device !== nextProps.device,
+    isEditMode: prevProps.isEditMode !== nextProps.isEditMode,
+    isSelected: prevProps.isSelected !== nextProps.isSelected,
+    deviceFlags: prevProps.deviceFlags !== nextProps.deviceFlags,
+    onSelectionChange: prevProps.onSelectionChange !== nextProps.onSelectionChange,
+  };
+  
+  if (Object.values(changes).some(v => v)) {
+    console.log(`[@Rec] Card ${deviceKey} props changed:`, changes);
   }
 
   // Deep comparison when references differ
@@ -114,11 +128,9 @@ const RecContent: React.FC = () => {
     };
   }, [avDevices]);
 
-  // Stable reference for filtered devices using content-based comparison
-  const stableFilteredDevicesRef = useRef<Array<{ host: Host; device: Device }>>([]);
-  
+  // Filter devices based on selected filters
   const filteredDevices = useMemo(() => {
-    const filtered = avDevices.filter(({ host, device }) => {
+    return avDevices.filter(({ host, device }) => {
       const matchesHost = !hostFilter || host.host_name === hostFilter;
       const matchesDeviceModel = !deviceModelFilter || device.device_model === deviceModelFilter;
       const matchesDevice = !deviceFilter || device.device_name === deviceFilter;
@@ -134,22 +146,6 @@ const RecContent: React.FC = () => {
 
       return matchesHost && matchesDeviceModel && matchesDevice && matchesFlag;
     });
-    
-    // Compare with previous result - only return new array if content changed
-    const prev = stableFilteredDevicesRef.current;
-    if (prev.length === filtered.length) {
-      const prevKeys = prev.map(({ host, device }) => `${host.host_name}-${device.device_id}`).join(',');
-      const newKeys = filtered.map(({ host, device }) => `${host.host_name}-${device.device_id}`).join(',');
-      
-      if (prevKeys === newKeys) {
-        // Content hasn't changed, return previous reference
-        return prev;
-      }
-    }
-    
-    // Content changed, update ref and return new array
-    stableFilteredDevicesRef.current = filtered;
-    return filtered;
   }, [avDevices, hostFilter, deviceModelFilter, deviceFilter, flagFilter, deviceFlags]);
 
   // Clear filters
@@ -233,38 +229,20 @@ const RecContent: React.FC = () => {
     return deviceFlagsMap.get(deviceKey) || [];
   }, [deviceFlagsMap, pendingChanges]);
 
-  // Memoize device flags per device with stable reference
-  const prevMemoizedDeviceFlagsRef = useRef<Map<string, string[]>>(new Map());
+  // Stable empty array to avoid creating new arrays on every render
+  const emptyFlagsArray = useMemo(() => [], []);
   
+  // Memoize device flags per device to prevent unnecessary re-renders
   const memoizedDeviceFlags = useMemo(() => {
     const flagsMap = new Map<string, string[]>();
     filteredDevices.forEach(({ host, device }) => {
       const deviceKey = `${host.host_name}-${device.device_id}`;
-      flagsMap.set(deviceKey, getCurrentFlags(host.host_name, device.device_id));
+      const flags = getCurrentFlags(host.host_name, device.device_id);
+      // Use stable empty array reference for devices with no flags
+      flagsMap.set(deviceKey, flags.length > 0 ? flags : emptyFlagsArray);
     });
-    
-    // Compare with previous Map - only return new Map if content changed
-    const prev = prevMemoizedDeviceFlagsRef.current;
-    if (prev.size === flagsMap.size) {
-      let hasChanged = false;
-      for (const [key, value] of flagsMap.entries()) {
-        const prevValue = prev.get(key);
-        if (!prevValue || JSON.stringify(prevValue) !== JSON.stringify(value)) {
-          hasChanged = true;
-          break;
-        }
-      }
-      
-      if (!hasChanged) {
-        // Content hasn't changed, return previous reference
-        return prev;
-      }
-    }
-    
-    // Content changed, update ref and return new Map
-    prevMemoizedDeviceFlagsRef.current = flagsMap;
     return flagsMap;
-  }, [filteredDevices, getCurrentFlags]);
+  }, [filteredDevices, getCurrentFlags, emptyFlagsArray]);
 
   // Bulk flag operations (now work with pending changes)
   const handleBulkAddFlag = useCallback((flag: string) => {
@@ -380,33 +358,23 @@ const RecContent: React.FC = () => {
 
   const hasActiveFilters = hostFilter || deviceModelFilter || deviceFilter || flagFilter;
 
-  // Track what's causing re-renders (reference changes)
+  // Track what's causing re-renders
   const prevAvDevicesRef = useRef(avDevices);
   const prevFilteredDevicesRef = useRef(filteredDevices);
   const prevDeviceFlagsRef = useRef(deviceFlags);
-  const prevMemoizedDeviceFlagsRef2 = useRef(memoizedDeviceFlags);
-  
-  const avDevicesRefChanged = prevAvDevicesRef.current !== avDevices;
-  const filteredDevicesRefChanged = prevFilteredDevicesRef.current !== filteredDevices;
-  const deviceFlagsRefChanged = prevDeviceFlagsRef.current !== deviceFlags;
-  const memoizedFlagsRefChanged = prevMemoizedDeviceFlagsRef2.current !== memoizedDeviceFlags;
   
   console.log('[@Rec] RecContent render', {
     isEditMode,
     selectedDevicesCount: selectedDevices.size,
     filteredDevicesCount: filteredDevices.length,
-    refChanges: {
-      avDevices: avDevicesRefChanged,
-      filteredDevices: filteredDevicesRefChanged,
-      deviceFlags: deviceFlagsRefChanged,
-      memoizedFlags: memoizedFlagsRefChanged,
-    }
+    avDevicesChanged: prevAvDevicesRef.current !== avDevices,
+    filteredDevicesChanged: prevFilteredDevicesRef.current !== filteredDevices,
+    deviceFlagsChanged: prevDeviceFlagsRef.current !== deviceFlags,
   });
   
   prevAvDevicesRef.current = avDevices;
   prevFilteredDevicesRef.current = filteredDevices;
   prevDeviceFlagsRef.current = deviceFlags;
-  prevMemoizedDeviceFlagsRef2.current = memoizedDeviceFlags;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -740,7 +708,7 @@ const RecContent: React.FC = () => {
                   isEditMode={isEditMode}
                   isSelected={selectedDevices.has(deviceKey)}
                   onSelectionChange={getSelectionHandler(deviceKey)}
-                  deviceFlags={memoizedDeviceFlags.get(deviceKey) || []}
+                  deviceFlags={memoizedDeviceFlags.get(deviceKey)!}
                 />
               </Grid>
             );
