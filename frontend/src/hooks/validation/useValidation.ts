@@ -187,10 +187,13 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
         );
 
         console.log(`[@hook:useValidation] Validation script completed:`, scriptResult);
+        console.log(`[@hook:useValidation] DEBUG: script_success=${scriptResult.script_success}, success=${scriptResult.success}, exit_code=${scriptResult.exit_code}`);
 
         // Calculate duration
         const duration = state.startTime ? (Date.now() - state.startTime) / 1000 : 0;
         const success = scriptResult.script_success ?? scriptResult.success;
+        
+        console.log(`[@hook:useValidation] Final success value: ${success}`);
 
         // Save report URL for "View Last Results" functionality
         if (scriptResult.report_url) {

@@ -26,23 +26,48 @@ from shared.src.lib.executors.script_decorators import script, get_args, get_con
 
 
 def _get_validation_plan(context):
-    """Get list of transitions to validate"""
+    """Get list of transitions to validate - optimized to use cache"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+    from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+    from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
+    from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
     
-    # Ensure navigation tree is loaded
+    # Ensure we have tree_id
     if not context.tree_id:
         device = context.selected_device
         args = context.args
-        nav_result = device.navigation_executor.load_navigation_tree(
-            args.userinterface_name, 
-            context.team_id
-        )
-        if not nav_result['success']:
-            print(f"❌ [_get_validation_plan] Navigation tree loading failed")
+        
+        # OPTIMIZATION: Get tree_id without loading full tree (lightweight DB query)
+        userinterface = get_userinterface_by_name(args.userinterface_name, context.team_id)
+        if not userinterface:
+            print(f"❌ [_get_validation_plan] User interface '{args.userinterface_name}' not found")
             return []
         
-        context.tree_id = nav_result['tree_id']
-        context.tree_data = nav_result
+        root_tree = get_root_tree_for_interface(userinterface['id'], context.team_id)
+        if not root_tree:
+            print(f"❌ [_get_validation_plan] No root tree found for interface '{args.userinterface_name}'")
+            return []
+        
+        context.tree_id = root_tree['id']
+        print(f"✅ [_get_validation_plan] Found tree_id: {context.tree_id}")
+        
+        # Check if cache exists
+        cached_graph = get_cached_unified_graph(context.tree_id, context.team_id)
+        
+        if cached_graph:
+            print(f"🚀 [_get_validation_plan] Using cached graph: {len(cached_graph.nodes)} nodes, {len(cached_graph.edges)} edges (FAST PATH)")
+        else:
+            # Cache miss - load tree and populate cache
+            print(f"📥 [_get_validation_plan] Cache miss - loading tree from database (SLOW PATH)")
+            nav_result = device.navigation_executor.load_navigation_tree(
+                args.userinterface_name, 
+                context.team_id
+            )
+            if not nav_result['success']:
+                print(f"❌ [_get_validation_plan] Navigation tree loading failed")
+                return []
+            
+            context.tree_data = nav_result
     
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
