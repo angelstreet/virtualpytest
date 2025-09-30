@@ -185,9 +185,61 @@ class AIExecutorCache:
         """Initialize cache"""
         print("[@ai_plan_cache] Initialized AI plan cache")
     
+    def _is_plan_format_valid(self, cached_plan: Dict) -> bool:
+        """
+        Validate cached plan format to ensure it matches current architecture.
+        Auto-reject old format plans with verbose AI descriptions.
+        
+        Args:
+            cached_plan: Cached plan dictionary
+            
+        Returns:
+            True if format is valid, False if invalid (will trigger auto-delete)
+        """
+        try:
+            plan = cached_plan.get('plan', {})
+            steps = plan.get('steps', [])
+            
+            if not steps:
+                return True  # Empty plan is valid (might be infeasible task)
+            
+            for step in steps:
+                # Check required fields
+                if 'command' not in step:
+                    print(f"[@ai_plan_cache:validation] ❌ Invalid: Missing 'command' field")
+                    return False
+                
+                # Navigation steps MUST have pre-fetched transitions in new format
+                if step.get('command') == 'execute_navigation':
+                    # Old format: no transitions field OR missing transitions
+                    # New format: transitions field exists (even if empty list)
+                    if 'transitions' not in step:
+                        print(f"[@ai_plan_cache:validation] ❌ Invalid: Navigation step missing pre-fetched 'transitions'")
+                        return False
+                    
+                    # Check for old AI verbose descriptions
+                    description = step.get('description', '')
+                    if description and any(phrase in description.lower() for phrase in [
+                        'navigate directly to',
+                        'navigate to the',
+                        'task is to navigate',
+                        'since the'
+                    ]):
+                        print(f"[@ai_plan_cache:validation] ❌ Invalid: Old AI verbose description detected: '{description}'")
+                        return False
+            
+            # All checks passed
+            print(f"[@ai_plan_cache:validation] ✅ Plan format valid")
+            return True
+            
+        except Exception as e:
+            print(f"[@ai_plan_cache:validation] ❌ Validation error: {e}")
+            return False  # Reject on any error
+    
     def find_cached_plan(self, prompt: str, context: Dict, team_id: str) -> Optional[Dict]:
         """
         Find a cached plan for the given prompt and context.
+        Auto-deletes invalid/old format cached plans.
         
         Args:
             prompt: User prompt
@@ -202,11 +254,17 @@ class AIExecutorCache:
             fingerprint = generate_fingerprint(prompt, context)
             
             # Try exact match first
-            from shared.src.lib.supabase.ai_plan_generation_db import get_plan_by_fingerprint
+            from shared.src.lib.supabase.ai_plan_generation_db import get_plan_by_fingerprint, delete_plan_by_fingerprint
             exact_match = get_plan_by_fingerprint(fingerprint, team_id)
-            if exact_match and _should_reuse_plan(exact_match, context):
-                print(f"[@ai_plan_cache] Found exact match for fingerprint: {fingerprint}")
-                return exact_match
+            if exact_match:
+                # Validate plan format - delete if invalid
+                if not self._is_plan_format_valid(exact_match):
+                    print(f"[@ai_plan_cache] ⚠️ Exact match has INVALID format - auto-deleting: {fingerprint}")
+                    delete_plan_by_fingerprint(fingerprint, team_id)
+                    exact_match = None  # Force regeneration
+                elif _should_reuse_plan(exact_match, context):
+                    print(f"[@ai_plan_cache] Found exact match for fingerprint: {fingerprint}")
+                    return exact_match
             
             # Try compatible plans
             normalized_prompt = normalize_prompt(prompt)
@@ -219,8 +277,14 @@ class AIExecutorCache:
                 team_id=team_id
             )
             
-            # Return best compatible plan
+            # Return best compatible plan (validate format first)
             for plan in compatible_plans:
+                # Validate plan format - delete if invalid
+                if not self._is_plan_format_valid(plan):
+                    print(f"[@ai_plan_cache] ⚠️ Compatible plan has INVALID format - auto-deleting: {plan['fingerprint']}")
+                    delete_plan_by_fingerprint(plan['fingerprint'], team_id)
+                    continue  # Skip this plan
+                    
                 if _should_reuse_plan(plan, context):
                     print(f"[@ai_plan_cache] Found compatible plan: {plan['fingerprint']} (success rate: {plan['success_rate']:.2f})")
                     return plan

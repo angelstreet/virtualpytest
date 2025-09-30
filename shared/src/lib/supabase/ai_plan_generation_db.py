@@ -98,6 +98,36 @@ def get_plan_by_fingerprint(fingerprint: str, team_id: str) -> Optional[Dict]:
         return None
 
 
+def delete_plan_by_fingerprint(fingerprint: str, team_id: str) -> bool:
+    """
+    Delete a cached plan by its fingerprint.
+    Used to remove invalid/outdated cached plans.
+    
+    Args:
+        fingerprint: Plan fingerprint
+        team_id: Team ID for security
+        
+    Returns:
+        True if deleted successfully, False otherwise
+    """
+    try:
+        from .supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        result = supabase.table('ai_plan_generation')\
+            .delete()\
+            .eq('fingerprint', fingerprint)\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        print(f"[@ai_plan_generation_db] Deleted cached plan: {fingerprint}")
+        return True
+            
+    except Exception as e:
+        print(f"[@ai_plan_generation_db] Error deleting plan by fingerprint: {e}")
+        return False
+
+
 def find_compatible_plans(normalized_prompt: str, device_model: str, 
                          userinterface_name: str, available_nodes: List[str],
                          team_id: str, min_success_rate: float = 0.6) -> List[Dict]:
