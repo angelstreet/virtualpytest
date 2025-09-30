@@ -189,9 +189,9 @@ start_grabber() {
       -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -c:v mjpeg -q:v 5 -f image2 \
+      -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 5 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 8 -f image2 \
+      -map \"[thumbout]\" -vsync 0 -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
@@ -221,9 +221,9 @@ start_grabber() {
       -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -c:v mjpeg -q:v 8 -f image2 \
+      -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -c:v mjpeg -q:v 10 -f image2 \
+      -map \"[thumbout]\" -vsync 0 -c:v mjpeg -q:v 10 -f image2 \
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
