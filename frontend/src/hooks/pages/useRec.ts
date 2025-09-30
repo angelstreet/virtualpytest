@@ -30,6 +30,10 @@ interface UseRecReturn {
  * Simplified to only handle device discovery:
  * - Stream URL fetching: Use useStream hook
  * - Device control: Use HostManager takeControl/releaseControl directly
+ * 
+ * Note: This hook will re-execute when HostManager updates (e.g., on take/release control),
+ * but the return value is memoized to prevent consumer re-renders when data hasn't changed.
+ * All callbacks use refs to remain stable across HostManager updates.
  */
 export const useRec = (): UseRecReturn => {
   const [avDevices, setAvDevices] = useState<Array<{ host: Host; device: Device }>>([]);
@@ -58,19 +62,23 @@ export const useRec = (): UseRecReturn => {
   // Use the simplified HostManager function and loading state
   const { getDevicesByCapability, isLoading: isHostManagerLoading } = useHostManager();
   
+  // Use refs to store latest values and prevent callback recreation
+  const getDevicesByCapabilityRef = useRef(getDevicesByCapability);
+  const isHostManagerLoadingRef = useRef(isHostManagerLoading);
+  
+  getDevicesByCapabilityRef.current = getDevicesByCapability;
+  isHostManagerLoadingRef.current = isHostManagerLoading;
+
   console.log(`[@hook:useRec] Hook render #${renderCountRef.current}`, {
     isHostManagerLoading,
     avDevicesCount: avDevices.length
   });
 
-  // Use ref to store the latest getDevicesByCapability function to avoid dependency issues
-  const getDevicesByCapabilityRef = useRef(getDevicesByCapability);
-  getDevicesByCapabilityRef.current = getDevicesByCapability;
-
   // Get AV-capable devices - only when HostManager is ready
+  // Stabilized with ref to prevent recreation on every HostManager update
   const refreshHosts = useCallback(async (): Promise<void> => {
     // Don't fetch if HostManager is still loading
-    if (isHostManagerLoading) {
+    if (isHostManagerLoadingRef.current) {
       return;
     }
 
@@ -104,7 +112,7 @@ export const useRec = (): UseRecReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [isHostManagerLoading]); // Only depend on isHostManagerLoading to prevent unnecessary re-renders
+  }, []); // No dependencies - use refs instead to keep callback stable
 
   // Trigger refresh when HostManager finishes loading
   useEffect(() => {
@@ -128,13 +136,17 @@ export const useRec = (): UseRecReturn => {
     };
   }, [refreshHosts]);
 
-  // Use ref to store the latest avDevices to avoid dependency issues
+  // Use ref to store the latest avDevices and isRestarting to avoid dependency issues
   const avDevicesRef = useRef(avDevices);
+  const isRestartingRef = useRef(isRestarting);
+  
   avDevicesRef.current = avDevices;
+  isRestartingRef.current = isRestarting;
 
   // Restart streams for all AV devices
+  // Stabilized with ref to prevent recreation
   const restartStreams = useCallback(async (): Promise<void> => {
-    if (isRestarting) return; // Prevent multiple concurrent restarts
+    if (isRestartingRef.current) return; // Prevent multiple concurrent restarts
 
     setIsRestarting(true);
     setError(null);
@@ -192,21 +204,24 @@ export const useRec = (): UseRecReturn => {
     } finally {
       setIsRestarting(false);
     }
-  }, [isRestarting]); // Remove avDevices from dependencies to prevent unnecessary re-renders
+  }, []); // No dependencies - use refs instead to keep callback stable
 
   // Memoize return value to prevent RecContent re-renders when context changes
   // but our actual values haven't changed
-  return useMemo(() => ({
-    avDevices,
-    isLoading,
-    error,
-    refreshHosts,
-    baseUrlPatterns, // Only used for monitoring now
-    restartStreams,
-    isRestarting,
-    adaptiveInterval,
-    calculateVncScaling, // Now using the imported version
-  }), [
+  const returnValue = useMemo(() => {
+    console.log('[@hook:useRec] Return value changed - consumers will re-render');
+    return {
+      avDevices,
+      isLoading,
+      error,
+      refreshHosts,
+      baseUrlPatterns, // Only used for monitoring now
+      restartStreams,
+      isRestarting,
+      adaptiveInterval,
+      calculateVncScaling, // Now using the imported version
+    };
+  }, [
     avDevices,
     isLoading,
     error,
@@ -216,4 +231,6 @@ export const useRec = (): UseRecReturn => {
     isRestarting,
     adaptiveInterval,
   ]);
+  
+  return returnValue;
 };
