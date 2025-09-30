@@ -217,13 +217,19 @@ class AIExecutorCache:
                         print(f"[@ai_plan_cache:validation] ❌ Invalid: Navigation step missing pre-fetched 'transitions'")
                         return False
                     
-                    # Check for old AI verbose descriptions
+                    # Check for old AI verbose descriptions (reject verbose AI text)
                     description = step.get('description', '')
                     if description and any(phrase in description.lower() for phrase in [
-                        'navigate directly to',
+                        'navigate directly',
                         'navigate to the',
-                        'task is to navigate',
-                        'since the'
+                        'task is to',
+                        'since the',
+                        'closest node',
+                        'the node exists',
+                        'which could',
+                        'proceed to',
+                        'visually locate',
+                        'could potentially'
                     ]):
                         print(f"[@ai_plan_cache:validation] ❌ Invalid: Old AI verbose description detected: '{description}'")
                         return False

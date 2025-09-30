@@ -168,9 +168,19 @@ class AIExecutor:
                             'result': result,
                             'execution_time': time.time() - start_time
                         }
+                else:
+                    # use_cache=True but no valid cache found - FAIL FAST (no AI generation)
+                    print(f"[@ai_executor] ❌ use_cache=True but no valid cached plan found for prompt: '{prompt}'")
+                    return {
+                        'success': False,
+                        'execution_id': execution_id,
+                        'error': 'No cached plan available. Uncheck "Use Cache" to generate a new plan, or execute this task once to populate the cache.',
+                        'cache_miss': True,
+                        'execution_time': time.time() - start_time
+                    }
             
-            # Generate new plan
-            print(f"[@ai_executor] Generating new plan (cache {'disabled' if not use_cache else 'miss'})")
+            # Generate new plan (only if use_cache=False)
+            print(f"[@ai_executor] Generating new plan (cache disabled)")
             plan_dict = self.generate_plan(prompt, context, current_node_id)
             
             if not plan_dict.get('feasible', True):
@@ -921,7 +931,8 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
                     from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
                     
                     # Get navigation path (same logic as preview)
-                    navigation_path = find_shortest_path(tree_id, target_node, team_id, current_node_id=None)
+                    # Signature: find_shortest_path(tree_id, target_node_id, team_id, start_node_id=None)
+                    navigation_path = find_shortest_path(tree_id, target_node, team_id, start_node_id=None)
                     
                     if navigation_path:
                         # Store transitions directly in the step
@@ -1019,13 +1030,19 @@ Analysis format:
 - Goal: [What needs to be achieved]
 - Thinking: [Brief explanation of approach/reasoning]
 
+DESCRIPTION FIELD RULES:
+- NEVER use verbose AI descriptions like "Navigate directly to X" or "The X node exists..."
+- Keep descriptions minimal: just the target node name for navigation steps
+- For navigation: description should be ONLY the target node name (e.g., "home_replay", "live")
+- For actions: description can be brief command (e.g., "click element", "press key")
+
 Example response formats:
 
 Direct navigation (exact node exists):
-{{"analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate directly to home_replay"}}]}}
+{{"analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}]}}
 
 Navigation with reassessment (exact node doesn't exist):
-{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "Navigate to closest node home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "Visually locate replay on screen"}}]}}
+{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "reassess navigation"}}]}}
 
 If task is not possible:
 {{"analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
