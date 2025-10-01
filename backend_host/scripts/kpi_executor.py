@@ -23,6 +23,32 @@ import logging
 import threading
 from typing import Dict, List, Optional, Any
 
+# Add project paths (same as incident_manager.py)
+current_dir = os.path.dirname(os.path.abspath(__file__))  # backend_host/scripts/
+backend_host_dir = os.path.dirname(current_dir)           # backend_host/
+project_root = os.path.dirname(backend_host_dir)          # project root
+
+sys.path.insert(0, project_root)
+
+# Load environment variables from BOTH .env files (same as incident_manager.py)
+try:
+    from dotenv import load_dotenv
+    
+    # Load project root .env first (database, R2, etc.)
+    project_env_path = os.path.join(project_root, '.env')
+    if os.path.exists(project_env_path):
+        load_dotenv(project_env_path)
+        print(f"[@kpi_executor] Loaded project environment from {project_env_path}")
+    
+    # Load backend_host .env second (HOST/DEVICE config)
+    backend_env_path = os.path.join(backend_host_dir, 'src', '.env')
+    if os.path.exists(backend_env_path):
+        load_dotenv(backend_env_path)
+        print(f"[@kpi_executor] Loaded backend_host environment from {backend_env_path}")
+        
+except ImportError:
+    print("[@kpi_executor] Warning: python-dotenv not available, relying on system environment")
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
