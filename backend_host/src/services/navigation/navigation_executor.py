@@ -542,6 +542,7 @@ class NavigationExecutor:
             # Get final destination for consolidated success message
             final_step = navigation_path[-1] if navigation_path else {}
             final_node_id = final_step.get('to_node_id')
+            final_tree_id = final_step.get('to_tree_id', tree_id)
             
             # Update current location in context after successful navigation
             if context and hasattr(context, 'current_node_id') and final_node_id:
@@ -551,9 +552,32 @@ class NavigationExecutor:
             total_time = int((time.time() - start_time) * 1000)
             print(f"[@navigation_executor] Navigation to '{target_node_label or target_node_id}' completed successfully in {total_time}ms → {final_node_id}")
             
+            # ✅ VERIFY FINAL DESTINATION
+            print(f"[@navigation_executor] 🔍 Verifying final destination: {target_node_label or target_node_id}")
+            verification_result = self.device.verification_executor.verify_node(final_node_id, team_id, final_tree_id, image_source_url)
+            
+            if not verification_result.get('success'):
+                print(f"[@navigation_executor] ❌ Final verification failed: {verification_result.get('error', 'Unknown error')}")
+                nav_context['current_node_navigation_success'] = False
+                return self._build_result(
+                    False,
+                    f"Navigation completed but final verification failed: {verification_result.get('error', 'Unknown error')}",
+                    tree_id, target_node_id, current_node_id, start_time,
+                    transitions_executed=transitions_executed,
+                    total_transitions=len(navigation_path),
+                    actions_executed=actions_executed,
+                    total_actions=total_actions,
+                    verification_failed=True
+                )
+            
+            print(f"[@navigation_executor] ✅ Final verification passed")
+            
             # Update position if navigation succeeded
             if navigation_path:
                 self.update_current_position(final_node_id, tree_id, target_node_label)
+            
+            # Store verification timestamp
+            nav_context['last_verified_timestamp'] = time.time()
             
             # Mark navigation as successful
             nav_context['current_node_navigation_success'] = True
