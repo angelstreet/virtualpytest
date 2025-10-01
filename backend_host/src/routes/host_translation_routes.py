@@ -10,6 +10,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../shared'))
 
 from  backend_host.src.lib.utils.translation_utils import batch_translate_restart_content, translate_text, detect_language_from_text
+import json
 
 # Create blueprint
 host_translation_bp = Blueprint('host_translation', __name__)
@@ -122,6 +123,94 @@ def detect_text_language():
         return jsonify({
             'success': False,
             'error': f'Language detection error: {str(e)}'
+        }), 500
+
+@host_translation_bp.route('/host/<capture_folder>/translate-transcripts', methods=['POST'])
+def translate_transcripts(capture_folder):
+    """
+    Translate transcript segments on-demand (caches in JSON)
+    Minimal pattern from useRestart.ts - cached translations
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
+        
+        target_language = data.get('target_language')
+        
+        if not target_language:
+            return jsonify({
+                'success': False,
+                'error': 'Missing target_language'
+            }), 400
+        
+        # Load transcript JSON
+        transcript_path = f'/var/www/html/stream/{capture_folder}/transcript_segments.json'
+        
+        if not os.path.exists(transcript_path):
+            return jsonify({
+                'success': False,
+                'error': f'Transcript file not found: {transcript_path}'
+            }), 404
+        
+        with open(transcript_path, 'r') as f:
+            transcript_data = json.load(f)
+        
+        print(f"[HOST_TRANSLATION] 🌐 Translating transcripts to {target_language} for {capture_folder}")
+        
+        # Translate segments that don't have translation yet
+        translated_count = 0
+        skipped_count = 0
+        
+        for segment in transcript_data['segments']:
+            if not segment.get('transcript') or not segment.get('transcript').strip():
+                continue
+            
+            # Initialize translations dict if not exists
+            if 'translations' not in segment:
+                segment['translations'] = {}
+            
+            # Check if translation already exists (cache hit)
+            if target_language in segment['translations']:
+                skipped_count += 1
+                continue
+            
+            # Translate using existing helper (auto method uses Google Translate)
+            result = translate_text(
+                text=segment['transcript'],
+                source_language=segment['language'],
+                target_language=target_language,
+                method='auto'  # Uses Google Translate (fast) with fallback
+            )
+            
+            if result['success']:
+                segment['translations'][target_language] = result['translated_text']
+                translated_count += 1
+        
+        # Save updated JSON (atomic write)
+        with open(transcript_path + '.tmp', 'w') as f:
+            json.dump(transcript_data, f, indent=2)
+        os.rename(transcript_path + '.tmp', transcript_path)
+        
+        print(f"[HOST_TRANSLATION] ✅ Translation complete: {translated_count} new, {skipped_count} cached")
+        
+        return jsonify({
+            'success': True,
+            'translated_count': translated_count,
+            'skipped_count': skipped_count,
+            'total_segments': len(transcript_data['segments']),
+            'target_language': target_language
+        })
+        
+    except Exception as e:
+        print(f"[HOST_TRANSLATION] 💥 Exception in transcript translation: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Transcript translation error: {str(e)}'
         }), 500
 
 @host_translation_bp.route('/host/translate/health', methods=['GET'])

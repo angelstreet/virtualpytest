@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Box, Slider, Typography, IconButton } from '@mui/material';
-import { PlayArrow, Pause } from '@mui/icons-material';
+import { Box, Slider, Typography, IconButton, Select, MenuItem, CircularProgress } from '@mui/material';
+import { PlayArrow, Pause, Translate } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 import { useStream } from '../../hooks/controller';
 import { Host } from '../../types/common/Host_Types';
@@ -28,6 +28,7 @@ interface TranscriptSegment {
   transcript: string;
   confidence: number;
   manifest_window: number;
+  translations?: Record<string, string>; // On-demand translations
 }
 
 interface TranscriptData {
@@ -80,6 +81,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   // Transcript overlay state
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
   const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
+  
+  // Translation state
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
+  const [isTranslating, setIsTranslating] = useState(false);
   
   // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
@@ -438,6 +443,75 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       : `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Translation handler (minimal pattern from useRestart.ts)
+  const handleLanguageChange = useCallback(async (language: string) => {
+    setSelectedLanguage(language);
+    
+    // Original = instant switch (no API call)
+    if (language === 'original') {
+      console.log('[@EnhancedHLSPlayer] Switched to original language');
+      return;
+    }
+
+    // Check if translations already exist in transcript data
+    const hasTranslations = transcriptData?.segments.some(
+      seg => seg.translations && seg.translations[language]
+    );
+    
+    if (hasTranslations) {
+      console.log(`[@EnhancedHLSPlayer] Using cached translations for ${language}`);
+      return;
+    }
+
+    // Not cached - translate via backend
+    setIsTranslating(true);
+    console.log(`[@EnhancedHLSPlayer] Translating transcripts to ${language}...`);
+    
+    try {
+      const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+      // Extract capture folder from stream URL (e.g., capture1, capture2)
+      const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
+      const captureFolder = captureMatch ? captureMatch[1] : transcriptData?.capture_folder;
+      
+      const response = await fetch(`/api/host/${captureFolder}/translate-transcripts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: hostName,
+          target_language: language
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log(`[@EnhancedHLSPlayer] Translation complete: ${data.translated_count} segments translated`);
+        
+        // Reload transcript data with new translations
+        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/transcript_segments.json');
+        const updatedData = await fetch(transcriptUrl).then(res => res.json());
+        setTranscriptData(updatedData);
+      }
+    } catch (error) {
+      console.error('[@EnhancedHLSPlayer] Translation failed:', error);
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [transcriptData, providedStreamUrl, hookStreamUrl, deviceId, hostName]);
+
+  // Get current transcript text (with translation support)
+  const getCurrentTranscriptText = useCallback(() => {
+    if (!currentTranscript) return '';
+    
+    if (selectedLanguage === 'original') {
+      return currentTranscript.transcript;
+    }
+    
+    // Use translated version if available
+    const translation = currentTranscript.translations?.[selectedLanguage];
+    return translation || currentTranscript.transcript;
+  }, [currentTranscript, selectedLanguage]);
+
   return (
     <Box className={className} sx={{ width, position: 'relative' }}>
       {/* Reuse HLSVideoPlayer for all streaming logic */}
@@ -468,8 +542,54 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
+        {/* Language Selector */}
+        {!isLiveMode && transcriptData && transcriptData.segments.length > 0 && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              borderRadius: 1,
+              p: 1,
+            }}
+          >
+            <Translate sx={{ color: 'white', fontSize: 20 }} />
+            <Select
+              value={selectedLanguage}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              size="small"
+              disabled={isTranslating}
+              sx={{
+                color: 'white',
+                minWidth: 120,
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255, 255, 255, 0.5)',
+                },
+                '& .MuiSvgIcon-root': {
+                  color: 'white',
+                },
+              }}
+            >
+              <MenuItem value="original">Original</MenuItem>
+              <MenuItem value="French">French</MenuItem>
+              <MenuItem value="Spanish">Spanish</MenuItem>
+              <MenuItem value="German">German</MenuItem>
+              <MenuItem value="Italian">Italian</MenuItem>
+              <MenuItem value="Portuguese">Portuguese</MenuItem>
+            </Select>
+            {isTranslating && <CircularProgress size={20} sx={{ color: 'white' }} />}
+          </Box>
+        )}
+
         {/* Transcript Overlay */}
-        {!isLiveMode && currentTranscript && currentTranscript.transcript && (
+        {!isLiveMode && currentTranscript && getCurrentTranscriptText() && (
           <Box
             sx={{
               position: 'absolute',
@@ -488,10 +608,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             }}
           >
             <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.4 }}>
-              {currentTranscript.transcript}
+              {getCurrentTranscriptText()}
             </Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 0.5, display: 'block' }}>
-              {currentTranscript.language} • {Math.round(currentTranscript.confidence * 100)}%
+              {selectedLanguage === 'original' 
+                ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%`
+                : `Translated to ${selectedLanguage}`
+              }
             </Typography>
           </Box>
         )}

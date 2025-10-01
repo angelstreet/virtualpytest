@@ -6,7 +6,6 @@ Single thread, minimal complexity
 import os
 import sys
 import logging
-import threading
 import time
 from datetime import datetime
 
@@ -407,125 +406,106 @@ class IncidentManager:
                     del pending_incidents[issue_type]
 
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
-        """Upload freeze incident frames to R2 storage - NON-BLOCKING with threading"""
-        
-        def _upload_async():
-            """Async upload worker - runs in background thread"""
-            try:
-                # Import R2 utilities (from shared library)
-                from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
-                
-                uploader = get_cloudflare_utils()
-                if not uploader:
-                    logger.warning(f"[{device_id}] R2 uploader not available, skipping frame upload")
-                    return None
-                
-                # Create R2 folder path for this incident: alerts/freeze/{device_id}/{timestamp}/
-                timestamp_str = timestamp.replace(':', '').replace('-', '').replace('T', '').replace('.', '')[:14]
-                base_r2_path = f"alerts/freeze/{device_id}/{timestamp_str}"
-                
-                r2_results = {
-                    'original_urls': [],
-                    'thumbnail_urls': [],
-                    'original_r2_paths': [],
-                    'thumbnail_r2_paths': [],
-                    'timestamp': timestamp
-                }
-                
-                logger.info(f"[{device_id}] Background R2 upload started for {len(last_3_filenames)} frames")
-                
-                # Upload original frames (last 3)
-                for i, filename in enumerate(last_3_filenames):
-                    if not filename or not os.path.exists(filename):
-                        logger.warning(f"[{device_id}] Original frame file not found: {filename}")
-                        continue
-                    
-                    # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
-                    r2_path = f"{base_r2_path}/frame_{i}.jpg"
-                    
-                    file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
-                    upload_result = uploader.upload_files(file_mappings)
-                    
-                    # Convert to single file result
-                    if upload_result['uploaded_files']:
-                        upload_result = {
-                            'success': True,
-                            'url': upload_result['uploaded_files'][0]['url']
-                        }
-                    else:
-                        upload_result = {'success': False}
-                    if upload_result.get('success'):
-                        r2_results['original_urls'].append(upload_result['url'])
-                        r2_results['original_r2_paths'].append(r2_path)
-                        logger.info(f"[{device_id}] Uploaded original frame {i}: {r2_path}")
-                    else:
-                        logger.error(f"[{device_id}] Failed to upload original frame {i}: {upload_result.get('error')}")
-                
-                # Upload thumbnail frames (last 3)
-                for i, thumbnail_filename in enumerate(last_3_thumbnails):
-                    if not thumbnail_filename:
-                        continue
-                        
-                    # Construct full path if needed
-                    if not os.path.isabs(thumbnail_filename):
-                        # Assume thumbnails are in same directory as originals
-                        if last_3_filenames and i < len(last_3_filenames):
-                            original_dir = os.path.dirname(last_3_filenames[i])
-                            thumbnail_path = os.path.join(original_dir, thumbnail_filename)
-                        else:
-                            continue
-                    else:
-                        thumbnail_path = thumbnail_filename
-                    
-                    if not os.path.exists(thumbnail_path):
-                        logger.warning(f"[{device_id}] Thumbnail file not found: {thumbnail_path}")
-                        continue
-                    
-                    # R2 path: alerts/freeze/device1/20250124123456/thumb_0.jpg
-                    r2_path = f"{base_r2_path}/thumb_{i}.jpg"
-                    
-                    file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
-                    upload_result = uploader.upload_files(file_mappings)
-                    
-                    # Convert to single file result
-                    if upload_result['uploaded_files']:
-                        upload_result = {
-                            'success': True,
-                            'url': upload_result['uploaded_files'][0]['url']
-                        }
-                    else:
-                        upload_result = {'success': False}
-                    if upload_result.get('success'):
-                        r2_results['thumbnail_urls'].append(upload_result['url'])
-                        r2_results['thumbnail_r2_paths'].append(r2_path)
-                        logger.info(f"[{device_id}] Uploaded thumbnail {i}: {r2_path}")
-                    else:
-                        logger.error(f"[{device_id}] Failed to upload thumbnail {i}: {upload_result.get('error')}")
-                
-                # Log completion results
-                if r2_results['original_urls'] or r2_results['thumbnail_urls']:
-                    logger.info(f"[{device_id}] Background R2 upload completed: {len(r2_results['original_urls'])} originals, {len(r2_results['thumbnail_urls'])} thumbnails")
-                    return r2_results
-                else:
-                    logger.warning(f"[{device_id}] Background R2 upload completed with no successful uploads")
-                    return None
-                    
-            except Exception as e:
-                logger.error(f"[{device_id}] Error in background R2 upload: {e}")
-                return None
-        
-        # PERFORMANCE: Start upload in background thread (non-blocking, monitoring continues immediately)
+        """Upload freeze incident frames to R2 storage - SYNCHRONOUS to ensure URLs are in DB"""
         try:
-            upload_thread = threading.Thread(target=_upload_async, daemon=True, name=f"R2Upload-{device_id}")
-            upload_thread.start()
-            logger.info(f"[{device_id}] R2 upload started in background thread (non-blocking)")
+            # Import R2 utilities (from shared library)
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
             
-            # Return placeholder - actual URLs will be logged when upload completes
-            return {
-                'status': 'uploading_async',
-                'timestamp': timestamp,
-                'note': 'R2 upload running in background thread'
+            uploader = get_cloudflare_utils()
+            if not uploader:
+                logger.warning(f"[{device_id}] R2 uploader not available, skipping frame upload")
+                return None
+            
+            # Create R2 folder path for this incident: alerts/freeze/{device_id}/{timestamp}/
+            timestamp_str = timestamp.replace(':', '').replace('-', '').replace('T', '').replace('.', '')[:14]
+            base_r2_path = f"alerts/freeze/{device_id}/{timestamp_str}"
+            
+            r2_results = {
+                'original_urls': [],
+                'thumbnail_urls': [],
+                'original_r2_paths': [],
+                'thumbnail_r2_paths': [],
+                'timestamp': timestamp
             }
+            
+            logger.info(f"[{device_id}] R2 upload started for {len(last_3_filenames)} frames")
+            
+            # Upload original frames (last 3)
+            for i, filename in enumerate(last_3_filenames):
+                if not filename or not os.path.exists(filename):
+                    logger.warning(f"[{device_id}] Original frame file not found: {filename}")
+                    continue
+                
+                # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
+                r2_path = f"{base_r2_path}/frame_{i}.jpg"
+                
+                file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
+                upload_result = uploader.upload_files(file_mappings)
+                
+                # Convert to single file result
+                if upload_result['uploaded_files']:
+                    upload_result = {
+                        'success': True,
+                        'url': upload_result['uploaded_files'][0]['url']
+                    }
+                else:
+                    upload_result = {'success': False}
+                if upload_result.get('success'):
+                    r2_results['original_urls'].append(upload_result['url'])
+                    r2_results['original_r2_paths'].append(r2_path)
+                    logger.info(f"[{device_id}] Uploaded original frame {i}: {r2_path}")
+                else:
+                    logger.error(f"[{device_id}] Failed to upload original frame {i}: {upload_result.get('error')}")
+            
+            # Upload thumbnail frames (last 3)
+            for i, thumbnail_filename in enumerate(last_3_thumbnails):
+                if not thumbnail_filename:
+                    continue
+                    
+                # Construct full path if needed
+                if not os.path.isabs(thumbnail_filename):
+                    # Assume thumbnails are in same directory as originals
+                    if last_3_filenames and i < len(last_3_filenames):
+                        original_dir = os.path.dirname(last_3_filenames[i])
+                        thumbnail_path = os.path.join(original_dir, thumbnail_filename)
+                    else:
+                        continue
+                else:
+                    thumbnail_path = thumbnail_filename
+                
+                if not os.path.exists(thumbnail_path):
+                    logger.warning(f"[{device_id}] Thumbnail file not found: {thumbnail_path}")
+                    continue
+                
+                # R2 path: alerts/freeze/device1/20250124123456/thumb_0.jpg
+                r2_path = f"{base_r2_path}/thumb_{i}.jpg"
+                
+                file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
+                upload_result = uploader.upload_files(file_mappings)
+                
+                # Convert to single file result
+                if upload_result['uploaded_files']:
+                    upload_result = {
+                        'success': True,
+                        'url': upload_result['uploaded_files'][0]['url']
+                    }
+                else:
+                    upload_result = {'success': False}
+                if upload_result.get('success'):
+                    r2_results['thumbnail_urls'].append(upload_result['url'])
+                    r2_results['thumbnail_r2_paths'].append(r2_path)
+                    logger.info(f"[{device_id}] Uploaded thumbnail {i}: {r2_path}")
+                else:
+                    logger.error(f"[{device_id}] Failed to upload thumbnail {i}: {upload_result.get('error')}")
+            
+            # Log completion results
+            if r2_results['original_urls'] or r2_results['thumbnail_urls']:
+                logger.info(f"[{device_id}] R2 upload completed: {len(r2_results['original_urls'])} originals, {len(r2_results['thumbnail_urls'])} thumbnails")
+                return r2_results
+            else:
+                logger.warning(f"[{device_id}] R2 upload completed with no successful uploads")
+                return None
+                
         except Exception as e:
-            logger.error(f"[{device_id}] Failed to start background R2 upload thread: {e}")
+            logger.error(f"[{device_id}] Error in R2 upload: {e}")
             return None
