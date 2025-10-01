@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
+"""
+Modified test script to enqueue dummy KPI and start a temporary worker for processing.
+This runs the full executor in this process to verify queueing + processing end-to-end.
+Watch the console for logs (or check /tmp/kpi_executor.log if configured).
+"""
+
 import time
-from kpi_executor import get_kpi_executor, KPIMeasurementRequest
+import logging
+from kpi_executor import get_kpi_executor, KPIMeasurementRequest, main as kpi_main
+
+# Setup basic logging to console for this test
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
 # Dummy data for testing
 dummy_request = KPIMeasurementRequest(
@@ -12,9 +22,23 @@ dummy_request = KPIMeasurementRequest(
     timeout_ms=5000
 )
 
-# Enqueue the dummy request
+# Get executor and enqueue
 executor = get_kpi_executor()
 if executor.enqueue_measurement(dummy_request):
-    print("✅ Dummy KPI enqueued successfully! Check /tmp/kpi_executor.log for processing.")
+    print("✅ Dummy KPI enqueued successfully! Starting temporary worker to process...")
 else:
     print("❌ Failed to enqueue dummy KPI (queue full?)")
+    exit(1)
+
+# Start the worker thread (like the service)
+executor.start()
+
+# Run the main loop for 10 seconds to allow processing, then stop
+print("🕒 Running worker for 10 seconds to process queue... Watch for processing logs!")
+try:
+    time.sleep(10)  # Give time for worker to process
+except KeyboardInterrupt:
+    pass
+finally:
+    executor.stop()
+    print("🛑 Test complete. Check for processing logs above.")
