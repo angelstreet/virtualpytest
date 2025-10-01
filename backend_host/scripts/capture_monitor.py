@@ -59,11 +59,50 @@ def get_capture_folder(capture_dir):
     # /var/www/html/stream/capture1/captures -> capture1
     return os.path.basename(os.path.dirname(capture_dir))
 
+def generate_manifest_for_segments(stream_dir, segments, manifest_name):
+    """Generate a single manifest file for given segments"""
+    if not segments:
+        return False
+    
+    # Calculate proper media sequence number (first segment number in window)
+    first_segment_num = int(os.path.basename(segments[0]).split('_')[1].split('.')[0])
+    
+    # Generate manifest content
+    manifest_content = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:3",
+        "#EXT-X-TARGETDURATION:4",
+        f"#EXT-X-MEDIA-SEQUENCE:{first_segment_num}"
+    ]
+    
+    for segment in segments:
+        segment_name = os.path.basename(segment)
+        manifest_content.extend([
+            "#EXTINF:1.000000,",
+            segment_name
+        ])
+    
+    manifest_content.append("#EXT-X-ENDLIST")
+    
+    # Write manifest atomically
+    manifest_path = os.path.join(stream_dir, manifest_name)
+    with open(manifest_path + '.tmp', 'w') as f:
+        f.write('\n'.join(manifest_content))
+    
+    os.rename(manifest_path + '.tmp', manifest_path)
+    return True
+
 def update_archive_manifest(capture_dir):
-    """Generate archive.m3u8 from all available segments"""
+    """Generate dynamic 2-hour archive manifests with smart pre-loading"""
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')  # /var/www/html/stream/capture1
+        
+        # Configuration for 2-hour manifest windows
+        WINDOW_HOURS = 2
+        SEGMENT_DURATION = 1  # seconds per segment (from FFmpeg config)
+        SEGMENTS_PER_WINDOW = WINDOW_HOURS * 3600 // SEGMENT_DURATION  # 7,200 segments per 2h window
+        NUM_MANIFESTS = 3  # Use 3 circular manifests (archive1, archive2, archive3)
         
         # Find all segment files
         segments = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
@@ -73,32 +112,68 @@ def update_archive_manifest(capture_dir):
         # Sort segments by number (segment_00001.ts, segment_00002.ts, etc.)
         segments.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
         
-        # Generate archive manifest content
-        manifest_content = [
-            "#EXTM3U",
-            "#EXT-X-VERSION:3",
-            "#EXT-X-TARGETDURATION:4",
-            "#EXT-X-MEDIA-SEQUENCE:1"
-        ]
+        # Calculate how many complete windows we have
+        total_segments = len(segments)
+        num_windows = (total_segments + SEGMENTS_PER_WINDOW - 1) // SEGMENTS_PER_WINDOW  # Ceiling division
         
-        for segment in segments:
-            segment_name = os.path.basename(segment)
-            manifest_content.extend([
-                "#EXTINF:1.000000,",
-                segment_name
-            ])
+        # Generate manifests for available windows
+        # Use circular naming: archive1.m3u8, archive2.m3u8, archive3.m3u8
+        manifests_generated = 0
+        for window_idx in range(min(num_windows, NUM_MANIFESTS)):
+            start_idx = window_idx * SEGMENTS_PER_WINDOW
+            end_idx = min(start_idx + SEGMENTS_PER_WINDOW, total_segments)
+            window_segments = segments[start_idx:end_idx]
+            
+            if window_segments:
+                # Circular manifest naming: archive1, archive2, archive3
+                manifest_name = f"archive{window_idx + 1}.m3u8"
+                if generate_manifest_for_segments(stream_dir, window_segments, manifest_name):
+                    manifests_generated += 1
         
-        manifest_content.append("#EXT-X-ENDLIST")
+        # Generate metadata JSON for frontend to know which manifests to use
+        metadata = {
+            "total_segments": total_segments,
+            "total_duration_seconds": total_segments * SEGMENT_DURATION,
+            "window_hours": WINDOW_HOURS,
+            "segments_per_window": SEGMENTS_PER_WINDOW,
+            "manifests": []
+        }
         
-        # Write archive manifest
-        archive_path = os.path.join(stream_dir, 'archive.m3u8')
-        with open(archive_path + '.tmp', 'w') as f:
-            f.write('\n'.join(manifest_content))
+        for i in range(manifests_generated):
+            start_segment = i * SEGMENTS_PER_WINDOW
+            end_segment = min(start_segment + SEGMENTS_PER_WINDOW, total_segments)
+            metadata["manifests"].append({
+                "name": f"archive{i + 1}.m3u8",
+                "window_index": i + 1,
+                "start_segment": start_segment,
+                "end_segment": end_segment,
+                "start_time_seconds": start_segment * SEGMENT_DURATION,
+                "end_time_seconds": end_segment * SEGMENT_DURATION,
+                "duration_seconds": (end_segment - start_segment) * SEGMENT_DURATION
+            })
         
-        # Atomic move to prevent partial reads
-        os.rename(archive_path + '.tmp', archive_path)
+        # Write metadata JSON
+        metadata_path = os.path.join(stream_dir, 'archive_metadata.json')
+        with open(metadata_path + '.tmp', 'w') as f:
+            json.dump(metadata, f, indent=2)
         
-        logger.debug(f"[{capture_folder}] Updated archive manifest with {len(segments)} segments")
+        os.rename(metadata_path + '.tmp', metadata_path)
+        
+        # Also keep archive.m3u8 pointing to archive1.m3u8 for backward compatibility
+        # Frontend can choose to use archive1.m3u8 directly or use metadata for smart switching
+        if manifests_generated > 0:
+            archive_path = os.path.join(stream_dir, 'archive.m3u8')
+            with open(archive_path + '.tmp', 'w') as f:
+                f.write(f"# Use archive_metadata.json for multi-manifest playback\n")
+                f.write(f"# Or access archive1.m3u8, archive2.m3u8, archive3.m3u8 directly\n")
+                # Point to first manifest for simple players
+                with open(os.path.join(stream_dir, 'archive1.m3u8'), 'r') as src:
+                    f.write(src.read())
+            
+            os.rename(archive_path + '.tmp', archive_path)
+        
+        total_duration_hours = total_segments * SEGMENT_DURATION / 3600
+        logger.debug(f"[{capture_folder}] Updated archive: {manifests_generated} manifests, {total_segments} segments ({total_duration_hours:.1f}h total)")
         
     except Exception as e:
         logger.error(f"Error updating archive manifest for {capture_dir}: {e}")

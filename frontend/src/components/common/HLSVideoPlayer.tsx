@@ -354,8 +354,10 @@ export function HLSVideoPlayer({
 
       hls.on(HLS.Events.ERROR, (_event, data) => {
         // Ignore buffer-related errors - they are temporary and self-recovering
-        if (data.details === 'bufferStalledError' || data.details === 'bufferSeekOverHole') {
-          // Silently ignore buffer stalls and seek holes - they are normal and self-recovering
+        if (data.details === 'bufferStalledError' || 
+            data.details === 'bufferSeekOverHole' || 
+            data.details === 'bufferNudgeOnStall') {
+          // Silently ignore buffer management - these are normal HLS.js recovery mechanisms
           return;
         }
 

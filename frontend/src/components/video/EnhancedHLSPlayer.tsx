@@ -1,9 +1,25 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Box, Slider, Typography, IconButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 import { useStream } from '../../hooks/controller';
 import { Host } from '../../types/common/Host_Types';
+
+interface ArchiveMetadata {
+  total_segments: number;
+  total_duration_seconds: number;
+  window_hours: number;
+  segments_per_window: number;
+  manifests: Array<{
+    name: string;
+    window_index: number;
+    start_segment: number;
+    end_segment: number;
+    start_time_seconds: number;
+    end_time_seconds: number;
+    duration_seconds: number;
+  }>;
+}
 
 interface EnhancedHLSPlayerProps {
   deviceId: string;
@@ -34,6 +50,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Start playing automatically
   
+  // Archive metadata and manifest switching state
+  const [archiveMetadata, setArchiveMetadata] = useState<ArchiveMetadata | null>(null);
+  const [currentManifestIndex, setCurrentManifestIndex] = useState(0);
+  const [globalCurrentTime, setGlobalCurrentTime] = useState(0); // Time across all manifests
+  const [preloadedNextManifest, setPreloadedNextManifest] = useState(false);
+  
   // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
 
@@ -61,35 +83,61 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     device_id: deviceId,
   });
 
-  // Build the appropriate stream URL based on mode
+  // Fetch archive metadata when entering archive mode
+  useEffect(() => {
+    if (!isLiveMode && !archiveMetadata) {
+      const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}`;
+      const metadataUrl = baseUrl.replace(/\/(output|archive)\.m3u8$/, '/archive_metadata.json');
+      
+      console.log('[@EnhancedHLSPlayer] Fetching archive metadata:', metadataUrl);
+      
+      fetch(metadataUrl)
+        .then(res => res.json())
+        .then(data => {
+          console.log('[@EnhancedHLSPlayer] Archive metadata loaded:', data);
+          setArchiveMetadata(data);
+        })
+        .catch(err => {
+          console.warn('[@EnhancedHLSPlayer] Failed to load archive metadata, falling back to single manifest:', err);
+          // Fallback to single manifest if metadata not available
+          setArchiveMetadata(null);
+        });
+    }
+  }, [isLiveMode, archiveMetadata, providedStreamUrl, hookStreamUrl, deviceId]);
+
+  // Build the appropriate stream URL based on mode and current manifest
   const streamUrl = useMemo(() => {
-    // If explicit streamUrl provided, modify it based on mode
+    // Live mode - use output.m3u8
+    if (isLiveMode) {
+      if (providedStreamUrl) {
+        return providedStreamUrl.replace(/archive.*\.m3u8$/, 'output.m3u8');
+      }
+      if (hookStreamUrl) {
+        return hookStreamUrl.replace(/archive.*\.m3u8$/, 'output.m3u8');
+      }
+      return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+    }
+    
+    // Archive mode - use dynamic manifests if metadata available
+    if (archiveMetadata && archiveMetadata.manifests.length > 0) {
+      const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+      if (currentManifest) {
+        const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
+        const manifestUrl = baseUrl.replace(/archive.*\.m3u8$/, currentManifest.name);
+        console.log(`[@EnhancedHLSPlayer] Using manifest ${currentManifest.name} (window ${currentManifest.window_index})`);
+        return manifestUrl;
+      }
+    }
+    
+    // Fallback to archive.m3u8
     if (providedStreamUrl) {
-      if (isLiveMode) {
-        // Ensure live URL uses output.m3u8
-        return providedStreamUrl.replace(/archive\.m3u8$/, 'output.m3u8');
-      } else {
-        // Ensure archive URL uses archive.m3u8
-        return providedStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
-      }
+      return providedStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
     }
-    
-    // If hook provided URL, modify it based on mode
     if (hookStreamUrl) {
-      if (isLiveMode) {
-        // Ensure live URL uses output.m3u8
-        return hookStreamUrl.replace(/archive\.m3u8$/, 'output.m3u8');
-      } else {
-        // Ensure archive URL uses archive.m3u8
-        return hookStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
-      }
+      return hookStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
     }
-    
-    // Fallback to dynamic URL based on mode
-    return isLiveMode 
-      ? `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`
-      : `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
-  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId]);
+    return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
+  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex]);
 
   // Seek to live edge when switching to live mode
   const seekToLive = () => {
@@ -113,12 +161,46 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   };
 
-  // Video event handlers for timeline and play state
+  // Video event handlers for timeline and play state with manifest switching
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      
+      // Calculate global time if using multi-manifest archive
+      if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
+        const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+        if (currentManifest) {
+          const globalTime = currentManifest.start_time_seconds + video.currentTime;
+          setGlobalCurrentTime(globalTime);
+          
+          // Check if we need to switch to next manifest
+          // Pre-load when 90% through current manifest
+          const progressRatio = video.currentTime / video.duration;
+          if (progressRatio > 0.9 && !preloadedNextManifest) {
+            const nextIndex = currentManifestIndex + 1;
+            if (nextIndex < archiveMetadata.manifests.length) {
+              console.log(`[@EnhancedHLSPlayer] Pre-loading next manifest (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
+              setPreloadedNextManifest(true);
+            }
+          }
+          
+          // Switch to next manifest when reaching the end
+          if (video.currentTime >= video.duration - 1) {
+            const nextIndex = currentManifestIndex + 1;
+            if (nextIndex < archiveMetadata.manifests.length) {
+              console.log(`[@EnhancedHLSPlayer] Switching to manifest ${nextIndex + 1}`);
+              setCurrentManifestIndex(nextIndex);
+              setPreloadedNextManifest(false);
+              // Video will restart at beginning of next manifest
+            }
+          }
+        }
+      }
+    };
+    
     const handleDurationChange = () => {
       setDuration(video.duration);
       
@@ -143,7 +225,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
     };
-  }, [isLiveMode]);
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest]);
 
   // Handle mode changes and seeking
   useEffect(() => {
@@ -161,16 +243,80 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     return () => clearTimeout(timer);
   }, [isLiveMode]);
 
-  // Archive timeline controls
-  const handleSeek = (_event: Event, newValue: number | number[]) => {
-    if (videoRef.current && !isLiveMode) {
-      const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
-      // Only set currentTime if it's a valid finite number
-      if (isFinite(seekTime) && seekTime >= 0) {
-        videoRef.current.currentTime = seekTime;
+  // Archive timeline controls with multi-manifest seeking
+  const handleSeek = useCallback((_event: Event, newValue: number | number[]) => {
+    if (!videoRef.current || isLiveMode) return;
+    
+    const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
+    if (!isFinite(seekTime) || seekTime < 0) return;
+    
+    const video = videoRef.current;
+    const wasPlaying = !video.paused;
+    
+    // If using multi-manifest archive, find correct manifest and seek within it
+    if (archiveMetadata && archiveMetadata.manifests.length > 0) {
+      // Find which manifest contains this time
+      let targetManifestIndex = -1;
+      let targetLocalTime = 0;
+      
+      for (let i = 0; i < archiveMetadata.manifests.length; i++) {
+        const manifest = archiveMetadata.manifests[i];
+        // Handle seek to exact end of manifest (boundary case)
+        const isAtEnd = seekTime >= manifest.end_time_seconds && i === archiveMetadata.manifests.length - 1;
+        const isInRange = seekTime >= manifest.start_time_seconds && seekTime < manifest.end_time_seconds;
+        
+        if (isInRange || isAtEnd) {
+          targetManifestIndex = i;
+          targetLocalTime = seekTime - manifest.start_time_seconds;
+          
+          // Clamp to manifest duration to avoid seeking beyond
+          const manifestDuration = manifest.duration_seconds;
+          targetLocalTime = Math.min(targetLocalTime, manifestDuration - 0.1);
+          
+          console.log(`[@EnhancedHLSPlayer] User seek: global ${seekTime.toFixed(1)}s -> manifest ${manifest.window_index} at ${targetLocalTime.toFixed(1)}s`);
+          break;
+        }
       }
+      
+      if (targetManifestIndex === -1) {
+        console.warn(`[@EnhancedHLSPlayer] Seek time ${seekTime}s not found in any manifest`);
+        return;
+      }
+      
+      // Switch manifest if needed
+      if (targetManifestIndex !== currentManifestIndex) {
+        console.log(`[@EnhancedHLSPlayer] Switching from manifest ${currentManifestIndex + 1} to ${targetManifestIndex + 1}`);
+        
+        // Pause video during manifest switch to prevent playback issues
+        video.pause();
+        
+        setCurrentManifestIndex(targetManifestIndex);
+        setPreloadedNextManifest(false);
+        
+        // Wait for new manifest to load, then seek and resume playback
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = targetLocalTime;
+            
+            // Resume playback if it was playing before seek
+            if (wasPlaying) {
+              videoRef.current.play().catch(err => {
+                console.warn('[@EnhancedHLSPlayer] Failed to resume playback after manifest switch:', err);
+              });
+            }
+          }
+        }, 800); // Give HLS.js time to load new manifest
+      } else {
+        // Same manifest, just seek
+        video.currentTime = targetLocalTime;
+        
+        // Video element automatically resumes if it was playing
+      }
+    } else {
+      // Single manifest mode - simple seek
+      video.currentTime = seekTime;
     }
-  };
+  }, [isLiveMode, archiveMetadata, currentManifestIndex]);
 
   const formatTime = (seconds: number) => {
     if (!seconds || !isFinite(seconds)) return '0:00';
@@ -231,8 +377,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               
               {/* Timeline Slider */}
               <Slider
-                value={currentTime}
-                max={duration}
+                value={archiveMetadata ? globalCurrentTime : currentTime}
+                max={archiveMetadata ? archiveMetadata.total_duration_seconds : duration}
                 onChange={handleSeek}
                 sx={{ 
                   color: 'primary.main', 
@@ -248,11 +394,16 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             {/* Time display row */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', pl: 7 }}>
               <Typography variant="caption" sx={{ color: 'white' }}>
-                {formatTime(currentTime)}
+                {formatTime(archiveMetadata ? globalCurrentTime : currentTime)}
               </Typography>
               <Typography variant="caption" sx={{ color: 'white' }}>
-                {formatTime(duration)}
+                {formatTime(archiveMetadata ? archiveMetadata.total_duration_seconds : duration)}
               </Typography>
+              {archiveMetadata && (
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                  Manifest {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
+                </Typography>
+              )}
             </Box>
           </Box>
         )}
