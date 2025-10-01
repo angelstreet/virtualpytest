@@ -73,6 +73,12 @@ fi
 
 echo "Total active captures: ${#GRABBERS[@]}"
 
+# Kill all existing ffmpeg and clean_captures processes
+echo "Stopping all existing capture processes..."
+pkill -9 ffmpeg 2>/dev/null && echo "Killed all ffmpeg processes" || echo "No ffmpeg processes found"
+pkill -9 -f clean_captures.sh 2>/dev/null && echo "Killed all clean_captures processes" || echo "No clean_captures processes found"
+sleep 2
+
 # Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
   local logfile="$1" max_size_mb=30
@@ -117,31 +123,19 @@ reset_video_device() {
   sleep 3
 }
 
-# Function to kill existing processes and clean up essential files for a specific grabber
-kill_existing_processes() {
-  local output_dir=$1 source=$2
-  echo "Checking for existing processes for $source..."
-  pkill -9 -f "ffmpeg.*$source" 2>/dev/null && echo "Killed existing ffmpeg for $source"
-  pkill -9 -f "rename_captures.sh.*$output_dir" 2>/dev/null && echo "Killed existing rename_captures.sh for $output_dir"
-  pkill -9 -f "clean_captures.sh.*$output_dir" 2>/dev/null && echo "Killed existing clean_captures.sh for $output_dir"
-  
-  # Wait for processes to fully stop
-  sleep 2
-  
-  # Clean up only playlist files for FFmpeg startup - PRESERVE SEGMENTS FOR 24H RETENTION
-  echo "Cleaning playlist files for FFmpeg startup (preserving segments for 24h retention)..."
+# Clean up playlist files for a specific capture directory
+clean_playlist_files() {
+  local output_dir=$1
+  echo "Cleaning playlist files for $output_dir (preserving segments for 24h retention)..."
   rm -f "$output_dir"/output.m3u8
   rm -f "$output_dir"/archive.m3u8
-  echo "Cleaned up playlist files in $output_dir (segments preserved)"
 }
 
 # Cleanup function
 cleanup() {
-  local ffmpeg_pid=$1 rename_pid=$2 clean_pid=$3 source=$4
-
+  local ffmpeg_pid=$1 clean_pid=$2 source=$3
   echo "Caught signal, cleaning up for $source..."
   [ -n "$ffmpeg_pid" ] && kill "$ffmpeg_pid" 2>/dev/null && echo "Killed ffmpeg (PID: $ffmpeg_pid)"
-  [ -n "$rename_pid" ] && kill "$rename_pid" 2>/dev/null && echo "Killed rename_captures.sh (PID: $rename_pid)"
   [ -n "$clean_pid" ] && kill "$clean_pid" 2>/dev/null && echo "Killed clean_captures.sh (PID: $clean_pid)"
 }
 
@@ -159,8 +153,8 @@ start_grabber() {
   # Create capture directory
   mkdir -p "$capture_dir/captures"
 
-  # Kill existing processes
-  kill_existing_processes "$capture_dir" "$source"
+  # Clean playlist files for fresh start
+  clean_playlist_files "$capture_dir"
 
   # Reset video device if it's a hardware device
   if [ "$source_type" = "v4l2" ]; then
@@ -244,8 +238,6 @@ start_grabber() {
   eval $FFMPEG_CMD > "$FFMPEG_LOG" 2>&1 &
   local FFMPEG_PID=$!
   echo "Started ffmpeg for $source with PID: $FFMPEG_PID"
-
-  # Rename script removed - using sequential naming
 
   # Start clean script (using relative path - same directory)
   while true; do
