@@ -1105,6 +1105,8 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
     
     def generate_plan(self, prompt: str, context: Dict, current_node_id: str = None) -> Dict:
         """Generate plan dict directly - no object conversion"""
+        from shared.src.lib.executors.ai_prompt_validation import validate_plan
+        
         # Add current node to context
         context = context.copy()
         context['current_node_id'] = current_node_id
@@ -1117,13 +1119,44 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         if 'plan' in ai_response:
             ai_response['steps'] = ai_response.pop('plan')  # Rename 'plan' to 'steps'
         
-        # Add metadata to AI response and return dict directly
+        # Add metadata to AI response
         ai_response['id'] = str(uuid.uuid4())
         ai_response['prompt'] = prompt
         
+        # POST-PROCESS: Validate and auto-fix AI-generated plan
+        # This ensures all navigation nodes exist and attempts to auto-correct AI mistakes
+        if ai_response.get('steps') and ai_response.get('feasible', True):
+            available_nodes = context.get('available_nodes', [])
+            team_id = context.get('team_id')
+            userinterface_name = context.get('userinterface_name')
+            
+            if available_nodes and team_id and userinterface_name:
+                validation_result = validate_plan(
+                    ai_response,
+                    available_nodes,
+                    team_id,
+                    userinterface_name
+                )
+                
+                if validation_result['modified']:
+                    print(f"[@ai_executor:generate_plan] Auto-fixed invalid nodes in AI plan")
+                
+                if not validation_result['valid']:
+                    # Mark plan as not feasible if it has invalid nodes after auto-fix attempts
+                    ai_response['feasible'] = False
+                    ai_response['needs_disambiguation'] = True
+                    ai_response['invalid_nodes'] = validation_result['invalid_nodes']
+                    invalid_count = len(validation_result['invalid_nodes'])
+                    ai_response['error'] = f"Plan contains {invalid_count} invalid navigation node(s)"
+                    print(f"[@ai_executor:generate_plan] Plan validation failed: {invalid_count} invalid nodes")
+                
+                # Use validated/fixed plan
+                ai_response = validation_result['plan']
+        
         # PRE-FETCH TRANSITIONS: Fetch navigation transitions for each navigation step
         # This ensures transitions are ALWAYS available in the plan (no UI fetching needed)
-        if ai_response.get('steps'):
+        # Only pre-fetch if plan is feasible
+        if ai_response.get('feasible', True) and ai_response.get('steps'):
             self._prefetch_navigation_transitions(ai_response['steps'], context)
         
         return ai_response

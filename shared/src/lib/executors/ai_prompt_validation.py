@@ -187,26 +187,6 @@ def extract_potential_node_phrases(prompt: str) -> List[str]:
         if is_valid_potential_node(word):
             phrases.append(word)
     
-    # Pattern 4: Multi-word combinations (2-word and 3-word phrases)
-    words_list = [w for w in prompt_lower.split() if is_valid_potential_node(w)]
-    
-    # 2-word combinations
-    for i in range(len(words_list) - 1):
-        two_word = f"{words_list[i]} {words_list[i+1]}"
-        if is_valid_potential_node(two_word):
-            phrases.append(two_word)
-        
-        # Also try with underscore (common node naming)
-        two_word_underscore = f"{words_list[i]}_{words_list[i+1]}"
-        if is_valid_potential_node(two_word_underscore):
-            phrases.append(two_word_underscore)
-    
-    # 3-word combinations (less common but possible)
-    for i in range(len(words_list) - 2):
-        three_word = f"{words_list[i]} {words_list[i+1]} {words_list[i+2]}"
-        if is_valid_potential_node(three_word):
-            phrases.append(three_word)
-    
     # Deduplicate while preserving order
     seen = set()
     unique_phrases = []
