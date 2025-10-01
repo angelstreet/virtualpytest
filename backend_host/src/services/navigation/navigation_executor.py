@@ -696,7 +696,6 @@ class NavigationExecutor:
             from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
             unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
             if not unified_graph:
-                from backend_host.src.lib.utils.navigation_cache import UnifiedCacheError
                 raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
             
             print(f"✅ [NavigationExecutor] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
@@ -727,10 +726,8 @@ class NavigationExecutor:
             }
             
         except Exception as e:
-            # Import exceptions locally to avoid circular imports
-            from backend_host.src.lib.utils.navigation_cache import NavigationTreeError, UnifiedCacheError
+            # Re-raise navigation-specific errors (already imported at top)
             if isinstance(e, (NavigationTreeError, UnifiedCacheError)):
-                # Re-raise navigation-specific errors
                 raise e
             else:
                 # FAIL EARLY - no fallback

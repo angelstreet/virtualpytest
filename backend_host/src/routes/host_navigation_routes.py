@@ -193,6 +193,15 @@ def populate_navigation_cache(tree_id):
             # Refresh timestamp to prevent TTL expiry between this check and next use
             refresh_cache_timestamp(tree_id, team_id)
             print(f"[@route:host_navigation:populate_navigation_cache] Cache already exists for tree {tree_id}, skipping re-population (timestamp refreshed)")
+            
+            # ✅ SYNC: Ensure all NavigationExecutor instances are synced with cache
+            host_devices = getattr(current_app, 'host_devices', {})
+            for device_id, device in host_devices.items():
+                if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                    if not device.navigation_executor.unified_graph:
+                        device.navigation_executor.unified_graph = existing_cache
+                        print(f"[@route:host_navigation:populate_navigation_cache] Synced NavigationExecutor for device {device_id} with existing cache")
+            
             return jsonify({
                 'success': True,
                 'nodes_count': len(existing_cache.nodes),
@@ -207,6 +216,14 @@ def populate_navigation_cache(tree_id):
         if unified_graph:
             action = 'Re-populated' if force_repopulate else 'Populated'
             print(f"[@route:host_navigation:populate_navigation_cache] {action} cache: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+            
+            # ✅ UPDATE: Sync all NavigationExecutor instances with the cached graph
+            host_devices = getattr(current_app, 'host_devices', {})
+            for device_id, device in host_devices.items():
+                if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                    device.navigation_executor.unified_graph = unified_graph
+                    print(f"[@route:host_navigation:populate_navigation_cache] Updated NavigationExecutor for device {device_id}")
+            
             return jsonify({
                 'success': True,
                 'nodes_count': len(unified_graph.nodes),
