@@ -149,9 +149,13 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
         # Parse AI response with robust error handling
         content = result['content'].strip()
         
-        logger.info(f"[{capture_folder}] 📄 Full AI Response ({len(content)} chars):")
+        # Clean up content for logging (remove excessive empty lines)
+        import re
+        content_for_logging = re.sub(r'\n{3,}', '\n\n', content)  # Replace 3+ newlines with just 2
+        
+        logger.info(f"[{capture_folder}] 📄 Full AI Response ({len(content)} chars, cleaned for display):")
         logger.info("-" * 80)
-        logger.info(content)
+        logger.info(content_for_logging)
         logger.info("-" * 80)
         
         # Remove markdown code blocks and extra text
