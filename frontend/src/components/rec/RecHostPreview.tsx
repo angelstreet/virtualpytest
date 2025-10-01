@@ -32,6 +32,9 @@ interface RecHostPreviewProps {
   isSelected?: boolean;
   onSelectionChange?: (selected: boolean) => void;
   deviceFlags?: string[]; // Pass flags from parent
+  onOpenModal?: () => void;
+  isAnyModalOpen?: boolean;
+  isSelectedForModal?: boolean;
 }
 
 // Simple mobile detection function to match MonitoringPlayer logic
@@ -49,6 +52,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   isSelected = false,
   onSelectionChange,
   deviceFlags = [], // Default to empty array
+  onOpenModal,
+  isAnyModalOpen,
+  isSelectedForModal,
 }) => {
   useEffect(() => {
     console.log('[@RecHostPreview] mounted', {
@@ -75,7 +81,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
 
   // States
   const [error] = useState<string | null>(null);
-  const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
   const [isStreamActive, setIsStreamActive] = useState(true);
 
   // Detect if this is a mobile device model for proper sizing
@@ -117,8 +122,9 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     };
   }, []);
 
-
-
+  useEffect(() => {
+    setIsStreamActive(!isAnyModalOpen);
+  }, [isAnyModalOpen]);
 
 
   // Handle opening/closing with restored state
@@ -129,12 +135,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     }
     console.log('[@RecHostPreview] Opening modal - stopping preview stream');
     setIsStreamActive(false); // Stop preview stream when opening modal
-    setIsStreamModalOpen(true);
-  }, [host, showError]);
+    onOpenModal?.();
+  }, [host, showError, onOpenModal]);
 
   const handleCloseStreamModal = useCallback(() => {
     console.log('[@RecHostPreview] Closing modal - restarting preview stream');
-    setIsStreamModalOpen(false);
+    // setIsStreamModalOpen(false); // This line is removed
     // Restart preview stream after a small delay to ensure modal cleanup
     setTimeout(() => {
       setIsStreamActive(true);
@@ -170,6 +176,26 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       ? host.host_name // For VNC devices, show just the host name
       : `${device.device_name} - ${host.host_name}`
     : host.host_name;
+
+  if (isAnyModalOpen) {
+    return (
+      <Box
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'text.secondary',
+          backgroundColor: 'black',
+        }}
+      >
+        <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
+          {isSelectedForModal ? 'Playing in modal' : 'Preview paused'}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Card
@@ -266,24 +292,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
           }}
         >
           {streamUrl ? (
-            isStreamModalOpen ? (
-              // Modal is open - stop preview player completely
-              <Box
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'text.secondary',
-                  backgroundColor: 'black',
-                }}
-              >
-                <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
-                  Playing in modal
-                </Typography>
-              </Box>
-            ) : isVncDevice ? (
+            isVncDevice ? (
               <Box
                 sx={{
                   position: 'relative',
@@ -394,12 +403,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       </Box>
 
       {/* Stream Modal */}
-      <RecHostStreamModal
-        host={host}
-        device={device}
-        isOpen={isStreamModalOpen}
-        onClose={handleCloseStreamModal}
-      />
+      {/* The RecHostStreamModal component is no longer rendered here */}
     </Card>
   );
 };

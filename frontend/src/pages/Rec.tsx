@@ -21,6 +21,8 @@ import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from '
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
+import { Host, Device } from '../types/common/Host_Types';
+import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 
 // Optimized memoization with deep comparison to prevent re-renders from object reference changes
 const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
@@ -91,6 +93,20 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   const [pendingChanges, setPendingChanges] = useState<Map<string, string[]>>(new Map());
   const [isSaving, setIsSaving] = useState(false);
   const [pendingTags, setPendingTags] = useState<string[]>([]);
+
+  // Modal state
+  const [modalHost, setModalHost] = useState<Host | null>(null);
+  const [modalDevice, setModalDevice] = useState<Device | null>(null);
+
+  const openModal = useCallback((host: Host, device: Device) => {
+    setModalHost(host);
+    setModalDevice(device);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setModalHost(null);
+    setModalDevice(null);
+  }, []);
 
   useEffect(() => {
     console.log('[@Rec] RecContent mounted');
@@ -707,11 +723,22 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
                   isSelected={selectedDevices.has(deviceKey)}
                   onSelectionChange={getSelectionHandler(deviceKey)}
                   deviceFlags={memoizedDeviceFlags.get(deviceKey)!}
+                  onOpenModal={() => openModal(host, device)}
+                  isAnyModalOpen={!!modalHost}
+                  isSelectedForModal={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id}
                 />
               </Grid>
             );
           })}
         </Grid>
+      )}
+      {modalHost && modalDevice && (
+        <RecHostStreamModal
+          host={modalHost}
+          device={modalDevice}
+          isOpen={true}
+          onClose={closeModal}
+        />
       )}
     </Box>
   );
