@@ -324,7 +324,7 @@ class VerificationExecutor:
             
             # Get node data from database to retrieve verifications
             from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
-            node_data = get_node_by_id(node_id, tree_id, team_id)
+            node_data = get_node_by_id(tree_id, node_id, team_id)
             
             if not node_data or 'error' in node_data:
                 print(f"[@lib:verification_executor:verify_node] Failed to get node data for {node_id}")

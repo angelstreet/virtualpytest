@@ -262,8 +262,34 @@ class NavigationExecutor:
             
             print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label or target_node_id}' using unified pathfinding")
             
-            # Check if already at target BEFORE pathfinding - but VERIFY first (context may be corrupted)
-            if nav_context.get('current_node_id') == target_node_id:
+            # Check if already at target BEFORE pathfinding - but ONLY if we know our current position
+            # Only verify if current_node_id is not None (we know where we are) and matches target
+            current_position = nav_context.get('current_node_id')
+            if current_position and current_position == target_node_id:
+                # Check if we recently verified this position (< 30 seconds ago)
+                last_verified_time = nav_context.get('last_verified_timestamp', 0)
+                time_since_verification = time.time() - last_verified_time
+                
+                if time_since_verification < 30:
+                    print(f"[@navigation_executor:execute_navigation] ✅ Already at target '{target_node_label or target_node_id}' (verified {time_since_verification:.1f}s ago) - skipping verification")
+                    # Mark navigation as successful
+                    nav_context['current_node_navigation_success'] = True
+                    
+                    return self._build_result(
+                        True,
+                        f"Already at target '{target_node_label or target_node_id}' (verified {time_since_verification:.1f}s ago)",
+                        tree_id, target_node_id, current_node_id, start_time,
+                        transitions_executed=0,
+                        total_transitions=0,
+                        actions_executed=0,
+                        total_actions=0,
+                        path_length=0,
+                        already_at_target=True,
+                        verification_cached=True,
+                        unified_pathfinding_used=True,
+                        navigation_path=[]
+                    )
+                
                 print(f"[@navigation_executor:execute_navigation] Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
                 
                 # Verify we're actually at this node (context may be corrupted)
@@ -271,6 +297,8 @@ class NavigationExecutor:
                 
                 if verification_result.get('success'):
                     print(f"[@navigation_executor:execute_navigation] ✅ Verified at target '{target_node_label or target_node_id}' - no navigation needed")
+                    # Store verification timestamp for caching
+                    nav_context['last_verified_timestamp'] = time.time()
                     # Update position to ensure consistency
                     self.update_current_position(target_node_id, tree_id, target_node_label)
                     # Mark navigation as successful
@@ -291,9 +319,10 @@ class NavigationExecutor:
                     )
                 else:
                     print(f"[@navigation_executor:execute_navigation] ⚠️ Verification failed - context corrupted, proceeding with navigation")
-                    # Clear corrupted position and continue with normal navigation
+                    # Clear corrupted position and verification timestamp
                     nav_context['current_node_id'] = None
                     nav_context['current_node_label'] = None
+                    nav_context['last_verified_timestamp'] = 0
             
             # Use unified pathfinding with current navigation context position
             navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))
@@ -1174,6 +1203,12 @@ class NavigationExecutor:
     def update_current_position(self, node_id: str, tree_id: str = None, node_label: str = None) -> Dict[str, Any]:
         """Update current navigation position for this device"""
         nav_context = self.device.navigation_context
+        
+        # Clear verification timestamp if position changed
+        old_position = nav_context.get('current_node_id')
+        if old_position != node_id:
+            nav_context['last_verified_timestamp'] = 0
+        
         nav_context['current_node_id'] = node_id
         nav_context['current_tree_id'] = tree_id
         nav_context['current_node_label'] = node_label
@@ -1205,6 +1240,7 @@ class NavigationExecutor:
         nav_context['current_node_id'] = None
         nav_context['current_tree_id'] = None
         nav_context['current_node_label'] = None
+        nav_context['last_verified_timestamp'] = 0
         
         print(f"[@navigation_executor] Cleared position for {self.device_id} (was: {old_position['node_id']})")
         
