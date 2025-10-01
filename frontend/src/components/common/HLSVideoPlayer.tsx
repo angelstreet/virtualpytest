@@ -85,6 +85,19 @@ export function HLSVideoPlayer({
   const cleanupStream = useCallback(() => {
     console.log('[@component:HLSVideoPlayer] Starting aggressive stream cleanup');
     
+    // Clean up native playback event listeners first
+    if (videoRef.current && nativePlaybackHandlersRef.current) {
+      const video = videoRef.current;
+      const handlers = nativePlaybackHandlersRef.current;
+      
+      video.removeEventListener('loadedmetadata', handlers.loadedmetadata);
+      video.removeEventListener('error', handlers.error);
+      video.removeEventListener('canplay', handlers.canplay);
+      
+      nativePlaybackHandlersRef.current = null;
+      console.log('[@component:HLSVideoPlayer] Native playback event listeners removed during cleanup');
+    }
+    
     if (hlsRef.current) {
       try {
         // More aggressive HLS cleanup
@@ -163,6 +176,26 @@ export function HLSVideoPlayer({
     attemptPlay();
   }, [attemptPlay]);
 
+  const nativePlaybackHandlersRef = useRef<{
+    loadedmetadata: () => void;
+    error: (e: any) => void;
+    canplay: () => void;
+  } | null>(null);
+
+  const cleanupNativePlayback = useCallback(() => {
+    if (videoRef.current && nativePlaybackHandlersRef.current) {
+      const video = videoRef.current;
+      const handlers = nativePlaybackHandlersRef.current;
+      
+      video.removeEventListener('loadedmetadata', handlers.loadedmetadata);
+      video.removeEventListener('error', handlers.error);
+      video.removeEventListener('canplay', handlers.canplay);
+      
+      nativePlaybackHandlersRef.current = null;
+      console.log('[@component:HLSVideoPlayer] Native playback event listeners removed');
+    }
+  }, []);
+
   const tryNativePlayback = useCallback(async () => {
     if (!streamUrl || !videoRef.current) return false;
 
@@ -175,6 +208,9 @@ export function HLSVideoPlayer({
         hlsRef.current = null;
       }
 
+      // Clean up previous native playback handlers if any
+      cleanupNativePlayback();
+
       const video = videoRef.current;
 
       const handleLoadedMetadata = () => {
@@ -186,13 +222,36 @@ export function HLSVideoPlayer({
       };
 
       const handleError = (e: any) => {
-        console.warn('[@component:HLSVideoPlayer] Native playback error:', e);
-        setStreamError('Stream connection issues. Retrying...');
+        const target = e.target as HTMLVideoElement;
+        const mediaError = target?.error;
+        
+        console.warn('[@component:HLSVideoPlayer] Native playback error:', {
+          event: e,
+          mediaError,
+          code: mediaError?.code,
+          message: mediaError?.message,
+        });
+        
+        // Mark stream as failed
+        setStreamLoaded(false);
+        setStreamError('Stream playback error. Retrying...');
+        
+        // Trigger retry mechanism
+        setTimeout(() => {
+          setRetryCount((prev) => prev + 1);
+        }, retryDelay);
       };
 
       const handleCanPlay = () => {
         setStreamLoaded(true);
         setStreamError(null); // Clear any existing errors
+      };
+
+      // Store handlers for cleanup
+      nativePlaybackHandlersRef.current = {
+        loadedmetadata: handleLoadedMetadata,
+        error: handleError,
+        canplay: handleCanPlay,
       };
 
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -207,7 +266,7 @@ export function HLSVideoPlayer({
       console.error('[@component:HLSVideoPlayer] Native playback setup failed:', error);
       return false;
     }
-  }, [streamUrl, attemptPlay]);
+  }, [streamUrl, attemptPlay, cleanupNativePlayback]);
 
   const initializeStream = useCallback(async () => {
     // Don't initialize if FFmpeg is stuck - requires external intervention
@@ -471,21 +530,19 @@ export function HLSVideoPlayer({
   }, [retryCount, maxRetries, retryDelay, initializeStream, tryNativePlayback, ffmpegStuck]);
 
   useEffect(() => {
-    // Don't retry if FFmpeg is stuck or if stream is already loaded and working
-    if (streamError && retryCount < maxRetries && !streamLoaded && !ffmpegStuck) {
+    // Don't retry if FFmpeg is stuck
+    if (streamError && retryCount < maxRetries && !ffmpegStuck) {
       console.log(
         `[@component:HLSVideoPlayer] Stream error detected, current retry count: ${retryCount}/${maxRetries}`,
       );
-      handleStreamError();
+      // Only auto-retry if stream is not loaded (avoid retrying transient errors on working stream)
+      if (!streamLoaded) {
+        handleStreamError();
+      }
     } else if (streamError && (retryCount >= maxRetries || ffmpegStuck)) {
       console.warn(
         `[@component:HLSVideoPlayer] ${ffmpegStuck ? 'FFmpeg stuck' : `Max retries (${maxRetries}) reached`}, stopping retry attempts`,
       );
-    } else if (streamError && streamLoaded) {
-      console.log(
-        `[@component:HLSVideoPlayer] Stream error cleared because stream is now loaded`,
-      );
-      setStreamError(null);
     }
   }, [streamError, retryCount, maxRetries, streamLoaded, ffmpegStuck, handleStreamError]);
 
