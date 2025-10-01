@@ -388,7 +388,11 @@ const MonitoringIncidents: React.FC = () => {
 
   // Handle freeze modal
   const handleFreezeClick = (alert: Alert) => {
-    if (alert.metadata?.freeze_details) {
+    // Check if alert has freeze images in r2_images
+    const hasFreezeImages = (alert.metadata?.r2_images?.thumbnail_urls?.length ?? 0) > 0 || 
+                           (alert.metadata?.r2_images?.original_urls?.length ?? 0) > 0;
+    
+    if (hasFreezeImages) {
       setFreezeModalAlert(alert);
       setFreezeModalOpen(true);
     }
@@ -399,14 +403,20 @@ const MonitoringIncidents: React.FC = () => {
     setFreezeModalAlert(null);
   };
 
-  // Adapt constructFrameUrl for HeatMapFreezeModal (expects baseUrl as second param)
-  const constructFrameUrlForModal = (filename: string, _baseUrl: string): string => {
-    return constructFrameUrl(filename, freezeModalAlert?.host_name || '', freezeModalAlert?.device_id || '');
+  // For MonitoringIncidents, we already have full R2 URLs, so just return the URL as-is
+  const constructFrameUrlForModal = (url: string, _baseUrl: string): string => {
+    return url; // URL is already complete from r2_images
   };
 
   // Convert Alert to HeatmapImage format for modal
   const getHeatmapImageFromAlert = (alert: Alert | null): any => {
-    if (!alert || !alert.metadata?.freeze_details) return null;
+    if (!alert || !alert.metadata?.r2_images) return null;
+    
+    const r2Images = alert.metadata.r2_images;
+    const imageUrls = r2Images.thumbnail_urls || r2Images.original_urls || [];
+    const freezeDiffs = alert.metadata.freeze_diffs || [];
+    
+    if (imageUrls.length === 0) return null;
     
     return {
       host_name: alert.host_name,
@@ -414,8 +424,8 @@ const MonitoringIncidents: React.FC = () => {
       image_url: '', // Not needed for modal
       analysis_json: {
         freeze: true,
-        freeze_diffs: alert.metadata.freeze_details.frame_differences,
-        last_3_filenames: alert.metadata.freeze_details.frames_compared,
+        freeze_diffs: freezeDiffs,
+        last_3_filenames: imageUrls, // Use R2 URLs directly
       }
     };
   };
@@ -478,36 +488,24 @@ const MonitoringIncidents: React.FC = () => {
     };
   };
 
-  // Helper function to construct frame URLs for freeze analysis
-  const constructFrameUrl = (filename: string, _hostName: string, deviceId: string): string => {
-    // Extract device number from deviceId (e.g., "device2" -> "2")
-    const deviceNum = deviceId.replace('device', '');
-
-    // Check if it's already a thumbnail filename, if not make it one
-    const thumbnailFilename = filename.includes('_thumbnail')
-      ? filename
-      : filename.replace('.jpg', '_thumbnail.jpg');
-
-    return `/stream/capture${deviceNum}/captures/${thumbnailFilename}`;
-  };
-
   // Render expandable row content - minimalist design
   const renderExpandedContent = (alert: Alert) => {
     const imageUrls = getAlertImageUrls(alert);
-    const freezeDetails = alert.metadata?.freeze_details;
+    const r2Images = alert.metadata?.r2_images;
+    const freezeDiffs = alert.metadata?.freeze_diffs || [];
+    const freezeImageUrls = r2Images?.thumbnail_urls || r2Images?.original_urls || [];
 
     return (
       <Box sx={{ p: 2 }}>
         {/* Freeze Detection Analysis */}
-        {alert.incident_type === 'freeze' && freezeDetails && (
+        {alert.incident_type === 'freeze' && freezeImageUrls.length > 0 && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: 'error.main' }}>
               🔴 Freeze Detection Frames
             </Typography>
             <Grid container spacing={2} alignItems="center">
-              {freezeDetails.frames_compared.map((filename, index) => {
-                const frameUrl = constructFrameUrl(filename, alert.host_name, alert.device_id);
-                const diff = freezeDetails.frame_differences[index];
+              {freezeImageUrls.map((imageUrl, index) => {
+                const diff = freezeDiffs[index];
                 const isCurrentFrame = index === 2;
 
                 return (
@@ -526,7 +524,7 @@ const MonitoringIncidents: React.FC = () => {
                       </Typography>
                       <Box
                         component="img"
-                        src={frameUrl}
+                        src={imageUrl}
                         alt={`Freeze frame ${index + 1}`}
                         sx={{
                           width: 120,
@@ -541,17 +539,17 @@ const MonitoringIncidents: React.FC = () => {
                         }}
                         onClick={() => handleFreezeClick(alert)}
                       />
-                      {index > 0 && (
+                      {index > 0 && diff !== undefined && (
                         <Typography
                           variant="caption"
                           display="block"
                           sx={{
                             mt: 0.5,
-                            color: diff < freezeDetails.threshold ? 'error.main' : 'success.main',
+                            color: diff < 0.5 ? 'error.main' : 'success.main',
                             fontWeight: 'bold',
                           }}
                         >
-                          Diff: {diff?.toFixed(1)}
+                          Diff: {diff.toFixed(1)}
                         </Typography>
                       )}
                     </Box>
@@ -563,7 +561,7 @@ const MonitoringIncidents: React.FC = () => {
               <Grid item>
                 <Box sx={{ ml: 2, p: 1, bgcolor: 'rgba(255, 0, 0, 0.1)', borderRadius: 1 }}>
                   <Typography variant="caption" color="error.main" fontWeight="bold">
-                    Threshold: {freezeDetails.threshold}
+                    Threshold: 0.5
                   </Typography>
                   <Typography variant="caption" display="block" color="text.secondary">
                     All diffs below = freeze
@@ -650,7 +648,7 @@ const MonitoringIncidents: React.FC = () => {
         )}
 
         {/* No data state */}
-        {!freezeDetails && !imageUrls.hasR2Images && (
+        {freezeImageUrls.length === 0 && !imageUrls.hasR2Images && (
           <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
             <Typography variant="body2">No additional data available for this alert</Typography>
           </Box>
