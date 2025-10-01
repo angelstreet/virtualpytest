@@ -734,7 +734,7 @@ class HeatmapProcessor:
         return mosaic
     
     def create_analysis_json(self, images_data: List[Dict], time_key: str) -> Dict:
-        """Create analysis JSON for the minute - just consolidate raw data"""
+        """Create analysis JSON for the minute - replace local paths with R2 URLs from alerts"""
         devices = []
         incidents_count = 0
         
@@ -755,7 +755,7 @@ class HeatmapProcessor:
             if has_incidents:
                 incidents_count += 1
             
-            # Build device entry - use raw analysis data directly
+            # Build device entry - use raw analysis data with local paths (24h retention allows local access)
             device_entry = {
                 'host_name': image_data['host_name'],
                 'device_id': image_data['device_id'],
@@ -763,7 +763,7 @@ class HeatmapProcessor:
                 'image_url': image_data.get('image_url'),
                 'json_url': image_data.get('json_url'),
                 'sequence': image_data.get('sequence', 'missing'),
-                'analysis_json': analysis,  # Raw JSON from monitor - let frontend parse it
+                'analysis_json': analysis,  # Raw analysis with local paths (available for 24h)
                 'status': 'missing' if is_placeholder else 'active',
                 'is_placeholder': is_placeholder
             }

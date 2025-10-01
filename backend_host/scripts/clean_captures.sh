@@ -67,13 +67,13 @@ for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do
     reset_log_if_large "$CLEAN_LOG"
   fi
   
-  # Clean captures directory - DELETE OLD CAPTURE FILES (5min retention - heatmap captures them every minute)
+  # Clean captures directory - DELETE OLD CAPTURE FILES (24h retention - allows R2 upload and heatmap viewing)
   if [ -d "$CAPTURE_DIR" ]; then
-    echo "$(date): Cleaning captures directory $CAPTURE_DIR (5min retention)" >> "$CLEAN_LOG"
+    echo "$(date): Cleaning captures directory $CAPTURE_DIR (24h retention)" >> "$CLEAN_LOG"
     
-    # Delete capture files older than 5 minutes (heatmap processor captures state every minute)
-    find "$CAPTURE_DIR" -type f -name "capture_*.jpg" -mmin +5 -delete -printf "$(date): Deleted old capture %p\n" >> "$CLEAN_LOG" 2>&1
-    find "$CAPTURE_DIR" -type f -name "capture_*.json" -mmin +5 -delete -printf "$(date): Deleted old analysis %p\n" >> "$CLEAN_LOG" 2>&1
+    # Delete capture files older than 24 hours (1440 minutes) - allows incident_manager R2 upload after 5min delay
+    find "$CAPTURE_DIR" -type f -name "capture_*.jpg" -mmin +1440 -delete -printf "$(date): Deleted old capture %p\n" >> "$CLEAN_LOG" 2>&1
+    find "$CAPTURE_DIR" -type f -name "capture_*.json" -mmin +1440 -delete -printf "$(date): Deleted old analysis %p\n" >> "$CLEAN_LOG" 2>&1
     
     # Clean other old files but preserve recent ones
     find "$CAPTURE_DIR" -type f -not -name "capture_*" -mmin +10 -delete -printf "$(date): Deleted other file %p\n" >> "$CLEAN_LOG" 2>&1

@@ -171,9 +171,16 @@ start_grabber() {
   # Clean playlist files for fresh start
   clean_playlist_files "$capture_dir"
 
-  # Get last segment number to continue from
+  # Get last segment number to continue from (9-digit counter supports decades of operation)
   local start_num=$(get_last_segment_number "$capture_dir")
-  echo "Starting segment numbering from: $start_num"
+  echo "Starting segment numbering from: $start_num (max: 1B segments = 31yr @ 1sec)"
+
+  # Get last image number to continue from (9-digit counter supports 1 year continuous operation)
+  local last_image=$(find "$capture_dir/captures" -maxdepth 1 -name 'capture_*.jpg' -printf '%f\n' 2>/dev/null | \
+    sed 's/capture_\([0-9]*\)\.jpg/\1/' | \
+    sort -n | tail -1)
+  local image_start_num=$((10#${last_image:-0} + 1))
+  echo "Starting image numbering from: $image_start_num (max: 1B frames = 1yr @ 5fps)"
 
   # Reset video device if it's a hardware device
   if [ "$source_type" = "v4l2" ]; then
@@ -199,14 +206,14 @@ start_grabber() {
       -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 10 -segment_wrap 86400 -hls_flags omit_endlist+split_by_time -lhls 1 \
+      -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
       -hls_start_number_source generic -start_number $start_num \
-      -hls_segment_filename $capture_dir/segment_%05d.ts \
+      -hls_segment_filename $capture_dir/segment_%09d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 \
-      $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 \
-      $capture_dir/captures/capture_%04d_thumbnail.jpg"
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -start_number $image_start_num \
+      $capture_dir/captures/capture_%09d.jpg \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -start_number $image_start_num \
+      $capture_dir/captures/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
     # Optimized: single fps operation, no mouse cursor, CBR encoding, faster scaling
@@ -232,14 +239,14 @@ start_grabber() {
       -b:v 250k -maxrate 300k -bufsize 600k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
-      -f hls -hls_time 4 -hls_list_size 10 -segment_wrap 86400 -hls_flags omit_endlist \
+      -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
       -hls_start_number_source generic -start_number $start_num \
-      -hls_segment_filename $capture_dir/segment_%05d.ts \
+      -hls_segment_filename $capture_dir/segment_%09d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 \
-      $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 \
-      $capture_dir/captures/capture_%04d_thumbnail.jpg"
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -start_number $image_start_num \
+      $capture_dir/captures/capture_%09d.jpg \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 -start_number $image_start_num \
+      $capture_dir/captures/capture_%09d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1

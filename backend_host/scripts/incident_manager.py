@@ -275,19 +275,13 @@ class IncidentManager:
                     enhanced_metadata['volume_percentage'] = analysis_result.get('volume_percentage', 0)
                     enhanced_metadata['mean_volume_db'] = analysis_result.get('mean_volume_db', -100)
                 
-                # Add frame information for incidents (SAME AS ORIGINAL)
-                last_3_filenames = analysis_result.get('last_3_filenames', [])
-                last_3_thumbnails = analysis_result.get('last_3_thumbnails', [])
-                enhanced_metadata['last_3_filenames'] = last_3_filenames
-                enhanced_metadata['last_3_thumbnails'] = last_3_thumbnails
-                
-                # Upload frames to R2 for all incident types (SAME AS ORIGINAL)
-                if last_3_filenames:
-                    from datetime import datetime
-                    current_time = datetime.now().isoformat()
-                    r2_urls = self.upload_freeze_frames_to_r2(last_3_filenames, last_3_thumbnails, capture_folder, current_time)
-                    if r2_urls:
-                        enhanced_metadata['r2_images'] = r2_urls
+                # Add frame information and R2 URLs (uploaded immediately by capture_monitor)
+                if 'last_3_filenames' in analysis_result:
+                    enhanced_metadata['last_3_filenames'] = analysis_result['last_3_filenames']
+                if 'last_3_thumbnails' in analysis_result:
+                    enhanced_metadata['last_3_thumbnails'] = analysis_result['last_3_thumbnails']
+                if 'r2_images' in analysis_result:
+                    enhanced_metadata['r2_images'] = analysis_result['r2_images']
             
             # Call database exactly as before
             result = create_alert_safe(

@@ -39,13 +39,16 @@ def analyze_freeze(image_path):
     if not match:
         return False, None
     
-    current_num = int(match.group(1))
+    current_num_str = match.group(1)
+    current_num = int(current_num_str)
+    num_digits = len(current_num_str)  # Auto-detect format (4, 6, or 9 digits)
+    
     if current_num < 3:  # Need at least 2 previous frames (frames start at 1)
         return False, None
     
-    # Directly construct previous frame filenames (100x faster than listing directory)
-    prev1_filename = f"capture_{current_num-1:04d}.jpg"
-    prev2_filename = f"capture_{current_num-2:04d}.jpg"
+    # Directly construct previous frame filenames with same digit format (100x faster than listing directory)
+    prev1_filename = f"capture_{current_num-1:0{num_digits}d}.jpg"
+    prev2_filename = f"capture_{current_num-2:0{num_digits}d}.jpg"
     
     prev1_path = os.path.join(directory, prev1_filename)
     prev2_path = os.path.join(directory, prev2_filename)

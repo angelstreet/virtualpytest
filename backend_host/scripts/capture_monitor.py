@@ -114,9 +114,23 @@ def main():
                 if issues:
                     logger.info(f"[{capture_folder}] Issues detected: {issues}")
                 
+                # Upload freeze frames to R2 immediately (for real-time heatmap viewing)
+                if detection_result and detection_result.get('freeze', False):
+                    last_3_filenames = detection_result.get('last_3_filenames', [])
+                    last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
+                    if last_3_filenames:
+                        from datetime import datetime
+                        current_time = datetime.now().isoformat()
+                        r2_urls = incident_manager.upload_freeze_frames_to_r2(
+                            last_3_filenames, last_3_thumbnails, capture_folder, current_time
+                        )
+                        if r2_urls:
+                            detection_result['r2_images'] = r2_urls
+                            logger.info(f"[{capture_folder}] Uploaded freeze frames to R2 for real-time heatmap")
+                
                 incident_manager.process_detection(capture_folder, detection_result, host_name)
                 
-                # Save complete analysis data to JSON file
+                # Save complete analysis data to JSON file (now includes R2 URLs for freeze)
                 json_file = frame_path.replace('.jpg', '.json')
                 try:
                     if detection_result:
