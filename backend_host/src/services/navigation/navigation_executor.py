@@ -432,9 +432,14 @@ class NavigationExecutor:
                 
                 # Queue KPI measurement if step succeeded and target node has kpi_references
                 if result.get('success', False):
+                    # Get actual action completion timestamp from navigation context
+                    # (ActionExecutor updates this after all iterations and waits complete)
+                    nav_context = self.device.navigation_context
+                    action_completion_timestamp = nav_context.get('last_action_timestamp', step_start_time)
+                    
                     self._queue_kpi_measurement_if_configured(
                         step=step,
-                        action_timestamp=step_start_time,
+                        action_timestamp=action_completion_timestamp,
                         team_id=team_id
                     )
                 
