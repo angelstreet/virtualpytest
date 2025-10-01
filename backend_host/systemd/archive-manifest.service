@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=cpeengineering
+User=sunri-pi1
 WorkingDirectory=/home/sunri-pi1/virtualpytest/backend_host/scripts
 Environment="PATH=/home/sunri-pi1/virtualpytest/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/home/sunri-pi1/virtualpytest/venv/bin/python3 /home/sunri-pi1/virtualpytest/backend_host/scripts/archive_manifest_generator.py
