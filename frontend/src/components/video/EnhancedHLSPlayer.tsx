@@ -239,12 +239,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     
     const handleDurationChange = () => {
       setDuration(video.duration);
-      
-      // When archive mode loads and we get duration, seek to beginning
-      if (!isLiveMode && video.duration && !isNaN(video.duration)) {
-        console.log(`[@EnhancedHLSPlayer] Archive mode loaded, seeking to beginning (0:00)`);
-        video.currentTime = 0; // Start at beginning of archive
-      }
     };
 
     const handlePlay = () => setIsPlaying(true);
@@ -281,7 +275,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   }, [isLiveMode]);
 
   // Archive timeline controls with multi-manifest seeking
-  const handleSeek = useCallback((_event: Event, newValue: number | number[]) => {
+  const handleSeek = useCallback((event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (!videoRef.current || isLiveMode) return;
     
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
@@ -342,7 +336,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               });
             }
           }
-        }, 800); // Give HLS.js time to load new manifest
+        }, 1000); // Increased from 800ms
       } else {
         // Same manifest, just seek
         video.currentTime = targetLocalTime;
@@ -371,7 +365,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       <Box sx={{ position: 'relative', height }}>
         {!isTransitioning ? (
           <HLSVideoPlayer
-            key={`${isLiveMode ? 'live' : 'archive'}-${streamUrl}`} // Force remount on mode OR URL change
+            key={isLiveMode ? 'live' : 'archive'} // Removed -${streamUrl} to prevent remount on manifest changes
             streamUrl={streamUrl}
             isStreamActive={true}
             videoElementRef={videoRef}
@@ -432,7 +426,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               <Slider
                 value={archiveMetadata ? globalCurrentTime : currentTime}
                 max={archiveMetadata ? archiveMetadata.total_duration_seconds : duration}
-                onChange={handleSeek}
+                onChangeCommitted={handleSeek} // Changed from onChange
                 sx={{ 
                   color: 'primary.main', 
                   flex: 1,
