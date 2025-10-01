@@ -13,25 +13,22 @@ from .text_helpers import TextHelpers
 class TextVerificationController:
     """Pure text verification controller that uses OCR to detect text on screen."""
     
-    def __init__(self, av_controller=None, device_model=None, captures_path=None, **kwargs):
+    def __init__(self, av_controller, device_model=None, **kwargs):
         """
         Initialize the Text Verification controller.
         
         Args:
-            av_controller: AV controller for live device capture (optional if captures_path provided)
+            av_controller: AV controller for capturing images (dependency injection)
             device_model: Device model for reference image resolution (e.g., 'android_tv')
-            captures_path: Direct path to captures directory (for offline scanning)
         """
-        if av_controller:
-            self.av_controller = av_controller
-            self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
-        elif captures_path:
-            self.av_controller = None
-            self.captures_path = captures_path
-        else:
-            raise ValueError("Either av_controller or captures_path must be provided")
-        
+        # Dependency injection
+        self.av_controller = av_controller
         self.device_model = device_model
+        
+        # Use AV controller's capture path with captures subdirectory
+        self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
+        
+        # Set verification type for controller lookup
         self.verification_type = 'text'
         
         # Initialize helpers

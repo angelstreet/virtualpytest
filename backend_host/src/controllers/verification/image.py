@@ -19,25 +19,17 @@ import logging
 class ImageVerificationController:
     """Pure image verification controller that uses template matching to detect images on screen."""
     
-    def __init__(self, av_controller=None, device_model=None, captures_path=None, **kwargs):
+    def __init__(self, av_controller, device_model=None, **kwargs):
         """
         Initialize the Image Verification controller.
         
         Args:
-            av_controller: AV controller for live device capture (optional if captures_path provided)
+            av_controller: AV controller for capturing images (dependency injection)
             device_model: Device model for reference image resolution (e.g., 'android_tv')
-            captures_path: Direct path to captures directory (for offline scanning)
         """
-        if av_controller:
-            self.av_controller = av_controller
-            self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
-        elif captures_path:
-            self.av_controller = None
-            self.captures_path = captures_path
-        else:
-            raise ValueError("Either av_controller or captures_path must be provided")
-        
+        self.av_controller = av_controller
         self.device_model = device_model
+        self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
         self.verification_type = 'image'
 
         self.verification_results_dir = os.path.join(self.captures_path, 'verification_results')
@@ -48,8 +40,8 @@ class ImageVerificationController:
         for directory in [self.verification_results_dir, self.cropped_images_dir, self.references_dir]:
             os.makedirs(directory, exist_ok=True)
         
-        # Initialize helpers (av_controller can be None for offline mode)
-        self.helpers = ImageHelpers(self.captures_path, self.av_controller)
+        # Initialize helpers with explicit references directory
+        self.helpers = ImageHelpers(self.captures_path, av_controller)
         
         print(f"[@controller:ImageVerification] Initialized")
         print(f"[@controller:ImageVerification] Initialized with paths:")

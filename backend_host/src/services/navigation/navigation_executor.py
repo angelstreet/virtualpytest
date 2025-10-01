@@ -1187,6 +1187,7 @@ class NavigationExecutor:
                 action_timestamp=action_timestamp,
                 kpi_references=kpi_references,
                 timeout_ms=timeout_ms,
+                device_id=self.device_id,
                 device_model=self.device_model
             )
             

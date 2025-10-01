@@ -24,8 +24,9 @@ dummy_request = KPIMeasurementRequest(
     team_id="test_team",
     capture_dir="/var/www/html/stream/capture3/captures",  # Use a real dir from your setup
     action_timestamp=time.time(),
-    kpi_references=[{"verification_type": "image", "reference_name": "home", "timeout": 5000}],
+    kpi_references=[{"verification_type": "image", "command": "waitForImageToAppear", "params": {"image_path": "home", "threshold": 0.9}}],
     timeout_ms=5000,
+    device_id="device1",  # Required to get device's verification_executor
     device_model="android_tv"  # Required for finding references
 )
 

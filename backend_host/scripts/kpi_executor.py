@@ -73,6 +73,7 @@ class KPIMeasurementRequest:
         action_timestamp: float,
         kpi_references: List[Dict[str, Any]],
         timeout_ms: int,
+        device_id: str,
         device_model: str = None
     ):
         # Validate required fields - fail early
@@ -88,6 +89,8 @@ class KPIMeasurementRequest:
             raise ValueError("kpi_references required")
         if timeout_ms <= 0:
             raise ValueError(f"timeout_ms must be > 0, got {timeout_ms}")
+        if not device_id:
+            raise ValueError("device_id required")
         
         self.execution_result_id = execution_result_id
         self.team_id = team_id
@@ -95,6 +98,7 @@ class KPIMeasurementRequest:
         self.action_timestamp = action_timestamp
         self.kpi_references = kpi_references
         self.timeout_ms = timeout_ms
+        self.device_id = device_id
         self.device_model = device_model
 
 
@@ -233,6 +237,8 @@ class KPIExecutor:
         Scan captures from action_timestamp until match or timeout.
         Stops immediately when match found - minimal scanning.
         
+        Uses device's existing verification_executor - zero code duplication!
+        
         Args:
             request: KPI measurement request with all required data
         
@@ -244,12 +250,18 @@ class KPIExecutor:
         action_timestamp = request.action_timestamp
         timeout_ms = request.timeout_ms
         kpi_references = request.kpi_references
-        from backend_host.src.controllers.verification.image import ImageVerificationController
-        from backend_host.src.controllers.verification.text import TextVerificationController
         
-        # Create verification controllers in offline mode (no device needed)
-        image_ctrl = ImageVerificationController(captures_path=capture_dir, device_model=request.device_model)
-        text_ctrl = TextVerificationController(captures_path=capture_dir, device_model=request.device_model)
+        # Get device instance from host (same host, same device, just post-processing)
+        from backend_host.src.lib.utils.host_utils import get_device_by_id
+        
+        device = get_device_by_id(request.device_id)
+        if not device:
+            return {'success': False, 'error': f'Device {request.device_id} not found on host', 'captures_scanned': 0}
+        
+        # Use device's existing verification_executor (already has all controllers initialized)
+        verif_executor = device.verification_executor
+        if not verif_executor:
+            return {'success': False, 'error': f'No verification_executor for device {request.device_id}', 'captures_scanned': 0}
         
         # Calculate time window
         end_timestamp = action_timestamp + (timeout_ms / 1000.0)
@@ -276,37 +288,29 @@ class KPIExecutor:
         
         logger.info(f"📸 [KPIExecutor] Found {len(all_captures)} captures in time window")
         
+        # Convert kpi_references to verification format (same structure as navigation)
+        verifications = []
+        for kpi_ref in kpi_references:
+            verifications.append({
+                'verification_type': kpi_ref.get('verification_type', 'image'),
+                'command': kpi_ref.get('command', 'waitForImageToAppear'),
+                'params': kpi_ref.get('params', {})
+            })
+        
         # Scan captures sequentially - STOP at first match
         for i, capture in enumerate(all_captures):
-            all_refs_match = True
+            logger.info(f"🔍 [KPIExecutor] Testing capture {i+1}/{len(all_captures)}: {os.path.basename(capture['path'])}")
             
-            for kpi_ref in kpi_references:
-                verification_type = kpi_ref.get('verification_type', 'image')
-                
-                try:
-                    # Add source_image_path to config (controllers expect it in the dict)
-                    verification_config = {**kpi_ref, 'source_image_path': capture['path']}
-                    
-                    if verification_type == 'image':
-                        result = image_ctrl.execute_verification(verification_config)
-                    elif verification_type in ['text', 'ocr']:
-                        result = text_ctrl.execute_verification(verification_config)
-                    else:
-                        logger.warning(f"⚠️ [KPIExecutor] Unsupported verification type: {verification_type}")
-                        all_refs_match = False
-                        break
-                    
-                    if not result.get('success'):
-                        all_refs_match = False
-                        break
-                        
-                except Exception as e:
-                    logger.warning(f"⚠️ [KPIExecutor] Verification execution error: {e}")
-                    all_refs_match = False
-                    break
+            # Execute verifications using device's verification_executor
+            # This gives us the SAME detailed logs as normal navigation verification!
+            result = verif_executor.execute_verifications(
+                verifications=verifications,
+                image_source_url=capture['path'],  # Use this specific capture
+                team_id=request.team_id
+            )
             
             # MATCH FOUND - stop immediately
-            if all_refs_match:
+            if result.get('success'):
                 return {
                     'success': True,
                     'timestamp': capture['timestamp'],
