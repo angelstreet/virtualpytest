@@ -132,23 +132,36 @@ def setup_flask_app(app_name="VirtualPyTest"):
     app.secret_key = secret_key
 
     # Configure CORS for development and production
-    # Allow specific origins to prevent duplicate header issues with nginx
-    allowed_origins = [
-        "https://dev.virtualpytest.com",
-        "https://virtualpytest.com", 
-        "https://www.virtualpytest.com",
-        "http://localhost:5073",  # Local development
-        "https://localhost:5073",  # Local development with SSL
-        "https://192.168.1.34:5073",  # Local development on pi4 with port
-        "https://192.168.1.34",  # Local development on pi4 without port
-        "http://192.168.1.34",  # Local development on pi4 HTTP
-        "https://192.168.1.150",  # pi2 server
-        "https://192.168.1.144",  # pi3 server
-        "https://192.168.1.67"   # mac server
-    ]
+    # Dynamic origin validation to support local network IPs
+    def is_allowed_origin(origin):
+        """Check if origin is allowed (production domains or local network)"""
+        import re
+        
+        # Production domains (always allowed)
+        production_domains = [
+            "https://dev.virtualpytest.com",
+            "https://virtualpytest.com",
+            "https://www.virtualpytest.com"
+        ]
+        
+        if origin in production_domains:
+            return True
+        
+        # Localhost (always allowed)
+        if origin and ("localhost" in origin or "127.0.0.1" in origin):
+            return True
+        
+        # Local network IPs: 192.168.x.x (HTTP or HTTPS, with or without port)
+        # Pattern: http(s)://192.168.x.x(:port)?
+        local_ip_pattern = r'^https?://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$'
+        if origin and re.match(local_ip_pattern, origin):
+            return True
+        
+        return False
     
+    # Use dynamic CORS with origin validation function
     CORS(app, 
-         origins=allowed_origins,
+         origins=is_allowed_origin,  # Pass function instead of list
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
          allow_headers=["Content-Type", "Authorization", "Accept", "DNT", "User-Agent", "X-Requested-With", "If-Modified-Since", "Cache-Control"],
          supports_credentials=False
@@ -156,7 +169,8 @@ def setup_flask_app(app_name="VirtualPyTest"):
 
     # Add WebSocket support for async task notifications
     from flask_socketio import SocketIO
-    socketio = SocketIO(app, cors_allowed_origins=allowed_origins, async_mode='threading', path='/server/socket.io')
+    # SocketIO will use the same origin validation function
+    socketio = SocketIO(app, cors_allowed_origins=is_allowed_origin, async_mode='threading', path='/server/socket.io')
     app.socketio = socketio
 
     return app

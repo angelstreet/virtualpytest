@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle';
 const Header: React.FC = () => {
   return (
     <AppBar position="static" elevation={1}>
-      <Toolbar>
+      <Toolbar sx={{ minHeight: 60 }}>
         <Science sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           VirtualPyTest
