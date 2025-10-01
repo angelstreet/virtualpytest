@@ -327,12 +327,31 @@ class NavigationExecutor:
                     nav_context['current_node_id'] = None
                     nav_context['current_node_label'] = None
                     nav_context['last_verified_timestamp'] = 0
+            elif not current_position:
+                # Current position is null - quick check if already at destination
+                print(f"[@navigation_executor:execute_navigation] No current position - checking if already at target")
+                verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
+                if verification_result.get('success'):
+                    print(f"[@navigation_executor:execute_navigation] ✅ Already at target '{target_node_label or target_node_id}' - no navigation needed")
+                    nav_context['last_verified_timestamp'] = time.time()
+                    self.update_current_position(target_node_id, tree_id, target_node_label)
+                    nav_context['current_node_navigation_success'] = True
+                    return self._build_result(
+                        True,
+                        f"Already at target '{target_node_label or target_node_id}'",
+                        tree_id, target_node_id, current_node_id, start_time,
+                        transitions_executed=0,
+                        total_transitions=0,
+                        actions_executed=0,
+                        total_actions=0,
+                        path_length=0,
+                        already_at_target=True,
+                        unified_pathfinding_used=True,
+                        navigation_path=[]
+                    )
             else:
-                # Positions don't match or current_position is None - skip verification
-                if not current_position:
-                    print(f"[@navigation_executor:execute_navigation] No current position - skipping verification, will navigate from entry point")
-                else:
-                    print(f"[@navigation_executor:execute_navigation] Current position ({current_position}) != target ({target_node_id}) - skipping verification, proceeding with navigation")
+                # Positions don't match - proceed with navigation
+                print(f"[@navigation_executor:execute_navigation] Current position ({current_position}) != target ({target_node_id}) - proceeding with navigation")
             
             # Use unified pathfinding with current navigation context position
             navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))
@@ -471,6 +490,7 @@ class NavigationExecutor:
                 
                 # Queue KPI measurement ONLY if main actions succeeded (not retry/failure actions)
                 if result.get('success', False) and result.get('main_actions_succeeded', False):
+                    print(f"[@navigation_executor:execute_navigation] Main actions succeeded for step {step_num}/{len(navigation_path)} - evaluating KPI queue")
                     # Get actual action completion timestamp from navigation context
                     # (ActionExecutor updates this after all iterations and waits complete)
                     nav_context = self.device.navigation_context
@@ -1091,17 +1111,19 @@ class NavigationExecutor:
             target_node_id = step.get('to_node_id')
             target_tree_id = step.get('to_tree_id')  # ONE TRUTH: use to_tree_id (target tree)
             edge_id = step.get('edge_id')
+
+            print(f"[@navigation_executor:_queue_kpi_measurement] Evaluating KPI queue for edge {edge_id} → node {target_node_id}")
             
             if not target_node_id:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_node_id in step - skipping KPI")
+                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_node_id in step - skipping KPI queue")
                 return
             
             if not target_tree_id:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_tree_id in step - skipping KPI")
+                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_tree_id in step - skipping KPI queue")
                 return
             
             if not edge_id:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Missing edge_id in step - skipping KPI")
+                print(f"[@navigation_executor:_queue_kpi_measurement] Missing edge_id in step - skipping KPI queue")
                 return
             
             # Get target node's KPI references
@@ -1109,6 +1131,7 @@ class NavigationExecutor:
             node_result = get_node_by_id(target_tree_id, target_node_id, team_id)
             
             if not node_result.get('success'):
+                print(f"[@navigation_executor:_queue_kpi_measurement] Failed to load node {target_node_id} in tree {target_tree_id} - skipping KPI queue")
                 return
             
             node_data = node_result['node']
@@ -1126,6 +1149,7 @@ class NavigationExecutor:
                 print(f"[@navigation_executor:_queue_kpi_measurement] Using kpi_references for KPI (count: {len(kpi_references)})")
             
             if not kpi_references:
+                print(f"[@navigation_executor:_queue_kpi_measurement] Node {target_node_id} has no KPI references configured - skipping KPI queue")
                 return
             
             # Get capture directory from device (MANDATORY)
