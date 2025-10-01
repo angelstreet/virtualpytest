@@ -412,15 +412,15 @@ class VerificationExecutor:
                 'team_id': team_id  # Pass team_id for database operations
             }
             
+            # Add source_image_path to config if provided (for offline/post-processing)
+            if image_source_url:
+                verification_config['source_image_path'] = image_source_url
+            
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing image_source_url to controller: {image_source_url}")
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
             
-            # Direct controller execution (same pattern as ActionExecutor)
-            if verification_type == 'video':
-                verification_result = controller.execute_verification(verification_config, image_source_url)
-            else:
-                # Other controllers don't support image_source_url parameter yet
-                verification_result = controller.execute_verification(verification_config)
+            # Direct controller execution
+            verification_result = controller.execute_verification(verification_config)
             
             # ALWAYS capture screenshot after verification - success OR failure
             screenshot_path = ""

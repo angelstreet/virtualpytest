@@ -20,8 +20,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 
 # Dummy data for testing
 dummy_request = KPIMeasurementRequest(
-    execution_result_id="test_id_123",
-    team_id="test_team",
+    execution_result_id="test_id_123",  # Fake UUID - DB update will fail but verification logic will work
+    team_id="7fdeb4bb-3639-4ec3-959f-b54769a219ce",  # Real team_id for DB queries
     capture_dir="/var/www/html/stream/capture3/captures",  # Use a real dir from your setup
     action_timestamp=time.time(),
     kpi_references=[{"verification_type": "image", "command": "waitForImageToAppear", "params": {"image_path": "home", "threshold": 0.9}}],
