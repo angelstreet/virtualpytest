@@ -488,19 +488,15 @@ class NavigationExecutor:
                     # Simple message without redundant step number
                     step_result['message'] = f"{from_node} → {to_node}"
                 
-                # Queue KPI measurement ONLY if main actions succeeded (not retry/failure actions)
+                # Store action success for KPI queueing after final verification
                 if result.get('success', False) and result.get('main_actions_succeeded', False):
-                    print(f"[@navigation_executor:execute_navigation] Main actions succeeded for step {step_num}/{len(navigation_path)} - evaluating KPI queue")
                     # Get actual action completion timestamp from navigation context
-                    # (ActionExecutor updates this after all iterations and waits complete)
                     nav_context = self.device.navigation_context
                     action_completion_timestamp = nav_context.get('last_action_timestamp', step_start_time)
-                    
-                    self._queue_kpi_measurement_if_configured(
-                        step=step,
-                        action_timestamp=action_completion_timestamp,
-                        team_id=team_id
-                    )
+                    # Store for KPI queueing after final verification
+                    nav_context['kpi_step'] = step
+                    nav_context['kpi_action_timestamp'] = action_completion_timestamp
+                    print(f"[@navigation_executor:execute_navigation] Main actions succeeded for step {step_num}/{len(navigation_path)} - KPI will be queued after final verification")
                 
                 if not result.get('success', False):
                     error_msg = result.get('error', 'Unknown error')
@@ -591,6 +587,24 @@ class NavigationExecutor:
                 )
             
             print(f"[@navigation_executor] ✅ Final verification passed")
+            
+            # Queue KPI measurement AFTER final verification passes
+            # Only if main actions were executed and succeeded
+            kpi_step = nav_context.get('kpi_step')
+            kpi_action_timestamp = nav_context.get('kpi_action_timestamp')
+            
+            if kpi_step and kpi_action_timestamp:
+                print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
+                self._queue_kpi_measurement_if_configured(
+                    step=kpi_step,
+                    action_timestamp=kpi_action_timestamp,
+                    team_id=team_id
+                )
+                # Clear KPI context
+                nav_context['kpi_step'] = None
+                nav_context['kpi_action_timestamp'] = None
+            else:
+                print(f"[@navigation_executor] No KPI to queue (no actions were executed or actions failed)")
             
             # Update position if navigation succeeded
             if navigation_path:
