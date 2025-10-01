@@ -99,24 +99,33 @@ def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
             segment_examples.append(f'{{"segment_num":{info["seg_num"]},"enhanced_text":"improved text here"}}')
         
         # AI enhancement prompt - focused on accuracy improvement with strict JSON format
-        prompt = f"""CONTEXT: Your goal is to improve audio-to-text transcriptions detected with Whisper AI.
-Provide better and more coherent transcriptions when required. Fix obvious errors while keeping the original language.
+        prompt = f"""CONTEXT: You are improving audio-to-text transcriptions from Whisper AI.
 
-Transcripts to improve (language specified per line):
+IMPORTANT: These are {len(segment_info)} consecutive 10-second audio segments (total ~{len(segment_info)*10} seconds of continuous audio).
+They are part of the same conversation or program on TV. Read ALL segments first to understand the full context, then improve each one.
+
+HOW TO PROCESS:
+1. Read all {len(segment_info)} segments below to understand the complete context
+2. Use context from previous and next segments to improve each transcript
+3. Look for patterns across segments to fix errors more accurately
+4. Maintain conversation flow and coherence across all segments
+
+Transcripts to improve (consecutive 10s segments, language specified per line):
 {combined}
 
-RULES:
-1. Fix speech-to-text errors (mishearings, wrong words)
-2. Improve grammar and coherence
+ENHANCEMENT RULES:
+1. Fix speech-to-text errors using context from ALL segments
+2. Improve grammar and coherence while considering the full conversation
 3. KEEP THE ORIGINAL LANGUAGE - DO NOT TRANSLATE (French stays French, English stays English)
-4. If text is repetitive or garbled, provide the most likely correct version
-5. Keep responses concise and natural
-6. Only improve when needed - if text is already good, keep it similar
+4. Use surrounding segments to disambiguate unclear words
+5. If text is repetitive or garbled, infer meaning from context
+6. Keep responses concise and natural
+7. Only improve when needed - if text is already good, keep it similar
 
 Return ONLY valid JSON with ALL {len(segment_info)} segments (no markdown, no explanations):
-{{"enhanced":[{segment_examples[0]},{segment_examples[1] if len(segment_examples) > 1 else '...'},...all segments]}}
+{{"enhanced":[{segment_examples[0]},{segment_examples[1] if len(segment_examples) > 1 else '...'},...all {len(segment_info)} segments]}}
 
-CRITICAL: Return valid JSON only. Respect each segment's detected language. Escape special characters properly."""
+CRITICAL: Use full context. Return valid JSON only. Respect each segment's language. Escape special characters."""
         
         logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
         logger.info(f"[{capture_folder}] 📋 AI Enhancement Prompt:")
