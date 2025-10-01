@@ -54,15 +54,7 @@ class SimpleAIAnalyzer:
         except ImportError:
             raise ValueError("AI utilities not available")
         
-        # Initialize Supabase client for database access
-        try:
-            from shared.src.lib.utils.supabase_utils import get_supabase_client
-            self.supabase = get_supabase_client()
-        except Exception as e:
-            print(f"[@ai_analyzer] Warning: Could not initialize Supabase client: {e}")
-            self.supabase = None
-        
-        print(f"[@ai_analyzer] Initialized with OpenRouter API")
+        print(f"[@ai_analyzer] Initialized with OpenRouter API (database access via shared utilities)")
     
     def analyze_alert(self, alert_data: Dict[str, Any]) -> AnalysisResult:
         """Analyze alert for false positive detection"""
@@ -548,19 +540,8 @@ Respond ONLY in this JSON format:
     def _get_script_from_database(self, script_id: str) -> Optional[Dict[str, Any]]:
         """Get complete script result data from database"""
         try:
-            if not self.supabase:
-                print(f"[@ai_analyzer] No Supabase client available")
-                return None
-            
-            result = self.supabase.table('script_results').select('*').eq('id', script_id).single().execute()
-            
-            if result.data:
-                print(f"[@ai_analyzer] Retrieved script data from database: {result.data.get('script_name', 'Unknown')}")
-                return result.data
-            else:
-                print(f"[@ai_analyzer] Script {script_id} not found in database")
-                return None
-                
+            from shared.src.lib.supabase.script_results_db import get_script_by_id
+            return get_script_by_id(script_id)
         except Exception as e:
             print(f"[@ai_analyzer] Error retrieving script from database: {e}")
             return None
@@ -568,19 +549,8 @@ Respond ONLY in this JSON format:
     def _get_alert_from_database(self, alert_id: str) -> Optional[Dict[str, Any]]:
         """Get complete alert data from database"""
         try:
-            if not self.supabase:
-                print(f"[@ai_analyzer] No Supabase client available")
-                return None
-            
-            result = self.supabase.table('alerts').select('*').eq('id', alert_id).single().execute()
-            
-            if result.data:
-                print(f"[@ai_analyzer] Retrieved alert data from database: {result.data.get('incident_type', 'Unknown')}")
-                return result.data
-            else:
-                print(f"[@ai_analyzer] Alert {alert_id} not found in database")
-                return None
-                
+            from shared.src.lib.supabase.alerts_db import get_alert_by_id
+            return get_alert_by_id(alert_id)
         except Exception as e:
             print(f"[@ai_analyzer] Error retrieving alert from database: {e}")
             return None

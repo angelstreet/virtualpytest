@@ -317,4 +317,30 @@ def delete_script_result(team_id: str, script_result_id: str) -> bool:
             
     except Exception as e:
         print(f"[@db:script_results:delete_script_result] Error: {str(e)}")
-        return False 
+        return False
+
+def get_script_by_id(script_id: str) -> Optional[Dict]:
+    """Get a single script result by ID.
+    
+    Args:
+        script_id: The UUID of the script result to retrieve
+        
+    Returns:
+        Script result data dict if found, None otherwise
+    """
+    try:
+        print(f"[@db:script_results:get_script_by_id] Getting script: {script_id}")
+        
+        supabase = get_supabase()
+        result = supabase.table('script_results').select('*').eq('id', script_id).single().execute()
+        
+        if result.data:
+            print(f"[@db:script_results:get_script_by_id] Found script: {result.data.get('script_name', 'Unknown')}")
+            return result.data
+        else:
+            print(f"[@db:script_results:get_script_by_id] Script not found: {script_id}")
+            return None
+            
+    except Exception as e:
+        print(f"[@db:script_results:get_script_by_id] Error: {str(e)}")
+        return None 

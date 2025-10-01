@@ -574,4 +574,30 @@ def delete_all_alerts() -> Dict:
             'success': False,
             'error': str(e),
             'deleted_count': 0
-        } 
+        }
+
+def get_alert_by_id(alert_id: str) -> Optional[Dict]:
+    """Get a single alert by ID.
+    
+    Args:
+        alert_id: The UUID of the alert to retrieve
+        
+    Returns:
+        Alert data dict if found, None otherwise
+    """
+    try:
+        print(f"[@db:alerts:get_alert_by_id] Getting alert: {alert_id}")
+        
+        supabase = get_supabase()
+        result = supabase.table('alerts').select('*').eq('id', alert_id).single().execute()
+        
+        if result.data:
+            print(f"[@db:alerts:get_alert_by_id] Found alert: {result.data.get('incident_type', 'Unknown')}")
+            return result.data
+        else:
+            print(f"[@db:alerts:get_alert_by_id] Alert not found: {alert_id}")
+            return None
+            
+    except Exception as e:
+        print(f"[@db:alerts:get_alert_by_id] Error: {str(e)}")
+        return None 
