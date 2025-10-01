@@ -217,14 +217,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       }
     }
     
-    // Fallback to archive.m3u8 (single manifest mode)
+    // Fallback to archive1.m3u8 (first manifest) while metadata is loading
     if (providedStreamUrl) {
-      return providedStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive.m3u8');
+      return providedStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive1.m3u8');
     }
     if (hookStreamUrl) {
-      return hookStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive.m3u8');
+      return hookStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive1.m3u8');
     }
-    return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
+    return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive1.m3u8`;
   }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex]);
 
   // Seek to live edge when switching to live mode

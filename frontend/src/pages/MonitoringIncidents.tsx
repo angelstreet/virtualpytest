@@ -497,13 +497,37 @@ const MonitoringIncidents: React.FC = () => {
 
     return (
       <Box sx={{ p: 2 }}>
-        {/* Freeze Detection Analysis */}
+        {/* Freeze Detection Analysis - All frames in one row */}
         {alert.incident_type === 'freeze' && freezeImageUrls.length > 0 && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold', color: 'error.main' }}>
-              🔴 Freeze Detection Frames
-            </Typography>
             <Grid container spacing={2} alignItems="center">
+              {/* Start Image */}
+              {imageUrls.hasR2Images && (
+                <Grid item>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="caption" display="block" sx={{ mb: 1, color: 'text.secondary' }}>
+                      Start
+                    </Typography>
+                    <Box
+                      component="img"
+                      src={imageUrls.thumbnailUrl || ''}
+                      alt="Alert start"
+                      sx={{
+                        width: 120,
+                        height: 90,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        cursor: 'pointer',
+                        '&:hover': { opacity: 0.8 },
+                      }}
+                      onClick={() => handleFreezeClick(alert)}
+                    />
+                  </Box>
+                </Grid>
+              )}
+
+              {/* 3 Freeze Frames */}
               {freezeImageUrls.map((imageUrl, index) => {
                 const diff = freezeDiffs[index];
                 const isCurrentFrame = index === 2;
@@ -533,9 +557,7 @@ const MonitoringIncidents: React.FC = () => {
                           border: isCurrentFrame ? '2px solid' : '1px solid',
                           borderColor: isCurrentFrame ? 'error.main' : 'divider',
                           cursor: 'pointer',
-                          '&:hover': {
-                            opacity: 0.8,
-                          },
+                          '&:hover': { opacity: 0.8 },
                         }}
                         onClick={() => handleFreezeClick(alert)}
                       />
@@ -557,6 +579,35 @@ const MonitoringIncidents: React.FC = () => {
                 );
               })}
 
+              {/* End Image (if resolved) */}
+              {alert.status === 'resolved' && imageUrls.hasR2Images && (
+                <Grid item>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="caption" display="block" sx={{ mb: 1, color: 'text.secondary' }}>
+                      End
+                    </Typography>
+                    <Box
+                      component="img"
+                      src={imageUrls.thumbnailUrl || ''}
+                      alt="Alert end"
+                      sx={{
+                        width: 120,
+                        height: 90,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        cursor: 'pointer',
+                        '&:hover': { opacity: 0.8 },
+                      }}
+                      onClick={() => {
+                        const url = imageUrls.originalUrl || imageUrls.thumbnailUrl;
+                        if (url) window.open(url, '_blank');
+                      }}
+                    />
+                  </Box>
+                </Grid>
+              )}
+
               {/* Threshold info */}
               <Grid item>
                 <Box sx={{ ml: 2, p: 1, bgcolor: 'rgba(255, 0, 0, 0.1)', borderRadius: 1 }}>
@@ -572,8 +623,8 @@ const MonitoringIncidents: React.FC = () => {
           </Box>
         )}
 
-        {/* Regular alert images */}
-        {imageUrls.hasR2Images && (
+        {/* Regular alert images (skip for freeze - shown above) */}
+        {imageUrls.hasR2Images && alert.incident_type !== 'freeze' && (
           <Box>
             <Grid container spacing={3} alignItems="center">
               {/* Start Time Image */}

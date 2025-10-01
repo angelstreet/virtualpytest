@@ -28,6 +28,26 @@ SAMPLE_INTERVAL = 10  # Sample every 10 seconds
 MAX_DURATION_HOURS = 24
 MAX_SAMPLES = (MAX_DURATION_HOURS * 3600) // SAMPLE_INTERVAL  # 8,640 samples
 
+def cleanup_logs_on_startup():
+    """Clean up log file on service restart for fresh debugging"""
+    try:
+        log_file = '/tmp/transcript_accumulator.log'
+        
+        print(f"[@transcript_accumulator] Cleaning log on service restart...")
+        
+        if os.path.exists(log_file):
+            # Truncate the file instead of deleting to avoid permission issues
+            with open(log_file, 'w') as f:
+                f.write(f"=== LOG CLEANED ON SERVICE RESTART: {datetime.now().isoformat()} ===\n")
+            print(f"[@transcript_accumulator] ✓ Cleaned: {log_file}")
+        else:
+            print(f"[@transcript_accumulator] ○ Not found (will be created): {log_file}")
+                
+        print(f"[@transcript_accumulator] Log cleanup complete - fresh logs for debugging")
+                
+    except Exception as e:
+        print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
+
 def transcribe_segment(segment_path, segment_num):
     """Extract audio and transcribe single segment using Whisper"""
     try:
@@ -155,6 +175,8 @@ def update_transcript_buffer(capture_dir):
         logger.error(f"Error updating transcript buffer for {capture_dir}: {e}")
 
 def main():
+    cleanup_logs_on_startup()  # Clean log on startup
+    
     logger.info("Starting Transcript Accumulator (10s sampling, 24h circular buffer)...")
     capture_dirs = get_capture_directories()
     logger.info(f"Monitoring {len(capture_dirs)} capture directories")

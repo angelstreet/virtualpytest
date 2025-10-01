@@ -135,15 +135,22 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
           {framesCompared.map((filename: string, index: number) => {
-            // Extract just the filename if it's a full path
+            // Check if filename is already a full URL (starts with http:// or https://)
+            const isFullUrl = filename.startsWith('http://') || filename.startsWith('https://');
+            
+            // Extract just the filename for local paths or from URL for sequence number display
             const cleanFilename = filename.includes('/')
               ? filename.split('/').pop() || filename
               : filename;
-            const frameUrl = constructFrameUrl(cleanFilename, freezeModalImage.image_url);
+            
+            // If it's a full URL, use it directly; otherwise construct it
+            const frameUrl = isFullUrl 
+              ? filename 
+              : constructFrameUrl(cleanFilename, freezeModalImage.image_url);
             const diff = frameDifferences[index];
 
-            // Extract sequence number from filename (format: capture_0001.jpg)
-            const sequenceMatch = cleanFilename.match(/capture_(\d+)/);
+            // Extract sequence number from filename (format: capture_0001.jpg or thumb_0.jpg)
+            const sequenceMatch = cleanFilename.match(/(?:capture_|thumb_)(\d+)/);
             const sequenceNumber = sequenceMatch ? sequenceMatch[1] : '';
 
             // Format sequence number for display
