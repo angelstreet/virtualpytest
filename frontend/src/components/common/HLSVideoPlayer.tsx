@@ -388,10 +388,13 @@ export function HLSVideoPlayer({
       hls.on(HLS.Events.FRAG_LOADED, () => {
         setSegmentFailureCount(0);
         // Clear any existing error messages when fragments load successfully (indicates recovery)
-        if (streamError) {
-          console.log('[@component:HLSVideoPlayer] Stream recovered, clearing error message');
-          setStreamError(null);
-        }
+        setStreamError((prev) => {
+          if (prev) {
+            console.log('[@component:HLSVideoPlayer] Stream recovered, clearing error message');
+            return null;
+          }
+          return prev;
+        });
       });
 
       // Single latency correction mechanism - only for live mode
