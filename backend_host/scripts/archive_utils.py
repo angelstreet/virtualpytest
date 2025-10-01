@@ -13,6 +13,30 @@ logger = logging.getLogger(__name__)
 # Cache for device mappings to avoid repeated .env lookups
 _device_mapping_cache = {}
 
+# Load environment variables using same approach as incident_manager.py
+try:
+    from dotenv import load_dotenv
+    
+    # Get script paths
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    backend_host_dir = os.path.dirname(current_dir)
+    project_root = os.path.dirname(backend_host_dir)
+    
+    # Load project root .env first
+    project_env_path = os.path.join(project_root, '.env')
+    if os.path.exists(project_env_path):
+        load_dotenv(project_env_path)
+        logger.debug(f"Loaded project environment from {project_env_path}")
+    
+    # Load backend_host .env second
+    backend_env_path = os.path.join(backend_host_dir, 'src', '.env')
+    if os.path.exists(backend_env_path):
+        load_dotenv(backend_env_path)
+        logger.debug(f"Loaded backend_host environment from {backend_env_path}")
+        
+except ImportError:
+    logger.warning("python-dotenv not available, relying on system environment")
+
 
 def get_device_info_from_capture_folder(capture_folder):
     """
@@ -24,9 +48,11 @@ def get_device_info_from_capture_folder(capture_folder):
         return _device_mapping_cache[capture_folder]
     
     capture_path = f"/var/www/html/stream/{capture_folder}"
+    logger.debug(f"[get_device_info] Looking up {capture_folder} -> {capture_path}")
     
     # Check HOST first
     host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
+    logger.debug(f"[get_device_info] HOST_VIDEO_CAPTURE_PATH={host_capture_path}")
     
     if host_capture_path == capture_path:
         host_name = os.getenv('HOST_NAME', 'unknown')

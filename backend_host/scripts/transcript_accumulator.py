@@ -62,7 +62,11 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
     Args:
         capture_dir: Path to capture directory
         max_samples_per_run: Maximum number of samples to process in one call (for alternating between devices)
+    
+    Returns:
+        bool: True if samples were processed, False if nothing to process
     """
+    start_time = time.time()
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')
@@ -97,7 +101,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         # Find available segments
         segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
         if not segment_files:
-            return
+            logger.debug(f"[{capture_folder}] No segment files found")
+            return False
         
         # Get all segments and find new ones to process
         all_segment_nums = []
@@ -124,8 +129,9 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                     segments_to_process.append((seg_num, batch))  # (target_seg_num, list_of_10_segments)
         
         if not segments_to_process:
-            logger.info(f"[{capture_folder}] ⏸️  No new samples to process (waiting for segments after #{last_processed})")
-            return
+            # No new segments to process
+            logger.debug(f"[{capture_folder}] No new samples (waiting for seg after #{last_processed})")
+            return False
         
         # Limit processing to max_samples_per_run (for alternating between devices)
         total_pending = len(segments_to_process)
@@ -141,6 +147,10 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             # Extract TS file paths from batch
             ts_file_paths = [seg_path for _, seg_path in segment_batch]
             
+            # Start timing
+            seg_start_time = time.time()
+            logger.info(f"[{capture_folder}] 🎬 seg#{segment_num} ({len(segment_batch)} merged) - processing...")
+            
             # Transcribe merged segments (utility handles merging + transcription + cleanup)
             # Pre-checks audio level to skip Whisper on silent segments (saves CPU on RPi)
             result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
@@ -149,6 +159,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             language = result.get('language', 'unknown')
             confidence = result.get('confidence', 0.0)
             skipped = result.get('skipped', False)
+            seg_elapsed = time.time() - seg_start_time
             
             relative_seconds = segment_num
             manifest_window = (relative_seconds // 3600) + 1
@@ -163,12 +174,14 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 'segments_merged': len(segment_batch)  # Track how many segments were merged
             }
             
+            # Compact logging: all info in 2-3 lines
             if transcript:
-                logger.info(f"[{capture_folder}] 📝 seg#{segment_num} ({len(segment_batch)} merged) - {language}: '{transcript}'")
+                logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
+                logger.info(f"[{capture_folder}] 💬 Transcript: '{transcript}'")
             elif skipped:
-                logger.info(f"[{capture_folder}] 🔇 seg#{segment_num} ({len(segment_batch)} merged) - Silent (Whisper skipped)")
+                logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
             else:
-                logger.info(f"[{capture_folder}] 🔇 seg#{segment_num} ({len(segment_batch)} merged) - No speech detected")
+                logger.info(f"[{capture_folder}] 🔇 No speech detected | Duration: {seg_elapsed:.1f}s")
         
         # Circular buffer: Keep only last MAX_SAMPLES
         all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
@@ -176,25 +189,28 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             all_segments = all_segments[-MAX_SAMPLES:]
             logger.info(f"[{capture_folder}] Circular buffer: pruned to {MAX_SAMPLES} samples")
         
-        # Save updated transcript (atomic write)
-        transcript_data = {
-            'capture_folder': capture_folder,
-            'sample_interval_seconds': SAMPLE_INTERVAL,
-            'total_duration_seconds': MAX_DURATION_HOURS * 3600,
-            'segments': all_segments,
-            'last_update': datetime.now().isoformat(),
-            'total_samples': len(all_segments),
-            'last_processed_segment': segments_to_process[-1][0] if segments_to_process else last_processed
-        }
+        # Update transcript data
+        transcript_data['capture_folder'] = capture_folder
+        transcript_data['sample_interval_seconds'] = SAMPLE_INTERVAL
+        transcript_data['total_duration_seconds'] = MAX_DURATION_HOURS * 3600
+        transcript_data['segments'] = all_segments
+        transcript_data['last_update'] = datetime.now().isoformat()
+        transcript_data['total_samples'] = len(all_segments)
+        transcript_data['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
         
+        # Save immediately after processing this device (atomic write)
         with open(transcript_path + '.tmp', 'w') as f:
             json.dump(transcript_data, f, indent=2)
         os.rename(transcript_path + '.tmp', transcript_path)
         
-        logger.info(f"[{capture_folder}] ✅ Transcript buffer updated: {len(all_segments)} samples (processed {len(segments_to_process)} new)")
+        elapsed = time.time() - start_time
+        logger.info(f"[{capture_folder}] ✅ Saved transcript_segments.json: {len(all_segments)} total samples (processed {len(segments_to_process)} new) [{elapsed:.2f}s]")
+        return True
         
     except Exception as e:
-        logger.error(f"Error updating transcript buffer for {capture_dir}: {e}")
+        elapsed = time.time() - start_time
+        logger.error(f"[{capture_folder}] ❌ Error updating transcript buffer: {e} [{elapsed:.2f}s]")
+        return False
 
 def main():
     cleanup_logs_on_startup()  # Clean log on startup
@@ -204,15 +220,7 @@ def main():
     
     try:
         capture_dirs = get_capture_directories()
-        logger.info(f"Monitoring {len(capture_dirs)} capture directories")
-        
-        # Log each capture directory being monitored
-        for capture_dir in capture_dirs:
-            capture_folder = get_capture_folder(capture_dir)
-            logger.info(f"  → Monitoring: {capture_dir} -> {capture_folder}")
-        
-        # Whisper model will be loaded on first use and cached globally
-        logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
+        logger.info(f"Found {len(capture_dirs)} capture directories")
         
         # Filter out host device from monitored directories (no audio capture)
         # Uses lightweight device mapping without loading incidents from DB
@@ -223,23 +231,36 @@ def main():
             device_id = device_info.get('device_id', capture_folder)
             is_host = (device_id == 'host')
             
+            logger.info(f"  [{capture_folder}] device_id={device_id}, is_host={is_host}")
+            
             if is_host:
                 logger.info(f"  ⊗ Skipping: {capture_dir} -> {capture_folder} (host has no audio)")
             else:
+                logger.info(f"  ✓ Monitoring: {capture_dir} -> {capture_folder}")
                 monitored_devices.append(capture_dir)
         
+        # Whisper model will be loaded on first use and cached globally
+        logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
+        
         logger.info(f"Monitoring {len(monitored_devices)} devices for transcripts (excluding host)")
-        logger.info("Processing strategy: 1 sample per device per cycle (alternating for fairness)")
+        logger.info("Processing strategy: Continuous loop, process when 10 new segments available")
         
         while True:
+            any_processed = False
+            
             for i, capture_dir in enumerate(monitored_devices, 1):
                 capture_folder = get_capture_folder(capture_dir)
                 logger.debug(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
                 # Process 1 sample at a time to alternate between devices
-                update_transcript_buffer(capture_dir, max_samples_per_run=1)
+                # Returns True if processed, False if nothing to process
+                was_processed = update_transcript_buffer(capture_dir, max_samples_per_run=1)
+                if was_processed:
+                    any_processed = True
             
-            logger.info(f"🔄 Completed full cycle for {len(monitored_devices)} devices, sleeping 60s...")
-            time.sleep(60)  # Check every 60s
+            # If no device had anything to process, sleep briefly to avoid CPU spin
+            if not any_processed:
+                logger.debug(f"⏸️  No devices ready, sleeping 1s...")
+                time.sleep(1)
             
     except Exception as e:
         logger.error(f"Fatal error in main loop: {e}")

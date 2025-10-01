@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from detector import detect_issues
 from incident_manager import IncidentManager
-from archive_utils import get_capture_directories, get_capture_folder
+from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
 
 # Setup logging to /tmp/capture_monitor.log
 logging.basicConfig(
@@ -104,7 +104,7 @@ def main():
                 detection_result = detect_issues(frame_path)
                 
                 # Get device info to check if this is the host
-                device_info = incident_manager.get_device_info_from_capture_folder(capture_folder)
+                device_info = get_device_info_from_capture_folder(capture_folder)
                 device_id = device_info.get('device_id', capture_folder)
                 is_host = (device_id == 'host')
                 

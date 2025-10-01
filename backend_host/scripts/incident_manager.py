@@ -16,6 +16,9 @@ project_root = os.path.dirname(backend_host_dir)          # project root
 
 sys.path.insert(0, project_root)
 
+# Import shared device detection utility
+from archive_utils import get_device_info_from_capture_folder
+
 # Load environment variables from BOTH .env files
 try:
     from dotenv import load_dotenv
@@ -76,7 +79,6 @@ INCIDENT = 1
 class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
-        self.device_mapping_cache = {}  # Cache device mappings to avoid repeated lookups
         self.INCIDENT_REPORT_DELAY = 300  # Only report to DB after 5 minutes of continuous detection
         self._load_active_incidents_from_db()
         
@@ -152,7 +154,7 @@ class IncidentManager:
             # Get list of device_ids we're currently monitoring
             monitored_device_ids = set()
             for capture_folder in monitored_capture_folders:
-                device_info = self.get_device_info_from_capture_folder(capture_folder)
+                device_info = get_device_info_from_capture_folder(capture_folder)
                 device_id = device_info.get('device_id', capture_folder)
                 monitored_device_ids.add(device_id)
             
@@ -187,63 +189,13 @@ class IncidentManager:
         except Exception as e:
             logger.error(f"[@incident_manager] Error cleaning up orphaned incidents: {e}")
     
-    def get_device_info_from_capture_folder(self, capture_folder):
-        """Get device info from .env by matching capture path - with caching to reduce log spam"""
-        # Check cache first
-        if capture_folder in self.device_mapping_cache:
-            return self.device_mapping_cache[capture_folder]
-        
-        import os
-        capture_path = f"/var/www/html/stream/{capture_folder}"
-        
-        logger.debug(f"[{capture_folder}] Performing device mapping lookup for capture_folder='{capture_folder}'")
-        
-        # Check HOST first
-        host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
-        
-        if host_capture_path == capture_path:
-            host_name = os.getenv('HOST_NAME', 'unknown')
-            host_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')
-            device_info = {
-                'device_id': 'host',
-                'device_name': f"{host_name}_Host",
-                'stream_path': host_stream_path,
-                'capture_path': capture_folder
-            }
-            logger.info(f"[{capture_folder}] Mapped to HOST device: {host_name}_Host")
-            self.device_mapping_cache[capture_folder] = device_info
-            return device_info
-        
-        # Check DEVICE1-4
-        for i in range(1, 5):
-            device_capture_path = os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
-            device_name = os.getenv(f'DEVICE{i}_NAME', f'device{i}')
-            device_stream_path = os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH')
-            
-            if device_capture_path == capture_path:
-                device_info = {
-                    'device_id': f'device{i}',
-                    'device_name': device_name,
-                    'stream_path': device_stream_path,
-                    'capture_path': capture_folder
-                }
-                logger.info(f"[{capture_folder}] Mapped to DEVICE{i}: {device_name}")
-                self.device_mapping_cache[capture_folder] = device_info
-                return device_info
-        
-        # Fallback
-        logger.warning(f"[{capture_folder}] No device mapping found, using capture_folder as fallback")
-        device_info = {'device_id': capture_folder, 'device_name': capture_folder, 'stream_path': None, 'capture_path': capture_folder}
-        self.device_mapping_cache[capture_folder] = device_info
-        return device_info
-    
     def create_incident(self, capture_folder, issue_type, host_name, analysis_result=None):
         """Create new incident in DB using original working method"""
         try:
             logger.info(f"[{capture_folder}] DB INSERT: Creating {issue_type} incident")
             
             # Get device info from .env by matching capture folder
-            device_info = self.get_device_info_from_capture_folder(capture_folder)
+            device_info = get_device_info_from_capture_folder(capture_folder)
             device_id = device_info.get('device_id', capture_folder)  # Use logical device_id
             device_name = device_info['device_name']
             capture_path = device_info.get('capture_path', capture_folder)  # Use capture folder name
@@ -333,7 +285,7 @@ class IncidentManager:
     def process_detection(self, capture_folder, detection_result, host_name):
         """Process detection result and update state with 30-second delay before DB reporting"""
         # Get device_id from capture_folder
-        device_info = self.get_device_info_from_capture_folder(capture_folder)
+        device_info = get_device_info_from_capture_folder(capture_folder)
         device_id = device_info.get('device_id', capture_folder)
         is_host = (device_id == 'host')
         
