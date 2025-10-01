@@ -7,7 +7,7 @@ import os
 import time
 import logging
 from datetime import datetime
-from archive_utils import get_capture_directories, get_capture_folder, update_archive_manifest
+from archive_utils import get_capture_directories, get_capture_folder, update_archive_manifest, get_device_info_from_capture_folder
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,10 +44,26 @@ def main():
     
     logger.info("Starting Archive Manifest Generator...")
     capture_dirs = get_capture_directories()
-    logger.info(f"Monitoring {len(capture_dirs)} capture directories")
+    logger.info(f"Found {len(capture_dirs)} capture directories")
+    
+    # Filter out host device (host has no video segments to archive)
+    monitored_devices = []
+    for capture_dir in capture_dirs:
+        capture_folder = get_capture_folder(capture_dir)
+        device_info = get_device_info_from_capture_folder(capture_folder)
+        device_id = device_info.get('device_id', capture_folder)
+        is_host = (device_id == 'host')
+        
+        if is_host:
+            logger.info(f"  ⊗ Skipping: {capture_dir} -> {capture_folder} (host has no video segments)")
+        else:
+            logger.info(f"  → Monitoring: {capture_dir} -> {capture_folder}")
+            monitored_devices.append(capture_dir)
+    
+    logger.info(f"Monitoring {len(monitored_devices)} devices for archive manifests (excluding host)")
     
     while True:
-        for capture_dir in capture_dirs:
+        for capture_dir in monitored_devices:
             update_archive_manifest(capture_dir)
         time.sleep(60)
 
