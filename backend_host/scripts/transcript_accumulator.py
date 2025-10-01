@@ -91,22 +91,36 @@ def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
         combined = "\n".join(transcripts_text)
         
         # AI enhancement prompt - focused on accuracy improvement with strict JSON format
-        prompt = f"""Enhance these Whisper AI transcripts by fixing errors. Return ONLY valid JSON.
+        prompt = f"""Fix Whisper AI transcription errors. Keep responses SHORT.
 
 Transcripts:
 {combined}
 
-Fix: speech errors, grammar, punctuation. Keep original language. Don't translate.
+Rules:
+- Fix obvious errors and grammar
+- Keep original language (DON'T translate)
+- If text is repetitive, FIX IT (don't repeat it)
+- Keep enhanced text SHORTER than original
 
-Return this EXACT JSON structure (no markdown, no extra text):
-{{"enhanced":[{{"segment_num":123,"enhanced_text":"fixed text"}},{{"segment_num":124,"enhanced_text":"fixed text"}}]}}
+Return ONLY this JSON (NO markdown, NO explanations):
+{{"enhanced":[{{"segment_num":123,"enhanced_text":"fixed short text"}},{{"segment_num":124,"enhanced_text":"another fix"}}]}}
 
-CRITICAL: Return ONLY the JSON object above. No explanation. No markdown. Just JSON."""
+CRITICAL: Be CONCISE. Don't repeat patterns. Return ONLY valid JSON."""
         
         logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
+        logger.info(f"[{capture_folder}] 📋 AI Enhancement Prompt:")
+        logger.info("-" * 80)
+        logger.info(prompt)
+        logger.info("-" * 80)
         
         # Call AI with higher token limit to avoid truncation
         result = call_text_ai(prompt, max_tokens=1500, temperature=0.1)
+        
+        logger.info(f"[{capture_folder}] 📨 AI Response (success={result.get('success')}):")
+        if result.get('success'):
+            logger.info(f"[{capture_folder}] Response length: {len(result.get('content', ''))} chars")
+        else:
+            logger.info(f"[{capture_folder}] Error: {result.get('error', 'Unknown')}")
         
         if not result['success']:
             logger.warning(f"[{capture_folder}] AI enhancement failed: {result.get('error', 'Unknown error')}")
@@ -114,6 +128,11 @@ CRITICAL: Return ONLY the JSON object above. No explanation. No markdown. Just J
         
         # Parse AI response with robust error handling
         content = result['content'].strip()
+        
+        logger.info(f"[{capture_folder}] 📄 Full AI Response:")
+        logger.info("-" * 80)
+        logger.info(content)
+        logger.info("-" * 80)
         
         # Remove markdown code blocks and extra text
         if '```json' in content:
@@ -148,14 +167,22 @@ CRITICAL: Return ONLY the JSON object above. No explanation. No markdown. Just J
                 enhanced_text = item.get('enhanced_text', '').strip()
                 
                 if seg_num is not None and enhanced_text:
+                    # Skip obviously truncated or repetitive text (likely AI token limit hit)
+                    if len(enhanced_text) > 500 or enhanced_text.count(',') > 50:
+                        logger.warning(f"[{capture_folder}] ⚠️ Skipping seg#{seg_num} - enhanced text appears truncated/repetitive")
+                        continue
                     enhanced_map[seg_num] = enhanced_text
             
-            logger.info(f"[{capture_folder}] ✅ AI enhanced {len(enhanced_map)}/{len(segments)} transcripts")
+            if enhanced_map:
+                logger.info(f"[{capture_folder}] ✅ AI enhanced {len(enhanced_map)}/{len(segments)} transcripts")
+            else:
+                logger.warning(f"[{capture_folder}] ⚠️ No valid enhancements (all skipped or empty)")
             return enhanced_map
             
         except json.JSONDecodeError as e:
             logger.warning(f"[{capture_folder}] ⚠️ AI response parsing failed: {e}")
-            logger.warning(f"[{capture_folder}] AI raw response (first 300 chars): {content[:300]}")
+            logger.warning(f"[{capture_folder}] This is likely due to AI token limit truncation")
+            logger.warning(f"[{capture_folder}] Consider reducing AI_ENHANCEMENT_BATCH from {AI_ENHANCEMENT_BATCH} to 5")
             return {}
     
     except Exception as e:
@@ -382,7 +409,10 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             
             # Save this hour's transcript file
             save_hourly_transcript(stream_dir, hour_window, transcript_data)
-            logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples")
+            
+            # Count how many segments have enhanced transcripts
+            enhanced_count = sum(1 for seg in all_segments if seg.get('enhanced_transcript'))
+            logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples ({enhanced_count} enhanced)")
         
         # Update global state
         state['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
