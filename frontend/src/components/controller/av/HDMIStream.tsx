@@ -9,7 +9,7 @@ import {
   KeyboardArrowUp,
 } from '@mui/icons-material';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 
 import { getConfigurableAVPanelLayout, loadAVConfig } from '../../../config/av';
 import { useHdmiStream, useStream } from '../../../hooks/controller';
@@ -181,13 +181,18 @@ export const HDMIStream = React.memo(
       recordingStartTime,
     ]);
 
-    // Return to stream view (remove overlays, keep stream playing)
+    // Return to stream view and restart stream if needed
     const returnToStream = useCallback(() => {
-      console.log(`[@component:HDMIStream] Returning to stream view - removing capture overlays`);
+      console.log(`[@component:HDMIStream] Returning to stream view - restarting stream`);
       // Reset capture mode to stream (removes screenshot/video capture components)
-      // Stream continues playing in background
       setCaptureMode('stream');
       onCaptureModeChange?.('stream');
+      
+      // Force restart the stream to ensure it's working
+      if (hlsRestartRef.current) {
+        console.log(`[@component:HDMIStream] Triggering HLS player restart`);
+        hlsRestartRef.current();
+      }
     }, [setCaptureMode, onCaptureModeChange]);
 
     // Smart toggle handlers with minimized state logic
@@ -439,6 +444,7 @@ export const HDMIStream = React.memo(
                   isCapturing={isCaptureActive}
                   model={effectiveDeviceModel}
                   isExpanded={isExpanded}
+                  onRestartRequest={hlsRestartRef as any}
                   layoutConfig={{
                     minHeight: '100%', // Use full available height of content area
                     aspectRatio: isMobile

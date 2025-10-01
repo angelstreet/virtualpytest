@@ -178,34 +178,6 @@ export function HLSVideoPlayer({
     attemptPlay();
   }, [attemptPlay]);
 
-  // Manual restart handler - clears all errors and reinitializes stream
-  const handleManualRestart = useCallback(() => {
-    console.log('[@component:HLSVideoPlayer] Manual restart triggered');
-    // Reset all error states
-    setStreamError(null);
-    setSegmentFailureCount(0);
-    setFfmpegStuck(false);
-    setRetryCount(0);
-    setStreamLoaded(false);
-    setUseNativePlayer(false);
-    
-    // Cleanup current stream
-    cleanupStream();
-    
-    // Reinitialize after cleanup
-    setTimeout(() => {
-      initializeStream();
-    }, 300);
-  }, [cleanupStream, initializeStream]);
-
-  // Expose restart handler to parent via callback
-  useEffect(() => {
-    if (onRestartRequest) {
-      // Store the restart handler so parent can call it
-      (onRestartRequest as any).current = handleManualRestart;
-    }
-  }, [onRestartRequest, handleManualRestart]);
-
   const nativePlaybackHandlersRef = useRef<{
     loadedmetadata: () => void;
     error: (e: any) => void;
@@ -535,6 +507,34 @@ export function HLSVideoPlayer({
       }, retryDelay);
     }
   }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback, ffmpegStuck]);
+
+  // Manual restart handler - clears all errors and reinitializes stream
+  const handleManualRestart = useCallback(() => {
+    console.log('[@component:HLSVideoPlayer] Manual restart triggered');
+    // Reset all error states
+    setStreamError(null);
+    setSegmentFailureCount(0);
+    setFfmpegStuck(false);
+    setRetryCount(0);
+    setStreamLoaded(false);
+    setUseNativePlayer(false);
+    
+    // Cleanup current stream
+    cleanupStream();
+    
+    // Reinitialize after cleanup
+    setTimeout(() => {
+      initializeStream();
+    }, 300);
+  }, [cleanupStream, initializeStream]);
+
+  // Expose restart handler to parent via callback
+  useEffect(() => {
+    if (onRestartRequest) {
+      // Store the restart handler so parent can call it
+      (onRestartRequest as any).current = handleManualRestart;
+    }
+  }, [onRestartRequest, handleManualRestart]);
 
   const handleStreamError = useCallback(() => {
     // Don't retry if FFmpeg is stuck - requires external intervention
