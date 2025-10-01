@@ -193,30 +193,26 @@ class AudioAIHelpers:
             return []
     
     def extract_audio_from_segments(self, segment_files: List[Tuple[str, str]], segment_count: int = 3) -> List[str]:
-        """Extract audio from specific HLS segments (optimized for restart video with merging)."""
+        """Extract audio from specific HLS segments - delegates to shared utility"""
+        from backend_host.src.lib.utils.audio_transcription_utils import merge_ts_files, extract_audio_from_ts
+        
         try:
             selected_segments = segment_files[-segment_count:] if len(segment_files) > segment_count else segment_files
             
             if not selected_segments:
                 return []
             
-            # For restart video with many segments, merge them first like zap controller
-            if len(selected_segments) > 1:
-                print(f"AudioAI[{self.device_name}]: Merging {len(selected_segments)} TS segments into one file...")
-                
-                # Extract paths for merging
-                ts_paths = [segment_path for _, segment_path in selected_segments]
-                merged_ts = self._merge_ts_files(ts_paths)
+            # Extract paths for merging
+            ts_paths = [segment_path for _, segment_path in selected_segments]
+            
+            # For multiple segments, merge them first (better quality)
+            if len(ts_paths) > 1:
+                print(f"AudioAI[{self.device_name}]: Merging {len(ts_paths)} TS segments into one file...")
+                merged_ts = merge_ts_files(ts_paths)
                 
                 if merged_ts:
-                    # Extract audio from merged file
-                    temp_dir = tempfile.mkdtemp(prefix="restart_audio_")
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-                    audio_filename = f"restart_merged_audio_{timestamp}.wav"
-                    audio_path = os.path.join(temp_dir, audio_filename)
-                    
-                    cmd = ['ffmpeg', '-y', '-i', merged_ts, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', audio_path]
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                    # Extract audio from merged file using utility
+                    audio_path = extract_audio_from_ts(merged_ts)
                     
                     # Cleanup merged TS file
                     try:
@@ -225,83 +221,26 @@ class AudioAIHelpers:
                     except:
                         pass
                     
-                    if result.returncode == 0 and os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
+                    if audio_path:
                         print(f"AudioAI[{self.device_name}]: Successfully extracted merged audio: {os.path.basename(audio_path)}")
                         return [audio_path]
                     else:
                         print(f"AudioAI[{self.device_name}]: Failed to extract audio from merged file")
-                        return []
-                else:
-                    print(f"AudioAI[{self.device_name}]: Failed to merge TS segments, falling back to individual processing")
             
-            # Fallback: process individual segments (original behavior)
-            audio_files = []
-            temp_dir = tempfile.mkdtemp(prefix="restart_audio_")
-            
-            for i, (filename, segment_path) in enumerate(selected_segments):
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-                audio_filename = f"restart_audio_{i}_{timestamp}.wav"
-                audio_path = os.path.join(temp_dir, audio_filename)
-                
-                cmd = ['ffmpeg', '-y', '-i', segment_path, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', audio_path]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-                
-                if result.returncode == 0 and os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
-                    audio_files.append(audio_path)
-            
-            return audio_files
+            # Fallback: single segment or merge failed
+            print(f"AudioAI[{self.device_name}]: Processing single segment...")
+            audio_path = extract_audio_from_ts(ts_paths[0])
+            return [audio_path] if audio_path else []
             
         except Exception as e:
             print(f"AudioAI[{self.device_name}]: Audio extraction error: {e}")
             return []
     
-    # NEW: Helper method to merge multiple TS files
+    # Reuse utility function instead of duplicating
     def _merge_ts_files(self, ts_files: List[str]) -> Optional[str]:
-        """Merge multiple TS files into a single TS file using ffmpeg."""
-        if not ts_files:
-            return None
-        
-        try:
-            temp_dir = tempfile.gettempdir()
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-            merged_filename = f"merged_ts_{timestamp}.ts"
-            merged_path = os.path.join(temp_dir, merged_filename)
-            
-            # Build ffmpeg command for TS concatenation with safe flags
-            cmd = ['ffmpeg', '-y'] 
-            
-            # Add all input files
-            for ts in ts_files:
-                cmd.extend(['-i', ts])
-            
-            # Build filter_complex for concat
-            inputs = ''.join(f'[{i}:v][{i}:a]' for i in range(len(ts_files)))
-            cmd.extend([
-                '-filter_complex', f'{inputs}concat=n={len(ts_files)}:v=1:a=1[v][a]',
-                '-map', '[v]',
-                '-map', '[a]',
-                merged_path
-            ])
-            
-            # Run ffmpeg with debug output
-            print(f"AudioAI[{self.device_name}]: Running merge command: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode == 0:
-                if os.path.exists(merged_path) and os.path.getsize(merged_path) > 1024:
-                    print(f"AudioAI[{self.device_name}]: Merge successful (size: {os.path.getsize(merged_path)} bytes)")
-                    return merged_path
-                else:
-                    print(f"AudioAI[{self.device_name}]: Merged file is empty or too small")
-            else:
-                print(f"AudioAI[{self.device_name}]: ffmpeg error: {result.stderr}")
-                print(f"AudioAI[{self.device_name}]: ffmpeg stdout: {result.stdout}")
-            
-            return None
-                
-        except Exception as e:
-            print(f"AudioAI[{self.device_name}]: Error merging TS files: {e}")
-            return None
+        """Merge multiple TS files - delegates to shared utility"""
+        from backend_host.src.lib.utils.audio_transcription_utils import merge_ts_files
+        return merge_ts_files(ts_files)
     
     # =============================================================================
     # AI-Powered Speech-to-Text Analysis
@@ -470,7 +409,7 @@ class AudioAIHelpers:
     
     def transcribe_audio_with_ai(self, audio_file: str) -> Tuple[str, str, float]:
         """
-        Transcribe a single audio file using local Whisper (optimized for speed).
+        Transcribe a single audio file using local Whisper - delegates to shared utility
         
         Args:
             audio_file: Path to audio file (WAV format)
@@ -478,66 +417,16 @@ class AudioAIHelpers:
         Returns:
             Tuple of (transcript, detected_language, confidence)
         """
-        try:
-            if not os.path.exists(audio_file):
-                print(f"AudioAI[{self.device_name}]: Audio file not found: {audio_file}")
-                return '', 'unknown', 0.0
-            
-            # Use local Whisper for fast transcription
-            try:
-                import whisper
-            except ImportError:
-                print(f"AudioAI[{self.device_name}]: Whisper not installed - run 'pip install openai-whisper'")
-                return '', 'unknown', 0.0
-            
-            # Load optimized Whisper model (use tiny/base for speed)
-            # Global model cache to avoid reloading
-            if not hasattr(self, '_whisper_model'):
-                print(f"AudioAI[{self.device_name}]: Loading Whisper model (tiny - optimized for speed)...")
-                self._whisper_model = whisper.load_model("tiny")  # ~39MB, fastest
-                print(f"AudioAI[{self.device_name}]: Whisper model loaded successfully")
-            
-            # Transcribe with Whisper (optimized for maximum speed)
-            result = self._whisper_model.transcribe(
-                audio_file,
-                fp16=False,             # Better compatibility on CPU
-                verbose=False,          # Reduce output noise
-                beam_size=1,            # Fastest beam search (default: 5)
-                best_of=1,              # Single candidate (default: 5)
-                temperature=0,          # Deterministic output (fastest)
-                compression_ratio_threshold=2.4,  # Skip low-quality audio faster
-                logprob_threshold=-1.0, # Skip uncertain segments faster
-                no_speech_threshold=0.6, # Skip silence faster
-                condition_on_previous_text=False,  # Don't use context (faster)
-                initial_prompt=None,    # No prompt processing (faster)
-                word_timestamps=False,  # Skip word-level timestamps (faster)
-             )
-            
-            # Extract results
-            transcript = result.get('text', '').strip()
-            detected_language = result.get('language', 'en')
-            
-            # Convert language code to full name
-            language_map = {
-                'en': 'English', 'fr': 'French', 'de': 'German',
-                'es': 'Spanish', 'it': 'Italian', 'pt': 'Portuguese',
-                'nl': 'Dutch', 'da': 'Danish', 'sv': 'Swedish'
-            }
-            detected_language_name = language_map.get(detected_language, detected_language)
-            
-            # Calculate confidence based on transcript length and content
-            if transcript and len(transcript.strip()) > 0:
-                # Simple confidence heuristic: longer transcripts = higher confidence
-                confidence = min(0.95, 0.5 + (len(transcript) / 100))
-                print(f"AudioAI[{self.device_name}]: Whisper detected speech: '{transcript[:50]}...' (Language: {detected_language_name})")
-                return transcript, detected_language_name, confidence
-            else:
-                print(f"AudioAI[{self.device_name}]: Whisper found no speech in audio")
-                return '', 'unknown', 0.0
-                
-        except Exception as e:
-            print(f"AudioAI[{self.device_name}]: Audio transcription error: {e}")
-            return '', 'unknown', 0.0
+        from backend_host.src.lib.utils.audio_transcription_utils import transcribe_audio
+        
+        result = transcribe_audio(audio_file, model_name='tiny')
+        
+        if result['success']:
+            print(f"AudioAI[{self.device_name}]: Whisper detected speech: '{result['transcript'][:50]}...' (Language: {result['language']})")
+        else:
+            print(f"AudioAI[{self.device_name}]: Whisper found no speech in audio")
+        
+        return result['transcript'], result['language'], result['confidence']
     
     # =============================================================================
     # Utility Methods

@@ -2,16 +2,21 @@
 """
 Circular 24h Transcript Accumulator
 Samples audio every 10s, generates timestamped transcripts, local circular buffer
+Uses audio_transcription_utils for clean, dependency-free transcription
 """
 import os
+import sys
 import json
 import time
 import glob
 import logging
-import subprocess
-import tempfile
 from datetime import datetime
 from archive_utils import get_capture_directories, get_capture_folder
+
+# Add backend_host to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from backend_host.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,48 +53,8 @@ def cleanup_logs_on_startup():
     except Exception as e:
         print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
 
-def transcribe_segment(segment_path, segment_num):
-    """Extract audio and transcribe single segment using Whisper"""
-    try:
-        # Extract audio from TS segment
-        temp_audio = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
-        cmd = ['ffmpeg', '-y', '-i', segment_path, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', temp_audio.name]
-        result = subprocess.run(cmd, capture_output=True, timeout=10)
-        
-        if result.returncode != 0 or not os.path.exists(temp_audio.name) or os.path.getsize(temp_audio.name) < 1024:
-            os.unlink(temp_audio.name)
-            return '', 'unknown', 0.0
-        
-        # Transcribe with Whisper
-        import whisper
-        if not hasattr(transcribe_segment, 'model'):
-            transcribe_segment.model = whisper.load_model("tiny")
-        
-        result = transcribe_segment.model.transcribe(
-            temp_audio.name,
-            fp16=False, verbose=False, beam_size=1, best_of=1, 
-            temperature=0, no_speech_threshold=0.6
-        )
-        
-        # Cleanup
-        os.unlink(temp_audio.name)
-        
-        transcript = result.get('text', '').strip()
-        language = result.get('language', 'en')
-        
-        # Convert language code to name
-        lang_map = {'en': 'English', 'fr': 'French', 'de': 'German', 'es': 'Spanish', 'it': 'Italian', 'pt': 'Portuguese'}
-        language_name = lang_map.get(language, language)
-        confidence = min(0.95, 0.5 + (len(transcript) / 100)) if transcript else 0.0
-        
-        return transcript, language_name, confidence
-        
-    except Exception as e:
-        logger.error(f"Error transcribing segment {segment_num}: {e}")
-        return '', 'unknown', 0.0
-
 def update_transcript_buffer(capture_dir):
-    """Update transcript buffer with new samples (circular 24h)"""
+    """Update transcript buffer with new samples (circular 24h) - uses transcription utils"""
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')
@@ -115,23 +80,46 @@ def update_transcript_buffer(capture_dir):
         if not segment_files:
             return
         
-        # Filter segments to sample (every 10th segment)
-        segments_to_process = []
+        # Get all segments and find new ones to process
+        all_segment_nums = []
+        segment_map = {}
         for seg_file in segment_files:
             seg_num = int(os.path.basename(seg_file).split('_')[1].split('.')[0])
-            if seg_num > last_processed and seg_num % SAMPLE_INTERVAL == 0:
-                segments_to_process.append((seg_num, seg_file))
+            all_segment_nums.append(seg_num)
+            segment_map[seg_num] = seg_file
         
-        segments_to_process.sort()
+        all_segment_nums.sort()
+        
+        # Find segments to sample (every 10th segment interval, but merge 10 segments per sample)
+        segments_to_process = []
+        for seg_num in all_segment_nums:
+            if seg_num > last_processed and seg_num % SAMPLE_INTERVAL == 0:
+                # Collect 10 consecutive segments ending at this segment
+                batch = []
+                for i in range(SAMPLE_INTERVAL):
+                    batch_seg_num = seg_num - SAMPLE_INTERVAL + 1 + i
+                    if batch_seg_num in segment_map:
+                        batch.append((batch_seg_num, segment_map[batch_seg_num]))
+                
+                if batch:  # Only process if we have segments in the batch
+                    segments_to_process.append((seg_num, batch))  # (target_seg_num, list_of_10_segments)
         
         if not segments_to_process:
             return
         
-        logger.info(f"[{capture_folder}] Processing {len(segments_to_process)} new samples...")
+        logger.info(f"[{capture_folder}] Processing {len(segments_to_process)} new samples (10 segments per sample)...")
         
-        # Process new samples
-        for segment_num, segment_path in segments_to_process:
-            transcript, language, confidence = transcribe_segment(segment_path, segment_num)
+        # Process new samples using transcription utils (clean, no dependencies)
+        for segment_num, segment_batch in segments_to_process:
+            # Extract TS file paths from batch
+            ts_file_paths = [seg_path for _, seg_path in segment_batch]
+            
+            # Transcribe merged segments (utility handles merging + transcription + cleanup)
+            result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny')
+            
+            transcript = result.get('transcript', '').strip()
+            language = result.get('language', 'unknown')
+            confidence = result.get('confidence', 0.0)
             
             relative_seconds = segment_num
             manifest_window = (relative_seconds // 3600) + 1
@@ -142,11 +130,12 @@ def update_transcript_buffer(capture_dir):
                 'language': language,
                 'transcript': transcript,
                 'confidence': confidence,
-                'manifest_window': manifest_window
+                'manifest_window': manifest_window,
+                'segments_merged': len(segment_batch)  # Track how many segments were merged
             }
             
             if transcript:
-                logger.info(f"[{capture_folder}] seg#{segment_num}: '{transcript[:50]}...' ({language})")
+                logger.info(f"[{capture_folder}] seg#{segment_num} ({len(segment_batch)} merged): '{transcript[:50]}...' ({language})")
         
         # Circular buffer: Keep only last MAX_SAMPLES
         all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
@@ -178,13 +167,23 @@ def main():
     cleanup_logs_on_startup()  # Clean log on startup
     
     logger.info("Starting Transcript Accumulator (10s sampling, 24h circular buffer)...")
-    capture_dirs = get_capture_directories()
-    logger.info(f"Monitoring {len(capture_dirs)} capture directories")
+    logger.info("Using audio_transcription_utils (clean, no dependencies)...")
     
-    while True:
-        for capture_dir in capture_dirs:
-            update_transcript_buffer(capture_dir)
-        time.sleep(60)  # Check every 60s
+    try:
+        capture_dirs = get_capture_directories()
+        logger.info(f"Monitoring {len(capture_dirs)} capture directories")
+        
+        # Whisper model will be loaded on first use and cached globally
+        logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
+        
+        while True:
+            for capture_dir in capture_dirs:
+                update_transcript_buffer(capture_dir)
+            time.sleep(60)  # Check every 60s
+            
+    except Exception as e:
+        logger.error(f"Fatal error in main loop: {e}")
+        raise
 
 if __name__ == '__main__':
     main()

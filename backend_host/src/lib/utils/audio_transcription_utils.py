@@ -1,0 +1,291 @@
+"""
+Audio Transcription Utilities
+Shared utility for Whisper-based transcription - NO controller dependencies
+Reused by: AudioAIHelpers, transcript_accumulator, and any script needing transcription
+"""
+import os
+import subprocess
+import tempfile
+from typing import List, Tuple, Dict, Any, Optional
+from datetime import datetime
+
+
+# Global Whisper model cache (singleton pattern)
+_whisper_model = None
+
+
+def get_whisper_model(model_name: str = "tiny"):
+    """Get cached Whisper model (singleton pattern for performance)"""
+    global _whisper_model
+    
+    if _whisper_model is None:
+        try:
+            import whisper
+            print(f"[AudioTranscriptionUtils] Loading Whisper model '{model_name}' (one-time load)...")
+            _whisper_model = whisper.load_model(model_name)
+            print(f"[AudioTranscriptionUtils] ✓ Whisper model '{model_name}' loaded and cached")
+        except ImportError:
+            print(f"[AudioTranscriptionUtils] ❌ Whisper not installed - run 'pip install openai-whisper'")
+            return None
+    
+    return _whisper_model
+
+
+def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None) -> Optional[str]:
+    """
+    Merge multiple TS files into a single TS file using ffmpeg
+    
+    Args:
+        ts_file_paths: List of TS file paths to merge
+        output_path: Optional output path (if None, creates temp file)
+    
+    Returns:
+        Path to merged TS file or None on failure
+    """
+    if not ts_file_paths:
+        return None
+    
+    if len(ts_file_paths) == 1:
+        return ts_file_paths[0]  # No merge needed
+    
+    try:
+        # Create output path if not provided
+        if output_path is None:
+            temp_dir = tempfile.gettempdir()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+            merged_filename = f"merged_ts_{timestamp}.ts"
+            output_path = os.path.join(temp_dir, merged_filename)
+        
+        # Build ffmpeg command for TS concatenation
+        cmd = ['ffmpeg', '-y']
+        
+        # Add all input files
+        for ts in ts_file_paths:
+            cmd.extend(['-i', ts])
+        
+        # Build filter_complex for concat
+        inputs = ''.join(f'[{i}:v][{i}:a]' for i in range(len(ts_file_paths)))
+        cmd.extend([
+            '-filter_complex', f'{inputs}concat=n={len(ts_file_paths)}:v=1:a=1[v][a]',
+            '-map', '[v]',
+            '-map', '[a]',
+            output_path
+        ])
+        
+        # Run ffmpeg
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if result.returncode == 0:
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
+                print(f"[AudioTranscriptionUtils] ✓ Merged {len(ts_file_paths)} TS files ({os.path.getsize(output_path)} bytes)")
+                return output_path
+            else:
+                print(f"[AudioTranscriptionUtils] ❌ Merged file is empty or too small")
+        else:
+            print(f"[AudioTranscriptionUtils] ❌ ffmpeg merge error: {result.stderr}")
+        
+        return None
+            
+    except Exception as e:
+        print(f"[AudioTranscriptionUtils] ❌ Error merging TS files: {e}")
+        return None
+
+
+def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None) -> Optional[str]:
+    """
+    Extract audio from TS file as WAV (16kHz mono for Whisper)
+    
+    Args:
+        ts_file_path: Path to TS file
+        output_path: Optional output path (if None, creates temp file)
+    
+    Returns:
+        Path to extracted WAV file or None on failure
+    """
+    try:
+        # Create output path if not provided
+        if output_path is None:
+            temp_dir = tempfile.mkdtemp(prefix="audio_extract_")
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+            audio_filename = f"audio_{timestamp}.wav"
+            output_path = os.path.join(temp_dir, audio_filename)
+        
+        # Extract audio with Whisper-optimized settings (16kHz mono)
+        cmd = [
+            'ffmpeg', '-y', '-i', ts_file_path,
+            '-vn',  # No video
+            '-acodec', 'pcm_s16le',  # PCM 16-bit
+            '-ar', '16000',  # 16kHz sample rate
+            '-ac', '1',  # Mono
+            output_path
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
+            return output_path
+        else:
+            print(f"[AudioTranscriptionUtils] ❌ Failed to extract audio from {os.path.basename(ts_file_path)}")
+            return None
+            
+    except Exception as e:
+        print(f"[AudioTranscriptionUtils] ❌ Error extracting audio: {e}")
+        return None
+
+
+def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str, Any]:
+    """
+    Transcribe audio file using Whisper (with model caching)
+    
+    Args:
+        audio_file_path: Path to audio file (WAV recommended)
+        model_name: Whisper model name (tiny, base, small, medium, large)
+    
+    Returns:
+        Dict with 'transcript', 'language', 'confidence', 'success'
+    """
+    try:
+        model = get_whisper_model(model_name)
+        
+        if model is None:
+            return {
+                'success': False,
+                'transcript': '',
+                'language': 'unknown',
+                'confidence': 0.0,
+                'error': 'Whisper model not available'
+            }
+        
+        # Transcribe with optimized settings for speed
+        result = model.transcribe(
+            audio_file_path,
+            fp16=False,
+            verbose=False,
+            beam_size=1,
+            best_of=1,
+            temperature=0,
+            no_speech_threshold=0.6
+        )
+        
+        transcript = result.get('text', '').strip()
+        language = result.get('language', 'en')
+        
+        # Convert language code to name
+        lang_map = {
+            'en': 'English', 'fr': 'French', 'de': 'German', 'es': 'Spanish',
+            'it': 'Italian', 'pt': 'Portuguese', 'nl': 'Dutch', 'pl': 'Polish',
+            'ru': 'Russian', 'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean'
+        }
+        language_name = lang_map.get(language, language)
+        
+        # Estimate confidence based on transcript length (simple heuristic)
+        confidence = min(0.95, 0.5 + (len(transcript) / 100)) if transcript else 0.0
+        
+        return {
+            'success': True,
+            'transcript': transcript,
+            'language': language_name,
+            'confidence': confidence
+        }
+        
+    except Exception as e:
+        print(f"[AudioTranscriptionUtils] ❌ Transcription error: {e}")
+        return {
+            'success': False,
+            'transcript': '',
+            'language': 'unknown',
+            'confidence': 0.0,
+            'error': str(e)
+        }
+
+
+def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_name: str = "tiny") -> Dict[str, Any]:
+    """
+    Transcribe multiple TS segments (with optional merging for better context)
+    
+    Args:
+        ts_file_paths: List of TS file paths
+        merge: If True, merge all segments before transcription (better quality)
+        model_name: Whisper model name
+    
+    Returns:
+        Dict with 'transcript', 'language', 'confidence', 'success', 'segments_processed'
+    """
+    try:
+        if not ts_file_paths:
+            return {
+                'success': False,
+                'transcript': '',
+                'language': 'unknown',
+                'confidence': 0.0,
+                'segments_processed': 0,
+                'error': 'No TS files provided'
+            }
+        
+        # Merge segments if requested and multiple files
+        if merge and len(ts_file_paths) > 1:
+            print(f"[AudioTranscriptionUtils] Merging {len(ts_file_paths)} TS segments...")
+            merged_ts = merge_ts_files(ts_file_paths)
+            
+            if merged_ts:
+                # Extract audio from merged file
+                audio_file = extract_audio_from_ts(merged_ts)
+                
+                # Cleanup merged TS if it was a temp file
+                if merged_ts.startswith(tempfile.gettempdir()):
+                    try:
+                        os.remove(merged_ts)
+                    except:
+                        pass
+                
+                if audio_file:
+                    # Transcribe merged audio
+                    result = transcribe_audio(audio_file, model_name)
+                    result['segments_processed'] = len(ts_file_paths)
+                    result['merged'] = True
+                    
+                    # Cleanup audio file
+                    try:
+                        os.remove(audio_file)
+                    except:
+                        pass
+                    
+                    return result
+        
+        # Fallback: process first segment only (or single segment)
+        ts_file = ts_file_paths[0]
+        audio_file = extract_audio_from_ts(ts_file)
+        
+        if audio_file:
+            result = transcribe_audio(audio_file, model_name)
+            result['segments_processed'] = 1
+            result['merged'] = False
+            
+            # Cleanup audio file
+            try:
+                os.remove(audio_file)
+            except:
+                pass
+            
+            return result
+        
+        return {
+            'success': False,
+            'transcript': '',
+            'language': 'unknown',
+            'confidence': 0.0,
+            'segments_processed': 0,
+            'error': 'Failed to extract audio from TS files'
+        }
+        
+    except Exception as e:
+        print(f"[AudioTranscriptionUtils] ❌ Error in transcribe_ts_segments: {e}")
+        return {
+            'success': False,
+            'transcript': '',
+            'language': 'unknown',
+            'confidence': 0.0,
+            'segments_processed': 0,
+            'error': str(e)
+        }
+
