@@ -102,6 +102,7 @@ export const useNestedNavigation = ({
             label: node.data.label,
             description: node.data.description || `Navigation for ${node.data.label}`,
             verifications: node.data.verifications || [],
+            kpi_references: node.data.kpi_references || [],
             // ADD NESTED TREE CONTEXT
             isParentReference: true,
             originalTreeId: actualTreeId, // Original tree where this node lives
@@ -195,6 +196,7 @@ export const useNestedNavigation = ({
           ...parentNode.data
         },
         verifications: parentNode.data.verifications || [],
+        kpi_references: parentNode.data.kpi_references || [],
         has_subtree: true,
         subtree_count: 1
       };
@@ -211,6 +213,7 @@ export const useNestedNavigation = ({
           label: parentNode.data.label,
           description: parentNode.data.description || `Navigation for ${parentNode.data.label}`,
           verifications: parentNode.data.verifications || [],
+          kpi_references: parentNode.data.kpi_references || [],
           // ADD NESTED TREE CONTEXT
           isParentReference: true,
           originalTreeId: actualTreeId, // Original tree where this node lives

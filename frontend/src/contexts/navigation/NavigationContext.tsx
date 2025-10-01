@@ -252,6 +252,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     type: 'screen',
     description: '',
     verifications: [],
+    kpi_references: [],
   });
   const [edgeForm, setEdgeForm] = useState<EdgeForm | null>(null);
   const [edgeLabels, setEdgeLabels] = useState<{fromLabel: string, toLabel: string}>({fromLabel: '', toLabel: ''});
@@ -573,6 +574,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
         type: node.data?.type || 'screen',
         description: node.data?.description || '',
         verifications: node.data?.verifications || [],
+        kpi_references: node.data?.kpi_references || [],
       });
       setIsNewNode(false);
     } else {
@@ -959,9 +961,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             // The cache will be refreshed on next navigation operation if needed
            }
 
-           setIsNodeDialogOpen(false);
-           setNodeForm({ label: '', type: 'screen', description: '', verifications: [] }); // Reset to initial empty form
-           setSuccess('Node saved successfully');
+          setIsNodeDialogOpen(false);
+          setNodeForm({ label: '', type: 'screen', description: '', verifications: [], kpi_references: [] }); // Reset to initial empty form
+          setSuccess('Node saved successfully');
          } catch (error) {
            console.error('Error saving node:', error);
            setError('Failed to save node changes');
@@ -1125,6 +1127,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             position_y: node.position?.y || 0,
             node_type: node.type || 'screen', // Use ReactFlow type field
             verifications: node.data.verifications || [],
+            kpi_references: node.data.kpi_references || [],
             data: {
               // Only include non-verification data to avoid duplication
               description: node.data.description,
