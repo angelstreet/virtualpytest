@@ -286,6 +286,7 @@ for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
 
   source_type=$(detect_source_type "$source")
+  last_segment=$(get_last_segment_number "$capture_dir")
 
   echo "Grabber $index:"
   echo "  Source: $source ($source_type)"
@@ -296,6 +297,7 @@ for index in "${!GRABBERS[@]}"; do
   echo "  Audio: $audio_device"
   echo "  Output: $capture_dir"
   echo "  Input FPS: $input_fps"
+  echo "  Last segment: $last_segment (will start from $last_segment)"
   echo
 done
 
