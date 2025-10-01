@@ -178,11 +178,18 @@ def main():
         capture_dirs = get_capture_directories()
         logger.info(f"Monitoring {len(capture_dirs)} capture directories")
         
+        # Log each capture directory being monitored
+        for capture_dir in capture_dirs:
+            capture_folder = get_capture_folder(capture_dir)
+            logger.info(f"  → Monitoring: {capture_dir} -> {capture_folder}")
+        
         # Whisper model will be loaded on first use and cached globally
         logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
         
         while True:
             for capture_dir in capture_dirs:
+                capture_folder = get_capture_folder(capture_dir)
+                logger.info(f"[{capture_folder}] Checking for new transcript samples...")
                 update_transcript_buffer(capture_dir)
             time.sleep(60)  # Check every 60s
             
