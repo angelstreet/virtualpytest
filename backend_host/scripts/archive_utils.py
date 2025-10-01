@@ -221,10 +221,14 @@ def update_archive_manifest(capture_dir):
         
         # Write metadata JSON
         metadata_path = os.path.join(stream_dir, 'archive_metadata.json')
-        with open(metadata_path + '.tmp', 'w') as f:
-            json.dump(metadata, f, indent=2)
-        
-        os.rename(metadata_path + '.tmp', metadata_path)
+        try:
+            with open(metadata_path + '.tmp', 'w') as f:
+                json.dump(metadata, f, indent=2)
+            
+            os.rename(metadata_path + '.tmp', metadata_path)
+            logger.info(f"[@update_archive] [{capture_folder}] ✓ Written metadata: {metadata_path}")
+        except Exception as e:
+            logger.error(f"[@update_archive] [{capture_folder}] ❌ Failed to write metadata: {e}")
         
         # Legacy archive.m3u8 - points to most recent manifest for simple players
         if manifests_generated > 0:
@@ -232,14 +236,18 @@ def update_archive_manifest(capture_dir):
             last_manifest_name = f'archive{manifests_generated}.m3u8'
             last_manifest_path = os.path.join(stream_dir, last_manifest_name)
             
-            with open(archive_path + '.tmp', 'w') as f:
-                f.write(f"# Use archive_metadata.json for multi-manifest playback\n")
-                f.write(f"# This manifest points to the most recent archive window ({last_manifest_name})\n")
-                # Point to most recent manifest for simple players
-                with open(last_manifest_path, 'r') as src:
-                    f.write(src.read())
-            
-            os.rename(archive_path + '.tmp', archive_path)
+            try:
+                with open(archive_path + '.tmp', 'w') as f:
+                    f.write(f"# Use archive_metadata.json for multi-manifest playback\n")
+                    f.write(f"# This manifest points to the most recent archive window ({last_manifest_name})\n")
+                    # Point to most recent manifest for simple players
+                    with open(last_manifest_path, 'r') as src:
+                        f.write(src.read())
+                
+                os.rename(archive_path + '.tmp', archive_path)
+                logger.info(f"[@update_archive] [{capture_folder}] ✓ Written legacy archive.m3u8 -> {last_manifest_name}")
+            except Exception as e:
+                logger.error(f"[@update_archive] [{capture_folder}] ❌ Failed to write archive.m3u8: {e}")
         
         # Cleanup old manifests beyond current window
         # If we only generated 5 manifests, remove archive6-24 if they exist from previous runs
