@@ -149,10 +149,13 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             
             # Start timing
             seg_start_time = time.time()
-            logger.info(f"[{capture_folder}] 🎬 seg#{segment_num} ({len(segment_batch)} merged) - processing...")
+            
+            # Calculate total size of files being merged
+            total_size = sum(os.path.getsize(f) for f in ts_file_paths if os.path.exists(f))
             
             # Transcribe merged segments (utility handles merging + transcription + cleanup)
             # Pre-checks audio level to skip Whisper on silent segments (saves CPU on RPi)
+            logger.info(f"[{capture_folder}] 🎬 seg#{segment_num}: Merged {len(segment_batch)} TS files ({total_size} bytes)")
             result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
             
             transcript = result.get('transcript', '').strip()
@@ -177,7 +180,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             # Compact logging: all info in 2-3 lines
             if transcript:
                 logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
-                logger.info(f"[{capture_folder}] 💬 Transcript: '{transcript}'")
+                logger.info(f"[{capture_folder}] 💬 '{transcript}'")
             elif skipped:
                 logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
             else:

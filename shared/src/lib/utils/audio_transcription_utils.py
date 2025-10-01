@@ -79,7 +79,7 @@ def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None, 
         
         if result.returncode == 0:
             if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
-                print(f"{prefix}[AudioTranscriptionUtils] ✓ Merged {len(ts_file_paths)} TS files ({os.path.getsize(output_path)} bytes)")
+                # Success - return without logging (caller will log)
                 return output_path
             else:
                 print(f"{prefix}[AudioTranscriptionUtils] ❌ Merged file is empty or too small")
@@ -225,15 +225,24 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
             }
         
         # Transcribe with optimized settings for speed
-        result = model.transcribe(
-            audio_file_path,
-            fp16=False,
-            verbose=False,
-            beam_size=1,
-            best_of=1,
-            temperature=0,
-            no_speech_threshold=0.6  # Strict threshold to avoid false positives on silence
-        )
+        # Suppress all Whisper output (detected language, progress bar, etc.)
+        import sys
+        import io
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+        
+        try:
+            result = model.transcribe(
+                audio_file_path,
+                fp16=False,
+                verbose=False,
+                beam_size=1,
+                best_of=1,
+                temperature=0,
+                no_speech_threshold=0.6  # Strict threshold to avoid false positives on silence
+            )
+        finally:
+            sys.stdout = old_stdout
         
         transcript = result.get('text', '').strip()
         language = result.get('language', 'en')
@@ -249,10 +258,6 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
             'ru': 'Russian', 'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean'
         }
         language_name = lang_map.get(language, language)
-        
-        # Log audio file details for debugging
-        audio_duration = os.path.getsize(audio_file_path) / (16000 * 2)  # 16kHz mono, 16-bit = 2 bytes
-        print(f"{prefix}[AudioTranscriptionUtils] Audio: {audio_duration:.1f}s, Segments: {segment_count}, Transcript length: {len(transcript)} chars")
         
         # Estimate confidence based on transcript length (simple heuristic)
         confidence = min(0.95, 0.5 + (len(transcript) / 100)) if transcript else 0.0
@@ -302,7 +307,6 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
         
         # Merge segments if requested and multiple files
         if merge and len(ts_file_paths) > 1:
-            print(f"{prefix}[AudioTranscriptionUtils] Merging {len(ts_file_paths)} TS segments...")
             merged_ts = merge_ts_files(ts_file_paths, device_id=device_id)
             
             if merged_ts:
