@@ -287,8 +287,8 @@ export function HLSVideoPlayer({
         maxBufferSize: 10 * 1000 * 1000, // Larger buffer size
         maxBufferHole: 2,              // More tolerance for gaps
         fragLoadingTimeOut: 10000,     // More time for fragment loading
-        manifestLoadingTimeOut: 5000,  // Standard timeout
-        levelLoadingTimeOut: 5000,     // Standard timeout
+        manifestLoadingTimeOut: 30000, // 30s timeout for large 24h manifests
+        levelLoadingTimeOut: 30000,    // 30s timeout for large manifests
         liveBackBufferLength: 30,      // Keep back buffer
         liveDurationInfinity: false,   // Finite duration for archive
       } : {

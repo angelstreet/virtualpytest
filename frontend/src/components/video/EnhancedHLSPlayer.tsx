@@ -164,7 +164,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   // Archive timeline controls
   const handleSeek = (_event: Event, newValue: number | number[]) => {
     if (videoRef.current && !isLiveMode) {
-      videoRef.current.currentTime = newValue as number;
+      const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
+      // Only set currentTime if it's a valid finite number
+      if (isFinite(seekTime) && seekTime >= 0) {
+        videoRef.current.currentTime = seekTime;
+      }
     }
   };
 
