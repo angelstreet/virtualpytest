@@ -43,6 +43,11 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
     
     cache_key = f"unified_{root_tree_id}_{team_id}"
     
+    # 🔍 DEBUG: Print what we're looking for and what exists
+    print(f"[@navigation:cache:get_cached_unified_graph] Looking for cache_key: {cache_key}")
+    print(f"[@navigation:cache:get_cached_unified_graph] Current cache keys: {list(_unified_graphs_cache.keys())}")
+    print(f"[@navigation:cache:get_cached_unified_graph] Cache size: {len(_unified_graphs_cache)} graphs")
+    
     if cache_key in _unified_graphs_cache:
         # Check if cache has a timestamp
         cache_time = _unified_cache_timestamps.get(cache_key)
@@ -56,6 +61,7 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
         # Check if cache is still valid (24-hour TTL)
         age_seconds = (datetime.now() - cache_time).total_seconds()
         if age_seconds < CACHE_TTL:
+            print(f"[@navigation:cache:get_cached_unified_graph] ✅ Cache HIT for {cache_key} (age: {age_seconds:.1f}s)")
             return _unified_graphs_cache[cache_key]
         else:
             # Cache expired - remove it
@@ -66,7 +72,7 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
             hierarchy_key = f"hierarchy_{root_tree_id}_{team_id}"
             _tree_hierarchy_cache.pop(hierarchy_key, None)
     
-    print(f"[@navigation:cache:get_cached_unified_graph] No cached unified graph found for root tree: {root_tree_id}")
+    print(f"[@navigation:cache:get_cached_unified_graph] ❌ Cache MISS - No cached unified graph found for root tree: {root_tree_id}")
     return None
 
 def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:
@@ -103,6 +109,11 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
     """
     cache_key = f"unified_{root_tree_id}_{team_id}"
     
+    # 🔍 DEBUG: Print cache population details
+    print(f"[@navigation:cache:populate_unified_cache] Populating cache_key: {cache_key}")
+    print(f"[@navigation:cache:populate_unified_cache] root_tree_id: {root_tree_id}")
+    print(f"[@navigation:cache:populate_unified_cache] team_id: {team_id}")
+    
     try:
         from  backend_host.src.lib.utils.navigation_graph import create_unified_networkx_graph
         
@@ -118,6 +129,9 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
         # Cache the unified graph
         _unified_graphs_cache[cache_key] = unified_graph
         _unified_cache_timestamps[cache_key] = datetime.now()
+        
+        print(f"[@navigation:cache:populate_unified_cache] ✅ Stored cache with key: {cache_key}")
+        print(f"[@navigation:cache:populate_unified_cache] Cache now contains: {list(_unified_graphs_cache.keys())}")
         
         # Build and cache node location index
         node_location_map = {}
