@@ -143,10 +143,15 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
               ? filename.split('/').pop() || filename
               : filename;
             
-            // If it's a full URL, use it directly; otherwise construct it
+            // Always use thumbnail version - ensure filename has _thumbnail suffix
+            const thumbnailFilename = cleanFilename.includes('_thumbnail') 
+              ? cleanFilename 
+              : cleanFilename.replace('.jpg', '_thumbnail.jpg');
+            
+            // If it's a full URL, replace the filename part with thumbnail version; otherwise construct it
             const frameUrl = isFullUrl 
-              ? filename 
-              : constructFrameUrl(cleanFilename, freezeModalImage.image_url);
+              ? filename.replace(/[^/]+\.jpg$/, thumbnailFilename)
+              : constructFrameUrl(thumbnailFilename, freezeModalImage.image_url);
             const diff = frameDifferences[index];
 
             // Extract sequence number from filename (format: capture_0001.jpg or thumb_0.jpg)
@@ -187,13 +192,6 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
                     width: '100%',
                     height: '100%',
                     objectFit: 'contain', // Keep original size and aspect ratio
-                  }}
-                  onError={(e) => {
-                    // Try thumbnail version if original fails
-                    const target = e.target as HTMLImageElement;
-                    if (!target.src.includes('_thumbnail')) {
-                      target.src = frameUrl.replace('.jpg', '_thumbnail.jpg');
-                    }
                   }}
                 />
               </Box>
