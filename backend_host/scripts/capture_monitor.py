@@ -62,10 +62,14 @@ def get_capture_folder(capture_dir):
 def generate_manifest_for_segments(stream_dir, segments, manifest_name):
     """Generate a single manifest file for given segments"""
     if not segments:
+        logger.warning(f"[@generate_manifest] No segments provided for {manifest_name}")
         return False
     
     # Calculate proper media sequence number (first segment number in window)
     first_segment_num = int(os.path.basename(segments[0]).split('_')[1].split('.')[0])
+    last_segment_num = int(os.path.basename(segments[-1]).split('_')[1].split('.')[0])
+    
+    logger.debug(f"[@generate_manifest] {manifest_name}: segments #{first_segment_num}-#{last_segment_num} ({len(segments)} files)")
     
     # Generate manifest content
     manifest_content = [
@@ -90,6 +94,7 @@ def generate_manifest_for_segments(stream_dir, segments, manifest_name):
         f.write('\n'.join(manifest_content))
     
     os.rename(manifest_path + '.tmp', manifest_path)
+    logger.info(f"[@generate_manifest] ✓ {manifest_name}: {len(segments)} segments (#{first_segment_num}-#{last_segment_num})")
     return True
 
 def update_archive_manifest(capture_dir):
@@ -113,7 +118,11 @@ def update_archive_manifest(capture_dir):
         # This handles FFmpeg restarts, segment wrap-around, and gaps correctly
         segments.sort(key=lambda x: os.path.getmtime(x))
         
-        logger.debug(f"[{capture_folder}] Found {len(segments)} segments, sorted by timestamp")
+        # Get segment number range for logging
+        first_seg_num = int(os.path.basename(segments[0]).split('_')[1].split('.')[0])
+        last_seg_num = int(os.path.basename(segments[-1]).split('_')[1].split('.')[0])
+        
+        logger.info(f"[@update_archive] [{capture_folder}] Found {len(segments)} segments (#{first_seg_num} to #{last_seg_num})")
         
         total_segments = len(segments)
         
@@ -133,6 +142,8 @@ def update_archive_manifest(capture_dir):
         num_windows = (total_segments + SEGMENTS_PER_WINDOW - 1) // SEGMENTS_PER_WINDOW
         
         manifests_generated = 0
+        manifest_metadata = []  # Store metadata with actual segment numbers
+        
         for window_idx in range(num_windows):
             start_idx = window_idx * SEGMENTS_PER_WINDOW
             end_idx = min(start_idx + SEGMENTS_PER_WINDOW, total_segments)
@@ -141,9 +152,24 @@ def update_archive_manifest(capture_dir):
             # Only generate if we have segments in this window
             if len(window_segments) > 0:
                 manifest_name = f"archive{window_idx + 1}.m3u8"
+                
+                # Extract actual segment numbers from filenames
+                first_seg_num = int(os.path.basename(window_segments[0]).split('_')[1].split('.')[0])
+                last_seg_num = int(os.path.basename(window_segments[-1]).split('_')[1].split('.')[0])
+                
                 if generate_manifest_for_segments(stream_dir, window_segments, manifest_name):
                     manifests_generated += 1
-                    logger.debug(f"[{capture_folder}] Generated {manifest_name}: {len(window_segments)} segments ({len(window_segments)/3600:.2f}h)")
+                    
+                    # Store metadata with actual segment numbers for this manifest
+                    manifest_metadata.append({
+                        "name": manifest_name,
+                        "window_index": window_idx + 1,
+                        "start_segment": first_seg_num,
+                        "end_segment": last_seg_num,
+                        "start_time_seconds": start_idx * SEGMENT_DURATION,
+                        "end_time_seconds": end_idx * SEGMENT_DURATION,
+                        "duration_seconds": len(window_segments) * SEGMENT_DURATION
+                    })
         
         # Generate metadata JSON for frontend to know which manifests to use
         metadata = {
@@ -151,21 +177,8 @@ def update_archive_manifest(capture_dir):
             "total_duration_seconds": total_segments * SEGMENT_DURATION,
             "window_hours": WINDOW_HOURS,
             "segments_per_window": SEGMENTS_PER_WINDOW,
-            "manifests": []
+            "manifests": manifest_metadata
         }
-        
-        for i in range(manifests_generated):
-            start_segment = i * SEGMENTS_PER_WINDOW
-            end_segment = min(start_segment + SEGMENTS_PER_WINDOW, total_segments)
-            metadata["manifests"].append({
-                "name": f"archive{i + 1}.m3u8",
-                "window_index": i + 1,
-                "start_segment": start_segment,
-                "end_segment": end_segment,
-                "start_time_seconds": start_segment * SEGMENT_DURATION,
-                "end_time_seconds": end_segment * SEGMENT_DURATION,
-                "duration_seconds": (end_segment - start_segment) * SEGMENT_DURATION
-            })
         
         # Write metadata JSON
         metadata_path = os.path.join(stream_dir, 'archive_metadata.json')
@@ -201,7 +214,7 @@ def update_archive_manifest(capture_dir):
                     logger.warning(f"[{capture_folder}] Failed to remove {old_manifest}: {e}")
         
         total_duration_hours = total_segments * SEGMENT_DURATION / 3600
-        logger.info(f"[{capture_folder}] Rolling archive: {manifests_generated} manifests (1-{manifests_generated}), {total_segments} segments ({total_duration_hours:.1f}h)")
+        logger.info(f"[@update_archive] [{capture_folder}] ✓ Generated {manifests_generated} manifests, {total_segments} segments ({total_duration_hours:.1f}h)")
         
     except Exception as e:
         logger.error(f"Error updating archive manifest for {capture_dir}: {e}")
