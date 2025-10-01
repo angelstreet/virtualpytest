@@ -1186,7 +1186,8 @@ class NavigationExecutor:
                 capture_dir=capture_dir,
                 action_timestamp=action_timestamp,
                 kpi_references=kpi_references,
-                timeout_ms=timeout_ms
+                timeout_ms=timeout_ms,
+                device_model=self.device_model
             )
             
             # Enqueue for background processing

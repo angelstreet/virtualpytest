@@ -46,7 +46,8 @@ class KPIMeasurementRequest:
         capture_dir: str,
         action_timestamp: float,
         kpi_references: List[Dict[str, Any]],
-        timeout_ms: int
+        timeout_ms: int,
+        device_model: str = None
     ):
         # Validate required fields - fail early
         if not execution_result_id:
@@ -68,6 +69,7 @@ class KPIMeasurementRequest:
         self.action_timestamp = action_timestamp
         self.kpi_references = kpi_references
         self.timeout_ms = timeout_ms
+        self.device_model = device_model
 
 
 class KPIExecutor:
@@ -183,12 +185,7 @@ class KPIExecutor:
         start_time = time.time()
         
         # Scan captures - stops at first match or timeout
-        match_result = self._scan_until_match(
-            capture_dir=request.capture_dir,
-            action_timestamp=request.action_timestamp,
-            timeout_ms=request.timeout_ms,
-            kpi_references=request.kpi_references
-        )
+        match_result = self._scan_until_match(request)
         
         # Store result
         if match_result['success']:
@@ -205,26 +202,28 @@ class KPIExecutor:
         processing_time = int((time.time() - start_time) * 1000)
         logger.info(f"⏱️ [KPIExecutor] Processing completed in {processing_time}ms")
     
-    def _scan_until_match(
-        self,
-        capture_dir: str,
-        action_timestamp: float,
-        timeout_ms: int,
-        kpi_references: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _scan_until_match(self, request: KPIMeasurementRequest) -> Dict[str, Any]:
         """
         Scan captures from action_timestamp until match or timeout.
         Stops immediately when match found - minimal scanning.
         
+        Args:
+            request: KPI measurement request with all required data
+        
         Returns:
             Dict with success, timestamp, captures_scanned, error
         """
+        # Extract parameters from request for clarity
+        capture_dir = request.capture_dir
+        action_timestamp = request.action_timestamp
+        timeout_ms = request.timeout_ms
+        kpi_references = request.kpi_references
         from backend_host.src.controllers.verification.image import ImageVerificationController
         from backend_host.src.controllers.verification.text import TextVerificationController
         
-        # Create verification controllers (lightweight, no device needed)
-        image_ctrl = ImageVerificationController(None)
-        text_ctrl = TextVerificationController(None)
+        # Create verification controllers in offline mode (no device needed)
+        image_ctrl = ImageVerificationController(captures_path=capture_dir, device_model=request.device_model)
+        text_ctrl = TextVerificationController(captures_path=capture_dir, device_model=request.device_model)
         
         # Calculate time window
         end_timestamp = action_timestamp + (timeout_ms / 1000.0)
