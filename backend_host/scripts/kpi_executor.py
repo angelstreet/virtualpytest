@@ -258,10 +258,13 @@ class KPIExecutor:
                 verification_type = kpi_ref.get('verification_type', 'image')
                 
                 try:
+                    # Add source_image_path to config (controllers expect it in the dict)
+                    verification_config = {**kpi_ref, 'source_image_path': capture['path']}
+                    
                     if verification_type == 'image':
-                        result = image_ctrl.execute_verification(kpi_ref, image_source_url=capture['path'])
+                        result = image_ctrl.execute_verification(verification_config)
                     elif verification_type in ['text', 'ocr']:
-                        result = text_ctrl.execute_verification(kpi_ref, image_source_url=capture['path'])
+                        result = text_ctrl.execute_verification(verification_config)
                     else:
                         logger.warning(f"⚠️ [KPIExecutor] Unsupported verification type: {verification_type}")
                         all_refs_match = False
@@ -306,8 +309,8 @@ class KPIExecutor:
         Update execution_results with KPI measurement result
         """
         try:
-            from shared.src.lib.supabase.client import get_supabase
-            supabase = get_supabase()
+            from shared.src.lib.utils.supabase_utils import get_supabase_client
+            supabase = get_supabase_client()
             
             update_data = {
                 'kpi_measurement_success': success,
