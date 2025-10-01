@@ -305,7 +305,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             referencesLoading={nodeEdit.referencesLoading}
             showCollapsible={false}
             title=""
-            onTest={() => {}}
+            onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time
           />
         </Box>
       </DialogContent>

@@ -27,7 +27,7 @@ export interface VerificationsListProps {
   onVerificationsChange: (verifications: Verification[]) => void;
   loading: boolean;
   model: string;
-  onTest: () => void;
+  onTest?: () => void;  // Optional: when undefined, Test button is hidden (e.g., for KPI measurements)
   testResults: Verification[];
   onReferenceSelected: (referenceName: string, referenceData: any) => void;
   selectedHost?: Host;
