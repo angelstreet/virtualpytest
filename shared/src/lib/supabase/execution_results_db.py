@@ -652,8 +652,7 @@ def update_execution_result_with_kpi(
     """Update execution_result with KPI measurement results."""
     try:
         update_data = {
-            'kpi_measurement_success': kpi_measurement_success,
-            'updated_at': datetime.now(timezone.utc).isoformat()
+            'kpi_measurement_success': kpi_measurement_success
         }
         
         if kpi_measurement_ms is not None:
