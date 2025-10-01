@@ -156,7 +156,7 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
                 'error': 'Whisper model not available'
             }
         
-        # Transcribe with optimized settings for speed (relaxed thresholds for better detection)
+        # Transcribe with optimized settings for speed
         result = model.transcribe(
             audio_file_path,
             fp16=False,
@@ -164,10 +164,7 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
             beam_size=1,
             best_of=1,
             temperature=0,
-            no_speech_threshold=0.8,  # Relaxed from 0.6 to detect more speech
-            condition_on_previous_text=False,
-            compression_ratio_threshold=2.4,
-            logprob_threshold=-1.0
+            no_speech_threshold=0.6  # Strict threshold to avoid false positives on silence
         )
         
         transcript = result.get('text', '').strip()
