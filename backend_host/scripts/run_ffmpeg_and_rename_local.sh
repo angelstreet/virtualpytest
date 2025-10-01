@@ -131,6 +131,21 @@ clean_playlist_files() {
   rm -f "$output_dir"/archive.m3u8
 }
 
+# Get last segment number to continue from where we left off
+get_last_segment_number() {
+  local capture_dir="$1"
+  local last_segment=$(ls -1 "$capture_dir"/segment_*.ts 2>/dev/null | \
+    sed 's/.*segment_\([0-9]*\)\.ts/\1/' | \
+    sort -n | tail -1)
+  
+  if [ -n "$last_segment" ]; then
+    # Add 1 to continue from next number (remove leading zeros with 10#)
+    echo $((10#$last_segment + 1))
+  else
+    echo 0
+  fi
+}
+
 # Cleanup function
 cleanup() {
   local ffmpeg_pid=$1 clean_pid=$2 source=$3
@@ -155,6 +170,10 @@ start_grabber() {
 
   # Clean playlist files for fresh start
   clean_playlist_files "$capture_dir"
+
+  # Get last segment number to continue from
+  local start_num=$(get_last_segment_number "$capture_dir")
+  echo "Starting segment numbering from: $start_num"
 
   # Reset video device if it's a hardware device
   if [ "$source_type" = "v4l2" ]; then
@@ -181,6 +200,7 @@ start_grabber() {
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 10 -hls_wrap 86400 -hls_flags omit_endlist+split_by_time -lhls 1 \
+      -hls_start_number_source generic -start_number $start_num \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 5 -f image2 \
@@ -213,6 +233,7 @@ start_grabber() {
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
       -f hls -hls_time 4 -hls_list_size 10 -hls_wrap 21600 -hls_flags omit_endlist \
+      -hls_start_number_source generic -start_number $start_num \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 8 -f image2 \
