@@ -49,6 +49,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Start playing automatically
+  const [isTransitioning, setIsTransitioning] = useState(false); // Mode transition state
   
   // Archive metadata and manifest switching state
   const [archiveMetadata, setArchiveMetadata] = useState<ArchiveMetadata | null>(null);
@@ -58,6 +59,9 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   
   // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
+  
+  // Track previous mode to detect changes
+  const prevIsLiveMode = useRef(isLiveMode);
 
   // Use useStream hook when host is provided and no streamUrl is given (same as RecHostPreview)
   const { streamUrl: hookStreamUrl } = useStream({
@@ -83,9 +87,31 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     device_id: deviceId,
   });
 
+  // Detect mode changes and trigger transition
+  useEffect(() => {
+    if (prevIsLiveMode.current !== isLiveMode) {
+      console.log(`[@EnhancedHLSPlayer] Mode change detected: ${prevIsLiveMode.current ? 'Live' : 'Archive'} -> ${isLiveMode ? 'Live' : 'Archive'}`);
+      setIsTransitioning(true);
+      
+      // When switching back to live, clear archive metadata
+      if (isLiveMode) {
+        console.log('[@EnhancedHLSPlayer] Clearing archive metadata (switching to live)');
+        setArchiveMetadata(null);
+        setCurrentManifestIndex(0);
+      }
+      
+      // Small delay to allow cleanup
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 100);
+      
+      prevIsLiveMode.current = isLiveMode;
+    }
+  }, [isLiveMode]);
+
   // Fetch archive metadata when entering archive mode
   useEffect(() => {
-    if (!isLiveMode && !archiveMetadata) {
+    if (!isLiveMode && !archiveMetadata && !isTransitioning) {
       const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
       const metadataUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive_metadata.json');
       
@@ -110,7 +136,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           setArchiveMetadata(null);
         });
     }
-  }, [isLiveMode, archiveMetadata, providedStreamUrl, hookStreamUrl, deviceId]);
+  }, [isLiveMode, archiveMetadata, isTransitioning, providedStreamUrl, hookStreamUrl, deviceId]);
 
   // Build the appropriate stream URL based on mode and current manifest
   const streamUrl = useMemo(() => {
@@ -344,18 +370,34 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     <Box className={className} sx={{ width, position: 'relative' }}>
       {/* Reuse HLSVideoPlayer for all streaming logic */}
       <Box sx={{ position: 'relative', height }}>
-        <HLSVideoPlayer
-          key={streamUrl} // Force remount when URL changes
-          streamUrl={streamUrl}
-          isStreamActive={true}
-          videoElementRef={videoRef}
-          muted={muted} // Use the muted prop from parent
-          isArchiveMode={!isLiveMode} // Pass archive mode flag
-          sx={{ width: '100%', height: '100%' }}
-        />
+        {!isTransitioning ? (
+          <HLSVideoPlayer
+            key={`${isLiveMode ? 'live' : 'archive'}-${streamUrl}`} // Force remount on mode OR URL change
+            streamUrl={streamUrl}
+            isStreamActive={true}
+            videoElementRef={videoRef}
+            muted={muted} // Use the muted prop from parent
+            isArchiveMode={!isLiveMode} // Pass archive mode flag
+            sx={{ width: '100%', height: '100%' }}
+          />
+        ) : (
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'black',
+              color: 'white',
+            }}
+          >
+            <Typography>Switching mode...</Typography>
+          </Box>
+        )}
 
         {/* Archive Timeline Overlay with integrated Play/Pause button */}
-        {!isLiveMode && duration > 0 && (
+        {!isLiveMode && !isTransitioning && duration > 0 && (
           <Box
             sx={{
               position: 'absolute',

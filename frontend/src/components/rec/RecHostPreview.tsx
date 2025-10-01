@@ -127,11 +127,18 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       showError('Host is not online');
       return;
     }
+    console.log('[@RecHostPreview] Opening modal - stopping preview stream');
+    setIsStreamActive(false); // Stop preview stream when opening modal
     setIsStreamModalOpen(true);
   }, [host, showError]);
 
   const handleCloseStreamModal = useCallback(() => {
+    console.log('[@RecHostPreview] Closing modal - restarting preview stream');
     setIsStreamModalOpen(false);
+    // Restart preview stream after a small delay to ensure modal cleanup
+    setTimeout(() => {
+      setIsStreamActive(true);
+    }, 100);
   }, []);
 
   const getStatusColor = (status: string, isStuck: boolean = false) => {
@@ -260,6 +267,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
         >
           {streamUrl ? (
             isStreamModalOpen ? (
+              // Modal is open - stop preview player completely
               <Box
                 sx={{
                   height: '100%',
@@ -268,10 +276,11 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: 'text.secondary',
+                  backgroundColor: 'black',
                 }}
               >
-                <Typography variant="caption" align="center">
-                  Stream paused
+                <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
+                  Playing in modal
                 </Typography>
               </Box>
             ) : isVncDevice ? (
