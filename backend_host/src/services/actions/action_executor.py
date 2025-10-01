@@ -704,8 +704,14 @@ class ActionExecutor:
             # Get tree_id from ActionExecutor attributes first (for edge recording), 
             # then fall back to device navigation context (for full navigation)
             tree_id = getattr(self, 'tree_id', None)
-            if tree_id is None:
-                tree_id = nav_context['current_tree_id']
+            if not tree_id:  # Handles None and empty string
+                tree_id = nav_context.get('current_tree_id')
+            
+            # Skip recording if tree_id is not valid (standalone testing from edge edit dialog)
+            if not tree_id:
+                print(f"[@lib:action_executor:_record_execution_to_database] Skipping database recording - missing tree_id (standalone test)")
+                return
+            
             record_edge_execution(
                 team_id=team_id,
                 tree_id=tree_id,

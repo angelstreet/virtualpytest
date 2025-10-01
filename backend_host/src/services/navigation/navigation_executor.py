@@ -267,7 +267,7 @@ class NavigationExecutor:
                 print(f"[@navigation_executor:execute_navigation] Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
                 
                 # Verify we're actually at this node (context may be corrupted)
-                verification_result = self.device.verification_executor.verify_node(target_node_id, team_id)
+                verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
                 
                 if verification_result.get('success'):
                     print(f"[@navigation_executor:execute_navigation] ✅ Verified at target '{target_node_label or target_node_id}' - no navigation needed")

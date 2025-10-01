@@ -303,6 +303,57 @@ class VerificationExecutor:
             
         return result
     
+    def verify_node(self, node_id: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Execute verifications for a specific node during navigation.
+        
+        Args:
+            node_id: Node ID to verify
+            team_id: Team ID
+            tree_id: Optional tree ID (will fall back to navigation context if not provided)
+            image_source_url: Optional image source URL
+            
+        Returns:
+            Dict with success status and verification results
+        """
+        try:
+            # Get tree_id from navigation context if not provided
+            if not tree_id:
+                nav_context = self.device.navigation_context
+                tree_id = nav_context.get('current_tree_id')
+            
+            # Get node data from database to retrieve verifications
+            from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
+            node_data = get_node_by_id(node_id, tree_id, team_id)
+            
+            if not node_data or 'error' in node_data:
+                print(f"[@lib:verification_executor:verify_node] Failed to get node data for {node_id}")
+                return {'success': False, 'error': 'Node not found', 'results': []}
+            
+            # Extract verifications from node
+            verifications = node_data.get('verifications', [])
+            
+            if not verifications:
+                print(f"[@lib:verification_executor:verify_node] No verifications for node {node_id}")
+                return {'success': True, 'message': 'No verifications to execute', 'results': []}
+            
+            print(f"[@lib:verification_executor:verify_node] Executing {len(verifications)} verifications for node {node_id}")
+            
+            # Execute verifications with proper tree_id and node_id for database recording
+            return self.execute_verifications(
+                verifications=verifications,
+                image_source_url=image_source_url,
+                team_id=team_id,
+                tree_id=tree_id,
+                node_id=node_id
+            )
+            
+        except Exception as e:
+            print(f"[@lib:verification_executor:verify_node] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': str(e), 'results': []}
+    
     def _filter_valid_verifications(self, verifications: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter out invalid verifications"""
         valid_verifications = []
@@ -457,13 +508,13 @@ class VerificationExecutor:
             nav_context = self.device.navigation_context
             
             # Use provided tree_id/node_id if available, otherwise fall back to navigation context
-            if tree_id is None:
+            if not tree_id:  # Handles None and empty string
                 tree_id = nav_context.get('current_tree_id')
-            if node_id is None:
+            if not node_id:  # Handles None and empty string
                 node_id = nav_context.get('current_node_id')
             
-            # Only record if we have tree_id, node_id, and team_id
-            if tree_id is None or node_id is None:
+            # Only record if we have valid tree_id, node_id, and team_id (not None or empty string)
+            if not tree_id or not node_id:
                 print(f"[@lib:verification_executor:_record_verification_to_database] Skipping database recording - missing navigation context (tree_id: {tree_id}, node_id: {node_id})")
                 return
             
