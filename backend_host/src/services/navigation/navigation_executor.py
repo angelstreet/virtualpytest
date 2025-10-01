@@ -1208,31 +1208,31 @@ class NavigationExecutor:
         Get capture directory for this device from active_captures.conf.
         Returns None if not found - no fallback.
         """
-        active_captures_file = '/tmp/active_captures.conf'
-        
-        if not os.path.exists(active_captures_file):
-            print(f"⚠️ [NavigationExecutor] {active_captures_file} not found")
-            return None
-        
         try:
-            with open(active_captures_file, 'r') as f:
-                for line in f:
-                    capture_base = line.strip()
-                    if not capture_base:
-                        continue
-                    
-                    # Match device: /var/www/html/stream/capture1 → device1
-                    if self.device_id in capture_base:
-                        capture_dir = os.path.join(capture_base, 'captures')
-                        if os.path.exists(capture_dir):
-                            return capture_dir
-            
-            print(f"⚠️ [NavigationExecutor] No matching capture dir for {self.device_id}")
+            from backend_host.scripts.archive_utils import (
+                get_capture_directories,
+                get_capture_folder,
+                get_device_info_from_capture_folder,
+            )
+        except Exception as import_error:
+            print(f"❌ [NavigationExecutor] Unable to load capture utilities: {import_error}")
             return None
-        
-        except Exception as e:
-            print(f"❌ [NavigationExecutor] Error reading active_captures.conf: {e}")
+
+        capture_dirs = get_capture_directories()
+        if not capture_dirs:
+            print(f"⚠️ [NavigationExecutor] No active capture directories reported for KPI lookup")
             return None
+
+        for capture_dir in capture_dirs:
+            capture_folder = get_capture_folder(capture_dir)
+            device_info = get_device_info_from_capture_folder(capture_folder)
+            if device_info.get('device_id') == self.device_id:
+                if os.path.exists(capture_dir):
+                    print(f"[@navigation_executor] Matched capture directory '{capture_dir}' for device {self.device_id}")
+                    return capture_dir
+
+        print(f"⚠️ [NavigationExecutor] No capture directory mapping found for device {self.device_id}")
+        return None
 
     # ========================================
     # POSITION TRACKING METHODS
