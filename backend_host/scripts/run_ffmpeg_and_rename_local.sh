@@ -184,7 +184,7 @@ start_grabber() {
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
     # Optimized: single fps operation, balanced queues, CBR encoding for stable streaming
-    FFMPEG_CMD="/usr/bin/ffmpeg -y \
+    FFMPEG_CMD="/usr/bin/ffmpeg -loglevel error -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
       -thread_queue_size 1024 \
@@ -219,7 +219,7 @@ start_grabber() {
     xrandr -display "$source" -s 1280x720 2>/dev/null || echo "Warning: xrandr resolution set failed"
     local resolution=$(get_vnc_resolution "$source")
 
-    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -y \
+    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -loglevel error -y \
       -probesize 32M -analyzeduration 0 \
       -draw_mouse 0 -show_region 0 \
       -f x11grab -video_size $resolution -framerate $input_fps -i $source \
@@ -236,9 +236,9 @@ start_grabber() {
       -hls_start_number_source generic -start_number $start_num \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 8 -f image2 \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -vsync 0 -c:v mjpeg -q:v 10 -f image2 \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 \
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
