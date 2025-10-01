@@ -362,19 +362,32 @@ class FFmpegCaptureController(AVControllerInterface):
             
             # Find files with mtime within 2 seconds of now
             candidates = []
+            all_files_with_ages = []  # Track ALL files for debugging
             now = time.time()
             for f in captures:
                 path = os.path.join(captures_path, f)
                 try:
                     mtime = os.path.getmtime(path)
                     age = now - mtime
+                    all_files_with_ages.append((age, f))  # Store filename and age for debugging
                     if age <= 1:  # Within 2 seconds
                         candidates.append((age, path))
                 except OSError:
                     continue  # File might have been deleted
             
             if not candidates:
+                # Show detailed debugging: total files found and newest file age
+                all_files_with_ages.sort()  # Sort by age (oldest last)
+                newest_age = all_files_with_ages[0][0] if all_files_with_ages else None
+                newest_file = all_files_with_ages[0][1] if all_files_with_ages else None
+                
                 print(f"{self.capture_source}[{self.capture_source}]: ERROR - No recent files found (within 2s)")
+                print(f"{self.capture_source}[{self.capture_source}]: DEBUG - Total capture files found: {len(all_files_with_ages)}")
+                if newest_file:
+                    print(f"{self.capture_source}[{self.capture_source}]: DEBUG - Newest file: {newest_file}, age: {newest_age:.2f}s")
+                    # Show a few more recent files for context
+                    if len(all_files_with_ages) > 1:
+                        print(f"{self.capture_source}[{self.capture_source}]: DEBUG - Next 3 newest ages: {[f'{age:.2f}s' for age, _ in all_files_with_ages[1:4]]}")
                 return None
             
             # Return the file with the smallest age (closest to now)
