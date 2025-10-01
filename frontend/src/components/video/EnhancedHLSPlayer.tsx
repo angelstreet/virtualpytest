@@ -56,6 +56,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [currentManifestIndex, setCurrentManifestIndex] = useState(0);
   const [globalCurrentTime, setGlobalCurrentTime] = useState(0); // Time across all manifests
   const [preloadedNextManifest, setPreloadedNextManifest] = useState(false);
+  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
+  const [dragSliderValue, setDragSliderValue] = useState(0);
   
   // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
@@ -274,9 +276,22 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     return () => clearTimeout(timer);
   }, [isLiveMode]);
 
-  // Archive timeline controls with multi-manifest seeking
-  const handleSeek = useCallback((event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+  // Handle slider drag (visual feedback only)
+  const handleSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    if (isLiveMode) return;
+    
+    const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
+    if (!isFinite(seekTime) || seekTime < 0) return;
+    
+    setIsDraggingSlider(true);
+    setDragSliderValue(seekTime);
+  }, [isLiveMode]);
+
+  // Archive timeline controls with multi-manifest seeking (actual seek on release)
+  const handleSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (!videoRef.current || isLiveMode) return;
+    
+    setIsDraggingSlider(false);
     
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
@@ -424,9 +439,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               
               {/* Timeline Slider */}
               <Slider
-                value={archiveMetadata ? globalCurrentTime : currentTime}
+                value={isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime)}
                 max={archiveMetadata ? archiveMetadata.total_duration_seconds : duration}
-                onChangeCommitted={handleSeek} // Changed from onChange
+                onChange={handleSliderChange}
+                onChangeCommitted={handleSeek}
                 sx={{ 
                   color: 'primary.main', 
                   flex: 1,
@@ -441,7 +457,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             {/* Time display row */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', pl: 7 }}>  
               <Typography variant="caption" sx={{ color: 'white' }}>
-                {formatTime(archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime)}
+                {formatTime(isDraggingSlider ? dragSliderValue : (archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime))}
               </Typography>
               {archiveMetadata && (
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
