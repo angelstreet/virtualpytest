@@ -258,11 +258,44 @@ class NavigationExecutor:
             
             print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label or target_node_id}' using unified pathfinding")
             
+            # Check if already at target BEFORE pathfinding - but VERIFY first (context may be corrupted)
+            if nav_context.get('current_node_id') == target_node_id:
+                print(f"[@navigation_executor:execute_navigation] Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
+                
+                # Verify we're actually at this node (context may be corrupted)
+                verification_result = self.device.verification_executor.verify_node(target_node_id, team_id)
+                
+                if verification_result.get('success'):
+                    print(f"[@navigation_executor:execute_navigation] ✅ Verified at target '{target_node_label or target_node_id}' - no navigation needed")
+                    # Update position to ensure consistency
+                    self.update_current_position(target_node_id, tree_id, target_node_label)
+                    # Mark navigation as successful
+                    nav_context['current_node_navigation_success'] = True
+                    
+                    return self._build_result(
+                        True,
+                        f"Already at target '{target_node_label or target_node_id}'",
+                        tree_id, target_node_id, current_node_id, start_time,
+                        transitions_executed=0,
+                        total_transitions=0,
+                        actions_executed=0,
+                        total_actions=0,
+                        path_length=0,
+                        already_at_target=True,
+                        unified_pathfinding_used=True,
+                        navigation_path=[]
+                    )
+                else:
+                    print(f"[@navigation_executor:execute_navigation] ⚠️ Verification failed - context corrupted, proceeding with navigation")
+                    # Clear corrupted position and continue with normal navigation
+                    nav_context['current_node_id'] = None
+                    nav_context['current_node_label'] = None
+            
             # Use unified pathfinding with current navigation context position
             navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))
             
             if not navigation_path:
-                # Mark navigation as failed
+                # Empty path but not at target - this is an error
                 nav_context['current_node_navigation_success'] = False
                 return self._build_result(
                     False, 

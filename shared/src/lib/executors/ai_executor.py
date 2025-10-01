@@ -781,6 +781,10 @@ class AIExecutor:
             team_id=context.get('team_id')
         )
         
+        # Convert execution_time (seconds) to execution_time_ms (milliseconds)
+        if 'execution_time' in result and 'execution_time_ms' not in result:
+            result['execution_time_ms'] = int(result['execution_time'] * 1000)
+        
         # Update context with position changes
         if result.get('success') and result.get('final_position_node_id'):
             context['final_position_node_id'] = result.get('final_position_node_id')

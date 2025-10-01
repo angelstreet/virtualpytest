@@ -96,7 +96,7 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {statusIcon}
-        <Tooltip title={`${step.stepNumber}. ${displayText}${step.duration ? ` (${step.duration.toFixed(1)}s)` : ''}`} arrow placement="top">
+         <Tooltip title={`${step.stepNumber}. ${displayText}${step.duration !== undefined ? (step.duration === 0 ? ' (already at target)' : ` (${step.duration.toFixed(1)}s)`) : ''}`} arrow placement="top">
           <Typography 
             variant="caption" 
             sx={{ 
@@ -110,10 +110,10 @@ export const AIStepDisplay: React.FC<AIStepDisplayProps> = ({
               whiteSpace: 'nowrap',
               cursor: 'default'
             }}
-          >
-            {step.stepNumber}. {displayText}
-            {step.duration && ` (${step.duration.toFixed(1)}s)`}
-          </Typography>
+           >
+             {step.stepNumber}. {displayText}
+             {step.duration !== undefined && (step.duration === 0 ? ' (already at target)' : ` (${step.duration.toFixed(1)}s)`)}
+           </Typography>
         </Tooltip>
         
         {isNavigation && showExpand && (
