@@ -56,8 +56,13 @@ def cleanup_logs_on_startup():
     except Exception as e:
         print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
 
-def update_transcript_buffer(capture_dir):
-    """Update transcript buffer with new samples (circular 24h) - uses transcription utils"""
+def update_transcript_buffer(capture_dir, max_samples_per_run=1):
+    """Update transcript buffer with new samples (circular 24h) - uses transcription utils
+    
+    Args:
+        capture_dir: Path to capture directory
+        max_samples_per_run: Maximum number of samples to process in one call (for alternating between devices)
+    """
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')
@@ -78,13 +83,15 @@ def update_transcript_buffer(capture_dir):
         existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
         last_processed = transcript_data.get('last_processed_segment', 0)
         
-        # First run: Start from NOW, not from backlog (don't try to catch up)
+        # First run: Start 10 segments back to get immediate feedback
         if last_processed == 0:
             segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
             if segment_files:
                 latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
-                last_processed = latest_seg
-                logger.info(f"[{capture_folder}] 🆕 First run - starting from current segment #{latest_seg} (skipping backlog)")
+                # Start 10 segments back for immediate processing (1 sample = 10 segments)
+                start_offset = 10
+                last_processed = max(0, latest_seg - start_offset)
+                logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (10 segments back from #{latest_seg})")
                 transcript_data['last_processed_segment'] = last_processed
         
         # Find available segments
@@ -117,9 +124,17 @@ def update_transcript_buffer(capture_dir):
                     segments_to_process.append((seg_num, batch))  # (target_seg_num, list_of_10_segments)
         
         if not segments_to_process:
+            logger.info(f"[{capture_folder}] ⏸️  No new samples to process (waiting for segments after #{last_processed})")
             return
         
-        logger.info(f"[{capture_folder}] Processing {len(segments_to_process)} new samples (10 segments per sample)...")
+        # Limit processing to max_samples_per_run (for alternating between devices)
+        total_pending = len(segments_to_process)
+        segments_to_process = segments_to_process[:max_samples_per_run]
+        
+        if total_pending > max_samples_per_run:
+            logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)}/{total_pending} samples (alternating with other devices)...")
+        else:
+            logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)} new samples (10 segments per sample)...")
         
         # Process new samples using transcription utils (clean, no dependencies)
         for segment_num, segment_batch in segments_to_process:
@@ -176,7 +191,7 @@ def update_transcript_buffer(capture_dir):
             json.dump(transcript_data, f, indent=2)
         os.rename(transcript_path + '.tmp', transcript_path)
         
-        logger.info(f"[{capture_folder}] ✓ Transcript buffer updated: {len(all_segments)} samples")
+        logger.info(f"[{capture_folder}] ✅ Transcript buffer updated: {len(all_segments)} samples (processed {len(segments_to_process)} new)")
         
     except Exception as e:
         logger.error(f"Error updating transcript buffer for {capture_dir}: {e}")
@@ -214,15 +229,16 @@ def main():
                 monitored_devices.append(capture_dir)
         
         logger.info(f"Monitoring {len(monitored_devices)} devices for transcripts (excluding host)")
+        logger.info("Processing strategy: 1 sample per device per cycle (alternating for fairness)")
         
         while True:
             for i, capture_dir in enumerate(monitored_devices, 1):
                 capture_folder = get_capture_folder(capture_dir)
-                logger.info(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
-                update_transcript_buffer(capture_dir)
-                logger.info(f"[{capture_folder}] ✓ Transcript processing complete")
+                logger.debug(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
+                # Process 1 sample at a time to alternate between devices
+                update_transcript_buffer(capture_dir, max_samples_per_run=1)
             
-            logger.info(f"Completed full cycle for {len(monitored_devices)} devices, sleeping 60s...")
+            logger.info(f"🔄 Completed full cycle for {len(monitored_devices)} devices, sleeping 60s...")
             time.sleep(60)  # Check every 60s
             
     except Exception as e:
