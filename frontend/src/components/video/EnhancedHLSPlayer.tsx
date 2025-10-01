@@ -26,6 +26,7 @@ interface TranscriptSegment {
   relative_seconds: number;
   language: string;
   transcript: string;
+  enhanced_transcript?: string; // AI-enhanced transcript (preferred if available)
   confidence: number;
   manifest_window: number;
   translations?: Record<string, string>; // On-demand translations
@@ -473,11 +474,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
       const captureFolder = captureMatch ? captureMatch[1] : transcriptData?.capture_folder;
       
-      const response = await fetch(`/api/host/${captureFolder}/translate-transcripts`, {
+      const response = await fetch(`/host/${captureFolder}/translate-transcripts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          host_name: hostName,
           target_language: language
         })
       });
@@ -499,17 +499,18 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [transcriptData, providedStreamUrl, hookStreamUrl, deviceId, hostName]);
 
-  // Get current transcript text (with translation support)
+  // Get current transcript text (with AI enhancement and translation support)
   const getCurrentTranscriptText = useCallback(() => {
     if (!currentTranscript) return '';
     
     if (selectedLanguage === 'original') {
-      return currentTranscript.transcript;
+      // Prefer AI-enhanced transcript if available, otherwise use original Whisper transcript
+      return currentTranscript.enhanced_transcript || currentTranscript.transcript;
     }
     
     // Use translated version if available
     const translation = currentTranscript.translations?.[selectedLanguage];
-    return translation || currentTranscript.transcript;
+    return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
   }, [currentTranscript, selectedLanguage]);
 
   return (
@@ -612,7 +613,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             </Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 0.5, display: 'block' }}>
               {selectedLanguage === 'original' 
-                ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%`
+                ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%${currentTranscript.enhanced_transcript ? ' • AI Enhanced' : ''}`
                 : `Translated to ${selectedLanguage}`
               }
             </Typography>

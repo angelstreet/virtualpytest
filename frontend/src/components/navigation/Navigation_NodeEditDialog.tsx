@@ -213,22 +213,34 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         )}
 
         {/* Verification Section */}
-        <VerificationsList
-          verifications={nodeEdit.verification.verifications}
-          availableVerifications={nodeEdit.verification.availableVerificationTypes}
-          onVerificationsChange={nodeEdit.handleVerificationsChange}
-          loading={nodeEdit.verification.loading}
-          model={nodeEdit.deviceModel || model || 'android_mobile'}
-          selectedHost={selectedHost}
-          testResults={[]} // Don't show individual results, only show consolidated results below
-          onReferenceSelected={() => {}}
-          modelReferences={nodeEdit.modelReferences}
-          referencesLoading={nodeEdit.referencesLoading}
-          showCollapsible={false}
-          title="Verifications"
-          onTest={nodeEdit.verification.handleTest}
-        />
-
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 1,
+            mb: 1,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontSize: '1rem', m: 0, mb: 0.5 }}>
+            Verifications
+          </Typography>
+          <VerificationsList
+            verifications={nodeEdit.verification.verifications}
+            availableVerifications={nodeEdit.verification.availableVerificationTypes}
+            onVerificationsChange={nodeEdit.handleVerificationsChange}
+            loading={nodeEdit.verification.loading}
+            model={nodeEdit.deviceModel || model || 'android_mobile'}
+            selectedHost={selectedHost}
+            testResults={[]} // Don't show individual results, only show consolidated results below
+            onReferenceSelected={() => {}}
+            modelReferences={nodeEdit.modelReferences}
+            referencesLoading={nodeEdit.referencesLoading}
+            showCollapsible={false}
+            title=""
+            onTest={nodeEdit.verification.handleTest}
+          />
+        </Box>
 
         {/* Verification Test Results - updated to match edge dialog style */}
         {nodeEdit.verification.testResults && nodeEdit.verification.testResults.length > 0 && (
@@ -268,11 +280,18 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         )}
 
         {/* KPI Measurement Section */}
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 1,
+            mb: 1,
+          }}
+        >
+          <Typography variant="h6" sx={{ fontSize: '1rem', m: 0, mb: 0.5 }}>
             📊 KPI Measurement
           </Typography>
-          
           <VerificationsList
             verifications={nodeForm?.kpi_references || []}
             availableVerifications={kpiAvailableVerifications}

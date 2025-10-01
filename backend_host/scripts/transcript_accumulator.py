@@ -20,6 +20,7 @@ project_root = os.path.dirname(backend_host_dir)  # virtualpytest/
 sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
+from shared.src.lib.utils.ai_utils import call_text_ai
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 SAMPLE_INTERVAL = 10  # Sample every 10 seconds
 MAX_DURATION_HOURS = 24
 MAX_SAMPLES = (MAX_DURATION_HOURS * 3600) // SAMPLE_INTERVAL  # 8,640 samples
+AI_ENHANCEMENT_BATCH = 10  # Enhance every 10 samples with AI
 
 def cleanup_logs_on_startup():
     """Clean up log file on service restart for fresh debugging"""
@@ -55,6 +57,105 @@ def cleanup_logs_on_startup():
                 
     except Exception as e:
         print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
+
+def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
+    """
+    Enhance Whisper transcripts using AI for better accuracy.
+    Takes a batch of segments and returns enhanced transcripts.
+    
+    Args:
+        segments: List of segment dicts with 'transcript', 'language', etc.
+        capture_folder: Device identifier for logging
+    
+    Returns:
+        dict: Map of segment_num -> enhanced_transcript
+    """
+    try:
+        if not segments:
+            return {}
+        
+        # Build context for AI enhancement
+        transcripts_text = []
+        for seg in segments:
+            seg_num = seg.get('segment_num', 0)
+            transcript = seg.get('transcript', '').strip()
+            language = seg.get('language', 'unknown')
+            
+            if transcript:
+                transcripts_text.append(f"[Segment {seg_num}] ({language}): {transcript}")
+        
+        if not transcripts_text:
+            logger.info(f"[{capture_folder}] No transcripts to enhance (all silent)")
+            return {}
+        
+        combined = "\n".join(transcripts_text)
+        
+        # AI enhancement prompt - focused on accuracy improvement
+        prompt = f"""You are enhancing speech-to-text transcripts from Whisper AI for better accuracy.
+
+Original transcripts (may contain errors, mishearings, or unclear words):
+{combined}
+
+TASK: Fix errors, improve accuracy, and provide context while preserving the original meaning.
+
+RULES:
+1. Fix obvious speech-to-text errors and mishearings
+2. Correct grammar and punctuation
+3. Preserve the original language (don't translate)
+4. Keep technical terms and proper nouns as-is if clearly correct
+5. If a segment is unclear, keep the original but mark with [?]
+6. Maintain the same segment structure
+
+Respond with JSON only:
+{{
+  "enhanced": [
+    {{"segment_num": 123, "enhanced_text": "corrected transcript text"}},
+    {{"segment_num": 124, "enhanced_text": "corrected transcript text"}}
+  ]
+}}
+
+CRITICAL: Respond with valid JSON only, no markdown, no extra text."""
+        
+        logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
+        
+        # Call AI
+        result = call_text_ai(prompt, max_tokens=800, temperature=0.1)
+        
+        if not result['success']:
+            logger.warning(f"[{capture_folder}] AI enhancement failed: {result.get('error', 'Unknown error')}")
+            return {}
+        
+        # Parse AI response
+        content = result['content'].strip()
+        
+        # Remove markdown code blocks if present
+        if content.startswith('```json'):
+            content = content.replace('```json', '').replace('```', '').strip()
+        elif content.startswith('```'):
+            content = content.replace('```', '').strip()
+        
+        try:
+            ai_result = json.loads(content)
+            enhanced_map = {}
+            
+            for item in ai_result.get('enhanced', []):
+                seg_num = item.get('segment_num')
+                enhanced_text = item.get('enhanced_text', '').strip()
+                
+                if seg_num is not None and enhanced_text:
+                    enhanced_map[seg_num] = enhanced_text
+            
+            logger.info(f"[{capture_folder}] ✅ AI enhanced {len(enhanced_map)}/{len(segments)} transcripts")
+            return enhanced_map
+            
+        except json.JSONDecodeError as e:
+            logger.warning(f"[{capture_folder}] AI response parsing failed: {e}")
+            logger.debug(f"[{capture_folder}] AI raw response: {content[:200]}")
+            return {}
+    
+    except Exception as e:
+        logger.error(f"[{capture_folder}] AI enhancement error: {e}")
+        return {}
 
 def update_transcript_buffer(capture_dir, max_samples_per_run=1):
     """Update transcript buffer with new samples (circular 24h) - uses transcription utils
@@ -81,7 +182,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 'capture_folder': capture_folder,
                 'sample_interval_seconds': SAMPLE_INTERVAL,
                 'segments': [],
-                'last_processed_segment': 0
+                'last_processed_segment': 0,
+                'samples_since_ai_enhancement': 0
             }
         
         existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
@@ -192,6 +294,28 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             all_segments = all_segments[-MAX_SAMPLES:]
             logger.info(f"[{capture_folder}] Circular buffer: pruned to {MAX_SAMPLES} samples")
         
+        # AI Enhancement: Every 10 new samples, enhance the last batch
+        samples_since_enhancement = transcript_data.get('samples_since_ai_enhancement', 0)
+        samples_since_enhancement += len(segments_to_process)
+        
+        if samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
+            # Get the last 10 segments with transcripts for enhancement
+            segments_to_enhance = [seg for seg in all_segments[-AI_ENHANCEMENT_BATCH:] if seg.get('transcript', '').strip()]
+            
+            if segments_to_enhance:
+                enhanced_map = enhance_transcripts_with_ai(segments_to_enhance, capture_folder)
+                
+                # Apply enhanced transcripts back to segments
+                if enhanced_map:
+                    for seg in all_segments:
+                        seg_num = seg['segment_num']
+                        if seg_num in enhanced_map:
+                            seg['enhanced_transcript'] = enhanced_map[seg_num]
+                            logger.info(f"[{capture_folder}] Enhanced seg#{seg_num}: '{enhanced_map[seg_num][:60]}{'...' if len(enhanced_map[seg_num]) > 60 else ''}'")
+            
+            # Reset counter
+            samples_since_enhancement = 0
+        
         # Update transcript data
         transcript_data['capture_folder'] = capture_folder
         transcript_data['sample_interval_seconds'] = SAMPLE_INTERVAL
@@ -200,6 +324,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         transcript_data['last_update'] = datetime.now().isoformat()
         transcript_data['total_samples'] = len(all_segments)
         transcript_data['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
+        transcript_data['samples_since_ai_enhancement'] = samples_since_enhancement
         
         # Save immediately after processing this device (atomic write)
         with open(transcript_path + '.tmp', 'w') as f:
