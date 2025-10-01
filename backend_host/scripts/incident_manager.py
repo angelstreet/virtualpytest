@@ -77,7 +77,7 @@ class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
         self.device_mapping_cache = {}  # Cache device mappings to avoid repeated lookups
-        self.INCIDENT_REPORT_DELAY = 30  # Only report to DB after 30 seconds of continuous detection
+        self.INCIDENT_REPORT_DELAY = 300  # Only report to DB after 5 minutes of continuous detection
         self._load_active_incidents_from_db()
         
     def get_device_state(self, device_id):
@@ -370,8 +370,8 @@ class IncidentManager:
                     elapsed_time = current_time - first_detected_time
                     
                     if elapsed_time >= self.INCIDENT_REPORT_DELAY:
-                        # Issue has persisted for 30+ seconds, report to DB
-                        logger.info(f"[{capture_folder}] {issue_type} persisted for {elapsed_time:.1f}s, reporting to DB")
+                        # Issue has persisted for 5+ minutes, report to DB
+                        logger.info(f"[{capture_folder}] {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
                         if incident_id:
                             active_incidents[issue_type] = incident_id
@@ -379,13 +379,14 @@ class IncidentManager:
                             # Remove from pending since it's now active
                             del pending_incidents[issue_type]
                     else:
-                        # Still waiting for 30 seconds
-                        logger.debug(f"[{capture_folder}] {issue_type} detected, waiting {self.INCIDENT_REPORT_DELAY - elapsed_time:.1f}s more before reporting")
+                        # Still waiting for 5 minutes
+                        remaining_time = self.INCIDENT_REPORT_DELAY - elapsed_time
+                        logger.debug(f"[{capture_folder}] {issue_type} detected, waiting {remaining_time/60:.1f}min more before reporting")
                         
                 else:
                     # First detection of this issue, add to pending
                     pending_incidents[issue_type] = current_time
-                    logger.info(f"[{capture_folder}] {issue_type} first detected, will report to DB if persists for {self.INCIDENT_REPORT_DELAY}s")
+                    logger.info(f"[{capture_folder}] {issue_type} first detected, will report to DB if persists for {self.INCIDENT_REPORT_DELAY/60:.0f}min")
                     
             else:
                 # Issue is NOT detected (cleared)
@@ -400,9 +401,12 @@ class IncidentManager:
                         device_state['state'] = NORMAL
                         
                 elif is_pending:
-                    # Issue was pending but cleared before reaching 30s threshold
+                    # Issue was pending but cleared before reaching 5min threshold
                     elapsed_time = current_time - pending_incidents[issue_type]
-                    logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time:.1f}s (never reported to DB)")
+                    if elapsed_time >= 60:
+                        logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time/60:.1f}min (never reported to DB)")
+                    else:
+                        logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time:.1f}s (never reported to DB)")
                     del pending_incidents[issue_type]
 
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
