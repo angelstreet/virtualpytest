@@ -73,13 +73,6 @@ fi
 
 echo "Total active captures: ${#GRABBERS[@]}"
 
-# Clean service log on restart
-SERVICE_LOG="/tmp/ffmpeg_service.log"
-if [ -f "$SERVICE_LOG" ]; then
-  echo "Cleaning service log: $SERVICE_LOG"
-  > "$SERVICE_LOG"
-fi
-
 # Kill all existing ffmpeg and clean_captures processes
 echo "Stopping all existing capture processes..."
 sudo pkill -f ffmpeg 2>/dev/null && echo "Killed all ffmpeg processes" || echo "No ffmpeg processes found"
