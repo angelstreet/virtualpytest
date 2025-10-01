@@ -203,9 +203,9 @@ start_grabber() {
       -hls_start_number_source generic -start_number $start_num \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 5 -f image2 \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 \
       $capture_dir/captures/capture_%04d.jpg \
-      -map \"[thumbout]\" -vsync 0 -c:v mjpeg -q:v 8 -f image2 \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 \
       $capture_dir/captures/capture_%04d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
