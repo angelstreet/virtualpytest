@@ -86,8 +86,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   // Fetch archive metadata when entering archive mode
   useEffect(() => {
     if (!isLiveMode && !archiveMetadata) {
-      const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}`;
-      const metadataUrl = baseUrl.replace(/\/(output|archive)\.m3u8$/, '/archive_metadata.json');
+      const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+      const metadataUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive_metadata.json');
       
       console.log('[@EnhancedHLSPlayer] Fetching archive metadata:', metadataUrl);
       
@@ -96,6 +96,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         .then(data => {
           console.log('[@EnhancedHLSPlayer] Archive metadata loaded:', data);
           setArchiveMetadata(data);
+          
+          // Start at the most recent manifest (last one in the array)
+          if (data.manifests && data.manifests.length > 0) {
+            const lastManifestIndex = data.manifests.length - 1;
+            console.log(`[@EnhancedHLSPlayer] Starting at most recent manifest: ${lastManifestIndex + 1}/${data.manifests.length}`);
+            setCurrentManifestIndex(lastManifestIndex);
+          }
         })
         .catch(err => {
           console.warn('[@EnhancedHLSPlayer] Failed to load archive metadata, falling back to single manifest:', err);
@@ -110,10 +117,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     // Live mode - use output.m3u8
     if (isLiveMode) {
       if (providedStreamUrl) {
-        return providedStreamUrl.replace(/archive.*\.m3u8$/, 'output.m3u8');
+        return providedStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/output.m3u8');
       }
       if (hookStreamUrl) {
-        return hookStreamUrl.replace(/archive.*\.m3u8$/, 'output.m3u8');
+        return hookStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/output.m3u8');
       }
       return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
     }
@@ -122,19 +129,20 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
-        const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
-        const manifestUrl = baseUrl.replace(/archive.*\.m3u8$/, currentManifest.name);
-        console.log(`[@EnhancedHLSPlayer] Using manifest ${currentManifest.name} (window ${currentManifest.window_index})`);
+        const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+        // Replace both output.m3u8 and archive*.m3u8 patterns
+        const manifestUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, `/${currentManifest.name}`);
+        console.log(`[@EnhancedHLSPlayer] Using manifest ${currentManifest.name} (window ${currentManifest.window_index}), URL: ${manifestUrl}`);
         return manifestUrl;
       }
     }
     
-    // Fallback to archive.m3u8
+    // Fallback to archive.m3u8 (single manifest mode)
     if (providedStreamUrl) {
-      return providedStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
+      return providedStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive.m3u8');
     }
     if (hookStreamUrl) {
-      return hookStreamUrl.replace(/output\.m3u8$/, 'archive.m3u8');
+      return hookStreamUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive.m3u8');
     }
     return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/archive.m3u8`;
   }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex]);
@@ -204,10 +212,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleDurationChange = () => {
       setDuration(video.duration);
       
-      // When archive mode loads and we get duration, seek to beginning (leftmost position)
+      // When archive mode loads and we get duration, seek to end of most recent manifest
       if (!isLiveMode && video.duration && !isNaN(video.duration)) {
-        console.log('[@EnhancedHLSPlayer] Archive mode loaded, seeking to beginning');
-        video.currentTime = 0; // Start at beginning for 24h mode
+        // Seek to end of current manifest (most recent time)
+        const seekTime = Math.max(0, video.duration - 1);
+        console.log(`[@EnhancedHLSPlayer] Archive mode loaded, seeking to most recent time: ${seekTime.toFixed(1)}s`);
+        video.currentTime = seekTime;
       }
     };
 
@@ -233,9 +243,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode) {
         seekToLive();
       } else {
-        // For 24h mode, start at beginning
-        if (videoRef.current) {
-          videoRef.current.currentTime = 0;
+        // For archive mode, seek to end of most recent manifest
+        if (videoRef.current && videoRef.current.duration) {
+          const seekTime = Math.max(0, videoRef.current.duration - 1);
+          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to: ${seekTime.toFixed(1)}s`);
+          videoRef.current.currentTime = seekTime;
         }
       }
     }, 500); // Small delay to allow HLS player to initialize with new manifest
