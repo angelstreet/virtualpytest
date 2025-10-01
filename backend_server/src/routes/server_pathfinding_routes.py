@@ -207,28 +207,17 @@ def refresh_navigation_cache():
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import force_refresh_cache
+            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
             
-            print(f"[@pathfinding:refresh_cache] Calling force_refresh_cache")
-            refresh_success = force_refresh_cache(tree_id, team_id)
-            print(f"[@pathfinding:refresh_cache] force_refresh_cache returned: {refresh_success}")
+            print(f"[@pathfinding:refresh_cache] Calling clear_unified_cache for tree {tree_id}")
+            clear_unified_cache(tree_id, team_id)
             
-            if refresh_success:
-                message = f"Cache refreshed for tree {tree_id}"
-                print(f"[@pathfinding:refresh_cache] Success: {message}")
-                return jsonify({
-                    'success': True,
-                    'message': message
-                })
-            else:
-                error_msg = f'Failed to refresh cache for tree {tree_id}'
-                print(f"[@pathfinding:refresh_cache] Failure: {error_msg}")
-                return jsonify({
-                    'success': False,
-                    'error': error_msg,
-                    'error_code': 'REFRESH_FAILED'
-                }), 500
-            
+            message = f"Cache cleared for tree {tree_id}"
+            print(f"[@pathfinding:refresh_cache] Success: {message}")
+            return jsonify({
+                'success': True,
+                'message': message
+            })
         except ImportError as e:
             error_msg = f"Cache modules not available: {e}"
             print(f"[@pathfinding:refresh_cache] Import error: {error_msg}")

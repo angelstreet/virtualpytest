@@ -15,6 +15,7 @@ interface HLSVideoPlayerProps {
   isExpanded?: boolean;
   muted?: boolean; // Add muted prop
   isArchiveMode?: boolean; // Add archive mode prop
+  onRestartRequest?: () => void; // Callback to expose restart functionality
 }
 
 /**
@@ -42,6 +43,7 @@ export function HLSVideoPlayer({
   layoutConfig,
   muted = true, // Default to muted for autoplay compliance
   isArchiveMode = false, // Default to live mode
+  onRestartRequest, // New prop for external restart trigger
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
@@ -175,6 +177,34 @@ export function HLSVideoPlayer({
     setRequiresUserInteraction(false);
     attemptPlay();
   }, [attemptPlay]);
+
+  // Manual restart handler - clears all errors and reinitializes stream
+  const handleManualRestart = useCallback(() => {
+    console.log('[@component:HLSVideoPlayer] Manual restart triggered');
+    // Reset all error states
+    setStreamError(null);
+    setSegmentFailureCount(0);
+    setFfmpegStuck(false);
+    setRetryCount(0);
+    setStreamLoaded(false);
+    setUseNativePlayer(false);
+    
+    // Cleanup current stream
+    cleanupStream();
+    
+    // Reinitialize after cleanup
+    setTimeout(() => {
+      initializeStream();
+    }, 300);
+  }, [cleanupStream, initializeStream]);
+
+  // Expose restart handler to parent via callback
+  useEffect(() => {
+    if (onRestartRequest) {
+      // Store the restart handler so parent can call it
+      (onRestartRequest as any).current = handleManualRestart;
+    }
+  }, [onRestartRequest, handleManualRestart]);
 
   const nativePlaybackHandlersRef = useRef<{
     loadedmetadata: () => void;

@@ -280,22 +280,16 @@ def refresh_navigation_cache():
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import force_refresh_cache
+            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
             
-            refresh_success = force_refresh_cache(tree_id, team_id)
+            # Clear the cache for this tree to force a rebuild on next access
+            clear_unified_cache(tree_id, team_id)
             
-            if refresh_success:
-                message = f"Navigation cache refreshed for tree {tree_id}"
-                return jsonify({
-                    'success': True,
-                    'message': message
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to refresh navigation cache for tree {tree_id}'
-                }), 500
-            
+            message = f"Navigation cache cleared for tree {tree_id}"
+            return jsonify({
+                'success': True,
+                'message': message
+            })
         except ImportError as e:
             print(f"[@route:server_navigation:refresh_navigation_cache] Cache modules not available: {e}")
             return jsonify({

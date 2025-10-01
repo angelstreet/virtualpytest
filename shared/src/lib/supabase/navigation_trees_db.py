@@ -22,7 +22,7 @@ def get_supabase():
 def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
     """Clear cache when tree is modified"""
     try:
-        from backend_host.src.lib.utils.navigation_cache import force_refresh_cache
+        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
         # Get interface name for this tree
         tree_result = get_tree_metadata(tree_id, team_id)
         if tree_result['success']:
@@ -32,11 +32,13 @@ def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
                 interface = get_userinterface(userinterface_id, team_id)
                 if interface:
                     interface_name = interface.get('name')
-                    print(f"[@cache_invalidation] Clearing cache for interface: {interface_name}")
+                    print(f"[@cache_invalidation] Clearing cache for interface: {interface_name}, tree: {tree_id}")
                     # Clear existing cache
-                    force_refresh_cache(tree_id, team_id)
+                    clear_unified_cache(tree_id, team_id)
     except Exception as e:
         print(f"[@cache_invalidation] Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 # ============================================================================
 # TREE METADATA OPERATIONS

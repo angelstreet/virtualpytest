@@ -54,6 +54,9 @@ export const HDMIStream = React.memo(
 
     // AV config state
     const [avConfig, setAvConfig] = useState<any>(null);
+    
+    // Ref to store HLS player restart function
+    const hlsRestartRef = useRef<any>(null);
 
     // Use new stream hook - auto-fetches when host/deviceId changes
     const { streamUrl, isLoadingUrl, urlError } = useStream({ host, device_id: deviceId });
