@@ -1112,7 +1112,18 @@ class NavigationExecutor:
                 return
             
             node_data = node_result['node']
-            kpi_references = node_data.get('kpi_references', [])
+            
+            # Check if node uses verifications for KPI measurement
+            use_verifications_for_kpi = node_data.get('use_verifications_for_kpi', False)
+            
+            if use_verifications_for_kpi:
+                # Use verifications[] for KPI measurement
+                kpi_references = node_data.get('verifications', [])
+                print(f"[@navigation_executor:_queue_kpi_measurement] Using verifications for KPI (count: {len(kpi_references)})")
+            else:
+                # Use kpi_references[] for KPI measurement (default behavior)
+                kpi_references = node_data.get('kpi_references', [])
+                print(f"[@navigation_executor:_queue_kpi_measurement] Using kpi_references for KPI (count: {len(kpi_references)})")
             
             if not kpi_references:
                 return

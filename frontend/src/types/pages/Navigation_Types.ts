@@ -243,6 +243,9 @@ export interface NodeForm {
   
   // KPI measurement references
   kpi_references?: Verification[];
+  
+  // Use verifications for KPI measurement instead of kpi_references
+  use_verifications_for_kpi?: boolean;
 }
 
 // EdgeForm interface for bidirectional edge structure

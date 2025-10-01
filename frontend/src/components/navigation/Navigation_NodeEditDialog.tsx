@@ -14,6 +14,8 @@ import {
   Typography,
   IconButton,
   LinearProgress,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import React from 'react';
 
@@ -292,21 +294,48 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           <Typography variant="h6" sx={{ fontSize: '1rem', m: 0, mb: 0.5 }}>
             📊 KPI Measurement
           </Typography>
-          <VerificationsList
-            verifications={nodeForm?.kpi_references || []}
-            availableVerifications={kpiAvailableVerifications}
-            onVerificationsChange={(newRefs) => setNodeForm({ ...nodeForm, kpi_references: newRefs })}
-            loading={false}
-            model={nodeEdit.deviceModel || model || 'android_mobile'}
-            selectedHost={selectedHost}
-            testResults={[]}
-            onReferenceSelected={() => {}}
-            modelReferences={nodeEdit.modelReferences}
-            referencesLoading={nodeEdit.referencesLoading}
-            showCollapsible={false}
-            title=""
-            onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time
+          
+          {/* Checkbox to use verifications for KPI */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={nodeForm?.use_verifications_for_kpi || false}
+                onChange={(e) => setNodeForm({ ...nodeForm, use_verifications_for_kpi: e.target.checked })}
+                size="small"
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                Use verifications for KPI measurement
+              </Typography>
+            }
+            sx={{ mb: 1 }}
           />
+          
+          {/* KPI References List - disabled when checkbox is checked */}
+          <Box
+            sx={{
+              opacity: nodeForm?.use_verifications_for_kpi ? 0.5 : 1,
+              pointerEvents: nodeForm?.use_verifications_for_kpi ? 'none' : 'auto',
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <VerificationsList
+              verifications={nodeForm?.kpi_references || []}
+              availableVerifications={kpiAvailableVerifications}
+              onVerificationsChange={(newRefs) => setNodeForm({ ...nodeForm, kpi_references: newRefs })}
+              loading={false}
+              model={nodeEdit.deviceModel || model || 'android_mobile'}
+              selectedHost={selectedHost}
+              testResults={[]}
+              onReferenceSelected={() => {}}
+              modelReferences={nodeEdit.modelReferences}
+              referencesLoading={nodeEdit.referencesLoading}
+              showCollapsible={false}
+              title=""
+              onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time
+            />
+          </Box>
         </Box>
       </DialogContent>
 
