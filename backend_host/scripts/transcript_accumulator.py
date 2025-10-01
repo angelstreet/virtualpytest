@@ -90,49 +90,54 @@ def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
         
         combined = "\n".join(transcripts_text)
         
-        # AI enhancement prompt - focused on accuracy improvement
-        prompt = f"""You are enhancing speech-to-text transcripts from Whisper AI for better accuracy.
+        # AI enhancement prompt - focused on accuracy improvement with strict JSON format
+        prompt = f"""Enhance these Whisper AI transcripts by fixing errors. Return ONLY valid JSON.
 
-Original transcripts (may contain errors, mishearings, or unclear words):
+Transcripts:
 {combined}
 
-TASK: Fix errors, improve accuracy, and provide context while preserving the original meaning.
+Fix: speech errors, grammar, punctuation. Keep original language. Don't translate.
 
-RULES:
-1. Fix obvious speech-to-text errors and mishearings
-2. Correct grammar and punctuation
-3. Preserve the original language (don't translate)
-4. Keep technical terms and proper nouns as-is if clearly correct
-5. If a segment is unclear, keep the original but mark with [?]
-6. Maintain the same segment structure
+Return this EXACT JSON structure (no markdown, no extra text):
+{{"enhanced":[{{"segment_num":123,"enhanced_text":"fixed text"}},{{"segment_num":124,"enhanced_text":"fixed text"}}]}}
 
-Respond with JSON only:
-{{
-  "enhanced": [
-    {{"segment_num": 123, "enhanced_text": "corrected transcript text"}},
-    {{"segment_num": 124, "enhanced_text": "corrected transcript text"}}
-  ]
-}}
-
-CRITICAL: Respond with valid JSON only, no markdown, no extra text."""
+CRITICAL: Return ONLY the JSON object above. No explanation. No markdown. Just JSON."""
         
         logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
         
-        # Call AI
-        result = call_text_ai(prompt, max_tokens=800, temperature=0.1)
+        # Call AI with higher token limit to avoid truncation
+        result = call_text_ai(prompt, max_tokens=1500, temperature=0.1)
         
         if not result['success']:
             logger.warning(f"[{capture_folder}] AI enhancement failed: {result.get('error', 'Unknown error')}")
             return {}
         
-        # Parse AI response
+        # Parse AI response with robust error handling
         content = result['content'].strip()
         
-        # Remove markdown code blocks if present
-        if content.startswith('```json'):
-            content = content.replace('```json', '').replace('```', '').strip()
-        elif content.startswith('```'):
-            content = content.replace('```', '').strip()
+        # Remove markdown code blocks and extra text
+        if '```json' in content:
+            # Extract JSON from markdown block
+            json_start = content.find('```json') + 7
+            json_end = content.find('```', json_start)
+            if json_end > json_start:
+                content = content[json_start:json_end].strip()
+        elif '```' in content:
+            json_start = content.find('```') + 3
+            json_end = content.find('```', json_start)
+            if json_end > json_start:
+                content = content[json_start:json_end].strip()
+        
+        # Find JSON object boundaries if there's extra text
+        if not content.startswith('{'):
+            json_start = content.find('{')
+            if json_start >= 0:
+                content = content[json_start:]
+        
+        if not content.endswith('}'):
+            json_end = content.rfind('}')
+            if json_end >= 0:
+                content = content[:json_end + 1]
         
         try:
             ai_result = json.loads(content)
@@ -149,16 +154,52 @@ CRITICAL: Respond with valid JSON only, no markdown, no extra text."""
             return enhanced_map
             
         except json.JSONDecodeError as e:
-            logger.warning(f"[{capture_folder}] AI response parsing failed: {e}")
-            logger.debug(f"[{capture_folder}] AI raw response: {content[:200]}")
+            logger.warning(f"[{capture_folder}] ⚠️ AI response parsing failed: {e}")
+            logger.warning(f"[{capture_folder}] AI raw response (first 300 chars): {content[:300]}")
             return {}
     
     except Exception as e:
         logger.error(f"[{capture_folder}] AI enhancement error: {e}")
         return {}
 
+def load_hourly_transcript(stream_dir, hour_window, capture_folder):
+    """Load transcript data for a specific hour window (aligned with archive manifests)"""
+    transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+    
+    if os.path.exists(transcript_path):
+        with open(transcript_path, 'r') as f:
+            return json.load(f)
+    else:
+        return {
+            'capture_folder': capture_folder,
+            'hour_window': hour_window,
+            'sample_interval_seconds': SAMPLE_INTERVAL,
+            'segments': [],
+            'samples_since_ai_enhancement': 0
+        }
+
+def save_hourly_transcript(stream_dir, hour_window, transcript_data):
+    """Save transcript data for a specific hour window (atomic write)"""
+    transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+    with open(transcript_path + '.tmp', 'w') as f:
+        json.dump(transcript_data, f, indent=2)
+    os.rename(transcript_path + '.tmp', transcript_path)
+
+def cleanup_old_hourly_transcripts(stream_dir):
+    """Remove hourly transcript files older than 24 hours (circular cleanup)"""
+    try:
+        transcript_files = glob.glob(os.path.join(stream_dir, 'transcript_hour*.json'))
+        if len(transcript_files) > 24:
+            # Sort by modification time and remove oldest
+            transcript_files.sort(key=lambda x: os.path.getmtime(x))
+            for old_file in transcript_files[:-24]:
+                os.remove(old_file)
+                logger.info(f"Cleaned up old transcript: {os.path.basename(old_file)}")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup old transcripts: {e}")
+
 def update_transcript_buffer(capture_dir, max_samples_per_run=1):
-    """Update transcript buffer with new samples (circular 24h) - uses transcription utils
+    """Update transcript buffer with new samples (hourly files aligned with archive manifests)
     
     Args:
         capture_dir: Path to capture directory
@@ -171,23 +212,16 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')
-        transcript_path = os.path.join(stream_dir, 'transcript_segments.json')
         
-        # Load existing transcript data
-        if os.path.exists(transcript_path):
-            with open(transcript_path, 'r') as f:
-                transcript_data = json.load(f)
+        # Load global state (track last processed segment across all hours)
+        state_path = os.path.join(stream_dir, 'transcript_state.json')
+        if os.path.exists(state_path):
+            with open(state_path, 'r') as f:
+                state = json.load(f)
         else:
-            transcript_data = {
-                'capture_folder': capture_folder,
-                'sample_interval_seconds': SAMPLE_INTERVAL,
-                'segments': [],
-                'last_processed_segment': 0,
-                'samples_since_ai_enhancement': 0
-            }
+            state = {'last_processed_segment': 0}
         
-        existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
-        last_processed = transcript_data.get('last_processed_segment', 0)
+        last_processed = state.get('last_processed_segment', 0)
         
         # First run: Start 10 segments back to get immediate feedback
         if last_processed == 0:
@@ -198,7 +232,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 start_offset = 10
                 last_processed = max(0, latest_seg - start_offset)
                 logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (10 segments back from #{latest_seg})")
-                transcript_data['last_processed_segment'] = last_processed
+                state['last_processed_segment'] = last_processed
         
         # Find available segments
         segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
@@ -239,100 +273,129 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         total_pending = len(segments_to_process)
         segments_to_process = segments_to_process[:max_samples_per_run]
         
+        # Visual separator for readability
+        logger.info("=" * 80)
+        
         if total_pending > max_samples_per_run:
             logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)}/{total_pending} samples (alternating with other devices)...")
         else:
             logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)} new samples (10 segments per sample)...")
         
-        # Process new samples using transcription utils (clean, no dependencies)
+        # Group segments by hour window (aligned with archive manifests)
+        segments_by_hour = {}
         for segment_num, segment_batch in segments_to_process:
-            # Extract TS file paths from batch
-            ts_file_paths = [seg_path for _, seg_path in segment_batch]
-            
-            # Start timing
-            seg_start_time = time.time()
-            
-            # Calculate total size of files being merged
-            total_size = sum(os.path.getsize(f) for f in ts_file_paths if os.path.exists(f))
-            
-            # Transcribe merged segments (utility handles merging + transcription + cleanup)
-            # Pre-checks audio level to skip Whisper on silent segments (saves CPU on RPi)
-            logger.info(f"[{capture_folder}] 🎬 seg#{segment_num}: Merged {len(segment_batch)} TS files ({total_size} bytes)")
-            result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
-            
-            transcript = result.get('transcript', '').strip()
-            language = result.get('language', 'unknown')
-            confidence = result.get('confidence', 0.0)
-            skipped = result.get('skipped', False)
-            seg_elapsed = time.time() - seg_start_time
-            
             relative_seconds = segment_num
-            manifest_window = (relative_seconds // 3600) + 1
+            hour_window = (relative_seconds // 3600) + 1  # 1-24
             
-            existing_segments[segment_num] = {
-                'segment_num': segment_num,
-                'relative_seconds': relative_seconds,
-                'language': language,
-                'transcript': transcript,
-                'confidence': confidence,
-                'manifest_window': manifest_window,
-                'segments_merged': len(segment_batch)  # Track how many segments were merged
-            }
+            if hour_window not in segments_by_hour:
+                segments_by_hour[hour_window] = []
+            segments_by_hour[hour_window].append((segment_num, segment_batch))
+        
+        # Process each hour separately
+        for hour_window in sorted(segments_by_hour.keys()):
+            hour_segments = segments_by_hour[hour_window]
+            logger.info(f"[{capture_folder}] Processing {len(hour_segments)} samples for hour window {hour_window}")
             
-            # Compact logging: all info in 2-3 lines
-            if transcript:
-                logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
-                logger.info(f"[{capture_folder}] 💬 '{transcript}'")
-            elif skipped:
-                logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
-            else:
-                logger.info(f"[{capture_folder}] 🔇 No speech detected | Duration: {seg_elapsed:.1f}s")
-        
-        # Circular buffer: Keep only last MAX_SAMPLES
-        all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
-        if len(all_segments) > MAX_SAMPLES:
-            all_segments = all_segments[-MAX_SAMPLES:]
-            logger.info(f"[{capture_folder}] Circular buffer: pruned to {MAX_SAMPLES} samples")
-        
-        # AI Enhancement: Every 10 new samples, enhance the last batch
-        samples_since_enhancement = transcript_data.get('samples_since_ai_enhancement', 0)
-        samples_since_enhancement += len(segments_to_process)
-        
-        if samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
-            # Get the last 10 segments with transcripts for enhancement
-            segments_to_enhance = [seg for seg in all_segments[-AI_ENHANCEMENT_BATCH:] if seg.get('transcript', '').strip()]
+            # Load hourly transcript file
+            transcript_data = load_hourly_transcript(stream_dir, hour_window, capture_folder)
+            existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
             
-            if segments_to_enhance:
-                enhanced_map = enhance_transcripts_with_ai(segments_to_enhance, capture_folder)
+            # Process new samples for this hour
+            for segment_num, segment_batch in hour_segments:
+                # Extract TS file paths from batch
+                ts_file_paths = [seg_path for _, seg_path in segment_batch]
                 
-                # Apply enhanced transcripts back to segments
-                if enhanced_map:
-                    for seg in all_segments:
-                        seg_num = seg['segment_num']
-                        if seg_num in enhanced_map:
-                            seg['enhanced_transcript'] = enhanced_map[seg_num]
-                            logger.info(f"[{capture_folder}] Enhanced seg#{seg_num}: '{enhanced_map[seg_num][:60]}{'...' if len(enhanced_map[seg_num]) > 60 else ''}'")
+                # Start timing
+                seg_start_time = time.time()
+                
+                # Calculate total size of files being merged
+                total_size = sum(os.path.getsize(f) for f in ts_file_paths if os.path.exists(f))
+                
+                # Transcribe merged segments
+                logger.info(f"[{capture_folder}] 🎬 seg#{segment_num} (hour{hour_window}): Merged {len(segment_batch)} TS files ({total_size} bytes)")
+                result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
+                
+                transcript = result.get('transcript', '').strip()
+                language = result.get('language', 'unknown')
+                confidence = result.get('confidence', 0.0)
+                skipped = result.get('skipped', False)
+                seg_elapsed = time.time() - seg_start_time
+                
+                relative_seconds = segment_num
+                
+                existing_segments[segment_num] = {
+                    'segment_num': segment_num,
+                    'relative_seconds': relative_seconds,
+                    'language': language,
+                    'transcript': transcript,
+                    'confidence': confidence,
+                    'hour_window': hour_window,
+                    'segments_merged': len(segment_batch)
+                }
+                
+                # Compact logging
+                if transcript:
+                    logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
+                    logger.info(f"[{capture_folder}] 💬 '{transcript}'")
+                elif skipped:
+                    logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
+                else:
+                    logger.info(f"[{capture_folder}] 🔇 No speech detected | Duration: {seg_elapsed:.1f}s")
             
-            # Reset counter
-            samples_since_enhancement = 0
+            # Sort segments for this hour
+            all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
+            
+            # AI Enhancement: Every 10 new samples for this hour
+            samples_since_enhancement = transcript_data.get('samples_since_ai_enhancement', 0)
+            samples_since_enhancement += len(hour_segments)
+            
+            if samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
+                # Get the last 10 segments with transcripts for enhancement
+                segments_to_enhance = [seg for seg in all_segments[-AI_ENHANCEMENT_BATCH:] if seg.get('transcript', '').strip()]
+                
+                if segments_to_enhance:
+                    enhanced_map = enhance_transcripts_with_ai(segments_to_enhance, capture_folder)
+                    
+                    # Apply enhanced transcripts back to segments
+                    if enhanced_map:
+                        for seg in all_segments:
+                            seg_num = seg['segment_num']
+                            if seg_num in enhanced_map:
+                                seg['enhanced_transcript'] = enhanced_map[seg_num]
+                                original = seg.get('transcript', '')[:40]
+                                enhanced = enhanced_map[seg_num][:40]
+                                logger.info(f"[{capture_folder}] 🔵 seg#{seg_num} Enhanced:")
+                                logger.info(f"[{capture_folder}]    Original: '{original}...'")
+                                logger.info(f"[{capture_folder}]    Enhanced: '{enhanced}...'")
+                
+                # Reset counter
+                samples_since_enhancement = 0
+            
+            # Update and save hourly transcript data
+            transcript_data['capture_folder'] = capture_folder
+            transcript_data['hour_window'] = hour_window
+            transcript_data['sample_interval_seconds'] = SAMPLE_INTERVAL
+            transcript_data['segments'] = all_segments
+            transcript_data['last_update'] = datetime.now().isoformat()
+            transcript_data['total_samples'] = len(all_segments)
+            transcript_data['samples_since_ai_enhancement'] = samples_since_enhancement
+            
+            # Save this hour's transcript file
+            save_hourly_transcript(stream_dir, hour_window, transcript_data)
+            logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples")
         
-        # Update transcript data
-        transcript_data['capture_folder'] = capture_folder
-        transcript_data['sample_interval_seconds'] = SAMPLE_INTERVAL
-        transcript_data['total_duration_seconds'] = MAX_DURATION_HOURS * 3600
-        transcript_data['segments'] = all_segments
-        transcript_data['last_update'] = datetime.now().isoformat()
-        transcript_data['total_samples'] = len(all_segments)
-        transcript_data['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
-        transcript_data['samples_since_ai_enhancement'] = samples_since_enhancement
+        # Update global state
+        state['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
+        with open(state_path + '.tmp', 'w') as f:
+            json.dump(state, f, indent=2)
+        os.rename(state_path + '.tmp', state_path)
         
-        # Save immediately after processing this device (atomic write)
-        with open(transcript_path + '.tmp', 'w') as f:
-            json.dump(transcript_data, f, indent=2)
-        os.rename(transcript_path + '.tmp', transcript_path)
+        # Cleanup old hourly transcripts (keep last 24 hours)
+        cleanup_old_hourly_transcripts(stream_dir)
         
         elapsed = time.time() - start_time
-        logger.info(f"[{capture_folder}] ✅ Saved transcript_segments.json: {len(all_segments)} total samples (processed {len(segments_to_process)} new) [{elapsed:.2f}s]")
+        logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_hour)} hour window(s) [{elapsed:.2f}s]")
+        logger.info("=" * 80)
         return True
         
     except Exception as e:

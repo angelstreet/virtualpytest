@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Box, Slider, Typography, IconButton, Select, MenuItem, CircularProgress } from '@mui/material';
-import { PlayArrow, Pause, Translate } from '@mui/icons-material';
+import { PlayArrow, Pause, Translate, AutoAwesome } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 import { useStream } from '../../hooks/controller';
 import { Host } from '../../types/common/Host_Types';
@@ -141,30 +141,19 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [isLiveMode]);
 
-  // Fetch archive metadata and transcript data when entering archive mode
+  // Fetch archive metadata when entering archive mode
   useEffect(() => {
     if (!isLiveMode && !archiveMetadata && !isTransitioning) {
       const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
       const metadataUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive_metadata.json');
-      const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/transcript_segments.json');
       
-      console.log('[@EnhancedHLSPlayer] Fetching archive metadata and transcripts...');
+      console.log('[@EnhancedHLSPlayer] Fetching archive metadata...');
       
-      // Fetch both metadata and transcripts
-      Promise.all([
-        fetch(metadataUrl).then(res => res.json()),
-        fetch(transcriptUrl).then(res => res.json()).catch(() => null) // Transcript is optional
-      ])
-        .then(([metadata, transcript]) => {
+      fetch(metadataUrl)
+        .then(res => res.json())
+        .then(metadata => {
           console.log('[@EnhancedHLSPlayer] Archive metadata loaded:', metadata);
           setArchiveMetadata(metadata);
-          
-          if (transcript && transcript.segments) {
-            console.log(`[@EnhancedHLSPlayer] Transcript data loaded: ${transcript.segments.length} samples`);
-            setTranscriptData(transcript);
-          } else {
-            console.log('[@EnhancedHLSPlayer] No transcript data available');
-          }
           
           // Start at the first manifest (oldest, beginning of 24h archive)
           if (metadata.manifests && metadata.manifests.length > 0) {
@@ -178,6 +167,36 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         });
     }
   }, [isLiveMode, archiveMetadata, isTransitioning, providedStreamUrl, hookStreamUrl, deviceId]);
+
+  // Load hourly transcript file when manifest changes (aligned with archive windows)
+  useEffect(() => {
+    if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
+      const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+      if (currentManifest) {
+        const hourWindow = currentManifest.window_index;
+        const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, `/transcript_hour${hourWindow}.json`);
+        
+        console.log(`[@EnhancedHLSPlayer] Loading transcript for hour window ${hourWindow}...`);
+        
+        fetch(transcriptUrl)
+          .then(res => res.json())
+          .then(transcript => {
+            if (transcript && transcript.segments) {
+              console.log(`[@EnhancedHLSPlayer] Transcript hour${hourWindow} loaded: ${transcript.segments.length} samples`);
+              setTranscriptData(transcript);
+            } else {
+              console.log(`[@EnhancedHLSPlayer] No transcript data for hour ${hourWindow}`);
+              setTranscriptData(null);
+            }
+          })
+          .catch(() => {
+            console.log(`[@EnhancedHLSPlayer] No transcript available for hour ${hourWindow}`);
+            setTranscriptData(null);
+          });
+      }
+    }
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId]);
 
   // Generate hour marks for archive timeline (tick every 1h, label every 3h)
   const hourMarks = useMemo(() => {
@@ -265,7 +284,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           const globalTime = currentManifest.start_time_seconds + video.currentTime;
           setGlobalCurrentTime(globalTime);
           
-          // Find matching transcript for current time
+          // Find matching transcript for current time (within this hour's segments)
           if (transcriptData && transcriptData.segments.length > 0) {
             const closestSegment = transcriptData.segments.reduce((closest, segment) => {
               const timeDiff = Math.abs(segment.relative_seconds - globalTime);
@@ -273,12 +292,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               return timeDiff < closestDiff ? segment : closest;
             }, transcriptData.segments[0]);
             
-            // Show transcript if within 10s window
+            // Show transcript if within 10s window (sample interval)
             if (Math.abs(closestSegment.relative_seconds - globalTime) < 10) {
               setCurrentTranscript(closestSegment);
             } else {
               setCurrentTranscript(null);
             }
+          } else {
+            setCurrentTranscript(null);
           }
           
           // Check if we need to switch to next manifest
@@ -474,11 +495,16 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
       const captureFolder = captureMatch ? captureMatch[1] : transcriptData?.capture_folder;
       
+      // Get current hour window for hourly transcript files
+      const currentManifest = archiveMetadata?.manifests[currentManifestIndex];
+      const hourWindow = currentManifest?.window_index || 1;
+      
       const response = await fetch(`/host/${captureFolder}/translate-transcripts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          target_language: language
+          target_language: language,
+          hour_window: hourWindow  // Tell backend which hourly file to translate
         })
       });
 
@@ -487,8 +513,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (data.success) {
         console.log(`[@EnhancedHLSPlayer] Translation complete: ${data.translated_count} segments translated`);
         
-        // Reload transcript data with new translations
-        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/transcript_segments.json');
+        // Reload current hourly transcript data with new translations
+        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, `/transcript_hour${hourWindow}.json`);
         const updatedData = await fetch(transcriptUrl).then(res => res.json());
         setTranscriptData(updatedData);
       }
@@ -497,7 +523,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     } finally {
       setIsTranslating(false);
     }
-  }, [transcriptData, providedStreamUrl, hookStreamUrl, deviceId, hostName]);
+  }, [transcriptData, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, hostName]);
 
   // Get current transcript text (with AI enhancement and translation support)
   const getCurrentTranscriptText = useCallback(() => {
@@ -604,16 +630,31 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               borderRadius: 2,
               maxWidth: '80%',
               textAlign: 'center',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+              // Blue border for AI-enhanced, white for original
+              border: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
+                ? '2px solid rgba(33, 150, 243, 0.8)' // Blue for enhanced
+                : '1px solid rgba(255, 255, 255, 0.3)', // White for original
+              boxShadow: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
+                ? '0 4px 12px rgba(33, 150, 243, 0.4)' // Blue glow for enhanced
+                : '0 4px 12px rgba(0,0,0,0.5)',
             }}
           >
+            {/* AI Enhanced Icon */}
+            {currentTranscript.enhanced_transcript && selectedLanguage === 'original' && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5 }}>
+                <AutoAwesome sx={{ fontSize: 16, color: '#2196f3', mr: 0.5 }} />
+                <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 600 }}>
+                  AI Enhanced
+                </Typography>
+              </Box>
+            )}
+            
             <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.4 }}>
               {getCurrentTranscriptText()}
             </Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 0.5, display: 'block' }}>
               {selectedLanguage === 'original' 
-                ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%${currentTranscript.enhanced_transcript ? ' • AI Enhanced' : ''}`
+                ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%`
                 : `Translated to ${selectedLanguage}`
               }
             </Typography>

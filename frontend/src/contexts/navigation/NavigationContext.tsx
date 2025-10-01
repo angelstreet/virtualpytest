@@ -872,6 +872,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 label: nodeForm.label,
                 description: nodeForm.description,
                 verifications: nodeForm.verifications || [],
+                kpi_references: nodeForm.kpi_references || [],
               },
             };
             setNodes([...nodes, updatedNodeData]);
@@ -885,6 +886,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 label: nodeForm.label,
                 description: nodeForm.description,
                 verifications: nodeForm.verifications || [],
+                kpi_references: nodeForm.kpi_references || [],
               },
             };
              const updatedNodes = nodes.map((node) =>
@@ -919,6 +921,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             
             console.log(`[@NavigationContext] Saving node ${updatedNodeData.id} with canvas position:`, currentPosition);
             console.log(`[@NavigationContext] Node verifications count:`, updatedNodeData.data.verifications?.length || 0);
+            console.log(`[@NavigationContext] Node KPI references count:`, updatedNodeData.data.kpi_references?.length || 0);
 
             const normalizedNode = {
               node_id: updatedNodeData.id,
@@ -927,6 +930,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               position_y: currentPosition.y,
               node_type: updatedNodeData.type || 'screen',  // Use top-level node_type column only
               verifications: updatedNodeData.data.verifications || [],
+              kpi_references: updatedNodeData.data.kpi_references || [],
               data: {
                 // Only include non-verification data to avoid duplication
                 // NOTE: node_type is saved at top-level, NOT in data object
@@ -945,6 +949,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
             console.log(`[@NavigationContext] Normalized node structure:`, {
               verifications: normalizedNode.verifications,
+              kpi_references: normalizedNode.kpi_references,
               dataHasVerifications: 'verifications' in normalizedNode.data
             });
 
