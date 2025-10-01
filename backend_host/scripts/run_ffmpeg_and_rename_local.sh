@@ -184,7 +184,7 @@ start_grabber() {
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
     # Optimized: single fps operation, balanced queues, CBR encoding for stable streaming
-    FFMPEG_CMD="/usr/bin/ffmpeg -loglevel error -y \
+    FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
       -thread_queue_size 1024 \
