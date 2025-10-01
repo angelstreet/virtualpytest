@@ -167,11 +167,20 @@ def setup_host_cleanup():
     atexit.register(cleanup)
 
 def start_background_services():
-    """Start background services for host communication"""
+    """Start background services for host communication and KPI measurement"""
     def start_services():
         time.sleep(2)  # Wait for Flask to start
         register_host_with_server()
         start_ping_thread()
+        
+        # Start KPI measurement service
+        try:
+            from backend_host.src.services.kpi_executor import get_kpi_executor
+            kpi_executor = get_kpi_executor()
+            kpi_executor.start()
+            print("✅ [backend_host] KPI measurement service started")
+        except Exception as e:
+            print(f"⚠️ [backend_host] Failed to start KPI measurement service: {e}")
     
     thread = threading.Thread(target=start_services, daemon=True)
     thread.start()

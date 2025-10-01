@@ -71,6 +71,7 @@ CREATE TABLE navigation_nodes (
     style jsonb DEFAULT '{}',
     data jsonb DEFAULT '{}',
     verifications jsonb DEFAULT '[]', -- ✅ Embedded verification objects
+    kpi_references jsonb DEFAULT '[]', -- ✅ KPI measurement references (same format as verifications)
     
     -- Nested tree metadata
     has_subtree boolean DEFAULT false, -- True if this node has associated subtrees
@@ -166,6 +167,7 @@ CREATE INDEX idx_navigation_nodes_node_id ON navigation_nodes(node_id);
 CREATE INDEX idx_navigation_nodes_team ON navigation_nodes(team_id);
 CREATE INDEX idx_navigation_nodes_position ON navigation_nodes(position_x, position_y);
 CREATE INDEX idx_navigation_nodes_has_subtree ON navigation_nodes(has_subtree);
+CREATE INDEX idx_navigation_nodes_kpi_references ON navigation_nodes USING GIN (kpi_references);
 
 CREATE INDEX idx_navigation_edges_tree ON navigation_edges(tree_id);
 CREATE INDEX idx_navigation_edges_edge_id ON navigation_edges(edge_id);
@@ -182,6 +184,9 @@ CREATE INDEX idx_navigation_trees_history_team ON navigation_trees_history(team_
 
 -- Viewport position index
 CREATE INDEX idx_navigation_trees_viewport ON navigation_trees(viewport_x, viewport_y, viewport_zoom);
+
+-- Add column comments
+COMMENT ON COLUMN navigation_nodes.kpi_references IS 'KPI measurement references - same format as verifications, used to measure navigation performance timing';
 
 -- Nested Tree Helper Functions
 -- Function to get all descendant trees

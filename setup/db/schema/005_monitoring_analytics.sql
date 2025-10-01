@@ -73,7 +73,14 @@ CREATE TABLE edge_metrics (
     successful_executions integer DEFAULT 0,
     success_rate numeric DEFAULT 0,
     avg_execution_time_ms integer DEFAULT 0,
-    action_set_id character varying  -- UPDATED: Added for bidirectional edge tracking
+    action_set_id character varying,  -- UPDATED: Added for bidirectional edge tracking
+    -- KPI measurement metrics
+    total_kpi_measurements integer DEFAULT 0,
+    successful_kpi_measurements integer DEFAULT 0,
+    avg_kpi_ms integer DEFAULT 0,
+    min_kpi_ms integer,
+    max_kpi_ms integer,
+    kpi_success_rate numeric DEFAULT 0
 );
 
 -- action_execution_history table removed - does not exist in current database
@@ -104,7 +111,13 @@ CREATE INDEX idx_edge_metrics_tree_id ON edge_metrics(tree_id);
 COMMENT ON TABLE alerts IS 'Stores monitoring incidents from HDMI capture analysis';
 COMMENT ON TABLE heatmaps IS 'Performance heatmap data and analytics';
 COMMENT ON TABLE node_metrics IS 'Aggregated performance metrics for navigation nodes with embedded verifications';
-COMMENT ON TABLE edge_metrics IS 'Aggregated performance metrics for navigation edges with embedded actions';
+COMMENT ON TABLE edge_metrics IS 'Aggregated performance metrics for navigation edges with embedded actions and KPI measurements';
+COMMENT ON COLUMN edge_metrics.total_kpi_measurements IS 'Total number of KPI measurements attempted';
+COMMENT ON COLUMN edge_metrics.successful_kpi_measurements IS 'Number of successful KPI measurements';
+COMMENT ON COLUMN edge_metrics.avg_kpi_ms IS 'Average KPI measurement time in milliseconds';
+COMMENT ON COLUMN edge_metrics.min_kpi_ms IS 'Minimum KPI measurement time';
+COMMENT ON COLUMN edge_metrics.max_kpi_ms IS 'Maximum KPI measurement time';
+COMMENT ON COLUMN edge_metrics.kpi_success_rate IS 'KPI measurement success rate (0-1)';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;

@@ -5,6 +5,7 @@ Unified navigation executor with complete tree management, pathfinding, and exec
 Consolidates all navigation functionality without external dependencies.
 """
 
+import os
 import time
 from typing import Dict, List, Optional, Any, Tuple
 
@@ -12,6 +13,9 @@ from typing import Dict, List, Optional, Any, Tuple
 from  backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
 from  backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from  backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+
+# KPI measurement
+from backend_host.src.services.kpi_executor import get_kpi_executor, KPIMeasurementRequest
 
 
 class NavigationExecutor:
@@ -425,6 +429,14 @@ class NavigationExecutor:
                     context.record_step_immediately(step_result)
                     # Simple message without redundant step number
                     step_result['message'] = f"{from_node} → {to_node}"
+                
+                # Queue KPI measurement if step succeeded and target node has kpi_references
+                if result.get('success', False):
+                    self._queue_kpi_measurement_if_configured(
+                        step=step,
+                        action_timestamp=step_start_time,
+                        team_id=team_id
+                    )
                 
                 if not result.get('success', False):
                     error_msg = result.get('error', 'Unknown error')
@@ -994,6 +1006,120 @@ class NavigationExecutor:
                     return {'success': True, 'edge': sub_action_edge, 'tree_type': 'sub', 'tree_id': sub_trees[0].get('id'), 'source_node_id': node_id}
         
         return {'success': False, 'error': f"Action '{action_command}' not found in main tree or sub-trees"}
+
+    # ========================================
+    # KPI MEASUREMENT METHODS
+    # ========================================
+    
+    def _queue_kpi_measurement_if_configured(
+        self,
+        step: Dict[str, Any],
+        action_timestamp: float,
+        team_id: str
+    ):
+        """
+        Queue KPI measurement if target node has kpi_references configured.
+        Fail early if any required data missing.
+        """
+        try:
+            target_node_id = step.get('to_node_id')
+            if not target_node_id:
+                return
+            
+            # Get target node's KPI references
+            from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
+            node_result = get_node_by_id(step.get('tree_id', ''), target_node_id, team_id)
+            
+            if not node_result.get('success'):
+                return
+            
+            node_data = node_result['node']
+            kpi_references = node_data.get('kpi_references', [])
+            
+            if not kpi_references:
+                return
+            
+            # Get capture directory from device (MANDATORY)
+            capture_dir = self._get_device_capture_dir()
+            if not capture_dir:
+                print(f"⚠️ [NavigationExecutor] No capture_dir for device {self.device_id} - KPI skipped")
+                return
+            
+            # Get timeout from KPI references (use maximum timeout)
+            timeout_ms = max([ref.get('timeout', 5000) for ref in kpi_references])
+            
+            # Record edge execution to get execution_result_id
+            from shared.src.lib.supabase.execution_results_db import record_edge_execution
+            execution_result_id = record_edge_execution(
+                team_id=team_id,
+                tree_id=step.get('tree_id', ''),
+                edge_id=step.get('edge_id', ''),
+                host_name=self.host_name,
+                device_model=self.device_model,
+                success=True,
+                execution_time_ms=0,  # Will be updated by KPI measurement
+                message="KPI measurement queued",
+                action_set_id=step.get('action_set_id')
+            )
+            
+            if not execution_result_id:
+                print(f"❌ [NavigationExecutor] Failed to create execution_result - KPI skipped")
+                return
+            
+            # Create KPI measurement request - will fail early if validation fails
+            request = KPIMeasurementRequest(
+                execution_result_id=execution_result_id,
+                team_id=team_id,
+                capture_dir=capture_dir,
+                action_timestamp=action_timestamp,
+                kpi_references=kpi_references,
+                timeout_ms=timeout_ms
+            )
+            
+            # Enqueue for background processing
+            kpi_executor = get_kpi_executor()
+            if kpi_executor.enqueue_measurement(request):
+                print(f"📊 [NavigationExecutor] KPI queued for {step.get('to_node_label')} ({len(kpi_references)} refs, {timeout_ms}ms timeout)")
+            else:
+                print(f"⚠️ [NavigationExecutor] Failed to queue KPI - queue full")
+        
+        except ValueError as e:
+            # Validation errors from KPIMeasurementRequest - log and skip
+            print(f"❌ [NavigationExecutor] KPI validation failed: {e}")
+        except Exception as e:
+            # Unexpected errors - log and skip
+            print(f"❌ [NavigationExecutor] KPI queue error: {e}")
+    
+    def _get_device_capture_dir(self) -> Optional[str]:
+        """
+        Get capture directory for this device from active_captures.conf.
+        Returns None if not found - no fallback.
+        """
+        active_captures_file = '/tmp/active_captures.conf'
+        
+        if not os.path.exists(active_captures_file):
+            print(f"⚠️ [NavigationExecutor] {active_captures_file} not found")
+            return None
+        
+        try:
+            with open(active_captures_file, 'r') as f:
+                for line in f:
+                    capture_base = line.strip()
+                    if not capture_base:
+                        continue
+                    
+                    # Match device: /var/www/html/stream/capture1 → device1
+                    if self.device_id in capture_base:
+                        capture_dir = os.path.join(capture_base, 'captures')
+                        if os.path.exists(capture_dir):
+                            return capture_dir
+            
+            print(f"⚠️ [NavigationExecutor] No matching capture dir for {self.device_id}")
+            return None
+        
+        except Exception as e:
+            print(f"❌ [NavigationExecutor] Error reading active_captures.conf: {e}")
+            return None
 
     # ========================================
     # POSITION TRACKING METHODS

@@ -87,7 +87,10 @@ CREATE TABLE execution_results (
     created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
     script_result_id uuid,
     script_context text DEFAULT 'direct'::text,
-    action_set_id text  -- UPDATED: Added for bidirectional edge tracking
+    action_set_id text,  -- UPDATED: Added for bidirectional edge tracking
+    kpi_measurement_ms integer,  -- KPI: Measured time from action to visual confirmation
+    kpi_measurement_success boolean,  -- KPI: Whether measurement succeeded
+    kpi_measurement_error text  -- KPI: Error message if measurement failed
 );
 
 -- Script execution results (UPDATED SCHEMA)
@@ -167,6 +170,8 @@ CREATE INDEX idx_execution_results_team_id ON execution_results(team_id);
 CREATE INDEX idx_execution_results_tree_id ON execution_results(tree_id);
 CREATE INDEX idx_execution_results_host_name ON execution_results(host_name);
 CREATE INDEX idx_execution_results_executed_at ON execution_results(executed_at);
+CREATE INDEX idx_execution_results_kpi_success ON execution_results(kpi_measurement_success) WHERE kpi_measurement_success IS NOT NULL;
+CREATE INDEX idx_execution_results_kpi_ms ON execution_results(kpi_measurement_ms) WHERE kpi_measurement_ms IS NOT NULL;
 CREATE INDEX idx_script_results_team_id ON script_results(team_id);
 CREATE INDEX idx_script_results_script_name ON script_results(script_name);
 CREATE INDEX idx_script_results_host_name ON script_results(host_name);
@@ -183,6 +188,9 @@ COMMENT ON TABLE test_results IS 'Test execution results and outcomes';
 COMMENT ON TABLE execution_results IS 'Detailed execution results matching automai schema';
 COMMENT ON TABLE script_results IS 'Script execution results matching automai schema';
 COMMENT ON TABLE zap_results IS 'Individual zap iteration results with detailed analysis data';
+COMMENT ON COLUMN execution_results.kpi_measurement_ms IS 'KPI: Measured time from action to visual confirmation';
+COMMENT ON COLUMN execution_results.kpi_measurement_success IS 'KPI: Whether measurement succeeded';
+COMMENT ON COLUMN execution_results.kpi_measurement_error IS 'KPI: Error message if measurement failed';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE test_cases ENABLE ROW LEVEL SECURITY;

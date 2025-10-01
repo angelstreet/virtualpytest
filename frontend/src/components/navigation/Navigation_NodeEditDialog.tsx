@@ -240,6 +240,32 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             </Typography>
           </Box>
         )}
+
+        {/* KPI Measurement Section */}
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            📊 KPI Measurement
+            <Typography variant="caption" color="text.secondary">
+              (Measured automatically during navigation)
+            </Typography>
+          </Typography>
+          
+          <VerificationsList
+            verifications={nodeForm?.kpi_references || []}
+            availableVerifications={nodeEdit.verification.availableVerificationTypes}
+            onVerificationsChange={(newRefs) => setNodeForm({ ...nodeForm, kpi_references: newRefs })}
+            loading={false}
+            model={nodeEdit.deviceModel || model || 'android_mobile'}
+            selectedHost={selectedHost}
+            testResults={[]}
+            onReferenceSelected={() => {}}
+            modelReferences={nodeEdit.modelReferences}
+            referencesLoading={nodeEdit.referencesLoading}
+            showCollapsible={false}
+            title=""
+            onTest={undefined}
+          />
+        </Box>
       </DialogContent>
 
       <DialogActions sx={{ pt: 0.5, display: 'flex', gap: 1 }}>
