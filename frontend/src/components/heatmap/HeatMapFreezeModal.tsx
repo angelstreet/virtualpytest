@@ -143,10 +143,13 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
               ? filename.split('/').pop() || filename
               : filename;
             
-            // Always use thumbnail version - ensure filename has _thumbnail suffix
-            const thumbnailFilename = cleanFilename.includes('_thumbnail') 
-              ? cleanFilename 
-              : cleanFilename.replace('.jpg', '_thumbnail.jpg');
+            // Determine thumbnail filename based on format:
+            // - R2 URLs already use thumb_0.jpg, thumb_1.jpg (already thumbnails)
+            // - Local files use capture_0001.jpg -> need capture_0001_thumbnail.jpg
+            const isThumbnailAlready = cleanFilename.startsWith('thumb_');
+            const thumbnailFilename = isThumbnailAlready
+              ? cleanFilename  // Already a thumbnail (R2 format)
+              : cleanFilename.replace('.jpg', '_thumbnail.jpg');  // Local format
             
             // If it's a full URL, replace the filename part with thumbnail version; otherwise construct it
             const frameUrl = isFullUrl 
