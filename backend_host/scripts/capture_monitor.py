@@ -109,8 +109,11 @@ def update_archive_manifest(capture_dir):
         if not segments:
             return
             
-        # Sort segments by number (segment_00001.ts, segment_00002.ts, etc.)
-        segments.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
+        # Sort segments by file modification time (chronological order)
+        # This handles FFmpeg restarts, segment wrap-around, and gaps correctly
+        segments.sort(key=lambda x: os.path.getmtime(x))
+        
+        logger.debug(f"[{capture_folder}] Found {len(segments)} segments, sorted by timestamp")
         
         total_segments = len(segments)
         
