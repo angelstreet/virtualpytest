@@ -21,6 +21,24 @@ interface ArchiveMetadata {
   }>;
 }
 
+interface TranscriptSegment {
+  segment_num: number;
+  relative_seconds: number;
+  language: string;
+  transcript: string;
+  confidence: number;
+  manifest_window: number;
+}
+
+interface TranscriptData {
+  capture_folder: string;
+  sample_interval_seconds: number;
+  total_duration_seconds: number;
+  segments: TranscriptSegment[];
+  last_update: string;
+  total_samples: number;
+}
+
 interface EnhancedHLSPlayerProps {
   deviceId: string;
   hostName: string;
@@ -59,6 +77,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
   const [dragSliderValue, setDragSliderValue] = useState(0);
   
+  // Transcript overlay state
+  const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
+  const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
+  
   // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
   
@@ -95,11 +117,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       console.log(`[@EnhancedHLSPlayer] Mode change detected: ${prevIsLiveMode.current ? 'Live' : 'Archive'} -> ${isLiveMode ? 'Live' : 'Archive'}`);
       setIsTransitioning(true);
       
-      // When switching back to live, clear archive metadata
+      // When switching back to live, clear archive metadata and transcripts
       if (isLiveMode) {
         console.log('[@EnhancedHLSPlayer] Clearing archive metadata (switching to live)');
         setArchiveMetadata(null);
         setCurrentManifestIndex(0);
+        setTranscriptData(null);
+        setCurrentTranscript(null);
       }
       
       // Small delay to allow cleanup
@@ -111,33 +135,57 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [isLiveMode]);
 
-  // Fetch archive metadata when entering archive mode
+  // Fetch archive metadata and transcript data when entering archive mode
   useEffect(() => {
     if (!isLiveMode && !archiveMetadata && !isTransitioning) {
       const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
       const metadataUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/archive_metadata.json');
+      const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, '/transcript_segments.json');
       
-      console.log('[@EnhancedHLSPlayer] Fetching archive metadata:', metadataUrl);
+      console.log('[@EnhancedHLSPlayer] Fetching archive metadata and transcripts...');
       
-      fetch(metadataUrl)
-        .then(res => res.json())
-        .then(data => {
-          console.log('[@EnhancedHLSPlayer] Archive metadata loaded:', data);
-          setArchiveMetadata(data);
+      // Fetch both metadata and transcripts
+      Promise.all([
+        fetch(metadataUrl).then(res => res.json()),
+        fetch(transcriptUrl).then(res => res.json()).catch(() => null) // Transcript is optional
+      ])
+        .then(([metadata, transcript]) => {
+          console.log('[@EnhancedHLSPlayer] Archive metadata loaded:', metadata);
+          setArchiveMetadata(metadata);
+          
+          if (transcript && transcript.segments) {
+            console.log(`[@EnhancedHLSPlayer] Transcript data loaded: ${transcript.segments.length} samples`);
+            setTranscriptData(transcript);
+          } else {
+            console.log('[@EnhancedHLSPlayer] No transcript data available');
+          }
           
           // Start at the first manifest (oldest, beginning of 24h archive)
-          if (data.manifests && data.manifests.length > 0) {
-            console.log(`[@EnhancedHLSPlayer] Starting at first manifest (archive1): 1/${data.manifests.length}`);
-            setCurrentManifestIndex(0); // Start at archive1 (oldest)
+          if (metadata.manifests && metadata.manifests.length > 0) {
+            console.log(`[@EnhancedHLSPlayer] Starting at first manifest (archive1): 1/${metadata.manifests.length}`);
+            setCurrentManifestIndex(0);
           }
         })
         .catch(err => {
-          console.warn('[@EnhancedHLSPlayer] Failed to load archive metadata, falling back to single manifest:', err);
-          // Fallback to single manifest if metadata not available
+          console.warn('[@EnhancedHLSPlayer] Failed to load archive metadata:', err);
           setArchiveMetadata(null);
         });
     }
   }, [isLiveMode, archiveMetadata, isTransitioning, providedStreamUrl, hookStreamUrl, deviceId]);
+
+  // Generate hour marks for archive timeline (tick every 1h, label every 3h)
+  const hourMarks = useMemo(() => {
+    if (!archiveMetadata) return [];
+    const totalHours = Math.floor(archiveMetadata.total_duration_seconds / 3600);
+    const marks = [];
+    for (let h = 0; h <= totalHours; h++) {
+      marks.push({
+        value: h * 3600,
+        label: h % 3 === 0 ? `${h}h` : ''
+      });
+    }
+    return marks;
+  }, [archiveMetadata]);
 
   // Build the appropriate stream URL based on mode and current manifest
   const streamUrl = useMemo(() => {
@@ -211,6 +259,22 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           const globalTime = currentManifest.start_time_seconds + video.currentTime;
           setGlobalCurrentTime(globalTime);
           
+          // Find matching transcript for current time
+          if (transcriptData && transcriptData.segments.length > 0) {
+            const closestSegment = transcriptData.segments.reduce((closest, segment) => {
+              const timeDiff = Math.abs(segment.relative_seconds - globalTime);
+              const closestDiff = closest ? Math.abs(closest.relative_seconds - globalTime) : Infinity;
+              return timeDiff < closestDiff ? segment : closest;
+            }, transcriptData.segments[0]);
+            
+            // Show transcript if within 10s window
+            if (Math.abs(closestSegment.relative_seconds - globalTime) < 10) {
+              setCurrentTranscript(closestSegment);
+            } else {
+              setCurrentTranscript(null);
+            }
+          }
+          
           // Check if we need to switch to next manifest
           // Pre-load when 90% through current manifest
           const progressRatio = video.currentTime / video.duration;
@@ -257,7 +321,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
     };
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest]);
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData]);
 
   // Handle mode changes and seeking
   useEffect(() => {
@@ -404,6 +468,34 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
+        {/* Transcript Overlay */}
+        {!isLiveMode && currentTranscript && currentTranscript.transcript && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 100,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              color: 'white',
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              maxWidth: '80%',
+              textAlign: 'center',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.4 }}>
+              {currentTranscript.transcript}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 0.5, display: 'block' }}>
+              {currentTranscript.language} • {Math.round(currentTranscript.confidence * 100)}%
+            </Typography>
+          </Box>
+        )}
+
         {/* Archive Timeline Overlay with integrated Play/Pause button */}
         {!isLiveMode && !isTransitioning && duration > 0 && (
           <Box
@@ -443,12 +535,17 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                 max={archiveMetadata ? archiveMetadata.total_duration_seconds : duration}
                 onChange={handleSliderChange}
                 onChangeCommitted={handleSeek}
+                marks={hourMarks}
                 sx={{ 
                   color: 'primary.main', 
                   flex: 1,
                   '& .MuiSlider-thumb': {
                     width: 16,
                     height: 16,
+                  },
+                  '& .MuiSlider-markLabel': {
+                    fontSize: '0.7rem',
+                    color: 'rgba(255,255,255,0.7)'
                   }
                 }}
               />
