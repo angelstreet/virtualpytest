@@ -219,8 +219,8 @@ class KPIExecutor:
         Returns:
             Dict with success, timestamp, captures_scanned, error
         """
-        from backend_host.src.controllers.verification.image_verification_controller import ImageVerificationController
-        from backend_host.src.controllers.verification.text_verification_controller import TextVerificationController
+        from backend_host.src.controllers.verification.image import ImageVerificationController
+        from backend_host.src.controllers.verification.text import TextVerificationController
         
         # Create verification controllers (lightweight, no device needed)
         image_ctrl = ImageVerificationController(None)
