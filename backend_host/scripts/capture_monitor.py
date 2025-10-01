@@ -103,12 +103,18 @@ def main():
             if frame_path:
                 detection_result = detect_issues(frame_path)
                 
+                # Get device info to check if this is the host
+                device_info = incident_manager.get_device_info_from_capture_folder(capture_folder)
+                device_id = device_info.get('device_id', capture_folder)
+                is_host = (device_id == 'host')
+                
                 issues = []
                 if detection_result and detection_result.get('blackscreen', False):
                     issues.append('blackscreen')
                 if detection_result and detection_result.get('freeze', False):
                     issues.append('freeze')
-                if detection_result and not detection_result.get('audio', True):
+                # Skip audio loss detection for host device (no audio capture)
+                if not is_host and detection_result and not detection_result.get('audio', True):
                     issues.append('audio_loss')
                 
                 if issues:

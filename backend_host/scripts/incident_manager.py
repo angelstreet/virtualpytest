@@ -335,6 +335,7 @@ class IncidentManager:
         # Get device_id from capture_folder
         device_info = self.get_device_info_from_capture_folder(capture_folder)
         device_id = device_info.get('device_id', capture_folder)
+        is_host = (device_id == 'host')
         
         device_state = self.get_device_state(device_id)
         active_incidents = device_state['active_incidents']      # {issue_type: alert_id} - in DB
@@ -342,8 +343,13 @@ class IncidentManager:
         
         current_time = time.time()
         
+        # Skip audio_loss for host device (no audio capture)
+        issue_types = ['blackscreen', 'freeze']
+        if not is_host:
+            issue_types.append('audio_loss')
+        
         # Check each issue type
-        for issue_type in ['blackscreen', 'freeze', 'audio_loss']:
+        for issue_type in issue_types:
             if issue_type == 'audio_loss':
                 is_detected = not detection_result.get('audio', True)
             else:

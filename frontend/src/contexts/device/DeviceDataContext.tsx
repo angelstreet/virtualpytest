@@ -371,7 +371,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
 
   const fetchAvailableVerifications = useCallback(
     async (force: boolean = false) => {
-      if (!state.isControlActive || !state.currentHost) {
+      if (!state.isControlActive || !state.currentHost || !state.currentDeviceId) {
         return;
       }
 
@@ -391,23 +391,34 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       }));
 
       try {
-        // Get available verifications directly from device data in the host payload
+        // Get available verifications from the currently selected device only
         const allVerificationTypes: Record<string, any> = {};
 
-        // Process all devices in the host
-        state.currentHost.devices?.forEach((device: any) => {
-          const deviceVerificationTypes = device.device_verification_types || {};
+        // Find the currently selected device
+        const currentDevice = state.currentHost.devices?.find(
+          (device: any) => device.device_id === state.currentDeviceId
+        );
 
-          // Merge device verification types into all_verification_types
-          Object.keys(deviceVerificationTypes).forEach((category) => {
-            const verifications = deviceVerificationTypes[category];
-            if (Array.isArray(verifications)) {
-              if (!allVerificationTypes[category]) {
-                allVerificationTypes[category] = [];
-              }
-              allVerificationTypes[category].push(...verifications);
-            }
-          });
+        if (!currentDevice) {
+          console.warn('[DeviceDataContext] Current device not found in host devices');
+          setState((prev) => ({
+            ...prev,
+            availableVerificationTypes: {},
+            availableVerificationTypesLoading: false,
+          }));
+          return;
+        }
+
+        console.log(`🔍 [DEBUG] Filtering verifications for selected device: ${currentDevice.device_id} (${currentDevice.device_model})`);
+
+        // Process only the current device's verification types
+        const deviceVerificationTypes = currentDevice.device_verification_types || {};
+
+        Object.keys(deviceVerificationTypes).forEach((category) => {
+          const verifications = deviceVerificationTypes[category];
+          if (Array.isArray(verifications)) {
+            allVerificationTypes[category] = verifications;
+          }
         });
 
         // Available verifications loaded successfully
@@ -430,7 +441,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         }));
       }
     },
-    [state.currentHost, state.isControlActive, hostId],
+    [state.currentHost, state.currentDeviceId, state.isControlActive, hostId],
   );
 
   const fetchActions = useCallback(

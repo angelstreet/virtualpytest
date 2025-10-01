@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=cpeengineering
-WorkingDirectory=/Users/cpeengineering/virtualpytest/backend_host/scripts
-Environment="PATH=/Users/cpeengineering/virtualpytest/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/Users/cpeengineering/virtualpytest/venv/bin/python3 /Users/cpeengineering/virtualpytest/backend_host/scripts/transcript_accumulator.py
+WorkingDirectory=/home/sunri-pi4/virtualpytest/backend_host/scripts
+Environment="PATH=/home/sunri-pi4/virtualpytest/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/sunri-pi4/virtualpytest/venv/bin/python3 /home/sunri-pi4/virtualpytest/backend_host/scripts/transcript_accumulator.py
 Restart=always
 RestartSec=10
 

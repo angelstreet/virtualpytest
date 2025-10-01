@@ -209,7 +209,8 @@ class ActionExecutor:
                 'message': 'No actions to execute',
                 'results': [],
                 'passed_count': 0,
-                'total_count': 0
+                'total_count': 0,
+                'main_actions_succeeded': True
             }
         
         # Filter valid actions
@@ -223,7 +224,8 @@ class ActionExecutor:
                 'error': 'All actions were invalid and filtered out',
                 'results': [],
                 'passed_count': 0,
-                'total_count': 0
+                'total_count': 0,
+                'main_actions_succeeded': False
             }
         
         results = []
@@ -321,7 +323,8 @@ class ActionExecutor:
             'action_screenshots': self.action_screenshots,  # NEW: Include screenshots
             'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
             'error': error_message,
-            'execution_time_ms': total_execution_time
+            'execution_time_ms': total_execution_time,
+            'main_actions_succeeded': not main_actions_failed
         }
     
     def _filter_valid_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

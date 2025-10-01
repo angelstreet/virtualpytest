@@ -409,7 +409,7 @@ class NavigationExecutor:
                     actions_executed += result.get('passed_count', 0)
                 else:
                     # No actions to execute, just mark as successful
-                    result = {'success': True}
+                    result = {'success': True, 'main_actions_succeeded': True}
                 
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
@@ -469,8 +469,8 @@ class NavigationExecutor:
                     # Simple message without redundant step number
                     step_result['message'] = f"{from_node} → {to_node}"
                 
-                # Queue KPI measurement if step succeeded and target node has kpi_references
-                if result.get('success', False):
+                # Queue KPI measurement ONLY if main actions succeeded (not retry/failure actions)
+                if result.get('success', False) and result.get('main_actions_succeeded', False):
                     # Get actual action completion timestamp from navigation context
                     # (ActionExecutor updates this after all iterations and waits complete)
                     nav_context = self.device.navigation_context

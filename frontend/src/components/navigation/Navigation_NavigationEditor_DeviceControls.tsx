@@ -8,7 +8,6 @@ import {
   MenuItem,
   Typography,
   CircularProgress,
-  ListSubheader,
 } from '@mui/material';
 import React from 'react';
 
@@ -98,61 +97,15 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
           disabled={isControlLoading}
           sx={{ height: 32, fontSize: '0.75rem' }}
         >
-          {availableHosts.map((host) => {
+          {availableHosts.flatMap((host) => {
             const devices = host.devices || [];
 
-            // Skip hosts with no devices - no fallbacks allowed
+            // Skip hosts with no devices
             if (devices.length === 0) {
-              return null;
+              return [];
             }
 
-            // If host has multiple devices, group them under the host name
-            if (devices.length > 1) {
-              return [
-                <ListSubheader key={`header-${host.host_name}`} sx={{ fontSize: '0.75rem' }}>
-                  {host.host_name}
-                </ListSubheader>,
-                ...devices.map((device) => {
-                  const deviceKey = createDeviceKey(host.host_name, device.device_id);
-                  const deviceIsLocked = isDeviceLocked(deviceKey);
-
-                  return (
-                    <MenuItem
-                      key={deviceKey}
-                      value={deviceKey}
-                      disabled={deviceIsLocked}
-                      sx={{
-                        pl: 3, // Indent under host name
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        opacity: deviceIsLocked ? 0.6 : 1,
-                      }}
-                    >
-                      {deviceIsLocked && (
-                        <LockIcon sx={{ fontSize: '0.8rem', color: 'warning.main' }} />
-                      )}
-                      <span>
-                        {device.device_name} ({host.host_name})
-                      </span>
-                      {deviceIsLocked && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            ml: 'auto',
-                            color: 'warning.main',
-                            fontSize: '0.65rem',
-                          }}
-                        >
-                          (Locked)
-                        </Typography>
-                      )}
-                    </MenuItem>
-                  );
-                }),
-              ];
-            }
-
+            // Show all devices in a flat list without host grouping
             return devices.map((device) => {
               const deviceKey = createDeviceKey(host.host_name, device.device_id);
               const deviceIsLocked = isDeviceLocked(deviceKey);

@@ -75,6 +75,32 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     return `${prefix} ${result.verification_type}: ${message}`;
   };
 
+  // Filter available verifications for KPI - only show wait functions
+  const kpiAvailableVerifications = React.useMemo(() => {
+    const allowedKpiCommands = [
+      'waitForImageToAppear',
+      'waitForImageToDisappear',
+      'waitForTextToAppear',
+      'waitForTextToDisappear'
+    ];
+
+    const filtered: Record<string, any> = {};
+
+    Object.entries(nodeEdit.verification.availableVerificationTypes || {}).forEach(([category, verifications]) => {
+      if (Array.isArray(verifications)) {
+        const filteredVerifications = verifications.filter((v: any) => 
+          allowedKpiCommands.includes(v.command)
+        );
+        
+        if (filteredVerifications.length > 0) {
+          filtered[category] = filteredVerifications;
+        }
+      }
+    });
+
+    return filtered;
+  }, [nodeEdit.verification.availableVerificationTypes]);
+
   return (
     <Dialog
       open={isOpen}
@@ -249,7 +275,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           
           <VerificationsList
             verifications={nodeForm?.kpi_references || []}
-            availableVerifications={nodeEdit.verification.availableVerificationTypes}
+            availableVerifications={kpiAvailableVerifications}
             onVerificationsChange={(newRefs) => setNodeForm({ ...nodeForm, kpi_references: newRefs })}
             loading={false}
             model={nodeEdit.deviceModel || model || 'android_mobile'}
