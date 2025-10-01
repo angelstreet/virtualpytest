@@ -134,8 +134,8 @@ clean_playlist_files() {
 # Get last segment number to continue from where we left off
 get_last_segment_number() {
   local capture_dir="$1"
-  local last_segment=$(ls -1 "$capture_dir"/segment_*.ts 2>/dev/null | \
-    sed 's/.*segment_\([0-9]*\)\.ts/\1/' | \
+  local last_segment=$(find "$capture_dir" -maxdepth 1 -name 'segment_*.ts' -printf '%f\n' 2>/dev/null | \
+    sed 's/segment_\([0-9]*\)\.ts/\1/' | \
     sort -n | tail -1)
   
   if [ -n "$last_segment" ]; then
