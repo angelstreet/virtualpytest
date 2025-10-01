@@ -332,26 +332,23 @@ class KPIExecutor:
         error: Optional[str]
     ):
         """
-        Update execution_results with KPI measurement result
+        Update execution_results with KPI measurement result using shared database function
         """
         try:
-            from shared.src.lib.utils.supabase_utils import get_supabase_client
-            supabase = get_supabase_client()
+            from shared.src.lib.supabase.execution_results_db import update_execution_result_with_kpi
             
-            update_data = {
-                'kpi_measurement_success': success,
-                'kpi_measurement_ms': kpi_ms,
-                'kpi_measurement_error': error
-            }
+            result = update_execution_result_with_kpi(
+                execution_result_id=execution_result_id,
+                team_id=team_id,
+                kpi_measurement_success=success,
+                kpi_measurement_ms=kpi_ms,
+                kpi_measurement_error=error
+            )
             
-            result = supabase.table('execution_results').update(update_data).eq(
-                'id', execution_result_id
-            ).eq('team_id', team_id).execute()
-            
-            if result.data:
+            if result:
                 logger.info(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
             else:
-                logger.warning(f"⚠️ [KPIExecutor] No record updated for execution_result_id: {execution_result_id[:8]}")
+                logger.warning(f"⚠️ [KPIExecutor] Failed to update execution_result_id: {execution_result_id[:8]}")
                 
         except Exception as e:
             logger.error(f"❌ [KPIExecutor] Error storing KPI result: {e}", exc_info=True)

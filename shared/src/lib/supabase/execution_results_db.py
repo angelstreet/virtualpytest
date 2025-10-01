@@ -640,4 +640,42 @@ def update_edge_metrics_from_embedded_actions(
         
     except Exception as e:
         print(f"[@db:execution_results:update_edge_metrics_from_embedded_actions] Error: {str(e)}")
+        return False
+
+def update_execution_result_with_kpi(
+    execution_result_id: str,
+    team_id: str,
+    kpi_measurement_success: bool,
+    kpi_measurement_ms: Optional[int] = None,
+    kpi_measurement_error: Optional[str] = None
+) -> bool:
+    """Update execution_result with KPI measurement results."""
+    try:
+        update_data = {
+            'kpi_measurement_success': kpi_measurement_success,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+        
+        if kpi_measurement_ms is not None:
+            update_data['kpi_measurement_ms'] = kpi_measurement_ms
+        if kpi_measurement_error is not None:
+            update_data['kpi_measurement_error'] = kpi_measurement_error
+        
+        kpi_status = f"✓ {kpi_measurement_ms}ms" if kpi_measurement_success else f"✗ {kpi_measurement_error}"
+        print(f"[@db:execution_results:update_kpi] {execution_result_id[:8]} | KPI: {kpi_status}")
+        
+        supabase = get_supabase()
+        result = supabase.table('execution_results').update(update_data).eq(
+            'id', execution_result_id
+        ).eq('team_id', team_id).execute()
+        
+        if result.data:
+            print(f"[@db:execution_results:update_kpi] ✓ Updated: {execution_result_id[:8]}")
+            return True
+        else:
+            print(f"[@db:execution_results:update_kpi] ✗ Failed: No data returned")
+            return False
+            
+    except Exception as e:
+        print(f"[@db:execution_results:update_kpi] Error: {str(e)}")
         return False 
