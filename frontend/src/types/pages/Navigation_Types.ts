@@ -58,6 +58,9 @@ export interface UINavigationNodeData {
 
   // Verification support (embedded directly - no ID resolution needed)
   verifications?: Verification[]; // Array of embedded verification objects
+  
+  // KPI measurement references
+  kpi_references?: Verification[]; // Array of KPI measurement verification objects
 
   // Nested tree properties
   has_subtree?: boolean; // True if this node has associated subtrees
@@ -237,6 +240,9 @@ export interface NodeForm {
 
   // Verifications field (embedded directly)
   verifications?: Verification[];
+  
+  // KPI measurement references
+  kpi_references?: Verification[];
 }
 
 // EdgeForm interface for bidirectional edge structure

@@ -260,7 +260,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             referencesLoading={nodeEdit.referencesLoading}
             showCollapsible={false}
             title=""
-            onTest={undefined}
+            onTest={() => {}}
           />
         </Box>
       </DialogContent>

@@ -31,8 +31,6 @@ interface Props {
 
 export const PromptDisambiguation: React.FC<Props> = ({
   ambiguities,
-  autoCorrections = [],
-  availableNodes = [],
   onResolve,
   onCancel,
   onEditPrompt
@@ -121,7 +119,7 @@ export const PromptDisambiguation: React.FC<Props> = ({
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                     {/* Show max 2 suggestions, first is default */}
-                    {amb.suggestions.slice(0, 2).map((sugg, suggIdx) => {
+                    {amb.suggestions.slice(0, 2).map((sugg) => {
                       const isSelected = selections[amb.original] === sugg;
                       const isDefault = sugg === defaultChoice;
                       return (

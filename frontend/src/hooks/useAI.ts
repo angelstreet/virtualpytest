@@ -280,7 +280,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           const analysisResult = await analysisResponse.json();
 
           if (analysisResult.success && analysisResult.analysis) {
-            const { status, analysis } = analysisResult;
+            const { analysis } = analysisResult;
 
             // Handle needs disambiguation
             if (analysis.status === 'needs_disambiguation') {
