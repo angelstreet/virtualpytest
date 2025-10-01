@@ -144,10 +144,13 @@ EOF
 # Install systemd services
 echo "📋 Installing systemd services..."
 # Core services (matching backend_host/config/services/ names)
-sudo cp /tmp/monitor.service /etc/systemd/system/
-sudo cp /tmp/stream.service /etc/systemd/system/
-sudo cp /tmp/vncserver.service /etc/systemd/system/
-sudo cp /tmp/novnc.service /etc/systemd/system/
+sudo cp backend_host/systemd/monitor.service /etc/systemd/system/
+sudo cp backend_host/systemd/stream.service /etc/systemd/system/
+sudo cp backend_host/systemd/vncserver.service /etc/systemd/system/
+sudo cp backend_host/systemd/novnc.service /etc/systemd/system/
+# Additional host services from backend_host/systemd/
+sudo cp backend_host/systemd/archive-manifest.service /etc/systemd/system/
+sudo cp backend_host/systemd/transcript-stream.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Create required directories
@@ -164,6 +167,8 @@ echo "📋 Making project scripts executable..."
 chmod +x backend_host/scripts/run_ffmpeg_and_rename_local.sh
 chmod +x backend_host/scripts/clean_captures.sh
 chmod +x backend_host/scripts/capture_monitor.py
+chmod +x backend_host/scripts/archive_manifest_generator.py
+chmod +x backend_host/scripts/transcript_accumulator.py
 echo "✅ Scripts made executable in project directory"
 echo "ℹ️  Scripts now read configuration from backend_host/src/.env (single source of truth)"
 
@@ -230,12 +235,14 @@ echo ""
 echo "🚀 Enabling and starting all host services..."
 echo ""
 echo "📋 Service Management:"
-echo "   Start all:    sudo systemctl start stream monitor vncserver novnc"
-echo "   Stop all:     sudo systemctl stop stream monitor vncserver novnc"  
-echo "   Restart all:  sudo systemctl restart stream monitor"
+echo "   Start all:    sudo systemctl start stream monitor vncserver novnc archive-manifest transcript-stream"
+echo "   Stop all:     sudo systemctl stop stream monitor vncserver novnc archive-manifest transcript-stream"  
+echo "   Restart all:  sudo systemctl restart stream monitor archive-manifest transcript-stream"
 echo "   Status:       sudo systemctl status stream"
 echo "   FFmpeg logs:  tail -f /tmp/ffmpeg_service.log"
 echo "   Monitor logs: tail -f /tmp/capture_monitor.log"
+echo "   Archive logs: tail -f /tmp/archive_manifest_generator.log"
+echo "   Transcript logs: tail -f /tmp/transcript_accumulator.log"
 echo ""
 
 # Enable services for auto-start
@@ -243,6 +250,8 @@ sudo systemctl enable monitor.service
 sudo systemctl enable stream.service  
 sudo systemctl enable vncserver.service
 sudo systemctl enable novnc.service
+sudo systemctl enable archive-manifest.service
+sudo systemctl enable transcript-stream.service
 
 # Start services (with error handling to continue on failures)
 echo "🔵 Starting VNC server..."
@@ -271,6 +280,20 @@ if sudo systemctl start monitor.service; then
     echo "✅ Monitor service started successfully"
 else
     echo "⚠️ Monitor service failed to start - check 'sudo systemctl status monitor' for details"
+fi
+
+echo "🟣 Starting archive manifest service..."
+if sudo systemctl start archive-manifest.service; then
+    echo "✅ Archive manifest service started successfully"
+else
+    echo "⚠️ Archive manifest service failed to start - check 'sudo systemctl status archive-manifest' for details"
+fi
+
+echo "🔴 Starting transcript stream service..."
+if sudo systemctl start transcript-stream.service; then
+    echo "✅ Transcript stream service started successfully"
+else
+    echo "⚠️ Transcript stream service failed to start - check 'sudo systemctl status transcript-stream' for details"
 fi
 
 echo "✅ Host services installation completed (check individual service status above)"
@@ -448,6 +471,8 @@ echo "   - monitor.service                   # Capture analysis & alerts"
 echo "   - stream.service                    # Video/audio capture + rename + cleanup"
 echo "   - vncserver.service                 # VNC server (display :1, port 5901)"
 echo "   - novnc.service                     # noVNC web interface (port 6080)"
+echo "   - archive-manifest.service          # HLS archive manifest generation (24h)"
+echo "   - transcript-stream.service         # Audio transcription (24h circular buffer)"
 echo ""
 echo "🖥️ VNC Access Information:"
 echo "   - VNC Server: $HOST_IP:5901 (display :1)"
