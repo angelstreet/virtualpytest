@@ -316,22 +316,28 @@ class VerificationExecutor:
         Returns:
             Dict with success status and verification results
         """
+        print(f"[@lib:verification_executor:verify_node] 🔍 Called with node_id={node_id}, tree_id={tree_id}, team_id={team_id}")
+        
         try:
             # Get tree_id from navigation context if not provided
             if not tree_id:
                 nav_context = self.device.navigation_context
                 tree_id = nav_context.get('current_tree_id')
+                print(f"[@lib:verification_executor:verify_node] Tree ID from context: {tree_id}")
             
             # Get node data from database to retrieve verifications
             from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
+            print(f"[@lib:verification_executor:verify_node] Fetching node data from database...")
             node_data = get_node_by_id(tree_id, node_id, team_id)
             
             if not node_data or 'error' in node_data:
-                print(f"[@lib:verification_executor:verify_node] Failed to get node data for {node_id}")
+                print(f"[@lib:verification_executor:verify_node] ❌ Failed to get node data for {node_id}")
                 return {'success': False, 'error': 'Node not found', 'results': []}
             
+            print(f"[@lib:verification_executor:verify_node] ✅ Node data retrieved successfully")
+            
             # Extract verifications from node
-            verifications = node_data.get('verifications', [])
+            verifications = node_data.get('node', {}).get('verifications', [])
             
             if not verifications:
                 print(f"[@lib:verification_executor:verify_node] No verifications for node {node_id}")

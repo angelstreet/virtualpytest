@@ -265,7 +265,11 @@ class NavigationExecutor:
             # Check if already at target BEFORE pathfinding - but ONLY if we know our current position
             # Only verify if current_node_id is not None (we know where we are) and matches target
             current_position = nav_context.get('current_node_id')
+            print(f"[@navigation_executor:execute_navigation] Current position: {current_position}, Target: {target_node_id}")
+            
             if current_position and current_position == target_node_id:
+                print(f"[@navigation_executor:execute_navigation] 🔍 Position matches target - checking if verification needed")
+                
                 # Check if we recently verified this position (< 30 seconds ago)
                 last_verified_time = nav_context.get('last_verified_timestamp', 0)
                 time_since_verification = time.time() - last_verified_time
@@ -323,6 +327,12 @@ class NavigationExecutor:
                     nav_context['current_node_id'] = None
                     nav_context['current_node_label'] = None
                     nav_context['last_verified_timestamp'] = 0
+            else:
+                # Positions don't match or current_position is None - skip verification
+                if not current_position:
+                    print(f"[@navigation_executor:execute_navigation] No current position - skipping verification, will navigate from entry point")
+                else:
+                    print(f"[@navigation_executor:execute_navigation] Current position ({current_position}) != target ({target_node_id}) - skipping verification, proceeding with navigation")
             
             # Use unified pathfinding with current navigation context position
             navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))

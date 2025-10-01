@@ -119,8 +119,9 @@ def update_archive_manifest(capture_dir):
         
         # Rolling 24-hour window strategy:
         # - Keep only LAST 24 hours of content
-        # - Always use archive1 through archive24 (fixed naming)
-        # - archive1 = most recent hour, archive24 = 24 hours ago
+        # - Manifests numbered archive1 through archive24
+        # - archive1 = oldest hour (24h ago), archive24 = most recent hour (now)
+        # - Frontend uses archive_metadata.json to know which manifest has which time range
         
         # If we have more than 24 hours of segments, use only the last 24 hours
         max_segments_to_use = MAX_MANIFESTS * SEGMENTS_PER_WINDOW  # 24 hours worth
@@ -173,14 +174,17 @@ def update_archive_manifest(capture_dir):
         
         os.rename(metadata_path + '.tmp', metadata_path)
         
-        # Backward compatibility: archive.m3u8 points to archive1.m3u8
+        # Legacy archive.m3u8 - points to most recent manifest for simple players
         if manifests_generated > 0:
             archive_path = os.path.join(stream_dir, 'archive.m3u8')
+            last_manifest_name = f'archive{manifests_generated}.m3u8'
+            last_manifest_path = os.path.join(stream_dir, last_manifest_name)
+            
             with open(archive_path + '.tmp', 'w') as f:
                 f.write(f"# Use archive_metadata.json for multi-manifest playback\n")
-                f.write(f"# Or access archive1.m3u8, archive2.m3u8, etc. directly\n")
-                # Point to first manifest for simple players
-                with open(os.path.join(stream_dir, 'archive1.m3u8'), 'r') as src:
+                f.write(f"# This manifest points to the most recent archive window ({last_manifest_name})\n")
+                # Point to most recent manifest for simple players
+                with open(last_manifest_path, 'r') as src:
                     f.write(src.read())
             
             os.rename(archive_path + '.tmp', archive_path)
