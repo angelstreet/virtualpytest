@@ -75,9 +75,9 @@ echo "Total active captures: ${#GRABBERS[@]}"
 
 # Kill all existing ffmpeg and clean_captures processes
 echo "Stopping all existing capture processes..."
-pkill -9 ffmpeg 2>/dev/null && echo "Killed all ffmpeg processes" || echo "No ffmpeg processes found"
-pkill -9 -f clean_captures.sh 2>/dev/null && echo "Killed all clean_captures processes" || echo "No clean_captures processes found"
-sleep 2
+sudo pkill -f ffmpeg 2>/dev/null && echo "Killed all ffmpeg processes" || echo "No ffmpeg processes found"
+sudo pkill -f clean_captures.sh 2>/dev/null && echo "Killed all clean_captures processes" || echo "No clean_captures processes found"
+sleep 3
 
 # Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
