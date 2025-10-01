@@ -85,6 +85,14 @@ export const CustomThemeProvider: React.FC<CustomThemeProviderProps> = ({ childr
       }),
     },
     components: {
+      MuiToolbar: {
+        styleOverrides: {
+          root: {
+            minHeight: '58px !important',
+            height: '58px',
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {
