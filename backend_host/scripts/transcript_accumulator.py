@@ -128,19 +128,19 @@ Return ONLY valid JSON with ALL {len(segment_info)} segments (no markdown, no ex
 CRITICAL: Use full context. Return valid JSON only. Respect each segment's language. Escape special characters."""
         
         logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
-        logger.info(f"[{capture_folder}] 📋 AI Enhancement Prompt:")
-        logger.info("-" * 80)
-        logger.info(prompt)
-        logger.info("-" * 80)
+        # logger.info(f"[{capture_folder}] 📋 AI Enhancement Prompt:")
+        # logger.info("-" * 80)
+        # logger.info(prompt)
+        # logger.info("-" * 80)
         
         # Call AI with higher token limit to avoid truncation
         result = call_text_ai(prompt, max_tokens=1500, temperature=0.1)
         
-        logger.info(f"[{capture_folder}] 📨 AI Response (success={result.get('success')}):")
-        if result.get('success'):
-            logger.info(f"[{capture_folder}] Response length: {len(result.get('content', ''))} chars")
-        else:
-            logger.info(f"[{capture_folder}] Error: {result.get('error', 'Unknown')}")
+        # logger.info(f"[{capture_folder}] 📨 AI Response (success={result.get('success')}):")
+        # if result.get('success'):
+        #     logger.info(f"[{capture_folder}] Response length: {len(result.get('content', ''))} chars")
+        # else:
+        #     logger.info(f"[{capture_folder}] Error: {result.get('error', 'Unknown')}")
         
         if not result['success']:
             logger.warning(f"[{capture_folder}] AI enhancement failed: {result.get('error', 'Unknown error')}")
@@ -153,10 +153,10 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
         import re
         content_for_logging = re.sub(r'\n{3,}', '\n\n', content)  # Replace 3+ newlines with just 2
         
-        logger.info(f"[{capture_folder}] 📄 Full AI Response ({len(content)} chars, cleaned for display):")
-        logger.info("-" * 80)
-        logger.info(content_for_logging)
-        logger.info("-" * 80)
+        # logger.info(f"[{capture_folder}] 📄 Full AI Response ({len(content)} chars, cleaned for display):")
+        # logger.info("-" * 80)
+        # logger.info(content_for_logging)
+        # logger.info("-" * 80)
         
         # Remove markdown code blocks and extra text
         if '```json' in content:
@@ -223,17 +223,17 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
             
         except json.JSONDecodeError as e:
             logger.error(f"[{capture_folder}] ❌ JSON parsing failed: {e}")
-            logger.error(f"[{capture_folder}] Error position: {e.lineno if hasattr(e, 'lineno') else 'unknown'}:{e.colno if hasattr(e, 'colno') else 'unknown'}")
-            logger.error(f"[{capture_folder}] Problematic content around error:")
-            # Show 200 chars before and after the error position
-            if hasattr(e, 'pos') and e.pos:
-                start = max(0, e.pos - 200)
-                end = min(len(content), e.pos + 200)
-                logger.error(f"[{capture_folder}] ...{content[start:end]}...")
-            logger.warning(f"[{capture_folder}] 💡 Possible causes:")
-            logger.warning(f"[{capture_folder}]    1. AI token limit truncation (try reducing batch size)")
-            logger.warning(f"[{capture_folder}]    2. Unescaped special characters in response")
-            logger.warning(f"[{capture_folder}]    3. AI didn't follow JSON format")
+            # logger.error(f"[{capture_folder}] Error position: {e.lineno if hasattr(e, 'lineno') else 'unknown'}:{e.colno if hasattr(e, 'colno') else 'unknown'}")
+            # logger.error(f"[{capture_folder}] Problematic content around error:")
+            # # Show 200 chars before and after the error position
+            # if hasattr(e, 'pos') and e.pos:
+            #     start = max(0, e.pos - 200)
+            #     end = min(len(content), e.pos + 200)
+            #     logger.error(f"[{capture_folder}] ...{content[start:end]}...")
+            # logger.warning(f"[{capture_folder}] 💡 Possible causes:")
+            # logger.warning(f"[{capture_folder}]    1. AI token limit truncation (try reducing batch size)")
+            # logger.warning(f"[{capture_folder}]    2. Unescaped special characters in response")
+            # logger.warning(f"[{capture_folder}]    3. AI didn't follow JSON format")
             return {}
     
     except Exception as e:
@@ -413,8 +413,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 
                 # Compact logging
                 if transcript:
-                    logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
-                    logger.info(f"[{capture_folder}] 💬 '{transcript}'")
+                    # logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
+                    # logger.info(f"[{capture_folder}] 💬 '{transcript}'")
                 elif skipped:
                     logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
                 else:
@@ -442,9 +442,9 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                                 seg['enhanced_transcript'] = enhanced_map[seg_num]
                                 original = seg.get('transcript', '')[:40]
                                 enhanced = enhanced_map[seg_num][:40]
-                                logger.info(f"[{capture_folder}] 🔵 seg#{seg_num} Enhanced:")
-                                logger.info(f"[{capture_folder}]    Original: '{original}...'")
-                                logger.info(f"[{capture_folder}]    Enhanced: '{enhanced}...'")
+                                # logger.info(f"[{capture_folder}] 🔵 seg#{seg_num} Enhanced:")
+                                # logger.info(f"[{capture_folder}]    Original: '{original}...'")
+                                # logger.info(f"[{capture_folder}]    Enhanced: '{enhanced}...'")
                 
                 # Reset counter
                 samples_since_enhancement = 0
