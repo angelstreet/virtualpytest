@@ -63,29 +63,29 @@ def update_transcript_buffer(capture_dir):
         stream_dir = capture_dir.replace('/captures', '')
         transcript_path = os.path.join(stream_dir, 'transcript_segments.json')
         
-           # Load existing transcript data
-           if os.path.exists(transcript_path):
-               with open(transcript_path, 'r') as f:
-                   transcript_data = json.load(f)
-           else:
-               transcript_data = {
-                   'capture_folder': capture_folder,
-                   'sample_interval_seconds': SAMPLE_INTERVAL,
-                   'segments': [],
-                   'last_processed_segment': 0
-               }
-           
-           existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
-           last_processed = transcript_data.get('last_processed_segment', 0)
-           
-           # First run: Start from NOW, not from backlog (don't try to catch up)
-           if last_processed == 0:
-               segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
-               if segment_files:
-                   latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
-                   last_processed = latest_seg
-                   logger.info(f"[{capture_folder}] 🆕 First run - starting from current segment #{latest_seg} (skipping backlog)")
-                   transcript_data['last_processed_segment'] = last_processed
+        # Load existing transcript data
+        if os.path.exists(transcript_path):
+            with open(transcript_path, 'r') as f:
+                transcript_data = json.load(f)
+        else:
+            transcript_data = {
+                'capture_folder': capture_folder,
+                'sample_interval_seconds': SAMPLE_INTERVAL,
+                'segments': [],
+                'last_processed_segment': 0
+            }
+        
+        existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
+        last_processed = transcript_data.get('last_processed_segment', 0)
+        
+        # First run: Start from NOW, not from backlog (don't try to catch up)
+        if last_processed == 0:
+            segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
+            if segment_files:
+                latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
+                last_processed = latest_seg
+                logger.info(f"[{capture_folder}] 🆕 First run - starting from current segment #{latest_seg} (skipping backlog)")
+                transcript_data['last_processed_segment'] = last_processed
         
         # Find available segments
         segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
