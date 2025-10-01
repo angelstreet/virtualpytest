@@ -295,7 +295,7 @@ def main():
 
         options = {
             'bind': f'0.0.0.0:{host_port}',
-            'workers': 2,  # " devices management and hardware control"
+            'workers': 1,  # Single worker for shared in-memory cache consistency (navigation cache)
             'threads': 1,  # 1 thread to handle async playwright
             'timeout': 3600,  # 1 hour timeout to match server timeout
         }

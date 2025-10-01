@@ -1024,13 +1024,26 @@ class NavigationExecutor:
         Fail early if any required data missing.
         """
         try:
+            # ✅ FAIL EARLY: Validate required fields (no fallbacks)
             target_node_id = step.get('to_node_id')
+            target_tree_id = step.get('to_tree_id')  # ONE TRUTH: use to_tree_id (target tree)
+            edge_id = step.get('edge_id')
+            
             if not target_node_id:
+                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_node_id in step - skipping KPI")
+                return
+            
+            if not target_tree_id:
+                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_tree_id in step - skipping KPI")
+                return
+            
+            if not edge_id:
+                print(f"[@navigation_executor:_queue_kpi_measurement] Missing edge_id in step - skipping KPI")
                 return
             
             # Get target node's KPI references
             from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
-            node_result = get_node_by_id(step.get('tree_id', ''), target_node_id, team_id)
+            node_result = get_node_by_id(target_tree_id, target_node_id, team_id)
             
             if not node_result.get('success'):
                 return
@@ -1054,8 +1067,8 @@ class NavigationExecutor:
             from shared.src.lib.supabase.execution_results_db import record_edge_execution
             execution_result_id = record_edge_execution(
                 team_id=team_id,
-                tree_id=step.get('tree_id', ''),
-                edge_id=step.get('edge_id', ''),
+                tree_id=target_tree_id,  # Use target tree (where edge lives)
+                edge_id=edge_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
                 success=True,

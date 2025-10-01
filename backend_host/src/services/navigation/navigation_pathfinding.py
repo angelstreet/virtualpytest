@@ -198,7 +198,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
                 'from_node_label': from_node_info.get('label', from_node),
                 'to_node_label': to_node_info.get('label', to_node),
                 'from_tree_id': from_tree_id,
-                'to_tree_id': to_tree_id,
+                'to_tree_id': to_tree_id,  # ✅ ONE TRUTH: target tree (used by executor for DB calls)
                 'transition_type': transition_type,
                 'tree_context_change': tree_context_change,
                 'actions': actions_list,
@@ -738,7 +738,7 @@ def _create_validation_step(G, from_node: str, to_node: str, edge_data: Dict, st
         'transition_type': transition_type,
         'tree_context_change': tree_context_change,
         'from_tree_id': from_tree_id,
-        'to_tree_id': to_tree_id
+        'to_tree_id': to_tree_id  # ✅ ONE TRUTH: target tree (used by executor for DB calls)
     }
     
     return forced_steps, validation_step
