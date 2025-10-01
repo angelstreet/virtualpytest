@@ -332,6 +332,12 @@ export const useNode = (props?: UseNodeProps) => {
     async (selectedNode: UINavigationNode) => {
       if (!props?.treeId) return;
 
+      // 🛡️ GUARD: Prevent execution if already executing
+      if (isExecuting) {
+        console.log('[@useNode:executeNavigation] Ignoring click - navigation already in progress');
+        return;
+      }
+
       // Check if target is an action node - action nodes are not navigatable destinations
       if (selectedNode.type === 'action') {
         setNavigationError('Cannot navigate to action nodes - they are operations, not destinations');
@@ -424,6 +430,7 @@ export const useNode = (props?: UseNodeProps) => {
       setNodeVerificationSuccess,
       setNodeVerificationFailure,
       navigationConfig.actualTreeId,
+      isExecuting,
     ],
   );
 
@@ -530,7 +537,7 @@ export const useNode = (props?: UseNodeProps) => {
     // NodeGotoPanel operations
     navigationTransitions,
     isLoadingPreview,
-    isExecuting,
+    isExecuting, // 🛡️ EXECUTION GUARD: Check this before allowing navigation operations
     navigationError,
     executionMessage,
     loadNavigationPreview,

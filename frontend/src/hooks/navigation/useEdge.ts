@@ -112,6 +112,12 @@ export const useEdge = (props: UseEdgeProps = {}) => {
     actionSetId: string,
     treeId?: string
   ) => {
+    // 🛡️ GUARD: Prevent execution if already executing
+    if (actionHook.loading) {
+      console.log('[@useEdge:executeActionSet] Ignoring click - action execution already in progress');
+      return;
+    }
+
     const actionSets = getActionSetsFromEdge(edge);
     const actionSet = actionSets.find(set => set.id === actionSetId);
     if (!actionSet) { 
@@ -189,6 +195,12 @@ export const useEdge = (props: UseEdgeProps = {}) => {
    */
   const executeEdgeActions = useCallback(
     async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[], overrideFailureActions?: Action[]) => {
+      // 🛡️ GUARD: Prevent execution if already executing
+      if (actionHook.loading) {
+        console.log('[@useEdge:executeEdgeActions] Ignoring click - edge execution already in progress');
+        return;
+      }
+
       const defaultSet = getDefaultActionSet(edge);
       const actions = overrideActions || defaultSet.actions || [];
       const retryActions = overrideRetryActions || defaultSet.retry_actions || [];
@@ -517,7 +529,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
   }, [getActionSetsFromEdge, isActionEdge]);
 
   return {
-    // Action hook
+    // Action hook - 🛡️ EXECUTION GUARD: Check actionHook.loading before allowing edge operations
     actionHook,
 
     // State
