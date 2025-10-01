@@ -249,7 +249,7 @@ class VerificationExecutor:
             print(f"[@lib:verification_executor:execute_verifications] Processing verification {i+1}/{len(valid_verifications)}: {verification_type}")
             
             start_time = time.time()
-            result = self._execute_single_verification(verification, image_source_url, context)
+            result = self._execute_single_verification(verification, image_source_url, context, team_id)
             execution_time = int((time.time() - start_time) * 1000)
             
                         # Add execution time to result
@@ -389,7 +389,7 @@ class VerificationExecutor:
         
         return valid_verifications
     
-    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str], context = None) -> Dict[str, Any]:
+    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str], context = None, team_id: str = None) -> Dict[str, Any]:
         """Execute a single verification and return standardized result"""
         try:
             verification_type = verification.get('verification_type', 'text')
@@ -408,7 +408,8 @@ class VerificationExecutor:
             verification_config = {
                 'command': verification.get('command'),
                 'params': verification.get('params', {}),
-                'verification_type': verification_type
+                'verification_type': verification_type,
+                'team_id': team_id  # Pass team_id for database operations
             }
             
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing image_source_url to controller: {image_source_url}")
@@ -479,6 +480,8 @@ class VerificationExecutor:
             
         except Exception as e:
             print(f"[@lib:verification_executor:_execute_single_verification] Verification error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             
             screenshot_path = ""
             try:

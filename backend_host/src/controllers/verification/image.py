@@ -71,8 +71,8 @@ class ImageVerificationController:
         }
     
     def waitForImageToAppear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8, 
-                            area: dict = None, image_list: List[str] = None, 
-                            verification_index: int = 0, image_filter: str = 'none', model: str = 'default') -> Tuple[bool, str, dict]:
+                             area: dict = None, image_list: List[str] = None,
+                             verification_index: int = 0, image_filter: str = 'none', model: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
         """
         Wait for image to appear either in provided image list or by capturing new frames.
         
@@ -99,19 +99,21 @@ class ImageVerificationController:
         if image_filter and image_filter != 'none':
             print(f"[@controller:ImageVerification] Using image filter: {image_filter}")
         
-        # Resolve reference image path and area using provided device model
-        resolved_image_path, resolved_area = self._resolve_reference_image(image_path, model)
+        # Resolve reference image path and area using provided device model and team_id
+        resolved_image_path, resolved_area = self._resolve_reference_image(image_path, model, team_id)
         if not resolved_image_path:
             error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
             print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
         
-        # Use database area if available, otherwise use passed area
-        if resolved_area:
-            area = resolved_area
-            print(f"[@controller:ImageVerification] Using database area for reference {image_path}: {resolved_area}")
-        else:
-            print(f"[@controller:ImageVerification] Using passed area for reference {image_path}: {area}")
+        if not resolved_area:
+            error_msg = f"Reference area not found in database: '{image_path}'"
+            print(f"[@controller:ImageVerification] {error_msg}")
+            return False, error_msg, {}
+        
+        # Use database area (REQUIRED - no fallback)
+        area = resolved_area
+        print(f"[@controller:ImageVerification] Using database area for reference {image_path}: {resolved_area}")
         
         # Get filtered reference image path (only change the reference, not source)
         filtered_reference_path = resolved_image_path
@@ -206,7 +208,7 @@ class ImageVerificationController:
 
     def waitForImageToDisappear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8,
                                area: dict = None, image_list: List[str] = None,
-                               verification_index: int = 0, image_filter: str = 'none', model: str = 'default') -> Tuple[bool, str, dict]:
+                               verification_index: int = 0, image_filter: str = 'none', model: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
         """
         Wait for image to disappear by calling waitForImageToAppear and inverting the result.
         """
@@ -427,6 +429,9 @@ class ImageVerificationController:
     def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
         """Route interface for executing verification."""
         try:
+            # Extract team_id for database operations (reference area resolution)
+            team_id = verification_config.get('team_id')
+            
             # Check if a source image path is provided in the config
             source_path = verification_config.get('source_image_path')
             
@@ -490,7 +495,8 @@ class ImageVerificationController:
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
-                    model=model
+                    model=model,
+                    team_id=team_id
                 )
             elif command == 'waitForImageToDisappear':
                 success, message, details = self.waitForImageToDisappear(
@@ -501,7 +507,8 @@ class ImageVerificationController:
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
-                    model=model
+                    model=model,
+                    team_id=team_id
                 )
             else:
                 return {
@@ -695,10 +702,22 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Error creating pixel difference overlay: {e}")
             return None
 
-    def _resolve_reference_image(self, image_path: str, model: str = 'default') -> Tuple[Optional[str], Optional[dict]]:
+    def _resolve_reference_image(self, image_path: str, model: str = 'default', team_id: str = None) -> Tuple[Optional[str], Optional[dict]]:
         """
-        Resolve reference image path and area by downloading from R2 and querying database.
-        Returns tuple of (image_path, area_dict).
+        Resolve reference image path and area from R2 and database.
+        
+        Strategy:
+        - Download from R2 (source of truth) with 24-hour cache
+        - Always resolve area from database (REQUIRED - fails if not found)
+        - Fail fast on any error (no fallbacks)
+        
+        Args:
+            image_path: Reference image name or path
+            model: Device model (e.g., 'android_tv')
+            team_id: Team ID for database area resolution (REQUIRED)
+            
+        Returns:
+            tuple: (local_image_path, area_dict) or (None, None) on failure
         """
         try:
             # Extract reference name from path
@@ -707,10 +726,10 @@ class ImageVerificationController:
             else:
                 reference_name = image_path
             
-            # Remove extension if present to get base name
+            # Remove extension if present to get base name for database lookup
             base_name = reference_name.split('.')[0]
             
-            print(f"[@controller:ImageVerification] Resolving reference: {reference_name} for model: {model}")
+            print(f"[@controller:ImageVerification] Resolving reference: {reference_name} for model: {model}, team_id: {team_id}")
             
             # Use provided device model
             local_dir = os.path.join(self.references_dir, model)
@@ -722,18 +741,23 @@ class ImageVerificationController:
             
             local_path = f'{local_dir}/{reference_name}'
             
-            # Check if already exists locally
+            # Check if file exists and is less than 24 hours old (cache policy)
+            should_download = True
             if os.path.exists(local_path):
-                print(f"[@controller:ImageVerification] Reference already exists locally: {local_path}")
-                # Also resolve area from database
-                from  backend_host.src.lib.utils.reference_utils import resolve_reference_area_backend
-                resolved_area = resolve_reference_area_backend(base_name, model)
-                return local_path, resolved_area
+                import time
+                file_age_seconds = time.time() - os.path.getmtime(local_path)
+                file_age_hours = file_age_seconds / 3600
+                
+                if file_age_hours < 24:
+                    print(f"[@controller:ImageVerification] Using cached reference (age: {file_age_hours:.1f}h): {local_path}")
+                    should_download = False
+                else:
+                    print(f"[@controller:ImageVerification] Cached reference is too old (age: {file_age_hours:.1f}h), will re-download")
             
-            print(f"[@controller:ImageVerification] Downloading from R2 to: {local_path}")
-            
-            # Download from R2 using CloudflareUtils
-            try:
+            # Download from R2 if needed (not cached or cache expired)
+            if should_download:
+                print(f"[@controller:ImageVerification] Downloading from R2 to: {local_path}")
+                
                 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
                 
                 # Construct R2 object key using provided device model
@@ -741,26 +765,38 @@ class ImageVerificationController:
                 
                 print(f"[@controller:ImageVerification] R2 object key: {r2_object_key}")
                 
-                # Download file
+                # Download file - fail fast if this doesn't work
                 cloudflare_utils = get_cloudflare_utils()
                 download_result = cloudflare_utils.download_file(r2_object_key, local_path)
                 
-                if download_result.get('success'):
-                    print(f"[@controller:ImageVerification] Successfully downloaded reference from R2: {local_path}")
-                    # Also resolve area from database
-                    from  backend_host.src.lib.utils.reference_utils import resolve_reference_area_backend
-                    resolved_area = resolve_reference_area_backend(base_name, model)
-                    return local_path, resolved_area
-                else:
-                    print(f"[@controller:ImageVerification] Failed to download from R2: {download_result.get('error')}")
+                if not download_result.get('success'):
+                    error_msg = f"Failed to download reference from R2: {download_result.get('error')}"
+                    print(f"[@controller:ImageVerification] {error_msg}")
                     return None, None
-                    
-            except Exception as download_error:
-                print(f"[@controller:ImageVerification] R2 download error: {download_error}")
+                
+                print(f"[@controller:ImageVerification] Successfully downloaded reference from R2: {local_path}")
+            
+            # Always resolve area from database - REQUIRED
+            if not team_id:
+                error_msg = f"team_id is required for area resolution"
+                print(f"[@controller:ImageVerification] {error_msg}")
                 return None, None
+            
+            from shared.src.lib.utils.reference_utils import resolve_reference_area_backend
+            resolved_area = resolve_reference_area_backend(base_name, model, team_id)
+            
+            if not resolved_area:
+                error_msg = f"No area found in database for reference: {base_name} (model: {model})"
+                print(f"[@controller:ImageVerification] {error_msg}")
+                return None, None
+            
+            print(f"[@controller:ImageVerification] Resolved area from database: {resolved_area}")
+            return local_path, resolved_area
                 
         except Exception as e:
             print(f"[@controller:ImageVerification] Reference resolution error: {e}")
+            import traceback
+            traceback.print_exc()
             return None, None
 
     def _match_template(self, ref_img, source_img, area: dict = None) -> float:

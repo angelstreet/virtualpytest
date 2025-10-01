@@ -74,15 +74,18 @@ def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
         if not segments:
             return {}
         
-        # Build context for AI enhancement
+        # Build transcript list with language specified per line
         transcripts_text = []
+        segment_info = []  # Keep track for JSON template
+        
         for seg in segments:
             seg_num = seg.get('segment_num', 0)
             transcript = seg.get('transcript', '').strip()
             language = seg.get('language', 'unknown')
             
             if transcript:
-                transcripts_text.append(f"[Segment {seg_num}] ({language}): {transcript}")
+                transcripts_text.append(f"- {language}: {transcript}")
+                segment_info.append({'seg_num': seg_num, 'language': language})
         
         if not transcripts_text:
             logger.info(f"[{capture_folder}] No transcripts to enhance (all silent)")
@@ -90,22 +93,30 @@ def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
         
         combined = "\n".join(transcripts_text)
         
+        # Build segment list for JSON template (show first 2 as examples)
+        segment_examples = []
+        for info in segment_info[:2]:
+            segment_examples.append(f'{{"segment_num":{info["seg_num"]},"enhanced_text":"improved text here"}}')
+        
         # AI enhancement prompt - focused on accuracy improvement with strict JSON format
-        prompt = f"""Fix Whisper AI transcription errors. Keep responses SHORT.
+        prompt = f"""CONTEXT: Your goal is to improve audio-to-text transcriptions detected with Whisper AI.
+Provide better and more coherent transcriptions when required. Fix obvious errors while keeping the original language.
 
-Transcripts:
+Transcripts to improve (language specified per line):
 {combined}
 
-Rules:
-- Fix obvious errors and grammar
-- Keep original language (DON'T translate)
-- If text is repetitive, FIX IT (don't repeat it)
-- Keep enhanced text SHORTER than original
+RULES:
+1. Fix speech-to-text errors (mishearings, wrong words)
+2. Improve grammar and coherence
+3. KEEP THE ORIGINAL LANGUAGE - DO NOT TRANSLATE (French stays French, English stays English)
+4. If text is repetitive or garbled, provide the most likely correct version
+5. Keep responses concise and natural
+6. Only improve when needed - if text is already good, keep it similar
 
-Return ONLY this JSON (NO markdown, NO explanations):
-{{"enhanced":[{{"segment_num":123,"enhanced_text":"fixed short text"}},{{"segment_num":124,"enhanced_text":"another fix"}}]}}
+Return ONLY valid JSON with ALL {len(segment_info)} segments (no markdown, no explanations):
+{{"enhanced":[{segment_examples[0]},{segment_examples[1] if len(segment_examples) > 1 else '...'},...all segments]}}
 
-CRITICAL: Be CONCISE. Don't repeat patterns. Return ONLY valid JSON."""
+CRITICAL: Return valid JSON only. Respect each segment's detected language. Escape special characters properly."""
         
         logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
         logger.info(f"[{capture_folder}] 📋 AI Enhancement Prompt:")
@@ -129,7 +140,7 @@ CRITICAL: Be CONCISE. Don't repeat patterns. Return ONLY valid JSON."""
         # Parse AI response with robust error handling
         content = result['content'].strip()
         
-        logger.info(f"[{capture_folder}] 📄 Full AI Response:")
+        logger.info(f"[{capture_folder}] 📄 Full AI Response ({len(content)} chars):")
         logger.info("-" * 80)
         logger.info(content)
         logger.info("-" * 80)
@@ -158,6 +169,24 @@ CRITICAL: Be CONCISE. Don't repeat patterns. Return ONLY valid JSON."""
             if json_end >= 0:
                 content = content[:json_end + 1]
         
+        # Sanitize content: replace invalid control characters
+        # Common issues: unescaped newlines, tabs, and control chars in text
+        import re
+        # Replace literal newlines/tabs/control chars with spaces in text values
+        # But keep the JSON structure intact
+        def sanitize_text_value(match):
+            text = match.group(0)
+            # Replace control characters with spaces
+            sanitized = re.sub(r'[\x00-\x1f\x7f]', ' ', text)
+            return sanitized
+        
+        # Apply sanitization only to text inside quotes (preserve JSON structure)
+        try:
+            # Simple approach: replace control chars everywhere except valid JSON escapes
+            content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]', ' ', content)
+        except Exception as sanitize_error:
+            logger.warning(f"[{capture_folder}] Sanitization error: {sanitize_error}")
+        
         try:
             ai_result = json.loads(content)
             enhanced_map = {}
@@ -180,9 +209,18 @@ CRITICAL: Be CONCISE. Don't repeat patterns. Return ONLY valid JSON."""
             return enhanced_map
             
         except json.JSONDecodeError as e:
-            logger.warning(f"[{capture_folder}] ⚠️ AI response parsing failed: {e}")
-            logger.warning(f"[{capture_folder}] This is likely due to AI token limit truncation")
-            logger.warning(f"[{capture_folder}] Consider reducing AI_ENHANCEMENT_BATCH from {AI_ENHANCEMENT_BATCH} to 5")
+            logger.error(f"[{capture_folder}] ❌ JSON parsing failed: {e}")
+            logger.error(f"[{capture_folder}] Error position: {e.lineno if hasattr(e, 'lineno') else 'unknown'}:{e.colno if hasattr(e, 'colno') else 'unknown'}")
+            logger.error(f"[{capture_folder}] Problematic content around error:")
+            # Show 200 chars before and after the error position
+            if hasattr(e, 'pos') and e.pos:
+                start = max(0, e.pos - 200)
+                end = min(len(content), e.pos + 200)
+                logger.error(f"[{capture_folder}] ...{content[start:end]}...")
+            logger.warning(f"[{capture_folder}] 💡 Possible causes:")
+            logger.warning(f"[{capture_folder}]    1. AI token limit truncation (try reducing batch size)")
+            logger.warning(f"[{capture_folder}]    2. Unescaped special characters in response")
+            logger.warning(f"[{capture_folder}]    3. AI didn't follow JSON format")
             return {}
     
     except Exception as e:
@@ -424,7 +462,16 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         cleanup_old_hourly_transcripts(stream_dir)
         
         elapsed = time.time() - start_time
+        
+        # Summary: count total enhanced transcripts across all processed hours
+        total_enhanced = 0
+        for hour_window in sorted(segments_by_hour.keys()):
+            transcript_data = load_hourly_transcript(stream_dir, hour_window, capture_folder)
+            total_enhanced += sum(1 for seg in transcript_data.get('segments', []) if seg.get('enhanced_transcript'))
+        
         logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_hour)} hour window(s) [{elapsed:.2f}s]")
+        if total_enhanced > 0:
+            logger.info(f"[{capture_folder}] 🔵 Total AI-enhanced transcripts in processed hours: {total_enhanced}")
         logger.info("=" * 80)
         return True
         
