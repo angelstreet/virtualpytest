@@ -156,7 +156,7 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
                 'error': 'Whisper model not available'
             }
         
-        # Transcribe with optimized settings for speed
+        # Transcribe with optimized settings for speed (relaxed thresholds for better detection)
         result = model.transcribe(
             audio_file_path,
             fp16=False,
@@ -164,11 +164,18 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
             beam_size=1,
             best_of=1,
             temperature=0,
-            no_speech_threshold=0.6
+            no_speech_threshold=0.8,  # Relaxed from 0.6 to detect more speech
+            condition_on_previous_text=False,
+            compression_ratio_threshold=2.4,
+            logprob_threshold=-1.0
         )
         
         transcript = result.get('text', '').strip()
         language = result.get('language', 'en')
+        
+        # Get all segments for debugging
+        segments = result.get('segments', [])
+        segment_count = len(segments)
         
         # Convert language code to name
         lang_map = {
@@ -177,6 +184,10 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
             'ru': 'Russian', 'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean'
         }
         language_name = lang_map.get(language, language)
+        
+        # Log audio file details for debugging
+        audio_duration = os.path.getsize(audio_file_path) / (16000 * 2)  # 16kHz mono, 16-bit = 2 bytes
+        print(f"[AudioTranscriptionUtils] Audio: {audio_duration:.1f}s, Segments: {segment_count}, Transcript length: {len(transcript)} chars")
         
         # Estimate confidence based on transcript length (simple heuristic)
         confidence = min(0.95, 0.5 + (len(transcript) / 100)) if transcript else 0.0

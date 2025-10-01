@@ -139,6 +139,8 @@ def update_transcript_buffer(capture_dir):
             
             if transcript:
                 logger.info(f"[{capture_folder}] 📝 seg#{segment_num} ({len(segment_batch)} merged) - {language}: '{transcript}'")
+            else:
+                logger.info(f"[{capture_folder}] 🔇 seg#{segment_num} ({len(segment_batch)} merged) - No speech detected")
         
         # Circular buffer: Keep only last MAX_SAMPLES
         all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
