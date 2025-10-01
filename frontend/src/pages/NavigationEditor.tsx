@@ -485,6 +485,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 description: node.description,
                 verifications: node.verifications, // Directly embedded
                 kpi_references: node.kpi_references, // KPI measurement references
+                use_verifications_for_kpi: node.use_verifications_for_kpi || false, // KPI checkbox state
                 ...node.data // Additional data
               }
             }));
