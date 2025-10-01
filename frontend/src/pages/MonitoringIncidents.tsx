@@ -44,6 +44,7 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 
+import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { useAlerts } from '../hooks/pages/useAlerts';
 import { Alert } from '../types/pages/Monitoring_Types';
 
@@ -62,6 +63,8 @@ const MonitoringIncidents: React.FC = () => {
   const [showDetailedColumns, setShowDetailedColumns] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [freezeModalOpen, setFreezeModalOpen] = useState(false);
+  const [freezeModalAlert, setFreezeModalAlert] = useState<Alert | null>(null);
 
   // Load alerts data on component mount - optimized single query
   useEffect(() => {
@@ -383,6 +386,40 @@ const MonitoringIncidents: React.FC = () => {
     setSelectedDiscardComment(null);
   };
 
+  // Handle freeze modal
+  const handleFreezeClick = (alert: Alert) => {
+    if (alert.metadata?.freeze_details) {
+      setFreezeModalAlert(alert);
+      setFreezeModalOpen(true);
+    }
+  };
+
+  const handleCloseFreezeModal = () => {
+    setFreezeModalOpen(false);
+    setFreezeModalAlert(null);
+  };
+
+  // Adapt constructFrameUrl for HeatMapFreezeModal (expects baseUrl as second param)
+  const constructFrameUrlForModal = (filename: string, _baseUrl: string): string => {
+    return constructFrameUrl(filename, freezeModalAlert?.host_name || '', freezeModalAlert?.device_id || '');
+  };
+
+  // Convert Alert to HeatmapImage format for modal
+  const getHeatmapImageFromAlert = (alert: Alert | null): any => {
+    if (!alert || !alert.metadata?.freeze_details) return null;
+    
+    return {
+      host_name: alert.host_name,
+      device_id: alert.device_id,
+      image_url: '', // Not needed for modal
+      analysis_json: {
+        freeze: true,
+        freeze_diffs: alert.metadata.freeze_details.frame_differences,
+        last_3_filenames: alert.metadata.freeze_details.frames_compared,
+      }
+    };
+  };
+
   // Handle clear all alerts
   const handleClearAllAlerts = async () => {
     try {
@@ -502,9 +539,7 @@ const MonitoringIncidents: React.FC = () => {
                             opacity: 0.8,
                           },
                         }}
-                        onClick={() => {
-                          window.open(frameUrl, '_blank');
-                        }}
+                        onClick={() => handleFreezeClick(alert)}
                       />
                       {index > 0 && (
                         <Typography
@@ -542,9 +577,6 @@ const MonitoringIncidents: React.FC = () => {
         {/* Regular alert images */}
         {imageUrls.hasR2Images && (
           <Box>
-            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-              Alert Images
-            </Typography>
             <Grid container spacing={3} alignItems="center">
               {/* Start Time Image */}
               <Grid item>
@@ -554,7 +586,7 @@ const MonitoringIncidents: React.FC = () => {
                     display="block"
                     sx={{ mb: 1, color: 'text.secondary' }}
                   >
-                    Start Time
+                    Start
                   </Typography>
                   <Box
                     component="img"
@@ -588,7 +620,7 @@ const MonitoringIncidents: React.FC = () => {
                       display="block"
                       sx={{ mb: 1, color: 'text.secondary' }}
                     >
-                      End Time
+                      End
                     </Typography>
                     <Box
                       component="img"
@@ -1161,6 +1193,15 @@ const MonitoringIncidents: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Freeze Modal */}
+      <HeatMapFreezeModal
+        freezeModalOpen={freezeModalOpen}
+        freezeModalImage={getHeatmapImageFromAlert(freezeModalAlert)}
+        onClose={handleCloseFreezeModal}
+        constructFrameUrl={constructFrameUrlForModal}
+        timestamp={freezeModalAlert?.start_time}
+      />
     </Box>
   );
 };
