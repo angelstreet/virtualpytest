@@ -231,6 +231,9 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             }
           }
         }
+      } else {
+        // For live mode or single manifest, use video.currentTime directly
+        setGlobalCurrentTime(video.currentTime);
       }
     };
     
@@ -397,7 +400,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           <Box
             sx={{
               position: 'absolute',
-              bottom: 0,
+              bottom: 10, // Changed from 0 to 10px from bottom
               left: 0,
               right: 0,
               background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
@@ -442,18 +445,18 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             </Box>
             
             {/* Time display row */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', pl: 7 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', pl: 7 }}>  
               <Typography variant="caption" sx={{ color: 'white' }}>
-                {formatTime(archiveMetadata ? globalCurrentTime : currentTime)}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'white' }}>
-                {formatTime(archiveMetadata ? archiveMetadata.total_duration_seconds : duration)}
+                {formatTime(archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime)}
               </Typography>
               {archiveMetadata && (
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
                   Manifest {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
                 </Typography>
               )}
+              <Typography variant="caption" sx={{ color: 'white' }}>
+                {formatTime(archiveMetadata ? archiveMetadata.total_duration_seconds : duration)}
+              </Typography>
             </Box>
           </Box>
         )}
