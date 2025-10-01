@@ -194,7 +194,7 @@ class AudioAIHelpers:
     
     def extract_audio_from_segments(self, segment_files: List[Tuple[str, str]], segment_count: int = 3) -> List[str]:
         """Extract audio from specific HLS segments - delegates to shared utility"""
-        from backend_host.src.lib.utils.audio_transcription_utils import merge_ts_files, extract_audio_from_ts
+        from shared.src.lib.utils.audio_transcription_utils import merge_ts_files, extract_audio_from_ts
         
         try:
             selected_segments = segment_files[-segment_count:] if len(segment_files) > segment_count else segment_files
@@ -239,7 +239,7 @@ class AudioAIHelpers:
     # Reuse utility function instead of duplicating
     def _merge_ts_files(self, ts_files: List[str]) -> Optional[str]:
         """Merge multiple TS files - delegates to shared utility"""
-        from backend_host.src.lib.utils.audio_transcription_utils import merge_ts_files
+        from shared.src.lib.utils.audio_transcription_utils import merge_ts_files
         return merge_ts_files(ts_files)
     
     # =============================================================================
@@ -417,7 +417,7 @@ class AudioAIHelpers:
         Returns:
             Tuple of (transcript, detected_language, confidence)
         """
-        from backend_host.src.lib.utils.audio_transcription_utils import transcribe_audio
+        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
         result = transcribe_audio(audio_file, model_name='tiny')
         

@@ -13,10 +13,13 @@ import logging
 from datetime import datetime
 from archive_utils import get_capture_directories, get_capture_folder
 
-# Add backend_host to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Add paths for imports (script is in backend_host/scripts/)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+backend_host_dir = os.path.dirname(script_dir)  # backend_host/
+project_root = os.path.dirname(backend_host_dir)  # virtualpytest/
+sys.path.insert(0, project_root)
 
-from backend_host.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
+from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 
 logging.basicConfig(
     level=logging.INFO,
