@@ -196,7 +196,10 @@ export default defineConfig({
     // Add headers to support embedding in iframes and mixed content
     headers: {
       'X-Frame-Options': 'SAMEORIGIN',
-      'Content-Security-Policy': "frame-ancestors 'self' http://localhost:3000 https://localhost:3000 https://dev.virtualpytest.com https://virtualpytest.com; upgrade-insecure-requests",
+      // Local dev: Remove upgrade-insecure-requests to allow HTTP
+      'Content-Security-Policy': shouldUseHttps 
+        ? "frame-ancestors 'self' http://localhost:3000 https://localhost:3000 https://dev.virtualpytest.com https://virtualpytest.com; upgrade-insecure-requests"
+        : "frame-ancestors 'self' http://localhost:3000 http://localhost:6109",
     },
   },
   // Configure build for proper SPA handling
