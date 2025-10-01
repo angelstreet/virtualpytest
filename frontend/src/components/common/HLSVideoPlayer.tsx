@@ -385,6 +385,11 @@ export function HLSVideoPlayer({
       // Reset segment failure count on successful fragment loads
       hls.on(HLS.Events.FRAG_LOADED, () => {
         setSegmentFailureCount(0);
+        // Clear any existing error messages when fragments load successfully (indicates recovery)
+        if (streamError) {
+          console.log('[@component:HLSVideoPlayer] Stream recovered, clearing error message');
+          setStreamError(null);
+        }
       });
 
       // Single latency correction mechanism - only for live mode
