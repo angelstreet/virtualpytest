@@ -61,6 +61,9 @@ export function HLSVideoPlayer({
   const retryDelay = 2000;
   const lastInitTime = useRef<number>(0);
 
+  // Add native HLS support detection
+  const [supportsNativeHLS, setSupportsNativeHLS] = useState(false);
+
   useEffect(() => {
     console.log('[@component:HLSVideoPlayer] Component mounted with props:', {
       streamUrl,
@@ -83,6 +86,12 @@ export function HLSVideoPlayer({
       (videoElementRef as any).current = videoRef.current;
     }
   }, [videoElementRef]);
+
+  // Add effect for detecting native HLS support
+  useEffect(() => {
+    const tempVideo = document.createElement('video');
+    setSupportsNativeHLS(tempVideo.canPlayType('application/vnd.apple.mpegurl') !== '');
+  }, []);
 
   const cleanupStream = useCallback(() => {
     console.log('[@component:HLSVideoPlayer] Starting aggressive stream cleanup');
@@ -201,6 +210,13 @@ export function HLSVideoPlayer({
   const tryNativePlayback = useCallback(async () => {
     if (!streamUrl || !videoRef.current) return false;
 
+    // Prevent native attempt if not supported and not MP4
+    if (!supportsNativeHLS && !streamUrl.includes('.mp4')) {
+      console.warn('[@component:HLSVideoPlayer] Native playback not supported for this stream type');
+      setStreamError('Browser does not support native playback for this stream');
+      return false;
+    }
+
     console.log('[@component:HLSVideoPlayer] Trying native HTML5 playback');
     setUseNativePlayer(true);
 
@@ -268,7 +284,7 @@ export function HLSVideoPlayer({
       console.error('[@component:HLSVideoPlayer] Native playback setup failed:', error);
       return false;
     }
-  }, [streamUrl, attemptPlay, cleanupNativePlayback]);
+  }, [streamUrl, attemptPlay, cleanupNativePlayback, supportsNativeHLS]);
 
   const initializeStream = useCallback(async () => {
     // Don't initialize if FFmpeg is stuck - requires external intervention
@@ -312,7 +328,7 @@ export function HLSVideoPlayer({
       if (nativeSuccess) return;
     }
 
-    if (retryCount >= 2 || useNativePlayer) {
+    if (retryCount >= 2 && supportsNativeHLS || useNativePlayer) {
       const nativeSuccess = await tryNativePlayback();
       if (nativeSuccess) return;
     }
@@ -476,9 +492,18 @@ export function HLSVideoPlayer({
         }
 
         if (data.fatal) {
-          console.error('[@component:HLSVideoPlayer] Fatal HLS error, trying native playback');
-          setUseNativePlayer(true);
-          setTimeout(() => tryNativePlayback(), 500);
+          console.error('[@component:HLSVideoPlayer] Fatal HLS error, trying recovery');
+          if (supportsNativeHLS) {
+            setUseNativePlayer(true);
+            setTimeout(() => tryNativePlayback(), 500);
+          } else {
+            console.log('[@component:HLSVideoPlayer] Restarting HLS after fatal error (non-native browser)');
+            cleanupStream();
+            setTimeout(() => {
+              setRetryCount(0);
+              initializeStream();
+            }, retryDelay);
+          }
         } else {
           if (data.details === 'fragParsingError' || data.details === 'fragLoadError') {
             // Only attempt recovery if not stuck and not a 404 error
@@ -509,7 +534,7 @@ export function HLSVideoPlayer({
         setRetryCount((prev) => prev + 1);
       }, retryDelay);
     }
-  }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback, ffmpegStuck]);
+  }, [streamUrl, retryCount, useNativePlayer, currentStreamUrl, cleanupStream, tryNativePlayback, ffmpegStuck, supportsNativeHLS]);
 
   // Manual restart handler - clears all errors and reinitializes stream
   const handleManualRestart = useCallback(() => {
@@ -655,6 +680,39 @@ export function HLSVideoPlayer({
       }
     };
   }, []); // Empty dependency array - only runs on mount/unmount
+
+  // Add visibility change handler for recovery
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        return;
+      }
+
+      console.log('[@component:HLSVideoPlayer] Tab became visible');
+      if (!streamUrl || !isStreamActive) return;
+
+      if (streamError || !streamLoaded || ffmpegStuck) {
+        console.log('[@component:HLSVideoPlayer] Restarting stream on visibility change');
+        handleManualRestart();
+        return;
+      }
+
+      if (videoRef.current?.paused) {
+        attemptPlay();
+      }
+
+      if (!isArchiveMode && hlsRef.current?.liveSyncPosition && videoRef.current) {
+        const latency = hlsRef.current.liveSyncPosition - videoRef.current.currentTime;
+        if (latency > 3) {
+          console.log(`[@component:HLSVideoPlayer] Correcting latency on visibility: ${latency.toFixed(2)}s`);
+          videoRef.current.currentTime = hlsRef.current.liveSyncPosition - 1;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [streamUrl, isStreamActive, streamError, streamLoaded, ffmpegStuck, handleManualRestart, attemptPlay, isArchiveMode]);
 
   return (
     <Box
