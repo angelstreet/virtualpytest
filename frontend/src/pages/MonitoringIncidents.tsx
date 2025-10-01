@@ -13,6 +13,7 @@ import {
   VisibilityOff as HideDetailsIcon,
   Warning as DiscardedIcon,
   Check as ValidIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -47,7 +48,7 @@ import { useAlerts } from '../hooks/pages/useAlerts';
 import { Alert } from '../types/pages/Monitoring_Types';
 
 const MonitoringIncidents: React.FC = () => {
-  const { getAllAlerts, updateCheckedStatus, updateDiscardStatus } = useAlerts();
+  const { getAllAlerts, updateCheckedStatus, updateDiscardStatus, deleteAllAlerts } = useAlerts();
   const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
   const [closedAlerts, setClosedAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +60,8 @@ const MonitoringIncidents: React.FC = () => {
     alert: Alert;
   } | null>(null);
   const [showDetailedColumns, setShowDetailedColumns] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load alerts data on component mount - optimized single query
   useEffect(() => {
@@ -380,6 +383,34 @@ const MonitoringIncidents: React.FC = () => {
     setSelectedDiscardComment(null);
   };
 
+  // Handle clear all alerts
+  const handleClearAllAlerts = async () => {
+    try {
+      setIsDeleting(true);
+      setError(null);
+      
+      const result = await deleteAllAlerts();
+      
+      if (result.success) {
+        // Clear local state
+        setActiveAlerts([]);
+        setClosedAlerts([]);
+        setExpandedRows(new Set());
+        
+        console.log(`[@component:MonitoringIncidents] Successfully deleted ${result.deleted_count} alerts`);
+      } else {
+        setError('Failed to delete alerts');
+      }
+      
+      setClearConfirmOpen(false);
+    } catch (err) {
+      console.error('[@component:MonitoringIncidents] Error deleting alerts:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete alerts');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Toggle expanded row
   const toggleRowExpansion = (alertId: string) => {
     setExpandedRows((prev) => {
@@ -663,6 +694,18 @@ const MonitoringIncidents: React.FC = () => {
                     {totalClosedAlerts}
                   </Typography>
                 </Box>
+                <Tooltip title="Clear all alerts from database">
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => setClearConfirmOpen(true)}
+                    disabled={loading || totalActiveAlerts + totalClosedAlerts === 0}
+                  >
+                    Clear All
+                  </Button>
+                </Tooltip>
               </Box>
             </Box>
           </CardContent>
@@ -1064,6 +1107,57 @@ const MonitoringIncidents: React.FC = () => {
         <DialogActions>
           <Button onClick={handleCloseDiscardModal} color="primary">
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Clear All Alerts Confirmation Dialog */}
+      <Dialog 
+        open={clearConfirmOpen} 
+        onClose={() => !isDeleting && setClearConfirmOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <DeleteIcon color="error" />
+            Clear All Alerts
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <MuiAlert severity="warning" sx={{ mb: 2 }}>
+            This action cannot be undone!
+          </MuiAlert>
+          <Typography variant="body1">
+            Are you sure you want to delete all {totalActiveAlerts + totalClosedAlerts} alerts from the database?
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
+            This will permanently remove:
+          </Typography>
+          <Box component="ul" sx={{ mt: 1, pl: 3 }}>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {totalActiveAlerts} active alerts
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary">
+              {totalClosedAlerts} closed alerts
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setClearConfirmOpen(false)} 
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleClearAllAlerts} 
+            color="error" 
+            variant="contained"
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete All'}
           </Button>
         </DialogActions>
       </Dialog>

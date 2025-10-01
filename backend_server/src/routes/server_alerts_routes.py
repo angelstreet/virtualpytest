@@ -15,7 +15,8 @@ from shared.src.lib.supabase.alerts_db import (
     get_active_alerts,
     get_closed_alerts,
     update_alert_checked_status,
-    update_alert_discard_status
+    update_alert_discard_status,
+    delete_all_alerts
 )
 
 from shared.src.lib.utils.app_utils import check_supabase
@@ -185,4 +186,37 @@ def update_alert_discard_status_route(alert_id):
             return jsonify({'error': 'Alert not found or failed to update'}), 404
             
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@server_alerts_bp.route('/deleteAllAlerts', methods=['DELETE'])
+def delete_all_alerts_route():
+    """Delete all alerts from the database"""
+    error = check_supabase()
+    if error:
+        return error
+    
+    try:
+        print("[@routes:server_alerts:deleteAllAlerts] Deleting all alerts")
+        
+        result = delete_all_alerts()
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'deleted_count': result['deleted_count'],
+                'message': result['message']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result['error'],
+                'deleted_count': 0
+            }), 500
+            
+    except Exception as e:
+        print(f"[@routes:server_alerts:deleteAllAlerts] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'deleted_count': 0
+        }), 500 

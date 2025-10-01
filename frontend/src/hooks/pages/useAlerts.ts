@@ -171,11 +171,37 @@ export const useAlerts = () => {
     [],
   );
 
+  const deleteAllAlerts = useMemo(
+    () => async (): Promise<{ success: boolean; deleted_count: number; message?: string }> => {
+      try {
+        console.log('[@hook:useAlerts:deleteAllAlerts] Deleting all alerts');
+
+        const response = await fetch(buildServerUrl('/server/alerts/deleteAllAlerts'), {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to delete alerts: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log(`[@hook:useAlerts:deleteAllAlerts] Successfully deleted ${result.deleted_count} alerts`);
+        
+        return result;
+      } catch (error) {
+        console.error('[@hook:useAlerts:deleteAllAlerts] Error:', error);
+        throw error;
+      }
+    },
+    [],
+  );
+
   return {
     getAllAlerts,
     getActiveAlerts,
     getClosedAlerts,
     updateCheckedStatus,
     updateDiscardStatus,
+    deleteAllAlerts,
   };
 };

@@ -520,4 +520,58 @@ def update_alert_discard_status(alert_id: str, discard: bool, discard_comment: O
             
     except Exception as e:
         print(f"[@db:alerts:update_alert_discard_status] Error: {str(e)}")
-        return False 
+        return False
+
+def delete_all_alerts() -> Dict:
+    """Delete all alerts from the database."""
+    try:
+        print("[@db:alerts:delete_all_alerts] Deleting all alerts from database")
+        
+        supabase = get_supabase()
+        
+        # First count how many alerts exist
+        count_result = supabase.table('alerts').select('id', count='exact').execute()
+        total_count = count_result.count if hasattr(count_result, 'count') else 0
+        
+        print(f"[@db:alerts:delete_all_alerts] Found {total_count} alerts to delete")
+        
+        # Delete all alerts (no filter = delete all)
+        # Note: Supabase requires at least one condition, so we'll use a workaround
+        # Delete by selecting all IDs first, then deleting them
+        all_alerts = supabase.table('alerts').select('id').execute()
+        
+        if not all_alerts.data:
+            print("[@db:alerts:delete_all_alerts] No alerts to delete")
+            return {
+                'success': True,
+                'deleted_count': 0,
+                'message': 'No alerts found to delete'
+            }
+        
+        alert_ids = [alert['id'] for alert in all_alerts.data]
+        
+        # Delete in batches to avoid timeout
+        batch_size = 100
+        deleted_count = 0
+        
+        for i in range(0, len(alert_ids), batch_size):
+            batch_ids = alert_ids[i:i + batch_size]
+            result = supabase.table('alerts').delete().in_('id', batch_ids).execute()
+            deleted_count += len(batch_ids)
+            print(f"[@db:alerts:delete_all_alerts] Deleted batch {i//batch_size + 1}: {len(batch_ids)} alerts")
+        
+        print(f"[@db:alerts:delete_all_alerts] Successfully deleted {deleted_count} alerts")
+        
+        return {
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Successfully deleted {deleted_count} alerts'
+        }
+        
+    except Exception as e:
+        print(f"[@db:alerts:delete_all_alerts] Error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'deleted_count': 0
+        } 
