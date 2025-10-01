@@ -15,7 +15,7 @@ from  backend_host.src.lib.utils.navigation_exceptions import NavigationTreeErro
 from  backend_host.src.lib.utils.navigation_cache import populate_unified_cache
 
 # KPI measurement
-from backend_host.src.services.kpi_executor import get_kpi_executor, KPIMeasurementRequest
+from backend_host.scripts.kpi_executor import get_kpi_executor, KPIMeasurementRequest
 
 
 class NavigationExecutor:

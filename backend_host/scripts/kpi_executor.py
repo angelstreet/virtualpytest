@@ -1,9 +1,9 @@
+#!/usr/bin/env python3
 """
-KPI Measurement Executor
+KPI Measurement Executor Service
 
 Measures actual time from navigation action to visual confirmation (node's KPI reference appearing).
-Runs as background thread, processes queued measurement requests by scanning backward through
-5 FPS FFmpeg captures.
+Runs as background service, processes queued measurement requests by scanning through 5 FPS FFmpeg captures.
 
 Architecture:
 - NavigationExecutor queues KPI measurements after each successful navigation step
@@ -14,11 +14,25 @@ Architecture:
 """
 
 import os
+import sys
 import time
 import glob
 import queue
+import signal
+import logging
 import threading
 from typing import Dict, List, Optional, Any
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('/tmp/kpi_executor.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class KPIMeasurementRequest:
@@ -84,12 +98,12 @@ class KPIExecutor:
         self.queue = queue.Queue(maxsize=1000)
         self.running = False
         self.worker_thread = None
-        print(f"🔧 [KPIExecutor] Initialized (queue capacity: 1000)")
+        logger.info("🔧 [KPIExecutor] Initialized (queue capacity: 1000)")
     
     def start(self):
         """Start background worker thread"""
         if self.running:
-            print(f"⚠️ [KPIExecutor] Already running")
+            logger.warning("⚠️ [KPIExecutor] Already running")
             return
         
         self.running = True
@@ -99,18 +113,18 @@ class KPIExecutor:
             name="KPI-Worker"
         )
         self.worker_thread.start()
-        print(f"✅ [KPIExecutor] Worker thread started")
+        logger.info("✅ [KPIExecutor] Worker thread started")
     
     def stop(self):
         """Stop background worker thread"""
         if not self.running:
             return
         
-        print(f"🛑 [KPIExecutor] Stopping worker thread...")
+        logger.info("🛑 [KPIExecutor] Stopping worker thread...")
         self.running = False
         if self.worker_thread:
             self.worker_thread.join(timeout=5)
-        print(f"✅ [KPIExecutor] Worker thread stopped")
+        logger.info("✅ [KPIExecutor] Worker thread stopped")
     
     def enqueue_measurement(self, request: KPIMeasurementRequest) -> bool:
         """
@@ -121,15 +135,15 @@ class KPIExecutor:
         """
         try:
             self.queue.put(request, block=False)
-            print(f"📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()})")
+            logger.info(f"📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()})")
             return True
         except queue.Full:
-            print(f"❌ [KPIExecutor] Queue full! Dropping KPI measurement request")
+            logger.error("❌ [KPIExecutor] Queue full! Dropping KPI measurement request")
             return False
     
     def _worker_loop(self):
         """Background worker loop that processes measurement requests"""
-        print(f"🔄 [KPIExecutor] Worker loop started")
+        logger.info("🔄 [KPIExecutor] Worker loop started")
         
         while self.running:
             try:
@@ -143,17 +157,15 @@ class KPIExecutor:
                 try:
                     self._process_measurement(request)
                 except Exception as e:
-                    print(f"❌ [KPIExecutor] Error processing measurement: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.error(f"❌ [KPIExecutor] Error processing measurement: {e}", exc_info=True)
                 finally:
                     self.queue.task_done()
                     
             except Exception as e:
-                print(f"❌ [KPIExecutor] Worker loop error: {e}")
+                logger.error(f"❌ [KPIExecutor] Worker loop error: {e}", exc_info=True)
                 time.sleep(1)  # Prevent tight loop on errors
         
-        print(f"🛑 [KPIExecutor] Worker loop exited")
+        logger.info("🛑 [KPIExecutor] Worker loop exited")
     
     def _process_measurement(self, request: KPIMeasurementRequest):
         """
@@ -162,11 +174,11 @@ class KPIExecutor:
         Scans captures from action_timestamp until match or timeout.
         Stops immediately when match found.
         """
-        print(f"🔍 [KPIExecutor] Processing KPI measurement")
-        print(f"   • Execution result: {request.execution_result_id[:8]}")
-        print(f"   • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
-        print(f"   • Timeout: {request.timeout_ms}ms")
-        print(f"   • KPI references: {len(request.kpi_references)}")
+        logger.info("🔍 [KPIExecutor] Processing KPI measurement")
+        logger.info(f"   • Execution result: {request.execution_result_id[:8]}")
+        logger.info(f"   • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
+        logger.info(f"   • Timeout: {request.timeout_ms}ms")
+        logger.info(f"   • KPI references: {len(request.kpi_references)}")
         
         start_time = time.time()
         
@@ -181,17 +193,17 @@ class KPIExecutor:
         # Store result
         if match_result['success']:
             kpi_ms = int((match_result['timestamp'] - request.action_timestamp) * 1000)
-            print(f"✅ [KPIExecutor] KPI match found!")
-            print(f"   • KPI duration: {kpi_ms}ms")
-            print(f"   • Captures scanned: {match_result['captures_scanned']}")
+            logger.info(f"✅ [KPIExecutor] KPI match found!")
+            logger.info(f"   • KPI duration: {kpi_ms}ms")
+            logger.info(f"   • Captures scanned: {match_result['captures_scanned']}")
             self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
         else:
-            print(f"❌ [KPIExecutor] KPI measurement failed: {match_result['error']}")
-            print(f"   • Captures scanned: {match_result.get('captures_scanned', 0)}")
+            logger.error(f"❌ [KPIExecutor] KPI measurement failed: {match_result['error']}")
+            logger.info(f"   • Captures scanned: {match_result.get('captures_scanned', 0)}")
             self._update_result(request.execution_result_id, request.team_id, False, None, match_result['error'])
         
         processing_time = int((time.time() - start_time) * 1000)
-        print(f"⏱️ [KPIExecutor] Processing completed in {processing_time}ms")
+        logger.info(f"⏱️ [KPIExecutor] Processing completed in {processing_time}ms")
     
     def _scan_until_match(
         self,
@@ -237,7 +249,7 @@ class KPIExecutor:
         if not all_captures:
             return {'success': False, 'error': 'No captures found in time window', 'captures_scanned': 0}
         
-        print(f"📸 [KPIExecutor] Found {len(all_captures)} captures in time window")
+        logger.info(f"📸 [KPIExecutor] Found {len(all_captures)} captures in time window")
         
         # Scan captures sequentially - STOP at first match
         for i, capture in enumerate(all_captures):
@@ -252,7 +264,7 @@ class KPIExecutor:
                     elif verification_type in ['text', 'ocr']:
                         result = text_ctrl.execute_verification(kpi_ref, image_source_url=capture['path'])
                     else:
-                        print(f"⚠️ [KPIExecutor] Unsupported verification type: {verification_type}")
+                        logger.warning(f"⚠️ [KPIExecutor] Unsupported verification type: {verification_type}")
                         all_refs_match = False
                         break
                     
@@ -261,7 +273,7 @@ class KPIExecutor:
                         break
                         
                 except Exception as e:
-                    print(f"⚠️ [KPIExecutor] Verification execution error: {e}")
+                    logger.warning(f"⚠️ [KPIExecutor] Verification execution error: {e}")
                     all_refs_match = False
                     break
             
@@ -309,18 +321,48 @@ class KPIExecutor:
             ).eq('team_id', team_id).execute()
             
             if result.data:
-                print(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
+                logger.info(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
             else:
-                print(f"⚠️ [KPIExecutor] No record updated for execution_result_id: {execution_result_id[:8]}")
+                logger.warning(f"⚠️ [KPIExecutor] No record updated for execution_result_id: {execution_result_id[:8]}")
                 
         except Exception as e:
-            print(f"❌ [KPIExecutor] Error storing KPI result: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"❌ [KPIExecutor] Error storing KPI result: {e}", exc_info=True)
 
 
 # Module-level function to get service instance
 def get_kpi_executor() -> KPIExecutor:
     """Get singleton KPI executor instance"""
     return KPIExecutor.get_instance()
+
+
+def main():
+    """Main service loop"""
+    logger.info("🚀 [KPIExecutor Service] Starting KPI Executor Service")
+    
+    # Get singleton instance and start worker
+    executor = get_kpi_executor()
+    executor.start()
+    
+    # Setup graceful shutdown
+    def signal_handler(signum, frame):
+        logger.info(f"🛑 [KPIExecutor Service] Received signal {signum}, shutting down...")
+        executor.stop()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    logger.info("✅ [KPIExecutor Service] Service running, waiting for KPI measurement requests...")
+    
+    # Keep main thread alive
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("🛑 [KPIExecutor Service] Keyboard interrupt received")
+        executor.stop()
+
+
+if __name__ == '__main__':
+    main()
 

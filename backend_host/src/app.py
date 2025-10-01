@@ -175,7 +175,7 @@ def start_background_services():
         
         # Start KPI measurement service
         try:
-            from backend_host.src.services.kpi_executor import get_kpi_executor
+            from backend_host.scripts.kpi_executor import get_kpi_executor
             kpi_executor = get_kpi_executor()
             kpi_executor.start()
             print("✅ [backend_host] KPI measurement service started")
