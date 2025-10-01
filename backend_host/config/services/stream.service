@@ -3,6 +3,7 @@ Description=FFmpeg Capture and Rename Service
 After=network.target
 
 [Service]
+ExecStartPre=-/usr/bin/pkill -f ffmpeg
 ExecStart=/bin/bash /usr/local/bin/run_ffmpeg_and_rename.sh
 Restart=always
 User=www-data

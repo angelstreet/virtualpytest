@@ -245,9 +245,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         <Box sx={{ mt: 2 }}>
           <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             📊 KPI Measurement
-            <Typography variant="caption" color="text.secondary">
-              (Measured automatically during navigation)
-            </Typography>
           </Typography>
           
           <VerificationsList
