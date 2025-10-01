@@ -89,6 +89,7 @@ export const useNode = (props?: UseNodeProps) => {
       priority: node.data.priority || 'p3', // Default to p3 if not set
       verifications: node.data.verifications || [], // Embedded verifications - no ID resolution needed
       kpi_references: node.data.kpi_references || [], // KPI measurement references
+      use_verifications_for_kpi: node.data.use_verifications_for_kpi || false, // KPI mode flag
     };
   }, []);
 
