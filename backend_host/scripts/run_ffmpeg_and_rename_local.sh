@@ -180,7 +180,7 @@ start_grabber() {
       -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
-      -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
+      -f hls -hls_time 1 -hls_list_size 10 -hls_wrap 86400 -hls_flags omit_endlist+split_by_time -lhls 1 \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 5 -f image2 \
@@ -212,7 +212,7 @@ start_grabber() {
       -b:v 250k -maxrate 300k -bufsize 600k \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
-      -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
+      -f hls -hls_time 4 -hls_list_size 10 -hls_wrap 21600 -hls_flags omit_endlist \
       -hls_segment_filename $capture_dir/segment_%05d.ts \
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -vsync 0 -c:v mjpeg -q:v 8 -f image2 \
