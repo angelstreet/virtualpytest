@@ -31,17 +31,19 @@ def get_whisper_model(model_name: str = "tiny"):
     return _whisper_model
 
 
-def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None) -> Optional[str]:
+def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None, device_id: str = "") -> Optional[str]:
     """
     Merge multiple TS files into a single TS file using ffmpeg
     
     Args:
         ts_file_paths: List of TS file paths to merge
         output_path: Optional output path (if None, creates temp file)
+        device_id: Device identifier for logging (e.g., "capture1")
     
     Returns:
         Path to merged TS file or None on failure
     """
+    prefix = f"[{device_id}] " if device_id else ""
     if not ts_file_paths:
         return None
     
@@ -77,17 +79,17 @@ def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None) 
         
         if result.returncode == 0:
             if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
-                print(f"[AudioTranscriptionUtils] ✓ Merged {len(ts_file_paths)} TS files ({os.path.getsize(output_path)} bytes)")
+                print(f"{prefix}[AudioTranscriptionUtils] ✓ Merged {len(ts_file_paths)} TS files ({os.path.getsize(output_path)} bytes)")
                 return output_path
             else:
-                print(f"[AudioTranscriptionUtils] ❌ Merged file is empty or too small")
+                print(f"{prefix}[AudioTranscriptionUtils] ❌ Merged file is empty or too small")
         else:
-            print(f"[AudioTranscriptionUtils] ❌ ffmpeg merge error: {result.stderr}")
+            print(f"{prefix}[AudioTranscriptionUtils] ❌ ffmpeg merge error: {result.stderr}")
         
         return None
             
     except Exception as e:
-        print(f"[AudioTranscriptionUtils] ❌ Error merging TS files: {e}")
+        print(f"{prefix}[AudioTranscriptionUtils] ❌ Error merging TS files: {e}")
         return None
 
 
@@ -133,18 +135,84 @@ def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None) 
         return None
 
 
-def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str, Any]:
+def detect_audio_level(file_path: str, device_id: str = "") -> tuple:
+    """
+    Detect audio level using ffmpeg volumedetect - REUSES detector.py logic
+    
+    Args:
+        file_path: Path to audio/video file (TS, WAV, MP4, etc.)
+        device_id: Device identifier for logging (e.g., "capture1")
+    
+    Returns:
+        Tuple of (has_audio: bool, volume_percentage: int, mean_volume_db: float)
+    """
+    import re
+    
+    prefix = f"[{device_id}] " if device_id else ""
+    try:
+        # Use ffmpeg volumedetect - same as detector.py
+        cmd = [
+            'ffmpeg', '-i', file_path,
+            '-af', 'volumedetect',
+            '-vn', '-f', 'null', '-'
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        
+        # Parse mean_volume from stderr - same as detector.py
+        mean_volume = -100.0
+        for line in result.stderr.split('\n'):
+            if 'mean_volume:' in line:
+                match = re.search(r'mean_volume:\s*([-\d.]+)\s*dB', line)
+                if match:
+                    mean_volume = float(match.group(1))
+                    break
+        
+        # Convert dB to 0-100% scale: -60dB = 0%, 0dB = 100% - same as detector.py
+        volume_percentage = max(0, min(100, (mean_volume + 60) * 100 / 60))
+        has_audio = volume_percentage > 5  # 5% threshold - same as detector.py
+        
+        print(f"{prefix}[AudioTranscriptionUtils] Audio level: {mean_volume:.1f}dB ({volume_percentage}% - {'sound' if has_audio else 'silent'})")
+        
+        return has_audio, int(volume_percentage), mean_volume
+        
+    except Exception as e:
+        print(f"{prefix}[AudioTranscriptionUtils] Audio check error: {e}, assuming sound present")
+        return True, 0, -100.0
+
+
+def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silence_check: bool = False, device_id: str = "") -> Dict[str, Any]:
     """
     Transcribe audio file using Whisper (with model caching)
     
     Args:
         audio_file_path: Path to audio file (WAV recommended)
         model_name: Whisper model name (tiny, base, small, medium, large)
+        skip_silence_check: If True, skip audio level check (default False)
+        device_id: Device identifier for logging (e.g., "capture1")
     
     Returns:
         Dict with 'transcript', 'language', 'confidence', 'success'
     """
+    prefix = f"[{device_id}] " if device_id else ""
     try:
+        # Quick pre-check: Skip Whisper if audio is silent (saves CPU)
+        # Reuses same audio detection logic as detector.py
+        if not skip_silence_check:
+            has_audio, volume_percentage, mean_volume_db = detect_audio_level(audio_file_path, device_id=device_id)
+            if not has_audio:
+                print(f"{prefix}[AudioTranscriptionUtils] Skipping Whisper - audio is silent")
+                return {
+                    'success': True,
+                    'transcript': '',
+                    'language': 'unknown',
+                    'confidence': 0.0,
+                    'skipped': True,
+                    'reason': 'silent_audio',
+                    'volume_percentage': volume_percentage,
+                    'mean_volume_db': mean_volume_db
+                }
+        
         model = get_whisper_model(model_name)
         
         if model is None:
@@ -184,7 +252,7 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
         
         # Log audio file details for debugging
         audio_duration = os.path.getsize(audio_file_path) / (16000 * 2)  # 16kHz mono, 16-bit = 2 bytes
-        print(f"[AudioTranscriptionUtils] Audio: {audio_duration:.1f}s, Segments: {segment_count}, Transcript length: {len(transcript)} chars")
+        print(f"{prefix}[AudioTranscriptionUtils] Audio: {audio_duration:.1f}s, Segments: {segment_count}, Transcript length: {len(transcript)} chars")
         
         # Estimate confidence based on transcript length (simple heuristic)
         confidence = min(0.95, 0.5 + (len(transcript) / 100)) if transcript else 0.0
@@ -207,7 +275,7 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny") -> Dict[str
         }
 
 
-def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_name: str = "tiny") -> Dict[str, Any]:
+def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_name: str = "tiny", device_id: str = "") -> Dict[str, Any]:
     """
     Transcribe multiple TS segments (with optional merging for better context)
     
@@ -215,10 +283,12 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
         ts_file_paths: List of TS file paths
         merge: If True, merge all segments before transcription (better quality)
         model_name: Whisper model name
+        device_id: Device identifier for logging (e.g., "capture1")
     
     Returns:
         Dict with 'transcript', 'language', 'confidence', 'success', 'segments_processed'
     """
+    prefix = f"[{device_id}] " if device_id else ""
     try:
         if not ts_file_paths:
             return {
@@ -232,8 +302,8 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
         
         # Merge segments if requested and multiple files
         if merge and len(ts_file_paths) > 1:
-            print(f"[AudioTranscriptionUtils] Merging {len(ts_file_paths)} TS segments...")
-            merged_ts = merge_ts_files(ts_file_paths)
+            print(f"{prefix}[AudioTranscriptionUtils] Merging {len(ts_file_paths)} TS segments...")
+            merged_ts = merge_ts_files(ts_file_paths, device_id=device_id)
             
             if merged_ts:
                 # Extract audio from merged file
@@ -248,7 +318,7 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
                 
                 if audio_file:
                     # Transcribe merged audio
-                    result = transcribe_audio(audio_file, model_name)
+                    result = transcribe_audio(audio_file, model_name, device_id=device_id)
                     result['segments_processed'] = len(ts_file_paths)
                     result['merged'] = True
                     
@@ -265,7 +335,7 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
         audio_file = extract_audio_from_ts(ts_file)
         
         if audio_file:
-            result = transcribe_audio(audio_file, model_name)
+            result = transcribe_audio(audio_file, model_name, device_id=device_id)
             result['segments_processed'] = 1
             result['merged'] = False
             

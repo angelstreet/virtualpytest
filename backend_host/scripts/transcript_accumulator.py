@@ -60,6 +60,18 @@ def update_transcript_buffer(capture_dir):
     """Update transcript buffer with new samples (circular 24h) - uses transcription utils"""
     try:
         capture_folder = get_capture_folder(capture_dir)
+        
+        # Skip host device (no audio capture) - same check as capture_monitor.py
+        from incident_manager import IncidentManager
+        incident_manager = IncidentManager()
+        device_info = incident_manager.get_device_info_from_capture_folder(capture_folder)
+        device_id = device_info.get('device_id', capture_folder)
+        is_host = (device_id == 'host')
+        
+        if is_host:
+            logger.debug(f"[{capture_folder}] Skipping transcript processing - host device has no audio")
+            return
+        
         stream_dir = capture_dir.replace('/captures', '')
         transcript_path = os.path.join(stream_dir, 'transcript_segments.json')
         
@@ -118,11 +130,13 @@ def update_transcript_buffer(capture_dir):
             ts_file_paths = [seg_path for _, seg_path in segment_batch]
             
             # Transcribe merged segments (utility handles merging + transcription + cleanup)
-            result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny')
+            # Pre-checks audio level to skip Whisper on silent segments (saves CPU on RPi)
+            result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
             
             transcript = result.get('transcript', '').strip()
             language = result.get('language', 'unknown')
             confidence = result.get('confidence', 0.0)
+            skipped = result.get('skipped', False)
             
             relative_seconds = segment_num
             manifest_window = (relative_seconds // 3600) + 1
@@ -139,6 +153,8 @@ def update_transcript_buffer(capture_dir):
             
             if transcript:
                 logger.info(f"[{capture_folder}] 📝 seg#{segment_num} ({len(segment_batch)} merged) - {language}: '{transcript}'")
+            elif skipped:
+                logger.info(f"[{capture_folder}] 🔇 seg#{segment_num} ({len(segment_batch)} merged) - Silent (Whisper skipped)")
             else:
                 logger.info(f"[{capture_folder}] 🔇 seg#{segment_num} ({len(segment_batch)} merged) - No speech detected")
         
@@ -186,8 +202,26 @@ def main():
         # Whisper model will be loaded on first use and cached globally
         logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
         
+        # Filter out host device from monitored directories (no audio capture)
+        from incident_manager import IncidentManager
+        incident_manager = IncidentManager()
+        
+        monitored_devices = []
+        for capture_dir in capture_dirs:
+            capture_folder = get_capture_folder(capture_dir)
+            device_info = incident_manager.get_device_info_from_capture_folder(capture_folder)
+            device_id = device_info.get('device_id', capture_folder)
+            is_host = (device_id == 'host')
+            
+            if is_host:
+                logger.info(f"  ⊗ Skipping: {capture_dir} -> {capture_folder} (host has no audio)")
+            else:
+                monitored_devices.append(capture_dir)
+        
+        logger.info(f"Monitoring {len(monitored_devices)} devices for transcripts (excluding host)")
+        
         while True:
-            for capture_dir in capture_dirs:
+            for capture_dir in monitored_devices:
                 capture_folder = get_capture_folder(capture_dir)
                 logger.info(f"[{capture_folder}] Checking for new transcript samples...")
                 update_transcript_buffer(capture_dir)

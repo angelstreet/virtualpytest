@@ -125,34 +125,28 @@ def analyze_audio(capture_dir):
         if cached_mtime == latest_mtime:
             return has_audio, volume, db
     
-    # Run FFmpeg only if segment changed or not in cache
+    # Reuse shared audio detection logic (same as transcription utils)
     try:
-        cmd = ['/usr/bin/ffmpeg', '-i', latest, '-af', 'volumedetect', 
-               '-vn', '-f', 'null', '/dev/null']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        import sys
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(os.path.dirname(script_dir))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
         
-        # Parse mean_volume from stderr
-        mean_volume = -100.0
-        for line in result.stderr.split('\n'):
-            if 'mean_volume:' in line:
-                match = re.search(r'mean_volume:\s*([-\d.]+)\s*dB', line)
-                if match:
-                    mean_volume = float(match.group(1))
-                    break
+        from shared.src.lib.utils.audio_transcription_utils import detect_audio_level
         
-        # Convert dB to 0-100% scale: -60dB = 0%, 0dB = 100%
-        volume_percentage = max(0, min(100, (mean_volume + 60) * 100 / 60))
-        has_audio = volume_percentage > 5  # 5% threshold
+        has_audio, volume_percentage, mean_volume = detect_audio_level(latest, device_id="")
         
         # Cache the result
-        _audio_cache[latest] = (latest_mtime, has_audio, int(volume_percentage), mean_volume)
+        _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
         
         # Clean old cache entries to prevent memory growth
         if len(_audio_cache) > 50:
             _audio_cache = dict(list(_audio_cache.items())[-20:])
         
-        return has_audio, int(volume_percentage), mean_volume
-    except:
+        return has_audio, volume_percentage, mean_volume
+    except Exception as e:
+        # Fallback if import fails
         return False, 0, -100.0
 
 def detect_issues(image_path):

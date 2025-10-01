@@ -208,7 +208,7 @@ class AudioAIHelpers:
             # For multiple segments, merge them first (better quality)
             if len(ts_paths) > 1:
                 print(f"AudioAI[{self.device_name}]: Merging {len(ts_paths)} TS segments into one file...")
-                merged_ts = merge_ts_files(ts_paths)
+                merged_ts = merge_ts_files(ts_paths, device_id=self.device_name)
                 
                 if merged_ts:
                     # Extract audio from merged file using utility
@@ -240,7 +240,7 @@ class AudioAIHelpers:
     def _merge_ts_files(self, ts_files: List[str]) -> Optional[str]:
         """Merge multiple TS files - delegates to shared utility"""
         from shared.src.lib.utils.audio_transcription_utils import merge_ts_files
-        return merge_ts_files(ts_files)
+        return merge_ts_files(ts_files, device_id=self.device_name)
     
     # =============================================================================
     # AI-Powered Speech-to-Text Analysis
@@ -419,7 +419,7 @@ class AudioAIHelpers:
         """
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
-        result = transcribe_audio(audio_file, model_name='tiny')
+        result = transcribe_audio(audio_file, model_name='tiny', device_id=self.device_name)
         
         if result['success']:
             print(f"AudioAI[{self.device_name}]: Whisper detected speech: '{result['transcript'][:50]}...' (Language: {result['language']})")
