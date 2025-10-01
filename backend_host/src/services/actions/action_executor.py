@@ -701,6 +701,11 @@ class ActionExecutor:
             script_result_id = nav_context.get('script_id')
             script_context = nav_context.get('script_context', 'direct')
             
+            # Skip recording if explicitly requested (frontend testing from useEdge/useNode hooks)
+            if nav_context.get('skip_db_recording'):
+                print(f"[@lib:action_executor:_record_execution_to_database] Skipping database recording - frontend testing (skip_db_recording=true)")
+                return
+            
             # Get tree_id from ActionExecutor attributes first (for edge recording), 
             # then fall back to device navigation context (for full navigation)
             tree_id = getattr(self, 'tree_id', None)

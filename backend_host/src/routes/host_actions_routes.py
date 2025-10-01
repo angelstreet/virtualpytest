@@ -25,6 +25,7 @@ def action_execute_batch():
         tree_id = data.get('tree_id')
         edge_id = data.get('edge_id')
         action_set_id = data.get('action_set_id')
+        skip_db_recording = data.get('skip_db_recording', False)
         
         print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} actions for device: {device_id}, team: {team_id}")
         
@@ -63,7 +64,15 @@ def action_execute_batch():
         if action_set_id:
             device.action_executor.action_set_id = action_set_id
         
-        print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
+        # Set skip_db_recording flag in device's navigation_context (for frontend testing)
+        if skip_db_recording:
+            device.navigation_context['skip_db_recording'] = True
+            print(f"[@route:host_actions:action_execute_batch] Frontend testing mode - DB recording disabled")
+        else:
+            # Clear the flag if it was previously set
+            device.navigation_context.pop('skip_db_recording', None)
+        
+        print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}, skip_db_recording={skip_db_recording}")
         
         # Execute actions using device's ActionExecutor
         result = device.action_executor.execute_actions(

@@ -122,7 +122,8 @@ export const useEdge = (props: UseEdgeProps = {}) => {
     const navigationContext = {
       tree_id: treeId,
       edge_id: edge.id,
-      action_set_id: actionSetId
+      action_set_id: actionSetId,
+      skip_db_recording: true  // Frontend testing - don't record to DB
     };
     
     return await actionHook.executeActions(
@@ -212,7 +213,8 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         const navigationContext = {
           tree_id: currentTreeId || undefined,
           edge_id: edge.id,
-          action_set_id: defaultSet.id
+          action_set_id: defaultSet.id,
+          skip_db_recording: true  // Frontend testing - don't record to DB
         };
         
         console.log('[@useEdge:executeEdgeActions] DEBUG Navigation Context:', navigationContext);

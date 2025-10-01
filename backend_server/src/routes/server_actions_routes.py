@@ -102,10 +102,11 @@ def action_execute_batch():
         tree_id = data.get('tree_id')
         edge_id = data.get('edge_id')
         action_set_id = data.get('action_set_id')
+        skip_db_recording = data.get('skip_db_recording', False)
         
         print(f"[@route:server_actions:action_execute_batch] Processing {len(actions)} main actions, {len(retry_actions)} retry actions")
         print(f"[@route:server_actions:action_execute_batch] Host: {host_name}, Device ID: {device_id}")
-        print(f"[@route:server_actions:action_execute_batch] Navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}")
+        print(f"[@route:server_actions:action_execute_batch] Navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}, skip_db_recording={skip_db_recording}")
         
         # Validate
         if not actions:
@@ -129,6 +130,7 @@ def action_execute_batch():
                 'tree_id': tree_id,
                 'edge_id': edge_id,
                 'action_set_id': action_set_id,
+                'skip_db_recording': skip_db_recording,
                 'team_id': team_id
             }
             
