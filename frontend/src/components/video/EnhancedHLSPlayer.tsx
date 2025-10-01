@@ -400,7 +400,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           <Box
             sx={{
               position: 'absolute',
-              bottom: 10, // Changed from 0 to 10px from bottom
+              bottom: -20, // Compensate for modal's 20px margin from window height
               left: 0,
               right: 0,
               background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
