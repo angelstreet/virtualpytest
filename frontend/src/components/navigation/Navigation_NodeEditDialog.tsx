@@ -291,26 +291,29 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             mb: 1,
           }}
         >
-          <Typography variant="h6" sx={{ fontSize: '1rem', m: 0, mb: 0.5 }}>
-            📊 KPI Measurement
-          </Typography>
-          
-          {/* Checkbox to use verifications for KPI */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={nodeForm?.use_verifications_for_kpi || false}
-                onChange={(e) => setNodeForm({ ...nodeForm, use_verifications_for_kpi: e.target.checked })}
-                size="small"
-              />
-            }
-            label={
-              <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                Use verifications for KPI measurement
-              </Typography>
-            }
-            sx={{ mb: 1 }}
-          />
+          {/* Title and Checkbox on same line */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="h6" sx={{ fontSize: '1rem', m: 0 }}>
+              📊 KPI Measurement
+            </Typography>
+            
+            {/* Checkbox to use verifications for KPI */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={nodeForm?.use_verifications_for_kpi || false}
+                  onChange={(e) => setNodeForm({ ...nodeForm, use_verifications_for_kpi: e.target.checked })}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                  Use verifications
+                </Typography>
+              }
+              sx={{ m: 0 }}
+            />
+          </Box>
           
           {/* KPI References List - disabled when checkbox is checked */}
           <Box
