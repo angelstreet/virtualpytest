@@ -154,12 +154,12 @@ export const NavigationEditorHeader: React.FC<{
   return (
     <>
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar variant="dense" sx={{ minHeight: 48, px: 2 }}>
+        <Toolbar variant="dense" sx={{ minHeight: 44, px: 2 }}>
           {/* Grid Layout with 4 sections */}
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: '60px 340px 300px 380px',
+              gridTemplateColumns: '60px 360px 340px 380px',
               gap: 1.5,
               alignItems: 'center',
               width: '100%',
