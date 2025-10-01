@@ -123,11 +123,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           console.log('[@EnhancedHLSPlayer] Archive metadata loaded:', data);
           setArchiveMetadata(data);
           
-          // Start at the most recent manifest (last one in the array)
+          // Start at the first manifest (oldest, beginning of 24h archive)
           if (data.manifests && data.manifests.length > 0) {
-            const lastManifestIndex = data.manifests.length - 1;
-            console.log(`[@EnhancedHLSPlayer] Starting at most recent manifest: ${lastManifestIndex + 1}/${data.manifests.length}`);
-            setCurrentManifestIndex(lastManifestIndex);
+            console.log(`[@EnhancedHLSPlayer] Starting at first manifest (archive1): 1/${data.manifests.length}`);
+            setCurrentManifestIndex(0); // Start at archive1 (oldest)
           }
         })
         .catch(err => {
@@ -238,12 +237,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleDurationChange = () => {
       setDuration(video.duration);
       
-      // When archive mode loads and we get duration, seek to end of most recent manifest
+      // When archive mode loads and we get duration, seek to beginning
       if (!isLiveMode && video.duration && !isNaN(video.duration)) {
-        // Seek to end of current manifest (most recent time)
-        const seekTime = Math.max(0, video.duration - 1);
-        console.log(`[@EnhancedHLSPlayer] Archive mode loaded, seeking to most recent time: ${seekTime.toFixed(1)}s`);
-        video.currentTime = seekTime;
+        console.log(`[@EnhancedHLSPlayer] Archive mode loaded, seeking to beginning (0:00)`);
+        video.currentTime = 0; // Start at beginning of archive
       }
     };
 
@@ -269,11 +266,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode) {
         seekToLive();
       } else {
-        // For archive mode, seek to end of most recent manifest
+        // For archive mode, seek to beginning
         if (videoRef.current && videoRef.current.duration) {
-          const seekTime = Math.max(0, videoRef.current.duration - 1);
-          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to: ${seekTime.toFixed(1)}s`);
-          videoRef.current.currentTime = seekTime;
+          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning (0:00)`);
+          videoRef.current.currentTime = 0;
         }
       }
     }, 500); // Small delay to allow HLS player to initialize with new manifest
