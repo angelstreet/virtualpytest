@@ -58,7 +58,9 @@ CREATE TABLE node_metrics (
     total_executions integer DEFAULT 0,
     successful_executions integer DEFAULT 0,
     success_rate numeric DEFAULT 0,
-    avg_execution_time_ms integer DEFAULT 0
+    avg_execution_time_ms integer DEFAULT 0,
+    -- UNIQUE constraint for ON CONFLICT in update_metrics() trigger
+    CONSTRAINT node_metrics_unique UNIQUE (node_id, tree_id, team_id)
 );
 
 -- Navigation edge aggregated metrics (UPDATED SCHEMA - SIMPLIFIED)
@@ -80,7 +82,9 @@ CREATE TABLE edge_metrics (
     avg_kpi_ms integer DEFAULT 0,
     min_kpi_ms integer,
     max_kpi_ms integer,
-    kpi_success_rate numeric DEFAULT 0
+    kpi_success_rate numeric DEFAULT 0,
+    -- UNIQUE constraint for ON CONFLICT in update_metrics() trigger
+    CONSTRAINT edge_metrics_edge_id_tree_id_action_set_id_key UNIQUE (edge_id, tree_id, action_set_id)
 );
 
 -- action_execution_history table removed - does not exist in current database

@@ -148,7 +148,7 @@ BEGIN
             CASE WHEN NEW.success THEN 1.0 ELSE 0.0 END,
             COALESCE(NEW.execution_time_ms, 0)
         )
-        ON CONFLICT (node_id, tree_id) 
+        ON CONFLICT (node_id, tree_id, team_id) 
         DO UPDATE SET
             total_executions = node_metrics.total_executions + 1,
             successful_executions = node_metrics.successful_executions + CASE WHEN NEW.success THEN 1 ELSE 0 END,
