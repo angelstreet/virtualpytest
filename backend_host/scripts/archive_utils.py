@@ -10,6 +10,58 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Cache for device mappings to avoid repeated .env lookups
+_device_mapping_cache = {}
+
+
+def get_device_info_from_capture_folder(capture_folder):
+    """
+    Get device info from .env by matching capture path - LIGHTWEIGHT (no DB)
+    Extracted from IncidentManager to avoid loading incidents from database
+    """
+    # Check cache first
+    if capture_folder in _device_mapping_cache:
+        return _device_mapping_cache[capture_folder]
+    
+    capture_path = f"/var/www/html/stream/{capture_folder}"
+    
+    # Check HOST first
+    host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
+    
+    if host_capture_path == capture_path:
+        host_name = os.getenv('HOST_NAME', 'unknown')
+        host_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')
+        device_info = {
+            'device_id': 'host',
+            'device_name': f"{host_name}_Host",
+            'stream_path': host_stream_path,
+            'capture_path': capture_folder
+        }
+        _device_mapping_cache[capture_folder] = device_info
+        return device_info
+    
+    # Check DEVICE1-4
+    for i in range(1, 5):
+        device_capture_path = os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
+        device_name = os.getenv(f'DEVICE{i}_NAME', f'device{i}')
+        device_stream_path = os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH')
+        
+        if device_capture_path == capture_path:
+            device_info = {
+                'device_id': f'device{i}',
+                'device_name': device_name,
+                'stream_path': device_stream_path,
+                'capture_path': capture_folder
+            }
+            _device_mapping_cache[capture_folder] = device_info
+            return device_info
+    
+    # Fallback
+    device_info = {'device_id': capture_folder, 'device_name': capture_folder, 'stream_path': None, 'capture_path': capture_folder}
+    _device_mapping_cache[capture_folder] = device_info
+    return device_info
+
+
 def get_capture_directories():
     """Find active capture directories from /tmp/active_captures.conf (centralized config)"""
     active_captures_file = '/tmp/active_captures.conf'

@@ -11,7 +11,7 @@ import time
 import glob
 import logging
 from datetime import datetime
-from archive_utils import get_capture_directories, get_capture_folder
+from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
 
 # Add paths for imports (script is in backend_host/scripts/)
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -60,35 +60,32 @@ def update_transcript_buffer(capture_dir):
     """Update transcript buffer with new samples (circular 24h) - uses transcription utils"""
     try:
         capture_folder = get_capture_folder(capture_dir)
-        
-        # Skip host device (no audio capture) - same check as capture_monitor.py
-        from incident_manager import IncidentManager
-        incident_manager = IncidentManager()
-        device_info = incident_manager.get_device_info_from_capture_folder(capture_folder)
-        device_id = device_info.get('device_id', capture_folder)
-        is_host = (device_id == 'host')
-        
-        if is_host:
-            logger.debug(f"[{capture_folder}] Skipping transcript processing - host device has no audio")
-            return
-        
         stream_dir = capture_dir.replace('/captures', '')
         transcript_path = os.path.join(stream_dir, 'transcript_segments.json')
         
-        # Load existing transcript data
-        if os.path.exists(transcript_path):
-            with open(transcript_path, 'r') as f:
-                transcript_data = json.load(f)
-        else:
-            transcript_data = {
-                'capture_folder': capture_folder,
-                'sample_interval_seconds': SAMPLE_INTERVAL,
-                'segments': [],
-                'last_processed_segment': 0
-            }
-        
-        existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
-        last_processed = transcript_data.get('last_processed_segment', 0)
+           # Load existing transcript data
+           if os.path.exists(transcript_path):
+               with open(transcript_path, 'r') as f:
+                   transcript_data = json.load(f)
+           else:
+               transcript_data = {
+                   'capture_folder': capture_folder,
+                   'sample_interval_seconds': SAMPLE_INTERVAL,
+                   'segments': [],
+                   'last_processed_segment': 0
+               }
+           
+           existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
+           last_processed = transcript_data.get('last_processed_segment', 0)
+           
+           # First run: Start from NOW, not from backlog (don't try to catch up)
+           if last_processed == 0:
+               segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
+               if segment_files:
+                   latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
+                   last_processed = latest_seg
+                   logger.info(f"[{capture_folder}] 🆕 First run - starting from current segment #{latest_seg} (skipping backlog)")
+                   transcript_data['last_processed_segment'] = last_processed
         
         # Find available segments
         segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
@@ -203,13 +200,11 @@ def main():
         logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
         
         # Filter out host device from monitored directories (no audio capture)
-        from incident_manager import IncidentManager
-        incident_manager = IncidentManager()
-        
+        # Uses lightweight device mapping without loading incidents from DB
         monitored_devices = []
         for capture_dir in capture_dirs:
             capture_folder = get_capture_folder(capture_dir)
-            device_info = incident_manager.get_device_info_from_capture_folder(capture_folder)
+            device_info = get_device_info_from_capture_folder(capture_folder)
             device_id = device_info.get('device_id', capture_folder)
             is_host = (device_id == 'host')
             
@@ -221,10 +216,13 @@ def main():
         logger.info(f"Monitoring {len(monitored_devices)} devices for transcripts (excluding host)")
         
         while True:
-            for capture_dir in monitored_devices:
+            for i, capture_dir in enumerate(monitored_devices, 1):
                 capture_folder = get_capture_folder(capture_dir)
-                logger.info(f"[{capture_folder}] Checking for new transcript samples...")
+                logger.info(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
                 update_transcript_buffer(capture_dir)
+                logger.info(f"[{capture_folder}] ✓ Transcript processing complete")
+            
+            logger.info(f"Completed full cycle for {len(monitored_devices)} devices, sleeping 60s...")
             time.sleep(60)  # Check every 60s
             
     except Exception as e:
