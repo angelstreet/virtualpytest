@@ -496,11 +496,11 @@ const MonitoringIncidents: React.FC = () => {
     const freezeImageUrls = r2Images?.thumbnail_urls || r2Images?.original_urls || [];
 
     return (
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 1 }}>
         {/* Freeze Detection Analysis - All frames in one row */}
         {alert.incident_type === 'freeze' && freezeImageUrls.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Grid container spacing={2} alignItems="center">
+          <Box>
+            <Grid container spacing={2} alignItems="flex-start">
               {/* Start Image */}
               {imageUrls.hasR2Images && (
                 <Grid item>
