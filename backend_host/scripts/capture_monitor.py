@@ -93,16 +93,16 @@ def generate_manifest_for_segments(stream_dir, segments, manifest_name):
     return True
 
 def update_archive_manifest(capture_dir):
-    """Generate dynamic 2-hour archive manifests with smart pre-loading"""
+    """Generate dynamic 1-hour archive manifests with progressive creation"""
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')  # /var/www/html/stream/capture1
         
-        # Configuration for 2-hour manifest windows
-        WINDOW_HOURS = 2
+        # Configuration for 1-hour manifest windows
+        WINDOW_HOURS = 1
         SEGMENT_DURATION = 1  # seconds per segment (from FFmpeg config)
-        SEGMENTS_PER_WINDOW = WINDOW_HOURS * 3600 // SEGMENT_DURATION  # 7,200 segments per 2h window
-        NUM_MANIFESTS = 3  # Use 3 circular manifests (archive1, archive2, archive3)
+        SEGMENTS_PER_WINDOW = WINDOW_HOURS * 3600 // SEGMENT_DURATION  # 3,600 segments per 1h window
+        MAX_MANIFESTS = 24  # Support up to 24 hours (24 manifests)
         
         # Find all segment files
         segments = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
@@ -112,23 +112,34 @@ def update_archive_manifest(capture_dir):
         # Sort segments by number (segment_00001.ts, segment_00002.ts, etc.)
         segments.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
         
-        # Calculate how many complete windows we have
         total_segments = len(segments)
-        num_windows = (total_segments + SEGMENTS_PER_WINDOW - 1) // SEGMENTS_PER_WINDOW  # Ceiling division
         
-        # Generate manifests for available windows
-        # Use circular naming: archive1.m3u8, archive2.m3u8, archive3.m3u8
+        # Rolling 24-hour window strategy:
+        # - Keep only LAST 24 hours of content
+        # - Always use archive1 through archive24 (fixed naming)
+        # - archive1 = most recent hour, archive24 = 24 hours ago
+        
+        # If we have more than 24 hours of segments, use only the last 24 hours
+        max_segments_to_use = MAX_MANIFESTS * SEGMENTS_PER_WINDOW  # 24 hours worth
+        if total_segments > max_segments_to_use:
+            segments = segments[-max_segments_to_use:]  # Keep only last 24 hours
+            logger.debug(f"[{capture_folder}] Rolling window: using last {len(segments)} segments (24h)")
+        
+        total_segments = len(segments)
+        num_windows = (total_segments + SEGMENTS_PER_WINDOW - 1) // SEGMENTS_PER_WINDOW
+        
         manifests_generated = 0
-        for window_idx in range(min(num_windows, NUM_MANIFESTS)):
+        for window_idx in range(num_windows):
             start_idx = window_idx * SEGMENTS_PER_WINDOW
             end_idx = min(start_idx + SEGMENTS_PER_WINDOW, total_segments)
             window_segments = segments[start_idx:end_idx]
             
-            if window_segments:
-                # Circular manifest naming: archive1, archive2, archive3
+            # Only generate if we have segments in this window
+            if len(window_segments) > 0:
                 manifest_name = f"archive{window_idx + 1}.m3u8"
                 if generate_manifest_for_segments(stream_dir, window_segments, manifest_name):
                     manifests_generated += 1
+                    logger.debug(f"[{capture_folder}] Generated {manifest_name}: {len(window_segments)} segments ({len(window_segments)/3600:.2f}h)")
         
         # Generate metadata JSON for frontend to know which manifests to use
         metadata = {
@@ -159,21 +170,31 @@ def update_archive_manifest(capture_dir):
         
         os.rename(metadata_path + '.tmp', metadata_path)
         
-        # Also keep archive.m3u8 pointing to archive1.m3u8 for backward compatibility
-        # Frontend can choose to use archive1.m3u8 directly or use metadata for smart switching
+        # Backward compatibility: archive.m3u8 points to archive1.m3u8
         if manifests_generated > 0:
             archive_path = os.path.join(stream_dir, 'archive.m3u8')
             with open(archive_path + '.tmp', 'w') as f:
                 f.write(f"# Use archive_metadata.json for multi-manifest playback\n")
-                f.write(f"# Or access archive1.m3u8, archive2.m3u8, archive3.m3u8 directly\n")
+                f.write(f"# Or access archive1.m3u8, archive2.m3u8, etc. directly\n")
                 # Point to first manifest for simple players
                 with open(os.path.join(stream_dir, 'archive1.m3u8'), 'r') as src:
                     f.write(src.read())
             
             os.rename(archive_path + '.tmp', archive_path)
         
+        # Cleanup old manifests beyond current window
+        # If we only generated 5 manifests, remove archive6-24 if they exist from previous runs
+        for old_idx in range(manifests_generated + 1, MAX_MANIFESTS + 1):
+            old_manifest = os.path.join(stream_dir, f'archive{old_idx}.m3u8')
+            if os.path.exists(old_manifest):
+                try:
+                    os.remove(old_manifest)
+                    logger.debug(f"[{capture_folder}] Cleaned up unused {os.path.basename(old_manifest)}")
+                except Exception as e:
+                    logger.warning(f"[{capture_folder}] Failed to remove {old_manifest}: {e}")
+        
         total_duration_hours = total_segments * SEGMENT_DURATION / 3600
-        logger.debug(f"[{capture_folder}] Updated archive: {manifests_generated} manifests, {total_segments} segments ({total_duration_hours:.1f}h total)")
+        logger.info(f"[{capture_folder}] Rolling archive: {manifests_generated} manifests (1-{manifests_generated}), {total_segments} segments ({total_duration_hours:.1f}h)")
         
     except Exception as e:
         logger.error(f"Error updating archive manifest for {capture_dir}: {e}")
