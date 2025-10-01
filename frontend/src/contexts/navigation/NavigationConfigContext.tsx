@@ -40,6 +40,7 @@ export interface NavigationNode {
   position_x: number;
   position_y: number;
   verifications: any[];
+  kpi_references?: any[]; // KPI measurement references
   data: any; // description should be stored in data.description
   
   // Optional fields

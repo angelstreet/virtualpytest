@@ -484,6 +484,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 type: node.data?.type || node.node_type || 'screen',
                 description: node.description,
                 verifications: node.verifications, // Directly embedded
+                kpi_references: node.kpi_references, // KPI measurement references
                 ...node.data // Additional data
               }
             }));

@@ -36,6 +36,7 @@ export const useNestedNavigation = ({
         label: dbNode.label,
         description: dbNode.description,
         verifications: dbNode.verifications,
+        kpi_references: dbNode.kpi_references,
         has_subtree: dbNode.has_subtree,
         subtree_count: dbNode.subtree_count,
         ...dbNode.data
