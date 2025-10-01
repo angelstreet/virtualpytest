@@ -33,7 +33,10 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.isEditMode === nextProps.isEditMode &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.deviceFlags === nextProps.deviceFlags &&
-    prevProps.onSelectionChange === nextProps.onSelectionChange
+    prevProps.onSelectionChange === nextProps.onSelectionChange &&
+    prevProps.onOpenModal === nextProps.onOpenModal &&
+    prevProps.isAnyModalOpen === nextProps.isAnyModalOpen &&
+    prevProps.isSelectedForModal === nextProps.isSelectedForModal
   ) {
     return true; // Props haven't changed, skip re-render
   }
@@ -47,6 +50,9 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     isSelected: prevProps.isSelected !== nextProps.isSelected,
     deviceFlags: prevProps.deviceFlags !== nextProps.deviceFlags,
     onSelectionChange: prevProps.onSelectionChange !== nextProps.onSelectionChange,
+    onOpenModal: prevProps.onOpenModal !== nextProps.onOpenModal,
+    isAnyModalOpen: prevProps.isAnyModalOpen !== nextProps.isAnyModalOpen,
+    isSelectedForModal: prevProps.isSelectedForModal !== nextProps.isSelectedForModal,
   };
   
   if (Object.values(changes).some(v => v)) {
@@ -62,7 +68,10 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     JSON.stringify(prevProps.deviceFlags) === JSON.stringify(nextProps.deviceFlags) &&
     JSON.stringify(prevProps.host) === JSON.stringify(nextProps.host) &&
     JSON.stringify(prevProps.device) === JSON.stringify(nextProps.device) &&
-    prevProps.onSelectionChange === nextProps.onSelectionChange // Handler should be stable now
+    prevProps.onSelectionChange === nextProps.onSelectionChange &&
+    prevProps.onOpenModal === nextProps.onOpenModal &&
+    prevProps.isAnyModalOpen === nextProps.isAnyModalOpen &&
+    prevProps.isSelectedForModal === nextProps.isSelectedForModal // Handler should be stable now
   );
   
   return areEqual; // Return true to skip re-render, false to re-render
@@ -104,8 +113,10 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   }, []);
 
   const closeModal = useCallback(() => {
-    setModalHost(null);
-    setModalDevice(null);
+    requestAnimationFrame(() => {
+      setModalHost(null);
+      setModalDevice(null);
+    });
   }, []);
 
   useEffect(() => {

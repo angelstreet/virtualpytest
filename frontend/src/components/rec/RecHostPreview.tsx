@@ -9,8 +9,6 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { calculateVncScaling } from '../../utils/vncUtils';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 
-import { RecHostStreamModal } from './RecHostStreamModal';
-
 // Memoized HLS player declared outside the component to retain identity across renders
 const MemoizedHLSPlayer = memo(HLSVideoPlayer, (prevProps, nextProps) => {
   // Only re-render if stream URL or essential props change
@@ -35,6 +33,7 @@ interface RecHostPreviewProps {
   onOpenModal?: () => void;
   isAnyModalOpen?: boolean;
   isSelectedForModal?: boolean;
+  onStreamActiveChange?: (isActive: boolean) => void;
 }
 
 // Simple mobile detection function to match MonitoringPlayer logic
@@ -55,6 +54,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   onOpenModal,
   isAnyModalOpen,
   isSelectedForModal,
+  onStreamActiveChange,
 }) => {
   useEffect(() => {
     console.log('[@RecHostPreview] mounted', {
@@ -82,6 +82,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // States
   const [error] = useState<string | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(true);
+
+  useEffect(() => {
+    onStreamActiveChange?.(isStreamActive);
+  }, [isStreamActive, onStreamActiveChange]);
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
@@ -138,15 +142,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
     onOpenModal?.();
   }, [host, showError, onOpenModal]);
 
-  const handleCloseStreamModal = useCallback(() => {
-    console.log('[@RecHostPreview] Closing modal - restarting preview stream');
-    // setIsStreamModalOpen(false); // This line is removed
-    // Restart preview stream after a small delay to ensure modal cleanup
-    setTimeout(() => {
-      setIsStreamActive(true);
-    }, 100);
-  }, []);
-
   const getStatusColor = (status: string, isStuck: boolean = false) => {
     // If processes are stuck, always show error regardless of host status
     if (isStuck) {
@@ -177,25 +172,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
       : `${device.device_name} - ${host.host_name}`
     : host.host_name;
 
-  if (isAnyModalOpen) {
-    return (
-      <Box
-        sx={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'text.secondary',
-          backgroundColor: 'black',
-        }}
-      >
-        <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
-          {isSelectedForModal ? 'Playing in modal' : 'Preview paused'}
-        </Typography>
-      </Box>
-    );
-  }
+  const isPausingForModal = Boolean(isAnyModalOpen);
+  const pauseMessage = isSelectedForModal ? 'Playing in modal' : 'Preview paused';
 
   return (
     <Card
@@ -291,7 +269,23 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             backgroundColor: 'black',
           }}
         >
-          {streamUrl ? (
+          {isPausingForModal ? (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'text.secondary',
+                backgroundColor: 'black',
+              }}
+            >
+              <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
+                {pauseMessage}
+              </Typography>
+            </Box>
+          ) : streamUrl ? (
             isVncDevice ? (
               <Box
                 sx={{
