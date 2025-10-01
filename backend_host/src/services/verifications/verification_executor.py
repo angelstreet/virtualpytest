@@ -191,7 +191,9 @@ class VerificationExecutor:
                             verifications: List[Dict[str, Any]], 
                             image_source_url: Optional[str] = None,
                             team_id: str = None,
-                            context = None
+                            context = None,
+                            tree_id: Optional[str] = None,
+                            node_id: Optional[str] = None
                            ) -> Dict[str, Any]:
         """
         Execute batch of verifications
@@ -199,7 +201,10 @@ class VerificationExecutor:
         Args:
             verifications: List of verification dictionaries
             image_source_url: Optional source image URL for image/text verifications
-
+            team_id: Team ID for database recording
+            context: Optional execution context
+            tree_id: Navigation tree ID for database recording
+            node_id: Navigation node ID for database recording
             
         Returns:
             Dict with success status, results, and execution statistics
@@ -261,7 +266,9 @@ class VerificationExecutor:
                 execution_time_ms=execution_time,
                 message=result.get('message', ''),
                 error_details={'error': result.get('error')} if result.get('error') else None,
-                team_id=team_id
+                team_id=team_id,
+                tree_id=tree_id,
+                node_id=node_id
             )
         
 
@@ -443,15 +450,19 @@ class VerificationExecutor:
                 'screenshot_path': screenshot_path  # Always present
             }
     
-    def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None):
+    def _record_verification_to_database(self, success: bool, execution_time_ms: int, message: str, error_details: Optional[Dict] = None, team_id: str = None, tree_id: Optional[str] = None, node_id: Optional[str] = None):
         """Record single verification directly to database"""
         try:
             # Get navigation context from device
             nav_context = self.device.navigation_context
-            tree_id = nav_context['current_tree_id']
-            node_id = nav_context['current_node_id']
             
-            # Only record if we have navigation context and team_id
+            # Use provided tree_id/node_id if available, otherwise fall back to navigation context
+            if tree_id is None:
+                tree_id = nav_context.get('current_tree_id')
+            if node_id is None:
+                node_id = nav_context.get('current_node_id')
+            
+            # Only record if we have tree_id, node_id, and team_id
             if tree_id is None or node_id is None:
                 print(f"[@lib:verification_executor:_record_verification_to_database] Skipping database recording - missing navigation context (tree_id: {tree_id}, node_id: {node_id})")
                 return

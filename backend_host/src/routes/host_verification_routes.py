@@ -122,7 +122,9 @@ def verification_execute_batch():
         result = device.verification_executor.execute_verifications(
             verifications=verifications,
             image_source_url=image_source_url,
-            team_id=team_id
+            team_id=team_id,
+            tree_id=tree_id,
+            node_id=node_id
         )
         
         print(f"[@route:host_verification:verification_execute_batch] Execution completed: success={result.get('success')}")
