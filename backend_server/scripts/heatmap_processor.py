@@ -293,9 +293,10 @@ class HeatmapProcessor:
                     
                     if sequence:
                         from shared.src.lib.utils.build_url_utils import buildCaptureUrl
-                        filename = f"capture_{sequence}.jpg"
+                        # Use thumbnail for heatmap (smaller, 24h retention vs 5min for full-res)
+                        filename = f"capture_{sequence}_thumbnail.jpg"
                         image_url = buildCaptureUrl(device['host_data'], filename, device_id)
-                        json_url = image_url.replace('.jpg', '.json')
+                        json_url = image_url.replace('_thumbnail.jpg', '.json')
                         
                         # Load JSON analysis data
                         json_response = self.session.get(json_url, timeout=5)

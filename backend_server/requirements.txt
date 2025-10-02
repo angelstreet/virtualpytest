@@ -105,4 +105,7 @@ Pillow>=10.0.0,<11.0.0
 
 # Grafana and monitoring integration
 psycopg2-binary>=2.9.0  # PostgreSQL adapter for Python
-supervisor>=4.2.0       # Process control system 
+supervisor>=4.2.0       # Process control system
+
+# Network speed monitoring
+speedtest-cli>=2.1.3 

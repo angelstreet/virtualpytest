@@ -81,12 +81,18 @@ for CAPTURE_DIR in "${CAPTURE_DIRS[@]}"; do
     reset_log_if_large "$CLEAN_LOG"
   fi
   
-  # Clean captures directory - DELETE OLD CAPTURE FILES (24h retention - allows R2 upload and heatmap viewing)
+  # Clean captures directory - OPTIMIZED: Full-res 5min, thumbnails 24h, JSON 24h
   if [ -d "$CAPTURE_DIR" ]; then
-    echo "$(date): Cleaning captures directory $CAPTURE_DIR (24h retention)" >> "$CLEAN_LOG"
+    echo "$(date): Cleaning captures directory $CAPTURE_DIR" >> "$CLEAN_LOG"
     
-    # Delete capture files older than 24 hours (1440 minutes) - allows incident_manager R2 upload after 5min delay
-    find "$CAPTURE_DIR" -type f -name "capture_*.jpg" -mmin +1440 -delete -printf "$(date): Deleted old capture %p\n" >> "$CLEAN_LOG" 2>&1
+    # Delete full-res captures older than 5 minutes (300 minutes) - only needed for incident verification
+    # Heatmap uses thumbnails, so full-res can be deleted quickly to save 85% space
+    find "$CAPTURE_DIR" -type f -name "capture_*[0-9].jpg" ! -name "*_thumbnail.jpg" -mmin +5 -delete -printf "$(date): Deleted old full-res capture %p\n" >> "$CLEAN_LOG" 2>&1
+    
+    # Delete thumbnails older than 24 hours (1440 minutes) - needed for 24h heatmap
+    find "$CAPTURE_DIR" -type f -name "capture_*_thumbnail.jpg" -mmin +1440 -delete -printf "$(date): Deleted old thumbnail %p\n" >> "$CLEAN_LOG" 2>&1
+    
+    # Delete JSON older than 24 hours - needed for incident analysis
     find "$CAPTURE_DIR" -type f -name "capture_*.json" -mmin +1440 -delete -printf "$(date): Deleted old analysis %p\n" >> "$CLEAN_LOG" 2>&1
     
     # Clean other old files but preserve recent ones
