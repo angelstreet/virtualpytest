@@ -201,7 +201,6 @@ start_grabber() {
         [str]scale=640:360:flags=fast_bilinear,fps=$input_fps[streamout]; \
         [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" -map 1:a? \
-      -shortest 0 \
       -c:v libx264 -preset ultrafast -tune zerolatency \
       -b:v 350k -maxrate 400k -bufsize 800k \
       -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
