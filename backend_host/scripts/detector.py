@@ -14,6 +14,7 @@ from datetime import datetime
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls
 _audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
+_latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_time)}
 
 def analyze_blackscreen(image_path, threshold=10):
     """Detect if image is mostly black"""
@@ -93,22 +94,43 @@ def analyze_freeze(image_path):
 
 def analyze_audio(capture_dir):
     """Check if audio is present in latest segment - OPTIMIZED with caching"""
-    global _audio_cache
+    global _audio_cache, _latest_segment_cache
     
-    # PERFORMANCE: Use scandir instead of glob to find latest segment (faster)
+    current_time = time.time()
     latest = None
     latest_mtime = 0
     
-    try:
-        with os.scandir(capture_dir) as it:
-            for entry in it:
-                if entry.name.startswith('segment_') and entry.name.endswith('.ts'):
-                    mtime = entry.stat().st_mtime
-                    if mtime > latest_mtime:
-                        latest = entry.path
-                        latest_mtime = mtime
-    except Exception:
-        return True, 0, -100.0
+    # CRITICAL FIX: Check cache first - only rescan directory every 5 seconds
+    if capture_dir in _latest_segment_cache:
+        cached_path, cached_mtime, last_check = _latest_segment_cache[capture_dir]
+        
+        # Reuse cached path if checked recently (within 5 seconds)
+        if current_time - last_check < 5.0:
+            # Verify cached file still exists and get its current mtime
+            if os.path.exists(cached_path):
+                try:
+                    current_file_mtime = os.path.getmtime(cached_path)
+                    latest = cached_path
+                    latest_mtime = current_file_mtime
+                except:
+                    pass  # Will rescan below
+    
+    # Rescan if cache miss or cache expired (every 5 seconds)
+    if not latest:
+        try:
+            with os.scandir(capture_dir) as it:
+                for entry in it:
+                    if entry.name.startswith('segment_') and entry.name.endswith('.ts'):
+                        mtime = entry.stat().st_mtime
+                        if mtime > latest_mtime:
+                            latest = entry.path
+                            latest_mtime = mtime
+        except Exception:
+            return True, 0, -100.0
+        
+        # Update cache
+        if latest:
+            _latest_segment_cache[capture_dir] = (latest, latest_mtime, current_time)
     
     if not latest:
         return True, 0, -100.0
