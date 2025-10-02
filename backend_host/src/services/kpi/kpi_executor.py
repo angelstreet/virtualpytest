@@ -35,7 +35,8 @@ class KPIMeasurementRequest:
         kpi_references: List[Dict[str, Any]],
         timeout_ms: int,
         device_id: str,
-        device_model: str = None
+        device_model: str = None,
+        **kwargs
     ):
         # Validate required fields - fail early
         if not execution_result_id:
@@ -66,6 +67,7 @@ class KPIMeasurementRequest:
         self.timeout_ms = timeout_ms
         self.device_id = device_id
         self.device_model = device_model
+        self.kpi_timestamp = kwargs.get('kpi_timestamp')  # Pre-calculated KPI timestamp from verification
 
 
 class KPIExecutor:
@@ -213,6 +215,15 @@ class KPIExecutor:
         """
         print("🔍 [KPIExecutor] Processing KPI measurement")
         print(f"   • Execution result: {request.execution_result_id[:8]}")
+        
+        # Check if KPI already calculated during verification (timeout polling found exact match)
+        if request.kpi_timestamp:
+            kpi_ms = int((request.kpi_timestamp - request.action_timestamp) * 1000)
+            print(f"⚡ [KPIExecutor] KPI already calculated during verification: {kpi_ms}ms")
+            print(f"   • Skipping post-processing scan (match found during timeout polling)")
+            self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
+            return
+        
         print(f"   • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
         print(f"   • Timeout: {request.timeout_ms}ms")
         print(f"   • KPI references: {len(request.kpi_references)}")

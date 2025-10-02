@@ -6,6 +6,7 @@ Provides route interfaces and core domain logic.
 """
 
 import os
+import re
 from typing import Dict, Any, Optional, Tuple, List
 from .text_helpers import TextHelpers
 
@@ -84,15 +85,36 @@ class TextVerificationController:
         }
         
         if image_list:
-            # Search in provided images
-            print(f"[@controller:TextVerification] Searching in {len(image_list)} provided images")
+            # Expand image_list based on timeout
+            images_to_check = image_list.copy()
+            
+            if timeout > 0 and len(image_list) == 1:
+                fps = getattr(self.av_controller, 'screenshot_fps', 5)
+                max_images = int(timeout * fps)
+                wait_ms = int(1000 / fps)
+                
+                print(f"[@controller:TextVerification] Timeout {timeout}s: checking {max_images} images (wait: {wait_ms}ms)")
+                
+                base_path = image_list[0]
+                for i in range(1, max_images):
+                    next_path = self._get_next_capture(base_path, i)
+                    if next_path:
+                        images_to_check.append(next_path)
+            
+            print(f"[@controller:TextVerification] Searching in {len(images_to_check)} images")
             closest_text = ""
             best_source_path = None
             text_found = False
             best_ocr_confidence = 0.0
+            wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
             
-            for source_path in image_list:
+            for idx, source_path in enumerate(images_to_check):
+                if idx > 0 and not os.path.exists(source_path):
+                    if wait_ms > 0:
+                        time.sleep(wait_ms / 1000.0)
+                
                 if not os.path.exists(source_path):
+                    print(f"[@controller:TextVerification] Skip: {os.path.basename(source_path)}")
                     continue
                     
                 # Extract text from area
@@ -113,6 +135,13 @@ class TextVerificationController:
                         cropped_source_path = self._save_cropped_source_image(source_path, area, verification_index)
                         if cropped_source_path:
                             additional_data["source_image_path"] = cropped_source_path
+                    
+                    # KPI optimization: If match found in later image
+                    if idx > 0:
+                        match_timestamp = os.path.getmtime(source_path)
+                        additional_data["kpi_match_timestamp"] = match_timestamp
+                        additional_data["kpi_match_index"] = idx
+                        print(f"[@controller:TextVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
                     
                     additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
                     additional_data["detected_language"] = detected_language
@@ -174,10 +203,7 @@ class TextVerificationController:
                               image_list: List[str] = None,
                               verification_index: int = 0, image_filter: str = 'none',
                               threshold: float = 0.8, confidence: float = 0.8) -> Tuple[bool, str, dict]:
-        """
-        Wait for text to disappear by calling waitForTextToAppear and inverting the result.
-        """
-        # Check if text is provided
+        """Wait for text to disappear - checks all images"""
         if not text or text.strip() == '':
             error_msg = "No text specified. Please provide text to search for."
             print(f"[@controller:TextVerification] {error_msg}")
@@ -185,29 +211,64 @@ class TextVerificationController:
             
         print(f"[@controller:TextVerification] Looking for text pattern to disappear: '{text}'")
         
-        # Smart reuse: call waitForTextToAppear and invert result
-        found, message, additional_data = self.waitForTextToAppear(text, timeout, area, image_list, verification_index, image_filter, threshold, confidence)
+        # Expand image_list based on timeout
+        images_to_check = image_list.copy() if image_list else []
         
-        # Invert the boolean result and adjust the message
-        success = not found
+        if timeout > 0 and len(image_list) == 1:
+            fps = getattr(self.av_controller, 'screenshot_fps', 5)
+            max_images = int(timeout * fps)
+            
+            base_path = image_list[0]
+            for i in range(1, max_images):
+                next_path = self._get_next_capture(base_path, i)
+                if next_path:
+                    images_to_check.append(next_path)
         
-        # For disappear operations, invert the matching result for UI display to make it intuitive
-        # If original confidence was high (text still there), show low (low disappear confidence)
-        # If original confidence was low (text not found), show high (high disappear confidence)
+        # Check all images
+        found_in_any = False
+        last_found_idx = -1
+        wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
+        additional_data = {"searchedText": text, "image_filter": image_filter, "user_threshold": threshold}
+        
+        for idx, source_path in enumerate(images_to_check):
+            if idx > 0 and not os.path.exists(source_path):
+                if wait_ms > 0:
+                    time.sleep(wait_ms / 1000.0)
+            
+            if not os.path.exists(source_path):
+                continue
+            
+            found, message, check_data = self.waitForTextToAppear(
+                text, 0, area, [source_path], verification_index, 
+                image_filter, threshold, confidence
+            )
+            
+            additional_data.update(check_data)
+            
+            if found:
+                found_in_any = True
+                last_found_idx = idx
+        
+        success = not found_in_any
+        
         if 'matching_result' in additional_data and additional_data['matching_result'] is not None:
             original_confidence = additional_data['matching_result']
-            # Invert confidence for disappear operations: 1.0 - original gives intuitive "disappear percentage"
             inverted_confidence = 1.0 - original_confidence
             additional_data['matching_result'] = inverted_confidence
-            additional_data['original_confidence'] = original_confidence  # Keep original for debugging
-            print(f"[@controller:TextVerification] Disappear confidence display: {original_confidence:.3f} -> {inverted_confidence:.3f} (inverted for UI)")
+            additional_data['original_confidence'] = original_confidence
+        
+        # KPI: If disappeared after first check
+        if success and last_found_idx >= 0 and last_found_idx < len(images_to_check) - 1:
+            disappear_path = images_to_check[last_found_idx + 1]
+            if os.path.exists(disappear_path):
+                additional_data["kpi_match_timestamp"] = os.path.getmtime(disappear_path)
+                additional_data["kpi_match_index"] = last_found_idx + 1
+                print(f"[@controller:TextVerification] KPI: Disappeared at index {last_found_idx + 1}")
         
         if success:
-            # Text has disappeared (was not found)
-            return True, f"Text disappeared: {message}", additional_data
+            return True, f"Text disappeared", additional_data
         else:
-            # Text is still present (was found)
-            return False, f"Text still present: {message}", additional_data
+            return False, f"Text still present", additional_data
 
     def detect_text(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Route interface for text detection."""
@@ -527,3 +588,11 @@ class TextVerificationController:
         except Exception as e:
             print(f"[@controller:TextVerification] Error cropping source image: {e}")
             return None
+    
+    def _get_next_capture(self, filepath: str, offset: int) -> str:
+        """Get next sequential capture filename"""
+        match = re.search(r'capture_(\d{9})', filepath)
+        if not match:
+            return None
+        num = int(match.group(1)) + offset
+        return filepath.replace(match.group(0), f'capture_{num:09d}')

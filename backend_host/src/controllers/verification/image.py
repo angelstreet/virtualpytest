@@ -10,6 +10,7 @@ import os
 import cv2
 import numpy as np
 import json
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 from .image_helpers import ImageHelpers
@@ -145,12 +146,35 @@ class ImageVerificationController:
         }
         
         if image_list:
-            # Search in provided images
-            print(f"[@controller:ImageVerification] Searching in {len(image_list)} provided images")
+            # Expand image_list based on timeout
+            images_to_check = image_list.copy()
+            
+            if timeout > 0 and len(image_list) == 1:
+                fps = getattr(self.av_controller, 'screenshot_fps', 5)
+                max_images = int(timeout * fps)
+                wait_ms = int(1000 / fps)
+                
+                print(f"[@controller:ImageVerification] Timeout {timeout}s: checking {max_images} images (wait: {wait_ms}ms)")
+                
+                base_path = image_list[0]
+                for i in range(1, max_images):
+                    next_path = self._get_next_capture(base_path, i)
+                    if next_path:
+                        images_to_check.append(next_path)
+            
+            print(f"[@controller:ImageVerification] Searching in {len(images_to_check)} images")
             max_threshold_score = 0.0
             best_source_path = None
+            wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
             
-            for source_path in image_list:
+            for idx, source_path in enumerate(images_to_check):
+                if idx > 0 and not os.path.exists(source_path):
+                    if wait_ms > 0:
+                        time.sleep(wait_ms / 1000.0)
+                
+                if not os.path.exists(source_path):
+                    print(f"[@controller:ImageVerification] Skip: {os.path.basename(source_path)}")
+                    continue
                 if not os.path.exists(source_path):
                     print(f"[@controller:ImageVerification] WARNING: Source image not found: {os.path.basename(source_path)}")
                     continue
@@ -172,6 +196,13 @@ class ImageVerificationController:
                     
                     # Save actual threshold score (separate from user threshold)
                     additional_data["matching_result"] = threshold_score  # Actual threshold score
+                    
+                    # KPI optimization: If match found in later image (idx > 0), include timestamp
+                    if idx > 0:
+                        match_timestamp = os.path.getmtime(source_path)
+                        additional_data["kpi_match_timestamp"] = match_timestamp
+                        additional_data["kpi_match_index"] = idx
+                        print(f"[@controller:ImageVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
                     
                     # Generate comparison images for successful match
                     image_urls = self._generate_comparison_images(source_path, resolved_image_path, area, verification_index, image_filter)
@@ -209,10 +240,7 @@ class ImageVerificationController:
     def waitForImageToDisappear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8,
                                area: dict = None, image_list: List[str] = None,
                                verification_index: int = 0, image_filter: str = 'none', model: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
-        """
-        Wait for image to disappear by calling waitForImageToAppear and inverting the result.
-        """
-        # Check if image_path is provided
+        """Wait for image to disappear - checks all images in timeout window"""
         if not image_path or image_path.strip() == '':
             error_msg = "No reference image specified. Please select a reference image or provide an image path."
             print(f"[@controller:ImageVerification] {error_msg}")
@@ -220,27 +248,69 @@ class ImageVerificationController:
             
         print(f"[@controller:ImageVerification] Looking for image to disappear: {image_path}")
         
-        # Smart reuse: call waitForImageToAppear and invert result
-        found, message, additional_data = self.waitForImageToAppear(image_path, timeout, threshold, area, image_list, verification_index, image_filter, model)
+        # Expand image_list based on timeout (same as appear)
+        images_to_check = image_list.copy() if image_list else []
         
-        # Invert the boolean result and adjust the message
-        success = not found
+        if timeout > 0 and len(image_list) == 1:
+            fps = getattr(self.av_controller, 'screenshot_fps', 5)
+            max_images = int(timeout * fps)
+            wait_ms = int(1000 / fps)
+            
+            print(f"[@controller:ImageVerification] Timeout {timeout}s: checking {max_images} images for disappearance")
+            
+            base_path = image_list[0]
+            for i in range(1, max_images):
+                next_path = self._get_next_capture(base_path, i)
+                if next_path:
+                    images_to_check.append(next_path)
         
-        # For disappear operations, invert the matching result for UI display to make it intuitive
+        # Check all images - need ALL to not match for true disappearance
+        wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
+        found_in_any = False
+        last_found_idx = -1
+        additional_data = {}
+        
+        for idx, source_path in enumerate(images_to_check):
+            if idx > 0 and not os.path.exists(source_path):
+                if wait_ms > 0:
+                    time.sleep(wait_ms / 1000.0)
+            
+            if not os.path.exists(source_path):
+                continue
+            
+            # Check if image is present
+            found, message, check_data = self.waitForImageToAppear(
+                image_path, 0, threshold, area, [source_path], 
+                verification_index, image_filter, model, team_id
+            )
+            
+            additional_data = check_data
+            
+            if found:
+                found_in_any = True
+                last_found_idx = idx
+        
+        # Invert: success = NOT found in any image
+        success = not found_in_any
+        
         if 'matching_result' in additional_data and additional_data['matching_result'] is not None:
             original_threshold_score = additional_data['matching_result']
-            # Invert threshold score for disappear operations: 1.0 - original gives intuitive "disappear percentage"
             inverted_threshold_score = 1.0 - original_threshold_score
             additional_data['matching_result'] = inverted_threshold_score
-            additional_data['original_threshold_score'] = original_threshold_score  # Keep original for debugging
-            print(f"[@controller:ImageVerification] Disappear threshold score display: {original_threshold_score:.3f} -> {inverted_threshold_score:.3f} (inverted for UI)")
+            additional_data['original_threshold_score'] = original_threshold_score
+        
+        # KPI: If disappeared after first check (found in earlier, not in later)
+        if success and last_found_idx >= 0 and last_found_idx < len(images_to_check) - 1:
+            disappear_path = images_to_check[last_found_idx + 1]
+            if os.path.exists(disappear_path):
+                additional_data["kpi_match_timestamp"] = os.path.getmtime(disappear_path)
+                additional_data["kpi_match_index"] = last_found_idx + 1
+                print(f"[@controller:ImageVerification] KPI: Disappeared at index {last_found_idx + 1}")
         
         if success:
-            # Image has disappeared (was not found)
-            return True, f"Image disappeared: {message}", additional_data
+            return True, f"Image disappeared", additional_data
         else:
-            # Image is still present (was found)
-            return False, f"Image still present: {message}", additional_data
+            return False, f"Image still present", additional_data
 
     # =============================================================================
     # Route Interface Methods (Required by host_verification_image_routes.py)
@@ -821,5 +891,13 @@ class ImageVerificationController:
         except Exception as e:
             print(f"[@controller:ImageVerification] Template matching error: {e}")
             return 0.0
+    
+    def _get_next_capture(self, filepath: str, offset: int) -> str:
+        """Get next sequential capture filename"""
+        match = re.search(r'capture_(\d{9})', filepath)
+        if not match:
+            return None
+        num = int(match.group(1)) + offset
+        return filepath.replace(match.group(0), f'capture_{num:09d}')
 
  
