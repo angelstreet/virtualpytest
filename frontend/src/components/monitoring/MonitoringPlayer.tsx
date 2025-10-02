@@ -17,7 +17,6 @@ import { MonitoringOverlay } from './MonitoringOverlay';
 interface MonitoringPlayerProps {
   host: Host;
   device: Device;
-  baseUrlPattern?: string; // Optional - monitoring can work autonomously
 }
 
 // Image cache to store loaded images and prevent refetching
@@ -34,7 +33,6 @@ const isMobileModel = (model?: string): boolean => {
 export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
   host,
   device,
-  baseUrlPattern,
 }) => {
   // Image transition states for smooth fade effects
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
@@ -44,6 +42,9 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
   // Track timing for 2-second delays between image changes
   const lastImageChangeTime = useRef<number>(0);
   const imageChangeTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  // Track if user has used the timeline (to hide the AI indicator hint)
+  const [hasUsedTimeline, setHasUsedTimeline] = useState(false);
 
   // Monitoring hook - now fully autonomous
   const {
@@ -64,7 +65,6 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
   } = useMonitoring({
     host: host,
     device: device,
-    baseUrlPattern: baseUrlPattern,
   });
 
   // Device model detection for proper image sizing
@@ -281,8 +281,8 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             }}
           />
 
-          {/* AI Analysis Available Indicator - Blinking hint */}
-          {frames[currentIndex]?.hasAIAnalysis && (
+          {/* AI Analysis Available Indicator - Shows until user uses timeline */}
+          {!hasUsedTimeline && frames[currentIndex]?.hasAIAnalysis && (
             <Box
               sx={{
                 position: 'absolute',
@@ -438,7 +438,7 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
             </Typography>
           </Box>
 
-          {/* Timeline scrubber */}
+          {/* Timeline scrubber with status visualization */}
           <Box
             sx={{
               position: 'absolute',
@@ -447,11 +447,114 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
               right: '80px',
             }}
           >
+            {/* Frame tick marks - every 5 frames */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -18,
+                left: 0,
+                right: 0,
+                height: '10px',
+                display: 'flex',
+              }}
+            >
+              {frames.map((_, index) => {
+                const isEveryFifth = (index + 1) % 5 === 0;
+                const isEveryTenth = (index + 1) % 10 === 0;
+                if (!isEveryFifth) return null;
+                
+                return (
+                  <Box
+                    key={index}
+                    sx={{
+                      position: 'absolute',
+                      left: `${(index / Math.max(frames.length - 1, 1)) * 100}%`,
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {/* Frame number label for every 10th */}
+                    {isEveryTenth && (
+                      <Typography
+                        sx={{
+                          fontSize: '9px',
+                          color: 'rgba(255,255,255,0.7)',
+                          marginBottom: '2px',
+                          lineHeight: 1,
+                        }}
+                      >
+                        {index + 1}
+                      </Typography>
+                    )}
+                    {/* Tick mark */}
+                    <Box
+                      sx={{
+                        width: '1px',
+                        height: isEveryTenth ? '8px' : '5px',
+                        backgroundColor: isEveryTenth 
+                          ? 'rgba(255,255,255,0.8)' 
+                          : 'rgba(255,255,255,0.5)',
+                      }}
+                    />
+                  </Box>
+                );
+              })}
+            </Box>
+
+            {/* Frame status indicators (red/green bars + AI dots) */}
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -8,
+                left: 0,
+                right: 0,
+                height: '4px',
+                display: 'flex',
+                gap: '1px',
+              }}
+            >
+              {frames.map((frame, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    flex: 1,
+                    height: '100%',
+                    backgroundColor: frame.hasError ? '#ef4444' : '#22c55e', // Red or Green
+                    position: 'relative',
+                    borderRadius: '1px',
+                  }}
+                >
+                  {/* AI Analysis dot */}
+                  {frame.hasAIAnalysis && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: -2,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: '#60a5fa', // Blue dot
+                        border: '1px solid white',
+                      }}
+                    />
+                  )}
+                </Box>
+              ))}
+            </Box>
+
+            {/* Slider */}
             <Slider
               value={currentIndex}
               min={0}
               max={Math.max(0, frames.length - 1)}
-              onChange={handleSliderChange}
+              onChange={(event, value) => {
+                setHasUsedTimeline(true); // User has now used the timeline
+                handleSliderChange(event, value);
+              }}
               sx={{
                 color: '#ffffff',
                 '& .MuiSlider-thumb': {
@@ -460,10 +563,10 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
                   backgroundColor: '#fff',
                 },
                 '& .MuiSlider-track': {
-                  backgroundColor: '#fff',
+                  backgroundColor: 'rgba(255,255,255,0.5)',
                 },
                 '& .MuiSlider-rail': {
-                  backgroundColor: 'rgba(255,255,255,0.3)',
+                  backgroundColor: 'transparent', // Status bars show instead
                 },
               }}
             />
