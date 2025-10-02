@@ -14,40 +14,12 @@ Architecture:
 """
 
 import os
-import sys
 import time
 import glob
 import queue
-import signal
 import logging
 import threading
 from typing import Dict, List, Optional, Any
-
-# Add project paths (same as incident_manager.py)
-current_dir = os.path.dirname(os.path.abspath(__file__))  # backend_host/scripts/
-backend_host_dir = os.path.dirname(current_dir)           # backend_host/
-project_root = os.path.dirname(backend_host_dir)          # project root
-
-sys.path.insert(0, project_root)
-
-# Load environment variables from BOTH .env files (same as incident_manager.py)
-try:
-    from dotenv import load_dotenv
-    
-    # Load project root .env first (database, R2, etc.)
-    project_env_path = os.path.join(project_root, '.env')
-    if os.path.exists(project_env_path):
-        load_dotenv(project_env_path)
-        print(f"[@kpi_executor] Loaded project environment from {project_env_path}")
-    
-    # Load backend_host .env second (HOST/DEVICE config)
-    backend_env_path = os.path.join(backend_host_dir, 'src', '.env')
-    if os.path.exists(backend_env_path):
-        load_dotenv(backend_env_path)
-        print(f"[@kpi_executor] Loaded backend_host environment from {backend_env_path}")
-        
-except ImportError:
-    print("[@kpi_executor] Warning: python-dotenv not available, relying on system environment")
 
 # Setup logging
 logging.basicConfig(
@@ -363,36 +335,3 @@ class KPIExecutor:
 def get_kpi_executor() -> KPIExecutor:
     """Get singleton KPI executor instance"""
     return KPIExecutor.get_instance()
-
-
-def main():
-    """Main service loop"""
-    logger.info("🚀 [KPIExecutor Service] Starting KPI Executor Service")
-    
-    # Get singleton instance and start worker
-    executor = get_kpi_executor()
-    executor.start()
-    
-    # Setup graceful shutdown
-    def signal_handler(signum, frame):
-        logger.info(f"🛑 [KPIExecutor Service] Received signal {signum}, shutting down...")
-        executor.stop()
-        sys.exit(0)
-    
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-    
-    logger.info("✅ [KPIExecutor Service] Service running, waiting for KPI measurement requests...")
-    
-    # Keep main thread alive
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("🛑 [KPIExecutor Service] Keyboard interrupt received")
-        executor.stop()
-
-
-if __name__ == '__main__':
-    main()
-
