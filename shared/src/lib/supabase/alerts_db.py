@@ -547,6 +547,13 @@ def delete_all_alerts() -> Dict:
                 except json.JSONDecodeError:
                     print(f"[@db:alerts:delete_all_alerts] Failed to parse JSON string: {result.data}")
                     response = {}
+            elif isinstance(result.data, bytes):
+                # Handle bytes response - decode and parse as JSON
+                try:
+                    response = json.loads(result.data.decode('utf-8'))
+                except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    print(f"[@db:alerts:delete_all_alerts] Failed to parse bytes: {e}")
+                    response = {}
             else:
                 response = {}
             
