@@ -262,7 +262,7 @@ def main():
     # STEP 4.1: Initialize and start KPI Executor (in-process background worker)
     print("[@backend_host:main] Step 4.1: Starting KPI Executor...")
     try:
-        from backend_host.scripts.kpi_executor import get_kpi_executor
+        from backend_host.src.services.kpi.kpi_executor import get_kpi_executor
         kpi_executor = get_kpi_executor()
         kpi_executor.start()
         print("[@backend_host:main] ✅ KPI Executor started successfully")
