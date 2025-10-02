@@ -183,8 +183,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
         const hourWindow = currentManifest.window_index;
-        const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
-        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, `/transcript_hour${hourWindow}.json`);
+        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+        const transcriptUrl = baseUrl.replace(/\/segments\/(output|archive.*?)\.m3u8$/, `/transcript_hour${hourWindow}.json`);
         
         console.log(`[@EnhancedHLSPlayer] Loading transcript for hour window ${hourWindow}...`);
         
@@ -233,14 +233,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (hookStreamUrl) {
         return hookStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
       }
-      return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/output.m3u8`;
+      return buildStreamUrl(host, deviceId);
     }
     
     // Archive mode - use hour-based manifests: segments/X/archive.m3u8
     if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
-        const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/output.m3u8`;
+        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         // Extract hour from manifest window_index and build path: segments/X/archive.m3u8
         const hour = currentManifest.window_index; // 0-23
         const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/archive.m3u8`);
@@ -502,7 +502,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     console.log(`[@EnhancedHLSPlayer] Translating transcripts to ${language}...`);
     
     try {
-      const baseUrl = providedStreamUrl || hookStreamUrl || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/output.m3u8`;
+      const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
       // Extract capture folder from stream URL (e.g., capture1, capture2)
       const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
       const captureFolder = captureMatch ? captureMatch[1] : transcriptData?.capture_folder;
