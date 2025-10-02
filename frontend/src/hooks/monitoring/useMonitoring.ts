@@ -76,13 +76,11 @@ interface UseMonitoringReturn {
 interface UseMonitoringProps {
   host: any; // Host object for API requests
   device: any; // Device object for API requests
-  baseUrlPattern?: string; // Base URL pattern from useRec - optional
 }
 
 export const useMonitoring = ({
   host,
   device,
-  baseUrlPattern,
 }: UseMonitoringProps): UseMonitoringReturn => {
   const [frames, setFrames] = useState<FrameRef[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -98,10 +96,10 @@ export const useMonitoring = ({
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
   const [initialFramesLoaded, setInitialFramesLoaded] = useState(0);
 
-  // Initial loading: Wait for 3 frames with JSON only (fast display)
+  // Initial loading: Wait for 1 frame with JSON only (fast display)
   useEffect(() => {
-    if (initialFramesLoaded >= 3) {
-      console.log('[useMonitoring] 🎯 Initial buffer complete: 3 frames loaded, starting display');
+    if (initialFramesLoaded >= 1) {
+      console.log('[useMonitoring] 🎯 Initial buffer complete: 1 frame loaded, starting display');
       setIsInitialLoading(false);
     }
   }, [initialFramesLoaded]);
@@ -139,10 +137,10 @@ export const useMonitoring = ({
     queuedFrame.aiDescription = null; // Will be filled by background AI
 
     // Count as complete for initial buffer (frame ready for display regardless of JSON)
-    if (initialFramesLoaded < 3) {
+    if (initialFramesLoaded < 1) {
       setInitialFramesLoaded(count => {
         const newCount = count + 1;
-        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/3 ready for display (JSON: ${jsonAnalysis ? 'loaded' : 'missing'})`);
+        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/1 ready for display (JSON: ${jsonAnalysis ? 'loaded' : 'missing'})`);
         return newCount;
       });
     }
@@ -201,50 +199,6 @@ export const useMonitoring = ({
     ));
   }, [host, device?.device_id]);
 
-  // State for autonomous base URL pattern (discovered via takeScreenshot API)
-  const [autonomousBaseUrlPattern, setAutonomousBaseUrlPattern] = useState<string | null>(null);
-  const [isInitializingBaseUrl, setIsInitializingBaseUrl] = useState(false);
-
-  // Initialize base URL pattern autonomously using takeScreenshot API (like the original useRec implementation)
-  const initializeAutonomousBaseUrl = useCallback(async (): Promise<void> => {
-    if (autonomousBaseUrlPattern || isInitializingBaseUrl) {
-      return; // Already have pattern or currently initializing
-    }
-
-    setIsInitializingBaseUrl(true);
-    try {
-      console.log('[useMonitoring] Initializing autonomous base URL pattern...');
-      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1',
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.screenshot_url) {
-          const basePattern = buildCaptureUrl(host, '{sequence}', device?.device_id);
-          
-          setAutonomousBaseUrlPattern(basePattern);
-          console.log(`[useMonitoring] Autonomous base URL pattern initialized: ${basePattern}`);
-        } else {
-          console.warn('[useMonitoring] takeScreenshot API returned no screenshot_url');
-        }
-      } else {
-        console.warn('[useMonitoring] takeScreenshot API failed:', response.status);
-      }
-    } catch (error) {
-      console.error('[useMonitoring] Failed to initialize autonomous base URL pattern:', error);
-    } finally {
-      setIsInitializingBaseUrl(false);
-    }
-  }, [host, device, autonomousBaseUrlPattern, isInitializingBaseUrl]);
-
   // Fetch latest JSON file and derive image URL
   const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string, sequence: string} | null> => {
     try {
@@ -283,13 +237,6 @@ export const useMonitoring = ({
     }
   }, [host?.host_name, host?.host_url, device?.device_id]);
 
-  // Initialize autonomous base URL pattern on mount
-  useEffect(() => {
-    if (!baseUrlPattern && !autonomousBaseUrlPattern && !isInitializingBaseUrl) {
-      initializeAutonomousBaseUrl();
-    }
-  }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
-
   // Process 1: Queue Feeder - Sequential frame processing with complete AI analysis
   useEffect(() => {
     // Start immediately, don't wait for initial loading to complete
@@ -298,20 +245,19 @@ export const useMonitoring = ({
     let frameSequence = 0;
 
     const queueFeederLoop = async () => {
-      // Wait a moment for autonomous base URL initialization
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Start immediately - no delay needed
       
-      console.log('[useMonitoring] 🔄 Starting fast initial buffer (3 frames)...');
+      console.log('[useMonitoring] 🔄 Starting fast initial buffer (1 frame)...');
       
-      // Phase 1: Fast initial buffer - exactly 3 frames for immediate display
-      for (let i = 0; i < 3 && isRunning; i++) {
+      // Phase 1: Fast initial buffer - exactly 1 frame for immediate display
+      for (let i = 0; i < 1 && isRunning; i++) {
         try {
           const latestData = await fetchLatestMonitoringData();
           
           if (latestData && latestData.sequence !== lastProcessedSequence) {
             frameSequence++;
             const timestamp = new Date().toISOString();
-            console.log(`[useMonitoring] ⚡ [${timestamp}] Fast loading frame ${frameSequence}/3: seq=${latestData.sequence}`);
+            console.log(`[useMonitoring] ⚡ [${timestamp}] Fast loading frame ${frameSequence}/1: seq=${latestData.sequence}`);
             
             const queuedFrame: QueuedFrame = {
               timestamp: latestData.timestamp,
@@ -334,8 +280,7 @@ export const useMonitoring = ({
             });
           }
           
-          // Small delay between initial frames
-          if (i < 2) await new Promise(resolve => setTimeout(resolve, 100));
+          // No delay - only 1 frame in initial buffer
         } catch (error) {
           console.error('[useMonitoring] Initial buffer error:', error);
         }
@@ -431,7 +376,7 @@ export const useMonitoring = ({
 
         return remainingFrames;
       });
-    }, 2000); // 0.5 FPS (2-second intervals)
+    }, 1000); // 1 FPS (1-second intervals) - matches JSON generation rate
 
     return () => clearInterval(displayInterval);
   }, [isInitialLoading, userSelectedFrame, isPlaying]);
@@ -450,7 +395,7 @@ export const useMonitoring = ({
           // If user is viewing historical frames, don't auto-advance
           return prev;
         });
-      }, 2000); // 2 seconds per frame
+      }, 1000); // 1 second per frame - matches JSON rate
     }
     return () => clearInterval(interval);
   }, [isPlaying, frames.length, userSelectedFrame]);

@@ -343,14 +343,17 @@ class IncidentManager:
                     first_detected_time = pending_incidents[issue_type]
                     elapsed_time = current_time - first_detected_time
                     
+                    logger.info(f"[{capture_folder}] {issue_type} still pending: elapsed={elapsed_time:.1f}s, threshold={self.INCIDENT_REPORT_DELAY}s, will_report={elapsed_time >= self.INCIDENT_REPORT_DELAY}")
+                    
                     if elapsed_time >= self.INCIDENT_REPORT_DELAY:
                         # Issue has persisted for 5+ minutes, report to DB
-                        logger.info(f"[{capture_folder}] {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB")
+                        logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB NOW")
                         
                         # For freeze incidents, upload thumbnails now (only for confirmed incidents)
                         if issue_type == 'freeze' and detection_result:
                             last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                             if last_3_thumbnails:
+                                logger.info(f"[{capture_folder}] Uploading {len(last_3_thumbnails)} thumbnails to R2...")
                                 current_timestamp = datetime.now().isoformat()
                                 r2_urls = self.upload_freeze_frames_to_r2(
                                     [], last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
@@ -358,17 +361,28 @@ class IncidentManager:
                                 if r2_urls:
                                     detection_result['r2_images'] = r2_urls
                                     logger.info(f"[{capture_folder}] 📤 Uploaded freeze thumbnails (confirmed incident)")
+                                else:
+                                    logger.warning(f"[{capture_folder}] ⚠️ R2 upload failed for freeze thumbnails")
+                            else:
+                                logger.warning(f"[{capture_folder}] ⚠️ No thumbnails found for freeze incident")
                         
+                        logger.info(f"[{capture_folder}] Calling create_incident for {issue_type}...")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
                         if incident_id:
                             active_incidents[issue_type] = incident_id
                             device_state['state'] = INCIDENT
                             # Remove from pending since it's now active
                             del pending_incidents[issue_type]
+                            logger.info(f"[{capture_folder}] ✅ Incident {incident_id} created and moved to active")
+                        else:
+                            logger.error(f"[{capture_folder}] ❌ create_incident returned None - incident creation FAILED")
                     else:
                         # Still waiting for 5 minutes
                         remaining_time = self.INCIDENT_REPORT_DELAY - elapsed_time
-                        logger.debug(f"[{capture_folder}] {issue_type} detected, waiting {remaining_time/60:.1f}min more before reporting")
+                        if elapsed_time > 60:
+                            logger.info(f"[{capture_folder}] {issue_type} detected, waiting {remaining_time/60:.1f}min more before reporting")
+                        else:
+                            logger.debug(f"[{capture_folder}] {issue_type} detected, waiting {remaining_time:.0f}s more before reporting")
                         
                 else:
                     # First detection of this issue, add to pending
