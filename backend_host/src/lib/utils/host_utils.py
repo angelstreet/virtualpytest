@@ -320,12 +320,21 @@ def send_ping_to_server():
         # Store host's own system metrics (same routine as server)
         host_system_stats = get_host_system_stats()
         
-        # Debug: Show host's own system stats including service uptime
+        # Debug: Show host's own system stats including service uptime and load averages
         temp_str = f", Temp={host_system_stats.get('cpu_temperature_celsius', 'N/A')}°C" if 'cpu_temperature_celsius' in host_system_stats else ""
+        
+        # Load averages
+        load_1m = host_system_stats.get('load_average_1m', 'N/A')
+        load_5m = host_system_stats.get('load_average_5m', 'N/A')
+        load_15m = host_system_stats.get('load_average_15m', 'N/A')
+        load_str = f", Load: {load_1m}/{load_5m}/{load_15m}"
+        
+        # Service uptimes
         ffmpeg_service_uptime = host_system_stats.get('ffmpeg_service_uptime_seconds', 0)
         monitor_service_uptime = host_system_stats.get('monitor_service_uptime_seconds', 0)
         service_uptime_str = f", Services: FFmpeg={ffmpeg_service_uptime}s, Monitor={monitor_service_uptime}s"
-        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%{temp_str}{service_uptime_str}")
+        
+        print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%{temp_str}{load_str}{service_uptime_str}")
         
         # Store host system metrics directly (same function as server uses)
         from shared.src.lib.supabase.system_metrics_db import store_system_metrics

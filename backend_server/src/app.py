@@ -384,9 +384,16 @@ def start_server(app):
                     # Get server system stats (use server-specific function)
                     server_stats = get_server_system_stats()
                     
-                    # Debug: Show actual metrics values
+                    # Debug: Show actual metrics values including load averages
                     temp_str = f", Temp={server_stats.get('cpu_temperature_celsius', 'N/A')}°C" if 'cpu_temperature_celsius' in server_stats else ""
-                    print(f"[@backend_server:debug] 🔍 Raw server stats: CPU={server_stats.get('cpu_percent', 'N/A')}%, RAM={server_stats.get('memory_percent', 'N/A')}%, Disk={server_stats.get('disk_percent', 'N/A')}%{temp_str}")
+                    
+                    # Load averages
+                    load_1m = server_stats.get('load_average_1m', 'N/A')
+                    load_5m = server_stats.get('load_average_5m', 'N/A')
+                    load_15m = server_stats.get('load_average_15m', 'N/A')
+                    load_str = f", Load: {load_1m}/{load_5m}/{load_15m}"
+                    
+                    print(f"[@backend_server:debug] 🔍 Raw server stats: CPU={server_stats.get('cpu_percent', 'N/A')}%, RAM={server_stats.get('memory_percent', 'N/A')}%, Disk={server_stats.get('disk_percent', 'N/A')}%{temp_str}{load_str}")
                     
                     # Store server metrics in system_metrics table
                     store_system_metrics('server', server_stats)

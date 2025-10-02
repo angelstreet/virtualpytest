@@ -263,6 +263,12 @@ def get_server_system_stats():
             'server_name': server_name  # Add server name for grouping
         }
         
+        # Add load average (1, 5, 15 minute averages)
+        load_avg = os.getloadavg()
+        stats['load_average_1m'] = round(load_avg[0], 2)
+        stats['load_average_5m'] = round(load_avg[1], 2)
+        stats['load_average_15m'] = round(load_avg[2], 2)
+        
         # Add CPU temperature if available
         cpu_temp = get_cpu_temperature()
         if cpu_temp is not None:
@@ -282,5 +288,8 @@ def get_server_system_stats():
             'uptime_seconds': 0,
             'platform': 'unknown',
             'architecture': 'unknown',
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'load_average_1m': 0,
+            'load_average_5m': 0,
+            'load_average_15m': 0
         }
