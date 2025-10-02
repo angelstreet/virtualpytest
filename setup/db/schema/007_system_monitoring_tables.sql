@@ -29,6 +29,9 @@ CREATE TABLE system_metrics (
     monitor_service_uptime_seconds bigint DEFAULT 0,
     created_at timestamp with time zone DEFAULT now(),
     cpu_temperature_celsius numeric,
+    load_average_1m numeric(5,2),
+    load_average_5m numeric(5,2),
+    load_average_15m numeric(5,2),
     download_mbps numeric,
     upload_mbps numeric,
     speedtest_last_run timestamp with time zone,
@@ -64,6 +67,9 @@ CREATE TABLE system_device_metrics (
     capture_folder text NOT NULL CHECK (capture_folder IS NOT NULL AND capture_folder <> ''::text AND capture_folder <> 'unknown'::text),
     video_device text,
     cpu_temperature_celsius numeric,
+    load_average_1m numeric(5,2),
+    load_average_5m numeric(5,2),
+    load_average_15m numeric(5,2),
     disk_usage_capture text
 );
 
@@ -132,6 +138,9 @@ COMMENT ON COLUMN system_metrics.server_name IS 'Server identifier for grouping 
 COMMENT ON COLUMN system_metrics.ffmpeg_service_uptime_seconds IS 'Duration FFmpeg service has been continuously active in seconds';
 COMMENT ON COLUMN system_metrics.monitor_service_uptime_seconds IS 'Duration Monitor service has been continuously active in seconds';
 COMMENT ON COLUMN system_metrics.cpu_temperature_celsius IS 'CPU temperature in Celsius from vcgencmd or thermal zones';
+COMMENT ON COLUMN system_metrics.load_average_1m IS 'System load average over 1 minute (number of processes in runnable state)';
+COMMENT ON COLUMN system_metrics.load_average_5m IS 'System load average over 5 minutes (number of processes in runnable state)';
+COMMENT ON COLUMN system_metrics.load_average_15m IS 'System load average over 15 minutes (number of processes in runnable state)';
 COMMENT ON COLUMN system_metrics.download_mbps IS 'Download speed in Mbps from speedtest (cached 10 min)';
 COMMENT ON COLUMN system_metrics.upload_mbps IS 'Upload speed in Mbps from speedtest (cached 10 min)';
 COMMENT ON COLUMN system_metrics.speedtest_last_run IS 'UTC timestamp when speedtest was last executed';
@@ -148,6 +157,9 @@ COMMENT ON COLUMN system_device_metrics.timestamp IS 'UTC timestamp for device m
 COMMENT ON COLUMN system_device_metrics.created_at IS 'UTC timestamp for record creation';
 COMMENT ON COLUMN system_device_metrics.capture_folder IS 'Capture folder name (capture1, capture2, etc.) - must not be NULL as it indicates incomplete device configuration';
 COMMENT ON COLUMN system_device_metrics.cpu_temperature_celsius IS 'CPU temperature in Celsius from vcgencmd or thermal zones';
+COMMENT ON COLUMN system_device_metrics.load_average_1m IS 'System load average over 1 minute (number of processes in runnable state)';
+COMMENT ON COLUMN system_device_metrics.load_average_5m IS 'System load average over 5 minutes (number of processes in runnable state)';
+COMMENT ON COLUMN system_device_metrics.load_average_15m IS 'System load average over 15 minutes (number of processes in runnable state)';
 COMMENT ON COLUMN system_device_metrics.disk_usage_capture IS 'Disk usage for capture folder (e.g., "2.5G", "850M") from du -sh command';
 
 COMMENT ON TABLE system_incident IS 'System incident management and tracking';
