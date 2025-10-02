@@ -349,22 +349,22 @@ class IncidentManager:
                         # Issue has persisted for 5+ minutes, report to DB
                         logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB NOW")
                         
-                        # For freeze incidents, upload thumbnails now (only for confirmed incidents)
-                        if issue_type == 'freeze' and detection_result:
+                        # Upload thumbnails for ALL incident types (freeze, audio_loss, blackscreen)
+                        if detection_result:
                             last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                             if last_3_thumbnails:
-                                logger.info(f"[{capture_folder}] Uploading {len(last_3_thumbnails)} thumbnails to R2...")
+                                logger.info(f"[{capture_folder}] Uploading {len(last_3_thumbnails)} thumbnails to R2 for {issue_type} incident...")
                                 current_timestamp = datetime.now().isoformat()
                                 r2_urls = self.upload_freeze_frames_to_r2(
                                     [], last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
                                 )
                                 if r2_urls:
                                     detection_result['r2_images'] = r2_urls
-                                    logger.info(f"[{capture_folder}] 📤 Uploaded freeze thumbnails (confirmed incident)")
+                                    logger.info(f"[{capture_folder}] 📤 Uploaded thumbnails for {issue_type} (confirmed incident)")
                                 else:
-                                    logger.warning(f"[{capture_folder}] ⚠️ R2 upload failed for freeze thumbnails")
+                                    logger.warning(f"[{capture_folder}] ⚠️ R2 upload failed for {issue_type} thumbnails")
                             else:
-                                logger.warning(f"[{capture_folder}] ⚠️ No thumbnails found for freeze incident")
+                                logger.warning(f"[{capture_folder}] ⚠️ No thumbnails found for {issue_type} incident")
                         
                         logger.info(f"[{capture_folder}] Calling create_incident for {issue_type}...")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
