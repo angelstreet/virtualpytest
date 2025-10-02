@@ -80,7 +80,8 @@ class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
         self.INCIDENT_REPORT_DELAY = 300  # Only report to DB after 5 minutes of continuous detection
-        self._load_active_incidents_from_db()
+        # Start fresh on service restart - resolve any stale incidents from previous run
+        self._resolve_all_incidents_on_startup()
         
     def get_device_state(self, device_id):
         """Get current state for device"""
@@ -92,14 +93,14 @@ class IncidentManager:
             }
         return self.device_states[device_id]
     
-    def _load_active_incidents_from_db(self):
-        """Load all active incidents from database to initialize state"""
+    def _resolve_all_incidents_on_startup(self):
+        """Resolve all active incidents on service restart - start fresh with no stale state"""
         try:
-            logger.info("[@incident_manager] Loading active incidents from database...")
+            logger.info("[@incident_manager] 🔄 Service restart detected - resolving all stale incidents...")
             
             # Use lazy import to get database functions
             _lazy_import_db()
-            if not create_alert_safe or create_alert_safe is False:
+            if not resolve_alert or resolve_alert is False:
                 logger.warning("[@incident_manager] Database module not available, starting with empty state")
                 return
             
@@ -118,32 +119,38 @@ class IncidentManager:
                 return
             
             active_alerts = result.get('alerts', [])
-            logger.info(f"[@incident_manager] Found {len(active_alerts)} active incidents in database")
             
-            # Process each active alert and populate device_states
+            if not active_alerts:
+                logger.info("[@incident_manager] ✓ No stale incidents to resolve - starting fresh")
+                return
+            
+            logger.info(f"[@incident_manager] Found {len(active_alerts)} stale incidents - resolving all...")
+            
+            # Resolve all active incidents (they're from previous service run)
+            resolved_count = 0
             for alert in active_alerts:
-                host_name = alert.get('host_name')
+                alert_id = alert.get('id')
                 device_id = alert.get('device_id')
                 incident_type = alert.get('incident_type')
-                alert_id = alert.get('id')
                 
-                if not all([host_name, device_id, incident_type, alert_id]):
-                    logger.warning(f"[@incident_manager] Skipping incomplete alert: {alert}")
+                if not alert_id:
+                    logger.warning(f"[@incident_manager] Skipping alert without ID: {alert}")
                     continue
                 
-                # Use device_id directly as the key for our local state
-                device_state = self.get_device_state(device_id)
+                # Resolve the incident in database
+                resolve_result = resolve_alert(alert_id)
                 
-                # Add the active incident to our state
-                device_state['active_incidents'][incident_type] = alert_id
-                device_state['state'] = INCIDENT
-                
-                logger.info(f"[@incident_manager] Loaded active incident: {device_id} -> {incident_type} (alert_id: {alert_id})")
+                if resolve_result.get('success'):
+                    resolved_count += 1
+                    logger.info(f"[@incident_manager] ✓ Resolved stale incident: {device_id} -> {incident_type} (alert_id: {alert_id})")
+                else:
+                    logger.error(f"[@incident_manager] ✗ Failed to resolve incident {alert_id}: {resolve_result.get('error')}")
             
-            logger.info(f"[@incident_manager] Successfully initialized state with {len(active_alerts)} active incidents")
+            logger.info(f"[@incident_manager] ✅ Service restart cleanup: Resolved {resolved_count}/{len(active_alerts)} stale incidents")
+            logger.info(f"[@incident_manager] Starting fresh - incidents will re-create if issues persist for 5+ minutes")
             
         except Exception as e:
-            logger.error(f"[@incident_manager] Error loading active incidents from database: {e}")
+            logger.error(f"[@incident_manager] Error resolving stale incidents on startup: {e}")
             # Continue with empty state - don't crash the service
     
     def cleanup_orphaned_incidents(self, monitored_capture_folders, host_name):
