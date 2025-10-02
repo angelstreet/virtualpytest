@@ -292,11 +292,12 @@ class HeatmapProcessor:
                     sequence = sequence_match.group(1) if sequence_match else ''
                     
                     if sequence:
-                        from shared.src.lib.utils.build_url_utils import buildCaptureUrl
-                        # Use thumbnail for heatmap (smaller, 24h retention vs 5min for full-res)
-                        filename = f"capture_{sequence}_thumbnail.jpg"
-                        image_url = buildCaptureUrl(device['host_data'], filename, device_id)
-                        json_url = image_url.replace('_thumbnail.jpg', '.json')
+                        from shared.src.lib.utils.build_url_utils import buildThumbnailUrl, buildMetadataUrl
+                        # Use thumbnail for heatmap (hot/cold architecture - thumbnails in separate folder)
+                        thumbnail_filename = f"capture_{sequence}_thumbnail.jpg"
+                        json_filename = f"capture_{sequence}.json"
+                        image_url = buildThumbnailUrl(device['host_data'], thumbnail_filename, device_id)
+                        json_url = buildMetadataUrl(device['host_data'], json_filename, device_id)
                         
                         # Load JSON analysis data
                         json_response = self.session.get(json_url, timeout=5)

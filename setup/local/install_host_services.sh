@@ -149,7 +149,7 @@ sudo cp backend_host/systemd/stream.service /etc/systemd/system/
 sudo cp backend_host/systemd/vncserver.service /etc/systemd/system/
 sudo cp backend_host/systemd/novnc.service /etc/systemd/system/
 # Additional host services from backend_host/systemd/
-sudo cp backend_host/systemd/archive-manifest.service /etc/systemd/system/
+sudo cp backend_host/systemd/hot_cold_archiver.service /etc/systemd/system/
 sudo cp backend_host/systemd/transcript-stream.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
@@ -165,9 +165,8 @@ echo "✅ Stream directories created"
 # Make project scripts executable (no copying needed - .env driven)
 echo "📋 Making project scripts executable..."
 chmod +x backend_host/scripts/run_ffmpeg_and_rename_local.sh
-chmod +x backend_host/scripts/clean_captures.sh
 chmod +x backend_host/scripts/capture_monitor.py
-chmod +x backend_host/scripts/archive_manifest_generator.py
+chmod +x backend_host/scripts/hot_cold_archiver.py
 chmod +x backend_host/scripts/transcript_accumulator.py
 echo "✅ Scripts made executable in project directory"
 echo "ℹ️  Scripts now read configuration from backend_host/src/.env (single source of truth)"
@@ -235,13 +234,13 @@ echo ""
 echo "🚀 Enabling and starting all host services..."
 echo ""
 echo "📋 Service Management:"
-echo "   Start all:    sudo systemctl start stream monitor vncserver novnc archive-manifest transcript-stream"
-echo "   Stop all:     sudo systemctl stop stream monitor vncserver novnc archive-manifest transcript-stream"  
-echo "   Restart all:  sudo systemctl restart stream monitor archive-manifest transcript-stream"
+echo "   Start all:    sudo systemctl start stream monitor vncserver novnc hot_cold_archiver transcript-stream"
+echo "   Stop all:     sudo systemctl stop stream monitor vncserver novnc hot_cold_archiver transcript-stream"  
+echo "   Restart all:  sudo systemctl restart stream monitor hot_cold_archiver transcript-stream"
 echo "   Status:       sudo systemctl status stream"
 echo "   FFmpeg logs:  tail -f /tmp/ffmpeg_service.log"
 echo "   Monitor logs: tail -f /tmp/capture_monitor.log"
-echo "   Archive logs: tail -f /tmp/archive_manifest_generator.log"
+echo "   Archiver logs: tail -f /tmp/hot_cold_archiver.log"
 echo "   Transcript logs: tail -f /tmp/transcript_accumulator.log"
 echo ""
 
@@ -250,7 +249,7 @@ sudo systemctl enable monitor.service
 sudo systemctl enable stream.service  
 sudo systemctl enable vncserver.service
 sudo systemctl enable novnc.service
-sudo systemctl enable archive-manifest.service
+sudo systemctl enable hot_cold_archiver.service
 sudo systemctl enable transcript-stream.service
 
 # Start services (with error handling to continue on failures)
@@ -282,11 +281,11 @@ else
     echo "⚠️ Monitor service failed to start - check 'sudo systemctl status monitor' for details"
 fi
 
-echo "🟣 Starting archive manifest service..."
-if sudo systemctl start archive-manifest.service; then
-    echo "✅ Archive manifest service started successfully"
+echo "🟣 Starting hot/cold archiver service..."
+if sudo systemctl start hot_cold_archiver.service; then
+    echo "✅ Hot/cold archiver service started successfully"
 else
-    echo "⚠️ Archive manifest service failed to start - check 'sudo systemctl status archive-manifest' for details"
+    echo "⚠️ Hot/cold archiver service failed to start - check 'sudo systemctl status hot_cold_archiver' for details"
 fi
 
 echo "🔴 Starting transcript stream service..."
@@ -462,16 +461,16 @@ echo "📋 Log Files:"
 echo "   /tmp/ffmpeg_service.log                    # FFmpeg capture logs"
 echo "   /tmp/capture_monitor.log                   # Monitoring logs"
 echo "   /tmp/ffmpeg_output_*.log                   # Individual FFmpeg process logs"
-echo "   /tmp/clean.log                             # Cleanup script logs"
+echo "   /tmp/hot_cold_archiver.log                 # Archive + cleanup logs"
 echo ""
 echo "   View logs: tail -f /tmp/ffmpeg_service.log"
 echo ""
 echo "🔧 Available services (matching backend_host/config/services/):"
 echo "   - monitor.service                   # Capture analysis & alerts"
-echo "   - stream.service                    # Video/audio capture + rename + cleanup"
+echo "   - stream.service                    # Video/audio capture (hot/cold architecture)"
 echo "   - vncserver.service                 # VNC server (display :1, port 5901)"
 echo "   - novnc.service                     # noVNC web interface (port 6080)"
-echo "   - archive-manifest.service          # HLS archive manifest generation (24h)"
+echo "   - hot_cold_archiver.service         # Archive files + manifests + cleanup (24h)"
 echo "   - transcript-stream.service         # Audio transcription (24h circular buffer)"
 echo ""
 echo "🖥️ VNC Access Information:"
@@ -497,4 +496,4 @@ echo "   - Display lock files: Service automatically cleans /tmp/.X1-lock and /t
 echo "   - Permission issues: Ensure ~/.vnc/passwd has 600 permissions"
 echo "   - Service restart: sudo systemctl restart vncserver"
 echo ""
-echo "💡 Note: rename and cleanup are handled internally by stream.service"
+echo "💡 Note: Hot/cold architecture - archiving and cleanup handled by hot_cold_archiver.service"

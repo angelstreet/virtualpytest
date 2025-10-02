@@ -106,6 +106,56 @@ def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
     
     return f"{host_url}/host{capture_path}/{filename}"
 
+def buildThumbnailUrl(host_info: dict, filename: str, device_id: str) -> str:
+    """
+    Build URL for thumbnail images (hot/cold architecture - separate folder)
+    
+    Args:
+        host_info: Host information from registry
+        filename: Thumbnail filename (e.g., 'capture_0001_thumbnail.jpg')
+        device_id: Device ID for multi-device hosts (required)
+        
+    Returns:
+        Complete URL to thumbnail image
+        
+    Example:
+        buildThumbnailUrl(host_info, 'capture_0001_thumbnail.jpg', 'device1')
+        -> 'https://host/host/stream/capture1/thumbnails/capture_0001_thumbnail.jpg'
+    """
+    # Get device-specific stream path (not capture path)
+    stream_path = _get_device_stream_path(host_info, device_id)
+    
+    # For static files (images), use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    # Hot/cold architecture: thumbnails are in separate folder
+    return f"{host_url}/host{stream_path}/thumbnails/{filename}"
+
+def buildMetadataUrl(host_info: dict, filename: str, device_id: str) -> str:
+    """
+    Build URL for metadata JSON files (hot/cold architecture - separate folder)
+    
+    Args:
+        host_info: Host information from registry
+        filename: Metadata filename (e.g., 'capture_0001.json')
+        device_id: Device ID for multi-device hosts (required)
+        
+    Returns:
+        Complete URL to metadata file
+        
+    Example:
+        buildMetadataUrl(host_info, 'capture_0001.json', 'device1')
+        -> 'https://host/host/stream/capture1/metadata/capture_0001.json'
+    """
+    # Get device-specific stream path
+    stream_path = _get_device_stream_path(host_info, device_id)
+    
+    # For static files, use nginx (port 80) not Flask server port
+    host_url = _get_nginx_host_url(host_info)
+    
+    # Hot/cold architecture: metadata in separate folder
+    return f"{host_url}/host{stream_path}/metadata/{filename}"
+
 def buildCroppedImageUrl(host_info: dict, filename: str, device_id: str) -> str:
     """
     Build URL for cropped images (served by nginx, not Flask)
