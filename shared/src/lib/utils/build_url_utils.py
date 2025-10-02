@@ -5,6 +5,7 @@ Single source of truth for all URL construction patterns.
 Eliminates hardcoded URLs and inconsistent building patterns.
 Supports multi-device hosts with device-specific paths.
 """
+import os
 
 # =====================================================
 # CORE URL BUILDING FUNCTION (No Dependencies)
@@ -580,6 +581,51 @@ def get_device_local_stream_path(host_info: dict, device_id: str) -> str:
             return local_path
     
     raise ValueError(f"Device {device_id} not found in host configuration. Available devices: {[d.get('device_id') for d in devices]}")
+
+def get_device_local_thumbnails_path(capture_path: str) -> str:
+    """
+    Get local thumbnails path from a capture image path.
+    HOT/COLD ARCHITECTURE: Thumbnails are in /thumbnails/ folder (sibling to /captures/)
+    
+    Args:
+        capture_path: Full path to capture image (e.g., /var/www/html/stream/capture1/captures/image.jpg)
+        
+    Returns:
+        Local file system path to thumbnails folder (e.g., /var/www/html/stream/capture1/thumbnails)
+        
+    Example:
+        get_device_local_thumbnails_path('/var/www/html/stream/capture1/captures/image.jpg')
+        -> '/var/www/html/stream/capture1/thumbnails'
+    """
+    # Get parent directory of captures folder
+    captures_dir = os.path.dirname(capture_path)  # /var/www/html/stream/captureX/captures
+    device_dir = os.path.dirname(captures_dir)    # /var/www/html/stream/captureX
+    thumbnails_dir = os.path.join(device_dir, 'thumbnails')
+    
+    return thumbnails_dir
+
+def get_device_directory_from_captures(captures_dir: str) -> str:
+    """
+    Get device base directory from captures directory.
+    HOT/COLD ARCHITECTURE: Device dir is parent of /captures/, /thumbnails/, /segments/
+    
+    Args:
+        captures_dir: Full path to captures directory (e.g., /var/www/html/stream/capture1/captures)
+        
+    Returns:
+        Device base directory (e.g., /var/www/html/stream/capture1)
+        
+    Example:
+        get_device_directory_from_captures('/var/www/html/stream/capture1/captures')
+        -> '/var/www/html/stream/capture1'
+    """
+    # Remove trailing slash if present
+    captures_dir = captures_dir.rstrip('/')
+    
+    # Get parent directory (device base)
+    device_dir = os.path.dirname(captures_dir)
+    
+    return device_dir
 
 def get_current_device_id() -> str:
     """

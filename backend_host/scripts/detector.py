@@ -195,17 +195,42 @@ def detect_issues(image_path):
         freeze_diffs = freeze_details['frame_differences']
         
     if freeze_details and 'frames_compared' in freeze_details:
-        # Get directory from current image path
-        image_dir = os.path.dirname(image_path)
-        for frame_filename in freeze_details['frames_compared']:
-            # Original filename with full path
-            original_full_path = os.path.join(image_dir, frame_filename)
-            last_3_filenames.append(original_full_path)
+        # Use centralized path utility for hot/cold architecture
+        try:
+            import sys
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(script_dir))
+            if project_root not in sys.path:
+                sys.path.insert(0, project_root)
             
-            # Corresponding thumbnail with full path
-            thumbnail_filename = frame_filename.replace('.jpg', '_thumbnail.jpg')
-            thumbnail_full_path = os.path.join(image_dir, thumbnail_filename)
-            last_3_thumbnails.append(thumbnail_full_path)
+            from shared.src.lib.utils.build_url_utils import get_device_local_thumbnails_path
+            
+            captures_dir = os.path.dirname(image_path)
+            thumbnails_dir = get_device_local_thumbnails_path(image_path)
+            
+            for frame_filename in freeze_details['frames_compared']:
+                # Original filename with full path - in captures folder
+                original_full_path = os.path.join(captures_dir, frame_filename)
+                last_3_filenames.append(original_full_path)
+                
+                # Corresponding thumbnail with full path - in thumbnails folder (HOT/COLD)
+                thumbnail_filename = frame_filename.replace('.jpg', '_thumbnail.jpg')
+                thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
+                last_3_thumbnails.append(thumbnail_full_path)
+                
+        except Exception as e:
+            # Fallback to manual path construction if import fails
+            captures_dir = os.path.dirname(image_path)
+            capture_parent = os.path.dirname(captures_dir)
+            thumbnails_dir = os.path.join(capture_parent, 'thumbnails')
+            
+            for frame_filename in freeze_details['frames_compared']:
+                original_full_path = os.path.join(captures_dir, frame_filename)
+                last_3_filenames.append(original_full_path)
+                
+                thumbnail_filename = frame_filename.replace('.jpg', '_thumbnail.jpg')
+                thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
+                last_3_thumbnails.append(thumbnail_full_path)
     
     # Return EXACT same format as original (CRITICAL FOR R2 UPLOAD)
     return {

@@ -288,14 +288,20 @@ class IncidentManager:
         Returns:
             dict: State transitions that occurred, e.g. {'freeze': 'first_detected', 'audio_loss': 'cleared'}
         """
+        logger.debug(f"[{capture_folder}] process_detection called with result: {detection_result}")
+        
         # Get device_id from capture_folder
         device_info = get_device_info_from_capture_folder(capture_folder)
         device_id = device_info.get('device_id', capture_folder)
         is_host = (device_id == 'host')
         
+        logger.debug(f"[{capture_folder}] device_id={device_id}, is_host={is_host}")
+        
         device_state = self.get_device_state(device_id)
         active_incidents = device_state['active_incidents']      # {issue_type: alert_id} - in DB
         pending_incidents = device_state['pending_incidents']    # {issue_type: timestamp} - not yet in DB
+        
+        logger.debug(f"[{capture_folder}] State: active={active_incidents}, pending={pending_incidents}")
         
         current_time = time.time()
         transitions = {}  # Track state changes for this detection
@@ -306,6 +312,8 @@ class IncidentManager:
             issue_types.append('audio_loss')
         
         # Check each issue type
+        logger.debug(f"[{capture_folder}] Checking issue types: {issue_types}")
+        
         for issue_type in issue_types:
             if issue_type == 'audio_loss':
                 is_detected = not detection_result.get('audio', True)
@@ -314,6 +322,8 @@ class IncidentManager:
             
             is_in_db = issue_type in active_incidents
             is_pending = issue_type in pending_incidents
+            
+            logger.debug(f"[{capture_folder}] {issue_type}: detected={is_detected}, in_db={is_in_db}, pending={is_pending}")
             
             if is_detected:
                 # Issue is currently detected

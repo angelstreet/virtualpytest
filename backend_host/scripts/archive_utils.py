@@ -195,8 +195,11 @@ def generate_manifest_for_segments(stream_dir, segments, manifest_name):
 def update_archive_manifest(capture_dir):
     """Generate dynamic 1-hour archive manifests with progressive creation (with incremental updates)"""
     try:
+        # Use centralized path utility instead of string replacement
+        from shared.src.lib.utils.build_url_utils import get_device_directory_from_captures
+        
         capture_folder = get_capture_folder(capture_dir)
-        stream_dir = capture_dir.replace('/captures', '')  # /var/www/html/stream/capture1
+        stream_dir = get_device_directory_from_captures(capture_dir)  # /var/www/html/stream/capture1
         
         # Configuration for 1-hour manifest windows
         WINDOW_HOURS = 1

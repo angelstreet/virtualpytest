@@ -8,11 +8,11 @@ Uses circular buffer with HHMM naming (1440 fixed files).
 import sys
 import os
 
-# Add project root to path FIRST
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(current_dir))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# Add project root to path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(CURRENT_DIR))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # Apply global typing compatibility early to fix third-party package issues
 try:
@@ -79,40 +79,18 @@ class HeatmapProcessor:
         logger.info(f"🏷️ HeatmapProcessor server path: {self.server_path}")
     
     def _get_server_path(self) -> str:
-        """Get server path for R2 storage - use VITE_SERVER_URL from frontend/.env"""
+        """Get server path for R2 storage organization - uses backend SERVER_URL"""
         import re
-        from dotenv import load_dotenv
         
-        # Load frontend .env to get VITE_SERVER_URL
-        # Find project root (go up from backend_server/scripts/)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(script_dir))
-        frontend_env = os.path.join(project_root, 'frontend', '.env')
-        
-        logger.info(f"📂 Looking for frontend .env at: {frontend_env}")
-        
-        # Load frontend .env
-        if os.path.exists(frontend_env):
-            load_dotenv(frontend_env)
-            logger.info(f"✅ Loaded frontend .env")
-        else:
-            logger.warning(f"⚠️ Frontend .env not found at {frontend_env}")
-        
-        # Try VITE_SERVER_URL first (public URL - same as frontend uses)
-        vite_server_url = os.getenv('VITE_SERVER_URL', '').strip()
-        if vite_server_url:
-            # Remove protocol and replace all special chars (. : /) with -
-            without_protocol = re.sub(r'^https?://', '', vite_server_url)
-            server_path = re.sub(r'[.:/]', '-', without_protocol)
-            logger.info(f"📍 Using VITE_SERVER_URL: {vite_server_url} → {server_path}")
-            return server_path
-        
-        # Fallback to SERVER_URL if VITE_SERVER_URL not set
-        logger.warning(f"⚠️ VITE_SERVER_URL not found in frontend .env, falling back to SERVER_URL")
+        # Use backend's own SERVER_URL (not frontend's VITE_SERVER_URL)
+        # This is the actual server URL where this backend is running
         server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
+        
+        # Remove protocol and replace all special chars (. : /) with - for folder structure
         without_protocol = re.sub(r'^https?://', '', server_url)
         server_path = re.sub(r'[.:/]', '-', without_protocol)
-        logger.info(f"📍 Using SERVER_URL fallback: {server_url} → {server_path}")
+        
+        logger.info(f"📍 Using SERVER_URL: {server_url} → R2 path: heatmaps/{server_path}/")
         return server_path
         
     def start(self):
