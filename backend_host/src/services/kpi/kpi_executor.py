@@ -31,6 +31,7 @@ class KPIMeasurementRequest:
         team_id: str,
         capture_dir: str,
         action_timestamp: float,
+        verification_timestamp: float,
         kpi_references: List[Dict[str, Any]],
         timeout_ms: int,
         device_id: str,
@@ -51,11 +52,16 @@ class KPIMeasurementRequest:
             raise ValueError(f"timeout_ms must be > 0, got {timeout_ms}")
         if not device_id:
             raise ValueError("device_id required")
+        if not verification_timestamp:
+            raise ValueError("verification_timestamp required")
+        if verification_timestamp < action_timestamp:
+            raise ValueError(f"verification_timestamp ({verification_timestamp}) must be >= action_timestamp ({action_timestamp})")
         
         self.execution_result_id = execution_result_id
         self.team_id = team_id
         self.capture_dir = capture_dir
         self.action_timestamp = action_timestamp
+        self.verification_timestamp = verification_timestamp
         self.kpi_references = kpi_references
         self.timeout_ms = timeout_ms
         self.device_id = device_id
@@ -219,12 +225,16 @@ class KPIExecutor:
         # Store result
         if match_result['success']:
             kpi_ms = int((match_result['timestamp'] - request.action_timestamp) * 1000)
+            algorithm = match_result.get('algorithm', 'unknown')
             print(f"✅ [KPIExecutor] KPI match found!")
             print(f"   • KPI duration: {kpi_ms}ms")
+            print(f"   • Algorithm: {algorithm}")
             print(f"   • Captures scanned: {match_result['captures_scanned']}")
             self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
         else:
+            algorithm = match_result.get('algorithm', 'unknown')
             print(f"❌ [KPIExecutor] KPI measurement failed: {match_result['error']}")
+            print(f"   • Algorithm: {algorithm}")
             print(f"   • Captures scanned: {match_result.get('captures_scanned', 0)}")
             self._update_result(request.execution_result_id, request.team_id, False, None, match_result['error'])
         
@@ -233,8 +243,11 @@ class KPIExecutor:
     
     def _scan_until_match(self, request: KPIMeasurementRequest) -> Dict[str, Any]:
         """
-        Scan captures from action_timestamp until match or timeout.
-        Stops immediately when match found - minimal scanning.
+        Scan captures using optimized quick check + backward scan algorithm.
+        
+        Algorithm:
+        1. Quick Check: Test T0+200ms and T1-200ms (80% hit rate)
+        2. Backward Scan: If not found, scan from T1 backward to T0
         
         Uses device's existing verification_executor - zero code duplication!
         
@@ -247,7 +260,7 @@ class KPIExecutor:
         # Extract parameters from request for clarity
         capture_dir = request.capture_dir
         action_timestamp = request.action_timestamp
-        timeout_ms = request.timeout_ms
+        verification_timestamp = request.verification_timestamp
         kpi_references = request.kpi_references
         
         # Get device instance from host (same host, same device, just post-processing)
@@ -262,10 +275,12 @@ class KPIExecutor:
         if not verif_executor:
             return {'success': False, 'error': f'No verification_executor for device {request.device_id}', 'captures_scanned': 0}
         
-        # Calculate time window
-        end_timestamp = action_timestamp + (timeout_ms / 1000.0)
+        # Calculate optimized time window using verification timestamp (NOT timeout!)
+        # We know KPI appeared by verification_timestamp, so no need to scan beyond it
+        window_ms = int((verification_timestamp - action_timestamp) * 1000)
+        print(f"🎯 [KPIExecutor] Optimized scan window: {window_ms}ms (action → verification) vs timeout: {request.timeout_ms}ms")
         
-        # Find all captures in time window
+        # Find all captures in optimized time window
         pattern = os.path.join(capture_dir, "capture_*.jpg")
         all_captures = []
         
@@ -274,18 +289,19 @@ class KPIExecutor:
                 continue
             try:
                 ts = os.path.getmtime(path)
-                if action_timestamp <= ts <= end_timestamp:
+                if action_timestamp <= ts <= verification_timestamp:
                     all_captures.append({'path': path, 'timestamp': ts})
             except OSError:
                 continue
         
-        # Sort by timestamp (oldest first - scan forward from action time)
+        # Sort by timestamp (oldest first for index-based access)
         all_captures.sort(key=lambda x: x['timestamp'])
         
         if not all_captures:
             return {'success': False, 'error': 'No captures found in time window', 'captures_scanned': 0}
         
-        print(f"📸 [KPIExecutor] Found {len(all_captures)} captures in time window")
+        total_captures = len(all_captures)
+        print(f"📸 [KPIExecutor] Found {total_captures} captures in optimized window (saved ~{request.timeout_ms - window_ms}ms of scanning)")
         
         # Convert kpi_references to verification format (same structure as navigation)
         verifications = []
@@ -296,34 +312,101 @@ class KPIExecutor:
                 'params': kpi_ref.get('params', {})
             })
         
-        # Scan captures sequentially - STOP at first match
-        for i, capture in enumerate(all_captures):
-            print(f"🔍 [KPIExecutor] Testing capture {i+1}/{len(all_captures)}: {os.path.basename(capture['path'])}")
-            
-            # Execute verifications using device's verification_executor
-            # This gives us the SAME detailed logs as normal navigation verification!
+        # Helper function to test a capture
+        def test_capture(capture, label):
+            print(f"🔍 [KPIExecutor] Quick check - {label}: {os.path.basename(capture['path'])}")
             result = verif_executor.execute_verifications(
                 verifications=verifications,
-                image_source_url=capture['path'],  # Use this specific capture
+                image_source_url=capture['path'],
+                team_id=request.team_id
+            )
+            return result.get('success')
+        
+        captures_scanned = 0
+        
+        # ========================================
+        # PHASE 1: QUICK CHECK (2 checks)
+        # ========================================
+        print(f"⚡ [KPIExecutor] Phase 1: Quick check")
+        
+        # Quick check 1: T0+200ms (immediate appearance)
+        # Find capture closest to action_timestamp + 200ms
+        target_ts = action_timestamp + 0.2
+        early_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
+        captures_scanned += 1
+        
+        if test_capture(all_captures[early_idx], f"early check (T0+200ms, idx {early_idx}/{total_captures})"):
+            return {
+                'success': True,
+                'timestamp': all_captures[early_idx]['timestamp'],
+                'capture_path': all_captures[early_idx]['path'],
+                'captures_scanned': captures_scanned,
+                'error': None,
+                'algorithm': 'quick_check_early'
+            }
+        
+        # Quick check 2: T1-200ms (late appearance)
+        # Find capture closest to verification_timestamp - 200ms
+        target_ts = verification_timestamp - 0.2
+        late_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
+        
+        # Only test if different from early check
+        if late_idx != early_idx:
+            captures_scanned += 1
+            if test_capture(all_captures[late_idx], f"late check (T1-200ms, idx {late_idx}/{total_captures})"):
+                return {
+                    'success': True,
+                    'timestamp': all_captures[late_idx]['timestamp'],
+                    'capture_path': all_captures[late_idx]['path'],
+                    'captures_scanned': captures_scanned,
+                    'error': None,
+                    'algorithm': 'quick_check_late'
+                }
+        
+        print(f"⚡ [KPIExecutor] Quick check: no immediate match, proceeding to backward scan")
+        
+        # ========================================
+        # PHASE 2: BACKWARD SCAN
+        # ========================================
+        print(f"🔙 [KPIExecutor] Phase 2: Backward scan from verification → action")
+        
+        # Scan backward from verification_timestamp to action_timestamp
+        # Start from late_idx and go backward (skip captures already checked)
+        checked_indices = {early_idx, late_idx}
+        
+        for i in range(total_captures - 1, -1, -1):
+            if i in checked_indices:
+                continue
+            
+            capture = all_captures[i]
+            captures_scanned += 1
+            
+            print(f"🔍 [KPIExecutor] Backward scan {i+1}/{total_captures}: {os.path.basename(capture['path'])}")
+            
+            result = verif_executor.execute_verifications(
+                verifications=verifications,
+                image_source_url=capture['path'],
                 team_id=request.team_id
             )
             
-            # MATCH FOUND - stop immediately
+            # MATCH FOUND - this is the earliest appearance
             if result.get('success'):
                 return {
                     'success': True,
                     'timestamp': capture['timestamp'],
                     'capture_path': capture['path'],
-                    'captures_scanned': i + 1,
-                    'error': None
+                    'captures_scanned': captures_scanned,
+                    'error': None,
+                    'algorithm': 'backward_scan'
                 }
         
-        # No match found after scanning all captures
+        # No match found after quick check + backward scan
         return {
             'success': False,
             'timestamp': None,
-            'captures_scanned': len(all_captures),
-            'error': f'No match found in {len(all_captures)} captures (timeout {timeout_ms}ms)'
+            'captures_scanned': captures_scanned,
+            'error': f'No match found in {total_captures} captures ({window_ms}ms window)',
+            'algorithm': 'exhaustive_search_failed'
         }
     
     def _update_result(

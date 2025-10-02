@@ -600,7 +600,9 @@ class NavigationExecutor:
             
             # ✅ VERIFY FINAL DESTINATION
             print(f"[@navigation_executor] 🔍 Verifying final destination: {target_node_label or target_node_id}")
+            verification_start_time = time.time()
             verification_result = self.device.verification_executor.verify_node(final_node_id, team_id, final_tree_id, image_source_url)
+            verification_timestamp = time.time()
             
             if not verification_result.get('success'):
                 print(f"[@navigation_executor] ❌ Final verification failed: {verification_result.get('error', 'Unknown error')}")
@@ -628,6 +630,7 @@ class NavigationExecutor:
                 self._queue_kpi_measurement_if_configured(
                     step=kpi_step,
                     action_timestamp=kpi_action_timestamp,
+                    verification_timestamp=verification_timestamp,
                     team_id=team_id
                 )
                 # Clear KPI context
@@ -1144,6 +1147,7 @@ class NavigationExecutor:
         self,
         step: Dict[str, Any],
         action_timestamp: float,
+        verification_timestamp: float,
         team_id: str
     ):
         """
@@ -1229,6 +1233,7 @@ class NavigationExecutor:
                 team_id=team_id,
                 capture_dir=capture_dir,
                 action_timestamp=action_timestamp,
+                verification_timestamp=verification_timestamp,
                 kpi_references=kpi_references,
                 timeout_ms=timeout_ms,
                 device_id=self.device_id,
