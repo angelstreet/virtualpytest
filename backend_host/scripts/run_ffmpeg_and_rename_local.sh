@@ -190,17 +190,18 @@ start_grabber() {
   # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
-    # Optimized: single fps operation, balanced queues, CBR encoding for stable streaming
+    # Audio resilience: Images continue even if ALSA buffer xrun occurs
     FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
-      -thread_queue_size 1024 \
+      -thread_queue_size 2048 \
       -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
-      -f alsa -thread_queue_size 1024 -async 1 -i \"$audio_device\" \
+      -f alsa -thread_queue_size 2048 -async 1 -err_detect ignore_err -i \"$audio_device\" \
       -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
         [str]scale=640:360:flags=fast_bilinear,fps=$input_fps[streamout]; \
         [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
-      -map \"[streamout]\" -map 1:a \
+      -map \"[streamout]\" -map 1:a? \
+      -shortest 0 \
       -c:v libx264 -preset ultrafast -tune zerolatency \
       -b:v 350k -maxrate 400k -bufsize 800k \
       -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
