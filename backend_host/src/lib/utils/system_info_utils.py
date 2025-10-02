@@ -254,55 +254,68 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             if os.path.exists(capture_dir):
                 captures_dir = os.path.join(capture_dir, 'captures')
                 if os.path.exists(captures_dir):
-                    # Use find command to get recent files (last 1 minute max) - at 5fps, even 10s (50 files) is enough
+                    # Use ls -t to get only the 10 most recent files (MUCH faster than find with many files)
+                    # This avoids scanning entire directory and eliminates timeout issues during cleanup
                     try:
-                        result = subprocess.run([
-                            'find', captures_dir, '-name', 'capture_*.jpg', 
-                            '!', '-name', '*_thumbnail.jpg', '-mmin', '-1', '-type', 'f'
-                        ], capture_output=True, text=True, timeout=5)
+                        # Get 10 newest files, filter for capture_*.jpg (not thumbnails)
+                        result = subprocess.run(
+                            'ls -t | grep "^capture_.*\.jpg$" | grep -v "_thumbnail\.jpg$" | head -n 10',
+                            shell=True, cwd=captures_dir, capture_output=True, text=True, timeout=2
+                        )
                         
                         if result.returncode == 0 and result.stdout.strip():
-                            # Get mtime for each file found (already filtered by time)
+                            # Get mtime for newest files only
                             mtimes = []
-                            for filepath in result.stdout.strip().split('\n'):
-                                if filepath:
+                            for filename in result.stdout.strip().split('\n'):
+                                if filename:
+                                    filepath = os.path.join(captures_dir, filename)
                                     try:
-                                        mtimes.append(os.path.getmtime(filepath))
+                                        mtime = os.path.getmtime(filepath)
+                                        # Only consider files modified in last minute (2 FPS × 60s = 120 files max)
+                                        if time.time() - mtime < 60:
+                                            mtimes.append(mtime)
                                     except (FileNotFoundError, OSError):
-                                        # File deleted between find and getmtime - skip it
+                                        # File deleted between ls and getmtime - skip it
                                         continue
                             
                             if mtimes:
                                 last_activity_time = max(mtimes)
                     except (subprocess.TimeoutExpired, Exception) as e:
-                        print(f"⚠️ Error finding recent FFmpeg files for {capture_folder}: {e}")
+                        print(f"⚠️ Error checking recent FFmpeg files for {capture_folder}: {e}")
                         pass
                     
         elif process_type == 'monitor':
             # Check Monitor JSON files (sequential format to avoid race condition)
             captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
             if os.path.exists(captures_dir):
-                # Use find command to get recent files (last 1 minute max) - at 5fps, even 10s (50 files) is enough
+                # Use ls -t to get only the 10 most recent files (MUCH faster than find with many files)
+                # This avoids scanning entire directory and eliminates timeout issues during cleanup
                 try:
-                    result = subprocess.run([
-                        'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-1', '-type', 'f'
-                    ], capture_output=True, text=True, timeout=5)
+                    # Get 10 newest JSON files
+                    result = subprocess.run(
+                        'ls -t | grep "^capture_.*\.json$" | head -n 10',
+                        shell=True, cwd=captures_dir, capture_output=True, text=True, timeout=2
+                    )
                     
                     if result.returncode == 0 and result.stdout.strip():
-                        # Get mtime for each file found (already filtered by time)
+                        # Get mtime for newest files only
                         mtimes = []
-                        for filepath in result.stdout.strip().split('\n'):
-                            if filepath:
+                        for filename in result.stdout.strip().split('\n'):
+                            if filename:
+                                filepath = os.path.join(captures_dir, filename)
                                 try:
-                                    mtimes.append(os.path.getmtime(filepath))
+                                    mtime = os.path.getmtime(filepath)
+                                    # Only consider files modified in last minute
+                                    if time.time() - mtime < 60:
+                                        mtimes.append(mtime)
                                 except (FileNotFoundError, OSError):
-                                    # File deleted between find and getmtime - skip it
+                                    # File deleted between ls and getmtime - skip it
                                     continue
                         
                         if mtimes:
                             last_activity_time = max(mtimes)
                 except (subprocess.TimeoutExpired, Exception) as e:
-                    print(f"⚠️ Error finding recent Monitor files for {capture_folder}: {e}")
+                    print(f"⚠️ Error checking recent Monitor files for {capture_folder}: {e}")
                     pass
         
         # Calculate working uptime: start -> last activity
