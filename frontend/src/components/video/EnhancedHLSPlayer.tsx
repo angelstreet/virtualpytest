@@ -292,8 +292,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               return timeDiff < closestDiff ? segment : closest;
             }, transcriptData.segments[0]);
             
-            // Show transcript if within 10s window (sample interval)
-            if (Math.abs(closestSegment.relative_seconds - globalTime) < 10) {
+            // Show transcript if within 6s window (sample interval)
+            if (Math.abs(closestSegment.relative_seconds - globalTime) < 6) {
               setCurrentTranscript(closestSegment);
             } else {
               setCurrentTranscript(null);

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Circular 24h Transcript Accumulator
-Samples audio every 10s, generates timestamped transcripts, local circular buffer
+Samples audio every 6s, generates timestamped transcripts, local circular buffer
 Uses audio_transcription_utils for clean, dependency-free transcription
 """
 import os
@@ -33,9 +33,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-SAMPLE_INTERVAL = 10  # Sample every 10 seconds
+SAMPLE_INTERVAL = 6  # Sample every 6 seconds
 MAX_DURATION_HOURS = 24
-MAX_SAMPLES = (MAX_DURATION_HOURS * 3600) // SAMPLE_INTERVAL  # 8,640 samples
+MAX_SAMPLES = (MAX_DURATION_HOURS * 3600) // SAMPLE_INTERVAL  # 14,400 samples
 AI_ENHANCEMENT_BATCH = 10  # Enhance every 10 samples with AI
 
 def cleanup_logs_on_startup():
@@ -101,7 +101,7 @@ def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
         # AI enhancement prompt - focused on accuracy improvement with strict JSON format
         prompt = f"""CONTEXT: You are improving audio-to-text transcriptions from Whisper AI.
 
-IMPORTANT: These are {len(segment_info)} consecutive 10-second audio segments (total ~{len(segment_info)*10} seconds of continuous audio).
+IMPORTANT: These are {len(segment_info)} consecutive 6-second audio segments (total ~{len(segment_info)*6} seconds of continuous audio).
 They are part of the same conversation or program on TV. Read ALL segments first to understand the full context, then improve each one.
 
 HOW TO PROCESS:
@@ -301,15 +301,15 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         
         last_processed = state.get('last_processed_segment', 0)
         
-        # First run: Start 10 segments back to get immediate feedback
+        # First run: Start 6 segments back to get immediate feedback
         if last_processed == 0:
             segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
             if segment_files:
                 latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
-                # Start 10 segments back for immediate processing (1 sample = 10 segments)
-                start_offset = 10
+                # Start 6 segments back for immediate processing (1 sample = 6 segments)
+                start_offset = 6
                 last_processed = max(0, latest_seg - start_offset)
-                logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (10 segments back from #{latest_seg})")
+                logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (6 segments back from #{latest_seg})")
                 state['last_processed_segment'] = last_processed
         
         # Find available segments
@@ -328,11 +328,11 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         
         all_segment_nums.sort()
         
-        # Find segments to sample (every 10th segment interval, but merge 10 segments per sample)
+        # Find segments to sample (every 6th segment interval, but merge 6 segments per sample)
         segments_to_process = []
         for seg_num in all_segment_nums:
             if seg_num > last_processed and seg_num % SAMPLE_INTERVAL == 0:
-                # Collect 10 consecutive segments ending at this segment
+                # Collect 6 consecutive segments ending at this segment
                 batch = []
                 for i in range(SAMPLE_INTERVAL):
                     batch_seg_num = seg_num - SAMPLE_INTERVAL + 1 + i
@@ -340,7 +340,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                         batch.append((batch_seg_num, segment_map[batch_seg_num]))
                 
                 if batch:  # Only process if we have segments in the batch
-                    segments_to_process.append((seg_num, batch))  # (target_seg_num, list_of_10_segments)
+                    segments_to_process.append((seg_num, batch))  # (target_seg_num, list_of_6_segments)
         
         if not segments_to_process:
             # No new segments to process
@@ -357,7 +357,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         if total_pending > max_samples_per_run:
             logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)}/{total_pending} samples (alternating with other devices)...")
         else:
-            logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)} new samples (10 segments per sample)...")
+            logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)} new samples (6 segments per sample)...")
         
         # Group segments by hour window (aligned with archive manifests)
         segments_by_hour = {}
@@ -496,7 +496,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
 def main():
     cleanup_logs_on_startup()  # Clean log on startup
     
-    logger.info("Starting Transcript Accumulator (10s sampling, 24h circular buffer)...")
+    logger.info("Starting Transcript Accumulator (6s sampling, 24h circular buffer)...")
     logger.info("Using audio_transcription_utils (clean, no dependencies)...")
     
     try:
