@@ -211,7 +211,7 @@ class AudioAIHelpers:
                 
                 if merged_ts:
                     # Extract audio from merged file using utility
-                    audio_path = extract_audio_from_ts(merged_ts)
+                    audio_path = extract_audio_from_ts(merged_ts, device_id=self.device_name)
                     
                     # Cleanup merged TS file
                     try:
@@ -228,7 +228,7 @@ class AudioAIHelpers:
             
             # Fallback: single segment or merge failed
             print(f"AudioAI[{self.device_name}]: Processing single segment...")
-            audio_path = extract_audio_from_ts(ts_paths[0])
+            audio_path = extract_audio_from_ts(ts_paths[0], device_id=self.device_name)
             return [audio_path] if audio_path else []
             
         except Exception as e:

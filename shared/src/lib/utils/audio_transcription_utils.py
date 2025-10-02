@@ -93,13 +93,14 @@ def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None, 
         return None
 
 
-def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None) -> Optional[str]:
+def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None, device_id: str = "") -> Optional[str]:
     """
     Extract audio from TS file as WAV (16kHz mono for Whisper)
     
     Args:
         ts_file_path: Path to TS file
         output_path: Optional output path (if None, creates temp file in /tmp - REUSED)
+        device_id: Device identifier for device-specific temp file (e.g., "capture1")
     
     Returns:
         Path to extracted WAV file or None on failure
@@ -108,8 +109,9 @@ def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None) 
         # Create output path if not provided - use FIXED name per device, overwrite each time
         if output_path is None:
             temp_dir = tempfile.gettempdir()  # /tmp/
-            # Use fixed filename (no timestamp) - will be overwritten on next extraction
-            audio_filename = "audio_temp_whisper.wav"
+            # Use device-specific fixed filename (no timestamp) - will be overwritten on next extraction
+            device_suffix = f"_{device_id}" if device_id else ""
+            audio_filename = f"audio_temp_whisper{device_suffix}.wav"
             output_path = os.path.join(temp_dir, audio_filename)
         
         # Extract audio with Whisper-optimized settings (16kHz mono)
@@ -311,7 +313,7 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
             
             if merged_ts:
                 # Extract audio from merged file
-                audio_file = extract_audio_from_ts(merged_ts)
+                audio_file = extract_audio_from_ts(merged_ts, device_id=device_id)
                 
                 if audio_file:
                     # Transcribe merged audio
@@ -323,7 +325,7 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
         
         # Fallback: process first segment only (or single segment)
         ts_file = ts_file_paths[0]
-        audio_file = extract_audio_from_ts(ts_file)
+        audio_file = extract_audio_from_ts(ts_file, device_id=device_id)
         
         if audio_file:
             result = transcribe_audio(audio_file, model_name, device_id=device_id)
