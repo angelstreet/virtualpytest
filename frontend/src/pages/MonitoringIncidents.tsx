@@ -42,7 +42,7 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { useAlerts } from '../hooks/pages/useAlerts';
@@ -66,36 +66,37 @@ const MonitoringIncidents: React.FC = () => {
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
   const [freezeModalAlert, setFreezeModalAlert] = useState<Alert | null>(null);
 
+  // Load alerts data function - extracted for reuse
+  const loadAlerts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Single API call to get all alerts
+      const allAlerts = await getAllAlerts();
+
+      // Client-side filtering
+      const active = allAlerts.filter((alert) => alert.status === 'active');
+      const closed = allAlerts.filter((alert) => alert.status === 'resolved');
+
+      setActiveAlerts(active);
+      setClosedAlerts(closed);
+
+      console.log(
+        `[@component:MonitoringIncidents] Loaded ${allAlerts.length} total alerts: ${active.length} active, ${closed.length} closed`,
+      );
+    } catch (err) {
+      console.error('[@component:MonitoringIncidents] Error loading alerts:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load alerts');
+    } finally {
+      setLoading(false);
+    }
+  }, [getAllAlerts]);
+
   // Load alerts data on component mount - optimized single query
   useEffect(() => {
-    const loadAlerts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Single API call to get all alerts
-        const allAlerts = await getAllAlerts();
-
-        // Client-side filtering
-        const active = allAlerts.filter((alert) => alert.status === 'active');
-        const closed = allAlerts.filter((alert) => alert.status === 'resolved');
-
-        setActiveAlerts(active);
-        setClosedAlerts(closed);
-
-        console.log(
-          `[@component:MonitoringIncidents] Loaded ${allAlerts.length} total alerts: ${active.length} active, ${closed.length} closed`,
-        );
-      } catch (err) {
-        console.error('[@component:MonitoringIncidents] Error loading alerts:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load alerts');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadAlerts();
-  }, [getAllAlerts]);
+  }, [loadAlerts]);
 
   // Calculate stats
   const totalActiveAlerts = activeAlerts.length;
@@ -437,12 +438,13 @@ const MonitoringIncidents: React.FC = () => {
       const result = await deleteAllAlerts();
       
       if (result.success) {
-        // Clear local state
-        setActiveAlerts([]);
-        setClosedAlerts([]);
-        setExpandedRows(new Set());
-        
         console.log(`[@component:MonitoringIncidents] Successfully deleted ${result.deleted_count} alerts`);
+        
+        // Refresh data from server to ensure consistency
+        await loadAlerts();
+        
+        // Clear expanded rows
+        setExpandedRows(new Set());
       } else {
         setError('Failed to delete alerts');
       }
