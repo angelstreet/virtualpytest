@@ -854,9 +854,53 @@ const Dashboard: React.FC = () => {
                 }}
               >
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                  <Typography variant="h6">
-                    Server: {serverData.server_info.server_name} - {serverData.server_info.server_url_display}
-                  </Typography>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Typography variant="h6">
+                      Server: {serverData.server_info.server_name} - {serverData.server_info.server_url_display}
+                    </Typography>
+                    {/* Compact Server Stats */}
+                    {serverData.server_info.system_stats && (
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip 
+                          label={`CPU: ${serverData.server_info.system_stats.cpu_percent.toFixed(0)}%`}
+                          size="small"
+                          sx={{ 
+                            height: 20, 
+                            fontSize: '0.7rem',
+                            bgcolor: `${getUsageColor(serverData.server_info.system_stats.cpu_percent)}.100`,
+                            color: `${getUsageColor(serverData.server_info.system_stats.cpu_percent)}.dark`
+                          }}
+                        />
+                        <Chip 
+                          label={`RAM: ${serverData.server_info.system_stats.memory_percent.toFixed(0)}%`}
+                          size="small"
+                          sx={{ 
+                            height: 20, 
+                            fontSize: '0.7rem',
+                            bgcolor: `${getUsageColor(serverData.server_info.system_stats.memory_percent)}.100`,
+                            color: `${getUsageColor(serverData.server_info.system_stats.memory_percent)}.dark`
+                          }}
+                        />
+                        <Chip 
+                          label={`Disk: ${serverData.server_info.system_stats.disk_percent.toFixed(0)}%`}
+                          size="small"
+                          sx={{ 
+                            height: 20, 
+                            fontSize: '0.7rem',
+                            bgcolor: `${getUsageColor(serverData.server_info.system_stats.disk_percent)}.100`,
+                            color: `${getUsageColor(serverData.server_info.system_stats.disk_percent)}.dark`
+                          }}
+                        />
+                        {serverData.server_info.system_stats.cpu_temperature_celsius && (
+                          <Chip 
+                            label={`${serverData.server_info.system_stats.cpu_temperature_celsius.toFixed(0)}°C`}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                      </Box>
+                    )}
+                  </Box>
                   <Box display="flex" alignItems="center" gap={2}>
                     <Chip 
                       label={`${hostCount} host${hostCount !== 1 ? 's' : ''}`}
