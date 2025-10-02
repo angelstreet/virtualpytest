@@ -14,7 +14,14 @@ export interface SystemStats {
   disk_percent: number;
   platform: string;
   architecture: string;
-  python_version: string;
+  python_version?: string;
+  cpu_temperature_celsius?: number;  // CPU temperature (optional, only on supported hardware)
+  load_average_1m?: number;
+  load_average_5m?: number;
+  load_average_15m?: number;
+  uptime_seconds?: number;
+  download_mbps?: number;
+  upload_mbps?: number;
   error?: string;
   // Process status information
   ffmpeg_status?: {

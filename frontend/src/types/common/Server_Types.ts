@@ -5,6 +5,7 @@
  */
 
 import { Host } from './Host_Types';
+import { SystemStats } from '../pages/Dashboard_Types';
 
 /**
  * Server information returned from backend
@@ -14,6 +15,7 @@ export interface ServerInfo {
   server_url: string;             // Full server URL for API calls (e.g., "https://dev.virtualpytest.com:443")
   server_url_display: string;     // Cleaned URL for display (e.g., "dev.virtualpytest.com")
   server_port: string;            // Server port (e.g., "443")
+  system_stats?: SystemStats;     // Server's own system stats (CPU, RAM, Disk, etc.)
 }
 
 /**

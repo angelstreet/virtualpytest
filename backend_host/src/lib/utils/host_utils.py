@@ -353,6 +353,7 @@ def send_ping_to_server():
             'host_name': host.host_name,
             'timestamp': time.time(),
             'device_count': host.get_device_count(),
+            'system_stats': host_system_stats,  # Include host system stats in ping
             'per_device_metrics': per_device_metrics  # Only operational status
         }
         

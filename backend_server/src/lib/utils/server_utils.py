@@ -174,6 +174,10 @@ class HostManager:
                 if ping_data:
                     # Store relevant ping data (system stats, device metrics, etc.)
                     self._hosts[host_name]['last_ping_data'] = ping_data
+                    
+                    # Update system_stats if provided in ping (for real-time display)
+                    if 'system_stats' in ping_data:
+                        self._hosts[host_name]['system_stats'] = ping_data['system_stats']
                 return True
             return False
     
