@@ -542,9 +542,9 @@ def delete_all_alerts() -> Dict:
                 'message': 'No alerts found to delete'
             }
         
-        # Delete all alerts using a timestamp filter that matches all records
-        # Similar to system_metrics cleanup - using a date that's guaranteed to be before all records
-        result = supabase.table('alerts').delete().gte('created_at', '1900-01-01').execute()
+        # Delete all alerts using an indexed column (start_time) for better performance
+        # Use a date far in the past that will match all records
+        result = supabase.table('alerts').delete().gte('start_time', '1900-01-01').execute()
         
         # Count actual deleted records
         deleted_count = len(result.data) if result.data else 0

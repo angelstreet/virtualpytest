@@ -333,11 +333,11 @@ class FFmpegCaptureController(AVControllerInterface):
             import os
             
             # Use device's configured capture path directly
-            captures_path = self.video_capture_path
-            print(f"{self.capture_source}[{self.capture_source}]: Capture folder: {captures_path}")
+            captures_path = f"{self.video_capture_path}/captures"
+            print(f"[{self.capture_source}]: Capture folder: {captures_path}")
                 
             if not os.path.exists(captures_path):
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - Capture directory does not exist")
+                print(f"[{self.capture_source}]: ERROR - Capture directory does not exist")
                 return None
             
             # Only scan files modified in the last 3 seconds
@@ -358,10 +358,10 @@ class FFmpegCaptureController(AVControllerInterface):
                 except OSError:
                     continue
             
-            print(f"{self.capture_source}[{self.capture_source}]: Recent files found: {len(recent_files)}")
+            print(f"[{self.capture_source}]: Recent files found: {len(recent_files)}")
             
             if not recent_files:
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No recent files found (within 3s)")
+                print(f"[{self.capture_source}]: ERROR - No recent files found (within 3s)")
                 return None
             
             # Sort by age and get the newest file within 2s threshold
@@ -369,16 +369,16 @@ class FFmpegCaptureController(AVControllerInterface):
             closest_age, closest_path = recent_files[0]
             
             if closest_age > 2:
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - Newest file too old: {closest_age:.2f}s")
+                print(f"[{self.capture_source}]: ERROR - Newest file too old: {closest_age:.2f}s")
                 return None
             
-            print(f"{self.capture_source}[{self.capture_source}]: Using file (age: {closest_age:.2f}s)")
+            print(f"[{self.capture_source}]: Using file (age: {closest_age:.2f}s)")
             return closest_path
                 
         except Exception as e:
-            print(f'{self.capture_source}[{self.capture_source}]: ERROR taking screenshot: {e}')
+            print(f'[{self.capture_source}]: ERROR taking screenshot: {e}')
             import traceback
-            print(f'{self.capture_source}[{self.capture_source}]: Traceback: {traceback.format_exc()}')
+            print(f'[{self.capture_source}]: Traceback: {traceback.format_exc()}')
             return None
     
     def save_screenshot(self, filename: str) -> Optional[str]:
@@ -397,7 +397,7 @@ class FFmpegCaptureController(AVControllerInterface):
             # First take a temporary screenshot to get the image
             temp_screenshot_path = self.take_screenshot()
             if not temp_screenshot_path:
-                print(f'{self.capture_source}[{self.capture_source}]: Failed to take temporary screenshot')
+                print(f'[{self.capture_source}]: Failed to take temporary screenshot')
                 return None
             
             # The temp_screenshot_path is already the local file path we need (sequential naming)
@@ -412,14 +412,14 @@ class FFmpegCaptureController(AVControllerInterface):
                 time.sleep(1.0)
                 # Retry once
                 if not os.path.exists(local_screenshot_path):
-                    print(f'{self.capture_source}[{self.capture_source}]: Local screenshot file not found after retry: {local_screenshot_path}')
+                    print(f'[{self.capture_source}]: Local screenshot file not found after retry: {local_screenshot_path}')
                     return None
             
             # Return the local file path for the route to handle the upload
             return local_screenshot_path
             
         except Exception as e:
-            print(f'{self.capture_source}[{self.capture_source}]: Error saving screenshot: {e}')
+            print(f'[{self.capture_source}]: Error saving screenshot: {e}')
             return None
 
     def generateRestartVideoOnly(self, duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
@@ -485,15 +485,15 @@ class FFmpegCaptureController(AVControllerInterface):
             if duration_seconds is None:
                 duration_seconds = 10.0  # Fixed 10 seconds for fast restart videos
                 
-            print(f"{self.capture_source}[{self.capture_source}]: Compressing {duration_seconds}s HLS video to MP4")
+            print(f"[{self.capture_source}]: Compressing {duration_seconds}s HLS video to MP4")
             
             # Use configured segment duration consistently
-            print(f"{self.capture_source}[{self.capture_source}]: Using configured segment duration: {self.HLS_SEGMENT_DURATION}s")
+            print(f"[{self.capture_source}]: Using configured segment duration: {self.HLS_SEGMENT_DURATION}s")
             
             # Get recent HLS segments for compression using restart helpers
             segment_files = self.restart_helpers._get_recent_segments(duration_seconds)
             if not segment_files:
-                print(f"{self.capture_source}[{self.capture_source}]: No HLS segments found for compression")
+                print(f"[{self.capture_source}]: No HLS segments found for compression")
                 return None
             
             # Compress segments to MP4 using VideoCompressionUtils directly
@@ -514,15 +514,15 @@ class FFmpegCaptureController(AVControllerInterface):
             )
             
             if not compression_result.get('success', False):
-                print(f"{self.capture_source}[{self.capture_source}]: Video compression failed")
+                print(f"[{self.capture_source}]: Video compression failed")
                 return None
             
             # Return local file path for upload to R2 (not stream URL)
-            print(f"{self.capture_source}[{self.capture_source}]: Video created at local path: {local_video_path}")
+            print(f"[{self.capture_source}]: Video created at local path: {local_video_path}")
             return local_video_path
             
         except Exception as e:
-            print(f"{self.capture_source}[{self.capture_source}]: Error creating video: {e}")
+            print(f"[{self.capture_source}]: Error creating video: {e}")
             return None
         
     def take_control(self) -> Dict[str, Any]:
@@ -548,7 +548,7 @@ class FFmpegCaptureController(AVControllerInterface):
             }
                 
         except Exception as e:
-            print(f"{self.capture_source}[{self.capture_source}]: Take control error: {e}")
+            print(f"[{self.capture_source}]: Take control error: {e}")
             return {
                 'success': False,
                 'status': 'error',
@@ -582,7 +582,7 @@ class FFmpegCaptureController(AVControllerInterface):
             self.capture_session_id = f"capture_{int(time.time())}"
             self.is_capturing_video = True
             
-            print(f"{self.capture_source}[{self.capture_source}]: Starting video capture - Session: {self.capture_session_id}, Duration: {duration}s")
+            print(f"[{self.capture_source}]: Starting video capture - Session: {self.capture_session_id}, Duration: {duration}s")
             
             # Start monitoring thread to automatically stop after duration
             monitoring_thread = threading.Thread(
@@ -595,7 +595,7 @@ class FFmpegCaptureController(AVControllerInterface):
             return True
             
         except Exception as e:
-            print(f"{self.capture_source}[{self.capture_source}]: Failed to start video capture: {e}")
+            print(f"[{self.capture_source}]: Failed to start video capture: {e}")
             return False
         
     def stop_video_capture(self) -> bool:
@@ -609,7 +609,7 @@ class FFmpegCaptureController(AVControllerInterface):
             # Calculate actual capture duration
             if self.capture_start_time:
                 actual_duration = (datetime.now() - self.capture_start_time).total_seconds()
-                print(f"{self.capture_source}[{self.capture_source}]: Video capture stopped - Duration: {actual_duration:.1f}s")
+                print(f"[{self.capture_source}]: Video capture stopped - Duration: {actual_duration:.1f}s")
             
             self.is_capturing_video = False
             self.capture_session_id = None
@@ -617,7 +617,7 @@ class FFmpegCaptureController(AVControllerInterface):
             return True
             
         except Exception as e:
-            print(f"{self.capture_source}[{self.capture_source}]: Error stopping video capture: {e}")
+            print(f"[{self.capture_source}]: Error stopping video capture: {e}")
             return False
         
     def _monitor_capture_duration(self, duration: float):
@@ -627,7 +627,7 @@ class FFmpegCaptureController(AVControllerInterface):
         time.sleep(duration)
         
         if self.is_capturing_video:
-            print(f"{self.capture_source}[{self.capture_source}]: Capture duration ({duration}s) reached, stopping automatically")
+            print(f"[{self.capture_source}]: Capture duration ({duration}s) reached, stopping automatically")
             self.stop_video_capture()
 
 
