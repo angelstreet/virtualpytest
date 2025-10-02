@@ -194,7 +194,7 @@ start_grabber() {
     FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
-      -thread_queue_size 2048 \
+      -thread_queue_size 512 \
       -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 2048 -async 1 -err_detect ignore_err -i \"$audio_device\" \
       -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
