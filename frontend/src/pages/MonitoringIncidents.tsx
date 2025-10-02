@@ -388,9 +388,7 @@ const MonitoringIncidents: React.FC = () => {
 
   // Handle freeze modal
   const handleFreezeClick = (alert: Alert) => {
-    // Check if alert has freeze images in r2_images
-    const hasFreezeImages = (alert.metadata?.r2_images?.thumbnail_urls?.length ?? 0) > 0 || 
-                           (alert.metadata?.r2_images?.original_urls?.length ?? 0) > 0;
+    const hasFreezeImages = (alert.metadata?.r2_images?.thumbnail_urls?.length ?? 0) > 0;
     
     if (hasFreezeImages) {
       setFreezeModalAlert(alert);
@@ -413,7 +411,7 @@ const MonitoringIncidents: React.FC = () => {
     if (!alert || !alert.metadata?.r2_images) return null;
     
     const r2Images = alert.metadata.r2_images;
-    const imageUrls = r2Images.thumbnail_urls || r2Images.original_urls || [];
+    const imageUrls = r2Images.thumbnail_urls || [];
     const freezeDiffs = alert.metadata.freeze_diffs || [];
     
     if (imageUrls.length === 0) return null;
@@ -421,11 +419,11 @@ const MonitoringIncidents: React.FC = () => {
     return {
       host_name: alert.host_name,
       device_id: alert.device_id,
-      image_url: '', // Not needed for modal
+      image_url: '',
       analysis_json: {
         freeze: true,
         freeze_diffs: freezeDiffs,
-        last_3_filenames: imageUrls, // Use R2 URLs directly
+        last_3_filenames: imageUrls,
       }
     };
   };
@@ -474,10 +472,10 @@ const MonitoringIncidents: React.FC = () => {
   // Get image URLs from alert metadata
   const getAlertImageUrls = (alert: Alert) => {
     const r2Images = alert.metadata?.r2_images;
-    if (r2Images && r2Images.original_urls?.length > 0 && r2Images.thumbnail_urls?.length > 0) {
+    if (r2Images && r2Images.thumbnail_urls?.length > 0) {
       return {
-        originalUrl: r2Images.original_urls[0], // Use first image
-        thumbnailUrl: r2Images.thumbnail_urls[0], // Use first thumbnail
+        originalUrl: r2Images.thumbnail_urls[0],
+        thumbnailUrl: r2Images.thumbnail_urls[0],
         hasR2Images: true,
       };
     }
@@ -493,7 +491,7 @@ const MonitoringIncidents: React.FC = () => {
     const imageUrls = getAlertImageUrls(alert);
     const r2Images = alert.metadata?.r2_images;
     const freezeDiffs = alert.metadata?.freeze_diffs || [];
-    const freezeImageUrls = r2Images?.thumbnail_urls || r2Images?.original_urls || [];
+    const freezeImageUrls = r2Images?.thumbnail_urls || [];
 
     return (
       <Box sx={{ p: 1 }}>

@@ -283,7 +283,11 @@ class IncidentManager:
             return False
     
     def process_detection(self, capture_folder, detection_result, host_name):
-        """Process detection result and update state with 30-second delay before DB reporting"""
+        """Process detection result and update state with 30-second delay before DB reporting
+        
+        Returns:
+            dict: State transitions that occurred, e.g. {'freeze': 'first_detected', 'audio_loss': 'cleared'}
+        """
         # Get device_id from capture_folder
         device_info = get_device_info_from_capture_folder(capture_folder)
         device_id = device_info.get('device_id', capture_folder)
@@ -294,6 +298,7 @@ class IncidentManager:
         pending_incidents = device_state['pending_incidents']    # {issue_type: timestamp} - not yet in DB
         
         current_time = time.time()
+        transitions = {}  # Track state changes for this detection
         
         # Skip audio_loss for host device (no audio capture)
         issue_types = ['blackscreen', 'freeze']
@@ -338,6 +343,7 @@ class IncidentManager:
                 else:
                     # First detection of this issue, add to pending
                     pending_incidents[issue_type] = current_time
+                    transitions[issue_type] = 'first_detected'  # Mark transition
                     logger.info(f"[{capture_folder}] {issue_type} first detected, will report to DB if persists for {self.INCIDENT_REPORT_DELAY/60:.0f}min")
                     
             else:
@@ -345,6 +351,7 @@ class IncidentManager:
                 if is_in_db:
                     # Issue was in DB, resolve it immediately
                     incident_id = active_incidents[issue_type]
+                    transitions[issue_type] = 'cleared'  # Mark transition
                     logger.info(f"[{capture_folder}] {issue_type} cleared, resolving DB incident")
                     self.resolve_incident(device_id, incident_id, issue_type)
                     del active_incidents[issue_type]
@@ -355,14 +362,21 @@ class IncidentManager:
                 elif is_pending:
                     # Issue was pending but cleared before reaching 5min threshold
                     elapsed_time = current_time - pending_incidents[issue_type]
+                    transitions[issue_type] = 'cleared'  # Mark transition
                     if elapsed_time >= 60:
                         logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time/60:.1f}min (never reported to DB)")
                     else:
                         logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time:.1f}s (never reported to DB)")
                     del pending_incidents[issue_type]
+        
+        return transitions  # Return all transitions that occurred
 
-    def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp):
-        """Upload freeze incident frames to R2 storage - SYNCHRONOUS to ensure URLs are in DB"""
+    def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails, device_id, timestamp, thumbnails_only=False):
+        """Upload freeze incident frames to R2 storage - SYNCHRONOUS to ensure URLs are in DB
+        
+        Args:
+            thumbnails_only: If True, only upload thumbnails (not originals). Default False for backward compatibility.
+        """
         try:
             # Import R2 utilities (from shared library)
             from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
@@ -384,36 +398,40 @@ class IncidentManager:
                 'timestamp': timestamp
             }
             
-            logger.info(f"[{device_id}] R2 upload started for {len(last_3_filenames)} frames")
-            
-            # Upload original frames (last 3)
-            for i, filename in enumerate(last_3_filenames):
-                if not filename or not os.path.exists(filename):
-                    logger.warning(f"[{device_id}] Original frame file not found: {filename}")
-                    continue
+            # Upload original frames (last 3) - SKIP if thumbnails_only
+            if not thumbnails_only:
+                logger.info(f"[{device_id}] R2 upload started for {len(last_3_filenames)} frames")
                 
-                # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
-                r2_path = f"{base_r2_path}/frame_{i}.jpg"
-                
-                file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
-                upload_result = uploader.upload_files(file_mappings)
-                
-                # Convert to single file result
-                if upload_result['uploaded_files']:
-                    upload_result = {
-                        'success': True,
-                        'url': upload_result['uploaded_files'][0]['url']
-                    }
-                else:
-                    upload_result = {'success': False}
-                if upload_result.get('success'):
-                    r2_results['original_urls'].append(upload_result['url'])
-                    r2_results['original_r2_paths'].append(r2_path)
-                    logger.info(f"[{device_id}] Uploaded original frame {i}: {r2_path}")
-                else:
-                    logger.error(f"[{device_id}] Failed to upload original frame {i}: {upload_result.get('error')}")
+                for i, filename in enumerate(last_3_filenames):
+                    if not filename or not os.path.exists(filename):
+                        logger.warning(f"[{device_id}] Original frame file not found: {filename}")
+                        continue
+                    
+                    # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
+                    r2_path = f"{base_r2_path}/frame_{i}.jpg"
+                    
+                    file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
+                    upload_result = uploader.upload_files(file_mappings)
+                    
+                    # Convert to single file result
+                    if upload_result['uploaded_files']:
+                        upload_result = {
+                            'success': True,
+                            'url': upload_result['uploaded_files'][0]['url']
+                        }
+                    else:
+                        upload_result = {'success': False}
+                    if upload_result.get('success'):
+                        r2_results['original_urls'].append(upload_result['url'])
+                        r2_results['original_r2_paths'].append(r2_path)
+                        logger.info(f"[{device_id}] Uploaded original frame {i}: {r2_path}")
+                    else:
+                        logger.error(f"[{device_id}] Failed to upload original frame {i}: {upload_result.get('error')}")
             
             # Upload thumbnail frames (last 3)
+            if thumbnails_only:
+                logger.info(f"[{device_id}] R2 upload started for {len(last_3_thumbnails)} thumbnails (thumbnails only)")
+            
             for i, thumbnail_filename in enumerate(last_3_thumbnails):
                 if not thumbnail_filename:
                     continue

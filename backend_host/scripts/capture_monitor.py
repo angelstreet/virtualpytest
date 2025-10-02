@@ -39,9 +39,11 @@ class InotifyFrameMonitor:
         # Watch all capture directories (get_capture_directories already returns paths ending in /captures)
         for capture_dir in capture_dirs:
             # capture_dir is already /var/www/html/stream/captureX/captures
-            capture_folder = get_capture_folder(os.path.dirname(capture_dir))  # Get parent dir for folder name
+            # Extract captureX from the path (e.g., capture1, capture2, capture3)
+            parent_dir = os.path.dirname(capture_dir)  # /var/www/html/stream/captureX
+            capture_folder = os.path.basename(parent_dir)  # captureX
             self.dir_to_info[capture_dir] = {
-                'capture_dir': os.path.dirname(capture_dir),
+                'capture_dir': parent_dir,
                 'capture_folder': capture_folder
             }
             
@@ -62,7 +64,7 @@ class InotifyFrameMonitor:
         # 2. Old unanalyzed frames aren't critical (incidents already in DB)
         # 3. New frames will be caught immediately by inotify events
         # 4. System will self-correct as new frames arrive
-        return
+        return  # Skip expensive startup scan
     
     def process_frame(self, captures_path, filename):
         """Process a single frame - called by both inotify and startup scan"""
@@ -121,22 +123,25 @@ class InotifyFrameMonitor:
             if issues:
                 logger.info(f"[{capture_folder}] Issues detected: {issues}")
             
-            # Handle freeze frame uploads (if freeze detected)
-            if detection_result and detection_result.get('freeze', False):
-                last_3_filenames = detection_result.get('last_3_filenames', [])
+            # Process incident logic (5-minute debounce, DB operations)
+            # Returns transitions: {'freeze': 'first_detected'|'cleared', 'audio_loss': ...}
+            transitions = self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
+            
+            # Upload thumbnails ONLY on state transitions (first detected or cleared)
+            if transitions and 'freeze' in transitions:
                 last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                 
-                if last_3_filenames:
+                if last_3_thumbnails:
+                    transition_type = transitions['freeze']  # 'first_detected' or 'cleared'
                     current_time = datetime.now().isoformat()
+                    
+                    # Only upload thumbnails (thumbnails_only=True)
                     r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                        last_3_filenames, last_3_thumbnails, capture_folder, current_time
+                        [], last_3_thumbnails, capture_folder, current_time, thumbnails_only=True
                     )
                     if r2_urls:
                         detection_result['r2_images'] = r2_urls
-                        logger.info(f"[{capture_folder}] Uploaded freeze frames to R2 for real-time heatmap")
-                
-            # Process incident logic (5-minute debounce, DB operations)
-            self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
+                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze thumbnails ({transition_type})")
             
             # Save JSON metadata (marks frame as analyzed)
             try:
@@ -233,11 +238,11 @@ def main():
     
     logger.info(f"Found {len(capture_dirs)} capture directories")
     for capture_dir in capture_dirs:
-        capture_folder = get_capture_folder(os.path.dirname(capture_dir))
+        capture_folder = os.path.basename(os.path.dirname(capture_dir))  # Extract captureX from path
         logger.info(f"Monitoring: {capture_dir} -> {capture_folder}")
     
     # Auto-resolve orphaned incidents for capture folders no longer being monitored
-    monitored_capture_folders = [get_capture_folder(os.path.dirname(d)) for d in capture_dirs]
+    monitored_capture_folders = [os.path.basename(os.path.dirname(d)) for d in capture_dirs]
     incident_manager = IncidentManager()
     incident_manager.cleanup_orphaned_incidents(monitored_capture_folders, host_name)
     

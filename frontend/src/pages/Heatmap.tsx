@@ -100,12 +100,13 @@ const HeatmapContent: React.FC = () => {
     setStreamModalOpen(true);
   };
 
-  // Helper function to construct frame URLs
+  // Helper function to construct frame URLs from local file paths
+  // Note: Real-time heatmap uses local paths, MonitoringIncidents uses R2 URLs
   const constructFrameUrl = (filename: string, originalImageUrl: string): string => {
     // Handle full paths from last_3_filenames (e.g., "/path/to/captures/capture_370348.jpg")
     const cleanFilename = filename.includes('/') ? filename.split('/').pop() || filename : filename;
     
-    // Get base URL from original image URL
+    // Get base URL from original image URL (e.g., http://host:5001/stream/capture1/captures/)
     const lastSlashIndex = originalImageUrl.lastIndexOf('/');
     if (lastSlashIndex === -1) return cleanFilename;
     const baseUrl = originalImageUrl.substring(0, lastSlashIndex + 1);

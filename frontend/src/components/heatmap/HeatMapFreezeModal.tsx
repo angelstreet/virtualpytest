@@ -135,7 +135,9 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
           {framesCompared.map((filename: string, index: number) => {
-            // Check if filename is already a full URL (starts with http:// or https://)
+            // Handle both formats:
+            // 1. R2 URLs: https://...r2.../thumb_0.jpg (full URL to thumbnail)
+            // 2. Local paths: /var/www/.../capture_000001.jpg (needs thumbnail suffix)
             const isFullUrl = filename.startsWith('http://') || filename.startsWith('https://');
             
             // Extract just the filename for local paths or from URL for sequence number display
@@ -144,12 +146,12 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
               : filename;
             
             // Determine thumbnail filename based on format:
-            // - R2 URLs already use thumb_0.jpg, thumb_1.jpg (already thumbnails)
+            // - R2 URLs use thumb_0.jpg (already thumbnails)
             // - Local files use capture_0001.jpg -> need capture_0001_thumbnail.jpg
             const isThumbnailAlready = cleanFilename.startsWith('thumb_');
             const thumbnailFilename = isThumbnailAlready
-              ? cleanFilename  // Already a thumbnail (R2 format)
-              : cleanFilename.replace('.jpg', '_thumbnail.jpg');  // Local format
+              ? cleanFilename
+              : cleanFilename.replace('.jpg', '_thumbnail.jpg');
             
             // If it's a full URL, replace the filename part with thumbnail version; otherwise construct it
             const frameUrl = isFullUrl 
