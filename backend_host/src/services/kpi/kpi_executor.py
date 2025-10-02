@@ -124,8 +124,9 @@ class KPIExecutor:
     
     def __init__(self):
         """Initialize KPI executor"""
-        if KPIExecutor._instance is not None:
-            raise RuntimeError("KPIExecutor is singleton. Use get_instance()")
+        # Skip if already initialized
+        if hasattr(self, 'queue'):
+            return
         
         self.queue = queue.Queue(maxsize=1000)
         self.running = False
