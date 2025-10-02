@@ -438,11 +438,12 @@ export function HLSVideoPlayer({
       };
 
       hls.on(HLS.Events.ERROR, (_event, data) => {
-        // Ignore buffer-related errors - they are temporary and self-recovering
+        // Ignore buffer-related errors and transient network timeouts - they are temporary and self-recovering
         if (data.details === 'bufferStalledError' || 
             data.details === 'bufferSeekOverHole' || 
-            data.details === 'bufferNudgeOnStall') {
-          // Silently ignore buffer management - these are normal HLS.js recovery mechanisms
+            data.details === 'bufferNudgeOnStall' ||
+            data.details === 'levelLoadTimeOut') {
+          // Silently ignore these - they are normal HLS.js recovery mechanisms
           return;
         }
 
