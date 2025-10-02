@@ -91,31 +91,22 @@ for folder in "${CAPTURE_FOLDERS[@]}"; do
     folder_path="$STREAM_BASE/$folder"
     
     if [ -d "$folder_path" ]; then
+        echo ""
         echo "🗑️  Deleting $folder_path..."
         
-        # Get folder size before deletion
-        size=$(du -sh "$folder_path" 2>/dev/null | cut -f1 || echo "unknown")
-        echo "   Size: $size"
+        # Use Python script for fast parallel deletion with progress tracking
+        # Shows: progress bar, files/sec, ETA, percentage
+        python3 "$(dirname "$0")/fast_delete_with_progress.py" "$folder_path"
         
-        # Fast parallel deletion for large folders (avoids hanging)
-        echo "   Using parallel deletion (this may take a moment)..."
-        
-        # Method 1: Parallel file deletion with find + xargs
-        # -P$(nproc): Use all CPU cores for parallel deletion
-        # -print0/-0: Handle filenames with spaces/special chars
-        # ionice -c 3: Use idle I/O priority to avoid blocking system
-        cd "$folder_path" && \
-        ionice -c 3 find . -type f -print0 2>/dev/null | xargs -0 -P$(nproc) rm -f 2>/dev/null
-        
-        # Method 2: Remove remaining empty directories
-        cd "$STREAM_BASE" && ionice -c 3 find "$folder_path" -depth -type d -exec rmdir {} \; 2>/dev/null || true
-        
-        # Final cleanup: Remove root folder if anything remains
-        if [ -d "$folder_path" ]; then
-            ionice -c 3 rm -rf "$folder_path"
+        if [ $? -eq 0 ]; then
+            echo "   ✅ Deletion complete"
+        else
+            echo "   ⚠️  Deletion had errors, attempting cleanup..."
+            # Fallback: force remove any remaining files
+            if [ -d "$folder_path" ]; then
+                rm -rf "$folder_path" 2>/dev/null || true
+            fi
         fi
-        
-        echo "   ✅ Deleted"
     else
         echo "⏭️  $folder_path does not exist, skipping"
     fi
