@@ -332,70 +332,47 @@ class FFmpegCaptureController(AVControllerInterface):
             import time
             import os
             
-            print(f"{self.capture_source}[{self.capture_source}]: Starting take_screenshot process")
-            print(f"{self.capture_source}[{self.capture_source}]: Video capture path: {self.video_capture_path}")
-            
-            # Check if capture path exists - handle both cases:
-            # 1. video_capture_path already includes /captures (e.g., /var/www/html/stream/capture1/captures)
-            # 2. video_capture_path needs /captures appended (e.g., /var/www/html/stream/capture1)
-            if self.video_capture_path.endswith('/captures'):
-                captures_path = self.video_capture_path
-            else:
-                captures_path = os.path.join(self.video_capture_path, 'captures')
+            # Use device's configured capture path directly
+            captures_path = self.video_capture_path
+            print(f"{self.capture_source}[{self.capture_source}]: Capture folder: {captures_path}")
                 
             if not os.path.exists(captures_path):
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - Captures directory does not exist: {captures_path}")
+                print(f"{self.capture_source}[{self.capture_source}]: ERROR - Capture directory does not exist")
                 return None
             
-            if not os.access(captures_path, os.R_OK):
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No read access to captures directory: {captures_path}")
-                return None
-            
-            # Brief wait for FFmpeg to write the file
-            time.sleep(0.5)
-            
-            # Find sequential capture files (not thumbnails)
-            captures = [f for f in os.listdir(captures_path) if f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f]
-            if not captures:
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No capture files found in directory")
-                return None
-            
-            # Find files with mtime within 2 seconds of now
-            candidates = []
-            all_files_with_ages = []  # Track ALL files for debugging
+            # Only scan files modified in the last 3 seconds
             now = time.time()
-            for f in captures:
+            cutoff_time = now - 3
+            
+            recent_files = []
+            for f in os.listdir(captures_path):
+                if not (f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f):
+                    continue
+                
                 path = os.path.join(captures_path, f)
                 try:
                     mtime = os.path.getmtime(path)
-                    age = now - mtime
-                    all_files_with_ages.append((age, f))  # Store filename and age for debugging
-                    if age <= 1:  # Within 2 seconds
-                        candidates.append((age, path))
+                    if mtime >= cutoff_time:
+                        age = now - mtime
+                        recent_files.append((age, path))
                 except OSError:
-                    continue  # File might have been deleted
+                    continue
             
-            if not candidates:
-                # Show detailed debugging: total files found and newest file age
-                all_files_with_ages.sort()  # Sort by age (oldest last)
-                newest_age = all_files_with_ages[0][0] if all_files_with_ages else None
-                newest_file = all_files_with_ages[0][1] if all_files_with_ages else None
-                
-                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No recent files found (within 2s)")
-                print(f"{self.capture_source}[{self.capture_source}]: DEBUG - Total capture files found: {len(all_files_with_ages)}")
-                if newest_file:
-                    print(f"{self.capture_source}[{self.capture_source}]: DEBUG - Newest file: {newest_file}, age: {newest_age:.2f}s")
-                    # Show a few more recent files for context
-                    if len(all_files_with_ages) > 1:
-                        print(f"{self.capture_source}[{self.capture_source}]: DEBUG - Next 3 newest ages: {[f'{age:.2f}s' for age, _ in all_files_with_ages[1:4]]}")
+            print(f"{self.capture_source}[{self.capture_source}]: Recent files found: {len(recent_files)}")
+            
+            if not recent_files:
+                print(f"{self.capture_source}[{self.capture_source}]: ERROR - No recent files found (within 3s)")
                 return None
             
-            # Return the file with the smallest age (closest to now)
-            candidates.sort()  # Sort by age (smallest first)
-            closest_path = candidates[0][1]
-            closest_age = candidates[0][0]
+            # Sort by age and get the newest file within 2s threshold
+            recent_files.sort()
+            closest_age, closest_path = recent_files[0]
             
-            print(f"{self.capture_source}[{self.capture_source}]: SUCCESS - Using closest file: {os.path.basename(closest_path)} (age: {closest_age:.1f}s)")
+            if closest_age > 2:
+                print(f"{self.capture_source}[{self.capture_source}]: ERROR - Newest file too old: {closest_age:.2f}s")
+                return None
+            
+            print(f"{self.capture_source}[{self.capture_source}]: Using file (age: {closest_age:.2f}s)")
             return closest_path
                 
         except Exception as e:

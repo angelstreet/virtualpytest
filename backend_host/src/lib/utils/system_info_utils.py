@@ -254,11 +254,11 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             if os.path.exists(capture_dir):
                 captures_dir = os.path.join(capture_dir, 'captures')
                 if os.path.exists(captures_dir):
-                    # Use find command to get recent files only (last 10 minutes) - avoids loading 50k+ files
+                    # Use find command to get recent files (last 1 minute max) - at 5fps, even 10s (50 files) is enough
                     try:
                         result = subprocess.run([
                             'find', captures_dir, '-name', 'capture_*.jpg', 
-                            '!', '-name', '*_thumbnail.jpg', '-mmin', '-10', '-type', 'f'
+                            '!', '-name', '*_thumbnail.jpg', '-mmin', '-1', '-type', 'f'
                         ], capture_output=True, text=True, timeout=5)
                         
                         if result.returncode == 0 and result.stdout.strip():
@@ -282,10 +282,10 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             # Check Monitor JSON files (sequential format to avoid race condition)
             captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
             if os.path.exists(captures_dir):
-                # Use find command to get recent files only (last 10 minutes) - avoids loading 50k+ files
+                # Use find command to get recent files (last 1 minute max) - at 5fps, even 10s (50 files) is enough
                 try:
                     result = subprocess.run([
-                        'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-10', '-type', 'f'
+                        'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-1', '-type', 'f'
                     ], capture_output=True, text=True, timeout=5)
                     
                     if result.returncode == 0 and result.stdout.strip():

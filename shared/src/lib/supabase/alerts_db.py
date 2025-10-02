@@ -5,7 +5,6 @@ This module provides functions for managing alerts in the database.
 Alerts track monitoring incidents with start/end times and device information.
 """
 
-import os
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -535,12 +534,7 @@ def delete_all_alerts() -> Dict:
         
         print(f"[@db:alerts:delete_all_alerts] Found {total_count} alerts to delete")
         
-        # Delete all alerts (no filter = delete all)
-        # Note: Supabase requires at least one condition, so we'll use a workaround
-        # Delete by selecting all IDs first, then deleting them
-        all_alerts = supabase.table('alerts').select('id').execute()
-        
-        if not all_alerts.data:
+        if total_count == 0:
             print("[@db:alerts:delete_all_alerts] No alerts to delete")
             return {
                 'success': True,
@@ -548,19 +542,17 @@ def delete_all_alerts() -> Dict:
                 'message': 'No alerts found to delete'
             }
         
-        alert_ids = [alert['id'] for alert in all_alerts.data]
+        # Delete all alerts using a timestamp filter that matches all records
+        # Similar to system_metrics cleanup - using a date that's guaranteed to be before all records
+        result = supabase.table('alerts').delete().gte('created_at', '1900-01-01').execute()
         
-        # Delete in batches to avoid timeout
-        batch_size = 100
-        deleted_count = 0
+        # Count actual deleted records
+        deleted_count = len(result.data) if result.data else 0
         
-        for i in range(0, len(alert_ids), batch_size):
-            batch_ids = alert_ids[i:i + batch_size]
-            result = supabase.table('alerts').delete().in_('id', batch_ids).execute()
-            deleted_count += len(batch_ids)
-            print(f"[@db:alerts:delete_all_alerts] Deleted batch {i//batch_size + 1}: {len(batch_ids)} alerts")
+        print(f"[@db:alerts:delete_all_alerts] Successfully deleted {deleted_count} out of {total_count} alerts")
         
-        print(f"[@db:alerts:delete_all_alerts] Successfully deleted {deleted_count} alerts")
+        if deleted_count != total_count:
+            print(f"[@db:alerts:delete_all_alerts] WARNING: Delete mismatch! Expected {total_count} but deleted {deleted_count}")
         
         return {
             'success': True,
