@@ -44,10 +44,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 
 import { useHostManager } from '../hooks/useHostManager';
@@ -59,7 +55,7 @@ import { ViewMode } from '../types/pages/Dashboard_Types';
 
 const Dashboard: React.FC = () => {
   const { getAllHosts } = useHostManager();
-  const { availableServers, selectedServer, setSelectedServer, serverHostsData, isLoading: serverLoading, error: serverError } = useServerManager();
+  const { serverHostsData, isLoading: serverLoading, error: serverError } = useServerManager();
   const availableHosts = useMemo(() => getAllHosts(), [getAllHosts]);
   const { restartStreams, isRestarting } = useRec();
   const { stats, loading: statsLoading, error: statsError } = useDashboard();
@@ -68,29 +64,6 @@ const Dashboard: React.FC = () => {
   const loading = serverLoading || statsLoading;
   const error = serverError || statsError;
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  
-  // Memoize the resolved server value to avoid computation on every render
-  const resolvedSelectedServer = useMemo(() => {
-    // If selectedServer doesn't match any MenuItem value, find the best match
-    const hasExactMatch = serverHostsData.some(serverData => 
-      serverData.server_info.server_url === selectedServer
-    );
-    
-    if (hasExactMatch) {
-      return selectedServer;
-    }
-    
-    // Find a matching server by comparing normalized URLs
-    const normalizeUrl = (url: string) => url.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
-    const normalizedSelected = normalizeUrl(selectedServer);
-    
-    const matchingServer = serverHostsData.find(serverData => {
-      const normalizedServerUrl = normalizeUrl(serverData.server_info.server_url);
-      return normalizedSelected === normalizedServerUrl;
-    });
-    
-    return matchingServer ? matchingServer.server_info.server_url : '';
-  }, [selectedServer, serverHostsData]);
   
   // System control loading states
   const [isRestartingService, setIsRestartingService] = useState(false);
@@ -675,50 +648,10 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box>
-      {/* Server Selector */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-        <Typography variant="h4" component="h1">
-          Dashboard
-        </Typography>
-        <FormControl size="small" sx={{ minWidth: 300 }}>
-          <InputLabel>Primary Server</InputLabel>
-          <Select
-            value={resolvedSelectedServer}
-            label="Primary Server"
-            onChange={(e) => setSelectedServer(e.target.value)}
-          >
-            {serverHostsData
-              .sort((a, b) => {
-                // Ensure primary server (first in availableServers) appears first
-                const primaryServerUrl = availableServers[0];
-                const aIsPrimary = a.server_info.server_url.includes(primaryServerUrl?.replace(/^https?:\/\//, '') || '');
-                const bIsPrimary = b.server_info.server_url.includes(primaryServerUrl?.replace(/^https?:\/\//, '') || '');
-                if (aIsPrimary && !bIsPrimary) return -1;
-                if (!aIsPrimary && bIsPrimary) return 1;
-                return 0;
-              })
-              .map((serverData, index) => {
-                const isSelected = selectedServer === serverData.server_info.server_url;
-                return (
-                  <MenuItem 
-                    key={`${serverData.server_info.server_url}-${index}`} 
-                    value={serverData.server_info.server_url}
-                    sx={{
-                      fontWeight: isSelected ? 'bold' : 'normal',
-                      color: isSelected ? 'primary.main' : 'text.primary',
-                      backgroundColor: isSelected ? 'primary.light' : 'transparent',
-                      '&:hover': {
-                        backgroundColor: isSelected ? 'primary.light' : 'action.hover',
-                      }
-                    }}
-                  >
-                    {serverData.server_info.server_name} - {serverData.server_info.server_url_display}
-                  </MenuItem>
-                );
-              })}
-          </Select>
-        </FormControl>
-      </Box>
+      {/* Dashboard Header */}
+      <Typography variant="h4" component="h1" mb={1}>
+        Dashboard
+      </Typography>
 
       {error && (
         <Alert severity="error" sx={{ mb: 1 }}>
