@@ -280,6 +280,43 @@ export const MonitoringPlayer: React.FC<MonitoringPlayerProps> = ({
               }
             }}
           />
+
+          {/* AI Analysis Available Indicator - Blinking hint */}
+          {frames[currentIndex]?.hasAIAnalysis && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                padding: '6px 12px',
+                border: '1px solid rgba(255, 255, 255, 0.8)',
+                borderRadius: '4px',
+                backgroundColor: 'transparent',
+                pointerEvents: 'none',
+                animation: 'aiIndicatorBlink 2s ease-in-out infinite',
+                '@keyframes aiIndicatorBlink': {
+                  '0%, 100%': {
+                    opacity: 1,
+                  },
+                  '50%': {
+                    opacity: 0.3,
+                  },
+                },
+              }}
+            >
+              <Typography
+                sx={{
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ⟵ Subtitles & Summary Available
+              </Typography>
+            </Box>
+          )}
         </Box>
       )}
 
