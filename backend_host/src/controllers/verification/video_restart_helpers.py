@@ -480,14 +480,21 @@ class VideoRestartHelpers:
             first_segment_path = segment_files[0][1]
             first_segment_mtime = os.path.getmtime(first_segment_path)
             
-            # Find all available screenshots using fast os.scandir (no subprocess overhead)
+            # Find all available screenshots in hot storage (fast os.scandir - no subprocess overhead)
+            # With 60s archiver safety buffer, hot storage always has last 100 files
             try:
                 all_screenshots = get_files_by_pattern(capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
+                print(f"RestartHelpers[{self.device_name}]: Found {len(all_screenshots)} screenshots in hot storage")
             except Exception as e:
-                print(f"RestartHelpers[{self.device_name}]: Error finding screenshots: {e}")
+                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: Failed to scan screenshots folder: {e}")
                 all_screenshots = []
             
             if not all_screenshots:
+                error_msg = "No screenshots found in hot storage"
+                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: {error_msg}")
+                print(f"RestartHelpers[{self.device_name}]:   - Searched: {capture_folder}")
+                print(f"RestartHelpers[{self.device_name}]:   - Segment time: {datetime.fromtimestamp(first_segment_mtime).strftime('%H:%M:%S')}")
+                print(f"RestartHelpers[{self.device_name}]:   - This should never happen with 60s archiver safety buffer!")
                 return []
             
             # Find screenshot closest to first segment timestamp
@@ -524,6 +531,7 @@ class VideoRestartHelpers:
             # Get sequential screenshots aligned with segments
             aligned_screenshots = []
             screenshots_needed = len(segment_files)
+            missing_screenshots = []
             
             for i in range(screenshots_needed):
                 screenshot_number = adjusted_start + (i * screenshots_per_segment)
@@ -541,6 +549,14 @@ class VideoRestartHelpers:
                 
                 if found_screenshot:
                     aligned_screenshots.append(found_screenshot)
+                else:
+                    missing_screenshots.append(screenshot_number)
+            
+            # Log alignment results
+            if missing_screenshots:
+                print(f"RestartHelpers[{self.device_name}]: ⚠️  Missing {len(missing_screenshots)}/{screenshots_needed} screenshots: {missing_screenshots[:5]}")
+            else:
+                print(f"RestartHelpers[{self.device_name}]: ✅ Found all {screenshots_needed} aligned screenshots")
             
             # Convert to proper host URLs
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl

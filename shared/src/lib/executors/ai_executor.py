@@ -774,9 +774,11 @@ class AIExecutor:
         # Update navigation executor context
         self.device.navigation_executor.tree_id = context.get('tree_id')
         
+        # AI generates plans with node labels (e.g., "home_replay"), not IDs
+        # Pass as target_node_label for proper resolution
         result = self.device.navigation_executor.execute_navigation(
             tree_id=context.get('tree_id'),
-            target_node_id=params.get('target_node'),
+            target_node_label=params.get('target_node'),  # AI uses labels, not IDs
             current_node_id=context.get('current_node_id'),
             team_id=context.get('team_id')
         )

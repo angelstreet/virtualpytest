@@ -283,6 +283,18 @@ const Dashboard: React.FC = () => {
             />
           </Box>
         </Box>
+
+        {/* Load Average */}
+        {systemStats.load_average_1m !== undefined && (
+          <Box display="flex" alignItems="center" gap={0.5}>
+            <Typography variant="caption" color="textSecondary">
+              Load:
+            </Typography>
+            <Typography variant="caption" fontWeight="bold">
+              {systemStats.load_average_1m.toFixed(1)}
+            </Typography>
+          </Box>
+        )}
       </Box>
     );
   };
@@ -894,6 +906,13 @@ const Dashboard: React.FC = () => {
                         {serverData.server_info.system_stats.cpu_temperature_celsius && (
                           <Chip 
                             label={`${serverData.server_info.system_stats.cpu_temperature_celsius.toFixed(0)}°C`}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {serverData.server_info.system_stats.load_average_1m !== undefined && (
+                          <Chip 
+                            label={`Load: ${serverData.server_info.system_stats.load_average_1m.toFixed(1)}`}
                             size="small"
                             sx={{ height: 20, fontSize: '0.7rem' }}
                           />
