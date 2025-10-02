@@ -37,7 +37,7 @@ def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None, 
     
     Args:
         ts_file_paths: List of TS file paths to merge
-        output_path: Optional output path (if None, creates temp file)
+        output_path: Optional output path (if None, uses fixed temp file - OVERWRITTEN)
         device_id: Device identifier for logging (e.g., "capture1")
     
     Returns:
@@ -51,11 +51,11 @@ def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None, 
         return ts_file_paths[0]  # No merge needed
     
     try:
-        # Create output path if not provided
+        # Create output path if not provided - use FIXED name, overwrite each time
         if output_path is None:
             temp_dir = tempfile.gettempdir()
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-            merged_filename = f"merged_ts_{timestamp}.ts"
+            device_suffix = f"_{device_id}" if device_id else ""
+            merged_filename = f"merged_ts{device_suffix}.ts"
             output_path = os.path.join(temp_dir, merged_filename)
         
         # Build ffmpeg command for TS concatenation
@@ -99,17 +99,17 @@ def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None) 
     
     Args:
         ts_file_path: Path to TS file
-        output_path: Optional output path (if None, creates temp file)
+        output_path: Optional output path (if None, creates temp file in /tmp - REUSED)
     
     Returns:
         Path to extracted WAV file or None on failure
     """
     try:
-        # Create output path if not provided
+        # Create output path if not provided - use FIXED name per device, overwrite each time
         if output_path is None:
-            temp_dir = tempfile.mkdtemp(prefix="audio_extract_")
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-            audio_filename = f"audio_{timestamp}.wav"
+            temp_dir = tempfile.gettempdir()  # /tmp/
+            # Use fixed filename (no timestamp) - will be overwritten on next extraction
+            audio_filename = "audio_temp_whisper.wav"
             output_path = os.path.join(temp_dir, audio_filename)
         
         # Extract audio with Whisper-optimized settings (16kHz mono)
@@ -313,25 +313,12 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
                 # Extract audio from merged file
                 audio_file = extract_audio_from_ts(merged_ts)
                 
-                # Cleanup merged TS if it was a temp file
-                if merged_ts.startswith(tempfile.gettempdir()):
-                    try:
-                        os.remove(merged_ts)
-                    except:
-                        pass
-                
                 if audio_file:
                     # Transcribe merged audio
                     result = transcribe_audio(audio_file, model_name, device_id=device_id)
                     result['segments_processed'] = len(ts_file_paths)
                     result['merged'] = True
-                    
-                    # Cleanup audio file
-                    try:
-                        os.remove(audio_file)
-                    except:
-                        pass
-                    
+                    # No cleanup needed - files are overwritten on next run
                     return result
         
         # Fallback: process first segment only (or single segment)
@@ -342,13 +329,7 @@ def transcribe_ts_segments(ts_file_paths: List[str], merge: bool = True, model_n
             result = transcribe_audio(audio_file, model_name, device_id=device_id)
             result['segments_processed'] = 1
             result['merged'] = False
-            
-            # Cleanup audio file
-            try:
-                os.remove(audio_file)
-            except:
-                pass
-            
+            # No cleanup needed - file is overwritten on next run
             return result
         
         return {

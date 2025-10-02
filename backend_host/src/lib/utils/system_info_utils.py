@@ -11,12 +11,85 @@ import platform
 import time
 import glob
 import subprocess
+import json
 from datetime import datetime, timezone
 from typing import List, Dict, Any
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 # Global cache for process start times
 _process_start_cache = {}
+
+# Speedtest shared cache
+SPEEDTEST_CACHE = '/tmp/speedtest_cache.json'
+CACHE_DURATION = 600  # 10 minutes
+
+def get_network_speed_cached():
+    """Get network speed with 10-min shared cache"""
+    try:
+        # Read shared cache
+        if os.path.exists(SPEEDTEST_CACHE):
+            with open(SPEEDTEST_CACHE, 'r') as f:
+                cache = json.load(f)
+            
+            age = time.time() - cache['timestamp']
+            if age < CACHE_DURATION:
+                # Cache valid - reuse
+                return {
+                    'download_mbps': cache['download_mbps'],
+                    'upload_mbps': cache['upload_mbps'],
+                    'speedtest_last_run': datetime.fromtimestamp(cache['timestamp'], tz=timezone.utc).isoformat(),
+                    'speedtest_age_seconds': int(age)
+                }
+        
+        # Cache expired or missing - run test
+        result = measure_network_speed()
+        
+        # Save to shared cache
+        with open(SPEEDTEST_CACHE, 'w') as f:
+            json.dump({
+                'timestamp': time.time(),
+                'download_mbps': result['download_mbps'],
+                'upload_mbps': result['upload_mbps']
+            }, f)
+        
+        return {
+            'download_mbps': result['download_mbps'],
+            'upload_mbps': result['upload_mbps'],
+            'speedtest_last_run': datetime.now(timezone.utc).isoformat(),
+            'speedtest_age_seconds': 0
+        }
+    except Exception as e:
+        print(f"⚠️ [SPEEDTEST] Error: {e}")
+        return {}  # Fail gracefully
+
+def measure_network_speed():
+    """Run speedtest"""
+    try:
+        import speedtest
+        print("🌐 [SPEEDTEST] Running network speed test...")
+        st = speedtest.Speedtest()
+        st.get_best_server()
+        download = round(st.download() / 1_000_000, 2)
+        upload = round(st.upload() / 1_000_000, 2)
+        print(f"✅ [SPEEDTEST] Download: {download} Mbps, Upload: {upload} Mbps")
+        return {
+            'download_mbps': download,
+            'upload_mbps': upload
+        }
+    except Exception as e:
+        print(f"❌ [SPEEDTEST] Failed: {e}")
+        return {'download_mbps': 0, 'upload_mbps': 0}
+
+def get_capture_folder_size(capture_folder: str) -> str:
+    """Get disk usage for a single capture folder"""
+    try:
+        capture_path = f'/var/www/html/stream/{capture_folder}'
+        if not os.path.exists(capture_path):
+            return 'N/A'
+        result = subprocess.run(['du', '-sh', capture_path], capture_output=True, text=True, timeout=5)
+        return result.stdout.split()[0] if result.returncode == 0 else 'unknown'
+    except Exception:
+        return 'unknown'
 
 def get_active_capture_dirs():
     """Read active capture directories from configuration file created by FFmpeg script"""
@@ -31,23 +104,47 @@ def get_active_capture_dirs():
                     if capture_dir and os.path.exists(capture_dir):
                         capture_dirs.append(capture_dir)
         else:
-            print(f"🔍 [CONFIG] Configuration file not found: {config_file}, using fallback")
-            # Fallback to hardcoded for safety
+            print(f"🔍 [CONFIG] Configuration file not found: {config_file}, auto-discovering")
+            # Auto-discover all capture directories
+            capture_dirs = []
+            stream_base = '/var/www/html/stream'
+            if os.path.exists(stream_base):
+                for entry in sorted(os.listdir(stream_base)):
+                    if entry.startswith('capture') and entry[7:].isdigit():
+                        capture_path = os.path.join(stream_base, entry)
+                        if os.path.exists(capture_path):
+                            capture_dirs.append(capture_path)
+            
+            # If no directories found, use hardcoded fallback
+            if not capture_dirs:
+                capture_dirs = [
+                    '/var/www/html/stream/capture1',
+                    '/var/www/html/stream/capture2', 
+                    '/var/www/html/stream/capture3',
+                    '/var/www/html/stream/capture4'
+                ]
+    except Exception as e:
+        # Auto-discover on error or use hardcoded fallback
+        capture_dirs = []
+        try:
+            stream_base = '/var/www/html/stream'
+            if os.path.exists(stream_base):
+                for entry in sorted(os.listdir(stream_base)):
+                    if entry.startswith('capture') and entry[7:].isdigit():
+                        capture_path = os.path.join(stream_base, entry)
+                        if os.path.exists(capture_path):
+                            capture_dirs.append(capture_path)
+        except:
+            pass
+        
+        # Final hardcoded fallback if auto-discovery failed
+        if not capture_dirs:
             capture_dirs = [
                 '/var/www/html/stream/capture1',
                 '/var/www/html/stream/capture2', 
                 '/var/www/html/stream/capture3',
                 '/var/www/html/stream/capture4'
             ]
-    except Exception as e:
-        # Silently use fallback on error
-        # Fallback to hardcoded
-        capture_dirs = [
-            '/var/www/html/stream/capture1',
-            '/var/www/html/stream/capture2', 
-            '/var/www/html/stream/capture3',
-            '/var/www/html/stream/capture4'
-        ]
         
     return capture_dirs
 
@@ -218,6 +315,10 @@ def get_host_system_stats():
         if cpu_temp is not None:
             stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
         
+        # Add network speed (cached)
+        network_speed = get_network_speed_cached()
+        stats.update(network_speed)
+        
         return stats
     except Exception as e:
         print(f"⚠️ Error getting system stats: {e}")
@@ -299,6 +400,10 @@ def get_enhanced_system_stats():
         cpu_temp = get_cpu_temperature()
         if cpu_temp is not None:
             stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
+        
+        # Add network speed (cached)
+        network_speed = get_network_speed_cached()
+        stats.update(network_speed)
         
         return stats
     except Exception as e:
@@ -425,6 +530,7 @@ def get_per_device_metrics(devices) -> List[Dict[str, Any]]:
                 'device_model': device_model,
                 'capture_folder': capture_folder,  # Add capture folder for tracking
                 'video_device': video_device,  # Add video device path for hardware tracking
+                'disk_usage': get_capture_folder_size(capture_folder),  # Disk usage for capture folder
                 'ffmpeg_status': ffmpeg_device_status,
                 'ffmpeg_last_activity': ffmpeg_last_activity,
                 'ffmpeg_working_uptime_seconds': ffmpeg_uptime_seconds,  # Per-device working time before stuck

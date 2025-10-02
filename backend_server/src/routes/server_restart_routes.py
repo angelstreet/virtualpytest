@@ -159,34 +159,6 @@ def analyze_restart_video():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@server_restart_bp.route('/restartStream', methods=['POST'])
-def restart_stream():
-    """Proxy restart stream request to selected host with device_id"""
-    try:
-        request_data = request.get_json() or {}
-        host_name = request_data.get('host_name')
-        device_id = request_data.get('device_id', 'device1')
-
-        if not host_name:
-            return jsonify({'success': False, 'error': 'Host required'}), 400
-
-        query_params = {'device_id': device_id}
-
-        response_data, status_code = proxy_to_host_with_params(
-            '/host/restart/restartStream',
-            'POST',
-            request_data,
-            query_params,
-            timeout=60  # 60 seconds for stream restart
-        )
-
-        return jsonify(response_data), status_code
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
 
 # =============================================================================
 # 4-Step Dubbing Process Routes

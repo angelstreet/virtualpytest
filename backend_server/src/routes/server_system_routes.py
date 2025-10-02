@@ -349,4 +349,273 @@ class Host(TypedDict):
     isLocked: bool
     lockedBy: Optional[str]
     lockedAt: Optional[float]
+print("[@server_system_routes] Host type imported")
+
+# =============================================================================
+# SERVER SYSTEM CONTROL ROUTES
+# =============================================================================
+
+@server_system_bp.route('/restartServerService', methods=['POST'])
+def restart_server_service():
+    """Restart vpt_server_host systemd service on server"""
+    try:
+        from shared.src.lib.utils.system_utils import restart_systemd_service
+        
+        result = restart_systemd_service('vpt_server_host')
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to restart vpt_server_host service: {str(e)}'
+        }), 500
+
+
+@server_system_bp.route('/rebootServer', methods=['POST'])
+def reboot_server():
+    """Reboot the server machine"""
+    try:
+        from shared.src.lib.utils.system_utils import reboot_system
+        
+        result = reboot_system()
+        
+        if result['success']:
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to reboot server: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# HOST SYSTEM CONTROL PROXY ROUTES  
+# =============================================================================
+
+@server_system_bp.route('/restartHostService', methods=['POST'])
+def restart_host_service_proxy():
+    """Proxy restart vpt_host service request to specific host"""
+    try:
+        data = request.get_json() or {}
+        host_name = data.get('host_name')
+        
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name is required'
+            }), 400
+        
+        # Get host info
+        host_manager = get_host_manager()
+        host_data = host_manager.get_host(host_name)
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': f'Host {host_name} not found'
+            }), 404
+        
+        # Forward request to host
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
+        host_url = buildHostUrl(host_data, '/host/system/restartHostService')
+        
+        response = requests.post(host_url, json={}, timeout=30)
+        
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Host returned status {response.status_code}'
+            }), response.status_code
+            
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Network error: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to restart host service: {str(e)}'
+        }), 500
+
+
+@server_system_bp.route('/rebootHost', methods=['POST'])
+def reboot_host_proxy():
+    """Proxy reboot host request to specific host"""
+    try:
+        data = request.get_json() or {}
+        host_name = data.get('host_name')
+        
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name is required'
+            }), 400
+        
+        # Get host info
+        host_manager = get_host_manager()
+        host_data = host_manager.get_host(host_name)
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': f'Host {host_name} not found'
+            }), 404
+        
+        # Forward request to host
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
+        host_url = buildHostUrl(host_data, '/host/system/rebootHost')
+        
+        response = requests.post(host_url, json={}, timeout=10)
+        
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Host returned status {response.status_code}'
+            }), response.status_code
+            
+    except requests.exceptions.Timeout:
+        # Timeout is expected for reboot
+        return jsonify({
+            'success': True,
+            'message': 'Reboot command sent (timeout expected)'
+        }), 200
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Network error: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to reboot host: {str(e)}'
+        }), 500
+
+
+@server_system_bp.route('/restartHostStreamService', methods=['POST'])
+def restart_host_stream_service_proxy():
+    """Proxy restart host stream service request to specific host"""
+    try:
+        data = request.get_json() or {}
+        host_name = data.get('host_name')
+        device_id = data.get('device_id', 'device1')
+        
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name is required'
+            }), 400
+        
+        # Get host info
+        host_manager = get_host_manager()
+        host_data = host_manager.get_host(host_name)
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': f'Host {host_name} not found'
+            }), 404
+        
+        # Forward request to host
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
+        host_url = buildHostUrl(host_data, '/host/system/restartHostStreamService')
+        
+        response = requests.post(host_url, json={'device_id': device_id}, timeout=60)
+        
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Host returned status {response.status_code}'
+            }), response.status_code
+            
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Network error: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to restart host stream service: {str(e)}'
+        }), 500
+
+
+# =============================================================================
+# HOST MONITORING PROXY ROUTES
+# =============================================================================
+
+@server_system_bp.route('/diskUsage', methods=['GET'])
+def disk_usage_diagnostics_proxy():
+    """
+    Proxy disk usage diagnostics request to specific host.
+    Returns comprehensive disk space analysis for all capture directories.
+    
+    Query params:
+        - host_name: Required - which host to query
+        - capture_dir: Optional - specific capture (e.g., 'capture1') or 'all' (default)
+    """
+    try:
+        host_name = request.args.get('host_name')
+        capture_dir = request.args.get('capture_dir', 'all')
+        
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name query parameter is required'
+            }), 400
+        
+        # Get host info
+        host_manager = get_host_manager()
+        host_data = host_manager.get_host(host_name)
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': f'Host {host_name} not found'
+            }), 404
+        
+        # Forward request to host
+        from shared.src.lib.utils.build_url_utils import buildHostUrl
+        host_endpoint = f'/host/monitoring/disk-usage?capture_dir={capture_dir}'
+        host_url = buildHostUrl(host_data, host_endpoint)
+        
+        response = requests.get(host_url, timeout=120)  # Long timeout for file scanning
+        
+        if response.status_code == 200:
+            result = response.json()
+            # Add host identification to response
+            result['host_name'] = host_name
+            return jsonify(result), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Host returned status {response.status_code}',
+                'host_response': response.text
+            }), response.status_code
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Request timeout - disk analysis taking too long (check host logs)'
+        }), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'Network error: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get disk usage: {str(e)}'
+        }), 500
+
 print("[@server_system_routes] END")

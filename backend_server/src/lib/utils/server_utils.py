@@ -10,8 +10,70 @@ import time
 import os
 import psutil
 import subprocess
-from datetime import datetime
+import json
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
+
+# Speedtest shared cache
+SPEEDTEST_CACHE = '/tmp/speedtest_cache.json'
+CACHE_DURATION = 600  # 10 minutes
+
+def get_network_speed_cached():
+    """Get network speed with 10-min shared cache"""
+    try:
+        # Read shared cache
+        if os.path.exists(SPEEDTEST_CACHE):
+            with open(SPEEDTEST_CACHE, 'r') as f:
+                cache = json.load(f)
+            
+            age = time.time() - cache['timestamp']
+            if age < CACHE_DURATION:
+                # Cache valid - reuse
+                return {
+                    'download_mbps': cache['download_mbps'],
+                    'upload_mbps': cache['upload_mbps'],
+                    'speedtest_last_run': datetime.fromtimestamp(cache['timestamp'], tz=timezone.utc).isoformat(),
+                    'speedtest_age_seconds': int(age)
+                }
+        
+        # Cache expired or missing - run test
+        result = measure_network_speed()
+        
+        # Save to shared cache
+        with open(SPEEDTEST_CACHE, 'w') as f:
+            json.dump({
+                'timestamp': time.time(),
+                'download_mbps': result['download_mbps'],
+                'upload_mbps': result['upload_mbps']
+            }, f)
+        
+        return {
+            'download_mbps': result['download_mbps'],
+            'upload_mbps': result['upload_mbps'],
+            'speedtest_last_run': datetime.now(timezone.utc).isoformat(),
+            'speedtest_age_seconds': 0
+        }
+    except Exception as e:
+        print(f"⚠️ [SPEEDTEST] Error: {e}")
+        return {}  # Fail gracefully
+
+def measure_network_speed():
+    """Run speedtest"""
+    try:
+        import speedtest
+        print("🌐 [SPEEDTEST] Running network speed test...")
+        st = speedtest.Speedtest()
+        st.get_best_server()
+        download = round(st.download() / 1_000_000, 2)
+        upload = round(st.upload() / 1_000_000, 2)
+        print(f"✅ [SPEEDTEST] Download: {download} Mbps, Upload: {upload} Mbps")
+        return {
+            'download_mbps': download,
+            'upload_mbps': upload
+        }
+    except Exception as e:
+        print(f"❌ [SPEEDTEST] Failed: {e}")
+        return {'download_mbps': 0, 'upload_mbps': 0}
 
 
 class HostManager:
@@ -177,6 +239,10 @@ def get_server_system_stats():
         cpu_temp = get_cpu_temperature()
         if cpu_temp is not None:
             stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
+        
+        # Add network speed (cached)
+        network_speed = get_network_speed_cached()
+        stats.update(network_speed)
         
         return stats
     except Exception as e:

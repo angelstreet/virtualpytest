@@ -210,7 +210,7 @@ start_grabber() {
       -hls_start_number_source generic -start_number $start_num \
       -hls_segment_filename $capture_dir/segment_%09d.ts \
       $capture_dir/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -start_number $image_start_num \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -start_number $image_start_num \
       $capture_dir/captures/capture_%09d.jpg \
       -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -start_number $image_start_num \
       $capture_dir/captures/capture_%09d_thumbnail.jpg"
@@ -245,7 +245,7 @@ start_grabber() {
       $capture_dir/output.m3u8 \
       -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -start_number $image_start_num \
       $capture_dir/captures/capture_%09d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 -start_number $image_start_num \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -start_number $image_start_num \
       $capture_dir/captures/capture_%09d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"

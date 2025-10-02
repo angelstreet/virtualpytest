@@ -213,7 +213,11 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
             'monitor_status': metrics_data.get('monitor_status', {}),
             'ffmpeg_service_uptime_seconds': metrics_data.get('ffmpeg_service_uptime_seconds', 0),
             'monitor_service_uptime_seconds': metrics_data.get('monitor_service_uptime_seconds', 0),
-            'cpu_temperature_celsius': metrics_data.get('cpu_temperature_celsius')
+            'cpu_temperature_celsius': metrics_data.get('cpu_temperature_celsius'),
+            'download_mbps': metrics_data.get('download_mbps'),
+            'upload_mbps': metrics_data.get('upload_mbps'),
+            'speedtest_last_run': metrics_data.get('speedtest_last_run'),
+            'speedtest_age_seconds': metrics_data.get('speedtest_age_seconds')
         }
         
         # Add server_name only if it's provided in metrics_data (server-specific)
@@ -269,7 +273,8 @@ def store_device_metrics(host_name: str, device_data: Dict[str, Any], system_sta
             'ffmpeg_last_activity': device_data.get('ffmpeg_last_activity'),
             'monitor_status': device_data.get('monitor_status', 'unknown'),
             'monitor_uptime_seconds': device_data.get('monitor_uptime_seconds', 0),
-            'monitor_last_activity': device_data.get('monitor_last_activity')
+            'monitor_last_activity': device_data.get('monitor_last_activity'),
+            'disk_usage_capture': device_data.get('disk_usage')
         }
         
         result = supabase.table('system_device_metrics').insert(insert_data).execute()

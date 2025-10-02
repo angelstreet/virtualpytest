@@ -160,7 +160,7 @@ export const useRec = (): UseRecReturn => {
         try {
           // console.log(`[@hook:useRec] Restarting stream for ${host.host_name}-${device.device_id}`);
 
-          const response = await fetch(buildServerUrl('/server/av/restartStream'), {
+          const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

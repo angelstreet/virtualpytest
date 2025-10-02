@@ -135,9 +135,8 @@ class AudioAIHelpers:
             
             for i, ts_file in enumerate(recent_files):
                 try:
-                    # Create temporary audio file
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-                    audio_filename = f"audio_segment_{i}_{timestamp}.wav"
+                    # Create temporary audio file - use FIXED name, overwrite each time
+                    audio_filename = f"audio_segment_{i}_{self.device_name}.wav"
                     audio_path = os.path.join(temp_dir, audio_filename)
                     
                     # Extract audio using ffmpeg from HLS segment
@@ -488,14 +487,9 @@ class AudioAIHelpers:
             return None
     
     def _cleanup_audio_files(self, audio_files: List[str]):
-        """Clean up temporary audio files."""
-        for audio_file in audio_files:
-            try:
-                if os.path.exists(audio_file):
-                    os.unlink(audio_file)
-                    print(f"AudioAI[{self.device_name}]: Cleaned up temporary audio file: {os.path.basename(audio_file)}")
-            except Exception as e:
-                print(f"AudioAI[{self.device_name}]: Error cleaning up {audio_file}: {e}")
+        """No cleanup needed - files use fixed names and are overwritten on next run."""
+        # This saves disk I/O and prevents accumulation of temp files
+        pass
     
     def get_audio_analysis_summary(self, audio_result: Dict[str, Any]) -> str:
         """

@@ -111,13 +111,32 @@ def get_capture_directories():
         except Exception as e:
             logger.error(f"❌ Error reading {active_captures_file}: {e}")
     
-    # Fallback to default directories if config file doesn't exist
-    logger.warning(f"⚠️ {active_captures_file} not found, using fallback directories")
-    base_dirs = [
-        "/var/www/html/stream/capture1/captures",
-        "/var/www/html/stream/capture2/captures", 
-    ]
-    return [d for d in base_dirs if os.path.exists(d)]
+    # Auto-discover all capture directories if config file doesn't exist
+    logger.warning(f"⚠️ {active_captures_file} not found, auto-discovering directories")
+    base_dirs = []
+    
+    # Scan for all capture[0-9]* directories
+    stream_base = "/var/www/html/stream"
+    if os.path.exists(stream_base):
+        for entry in sorted(os.listdir(stream_base)):
+            if entry.startswith('capture') and entry[7:].isdigit():
+                capture_dir = os.path.join(stream_base, entry, 'captures')
+                if os.path.exists(capture_dir):
+                    base_dirs.append(capture_dir)
+                    logger.info(f"✅ Auto-discovered: {capture_dir}")
+    
+    # If no directories found, use hardcoded fallback for all 4 captures
+    if not base_dirs:
+        logger.warning(f"⚠️ No directories found, using hardcoded fallback")
+        base_dirs = [
+            "/var/www/html/stream/capture1/captures",
+            "/var/www/html/stream/capture2/captures",
+            "/var/www/html/stream/capture3/captures",
+            "/var/www/html/stream/capture4/captures",
+        ]
+        base_dirs = [d for d in base_dirs if os.path.exists(d)]
+    
+    return base_dirs
 
 def get_capture_folder(capture_dir):
     """Extract capture folder from path"""

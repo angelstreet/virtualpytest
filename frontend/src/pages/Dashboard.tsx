@@ -106,7 +106,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // System control handlers
+  // System control handlers for HOSTS
   const handleRestartService = useCallback(async (hostName?: string) => {
     if (isRestartingService) return;
     
@@ -117,7 +117,7 @@ const Dashboard: React.FC = () => {
       for (const host of hosts) {
         if (!host) continue;
         
-        const response = await fetch(buildServerUrl('/server/restart/restartService'), {
+        const response = await fetch(buildServerUrl('/server/system/restartHostService'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ host_name: host.host_name }),
@@ -147,7 +147,7 @@ const Dashboard: React.FC = () => {
       for (const host of hosts) {
         if (!host) continue;
         
-        const response = await fetch(buildServerUrl('/server/restart/rebootHost'), {
+        const response = await fetch(buildServerUrl('/server/system/rebootHost'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ host_name: host.host_name }),
@@ -166,6 +166,32 @@ const Dashboard: React.FC = () => {
       setIsRebooting(false);
     }
   }, [availableHosts, isRebooting]);
+
+  // System control handler for SERVER
+  const [isRestartingServerService, setIsRestartingServerService] = useState(false);
+  const handleRestartServerService = useCallback(async (serverUrl: string) => {
+    if (isRestartingServerService) return;
+    
+    setIsRestartingServerService(true);
+    try {
+      const response = await fetch(buildServerUrl('/server/system/restartServerService', serverUrl), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        console.log(`Successfully restarted vpt_server_host service on server ${serverUrl}`);
+      } else {
+        console.error(`Failed to restart vpt_server_host service on server ${serverUrl}:`, result.error);
+      }
+    } catch (error) {
+      console.error('Error restarting vpt_server_host service:', error);
+    } finally {
+      setIsRestartingServerService(false);
+    }
+  }, [isRestartingServerService]);
 
   const getDeviceIcon = (deviceModel: string) => {
     switch (deviceModel) {
@@ -911,6 +937,18 @@ const Dashboard: React.FC = () => {
                       variant="outlined"
                       color="secondary"
                     />
+                    <Tooltip title="Restart vpt_server_host service">
+                      <span>
+                        <IconButton 
+                          onClick={() => handleRestartServerService(serverData.server_info.server_url)} 
+                          disabled={isRestartingServerService}
+                          size="small"
+                          color="warning"
+                        >
+                          <RestartServiceIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </Box>
                 </Box>
               

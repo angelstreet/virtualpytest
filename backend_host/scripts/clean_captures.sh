@@ -41,13 +41,27 @@ if [ -f "$ACTIVE_CAPTURES_FILE" ]; then
   
   echo "$(date): Loaded ${#CAPTURE_DIRS[@]} capture directories from config" >> "$CLEAN_LOG"
 else
-  echo "$(date): WARNING: $ACTIVE_CAPTURES_FILE not found, using fallback directories" >> "$CLEAN_LOG"
+  echo "$(date): WARNING: $ACTIVE_CAPTURES_FILE not found, auto-discovering directories" >> "$CLEAN_LOG"
   
-  # Fallback to default directories if config file doesn't exist
-  CAPTURE_DIRS=(
-    "/var/www/html/stream/capture1/captures"
-    "/var/www/html/stream/capture2/captures"
-  )
+  # Auto-discover all capture directories if config file doesn't exist
+  CAPTURE_DIRS=()
+  for capture_base in /var/www/html/stream/capture[0-9]*; do
+    if [ -d "$capture_base/captures" ]; then
+      CAPTURE_DIRS+=("$capture_base/captures")
+      echo "$(date): Auto-discovered: $capture_base/captures" >> "$CLEAN_LOG"
+    fi
+  done
+  
+  # If no directories found, use hardcoded fallback for all 4 captures
+  if [ ${#CAPTURE_DIRS[@]} -eq 0 ]; then
+    echo "$(date): No directories found, using hardcoded fallback" >> "$CLEAN_LOG"
+    CAPTURE_DIRS=(
+      "/var/www/html/stream/capture1/captures"
+      "/var/www/html/stream/capture2/captures"
+      "/var/www/html/stream/capture3/captures"
+      "/var/www/html/stream/capture4/captures"
+    )
+  fi
 fi
 
 # Process each directory - clean both parent and captures directory in one loop
