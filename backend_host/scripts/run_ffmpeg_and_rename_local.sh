@@ -176,7 +176,7 @@ start_grabber() {
   echo "Starting segment numbering from: $start_num (max: 1B segments = 31yr @ 1sec)"
 
   # Get last image number to continue from (9-digit counter supports 1 year continuous operation)
-  local last_image=$(find "$capture_dir/captures" -maxdepth 1 -name 'capture_*.jpg' -printf '%f\n' 2>/dev/null | \
+  local last_image=$(find "$capture_dir/captures" -maxdepth 1 -name 'capture_*.jpg' ! -name '*_thumbnail.jpg' -printf '%f\n' 2>/dev/null | \
     sed 's/capture_\([0-9]*\)\.jpg/\1/' | \
     sort -n | tail -1)
   local image_start_num=$((10#${last_image:-0} + 1))
