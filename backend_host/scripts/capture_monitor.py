@@ -124,24 +124,8 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] Issues detected: {issues}")
             
             # Process incident logic (5-minute debounce, DB operations)
-            # Returns transitions: {'freeze': 'first_detected'|'cleared', 'audio_loss': ...}
+            # Thumbnails are uploaded inside process_detection after 5min confirmation
             transitions = self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
-            
-            # Upload thumbnails ONLY on state transitions (first detected or cleared)
-            if transitions and 'freeze' in transitions:
-                last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
-                
-                if last_3_thumbnails:
-                    transition_type = transitions['freeze']  # 'first_detected' or 'cleared'
-                    current_time = datetime.now().isoformat()
-                    
-                    # Only upload thumbnails (thumbnails_only=True)
-                    r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                        [], last_3_thumbnails, capture_folder, current_time, thumbnails_only=True
-                    )
-                    if r2_urls:
-                        detection_result['r2_images'] = r2_urls
-                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze thumbnails ({transition_type})")
             
             # Save JSON metadata (marks frame as analyzed)
             try:

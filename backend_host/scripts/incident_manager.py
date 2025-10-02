@@ -329,6 +329,19 @@ class IncidentManager:
                     if elapsed_time >= self.INCIDENT_REPORT_DELAY:
                         # Issue has persisted for 5+ minutes, report to DB
                         logger.info(f"[{capture_folder}] {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB")
+                        
+                        # For freeze incidents, upload thumbnails now (only for confirmed incidents)
+                        if issue_type == 'freeze' and detection_result:
+                            last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
+                            if last_3_thumbnails:
+                                current_timestamp = datetime.now().isoformat()
+                                r2_urls = self.upload_freeze_frames_to_r2(
+                                    [], last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
+                                )
+                                if r2_urls:
+                                    detection_result['r2_images'] = r2_urls
+                                    logger.info(f"[{capture_folder}] 📤 Uploaded freeze thumbnails (confirmed incident)")
+                        
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
                         if incident_id:
                             active_incidents[issue_type] = incident_id
