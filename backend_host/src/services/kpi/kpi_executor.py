@@ -144,7 +144,6 @@ class KPIExecutor:
                 # Wait for measurement request with timeout (allows clean shutdown)
                 try:
                     request = self.queue.get(timeout=1.0)
-                    print(f"📥 [KPIExecutor] Worker received KPI request from queue")
                 except queue.Empty:
                     # Periodic heartbeat every 30 iterations (~30 seconds)
                     iteration += 1
@@ -152,9 +151,20 @@ class KPIExecutor:
                         print(f"💓 [KPIExecutor] Worker heartbeat (queue size: {self.queue.qsize()})")
                     continue
                 
+                # Got an item from queue - log immediately before anything else
+                print(f"📥 [KPIExecutor] Worker dequeued item (type: {type(request).__name__})")
+                
+                # Validate request object
+                if not isinstance(request, KPIMeasurementRequest):
+                    print(f"❌ [KPIExecutor] Invalid request type: {type(request)}")
+                    self.queue.task_done()
+                    continue
+                
                 # Process measurement request
                 try:
+                    print(f"🎬 [KPIExecutor] Starting processing for execution_result_id: {request.execution_result_id[:8]}")
                     self._process_measurement(request)
+                    print(f"🏁 [KPIExecutor] Finished processing")
                 except Exception as e:
                     print(f"❌ [KPIExecutor] Error processing measurement: {e}")
                     import traceback
