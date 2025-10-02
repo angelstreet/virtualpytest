@@ -312,7 +312,7 @@ def main():
             'bind': f'0.0.0.0:{host_port}',
             'workers': 1,  # Single worker for shared in-memory cache consistency (navigation cache)
             'threads': 1,  # 1 thread to handle async playwright
-            'timeout': 3600,  # 1 hour timeout to match server timeout
+            'timeout': 3600  # 1 hour timeout to match server timeout
         }
         
         StandaloneApplication(app, options).run()
@@ -324,6 +324,8 @@ def main():
         print(f"[@backend_host:main] 🛑 backend_host shutting down...")
     except Exception as e:
         print(f"[@backend_host:main] ❌ Error starting backend_host: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     finally:
         print(f"[@backend_host:main] 👋 backend_host application stopped")
