@@ -22,6 +22,7 @@ import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
+import { buildThumbnailUrlFromFrame } from '../utils/buildUrlUtils';
 import { HostManagerProvider } from '../contexts/HostManagerProvider';
 import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
@@ -103,18 +104,7 @@ const HeatmapContent: React.FC = () => {
   // Helper function to construct frame URLs from local file paths
   // Note: Real-time heatmap uses local paths, MonitoringIncidents uses R2 URLs
   const constructFrameUrl = (filename: string, originalImageUrl: string): string => {
-    // Handle full paths from last_3_filenames (e.g., "/path/to/captures/capture_370348.jpg")
-    const cleanFilename = filename.includes('/') ? filename.split('/').pop() || filename : filename;
-    
-    // Get base URL from original image URL (e.g., http://host:5001/stream/capture1/captures/)
-    const lastSlashIndex = originalImageUrl.lastIndexOf('/');
-    if (lastSlashIndex === -1) return cleanFilename;
-    const baseUrl = originalImageUrl.substring(0, lastSlashIndex + 1);
-    
-    // Construct the full URL
-    const frameUrl = `${baseUrl}${cleanFilename}`;
-    console.log(`[@HeatMapFreezeModal] Constructing frame URL: ${filename} -> ${frameUrl}`);
-    return frameUrl;
+    return buildThumbnailUrlFromFrame(filename, originalImageUrl);
   };
 
   // Generate report for current frame

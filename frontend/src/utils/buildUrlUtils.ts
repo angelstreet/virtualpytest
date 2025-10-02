@@ -21,21 +21,7 @@
 // SERVER URL BUILDING (Frontend to Backend Server)
 // =====================================================
 
-/**
- * Build server URL for backend API endpoints (Frontend to backend_server)
- * 
- * Uses the selected server from localStorage if available, otherwise falls back to VITE_SERVER_URL.
- * This ensures requests go to the correct backend server based on user selection.
- * 
- * Examples:
- * - Development: buildServerUrl('/server/control/lockedDevices') 
- *   → http://localhost:5109/server/control/lockedDevices?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
- * - Production: buildServerUrl('/server/control/lockedDevices')
- *   → https://virtualpytest.onrender.com/server/control/lockedDevices?team_id=7fdeb4bb-3639-4ec3-959f-b54769a219ce
- * 
- * @param endpoint - API endpoint (e.g., '/server/control/lockedDevices')
- * @returns Complete URL to backend server endpoint with team_id
- */
+
 export const buildServerUrl = (endpoint: string): string => {
   // Try to get selected server from localStorage first, fallback to env variable
   let serverUrl: string;
@@ -56,18 +42,8 @@ export const buildServerUrl = (endpoint: string): string => {
 };
 
 /**
- * Get all configured server URLs (primary + slave servers)
- * 
- * Environment variables:
- * - VITE_SERVER_URL: Primary server URL (string)
- * - VITE_SLAVE_SERVER_URL: Slave server URLs (JSON array, comma-separated, or single URL)
- * 
- * Examples for VITE_SLAVE_SERVER_URL:
- * - JSON array: ["http://192.168.1.103:5109", "http://192.168.1.104:5109"]
- * - Comma-separated: "http://192.168.1.103:5109, http://192.168.1.104:5109"
- * - Single URL: "http://192.168.1.103:5109"
- * 
- * @returns Array of server URLs
+ * Get all configured server URLs (primary + slaves)
+ * Reads VITE_SERVER_URL and VITE_SLAVE_SERVER_URL
  */
 export const getAllServerUrls = (): string[] => {
   const urls: string[] = [];
@@ -305,6 +281,51 @@ export const buildHostImageUrl = (host: any, imagePath: string): string => {
 };
 
 /**
+ * Build thumbnail URL from freeze frame filename and original image URL
+ * HOT/COLD ARCHITECTURE: Thumbnails are in /thumbnails/ folder
+ * 
+ * Converts paths like:
+ *   /host/stream/capture3/captures/image.jpg → /host/stream/capture3/thumbnails/image_thumbnail.jpg
+ *   /host/stream/capture3/metadata/image.json → /host/stream/capture3/thumbnails/image_thumbnail.jpg
+ * 
+ * @param filename - Frame filename (e.g., "capture_000139798.jpg" or full path)
+ * @param originalImageUrl - Original image URL to extract device path from
+ * @returns Complete URL to thumbnail in /thumbnails/ folder
+ */
+export const buildThumbnailUrlFromFrame = (filename: string, originalImageUrl: string): string => {
+  // Extract just the filename if it's a full path
+  const cleanFilename = filename.includes('/') ? filename.split('/').pop() || filename : filename;
+  
+  // Ensure it has _thumbnail suffix
+  const thumbnailFilename = cleanFilename.includes('_thumbnail.jpg')
+    ? cleanFilename
+    : cleanFilename.replace('.jpg', '_thumbnail.jpg');
+  
+  // Extract base URL and device path from original image URL
+  // Example: https://dev.virtualpytest.com/pi2/host/stream/capture3/captures/image.jpg
+  //       -> https://dev.virtualpytest.com/pi2/host/stream/capture3/
+  const urlParts = originalImageUrl.split('/');
+  
+  if (urlParts.length < 2) {
+    console.warn('[buildThumbnailUrlFromFrame] Invalid original URL format:', originalImageUrl);
+    return thumbnailFilename;
+  }
+  
+  // Remove filename and folder name (captures, metadata, etc.)
+  urlParts.pop(); // Remove filename
+  urlParts.pop(); // Remove folder (captures, metadata, etc.)
+  
+  // Build base URL to device root (e.g., .../host/stream/capture3/)
+  const deviceBaseUrl = urlParts.join('/');
+  
+  // HOT/COLD ARCHITECTURE: Thumbnails are in /thumbnails/ folder
+  const thumbnailUrl = `${deviceBaseUrl}/thumbnails/${thumbnailFilename}`;
+  
+  console.log(`[buildThumbnailUrlFromFrame] ${filename} → ${thumbnailUrl}`);
+  return thumbnailUrl;
+};
+
+/**
  * Build URL for images stored in cloud storage (R2, S3, etc.)
  */
 export const buildCloudImageUrl = (
@@ -406,66 +427,3 @@ const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
   );
 };
 
-// =====================================================
-// DOCUMENTATION & USAGE GUIDELINES
-// =====================================================
-
-/**
- * URL BUILDING BEST PRACTICES
- * 
- * WHY CENTRALIZED URL BUILDING IS CRITICAL:
- * 
- * 1. ENVIRONMENT FLEXIBILITY
- *    - Development: APIs run on localhost:5109
- *    - Production: APIs run on virtualpytest.onrender.com
- *    - Without centralized building, you get hardcoded URLs that break in different environments
- * 
- * 2. DEPLOYMENT ARCHITECTURE SUPPORT
- *    - Frontend deployed on Vercel (www.virtualpytest.com)
- *    - Backend deployed on Render (virtualpytest.onrender.com)
- *    - Direct fetch('/server/...') goes to frontend domain, not backend!
- * 
- * 3. DEBUGGING & MAINTENANCE
- *    - Single place to change URL patterns
- *    - Easy to trace URL construction issues
- *    - Consistent error handling and validation
- * 
- * 4. SECURITY & CORS
- *    - Proper cross-origin request handling
- *    - Environment-specific CORS configuration
- *    - Prevents accidental exposure of internal URLs
- * 
- * USAGE PATTERNS:
- * 
- * ❌ WRONG - Direct fetch with relative URLs:
- *    await fetch('/server/control/lockedDevices')
- *    → Goes to: https://www.virtualpytest.com/server/control/lockedDevices (WRONG!)
- * 
- * ✅ CORRECT - Use buildServerUrl:
- *    import { buildServerUrl } from '../utils/buildUrlUtils';
- *    await fetch(buildServerUrl('/server/control/lockedDevices'))
- *    → Goes to: https://virtualpytest.onrender.com/server/control/lockedDevices (CORRECT!)
- * 
- * ❌ WRONG - Hardcoded constants:
- *    const API_BASE = '/server/campaigns';
- * 
- * ✅ CORRECT - Use buildServerUrl in constants:
- *    const API_BASE = buildServerUrl('/server/campaigns');
- * 
- * FUNCTION SELECTION GUIDE:
- * 
- * - buildServerUrl()     → Backend API calls (campaigns, scripts, control, etc.)
- * - buildHostUrl()       → Direct device communication (screenshots, actions, etc.)
- * - buildStreamUrl()     → Live video streams from devices
- * - buildCaptureUrl()    → Screenshot and capture images
- * - buildHostImageUrl()  → Any image served by device hosts
- * - buildCloudImageUrl() → Images stored in cloud storage (R2, S3)
- * 
- * ENVIRONMENT VARIABLES REQUIRED:
- * 
- * - VITE_SERVER_URL: Backend server URL (e.g., https://virtualpytest.onrender.com)
- *   Used by: buildServerUrl()
- * 
- * - Host configuration in database: host_url, host_ip, host_port
- *   Used by: buildHostUrl(), buildStreamUrl(), buildCaptureUrl()
- */
