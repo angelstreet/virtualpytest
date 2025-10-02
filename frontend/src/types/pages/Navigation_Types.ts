@@ -61,6 +61,9 @@ export interface UINavigationNodeData {
   
   // KPI measurement references
   kpi_references?: Verification[]; // Array of KPI measurement verification objects
+  
+  // Use verifications for KPI measurement instead of kpi_references
+  use_verifications_for_kpi?: boolean;
 
   // Nested tree properties
   has_subtree?: boolean; // True if this node has associated subtrees

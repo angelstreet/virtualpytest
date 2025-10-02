@@ -14,6 +14,7 @@ import threading
 import json
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
+from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
 
 class VideoRestartHelpers:
@@ -58,21 +59,11 @@ class VideoRestartHelpers:
             if not os.path.exists(m3u8_path):
                 return None
             
-            # Get segments using find (efficient - avoids loading 86k+ files)
+            # Get segments using fast os.scandir (no subprocess overhead)
             try:
-                result = subprocess.run([
-                    'find', self.video_capture_path, '-maxdepth', '1',
-                    '-name', 'segment_*.ts', '-type', 'f'
-                ], capture_output=True, text=True, timeout=30)
-                
-                if result.returncode == 0:
-                    all_segment_paths = sorted(
-                        [p for p in result.stdout.strip().split('\n') if p],
-                        key=lambda path: os.path.getmtime(path)
-                    )
-                else:
-                    all_segment_paths = []
-            except (subprocess.TimeoutExpired, Exception) as e:
+                all_segment_paths = get_files_by_pattern(self.video_capture_path, r'^segment_.*\.ts$')
+                all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
+            except Exception as e:
                 print(f"RestartHelpers[{self.device_name}]: Error finding segments: {e}")
                 all_segment_paths = []
             
@@ -124,23 +115,13 @@ class VideoRestartHelpers:
         try:
             from backend_host.src.controllers.verification.audio_ai_helpers import AudioAIHelpers
             
-            # Use provided segment files if available, otherwise fallback to globbing
+            # Use provided segment files if available, otherwise scan directory
             if segment_files is None:
-                print(f"RestartHelpers[{self.device_name}]: No segment files provided, falling back to find")
+                print(f"RestartHelpers[{self.device_name}]: No segment files provided, scanning directory")
                 try:
-                    result = subprocess.run([
-                        'find', self.video_capture_path, '-maxdepth', '1',
-                        '-name', 'segment_*.ts', '-type', 'f'
-                    ], capture_output=True, text=True, timeout=30)
-                    
-                    if result.returncode == 0:
-                        all_segment_paths = sorted(
-                            [p for p in result.stdout.strip().split('\n') if p],
-                            key=lambda path: os.path.getmtime(path)
-                        )
-                    else:
-                        all_segment_paths = []
-                except (subprocess.TimeoutExpired, Exception) as e:
+                    all_segment_paths = get_files_by_pattern(self.video_capture_path, r'^segment_.*\.ts$')
+                    all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
+                except Exception as e:
                     print(f"RestartHelpers[{self.device_name}]: Error finding segments: {e}")
                     all_segment_paths = []
                 
@@ -390,16 +371,8 @@ class VideoRestartHelpers:
     def _get_recent_segments(self, duration_seconds: float) -> List[Tuple[str, str]]:
         """Get recent HLS segments for the specified duration"""
         try:
-            # Use find instead of glob (efficient - avoids loading 86k+ files)
-            result = subprocess.run([
-                'find', self.video_capture_path, '-maxdepth', '1',
-                '-name', 'segment_*.ts', '-type', 'f'
-            ], capture_output=True, text=True, timeout=30)
-            
-            if result.returncode == 0:
-                all_segment_paths = [p for p in result.stdout.strip().split('\n') if p]
-            else:
-                all_segment_paths = []
+            # Get segments using fast os.scandir (no subprocess overhead)
+            all_segment_paths = get_files_by_pattern(self.video_capture_path, r'^segment_.*\.ts$')
             
             # Sort by file modification time
             all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
@@ -454,19 +427,10 @@ class VideoRestartHelpers:
             first_segment_path = segment_files[0][1]
             first_segment_mtime = os.path.getmtime(first_segment_path)
             
-            # Find all available screenshots using find (efficient - avoids loading 400k+ files)
+            # Find all available screenshots using fast os.scandir (no subprocess overhead)
             try:
-                result = subprocess.run([
-                    'find', capture_folder, '-name', 'capture_*.jpg',
-                    '!', '-name', '*_thumbnail.jpg',
-                    '-type', 'f'
-                ], capture_output=True, text=True, timeout=30)
-                
-                if result.returncode == 0:
-                    all_screenshots = [p for p in result.stdout.strip().split('\n') if p]
-                else:
-                    all_screenshots = []
-            except (subprocess.TimeoutExpired, Exception) as e:
+                all_screenshots = get_files_by_pattern(capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
+            except Exception as e:
                 print(f"RestartHelpers[{self.device_name}]: Error finding screenshots: {e}")
                 all_screenshots = []
             

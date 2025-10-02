@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 import re
 from datetime import datetime
+from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 from typing import Dict, Any, Optional, Tuple, List
 
 # Optional imports for text extraction and language detection

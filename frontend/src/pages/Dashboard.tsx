@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { buildServerUrl } from '../utils/buildUrlUtils';
+import { buildServerUrl, buildServerUrlForServer } from '../utils/buildUrlUtils';
 
 import {
   Computer as ComputerIcon,
@@ -174,7 +174,7 @@ const Dashboard: React.FC = () => {
     
     setIsRestartingServerService(true);
     try {
-      const response = await fetch(buildServerUrl('/server/system/restartServerService', serverUrl), {
+      const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/restartServerService'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
