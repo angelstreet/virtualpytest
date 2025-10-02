@@ -105,8 +105,9 @@ BEGIN
   -- Count before deletion
   SELECT COUNT(*) INTO deleted_count FROM alerts;
   
-  -- Delete all records (much faster than returning them)
-  DELETE FROM alerts;
+  -- Delete all records with WHERE clause (required by some DB configs)
+  -- Using "WHERE true" matches all rows while satisfying the WHERE requirement
+  DELETE FROM alerts WHERE true;
   
   -- Return result as JSON
   RETURN jsonb_build_object(

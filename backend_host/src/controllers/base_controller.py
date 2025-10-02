@@ -340,23 +340,33 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"[{self.capture_source}]: ERROR - Capture directory does not exist")
                 return None
             
-            # Only scan files modified in the last 3 seconds
+            # Only check the 20 most recent files (FAST - avoids scanning entire directory)
+            # With 2 FPS capture rate, 20 files = 10 seconds of history (more than enough)
+            import subprocess
             now = time.time()
             cutoff_time = now - 3
             
             recent_files = []
-            for f in os.listdir(captures_path):
-                if not (f.startswith('capture_') and f.endswith('.jpg') and '_thumbnail' not in f):
-                    continue
+            try:
+                # Get 20 newest JPG files (not thumbnails) - MUCH faster than os.listdir() with many files
+                result = subprocess.run(
+                    'ls -t | grep "^capture_.*\\.jpg$" | grep -v "_thumbnail\\.jpg$" | head -n 20',
+                    shell=True, cwd=captures_path, capture_output=True, text=True, timeout=2
+                )
                 
-                path = os.path.join(captures_path, f)
-                try:
-                    mtime = os.path.getmtime(path)
-                    if mtime >= cutoff_time:
-                        age = now - mtime
-                        recent_files.append((age, path))
-                except OSError:
-                    continue
+                if result.returncode == 0 and result.stdout.strip():
+                    for filename in result.stdout.strip().split('\n'):
+                        if filename:
+                            path = os.path.join(captures_path, filename)
+                            try:
+                                mtime = os.path.getmtime(path)
+                                if mtime >= cutoff_time:
+                                    age = now - mtime
+                                    recent_files.append((age, path))
+                            except OSError:
+                                continue
+            except subprocess.TimeoutExpired:
+                print(f"[{self.capture_source}]: WARNING - Timeout checking recent files")
             
             print(f"[{self.capture_source}]: Recent files found: {len(recent_files)}")
             
