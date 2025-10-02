@@ -51,26 +51,21 @@ def count_files_fast(root_path):
         print(f"\n   ⚠️  Error counting: {e}")
         return 0, 0
 
-def delete_files_in_dir(args):
+def delete_file_batch(file_paths):
     """
-    Delete all files in a single directory.
-    Returns (dir_path, num_files_deleted, success).
+    Delete a batch of files.
+    Returns number of files successfully deleted.
     """
-    dir_path, files = args
     deleted = 0
     
-    try:
-        for filename in files:
-            try:
-                filepath = os.path.join(dir_path, filename)
-                os.unlink(filepath)
-                deleted += 1
-            except Exception:
-                pass  # Ignore individual file errors
-        
-        return (dir_path, deleted, True)
-    except Exception as e:
-        return (dir_path, 0, False)
+    for filepath in file_paths:
+        try:
+            os.unlink(filepath)
+            deleted += 1
+        except Exception:
+            pass  # Ignore individual file errors
+    
+    return deleted
 
 def delete_with_progress(root_path, num_workers=None):
     """
