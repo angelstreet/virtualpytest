@@ -70,28 +70,37 @@ def delete_file_batch(file_paths):
 def delete_with_progress(root_path, num_workers=None):
     """
     Delete all files in root_path with real-time progress display.
-    Uses multiprocessing for parallel deletion.
+    Uses multiprocessing for parallel deletion with small batches for frequent updates.
     """
     if num_workers is None:
         num_workers = mp.cpu_count()
     
     print(f"\n🗑️  Starting parallel deletion ({num_workers} workers)...")
     
-    # Collect all directories and their files
+    # Collect all file paths in small batches for better progress updates
     print("📋 Building deletion queue...")
-    tasks = []
-    total_files = 0
+    all_files = []
     
     for dirpath, dirnames, filenames in os.walk(root_path, topdown=False):
-        if filenames:
-            tasks.append((dirpath, filenames))
-            total_files += len(filenames)
+        for filename in filenames:
+            all_files.append(os.path.join(dirpath, filename))
+    
+    total_files = len(all_files)
     
     if total_files == 0:
         print("   No files to delete!")
         return
     
-    print(f"   ✅ Queued {len(tasks):,} directories with {total_files:,} files")
+    print(f"   ✅ Found {total_files:,} files to delete")
+    
+    # Create batches of files (smaller batches = more frequent progress updates)
+    # Use 500 files per batch for good balance between overhead and progress updates
+    batch_size = 500
+    batches = []
+    for i in range(0, len(all_files), batch_size):
+        batches.append(all_files[i:i+batch_size])
+    
+    print(f"   📦 Split into {len(batches):,} batches ({batch_size} files each)")
     
     # Delete files in parallel with progress tracking
     print(f"\n⚡ Deleting files...")
@@ -103,12 +112,13 @@ def delete_with_progress(root_path, num_workers=None):
     speed_samples = deque(maxlen=20)  # Last 20 samples
     
     with mp.Pool(processes=num_workers) as pool:
-        for i, (dir_path, deleted, success) in enumerate(pool.imap_unordered(delete_files_in_dir, tasks, chunksize=10)):
+        # Use imap_unordered for better performance and immediate results
+        for deleted in pool.imap_unordered(delete_file_batch, batches, chunksize=1):
             deleted_count += deleted
             
-            # Update progress every 0.1 seconds
+            # Update progress every 0.05 seconds for more responsive feedback
             now = time.time()
-            if now - last_print > 0.1 or deleted_count == total_files:
+            if now - last_print > 0.05 or deleted_count >= total_files:
                 elapsed = now - start_time
                 percent = (deleted_count / total_files) * 100
                 
