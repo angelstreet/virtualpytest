@@ -35,6 +35,7 @@ typing-extensions>=4.0.0
 
 # File system operations
 watchdog>=3.0.0
+inotify>=0.2.10  # Efficient file system event monitoring (used by capture_monitor.py)
 
 # Hardware interface dependencies (from backend_host)
 # These are for direct hardware access on the host
