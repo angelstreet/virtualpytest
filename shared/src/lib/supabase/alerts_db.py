@@ -5,6 +5,7 @@ This module provides functions for managing alerts in the database.
 Alerts track monitoring incidents with start/end times and device information.
 """
 
+import json
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -533,10 +534,37 @@ def delete_all_alerts() -> Dict:
         result = supabase.rpc('delete_all_alerts').execute()
         
         # The function returns a JSON object with success, deleted_count, and message
-        if result.data:
-            response = result.data if isinstance(result.data, dict) else result.data[0] if isinstance(result.data, list) else {}
+        if result.data is not None:
+            # Handle different return types from Supabase RPC
+            if isinstance(result.data, dict):
+                response = result.data
+            elif isinstance(result.data, list) and len(result.data) > 0:
+                response = result.data[0]
+            elif isinstance(result.data, str):
+                # Handle string response - parse as JSON
+                try:
+                    response = json.loads(result.data)
+                except json.JSONDecodeError:
+                    print(f"[@db:alerts:delete_all_alerts] Failed to parse JSON string: {result.data}")
+                    response = {}
+            else:
+                response = {}
+            
             print(f"[@db:alerts:delete_all_alerts] Result: {response}")
-            return response
+            
+            # Ensure we have a valid response structure
+            if response and response.get('success'):
+                return {
+                    'success': True,
+                    'deleted_count': response.get('deleted_count', 0),
+                    'message': response.get('message', 'Alerts deleted successfully')
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': response.get('error', 'Unknown error during deletion'),
+                    'deleted_count': 0
+                }
         else:
             print("[@db:alerts:delete_all_alerts] No data returned from function")
             return {
