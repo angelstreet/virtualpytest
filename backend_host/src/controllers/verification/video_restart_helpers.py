@@ -168,12 +168,44 @@ class VideoRestartHelpers:
             return {'success': False, 'error': str(e)}
     
     def analyze_restart_complete(self, video_id: str, screenshot_urls: list) -> Optional[Dict[str, Any]]:
-        """Combined restart analysis: subtitles + summary in single optimized call"""
+        """
+        Combined restart analysis: subtitles + summary in single optimized call
+        
+        Raises:
+            ValueError: If screenshot_urls is empty or invalid
+            FileNotFoundError: If screenshot files don't exist
+            Exception: If analysis fails
+        """
         try:
+            # Validate inputs
+            if not screenshot_urls:
+                error_msg = f"No screenshot URLs provided for visual analysis (video_id: {video_id})"
+                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: {error_msg}")
+                raise ValueError(error_msg)
+            
+            print(f"RestartHelpers[{self.device_name}]: Starting visual analysis with {len(screenshot_urls)} screenshots")
+            
             from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             from backend_host.src.controllers.verification.video import VideoVerificationController
             
             local_paths = [convertHostUrlToLocalPath(url) if url.startswith(('http://', 'https://')) else url for url in screenshot_urls]
+            
+            # Verify files exist
+            missing_files = []
+            for i, path in enumerate(local_paths):
+                if not os.path.exists(path):
+                    missing_files.append((i, path))
+            
+            if missing_files:
+                error_msg = f"Missing {len(missing_files)}/{len(local_paths)} screenshot files for visual analysis"
+                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: {error_msg}")
+                for idx, path in missing_files[:3]:  # Show first 3 missing files
+                    print(f"RestartHelpers[{self.device_name}]:   - Missing file {idx+1}: {path}")
+                if len(missing_files) > 3:
+                    print(f"RestartHelpers[{self.device_name}]:   - ... and {len(missing_files)-3} more missing files")
+                raise FileNotFoundError(error_msg)
+            
+            print(f"RestartHelpers[{self.device_name}]: ✓ All {len(local_paths)} screenshot files exist")
             
             video_controller = VideoVerificationController(self.device_name)
             
@@ -265,15 +297,27 @@ class VideoRestartHelpers:
                 'frames_analyzed': len(local_paths)
             }
             
+            print(f"RestartHelpers[{self.device_name}]: ✅ Visual analysis completed successfully")
+            print(f"RestartHelpers[{self.device_name}]:   - Frames analyzed: {len(local_paths)}")
+            print(f"RestartHelpers[{self.device_name}]:   - Subtitles detected: {subtitle_analysis['subtitles_detected']}")
+            print(f"RestartHelpers[{self.device_name}]:   - Language: {detected_language}")
+            
             return {
                 'success': True,
                 'subtitle_analysis': subtitle_analysis,
                 'video_analysis': video_analysis
             }
             
+        except (ValueError, FileNotFoundError) as e:
+            # Re-raise validation errors so they bubble up with proper context
+            print(f"RestartHelpers[{self.device_name}]: ❌ VALIDATION ERROR: {e}")
+            raise
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Combined restart analysis error: {e}")
-            return {'success': False, 'error': str(e)}
+            error_msg = f"Visual analysis failed unexpectedly: {str(e)}"
+            print(f"RestartHelpers[{self.device_name}]: ❌ FATAL ERROR: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            raise Exception(error_msg) from e
     
     def generate_restart_video(self, duration_seconds: float = None, test_start_time: float = None, processing_time: float = None) -> Optional[Dict[str, Any]]:
         """
@@ -1013,15 +1057,69 @@ class VideoRestartHelpers:
             self._save_status(video_id, {'audio': 'error', 'audio_error': str(e)})
     
     def _t2_visual(self, video_id: str, screenshot_urls: List[str]) -> None:
-        """Thread 2: Visual analysis"""
+        """
+        Thread 2: Visual analysis
+        
+        Catches exceptions and saves error status for polling to detect
+        """
         try:
-            print(f"RestartHelpers[{self.device_name}]: Starting visual analysis for {video_id}")
+            print(f"RestartHelpers[{self.device_name}]: 🎬 Starting visual analysis for {video_id}")
+            print(f"RestartHelpers[{self.device_name}]:   - Screenshot URLs: {len(screenshot_urls)}")
+            
+            # Validate inputs before starting
+            if not screenshot_urls:
+                raise ValueError(f"No screenshot URLs provided for visual analysis")
+            
+            # Run analysis (this will raise exceptions on failure)
             result = self.analyze_restart_complete(video_id, screenshot_urls)
-            print(f"RestartHelpers[{self.device_name}]: Visual analysis completed for {video_id}")
-            self._save_status(video_id, {'visual': 'completed', 'subtitle_analysis': result.get('subtitle_analysis'), 'video_analysis': result.get('video_analysis')})
+            
+            # Check if result is valid
+            if not result:
+                raise Exception("analyze_restart_complete returned None")
+            
+            if not result.get('success'):
+                error = result.get('error', 'Unknown error')
+                raise Exception(f"Visual analysis returned failure: {error}")
+            
+            # Success - save results
+            print(f"RestartHelpers[{self.device_name}]: ✅ Visual analysis completed successfully for {video_id}")
+            self._save_status(video_id, {
+                'visual': 'completed',
+                'subtitle_analysis': result.get('subtitle_analysis'),
+                'video_analysis': result.get('video_analysis')
+            })
+            
+        except ValueError as e:
+            # Input validation error
+            error_msg = f"Visual analysis validation failed: {str(e)}"
+            print(f"RestartHelpers[{self.device_name}]: ❌ VALIDATION ERROR for {video_id}: {error_msg}")
+            self._save_status(video_id, {
+                'visual': 'error',
+                'visual_error': error_msg,
+                'error_type': 'validation_error'
+            })
+            
+        except FileNotFoundError as e:
+            # Screenshot files missing
+            error_msg = f"Screenshot files not found: {str(e)}"
+            print(f"RestartHelpers[{self.device_name}]: ❌ FILE ERROR for {video_id}: {error_msg}")
+            self._save_status(video_id, {
+                'visual': 'error',
+                'visual_error': error_msg,
+                'error_type': 'file_not_found'
+            })
+            
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Visual analysis failed for {video_id}: {e}")
-            self._save_status(video_id, {'visual': 'error', 'visual_error': str(e)})
+            # Unexpected error
+            error_msg = f"Visual analysis failed: {str(e)}"
+            print(f"RestartHelpers[{self.device_name}]: ❌ FATAL ERROR for {video_id}: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            self._save_status(video_id, {
+                'visual': 'error',
+                'visual_error': error_msg,
+                'error_type': 'unexpected_error'
+            })
     
     def _t3_heavy(self, video_id: str) -> None:
         """Thread 3: Audio preparation only (dubbing/sync on-demand)"""

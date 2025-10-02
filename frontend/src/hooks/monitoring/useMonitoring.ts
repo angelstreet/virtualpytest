@@ -16,18 +16,9 @@ interface FrameRef {
   subtitleAnalysis?: SubtitleAnalysis | null;
   languageMenuAnalysis?: LanguageMenuAnalysis | null;
   aiDescription?: string | null;
-}
-
-interface QueuedFrame {
-  timestamp: string;
-  imageUrl: string;
-  jsonUrl: string;
-  sequence: string;
-  // AI analysis will be added asynchronously after queuing
-  analysis?: MonitoringAnalysis | null;
-  subtitleAnalysis?: SubtitleAnalysis | null;
-  languageMenuAnalysis?: LanguageMenuAnalysis | null;
-  aiDescription?: string | null;
+  // Timeline indicator flags
+  hasAIAnalysis?: boolean; // True when subtitle + summary are loaded
+  hasError?: boolean; // True when JSON shows blackscreen, freeze, or audio loss
 }
 
 interface ErrorTrendData {
@@ -76,82 +67,52 @@ interface UseMonitoringReturn {
 interface UseMonitoringProps {
   host: any; // Host object for API requests
   device: any; // Device object for API requests
-  baseUrlPattern?: string; // Base URL pattern from useRec - optional
 }
 
 export const useMonitoring = ({
   host,
   device,
-  baseUrlPattern,
 }: UseMonitoringProps): UseMonitoringReturn => {
   const [frames, setFrames] = useState<FrameRef[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [, setCurrentImageUrl] = useState<string>('');
   const [userSelectedFrame, setUserSelectedFrame] = useState(false);
   const [selectedFrameAnalysis, setSelectedFrameAnalysis] = useState<MonitoringAnalysis | null>(
     null,
   );
   const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [, setDisplayQueue] = useState<QueuedFrame[]>([]);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
-  const [initialFramesLoaded, setInitialFramesLoaded] = useState(0);
 
-  // Initial loading: Wait for 3 frames with JSON only (fast display)
-  useEffect(() => {
-    if (initialFramesLoaded >= 3) {
-      console.log('[useMonitoring] 🎯 Initial buffer complete: 3 frames loaded, starting display');
-      setIsInitialLoading(false);
-    }
-  }, [initialFramesLoaded]);
-
-
-
-  // Fast JSON loading for immediate display
-  const loadFrameJsonAsync = useCallback(async (queuedFrame: QueuedFrame): Promise<void> => {
-    const startTime = performance.now();
-    console.log('[useMonitoring] ⚡ Fast JSON loading for:', queuedFrame.imageUrl);
-    
-    // Load JSON analysis only (fast) - handle 404s gracefully
+  // Helper: Load JSON analysis and determine error status
+  const loadFrameJsonAsync = useCallback(async (jsonUrl: string): Promise<{analysis: any, hasError: boolean}> => {
     let jsonAnalysis: any = null;
+    let hasError = false;
+    
     try {
-      const jsonResponse = await fetch(queuedFrame.jsonUrl);
+      const jsonResponse = await fetch(jsonUrl);
       if (jsonResponse.ok) {
         jsonAnalysis = await jsonResponse.json();
+        
+        // Determine if frame has errors (for timeline red/green indicator)
+        hasError = !!(
+          jsonAnalysis?.blackscreen || 
+          jsonAnalysis?.freeze || 
+          !jsonAnalysis?.audio
+        );
       } else if (jsonResponse.status === 404) {
         console.log('[useMonitoring] JSON not found (404) - will display image without analysis');
-        jsonAnalysis = null; // Explicitly set to null for 404
-      } else {
-        console.warn('[useMonitoring] JSON fetch failed:', jsonResponse.status, jsonResponse.statusText);
       }
     } catch (error) {
       console.warn('[useMonitoring] Failed to load JSON:', error);
     }
     
-    const totalTime = performance.now() - startTime;
-    console.log(`[useMonitoring] ✅ JSON loaded in ${totalTime.toFixed(0)}ms for:`, queuedFrame.imageUrl);
+    return { analysis: jsonAnalysis, hasError };
+  }, []);
 
-    // Update frame with JSON only (ready for display)
-    queuedFrame.analysis = jsonAnalysis;
-    queuedFrame.subtitleAnalysis = null; // Will be filled by background AI
-    queuedFrame.languageMenuAnalysis = null; // Removed for performance
-    queuedFrame.aiDescription = null; // Will be filled by background AI
-
-    // Count as complete for initial buffer (frame ready for display regardless of JSON)
-    if (initialFramesLoaded < 3) {
-      setInitialFramesLoaded(count => {
-        const newCount = count + 1;
-        console.log(`[useMonitoring] 📊 Initial frame ${newCount}/3 ready for display (JSON: ${jsonAnalysis ? 'loaded' : 'missing'})`);
-        return newCount;
-      });
-    }
-  }, [initialFramesLoaded]);
-
-  // Background AI analysis for caching (runs separately)
-  const analyzeFrameAIAsync = useCallback(async (queuedFrame: QueuedFrame): Promise<void> => {
-    const startTime = performance.now();
-    console.log('[useMonitoring] 🤖 Background AI analysis for:', queuedFrame.imageUrl);
+  // Background AI analysis for caching (runs separately, non-blocking)
+  const analyzeFrameAIAsync = useCallback(async (imageUrl: string): Promise<void> => {
+    console.log('[useMonitoring] 🤖 Background AI analysis for:', imageUrl);
 
     // Combined AI analysis in background (single call for both subtitle + description)
     const combinedResult = await fetch(buildServerUrl('/server/verification/video/analyzeImageComplete'), {
@@ -160,7 +121,7 @@ export const useMonitoring = ({
       body: JSON.stringify({
         host_name: host.host_name,
         device_id: device?.device_id,
-        image_source_url: queuedFrame.imageUrl,
+        image_source_url: imageUrl,
         extract_text: true,
         include_description: true,
       }),
@@ -185,65 +146,19 @@ export const useMonitoring = ({
       aiDescription = combinedResult.description_analysis.response;
     }
 
-    const totalTime = performance.now() - startTime;
-    console.log(`[useMonitoring] ✅ Background AI completed in ${totalTime.toFixed(0)}ms for:`, queuedFrame.imageUrl);
+    console.log(`[useMonitoring] ✅ Background AI completed for:`, imageUrl);
 
-    // Update frame with AI results (cached for when user revisits)
-    queuedFrame.subtitleAnalysis = subtitleAnalysis;
-    queuedFrame.aiDescription = aiDescription;
-
-    // Update both queue and frames array with cached AI results
-    setDisplayQueue(prev => prev.map(frame => 
-      frame.imageUrl === queuedFrame.imageUrl ? { ...frame, subtitleAnalysis, aiDescription } : frame
-    ));
+    // Update frames array with AI results and set hasAIAnalysis flag
     setFrames(prev => prev.map(frame => 
-      frame.imageUrl === queuedFrame.imageUrl ? { ...frame, subtitleAnalysis, aiDescription } : frame
+      frame.imageUrl === imageUrl ? { 
+        ...frame, 
+        subtitleAnalysis, 
+        aiDescription,
+        hasAIAnalysis: true // Mark that AI analysis is available
+      } : frame
     ));
   }, [host, device?.device_id]);
 
-  // State for autonomous base URL pattern (discovered via takeScreenshot API)
-  const [autonomousBaseUrlPattern, setAutonomousBaseUrlPattern] = useState<string | null>(null);
-  const [isInitializingBaseUrl, setIsInitializingBaseUrl] = useState(false);
-
-  // Initialize base URL pattern autonomously using takeScreenshot API (like the original useRec implementation)
-  const initializeAutonomousBaseUrl = useCallback(async (): Promise<void> => {
-    if (autonomousBaseUrlPattern || isInitializingBaseUrl) {
-      return; // Already have pattern or currently initializing
-    }
-
-    setIsInitializingBaseUrl(true);
-    try {
-      console.log('[useMonitoring] Initializing autonomous base URL pattern...');
-      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1',
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.screenshot_url) {
-          const basePattern = buildCaptureUrl(host, '{sequence}', device?.device_id);
-          
-          setAutonomousBaseUrlPattern(basePattern);
-          console.log(`[useMonitoring] Autonomous base URL pattern initialized: ${basePattern}`);
-        } else {
-          console.warn('[useMonitoring] takeScreenshot API returned no screenshot_url');
-        }
-      } else {
-        console.warn('[useMonitoring] takeScreenshot API failed:', response.status);
-      }
-    } catch (error) {
-      console.error('[useMonitoring] Failed to initialize autonomous base URL pattern:', error);
-    } finally {
-      setIsInitializingBaseUrl(false);
-    }
-  }, [host, device, autonomousBaseUrlPattern, isInitializingBaseUrl]);
 
   // Fetch latest JSON file and derive image URL
   const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string, sequence: string} | null> => {
@@ -283,177 +198,61 @@ export const useMonitoring = ({
     }
   }, [host?.host_name, host?.host_url, device?.device_id]);
 
-  // Initialize autonomous base URL pattern on mount
+  // Simple 1s polling: Fetch latest frame, load JSON immediately, display instantly
   useEffect(() => {
-    if (!baseUrlPattern && !autonomousBaseUrlPattern && !isInitializingBaseUrl) {
-      initializeAutonomousBaseUrl();
-    }
-  }, [baseUrlPattern, autonomousBaseUrlPattern, isInitializingBaseUrl, initializeAutonomousBaseUrl]);
+    let isMounted = true;
+    
+    const pollLatestFrame = async () => {
+      try {
+        const latestData = await fetchLatestMonitoringData();
+        if (!isMounted || !latestData) return;
+        if (latestData.sequence === lastProcessedSequence) return; // Skip if already processed
 
-  // Process 1: Queue Feeder - Sequential frame processing with complete AI analysis
-  useEffect(() => {
-    // Start immediately, don't wait for initial loading to complete
+        console.log(`[useMonitoring] 📸 New frame detected: seq=${latestData.sequence}`);
 
-    let isRunning = true;
-    let frameSequence = 0;
+        // Load JSON immediately (fast, ~100-200ms)
+        const { analysis, hasError } = await loadFrameJsonAsync(latestData.jsonUrl);
 
-    const queueFeederLoop = async () => {
-      // Wait a moment for autonomous base URL initialization
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('[useMonitoring] 🔄 Starting fast initial buffer (3 frames)...');
-      
-      // Phase 1: Fast initial buffer - exactly 3 frames for immediate display
-      for (let i = 0; i < 3 && isRunning; i++) {
-        try {
-          const latestData = await fetchLatestMonitoringData();
-          
-          if (latestData && latestData.sequence !== lastProcessedSequence) {
-            frameSequence++;
-            const timestamp = new Date().toISOString();
-            console.log(`[useMonitoring] ⚡ [${timestamp}] Fast loading frame ${frameSequence}/3: seq=${latestData.sequence}`);
-            
-            const queuedFrame: QueuedFrame = {
-              timestamp: latestData.timestamp,
-              imageUrl: latestData.imageUrl,
-              jsonUrl: latestData.jsonUrl,
-              sequence: latestData.sequence,
-            };
-
-            // Fast JSON loading only
-            await loadFrameJsonAsync(queuedFrame);
-            
-            // Queue immediately
-            setDisplayQueue(prev => [...prev, queuedFrame]);
-            setLastProcessedSequence(latestData.sequence);
-            setCurrentImageUrl(latestData.imageUrl);
-
-            // Start background AI (non-blocking)
-            analyzeFrameAIAsync(queuedFrame).catch(error => {
-              console.warn('[useMonitoring] Background AI failed:', error);
-            });
-          }
-          
-          // Small delay between initial frames
-          if (i < 2) await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-          console.error('[useMonitoring] Initial buffer error:', error);
-        }
-      }
-      
-      console.log('[useMonitoring] ✅ Fast initial buffer complete - player should be visible');
-      
-      // Phase 2: Normal operation - continue feeding queue
-      while (isRunning) {
-        try {
-          const latestData = await fetchLatestMonitoringData();
-          
-          if (latestData && latestData.sequence !== lastProcessedSequence) {
-            frameSequence++;
-            const timestamp = new Date().toISOString();
-            console.log(`[useMonitoring] 📦 [${timestamp}] Normal frame ${frameSequence}: seq=${latestData.sequence}`);
-            
-            const queuedFrame: QueuedFrame = {
-              timestamp: latestData.timestamp,
-              imageUrl: latestData.imageUrl,
-              jsonUrl: latestData.jsonUrl,
-              sequence: latestData.sequence,
-            };
-
-            await loadFrameJsonAsync(queuedFrame);
-            
-            setDisplayQueue(prev => [...prev, queuedFrame].slice(-10));
-            setLastProcessedSequence(latestData.sequence);
-            setCurrentImageUrl(latestData.imageUrl);
-
-            // Background AI caching
-            analyzeFrameAIAsync(queuedFrame).catch(error => {
-              console.warn('[useMonitoring] Background AI failed:', error);
-            });
-          }
-          
-          // Normal polling rate
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          console.error('[useMonitoring] Queue feeder error:', error);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    };
-
-    queueFeederLoop();
-
-    return () => {
-      isRunning = false;
-    };
-  }, [fetchLatestMonitoringData, loadFrameJsonAsync, analyzeFrameAIAsync, lastProcessedSequence, initialFramesLoaded]);
-
-  // Process 2: Display Consumer - Simple 1 FPS display from complete frames
-  useEffect(() => {
-    if (isInitialLoading) return;
-
-    const displayInterval = setInterval(() => {
-      const timestamp = new Date().toISOString();
-      
-      setDisplayQueue(prev => {
-        console.log(`[useMonitoring] 📊 [${timestamp}] Display consumer: Queue length=${prev.length}`);
-        
-        if (prev.length === 0) {
-          console.log(`[useMonitoring] ⚠️ [${timestamp}] Queue empty - no frames to display`);
-          return prev;
-        }
-
-        // Take first frame (all frames in queue are complete)
-        const [nextFrame, ...remainingFrames] = prev;
-        
-        console.log(`[useMonitoring] 🎬 [${timestamp}] Displaying frame: seq=${nextFrame.sequence}, url=${nextFrame.imageUrl}`);
-        console.log(`[useMonitoring] 📊 [${timestamp}] Remaining queue: ${remainingFrames.length} frames`);
-        
-        // Convert QueuedFrame to FrameRef and add to frames array
+        // Create frame and add to frames array immediately
         const frameRef: FrameRef = {
-          timestamp: nextFrame.timestamp,
-          imageUrl: nextFrame.imageUrl,
-          jsonUrl: nextFrame.jsonUrl,
-          analysis: nextFrame.analysis,
-          subtitleAnalysis: nextFrame.subtitleAnalysis,
-          languageMenuAnalysis: nextFrame.languageMenuAnalysis,
-          aiDescription: nextFrame.aiDescription,
+          timestamp: latestData.timestamp,
+          imageUrl: latestData.imageUrl,
+          jsonUrl: latestData.jsonUrl,
+          analysis,
+          hasError, // Red/green timeline indicator
+          hasAIAnalysis: false, // Will be set to true when AI completes
         };
 
         setFrames(current => {
           const newFrames = [...current, frameRef].slice(-100);
-          // Only auto-advance to latest if user is not manually browsing
+          // Auto-advance to latest if user is following live
           if (!userSelectedFrame && isPlaying) {
             setCurrentIndex(newFrames.length - 1);
           }
           return newFrames;
         });
 
-        return remainingFrames;
-      });
-    }, 2000); // 0.5 FPS (2-second intervals)
+        setLastProcessedSequence(latestData.sequence);
+        if (isInitialLoading) setIsInitialLoading(false);
 
-    return () => clearInterval(displayInterval);
-  }, [isInitialLoading, userSelectedFrame, isPlaying]);
-
-  // Auto-play functionality - only advances when at the latest frame
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && frames.length > 1 && !userSelectedFrame) {
-      interval = setInterval(() => {
-        setCurrentIndex((prev) => {
-          // Only auto-advance if we're already at the latest frame
-          if (prev === frames.length - 1) {
-            // Stay at latest frame (will advance when new frames are added)
-            return frames.length - 1;
-          }
-          // If user is viewing historical frames, don't auto-advance
-          return prev;
+        // Start background AI analysis (non-blocking, will update hasAIAnalysis when done)
+        analyzeFrameAIAsync(latestData.imageUrl).catch(error => {
+          console.warn('[useMonitoring] Background AI failed:', error);
         });
-      }, 2000); // 2 seconds per frame
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, frames.length, userSelectedFrame]);
+      } catch (error) {
+        console.error('[useMonitoring] Polling error:', error);
+      }
+    };
+
+    // Poll immediately on mount, then every 1s
+    pollLatestFrame();
+    const interval = setInterval(pollLatestFrame, 1000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchLatestMonitoringData, loadFrameJsonAsync, analyzeFrameAIAsync, lastProcessedSequence, userSelectedFrame, isPlaying, isInitialLoading]);
 
   // Load analysis for selected frame
   useEffect(() => {

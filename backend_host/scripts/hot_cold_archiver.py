@@ -118,6 +118,11 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
     """
     Archive hot files to hour folders when exceeding limit
     
+    GUARANTEES:
+    - Always keeps the NEWEST hot_limit files in hot storage
+    - Never archives files less than 60 seconds old (safety buffer)
+    - Verifies correct file count after archiving
+    
     Returns: Number of files archived
     """
     hot_dir = os.path.join(capture_dir, file_type)
@@ -131,6 +136,8 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
     # Get files in hot storage (root only, not subdirs)
     try:
         files = []
+        current_time = time.time()
+        
         for item in Path(hot_dir).glob(pattern):
             if item.is_file() and item.parent == Path(hot_dir):
                 files.append(item)
@@ -144,11 +151,33 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
         # Calculate how many to archive
         to_archive = file_count - hot_limit
         
-        # Sort by modification time (oldest first)
+        # Sort by modification time (oldest first) - CRITICAL for keeping newest files
         files.sort(key=lambda f: f.stat().st_mtime)
-        files_to_archive = files[:to_archive]
         
-        logger.info(f"{file_type}: Archiving {to_archive} old files ({file_count} → {hot_limit})")
+        # Safety check: Never archive files less than 60 seconds old
+        # This protects restart video operations from race conditions
+        MIN_AGE_SECONDS = 60
+        files_to_archive = []
+        files_too_recent = []
+        
+        for filepath in files[:to_archive]:
+            file_age = current_time - filepath.stat().st_mtime
+            if file_age >= MIN_AGE_SECONDS:
+                files_to_archive.append(filepath)
+            else:
+                files_too_recent.append(filepath)
+        
+        if files_too_recent:
+            logger.warning(f"{file_type}: {len(files_too_recent)} files too recent to archive (< {MIN_AGE_SECONDS}s old) - keeping in hot storage for safety")
+        
+        if not files_to_archive:
+            logger.info(f"{file_type}: {file_count} files, but all recent files (< {MIN_AGE_SECONDS}s old) - skipping archival for safety")
+            return 0
+        
+        # Log what we're about to do
+        oldest_file_age = current_time - files_to_archive[0].stat().st_mtime
+        newest_kept_age = current_time - files[-1].stat().st_mtime
+        logger.info(f"{file_type}: Archiving {len(files_to_archive)} old files ({file_count} → {hot_limit + len(files_too_recent)}, oldest={oldest_file_age:.1f}s, newest_kept={newest_kept_age:.1f}s)")
         
         archived_count = 0
         for filepath in files_to_archive:
@@ -169,6 +198,15 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
                 
             except Exception as e:
                 logger.error(f"Error archiving {filepath}: {e}")
+        
+        # Verify: Count remaining files in hot storage
+        remaining_files = [f for f in Path(hot_dir).glob(pattern) if f.is_file() and f.parent == Path(hot_dir)]
+        remaining_count = len(remaining_files)
+        
+        if remaining_count > hot_limit + 10:  # Allow 10 file buffer for race conditions
+            logger.warning(f"{file_type}: After archiving, hot storage still has {remaining_count} files (expected ~{hot_limit})")
+        else:
+            logger.info(f"{file_type}: ✓ Verified hot storage has {remaining_count} files (target: {hot_limit})")
         
         return archived_count
         

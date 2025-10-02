@@ -452,12 +452,31 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
             }
           }
           
-          // Stop polling when both audio and visual analysis are done
+          // Handle visual analysis errors
+          if (status.visual === 'error' && !notifiedRef.current.visual) {
+            const errorMsg = status.visual_error || 'Unknown error';
+            const errorType = status.error_type || 'unknown';
+            console.error('[@hook:useRestart] ❌ Visual analysis failed:', errorMsg, `(type: ${errorType})`);
+            toast.showError(`❌ Visual analysis failed: ${errorMsg}`, { duration: 8000 });
+            notifiedRef.current.visual = true;
+          }
+          
+          // Handle audio analysis errors
+          if (status.audio === 'error' && !notifiedRef.current.audio) {
+            const errorMsg = status.audio_error || 'Unknown error';
+            console.error('[@hook:useRestart] ❌ Audio analysis failed:', errorMsg);
+            toast.showError(`❌ Audio analysis failed: ${errorMsg}`, { duration: 8000 });
+            notifiedRef.current.audio = true;
+          }
+          
+          // Stop polling when both audio and visual analysis are done (completed or error)
           const audioComplete = status.audio === 'completed' || status.audio === 'error';
           const visualComplete = status.visual === 'completed' || status.visual === 'error';
           
           if (audioComplete && visualComplete) {
-            console.log('[@hook:useRestart] 🎯 Both audio and visual analysis completed, stopping polling');
+            console.log('[@hook:useRestart] 🎯 Analysis finished, stopping polling');
+            console.log('[@hook:useRestart]   - Audio:', status.audio, status.audio === 'error' ? `(${status.audio_error})` : '');
+            console.log('[@hook:useRestart]   - Visual:', status.visual, status.visual === 'error' ? `(${status.visual_error})` : '');
             clearInterval(pollInterval);
             
             // No additional completion toast - individual toasts already shown
