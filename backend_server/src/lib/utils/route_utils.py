@@ -7,6 +7,10 @@ Shared utilities for server routes including host proxying and request handling.
 from flask import request
 import requests
 import json
+import urllib3
+
+# Disable InsecureRequestWarning for self-signed certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def get_host_from_request():
