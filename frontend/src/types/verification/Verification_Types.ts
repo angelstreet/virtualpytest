@@ -21,7 +21,7 @@ export interface ReferenceArea {
 export interface ImageVerificationParams {
   image_path: string; // Required: reference image filename or path
   threshold?: number; // Optional: match threshold (0.0 to 1.0), default 0.8
-  timeout?: number; // Optional: timeout in seconds, default 1.0
+  timeout?: number; // Optional: timeout in whole seconds (1-60), default 1
   area?: ReferenceArea; // Optional: area to search within
   image_filter?: 'none' | 'greyscale' | 'binary'; // Optional: filter to apply, default 'none'
   reference_name?: string; // Optional: reference name for UI display (same as image_path usually)
@@ -32,7 +32,7 @@ export interface TextVerificationParams {
   text: string; // Required: text pattern to search for
   threshold?: number; // Optional: match threshold (0.0 to 1.0)
   confidence?: number; // Optional: confidence level (0.0 to 1.0)
-  timeout?: number; // Optional: timeout in seconds, default 10.0
+  timeout?: number; // Optional: timeout in whole seconds (1-60), default 10
   case_sensitive?: boolean; // Optional: case sensitive matching, default false
   area?: ReferenceArea; // Optional: area to search within
   image_filter?: 'none' | 'greyscale' | 'binary'; // Optional: filter to apply
@@ -42,13 +42,13 @@ export interface TextVerificationParams {
 // ADB verification parameters
 export interface AdbVerificationParams {
   search_term: string; // Required: element search term
-  timeout?: number; // Optional: timeout in seconds, default 0.0 (single check)
+  timeout?: number; // Optional: timeout in whole seconds (0-60), default 0 (single check)
 }
 
 // Appium verification parameters
 export interface AppiumVerificationParams {
   search_term: string; // Required: element search term
-  timeout?: number; // Optional: timeout in seconds, default 0.0 (single check)
+  timeout?: number; // Optional: timeout in whole seconds (0-60), default 0 (single check)
 }
 
 // Audio verification parameters
@@ -56,7 +56,7 @@ export interface AudioVerificationParams {
   // For detect_silence command
   threshold?: number; // Optional: silence threshold percentage
   duration?: number; // Optional: analysis duration in seconds
-  timeout?: number; // Optional: timeout in seconds
+  timeout?: number; // Optional: timeout in whole seconds (0-60)
   audio_file?: string; // Optional: audio file path
 
   // For verify_audio_playing command
@@ -72,7 +72,7 @@ export interface VideoVerificationParams {
   // For motion detection commands
   motion_threshold?: number; // Optional: motion threshold percentage
   duration?: number; // Optional: analysis duration in seconds
-  timeout?: number; // Optional: timeout in seconds
+  timeout?: number; // Optional: timeout in whole seconds (0-60)
   area?: ReferenceArea; // Optional: area to search within
 
   // For color verification

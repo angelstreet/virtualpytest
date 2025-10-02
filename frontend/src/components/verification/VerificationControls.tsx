@@ -20,11 +20,11 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
         <TextField
           size="small"
           type="number"
-          label="Timeout"
+          label="Timeout (s)"
           value={verification.params?.timeout !== undefined ? verification.params.timeout : 0}
           autoComplete="off"
           onChange={(e) => {
-            const value = parseFloat(e.target.value);
+            const value = parseInt(e.target.value, 10);
             onUpdateVerification(index, {
               params: {
                 ...verification.params,
@@ -39,7 +39,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
               fontSize: '0.8rem',
             },
           }}
-          inputProps={{ min: 0, max: 60, step: 0.5 }}
+          inputProps={{ min: 0, max: 60, step: 1 }}
         />
       )}
 

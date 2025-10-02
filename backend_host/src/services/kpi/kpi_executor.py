@@ -225,7 +225,7 @@ class KPIExecutor:
             return
         
         print(f"   • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
-        print(f"   • Timeout: {request.timeout_ms}ms")
+        print(f"   • Timeout: {request.timeout_ms}ms ({request.timeout_ms / 1000:.1f}s)")
         print(f"   • KPI references: {len(request.kpi_references)}")
         
         start_time = time.time()
@@ -289,7 +289,9 @@ class KPIExecutor:
         # Calculate optimized time window using verification timestamp (NOT timeout!)
         # We know KPI appeared by verification_timestamp, so no need to scan beyond it
         window_ms = int((verification_timestamp - action_timestamp) * 1000)
-        print(f"🎯 [KPIExecutor] Optimized scan window: {window_ms}ms (action → verification) vs timeout: {request.timeout_ms}ms")
+        timeout_s = request.timeout_ms / 1000
+        window_s = window_ms / 1000
+        print(f"🎯 [KPIExecutor] Optimized scan window: {window_s:.2f}s (action → verification) vs timeout: {timeout_s:.1f}s")
         
         # Find all captures in optimized time window
         pattern = os.path.join(capture_dir, "capture_*.jpg")
@@ -312,7 +314,9 @@ class KPIExecutor:
             return {'success': False, 'error': 'No captures found in time window', 'captures_scanned': 0}
         
         total_captures = len(all_captures)
-        print(f"📸 [KPIExecutor] Found {total_captures} captures in optimized window (saved ~{request.timeout_ms - window_ms}ms of scanning)")
+        saved_ms = request.timeout_ms - window_ms
+        saved_s = saved_ms / 1000
+        print(f"📸 [KPIExecutor] Found {total_captures} captures in optimized window (saved ~{saved_s:.2f}s of scanning)")
         
         # Convert kpi_references to verification format (same structure as navigation)
         verifications = []
@@ -416,7 +420,7 @@ class KPIExecutor:
             'success': False,
             'timestamp': None,
             'captures_scanned': captures_scanned,
-            'error': f'No match found in {total_captures} captures ({window_ms}ms window)',
+            'error': f'No match found in {total_captures} captures ({window_s:.2f}s window)',
             'algorithm': 'exhaustive_search_failed'
         }
     

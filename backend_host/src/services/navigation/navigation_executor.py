@@ -1207,7 +1207,9 @@ class NavigationExecutor:
                 return
             
             # Get timeout from KPI references (use maximum timeout)
-            timeout_ms = max([ref.get('timeout', 5000) for ref in kpi_references])
+            # KPI references store timeout in SECONDS - convert to milliseconds
+            timeout_seconds = max([ref.get('timeout', 5) for ref in kpi_references])
+            timeout_ms = int(timeout_seconds * 1000)
             
             # Record edge execution to get execution_result_id
             from shared.src.lib.supabase.execution_results_db import record_edge_execution

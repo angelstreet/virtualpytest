@@ -315,6 +315,11 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             />
           </Box>
           
+          {/* Helper text */}
+          <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 0.5, display: 'block' }}>
+            Measure time from action to visual confirmation (timeout: 1-60 seconds)
+          </Typography>
+          
           {/* KPI References List - disabled when checkbox is checked */}
           <Box
             sx={{
