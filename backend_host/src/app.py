@@ -177,7 +177,7 @@ def start_background_services():
         
         # Start KPI measurement service
         try:
-            from backend_host.scripts.kpi_executor import get_kpi_executor
+            from backend_host.src.services.kpi.kpi_executor import get_kpi_executor
             kpi_executor = get_kpi_executor()
             kpi_executor.start()
             print("✅ [backend_host] KPI measurement service started")
@@ -258,6 +258,19 @@ def main():
     # STEP 4: Start Host Services
     print("[@backend_host:main] Step 4: Starting host services...")
     setup_host_cleanup()
+    
+    # STEP 4.1: Initialize and start KPI Executor (in-process background worker)
+    print("[@backend_host:main] Step 4.1: Starting KPI Executor...")
+    try:
+        from backend_host.scripts.kpi_executor import get_kpi_executor
+        kpi_executor = get_kpi_executor()
+        kpi_executor.start()
+        print("[@backend_host:main] ✅ KPI Executor started successfully")
+    except Exception as e:
+        print(f"[@backend_host:main] ⚠️ Failed to start KPI Executor: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue anyway - KPI is optional
     
     # Get configuration
     host_port = int(os.getenv('HOST_PORT', '6109'))

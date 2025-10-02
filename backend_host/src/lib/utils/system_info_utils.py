@@ -63,21 +63,45 @@ def get_network_speed_cached():
         return {}  # Fail gracefully
 
 def measure_network_speed():
-    """Run speedtest"""
+    """Run speedtest with fallback strategies"""
     try:
         import speedtest
         print("🌐 [SPEEDTEST] Running network speed test...")
-        st = speedtest.Speedtest()
-        st.get_best_server()
-        download = round(st.download() / 1_000_000, 2)
-        upload = round(st.upload() / 1_000_000, 2)
+        
+        # Initialize with timeout and secure mode disabled (helps with some ISPs)
+        st = speedtest.Speedtest(secure=True)
+        
+        # Try to get best server with timeout
+        try:
+            st.get_best_server()
+        except Exception as server_error:
+            print(f"⚠️ [SPEEDTEST] Best server failed ({server_error}), trying manual server selection...")
+            # Fallback: Try to get any available server
+            servers = st.get_servers()
+            if servers:
+                # Use first available server
+                st.get_servers(list(servers.keys())[:1])
+        
+        # Run tests with shorter timeout
+        download = round(st.download(threads=None) / 1_000_000, 2)
+        upload = round(st.upload(threads=None) / 1_000_000, 2)
+        
         print(f"✅ [SPEEDTEST] Download: {download} Mbps, Upload: {upload} Mbps")
         return {
             'download_mbps': download,
             'upload_mbps': upload
         }
     except Exception as e:
-        print(f"❌ [SPEEDTEST] Failed: {e}")
+        error_msg = str(e)
+        # Check if it's a known blocking issue
+        if '403' in error_msg or 'Forbidden' in error_msg:
+            print(f"⚠️ [SPEEDTEST] Blocked by network/ISP (403 Forbidden) - skipping test")
+        elif 'timeout' in error_msg.lower():
+            print(f"⚠️ [SPEEDTEST] Timeout - network too slow or unavailable")
+        else:
+            print(f"❌ [SPEEDTEST] Failed: {e}")
+        
+        # Return zeros on failure (graceful degradation)
         return {'download_mbps': 0, 'upload_mbps': 0}
 
 def get_capture_folder_size(capture_folder: str) -> str:

@@ -9,11 +9,12 @@ import time
 import logging
 import sys
 import os
-from kpi_executor import get_kpi_executor, KPIMeasurementRequest, main as kpi_main
 
 # Set PYTHONPATH to include project root (for backend_host.src imports)
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, project_root)  # Makes backend_host.src.* imports work
+
+from backend_host.src.services.kpi.kpi_executor import get_kpi_executor, KPIMeasurementRequest
 
 # Setup basic logging to console for this test
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
