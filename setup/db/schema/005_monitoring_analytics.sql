@@ -1,5 +1,6 @@
 -- VirtualPyTest Monitoring and Analytics Tables Schema
 -- This file contains tables for alerts, metrics, and analytics
+-- Also includes database functions for efficient bulk operations
 
 -- Drop existing tables if they exist (for clean recreation)
 DROP TABLE IF EXISTS edge_metrics CASCADE;

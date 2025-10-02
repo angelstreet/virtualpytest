@@ -95,18 +95,22 @@ class KPIExecutor:
     
     def start(self):
         """Start background worker thread"""
-        if self.running:
-            print("⚠️ [KPIExecutor] Already running")
-            return
-        
-        self.running = True
-        self.worker_thread = threading.Thread(
-            target=self._worker_loop,
-            daemon=True,
-            name="KPI-Worker"
-        )
-        self.worker_thread.start()
-        print("✅ [KPIExecutor] Worker thread started")
+        import sys
+        with self._lock:  # Thread-safe start
+            if self.running:
+                print("⚠️ [KPIExecutor] Already running", flush=True)
+                sys.stdout.flush()
+                return
+            
+            self.running = True
+            self.worker_thread = threading.Thread(
+                target=self._worker_loop,
+                daemon=True,
+                name="KPI-Worker"
+            )
+            self.worker_thread.start()
+            print(f"✅ [KPIExecutor] Worker thread started (thread_id: {self.worker_thread.ident})", flush=True)
+            sys.stdout.flush()
     
     def stop(self):
         """Stop background worker thread"""
@@ -126,17 +130,23 @@ class KPIExecutor:
         Returns:
             True if enqueued successfully, False if queue full
         """
+        import sys
         try:
             self.queue.put(request, block=False)
-            print(f"📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()}, worker running: {self.running})")
+            thread_alive = self.worker_thread.is_alive() if self.worker_thread else False
+            print(f"📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()}, worker running: {self.running}, thread alive: {thread_alive})", flush=True)
+            sys.stdout.flush()
             return True
         except queue.Full:
-            print("❌ [KPIExecutor] Queue full! Dropping KPI measurement request")
+            print("❌ [KPIExecutor] Queue full! Dropping KPI measurement request", flush=True)
+            sys.stdout.flush()
             return False
     
     def _worker_loop(self):
         """Background worker loop that processes measurement requests"""
-        print("🔄 [KPIExecutor] Worker loop started")
+        import sys
+        print("🔄 [KPIExecutor] Worker loop started", flush=True)
+        sys.stdout.flush()
         
         iteration = 0
         while self.running:
@@ -148,37 +158,45 @@ class KPIExecutor:
                     # Periodic heartbeat every 30 iterations (~30 seconds)
                     iteration += 1
                     if iteration % 30 == 0:
-                        print(f"💓 [KPIExecutor] Worker heartbeat (queue size: {self.queue.qsize()})")
+                        print(f"💓 [KPIExecutor] Worker heartbeat (queue size: {self.queue.qsize()})", flush=True)
+                        sys.stdout.flush()
                     continue
                 
-                # Got an item from queue - log immediately before anything else
-                print(f"📥 [KPIExecutor] Worker dequeued item (type: {type(request).__name__})")
+                # Got an item from queue - log IMMEDIATELY with explicit flush
+                print(f"📥 [KPIExecutor] Worker dequeued item (type: {type(request).__name__})", flush=True)
+                sys.stdout.flush()
                 
                 # Validate request object
                 if not isinstance(request, KPIMeasurementRequest):
-                    print(f"❌ [KPIExecutor] Invalid request type: {type(request)}")
+                    print(f"❌ [KPIExecutor] Invalid request type: {type(request)}", flush=True)
+                    sys.stdout.flush()
                     self.queue.task_done()
                     continue
                 
                 # Process measurement request
                 try:
-                    print(f"🎬 [KPIExecutor] Starting processing for execution_result_id: {request.execution_result_id[:8]}")
+                    print(f"🎬 [KPIExecutor] Starting processing for execution_result_id: {request.execution_result_id[:8]}", flush=True)
+                    sys.stdout.flush()
                     self._process_measurement(request)
-                    print(f"🏁 [KPIExecutor] Finished processing")
+                    print(f"🏁 [KPIExecutor] Finished processing", flush=True)
+                    sys.stdout.flush()
                 except Exception as e:
-                    print(f"❌ [KPIExecutor] Error processing measurement: {e}")
+                    print(f"❌ [KPIExecutor] Error processing measurement: {e}", flush=True)
+                    sys.stdout.flush()
                     import traceback
                     traceback.print_exc()
                 finally:
                     self.queue.task_done()
                     
             except Exception as e:
-                print(f"❌ [KPIExecutor] Worker loop error: {e}")
+                print(f"❌ [KPIExecutor] Worker loop error: {e}", flush=True)
+                sys.stdout.flush()
                 import traceback
                 traceback.print_exc()
                 time.sleep(1)  # Prevent tight loop on errors
         
-        print("🛑 [KPIExecutor] Worker loop exited")
+        print("🛑 [KPIExecutor] Worker loop exited", flush=True)
+        sys.stdout.flush()
     
     def _process_measurement(self, request: KPIMeasurementRequest):
         """

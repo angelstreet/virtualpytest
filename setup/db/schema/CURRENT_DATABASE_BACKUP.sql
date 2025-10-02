@@ -517,6 +517,39 @@ BEGIN
 END;
 $$;
 
+-- Function to efficiently delete all alerts without returning data to client
+CREATE OR REPLACE FUNCTION delete_all_alerts()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  deleted_count integer;
+BEGIN
+  -- Count before deletion
+  SELECT COUNT(*) INTO deleted_count FROM alerts;
+  
+  -- Delete all records (much faster than returning them)
+  DELETE FROM alerts;
+  
+  -- Return result as JSON
+  RETURN jsonb_build_object(
+    'success', true,
+    'deleted_count', deleted_count,
+    'message', 'Successfully deleted ' || deleted_count || ' alerts'
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', SQLERRM,
+      'deleted_count', 0
+    );
+END;
+$$;
+
+COMMENT ON FUNCTION delete_all_alerts() IS 'Efficiently deletes all alerts from the database without returning data to the client, preventing timeout issues with large datasets';
+
 -- Function to auto-set edge label on insert
 CREATE OR REPLACE FUNCTION auto_set_edge_label_on_insert()
 RETURNS trigger

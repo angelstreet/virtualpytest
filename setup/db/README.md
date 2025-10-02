@@ -117,4 +117,42 @@ The VirtualPyTest database schema supports:
 - **Monitoring**: Performance metrics, alerts, analytics, and system monitoring
 - **Verification**: Reference data for automated testing
 
-All tables include proper indexes, foreign key relationships, and are designed for high performance and scalability. 
+All tables include proper indexes, foreign key relationships, and are designed for high performance and scalability.
+
+## 🔧 Database Functions
+
+The schema includes several PostgreSQL functions for efficient operations:
+
+### Alert Management Functions
+
+#### `delete_all_alerts()`
+Efficiently deletes all alerts from the database without returning data to the client.
+
+**Usage:**
+```sql
+SELECT delete_all_alerts();
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "deleted_count": 1234,
+  "message": "Successfully deleted 1234 alerts"
+}
+```
+
+**Why use this function?**
+- Prevents timeout issues when deleting large datasets (79,000+ records)
+- Executes entirely in PostgreSQL without network data transfer
+- Returns only a summary instead of all deleted records
+- Much faster than client-side deletion methods
+
+**Python Usage:**
+```python
+from shared.src.lib.supabase.alerts_db import delete_all_alerts
+
+result = delete_all_alerts()
+if result['success']:
+    print(f"Deleted {result['deleted_count']} alerts")
+``` 
