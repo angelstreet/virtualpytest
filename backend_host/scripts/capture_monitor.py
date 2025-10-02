@@ -31,6 +31,7 @@ class InotifyFrameMonitor:
         self.host_name = host_name
         self.incident_manager = IncidentManager()
         self.inotify = inotify.adapters.Inotify()
+        self.last_processed_folder = None  # Track last device for log separation
         
         # Map capture_dir paths to their folder names for logging
         self.dir_to_info = {}
@@ -89,6 +90,15 @@ class InotifyFrameMonitor:
         info = self.dir_to_info[captures_path]
         capture_folder = info['capture_folder']
         
+        # Add visual separator when switching devices
+        if self.last_processed_folder != capture_folder:
+            logger.info("=" * 80)
+            logger.info(f"📹 PROCESSING: {capture_folder.upper()}")
+            logger.info("=" * 80)
+            self.last_processed_folder = capture_folder
+        
+        logger.info(f"[{capture_folder}] 🔍 Analyzing: {filename}")
+        
         try:
             # Analyze frame (blackscreen, freeze, audio)
             detection_result = detect_issues(frame_path)
@@ -124,7 +134,7 @@ class InotifyFrameMonitor:
                     if r2_urls:
                         detection_result['r2_images'] = r2_urls
                         logger.info(f"[{capture_folder}] Uploaded freeze frames to R2 for real-time heatmap")
-            
+                
             # Process incident logic (5-minute debounce, DB operations)
             self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
             
@@ -151,7 +161,7 @@ class InotifyFrameMonitor:
                 # Fallback to simple marker
                 with open(json_file, 'w') as f:
                     f.write('{"analyzed": true, "error": "failed_to_save_full_data"}')
-                
+        
         except Exception as e:
             logger.error(f"[{capture_folder}] Error processing frame {filename}: {e}")
             # Save error marker so we don't retry indefinitely
@@ -189,29 +199,24 @@ class InotifyFrameMonitor:
                     pass
 
 def cleanup_logs_on_startup():
-    """Clean up all monitoring log files on service restart for fresh debugging"""
+    """Clean up monitoring log on service restart for fresh debugging"""
     try:
-        log_files = [
-            '/tmp/capture_monitor.log',  # This service's log
-            '/tmp/analysis.log',         # analyze_audio_video.py log
-            '/tmp/alerts.log'            # alert_system.py log
-        ]
+        log_file = '/tmp/capture_monitor.log'
         
-        print(f"[@capture_monitor] Cleaning monitoring logs on service restart...")
+        print(f"[@capture_monitor] Cleaning monitor log on service restart...")
         
-        for log_file in log_files:
-            if os.path.exists(log_file):
-                # Truncate the file instead of deleting to avoid permission issues
-                with open(log_file, 'w') as f:
-                    f.write(f"=== LOG CLEANED ON MONITOR RESTART: {datetime.now().isoformat()} ===\n")
-                print(f"[@capture_monitor] ✓ Cleaned: {log_file}")
-            else:
-                print(f"[@capture_monitor] ○ Not found (will be created): {log_file}")
+        if os.path.exists(log_file):
+            # Truncate the file instead of deleting to avoid permission issues
+            with open(log_file, 'w') as f:
+                f.write(f"=== LOG CLEANED ON MONITOR RESTART: {datetime.now().isoformat()} ===\n")
+            print(f"[@capture_monitor] ✓ Cleaned: {log_file}")
+        else:
+            print(f"[@capture_monitor] ○ Not found (will be created): {log_file}")
                 
-        print(f"[@capture_monitor] Log cleanup complete - fresh logs for debugging")
+        print(f"[@capture_monitor] Log cleanup complete")
                 
     except Exception as e:
-        print(f"[@capture_monitor] Warning: Could not clean log files: {e}")
+        print(f"[@capture_monitor] Warning: Could not clean log file: {e}")
 
 def main():
     """Main entry point"""
@@ -239,6 +244,6 @@ def main():
     # Start monitoring (blocks forever, zero CPU when idle!)
     monitor = InotifyFrameMonitor(capture_dirs, host_name)
     monitor.run()
-
+        
 if __name__ == '__main__':
-    main()
+    main() 
