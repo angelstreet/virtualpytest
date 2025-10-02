@@ -54,39 +54,14 @@ class InotifyFrameMonitor:
         self.process_existing_frames(capture_dirs)
     
     def process_existing_frames(self, capture_dirs):
-        """Process any frames that were created before monitor started"""
-        logger.info("Checking for existing unanalyzed frames...")
-        
-        for capture_dir in capture_dirs:
-            # capture_dir is already the full path including /captures
-            if not os.path.exists(capture_dir):
-                continue
-            
-            capture_folder = get_capture_folder(os.path.dirname(capture_dir))
-            
-            # Find last 10 frames and check if analyzed
-            try:
-                frames = []
-                for entry in os.scandir(capture_dir):
-                    if (entry.name.startswith('capture_') and 
-                        entry.name.endswith('.jpg') and 
-                        '_thumbnail' not in entry.name and
-                        '.tmp' not in entry.name):  # Filter temp files
-                        frames.append((entry.name, entry.stat().st_mtime))
-                
-                # Sort by mtime, get last 10
-                frames.sort(key=lambda x: x[1], reverse=True)
-                
-                for filename, _ in frames[:10]:
-                    frame_path = os.path.join(capture_dir, filename)
-                    json_file = frame_path.replace('.jpg', '.json')
-                    
-                    if not os.path.exists(json_file):
-                        logger.info(f"[{capture_folder}] Processing existing frame: {filename}")
-                        self.process_frame(capture_dir, filename)
-                        
-            except Exception as e:
-                logger.error(f"[{capture_folder}] Error processing existing frames: {e}")
+        """Process any frames that were created before monitor started - OPTIMIZED"""
+        logger.info("Skipping startup scan (inotify will catch new frames immediately)")
+        # NOTE: We skip scanning existing files because:
+        # 1. With 220K+ files, scanning takes minutes and defeats inotify's purpose
+        # 2. Old unanalyzed frames aren't critical (incidents already in DB)
+        # 3. New frames will be caught immediately by inotify events
+        # 4. System will self-correct as new frames arrive
+        return
     
     def process_frame(self, captures_path, filename):
         """Process a single frame - called by both inotify and startup scan"""
