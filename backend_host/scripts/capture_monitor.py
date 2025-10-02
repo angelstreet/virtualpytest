@@ -144,6 +144,7 @@ class InotifyFrameMonitor:
                 
                 with open(json_file, 'w') as f:
                     json.dump(analysis_data, f, indent=2)
+                logger.info(f"[{capture_folder}] ✓ Saved JSON: {os.path.basename(json_file)}")
                     
             except Exception as e:
                 logger.error(f"[{capture_folder}] Error saving analysis data: {e}")
