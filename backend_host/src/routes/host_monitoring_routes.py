@@ -9,7 +9,6 @@ from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by
 import os
 import re
 import subprocess
-import glob
 
 host_monitoring_bp = Blueprint('host_monitoring', __name__, url_prefix='/host/monitoring')
 
@@ -251,7 +250,14 @@ def disk_usage_diagnostics():
             
             # Transcript files analysis
             try:
-                transcript_files = glob.glob(os.path.join(capture_dir, 'transcript_*.json'))
+                # Use find for consistency (though only ~24 files expected)
+                result = subprocess.run([
+                    'find', capture_dir, '-maxdepth', '1',
+                    '-name', 'transcript_*.json', '-type', 'f'
+                ], capture_output=True, text=True, timeout=10)
+                
+                transcript_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+                
                 if transcript_files:
                     total_bytes = sum(os.path.getsize(f) for f in transcript_files)
                     analysis['transcripts'] = {

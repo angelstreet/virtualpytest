@@ -4,7 +4,7 @@ Shared utilities for archive manifest and transcript generation
 Extracted from capture_monitor.py to avoid code duplication
 """
 import os
-import glob
+import subprocess
 import json
 import logging
 
@@ -193,8 +193,21 @@ def update_archive_manifest(capture_dir):
         SEGMENTS_PER_WINDOW = WINDOW_HOURS * 3600 // SEGMENT_DURATION  # 3,600 segments per 1h window
         MAX_MANIFESTS = 24  # Support up to 24 hours (24 manifests)
         
-        # Find all segment files
-        segments = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
+        # Find all segment files using find (efficient - avoids loading 86k+ files into memory)
+        try:
+            result = subprocess.run([
+                'find', stream_dir, '-maxdepth', '1',
+                '-name', 'segment_*.ts', '-type', 'f'
+            ], capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                segments = [p for p in result.stdout.strip().split('\n') if p]
+            else:
+                segments = []
+        except (subprocess.TimeoutExpired, Exception) as e:
+            logger.error(f"[@update_archive] [{capture_folder}] Error finding segments: {e}")
+            segments = []
+        
         if not segments:
             return
             

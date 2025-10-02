@@ -9,7 +9,6 @@ import psutil
 import hashlib
 import platform
 import time
-import glob
 import subprocess
 import json
 from datetime import datetime, timezone
@@ -255,27 +254,56 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             if os.path.exists(capture_dir):
                 captures_dir = os.path.join(capture_dir, 'captures')
                 if os.path.exists(captures_dir):
-                    # Use sequential files (not thumbnails) to avoid race condition
-                    import re
-                    all_jpg_files = glob.glob(os.path.join(captures_dir, '*.jpg'))
-                    # Filter for sequential format: capture_*.jpg (not thumbnails)
-                    sequential_pattern = re.compile(r'^capture_\d+\.jpg$')
-                    jpg_files = [f for f in all_jpg_files if sequential_pattern.match(os.path.basename(f))]
-                    
-                    if jpg_files:
-                        last_activity_time = max([os.path.getmtime(f) for f in jpg_files])
+                    # Use find command to get recent files only (last 10 minutes) - avoids loading 50k+ files
+                    try:
+                        result = subprocess.run([
+                            'find', captures_dir, '-name', 'capture_*.jpg', 
+                            '!', '-name', '*_thumbnail.jpg', '-mmin', '-10', '-type', 'f'
+                        ], capture_output=True, text=True, timeout=5)
+                        
+                        if result.returncode == 0 and result.stdout.strip():
+                            # Get mtime for each file found (already filtered by time)
+                            mtimes = []
+                            for filepath in result.stdout.strip().split('\n'):
+                                if filepath:
+                                    try:
+                                        mtimes.append(os.path.getmtime(filepath))
+                                    except (FileNotFoundError, OSError):
+                                        # File deleted between find and getmtime - skip it
+                                        continue
+                            
+                            if mtimes:
+                                last_activity_time = max(mtimes)
+                    except (subprocess.TimeoutExpired, Exception) as e:
+                        print(f"⚠️ Error finding recent FFmpeg files for {capture_folder}: {e}")
+                        pass
                     
         elif process_type == 'monitor':
             # Check Monitor JSON files (sequential format to avoid race condition)
             captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
             if os.path.exists(captures_dir):
-                import re
-                all_json_files = glob.glob(os.path.join(captures_dir, '*.json'))
-                # Filter for sequential format: capture_*.json
-                sequential_pattern = re.compile(r'^capture_\d+\.json$')
-                json_files = [f for f in all_json_files if sequential_pattern.match(os.path.basename(f))]
-                if json_files:
-                    last_activity_time = max([os.path.getmtime(f) for f in json_files])
+                # Use find command to get recent files only (last 10 minutes) - avoids loading 50k+ files
+                try:
+                    result = subprocess.run([
+                        'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-10', '-type', 'f'
+                    ], capture_output=True, text=True, timeout=5)
+                    
+                    if result.returncode == 0 and result.stdout.strip():
+                        # Get mtime for each file found (already filtered by time)
+                        mtimes = []
+                        for filepath in result.stdout.strip().split('\n'):
+                            if filepath:
+                                try:
+                                    mtimes.append(os.path.getmtime(filepath))
+                                except (FileNotFoundError, OSError):
+                                    # File deleted between find and getmtime - skip it
+                                    continue
+                        
+                        if mtimes:
+                            last_activity_time = max(mtimes)
+                except (subprocess.TimeoutExpired, Exception) as e:
+                    print(f"⚠️ Error finding recent Monitor files for {capture_folder}: {e}")
+                    pass
         
         # Calculate working uptime: start -> last activity
         if last_activity_time and process_start_time:

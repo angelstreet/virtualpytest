@@ -8,7 +8,7 @@ import os
 import sys
 import json
 import time
-import glob
+import subprocess
 import logging
 from datetime import datetime
 from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
@@ -266,7 +266,14 @@ def save_hourly_transcript(stream_dir, hour_window, transcript_data):
 def cleanup_old_hourly_transcripts(stream_dir):
     """Remove hourly transcript files older than 24 hours (circular cleanup)"""
     try:
-        transcript_files = glob.glob(os.path.join(stream_dir, 'transcript_hour*.json'))
+        # Use find for consistency (though only ~24 files expected)
+        result = subprocess.run([
+            'find', stream_dir, '-maxdepth', '1',
+            '-name', 'transcript_hour*.json', '-type', 'f'
+        ], capture_output=True, text=True, timeout=10)
+        
+        transcript_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+        
         if len(transcript_files) > 24:
             # Sort by modification time and remove oldest
             transcript_files.sort(key=lambda x: os.path.getmtime(x))
@@ -303,7 +310,14 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         
         # First run: Start 6 segments back to get immediate feedback
         if last_processed == 0:
-            segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
+            # Use find to get segments (efficient - avoids loading 86k+ files)
+            result = subprocess.run([
+                'find', stream_dir, '-maxdepth', '1',
+                '-name', 'segment_*.ts', '-type', 'f'
+            ], capture_output=True, text=True, timeout=30)
+            
+            segment_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+            
             if segment_files:
                 latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
                 # Start 6 segments back for immediate processing (1 sample = 6 segments)
@@ -312,8 +326,13 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (6 segments back from #{latest_seg})")
                 state['last_processed_segment'] = last_processed
         
-        # Find available segments
-        segment_files = glob.glob(os.path.join(stream_dir, 'segment_*.ts'))
+        # Find available segments using find (efficient - avoids loading 86k+ files)
+        result = subprocess.run([
+            'find', stream_dir, '-maxdepth', '1',
+            '-name', 'segment_*.ts', '-type', 'f'
+        ], capture_output=True, text=True, timeout=30)
+        
+        segment_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
         if not segment_files:
             logger.debug(f"[{capture_folder}] No segment files found")
             return False

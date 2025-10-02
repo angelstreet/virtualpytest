@@ -15,22 +15,10 @@ Architecture:
 
 import os
 import time
-import glob
+import subprocess
 import queue
-import logging
 import threading
 from typing import Dict, List, Optional, Any
-
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler('/tmp/kpi_executor.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
 
 class KPIMeasurementRequest:
@@ -103,12 +91,12 @@ class KPIExecutor:
         self.queue = queue.Queue(maxsize=1000)
         self.running = False
         self.worker_thread = None
-        logger.info("🔧 [KPIExecutor] Initialized (queue capacity: 1000)")
+        print("[HOST] 🔧 [KPIExecutor] Initialized (queue capacity: 1000)")
     
     def start(self):
         """Start background worker thread"""
         if self.running:
-            logger.warning("⚠️ [KPIExecutor] Already running")
+            print("[HOST] ⚠️ [KPIExecutor] Already running")
             return
         
         self.running = True
@@ -118,18 +106,18 @@ class KPIExecutor:
             name="KPI-Worker"
         )
         self.worker_thread.start()
-        logger.info("✅ [KPIExecutor] Worker thread started")
+        print("[HOST] ✅ [KPIExecutor] Worker thread started")
     
     def stop(self):
         """Stop background worker thread"""
         if not self.running:
             return
         
-        logger.info("🛑 [KPIExecutor] Stopping worker thread...")
+        print("[HOST] 🛑 [KPIExecutor] Stopping worker thread...")
         self.running = False
         if self.worker_thread:
             self.worker_thread.join(timeout=5)
-        logger.info("✅ [KPIExecutor] Worker thread stopped")
+        print("[HOST] ✅ [KPIExecutor] Worker thread stopped")
     
     def enqueue_measurement(self, request: KPIMeasurementRequest) -> bool:
         """
@@ -140,15 +128,15 @@ class KPIExecutor:
         """
         try:
             self.queue.put(request, block=False)
-            logger.info(f"📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()})")
+            print(f"[HOST] 📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()})")
             return True
         except queue.Full:
-            logger.error("❌ [KPIExecutor] Queue full! Dropping KPI measurement request")
+            print("[HOST] ❌ [KPIExecutor] Queue full! Dropping KPI measurement request")
             return False
     
     def _worker_loop(self):
         """Background worker loop that processes measurement requests"""
-        logger.info("🔄 [KPIExecutor] Worker loop started")
+        print("[HOST] 🔄 [KPIExecutor] Worker loop started")
         
         while self.running:
             try:
@@ -162,15 +150,19 @@ class KPIExecutor:
                 try:
                     self._process_measurement(request)
                 except Exception as e:
-                    logger.error(f"❌ [KPIExecutor] Error processing measurement: {e}", exc_info=True)
+                    print(f"[HOST] ❌ [KPIExecutor] Error processing measurement: {e}")
+                    import traceback
+                    traceback.print_exc()
                 finally:
                     self.queue.task_done()
                     
             except Exception as e:
-                logger.error(f"❌ [KPIExecutor] Worker loop error: {e}", exc_info=True)
+                print(f"[HOST] ❌ [KPIExecutor] Worker loop error: {e}")
+                import traceback
+                traceback.print_exc()
                 time.sleep(1)  # Prevent tight loop on errors
         
-        logger.info("🛑 [KPIExecutor] Worker loop exited")
+        print("[HOST] 🛑 [KPIExecutor] Worker loop exited")
     
     def _process_measurement(self, request: KPIMeasurementRequest):
         """
@@ -179,11 +171,11 @@ class KPIExecutor:
         Scans captures from action_timestamp until match or timeout.
         Stops immediately when match found.
         """
-        logger.info("🔍 [KPIExecutor] Processing KPI measurement")
-        logger.info(f"   • Execution result: {request.execution_result_id[:8]}")
-        logger.info(f"   • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
-        logger.info(f"   • Timeout: {request.timeout_ms}ms")
-        logger.info(f"   • KPI references: {len(request.kpi_references)}")
+        print("[HOST] 🔍 [KPIExecutor] Processing KPI measurement")
+        print(f"[HOST]    • Execution result: {request.execution_result_id[:8]}")
+        print(f"[HOST]    • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
+        print(f"[HOST]    • Timeout: {request.timeout_ms}ms")
+        print(f"[HOST]    • KPI references: {len(request.kpi_references)}")
         
         start_time = time.time()
         
@@ -193,17 +185,17 @@ class KPIExecutor:
         # Store result
         if match_result['success']:
             kpi_ms = int((match_result['timestamp'] - request.action_timestamp) * 1000)
-            logger.info(f"✅ [KPIExecutor] KPI match found!")
-            logger.info(f"   • KPI duration: {kpi_ms}ms")
-            logger.info(f"   • Captures scanned: {match_result['captures_scanned']}")
+            print(f"[HOST] ✅ [KPIExecutor] KPI match found!")
+            print(f"[HOST]    • KPI duration: {kpi_ms}ms")
+            print(f"[HOST]    • Captures scanned: {match_result['captures_scanned']}")
             self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
         else:
-            logger.error(f"❌ [KPIExecutor] KPI measurement failed: {match_result['error']}")
-            logger.info(f"   • Captures scanned: {match_result.get('captures_scanned', 0)}")
+            print(f"[HOST] ❌ [KPIExecutor] KPI measurement failed: {match_result['error']}")
+            print(f"[HOST]    • Captures scanned: {match_result.get('captures_scanned', 0)}")
             self._update_result(request.execution_result_id, request.team_id, False, None, match_result['error'])
         
         processing_time = int((time.time() - start_time) * 1000)
-        logger.info(f"⏱️ [KPIExecutor] Processing completed in {processing_time}ms")
+        print(f"[HOST] ⏱️ [KPIExecutor] Processing completed in {processing_time}ms")
     
     def _scan_until_match(self, request: KPIMeasurementRequest) -> Dict[str, Any]:
         """
@@ -239,19 +231,31 @@ class KPIExecutor:
         # Calculate time window
         end_timestamp = action_timestamp + (timeout_ms / 1000.0)
         
-        # Find all captures in time window
-        pattern = os.path.join(capture_dir, "capture_*.jpg")
+        # Find all captures in time window using find (efficient - avoids loading 400k+ files)
         all_captures = []
         
-        for path in glob.glob(pattern):
-            if "_thumbnail" in path:
-                continue
-            try:
-                ts = os.path.getmtime(path)
-                if action_timestamp <= ts <= end_timestamp:
-                    all_captures.append({'path': path, 'timestamp': ts})
-            except OSError:
-                continue
+        try:
+            # Use find with time filter (much faster than glob for large directories)
+            result = subprocess.run([
+                'find', capture_dir, '-name', 'capture_*.jpg',
+                '!', '-name', '*_thumbnail.jpg',
+                '-type', 'f'
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                for path in result.stdout.strip().split('\n'):
+                    if not path:
+                        continue
+                    try:
+                        ts = os.path.getmtime(path)
+                        if action_timestamp <= ts <= end_timestamp:
+                            all_captures.append({'path': path, 'timestamp': ts})
+                    except OSError:
+                        continue
+        except subprocess.TimeoutExpired:
+            print(f"[HOST] ⚠️ [KPIExecutor] Find command timed out for {capture_dir}")
+        except Exception as e:
+            print(f"[HOST] ⚠️ [KPIExecutor] Error finding captures: {e}")
         
         # Sort by timestamp (oldest first - scan forward from action time)
         all_captures.sort(key=lambda x: x['timestamp'])
@@ -259,7 +263,7 @@ class KPIExecutor:
         if not all_captures:
             return {'success': False, 'error': 'No captures found in time window', 'captures_scanned': 0}
         
-        logger.info(f"📸 [KPIExecutor] Found {len(all_captures)} captures in time window")
+        print(f"[HOST] 📸 [KPIExecutor] Found {len(all_captures)} captures in time window")
         
         # Convert kpi_references to verification format (same structure as navigation)
         verifications = []
@@ -272,7 +276,7 @@ class KPIExecutor:
         
         # Scan captures sequentially - STOP at first match
         for i, capture in enumerate(all_captures):
-            logger.info(f"🔍 [KPIExecutor] Testing capture {i+1}/{len(all_captures)}: {os.path.basename(capture['path'])}")
+            print(f"[HOST] 🔍 [KPIExecutor] Testing capture {i+1}/{len(all_captures)}: {os.path.basename(capture['path'])}")
             
             # Execute verifications using device's verification_executor
             # This gives us the SAME detailed logs as normal navigation verification!
@@ -323,12 +327,14 @@ class KPIExecutor:
             )
             
             if result:
-                logger.info(f"💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
+                print(f"[HOST] 💾 [KPIExecutor] Stored KPI result: {kpi_ms}ms (success: {success})")
             else:
-                logger.warning(f"⚠️ [KPIExecutor] Failed to update execution_result_id: {execution_result_id[:8]}")
+                print(f"[HOST] ⚠️ [KPIExecutor] Failed to update execution_result_id: {execution_result_id[:8]}")
                 
         except Exception as e:
-            logger.error(f"❌ [KPIExecutor] Error storing KPI result: {e}", exc_info=True)
+            print(f"[HOST] ❌ [KPIExecutor] Error storing KPI result: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 # Module-level function to get service instance

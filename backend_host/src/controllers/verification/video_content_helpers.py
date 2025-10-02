@@ -1353,30 +1353,49 @@ class VideoContentHelpers:
             MAX_SECONDS = max_count if max_count > 0 else 40  # Search for max_count seconds worth of images
             MAX_TOTAL_IMAGES = max_count if max_count > 0 else 40  # Respect max_count parameter fully
             
-            # Enhanced collection: get sequential files after the start timestamp
-            import glob
+            # Enhanced collection: get sequential files after the start timestamp using find (efficient)
             import re
             
-            # Get all sequential capture files
-            all_files = glob.glob(os.path.join(captures_folder, 'capture_*.jpg'))
-            # Filter out thumbnails and sort by number
-            capture_files = []
-            for f in all_files:
-                filename = os.path.basename(f)
-                if '_thumbnail' not in filename:
+            # Use find to get files newer than start_timestamp (avoids loading 400k+ files)
+            try:
+                result = subprocess.run([
+                    'find', captures_folder, '-name', 'capture_*.jpg',
+                    '!', '-name', '*_thumbnail.jpg',
+                    '-type', 'f'
+                ], capture_output=True, text=True, timeout=30)
+                
+                if result.returncode != 0:
+                    print(f"VideoContent[{self.device_name}]: Find command failed")
+                    return []
+                
+                # Parse results and filter by timestamp
+                capture_files = []
+                for file_path in result.stdout.strip().split('\n'):
+                    if not file_path:
+                        continue
+                    
+                    filename = os.path.basename(file_path)
                     match = re.match(r'capture_(\d+)\.jpg', filename)
                     if match:
-                        capture_files.append((int(match.group(1)), f))
-            
-            # Sort by capture number
-            capture_files.sort(key=lambda x: x[0])
-            
-            # Filter files that are after the start timestamp (by mtime)
-            valid_files = []
-            for _, file_path in capture_files:
-                file_mtime = os.path.getmtime(file_path)
-                if file_mtime >= start_timestamp:
-                    valid_files.append(file_path)
+                        try:
+                            file_mtime = os.path.getmtime(file_path)
+                            if file_mtime >= start_timestamp:
+                                capture_files.append((int(match.group(1)), file_path))
+                        except OSError:
+                            continue
+                
+                # Sort by capture number
+                capture_files.sort(key=lambda x: x[0])
+                
+                # Extract just the file paths
+                valid_files = [f[1] for f in capture_files]
+                
+            except subprocess.TimeoutExpired:
+                print(f"VideoContent[{self.device_name}]: Find command timed out")
+                return []
+            except Exception as e:
+                print(f"VideoContent[{self.device_name}]: Error finding images: {e}")
+                return []
                     
             # Take only the requested number of files
             if max_count > 0:

@@ -389,9 +389,15 @@ class AudioDubbingHelpers:
             if os.path.exists(candidate):
                 return candidate
         
-        # Look for any restart video
-        import glob
-        pattern = os.path.join(original_video_dir, "restart_*.mp4")
-        videos = glob.glob(pattern)
-        return videos[0] if videos else None
+        # Look for any restart video using find (consistent with other files)
+        try:
+            result = subprocess.run([
+                'find', original_video_dir, '-maxdepth', '1',
+                '-name', 'restart_*.mp4', '-type', 'f'
+            ], capture_output=True, text=True, timeout=5)
+            
+            videos = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+            return videos[0] if videos else None
+        except Exception:
+            return None
     
