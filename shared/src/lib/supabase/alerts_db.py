@@ -522,49 +522,35 @@ def update_alert_discard_status(alert_id: str, discard: bool, discard_comment: O
         return False
 
 def delete_all_alerts() -> Dict:
-    """Delete all alerts from the database."""
+    """Delete all alerts from the database using efficient database function."""
     try:
         print("[@db:alerts:delete_all_alerts] Deleting all alerts from database")
         
         supabase = get_supabase()
         
-        # First count how many alerts exist
-        count_result = supabase.table('alerts').select('id', count='exact').execute()
-        total_count = count_result.count if hasattr(count_result, 'count') else 0
+        # Use database function for efficient deletion
+        # This executes entirely in Postgres without returning data to client
+        result = supabase.rpc('delete_all_alerts').execute()
         
-        print(f"[@db:alerts:delete_all_alerts] Found {total_count} alerts to delete")
-        
-        if total_count == 0:
-            print("[@db:alerts:delete_all_alerts] No alerts to delete")
+        # The function returns a JSON object with success, deleted_count, and message
+        if result.data:
+            response = result.data if isinstance(result.data, dict) else result.data[0] if isinstance(result.data, list) else {}
+            print(f"[@db:alerts:delete_all_alerts] Result: {response}")
+            return response
+        else:
+            print("[@db:alerts:delete_all_alerts] No data returned from function")
             return {
-                'success': True,
-                'deleted_count': 0,
-                'message': 'No alerts found to delete'
+                'success': False,
+                'error': 'No data returned from delete function',
+                'deleted_count': 0
             }
         
-        # Delete all alerts using an indexed column (start_time) for better performance
-        # Use a date far in the past that will match all records
-        result = supabase.table('alerts').delete().gte('start_time', '1900-01-01').execute()
-        
-        # Count actual deleted records
-        deleted_count = len(result.data) if result.data else 0
-        
-        print(f"[@db:alerts:delete_all_alerts] Successfully deleted {deleted_count} out of {total_count} alerts")
-        
-        if deleted_count != total_count:
-            print(f"[@db:alerts:delete_all_alerts] WARNING: Delete mismatch! Expected {total_count} but deleted {deleted_count}")
-        
-        return {
-            'success': True,
-            'deleted_count': deleted_count,
-            'message': f'Successfully deleted {deleted_count} alerts'
-        }
-        
     except Exception as e:
-        print(f"[@db:alerts:delete_all_alerts] Error: {str(e)}")
+        error_str = str(e)
+        print(f"[@db:alerts:delete_all_alerts] Error: {error_str}")
         return {
             'success': False,
-            'error': str(e),
+            'error': error_str,
             'deleted_count': 0
         }
 
