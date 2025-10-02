@@ -11,8 +11,9 @@ import platform
 import time
 import subprocess
 import json
+import re
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 # Global cache for process start times
@@ -21,6 +22,185 @@ _process_start_cache = {}
 # Speedtest shared cache
 SPEEDTEST_CACHE = '/tmp/speedtest_cache.json'
 CACHE_DURATION = 600  # 10 minutes
+
+
+def count_recent_files(
+    directory: str,
+    pattern: str,
+    max_age_seconds: int = 60,
+    exclude_pattern: Optional[str] = None
+) -> int:
+    """
+    Count files matching pattern modified within max_age_seconds.
+    Fast O(n) scan with early filtering - no sorting or subprocess overhead.
+    
+    Args:
+        directory: Directory path to scan
+        pattern: Regex pattern to match filenames (e.g., r'^capture_.*\.jpg$')
+        max_age_seconds: Only count files modified within this timeframe
+        exclude_pattern: Optional regex pattern to exclude files (e.g., r'_thumbnail\.jpg$')
+    
+    Returns:
+        Count of matching recent files
+    """
+    if not os.path.exists(directory):
+        return 0
+    
+    try:
+        compiled_pattern = re.compile(pattern)
+        compiled_exclude = re.compile(exclude_pattern) if exclude_pattern else None
+        count = 0
+        now = time.time()
+        
+        for entry in os.scandir(directory):
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                    
+                if not compiled_pattern.match(entry.name):
+                    continue
+                    
+                if compiled_exclude and compiled_exclude.search(entry.name):
+                    continue
+                
+                if now - entry.stat().st_mtime < max_age_seconds:
+                    count += 1
+                    
+            except (FileNotFoundError, OSError):
+                # File deleted during scan - skip it
+                continue
+        
+        return count
+        
+    except Exception:
+        return 0
+
+
+def get_last_file_mtime(
+    directory: str,
+    pattern: str,
+    max_age_seconds: int = 60,
+    exclude_pattern: Optional[str] = None
+) -> Optional[float]:
+    """
+    Get the most recent modification time of files matching pattern.
+    Fast O(n) scan with early filtering - no sorting or subprocess overhead.
+    
+    Args:
+        directory: Directory path to scan
+        pattern: Regex pattern to match filenames (e.g., r'^capture_.*\.jpg$')
+        max_age_seconds: Only consider files modified within this timeframe
+        exclude_pattern: Optional regex pattern to exclude files (e.g., r'_thumbnail\.jpg$')
+    
+    Returns:
+        Most recent mtime (timestamp), or None if no matching files found
+    """
+    if not os.path.exists(directory):
+        return None
+    
+    try:
+        compiled_pattern = re.compile(pattern)
+        compiled_exclude = re.compile(exclude_pattern) if exclude_pattern else None
+        mtimes = []
+        now = time.time()
+        
+        for entry in os.scandir(directory):
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                    
+                if not compiled_pattern.match(entry.name):
+                    continue
+                    
+                if compiled_exclude and compiled_exclude.search(entry.name):
+                    continue
+                
+                mtime = entry.stat().st_mtime
+                if now - mtime < max_age_seconds:
+                    mtimes.append(mtime)
+                    
+            except (FileNotFoundError, OSError):
+                # File deleted during scan - skip it
+                continue
+        
+        return max(mtimes) if mtimes else None
+        
+    except Exception:
+        return None
+
+
+def get_files_by_pattern(
+    directory: str,
+    pattern: str,
+    exclude_pattern: Optional[str] = None,
+    full_path: bool = True,
+    min_mtime: Optional[float] = None,
+    max_mtime: Optional[float] = None
+) -> List[str]:
+    """
+    Get all files matching pattern using fast os.scandir (no subprocess overhead).
+    Replacement for subprocess find commands - 2-5x faster, no timeout risk.
+    
+    Args:
+        directory: Directory path to scan
+        pattern: Regex pattern to match filenames (e.g., r'^segment_.*\.ts$')
+        exclude_pattern: Optional regex pattern to exclude files
+        full_path: If True, return full paths; if False, return just filenames
+        min_mtime: Optional minimum modification time (Unix timestamp) - only files newer than this
+        max_mtime: Optional maximum modification time (Unix timestamp) - only files older than this
+    
+    Returns:
+        List of matching file paths (or names if full_path=False)
+    
+    Example:
+        # Replace: subprocess.run(['find', dir, '-name', 'segment_*.ts', '-type', 'f'])
+        # With: get_files_by_pattern(dir, r'^segment_.*\.ts$')
+        
+        # Get only files from last 24 hours:
+        cutoff = time.time() - (24 * 3600)
+        files = get_files_by_pattern(dir, r'^segment_.*\.ts$', min_mtime=cutoff)
+    """
+    if not os.path.exists(directory):
+        return []
+    
+    try:
+        compiled_pattern = re.compile(pattern)
+        compiled_exclude = re.compile(exclude_pattern) if exclude_pattern else None
+        files = []
+        
+        for entry in os.scandir(directory):
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                    
+                if not compiled_pattern.match(entry.name):
+                    continue
+                    
+                if compiled_exclude and compiled_exclude.search(entry.name):
+                    continue
+                
+                # Filter by modification time if specified
+                if min_mtime is not None or max_mtime is not None:
+                    mtime = entry.stat().st_mtime
+                    if min_mtime is not None and mtime < min_mtime:
+                        continue
+                    if max_mtime is not None and mtime > max_mtime:
+                        continue
+                
+                if full_path:
+                    files.append(entry.path)
+                else:
+                    files.append(entry.name)
+                    
+            except (FileNotFoundError, OSError):
+                # File deleted during scan - skip it
+                continue
+        
+        return files
+        
+    except Exception:
+        return []
+
 
 def get_network_speed_cached():
     """Get network speed with 10-min shared cache"""
@@ -253,70 +433,21 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             capture_dir = f'/var/www/html/stream/{capture_folder}'
             if os.path.exists(capture_dir):
                 captures_dir = os.path.join(capture_dir, 'captures')
-                if os.path.exists(captures_dir):
-                    # Use ls -t to get only the 10 most recent files (MUCH faster than find with many files)
-                    # This avoids scanning entire directory and eliminates timeout issues during cleanup
-                    try:
-                        # Get 10 newest files, filter for capture_*.jpg (not thumbnails)
-                        result = subprocess.run(
-                            'ls -t | grep "^capture_.*\.jpg$" | grep -v "_thumbnail\.jpg$" | head -n 10',
-                            shell=True, cwd=captures_dir, capture_output=True, text=True, timeout=2
-                        )
-                        
-                        if result.returncode == 0 and result.stdout.strip():
-                            # Get mtime for newest files only
-                            mtimes = []
-                            for filename in result.stdout.strip().split('\n'):
-                                if filename:
-                                    filepath = os.path.join(captures_dir, filename)
-                                    try:
-                                        mtime = os.path.getmtime(filepath)
-                                        # Only consider files modified in last minute (2 FPS × 60s = 120 files max)
-                                        if time.time() - mtime < 60:
-                                            mtimes.append(mtime)
-                                    except (FileNotFoundError, OSError):
-                                        # File deleted between ls and getmtime - skip it
-                                        continue
-                            
-                            if mtimes:
-                                last_activity_time = max(mtimes)
-                    except (subprocess.TimeoutExpired, Exception) as e:
-                        print(f"⚠️ Error checking recent FFmpeg files for {capture_folder}: {e}")
-                        pass
+                last_activity_time = get_last_file_mtime(
+                    captures_dir,
+                    r'^capture_.*\.jpg$',
+                    max_age_seconds=60,
+                    exclude_pattern=r'_thumbnail\.jpg$'
+                )
                     
         elif process_type == 'monitor':
             # Check Monitor JSON files (sequential format to avoid race condition)
             captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
-            if os.path.exists(captures_dir):
-                # Use ls -t to get only the 10 most recent files (MUCH faster than find with many files)
-                # This avoids scanning entire directory and eliminates timeout issues during cleanup
-                try:
-                    # Get 10 newest JSON files
-                    result = subprocess.run(
-                        'ls -t | grep "^capture_.*\.json$" | head -n 10',
-                        shell=True, cwd=captures_dir, capture_output=True, text=True, timeout=2
-                    )
-                    
-                    if result.returncode == 0 and result.stdout.strip():
-                        # Get mtime for newest files only
-                        mtimes = []
-                        for filename in result.stdout.strip().split('\n'):
-                            if filename:
-                                filepath = os.path.join(captures_dir, filename)
-                                try:
-                                    mtime = os.path.getmtime(filepath)
-                                    # Only consider files modified in last minute
-                                    if time.time() - mtime < 60:
-                                        mtimes.append(mtime)
-                                except (FileNotFoundError, OSError):
-                                    # File deleted between ls and getmtime - skip it
-                                    continue
-                        
-                        if mtimes:
-                            last_activity_time = max(mtimes)
-                except (subprocess.TimeoutExpired, Exception) as e:
-                    print(f"⚠️ Error checking recent Monitor files for {capture_folder}: {e}")
-                    pass
+            last_activity_time = get_last_file_mtime(
+                captures_dir,
+                r'^capture_.*\.json$',
+                max_age_seconds=60
+            )
         
         # Calculate working uptime: start -> last activity
         if last_activity_time and process_start_time:
@@ -669,17 +800,12 @@ def check_ffmpeg_status():
                 
                 # Check for recent images (.jpg files) with sequential format only
                 captures_dir = os.path.join(capture_dir, 'captures')
-                recent_jpg_count = 0
-                if os.path.exists(captures_dir):
-                    try:
-                        # Use find command to count sequential format files newer than 1 minute
-                        result = subprocess.run([
-                            'find', captures_dir, '-name', 'capture_*.jpg', '!', '-name', '*_thumbnail.jpg', '-mmin', '-1'
-                        ], capture_output=True, text=True)
-                        if result.returncode == 0:
-                            recent_jpg_count = len([f for f in result.stdout.strip().split('\n') if f])
-                    except Exception:
-                        pass
+                recent_jpg_count = count_recent_files(
+                    captures_dir,
+                    r'^capture_.*\.jpg$',
+                    max_age_seconds=60,
+                    exclude_pattern=r'_thumbnail\.jpg$'
+                )
                 
                 # Single line per folder with debug info including process status
                 print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 1m) | Processes: {status['processes_running']}")
@@ -779,16 +905,11 @@ def check_monitor_status():
                 device_name = os.path.basename(os.path.dirname(captures_dir))  # capture1, capture2, etc.
                 
                 # Check for recent JSON files with sequential format
-                recent_json_count = 0
-                try:
-                    # Use find command to count sequential format files newer than 1 minute
-                    result = subprocess.run([
-                        'find', captures_dir, '-name', 'capture_*.json', '-mmin', '-1'
-                    ], capture_output=True, text=True)
-                    if result.returncode == 0:
-                        recent_json_count = len([f for f in result.stdout.strip().split('\n') if f])
-                except Exception:
-                    pass
+                recent_json_count = count_recent_files(
+                    captures_dir,
+                    r'^capture_.*\.json$',
+                    max_age_seconds=60
+                )
                 
                 # Single line per folder with debug info including process status
                 print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 1m) | Process: {'running' if status['process_running'] else 'stopped'}")

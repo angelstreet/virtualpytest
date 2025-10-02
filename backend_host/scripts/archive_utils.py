@@ -4,9 +4,20 @@ Shared utilities for archive manifest and transcript generation
 Extracted from capture_monitor.py to avoid code duplication
 """
 import os
-import subprocess
+import sys
 import json
 import logging
+import re
+import time
+
+# Add project paths for shared utilities import
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_host_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(backend_host_dir)
+sys.path.insert(0, project_root)
+
+# Import centralized file scanning utilities
+from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +193,7 @@ def generate_manifest_for_segments(stream_dir, segments, manifest_name):
     return True
 
 def update_archive_manifest(capture_dir):
-    """Generate dynamic 1-hour archive manifests with progressive creation"""
+    """Generate dynamic 1-hour archive manifests with progressive creation (with incremental updates)"""
     try:
         capture_folder = get_capture_folder(capture_dir)
         stream_dir = capture_dir.replace('/captures', '')  # /var/www/html/stream/capture1
@@ -193,49 +204,47 @@ def update_archive_manifest(capture_dir):
         SEGMENTS_PER_WINDOW = WINDOW_HOURS * 3600 // SEGMENT_DURATION  # 3,600 segments per 1h window
         MAX_MANIFESTS = 24  # Support up to 24 hours (24 manifests)
         
-        # Find all segment files using find (efficient - avoids loading 86k+ files into memory)
-        try:
-            result = subprocess.run([
-                'find', stream_dir, '-maxdepth', '1',
-                '-name', 'segment_*.ts', '-type', 'f'
-            ], capture_output=True, text=True, timeout=60)
-            
-            if result.returncode == 0:
-                segments = [p for p in result.stdout.strip().split('\n') if p]
-            else:
-                segments = []
-        except (subprocess.TimeoutExpired, Exception) as e:
-            logger.error(f"[@update_archive] [{capture_folder}] Error finding segments: {e}")
-            segments = []
+        # Load state for incremental updates
+        state_file = os.path.join(stream_dir, 'archive_state.json')
+        state = json.load(open(state_file, 'r')) if os.path.exists(state_file) else {}
+        last_max_segment = state.get('last_max_segment', 0)
+        
+        # Quick check: Find max segment number (early exit if no changes)
+        segment_pattern = re.compile(r'^segment_(\d+)\.ts$')
+        max_segment = 0
+        
+        for entry in os.scandir(stream_dir):
+            try:
+                if entry.is_file(follow_symlinks=False):
+                    match = segment_pattern.match(entry.name)
+                    if match:
+                        max_segment = max(max_segment, int(match.group(1)))
+            except (FileNotFoundError, OSError):
+                continue
+        
+        # No new segments? Skip entire process
+        if max_segment <= last_max_segment:
+            logger.debug(f"[@update_archive] [{capture_folder}] No new segments (max={max_segment}), skipping")
+            return
+        
+        logger.info(f"[@update_archive] [{capture_folder}] New segments detected: {last_max_segment} → {max_segment} (+{max_segment - last_max_segment})")
+        
+        # Get segments from last 24 hours only
+        cutoff_time = time.time() - (24 * 3600)
+        segments = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$', min_mtime=cutoff_time)
         
         if not segments:
+            logger.debug(f"[@update_archive] [{capture_folder}] No segments in last 24h")
             return
             
-        # Sort segments by file modification time (chronological order)
-        # This handles FFmpeg restarts, segment wrap-around, and gaps correctly
+        # Sort segments by mtime (chronological order - handles FFmpeg restarts & gaps)
         segments.sort(key=lambda x: os.path.getmtime(x))
         
-        # Get segment number range for logging
         first_seg_num = int(os.path.basename(segments[0]).split('_')[1].split('.')[0])
         last_seg_num = int(os.path.basename(segments[-1]).split('_')[1].split('.')[0])
-        
-        logger.info(f"[@update_archive] [{capture_folder}] Found {len(segments)} segments (#{first_seg_num} to #{last_seg_num})")
-        
         total_segments = len(segments)
         
-        # Rolling 24-hour window strategy:
-        # - Keep only LAST 24 hours of content
-        # - Manifests numbered archive1 through archive24
-        # - archive1 = oldest hour (24h ago), archive24 = most recent hour (now)
-        # - Frontend uses archive_metadata.json to know which manifest has which time range
-        
-        # If we have more than 24 hours of segments, use only the last 24 hours
-        max_segments_to_use = MAX_MANIFESTS * SEGMENTS_PER_WINDOW  # 24 hours worth
-        if total_segments > max_segments_to_use:
-            segments = segments[-max_segments_to_use:]  # Keep only last 24 hours
-            logger.debug(f"[{capture_folder}] Rolling window: using last {len(segments)} segments (24h)")
-        
-        total_segments = len(segments)
+        logger.info(f"[@update_archive] [{capture_folder}] Processing {total_segments} segments (#{first_seg_num}-#{last_seg_num})")
         num_windows = (total_segments + SEGMENTS_PER_WINDOW - 1) // SEGMENTS_PER_WINDOW
         
         manifests_generated = 0
@@ -320,6 +329,12 @@ def update_archive_manifest(capture_dir):
         
         total_duration_hours = total_segments * SEGMENT_DURATION / 3600
         logger.info(f"[@update_archive] [{capture_folder}] ✓ Generated {manifests_generated} manifests, {total_segments} segments ({total_duration_hours:.1f}h)")
+        
+        # Save state for next run (incremental updates)
+        state = {'last_max_segment': max_segment, 'last_update': time.time()}
+        with open(state_file + '.tmp', 'w') as f:
+            json.dump(state, f, indent=2)
+        os.rename(state_file + '.tmp', state_file)
         
     except Exception as e:
         logger.error(f"Error updating archive manifest for {capture_dir}: {e}")

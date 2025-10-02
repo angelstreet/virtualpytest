@@ -21,6 +21,7 @@ sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 from shared.src.lib.utils.ai_utils import call_text_ai
+from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
 logging.basicConfig(
     level=logging.INFO,
@@ -266,13 +267,8 @@ def save_hourly_transcript(stream_dir, hour_window, transcript_data):
 def cleanup_old_hourly_transcripts(stream_dir):
     """Remove hourly transcript files older than 24 hours (circular cleanup)"""
     try:
-        # Use find for consistency (though only ~24 files expected)
-        result = subprocess.run([
-            'find', stream_dir, '-maxdepth', '1',
-            '-name', 'transcript_hour*.json', '-type', 'f'
-        ], capture_output=True, text=True, timeout=10)
-        
-        transcript_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+        # Use fast os.scandir (no subprocess overhead)
+        transcript_files = get_files_by_pattern(stream_dir, r'^transcript_hour.*\.json$')
         
         if len(transcript_files) > 24:
             # Sort by modification time and remove oldest
@@ -310,13 +306,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         
         # First run: Start 6 segments back to get immediate feedback
         if last_processed == 0:
-            # Use find to get segments (efficient - avoids loading 86k+ files)
-            result = subprocess.run([
-                'find', stream_dir, '-maxdepth', '1',
-                '-name', 'segment_*.ts', '-type', 'f'
-            ], capture_output=True, text=True, timeout=30)
-            
-            segment_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+            # Use fast os.scandir (no subprocess overhead, no timeout risk)
+            segment_files = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$')
             
             if segment_files:
                 latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
@@ -326,13 +317,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (6 segments back from #{latest_seg})")
                 state['last_processed_segment'] = last_processed
         
-        # Find available segments using find (efficient - avoids loading 86k+ files)
-        result = subprocess.run([
-            'find', stream_dir, '-maxdepth', '1',
-            '-name', 'segment_*.ts', '-type', 'f'
-        ], capture_output=True, text=True, timeout=30)
-        
-        segment_files = [f for f in result.stdout.strip().split('\n') if f] if result.returncode == 0 else []
+        # Find available segments using fast os.scandir (no subprocess overhead, no timeout risk)
+        segment_files = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$')
         if not segment_files:
             logger.debug(f"[{capture_folder}] No segment files found")
             return False

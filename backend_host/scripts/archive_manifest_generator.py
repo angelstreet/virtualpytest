@@ -61,11 +61,12 @@ def main():
             monitored_devices.append(capture_dir)
     
     logger.info(f"Monitoring {len(monitored_devices)} devices for archive manifests (excluding host)")
+    logger.info("Update interval: 5 minutes (300s) - optimized for 24h archive playback")
     
     while True:
         for capture_dir in monitored_devices:
             update_archive_manifest(capture_dir)
-        time.sleep(60)
+        time.sleep(300)  # 5 minutes - acceptable latency for archive playback
 
 if __name__ == '__main__':
     main()
