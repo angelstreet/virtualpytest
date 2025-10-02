@@ -513,8 +513,8 @@ class FFmpegCaptureController(AVControllerInterface):
             video_filename = "test_video.mp4"
             local_video_path = os.path.join(self.video_capture_path, video_filename)
             
-            # Create M3U8 path (required by compression utils)
-            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            # Create M3U8 path (required by compression utils) - hot/cold architecture
+            m3u8_path = os.path.join(self.video_capture_path, "segments", "output.m3u8")
             
             compression_result = compressor.compress_hls_to_mp4(
                 m3u8_path=m3u8_path,

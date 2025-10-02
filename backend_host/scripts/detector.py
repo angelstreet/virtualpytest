@@ -100,6 +100,9 @@ def analyze_audio(capture_dir):
     latest = None
     latest_mtime = 0
     
+    # NEW: Segments are in segments/ subfolder (hot/cold architecture)
+    segments_dir = os.path.join(capture_dir, 'segments')
+    
     # CRITICAL FIX: Check cache first - only rescan directory every 5 seconds
     if capture_dir in _latest_segment_cache:
         cached_path, cached_mtime, last_check = _latest_segment_cache[capture_dir]
@@ -115,12 +118,13 @@ def analyze_audio(capture_dir):
                 except:
                     pass  # Will rescan below
     
-    # Rescan if cache miss or cache expired (every 5 seconds)
-    if not latest:
+    # Rescan if cache miss or cache expired (every 5 seconds) - HOT STORAGE ONLY
+    if not latest and os.path.exists(segments_dir):
         try:
-            with os.scandir(capture_dir) as it:
+            with os.scandir(segments_dir) as it:
                 for entry in it:
-                    if entry.name.startswith('segment_') and entry.name.endswith('.ts'):
+                    # Only check files in hot storage (root), not hour folders (max 10 files)
+                    if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
                         mtime = entry.stat().st_mtime
                         if mtime > latest_mtime:
                             latest = entry.path

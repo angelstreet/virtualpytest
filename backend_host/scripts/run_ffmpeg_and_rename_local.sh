@@ -146,12 +146,39 @@ get_last_segment_number() {
   fi
 }
 
+# Setup hot/cold directory structure (unified architecture)
+setup_capture_directories() {
+  local capture_dir=$1
+  
+  echo "Setting up unified hot/cold directory structure for $capture_dir..."
+  
+  # Create root directories (hot storage)
+  mkdir -p "$capture_dir/segments"
+  mkdir -p "$capture_dir/captures"
+  mkdir -p "$capture_dir/thumbnails"
+  mkdir -p "$capture_dir/metadata"
+  
+  # Create 24 hour folders for EACH type (unified architecture)
+  for hour in {0..23}; do
+    mkdir -p "$capture_dir/segments/$hour"
+    mkdir -p "$capture_dir/captures/$hour"
+    mkdir -p "$capture_dir/thumbnails/$hour"
+    mkdir -p "$capture_dir/metadata/$hour"
+  done
+  
+  echo "✓ Created unified hot/cold structure for $capture_dir"
+  echo "  - segments/    : hot (10 files) + 24 hour folders"
+  echo "  - captures/    : hot (100 files) + 24 hour folders"
+  echo "  - thumbnails/  : hot (100 files) + 24 hour folders"
+  echo "  - metadata/    : hot (100 files) + 24 hour folders"
+}
+
 # Cleanup function
 cleanup() {
-  local ffmpeg_pid=$1 clean_pid=$2 source=$3
+  local ffmpeg_pid=$1 source=$3
   echo "Caught signal, cleaning up for $source..."
   [ -n "$ffmpeg_pid" ] && kill "$ffmpeg_pid" 2>/dev/null && echo "Killed ffmpeg (PID: $ffmpeg_pid)"
-  [ -n "$clean_pid" ] && kill "$clean_pid" 2>/dev/null && echo "Killed clean_captures.sh (PID: $clean_pid)"
+  echo "Note: hot_cold_archiver.service handles cleanup independently"
 }
 
 # Function to start processes for a single grabber
@@ -165,8 +192,8 @@ start_grabber() {
     return 1
   fi
 
-  # Create capture directory
-  mkdir -p "$capture_dir/captures"
+  # Create unified hot/cold directory structure
+  setup_capture_directories "$capture_dir"
 
   # Clean playlist files for fresh start
   clean_playlist_files "$capture_dir"
@@ -208,12 +235,12 @@ start_grabber() {
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
       -hls_start_number_source generic -start_number $start_num \
-      -hls_segment_filename $capture_dir/segment_%09d.ts \
-      $capture_dir/output.m3u8 \
+      -hls_segment_filename $capture_dir/segments/segment_%09d.ts \
+      $capture_dir/segments/output.m3u8 \
       -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 -start_number $image_start_num \
       $capture_dir/captures/capture_%09d.jpg \
       -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 -start_number $image_start_num \
-      $capture_dir/captures/capture_%09d_thumbnail.jpg"
+      $capture_dir/thumbnails/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
     # Optimized: single fps operation, no mouse cursor, CBR encoding, faster scaling
@@ -241,12 +268,12 @@ start_grabber() {
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
       -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
       -hls_start_number_source generic -start_number $start_num \
-      -hls_segment_filename $capture_dir/segment_%09d.ts \
-      $capture_dir/output.m3u8 \
+      -hls_segment_filename $capture_dir/segments/segment_%09d.ts \
+      $capture_dir/segments/output.m3u8 \
       -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 -start_number $image_start_num \
       $capture_dir/captures/capture_%09d.jpg \
       -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 -start_number $image_start_num \
-      $capture_dir/captures/capture_%09d_thumbnail.jpg"
+      $capture_dir/thumbnails/capture_%09d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
@@ -266,17 +293,12 @@ start_grabber() {
   eval $FFMPEG_CMD > "$FFMPEG_LOG" 2>&1 &
   local FFMPEG_PID=$!
   echo "Started ffmpeg for $source with PID: $FFMPEG_PID"
-
-  # Start clean script (using relative path - same directory)
-  while true; do
-    "$SCRIPT_DIR/clean_captures.sh" "$capture_dir"
-    sleep 300
-  done &
-  local CLEAN_PID=$!
-  echo "Started clean_captures.sh loop for $capture_dir with PID: $CLEAN_PID"
+  
+  # Note: Cleanup/archiving handled by systemd service: hot_cold_archiver.service
+  # No inline cleanup loop needed - archiver runs every 5 minutes automatically
 
   # Set up trap for this grabber
-  trap "cleanup $FFMPEG_PID $CLEAN_PID $source" SIGINT SIGTERM
+  trap "cleanup $FFMPEG_PID 0 $source" SIGINT SIGTERM
 }
 
 # Create active captures configuration file

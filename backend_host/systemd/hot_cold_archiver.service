@@ -1,0 +1,29 @@
+[Unit]
+Description=Hot/Cold Storage Archiver - Unified Architecture
+After=network.target
+Documentation=file:///Users/cpeengineering/virtualpytest/HOT_COLD_ARCHITECTURE.md
+
+[Service]
+Type=simple
+User=sunri-pyautogui
+WorkingDirectory=/var/www/html/stream
+ExecStart=/usr/bin/python3 /home/sunri-pyautogui/virtualpytest/backend_host/scripts/hot_cold_archiver.py
+Restart=always
+RestartSec=10
+
+# Resource limits
+MemoryLimit=256M
+CPUQuota=10%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hot_cold_archiver
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

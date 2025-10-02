@@ -245,7 +245,8 @@ export const buildStreamUrl = (host: any, deviceId?: string): string => {
       streamPath
     });
 
-    const fullEndpoint = `host${streamPath}/output.m3u8`;
+    // NEW: Manifest is in segments/ subfolder (hot/cold architecture)
+    const fullEndpoint = `host${streamPath}/segments/output.m3u8`;
     const finalUrl = internalBuildHostUrl(host, fullEndpoint);
     
     console.log('[buildStreamUrl] Stream URL constructed successfully', {

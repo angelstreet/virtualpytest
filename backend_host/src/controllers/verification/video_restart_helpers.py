@@ -55,13 +55,16 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Generating restart video ({duration_seconds}s)")
             
             # Video generation logic
-            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            # NEW: Manifest is in segments/ subfolder (hot/cold architecture)
+            m3u8_path = os.path.join(self.video_capture_path, "segments", "output.m3u8")
             if not os.path.exists(m3u8_path):
                 return None
             
+            # NEW: Segments are in segments/ subfolder (hot/cold architecture)
             # Get segments using fast os.scandir (no subprocess overhead)
             try:
-                all_segment_paths = get_files_by_pattern(self.video_capture_path, r'^segment_.*\.ts$')
+                segments_folder = os.path.join(self.video_capture_path, 'segments')
+                all_segment_paths = get_files_by_pattern(segments_folder, r'^segment_.*\.ts$')
                 all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
             except Exception as e:
                 print(f"RestartHelpers[{self.device_name}]: Error finding segments: {e}")
@@ -119,7 +122,9 @@ class VideoRestartHelpers:
             if segment_files is None:
                 print(f"RestartHelpers[{self.device_name}]: No segment files provided, scanning directory")
                 try:
-                    all_segment_paths = get_files_by_pattern(self.video_capture_path, r'^segment_.*\.ts$')
+                    # NEW: Segments are in segments/ subfolder
+                    segments_folder = os.path.join(self.video_capture_path, 'segments')
+                    all_segment_paths = get_files_by_pattern(segments_folder, r'^segment_.*\.ts$')
                     all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
                 except Exception as e:
                     print(f"RestartHelpers[{self.device_name}]: Error finding segments: {e}")
@@ -282,7 +287,8 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Compressing {duration_seconds}s HLS video to MP4")
             
             # Find the M3U8 file
-            m3u8_path = os.path.join(self.video_capture_path, "output.m3u8")
+            # NEW: Manifest is in segments/ subfolder (hot/cold architecture)
+            m3u8_path = os.path.join(self.video_capture_path, "segments", "output.m3u8")
             
             if not os.path.exists(m3u8_path):
                 print(f"RestartHelpers[{self.device_name}]: No M3U8 file found at {m3u8_path}")
@@ -371,8 +377,11 @@ class VideoRestartHelpers:
     def _get_recent_segments(self, duration_seconds: float) -> List[Tuple[str, str]]:
         """Get recent HLS segments for the specified duration"""
         try:
+            # NEW: Segments are in segments/ subfolder (hot/cold architecture)
+            segments_folder = os.path.join(self.video_capture_path, 'segments')
+            
             # Get segments using fast os.scandir (no subprocess overhead)
-            all_segment_paths = get_files_by_pattern(self.video_capture_path, r'^segment_.*\.ts$')
+            all_segment_paths = get_files_by_pattern(segments_folder, r'^segment_.*\.ts$')
             
             # Sort by file modification time
             all_segment_paths.sort(key=lambda path: os.path.getmtime(path))

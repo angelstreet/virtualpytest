@@ -80,14 +80,22 @@ class AudioAIHelpers:
                 print(f"AudioAI[{self.device_name}]: Capture folder does not exist: {capture_folder}")
                 return []
             
-            # Find recent HLS segment files (last 30 seconds since segments rotate quickly)
+            # NEW: Segments are in segments/ subfolder (hot/cold architecture)
+            segments_folder = os.path.join(capture_folder, 'segments')
+            if not os.path.exists(segments_folder):
+                print(f"AudioAI[{self.device_name}]: Segments folder does not exist: {segments_folder}")
+                return []
+            
+            # Find recent HLS segment files from hot storage (last 30 seconds)
             cutoff_time = time.time() - 30  # 30 seconds ago
             ts_files = []
             
-            for filename in os.listdir(capture_folder):
+            # Check hot storage (segments/ root) only - last 10 files
+            for filename in os.listdir(segments_folder):
                 if filename.startswith('segment_') and filename.endswith('.ts'):
-                    filepath = os.path.join(capture_folder, filename)
-                    if os.path.getmtime(filepath) >= cutoff_time:
+                    filepath = os.path.join(segments_folder, filename)
+                    # Only include files, not subdirectories (hour folders)
+                    if os.path.isfile(filepath) and os.path.getmtime(filepath) >= cutoff_time:
                         ts_files.append({
                             'path': filepath,
                             'filename': filename,
@@ -102,10 +110,12 @@ class AudioAIHelpers:
             
             if not recent_files:
                 # Check if we have image captures but no TS files (device compatibility check)
+                captures_folder = os.path.join(capture_folder, 'captures')
                 jpg_files = []
-                for filename in os.listdir(capture_folder):
-                    if filename.startswith('capture_') and filename.endswith('.jpg'):
-                        jpg_files.append(filename)
+                if os.path.exists(captures_folder):
+                    for filename in os.listdir(captures_folder):
+                        if filename.startswith('capture_') and filename.endswith('.jpg'):
+                            jpg_files.append(filename)
                 
                 if jpg_files:
                     print(f"AudioAI[{self.device_name}]: Device uses image-only capture, audio analysis not available")

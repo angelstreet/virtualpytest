@@ -13,7 +13,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 const HLSDebugPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
-  const [streamUrl, setStreamUrl] = useState('https://dev.virtualpytest.com/host/stream/capture1/playlist.m3u8');
+  const [streamUrl, setStreamUrl] = useState('https://dev.virtualpytest.com/host/stream/capture1/segments/output.m3u8');
   const [streamError, setStreamError] = useState<string | null>(null);
   const [streamLoaded, setStreamLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);

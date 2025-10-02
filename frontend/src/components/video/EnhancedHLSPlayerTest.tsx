@@ -28,7 +28,7 @@ export const EnhancedHLSPlayerTest: React.FC = () => {
       />
       
       <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>
-        Stream URL: /host/stream/capture1/output.m3u8
+        Stream URL: /host/stream/capture1/segments/output.m3u8
       </Typography>
     </Box>
   );
