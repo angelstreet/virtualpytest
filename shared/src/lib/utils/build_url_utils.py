@@ -215,7 +215,7 @@ def buildVerificationResultUrl(host_info: dict, filename: str, device_id: str) -
         
     Example:
         buildVerificationResultUrl(host_info, 'source_image_0.png', 'device1')
-        -> 'https://host/host/stream/capture1/verification_results/source_image_0.png'
+        -> 'https://host/host/stream/capture1/captures/verification_results/source_image_0.png'
     """
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
@@ -238,7 +238,7 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
         
     Examples:
         buildStreamUrl(host_info, 'device1')
-        -> 'https://host:444/host/stream/capture1/output.m3u8'
+        -> 'https://host:444/host/stream/capture1/segments/output.m3u8'
         
         buildStreamUrl(host_info, 'host_vnc')
         -> 'https://host:444/host/vnc/stream'
@@ -270,11 +270,13 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
         # Check if this is a local IP access (direct to pi4)
         if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
             # Use relative URL for local access - much faster, no CORS issues
-            return f"/host{stream_path}/output.m3u8"
+            # NEW: Hot/cold architecture - manifest is in segments/ subfolder
+            return f"/host{stream_path}/segments/output.m3u8"
         else:
             # Use absolute URL with nginx proxy prefixes for remote access
             nginx_host_url = _get_nginx_host_url(host_info)
-            return f"{nginx_host_url}/host{stream_path}/output.m3u8"
+            # NEW: Hot/cold architecture - manifest is in segments/ subfolder
+            return f"{nginx_host_url}/host{stream_path}/segments/output.m3u8"
 
 def buildHostImageUrl(host_info: dict, image_path: str) -> str:
     """
