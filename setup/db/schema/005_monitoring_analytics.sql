@@ -95,7 +95,7 @@ CREATE TABLE edge_metrics (
 -- Database Functions
 -- Function to efficiently delete all alerts without returning data to client
 CREATE OR REPLACE FUNCTION delete_all_alerts()
-RETURNS jsonb
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -109,15 +109,15 @@ BEGIN
   -- Using "WHERE true" matches all rows while satisfying the WHERE requirement
   DELETE FROM alerts WHERE true;
   
-  -- Return result as JSON
-  RETURN jsonb_build_object(
+  -- Return result as JSON (text-based format works better with Supabase Python client)
+  RETURN json_build_object(
     'success', true,
     'deleted_count', deleted_count,
     'message', 'Successfully deleted ' || deleted_count || ' alerts'
   );
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN jsonb_build_object(
+    RETURN json_build_object(
       'success', false,
       'error', SQLERRM,
       'deleted_count', 0

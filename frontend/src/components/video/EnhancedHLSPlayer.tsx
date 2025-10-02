@@ -4,6 +4,7 @@ import { PlayArrow, Pause, Translate, AutoAwesome } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 import { useStream } from '../../hooks/controller';
 import { Host } from '../../types/common/Host_Types';
+import { buildStreamUrl } from '../../utils/buildUrlUtils';
 
 interface ArchiveMetadata {
   total_segments: number;
