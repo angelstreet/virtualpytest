@@ -506,6 +506,12 @@ def get_host_system_stats():
             'monitor_service_uptime_seconds': monitor_service_uptime
         }
         
+        # Add load average (1, 5, 15 minute averages)
+        load_avg = os.getloadavg()
+        stats['load_average_1m'] = round(load_avg[0], 2)
+        stats['load_average_5m'] = round(load_avg[1], 2)
+        stats['load_average_15m'] = round(load_avg[2], 2)
+        
         # Add CPU temperature if available
         cpu_temp = get_cpu_temperature()
         if cpu_temp is not None:
@@ -527,7 +533,10 @@ def get_host_system_stats():
             'architecture': 'unknown',
             'python_version': 'unknown',
             'ffmpeg_service_uptime_seconds': 0,
-            'monitor_service_uptime_seconds': 0
+            'monitor_service_uptime_seconds': 0,
+            'load_average_1m': 0,
+            'load_average_5m': 0,
+            'load_average_15m': 0
         }
 
 
@@ -592,6 +601,12 @@ def get_enhanced_system_stats():
             'monitor_service_uptime_seconds': monitor_service_uptime
         }
         
+        # Add load average (1, 5, 15 minute averages)
+        load_avg = os.getloadavg()
+        stats['load_average_1m'] = round(load_avg[0], 2)
+        stats['load_average_5m'] = round(load_avg[1], 2)
+        stats['load_average_15m'] = round(load_avg[2], 2)
+        
         # Add CPU temperature if available
         cpu_temp = get_cpu_temperature()
         if cpu_temp is not None:
@@ -618,7 +633,10 @@ def get_enhanced_system_stats():
             'ffmpeg_status': {'status': 'unknown', 'error': str(e)},
             'monitor_status': {'status': 'unknown', 'error': str(e)},
             'ffmpeg_service_uptime_seconds': 0,
-            'monitor_service_uptime_seconds': 0
+            'monitor_service_uptime_seconds': 0,
+            'load_average_1m': 0,
+            'load_average_5m': 0,
+            'load_average_15m': 0
         }
 
 
