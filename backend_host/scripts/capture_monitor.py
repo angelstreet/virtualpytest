@@ -35,20 +35,20 @@ class InotifyFrameMonitor:
         # Map capture_dir paths to their folder names for logging
         self.dir_to_info = {}
         
-        # Watch all capture directories
+        # Watch all capture directories (get_capture_directories already returns paths ending in /captures)
         for capture_dir in capture_dirs:
-            captures_path = os.path.join(capture_dir, 'captures')
-            capture_folder = get_capture_folder(capture_dir)
-            self.dir_to_info[captures_path] = {
-                'capture_dir': capture_dir,
+            # capture_dir is already /var/www/html/stream/captureX/captures
+            capture_folder = get_capture_folder(os.path.dirname(capture_dir))  # Get parent dir for folder name
+            self.dir_to_info[capture_dir] = {
+                'capture_dir': os.path.dirname(capture_dir),
                 'capture_folder': capture_folder
             }
             
-            if os.path.exists(captures_path):
-                self.inotify.add_watch(captures_path)
-                logger.info(f"Watching: {captures_path} -> {capture_folder}")
+            if os.path.exists(capture_dir):
+                self.inotify.add_watch(capture_dir)
+                logger.info(f"Watching: {capture_dir} -> {capture_folder}")
             else:
-                logger.warning(f"Directory not found: {captures_path}")
+                logger.warning(f"Directory not found: {capture_dir}")
         
         # Process any existing unanalyzed frames on startup
         self.process_existing_frames(capture_dirs)
@@ -58,16 +58,16 @@ class InotifyFrameMonitor:
         logger.info("Checking for existing unanalyzed frames...")
         
         for capture_dir in capture_dirs:
-            captures_path = os.path.join(capture_dir, 'captures')
-            if not os.path.exists(captures_path):
+            # capture_dir is already the full path including /captures
+            if not os.path.exists(capture_dir):
                 continue
             
-            capture_folder = get_capture_folder(capture_dir)
+            capture_folder = get_capture_folder(os.path.dirname(capture_dir))
             
             # Find last 10 frames and check if analyzed
             try:
                 frames = []
-                for entry in os.scandir(captures_path):
+                for entry in os.scandir(capture_dir):
                     if (entry.name.startswith('capture_') and 
                         entry.name.endswith('.jpg') and 
                         '_thumbnail' not in entry.name and
@@ -78,12 +78,12 @@ class InotifyFrameMonitor:
                 frames.sort(key=lambda x: x[1], reverse=True)
                 
                 for filename, _ in frames[:10]:
-                    frame_path = os.path.join(captures_path, filename)
+                    frame_path = os.path.join(capture_dir, filename)
                     json_file = frame_path.replace('.jpg', '.json')
                     
                     if not os.path.exists(json_file):
                         logger.info(f"[{capture_folder}] Processing existing frame: {filename}")
-                        self.process_frame(captures_path, filename)
+                        self.process_frame(capture_dir, filename)
                         
             except Exception as e:
                 logger.error(f"[{capture_folder}] Error processing existing frames: {e}")
@@ -252,11 +252,11 @@ def main():
     
     logger.info(f"Found {len(capture_dirs)} capture directories")
     for capture_dir in capture_dirs:
-        capture_folder = get_capture_folder(capture_dir)
+        capture_folder = get_capture_folder(os.path.dirname(capture_dir))
         logger.info(f"Monitoring: {capture_dir} -> {capture_folder}")
     
     # Auto-resolve orphaned incidents for capture folders no longer being monitored
-    monitored_capture_folders = [get_capture_folder(d) for d in capture_dirs]
+    monitored_capture_folders = [get_capture_folder(os.path.dirname(d)) for d in capture_dirs]
     incident_manager = IncidentManager()
     incident_manager.cleanup_orphaned_incidents(monitored_capture_folders, host_name)
     
