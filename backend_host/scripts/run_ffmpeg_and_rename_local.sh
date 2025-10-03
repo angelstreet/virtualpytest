@@ -388,9 +388,23 @@ if [ "$SINGLE_DEVICE_MODE" = true ]; then
   exit 0
 fi
 
+# Graceful shutdown handler for systemd stop/restart
+cleanup_all() {
+  echo "🛑 Received shutdown signal - cleaning up..."
+  sudo pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
+  echo "✅ Cleanup complete - exiting"
+  exit 0
+}
+
+# Register signal handlers for graceful shutdown
+trap cleanup_all SIGTERM SIGINT
+
 # Keep script running for systemd (Type=simple with Restart=always)
 # The script must stay alive or systemd will restart it continuously
 echo "🔍 DEBUG: Keeping service alive (systemd Type=simple)"
+echo "Press Ctrl+C or send SIGTERM to stop gracefully"
+
 while true; do
-  sleep 3600
+  sleep 3600 &
+  wait $!  # Wait for sleep in background, allows signal interruption
 done
