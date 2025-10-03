@@ -1,6 +1,6 @@
 #!/bin/bash
-# Setup RAM-based hot storage for all capture devices
-# NO LEGACY CODE - Pure RAM implementation
+# Setup RAM-based hot storage - CLEAN IMPLEMENTATION
+# Only creates and mounts RAM, no migration
 
 set -e
 
@@ -9,7 +9,7 @@ BASE_PATH="/var/www/html/stream"
 DEVICES=("capture1" "capture2" "capture3" "capture4")
 
 echo "================================"
-echo "RAM Hot Storage Setup"
+echo "RAM Hot Storage Setup (Fresh)"
 echo "================================"
 
 # Check if we have sudo access
@@ -29,29 +29,18 @@ for DEVICE in "${DEVICES[@]}"; do
   if mount | grep -q "$HOT_PATH"; then
     echo "✓ $HOT_PATH already mounted"
   else
-    # Mount tmpfs
+    # Mount tmpfs with ownership set at mount time
     echo "Mounting tmpfs ($MOUNT_SIZE) at $HOT_PATH"
     sudo mount -t tmpfs -o size=$MOUNT_SIZE,noexec,nodev,nosuid,uid=$(id -u),gid=$(id -g) tmpfs "$HOT_PATH"
     echo "✓ Mounted"
   fi
   
-  # Create subdirectories (as current user, not sudo)
+  # Create subdirectories in RAM (instant, no SD card I/O)
   mkdir -p "$HOT_PATH/captures"
   mkdir -p "$HOT_PATH/thumbnails"
   mkdir -p "$HOT_PATH/segments"
   
-  # Create archive directories on SD card
-  for hour in {0..23}; do
-    sudo mkdir -p "$BASE_PATH/$DEVICE/captures/$hour"
-    sudo mkdir -p "$BASE_PATH/$DEVICE/thumbnails/$hour"
-    sudo mkdir -p "$BASE_PATH/$DEVICE/metadata/$hour"
-    sudo mkdir -p "$BASE_PATH/$DEVICE/segments/$hour"
-  done
-  
-  # Set ownership
-  sudo chown -R $(id -u):$(id -g) "$BASE_PATH/$DEVICE"
-  
-  echo "✓ $DEVICE hot storage ready (RAM + SD archive)"
+  echo "✓ $DEVICE hot storage ready"
   echo ""
 done
 
@@ -61,22 +50,11 @@ echo "Mounted RAM disks:"
 df -h | grep -E "hot|Filesystem" || echo "No hot mounts found"
 echo "================================"
 
-# Check if we should add to /etc/fstab
 echo ""
-echo "💡 To make RAM mounts persistent across reboots:"
+echo "✅ RAM hot storage setup complete!"
 echo ""
-echo "Add these lines to /etc/fstab:"
-echo "---"
+echo "💡 Optional: To make persistent across reboots, add to /etc/fstab:"
 for DEVICE in "${DEVICES[@]}"; do
   echo "tmpfs $BASE_PATH/$DEVICE/hot tmpfs size=$MOUNT_SIZE,noexec,nodev,nosuid,uid=$(id -u),gid=$(id -g) 0 0"
 done
-echo "---"
 echo ""
-echo "Run: sudo nano /etc/fstab"
-echo "Then: sudo mount -a  # to test"
-echo ""
-echo "⚠️  Note: This is optional. RAM mounts will be recreated on each reboot"
-echo "by the install_host_services.sh script if not in fstab."
-echo ""
-echo "✅ RAM hot storage setup complete!"
-
