@@ -5,6 +5,8 @@ Simple hardcoded device-to-controller mapping.
 Each device model has predefined controllers and verification capabilities.
 """
 
+from shared.src.lib.utils.storage_path_utils import get_device_base_path
+
 # Device Model → Controllers Mapping
 DEVICE_CONTROLLER_MAP = {
     'android_mobile': {
