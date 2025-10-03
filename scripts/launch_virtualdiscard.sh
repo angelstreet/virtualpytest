@@ -181,7 +181,7 @@ echo -e "${NC}💡 You should see logs with [DISCARD] prefix appearing below${NC
 echo -e "${NC}🤖 Service Status:${NC}"
 echo -e "${NC}   AI Queue Processing: Active${NC}"
 echo -e "${NC}   Priority: P1 (alerts) → P2 (scripts) → P3 (reserved)${NC}"
-echo -e "${NC}   Polling Interval: 10 seconds${NC}"
+echo -e "${NC}   Mode: BLPOP (blocking - efficient, no polling!)${NC}"
 echo "=================================================================================="
 
 # Wait for all background jobs
