@@ -81,7 +81,7 @@ for device in "${!GRABBERS[@]}"; do
     echo "  - $device"
 done
 
-# Kill processes
+# Kill existing ffmpeg processes once at start
 echo "🔍 DEBUG: Killing existing processes..."
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
     for index in "${!GRABBERS[@]}"; do
@@ -89,19 +89,17 @@ if [ "$SINGLE_DEVICE_MODE" = true ]; then
             IFS='|' read -r _ _ capture_dir _ <<< "${GRABBERS[$index]}"
             OLD_PID=$(get_device_info "$capture_dir" "pid")
             if [ -n "$OLD_PID" ]; then
-                kill -9 "$OLD_PID" 2>/dev/null || sudo kill -9 "$OLD_PID" 2>/dev/null
+                sudo kill -9 "$OLD_PID" 2>/dev/null || true
             fi
             break
         fi
     done
-    sleep 1
 else
-    # Kill ffmpeg processes but NOT this script (which has "ffmpeg" in its filename)
-    # Use /usr/bin/ffmpeg to avoid matching our script name
-    pkill -f '/usr/bin/ffmpeg' 2>/dev/null || sudo pkill -f '/usr/bin/ffmpeg' 2>/dev/null || true
-    sleep 3
+    # Kill all ffmpeg processes (use full path to avoid matching this script's filename)
+    sudo pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
 fi
 
+sleep 1
 echo "✅ Process cleanup complete"
 
 reset_log_if_large() {
@@ -173,7 +171,7 @@ get_vnc_resolution() {
 # Function to reset video device before capture
 reset_video_device() {
   local device="$1"
-  fuser -k "$device" 2>/dev/null || sudo fuser -k "$device" 2>/dev/null || true
+  sudo fuser -k "$device" 2>/dev/null || true
   sleep 3
 }
 
@@ -385,12 +383,7 @@ done
 
 echo "✅ All grabbers started"
 
-if [ "$SINGLE_DEVICE_MODE" = true ]; then
-  echo "🔍 DEBUG: Single device mode - exiting"
-  exit 0
-fi
-
-# Keep service running (FFmpeg processes run in background)
-while true; do
-  sleep 3600
-done
+# Script exits after starting background ffmpeg processes
+# Systemd Type=forking will track the ffmpeg PIDs
+echo "🔍 DEBUG: Script complete - ffmpeg processes running in background"
+exit 0
