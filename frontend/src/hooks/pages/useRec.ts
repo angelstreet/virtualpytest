@@ -57,7 +57,8 @@ export const useRec = (): UseRecReturn => {
   // Remove modal context hook - no longer needed for thumbnail generation
 
   // Simple state for monitoring base URL patterns (read-only for now)
-  const [baseUrlPatterns] = useState<Map<string, string>>(new Map());
+  // Use useMemo to ensure stable reference across re-renders
+  const baseUrlPatterns = useMemo(() => new Map<string, string>(), []);
 
   // Use the simplified HostManager function and loading state
   const { getDevicesByCapability, isLoading: isHostManagerLoading } = useHostManager();

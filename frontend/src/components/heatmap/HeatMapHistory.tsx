@@ -55,7 +55,17 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch reports: ${response.status} ${response.statusText}`);
+        // Try to get error details from response body
+        let errorDetail = `${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorDetail = errorData.error;
+          }
+        } catch (e) {
+          // If JSON parsing fails, use status text
+        }
+        throw new Error(`Failed to fetch reports: ${errorDetail}`);
       }
 
       const data = await response.json();

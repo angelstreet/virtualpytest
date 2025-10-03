@@ -471,7 +471,9 @@ class VideoRestartHelpers:
     def _get_aligned_screenshots(self, segment_files: List[Tuple[str, str]]) -> List[str]:
         """Get screenshots aligned with video segments"""
         try:
-            capture_folder = f"{self.video_capture_path}/captures"
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            # Use centralized path resolution (handles hot/cold storage automatically)
+            capture_folder = get_capture_storage_path(self.video_capture_path, 'captures')
             
             # Find screenshot closest to first segment timestamp
             if not segment_files:

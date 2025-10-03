@@ -120,7 +120,9 @@ class VNCStreamController(FFmpegCaptureController):
             
             # For VNC, we use the same FFmpeg capture approach as HDMI
             # Check if the capture directory exists and has recent screenshots
-            captures_path = os.path.join(self.video_capture_path, 'captures')
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            # Use centralized path resolution (handles hot/cold storage automatically)
+            captures_path = get_capture_storage_path(self.video_capture_path, 'captures')
             
             if os.path.exists(captures_path) and os.access(captures_path, os.W_OK):
                 # Check if there are recent screenshots (within last 30 seconds)

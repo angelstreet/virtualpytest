@@ -331,9 +331,10 @@ class FFmpegCaptureController(AVControllerInterface):
         try:
             import time
             import os
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
             
-            # Use device's configured capture path directly
-            captures_path = f"{self.video_capture_path}/captures"
+            # Use centralized path resolution (handles hot/cold storage automatically)
+            captures_path = get_capture_storage_path(self.video_capture_path, 'captures')
             print(f"[{self.capture_source}]: Capture folder: {captures_path}")
                 
             if not os.path.exists(captures_path):

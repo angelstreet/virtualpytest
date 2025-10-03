@@ -51,7 +51,9 @@ class VideoMonitoringHelpers:
             
             # Fallback to AV controller path + captures
             if self.video_capture_path:
-                return os.path.join(self.video_capture_path, 'captures')
+                from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+                # Use centralized path resolution (handles hot/cold storage automatically)
+                return get_capture_storage_path(self.video_capture_path, 'captures')
             
             return None
         except Exception as e:

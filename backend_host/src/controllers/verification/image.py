@@ -28,9 +28,12 @@ class ImageVerificationController:
             av_controller: AV controller for capturing images (dependency injection)
             device_model: Device model for reference image resolution (e.g., 'android_tv')
         """
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+        
         self.av_controller = av_controller
         self.device_model = device_model
-        self.captures_path = os.path.join(av_controller.video_capture_path, 'captures')
+        # Use centralized path resolution (handles hot/cold storage automatically)
+        self.captures_path = get_capture_storage_path(av_controller.video_capture_path, 'captures')
         self.verification_type = 'image'
 
         self.verification_results_dir = os.path.join(self.captures_path, 'verification_results')
