@@ -1,4 +1,4 @@
-thumb#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 HOT/COLD STORAGE ARCHIVER - RAM + SD Architecture
 ==================================================
