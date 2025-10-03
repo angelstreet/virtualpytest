@@ -4,6 +4,7 @@ Frame detector - analyzes frames for issues with rich metadata
 Returns same format as original analyze_audio_video.py
 """
 import os
+import sys
 import cv2
 import numpy as np
 import subprocess
@@ -11,6 +12,13 @@ import glob
 import re
 import time
 from datetime import datetime
+
+# Add project paths for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
+# Import centralized hot/cold utilities
+from archive_utils import is_ram_mode
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls
 _audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
@@ -100,8 +108,13 @@ def analyze_audio(capture_dir):
     latest = None
     latest_mtime = 0
     
-    # NEW: Segments are in segments/ subfolder (hot/cold architecture)
-    segments_dir = os.path.join(capture_dir, 'segments')
+    # Use centralized hot/cold detection - check RAM mode
+    if is_ram_mode(capture_dir):
+        # RAM mode: segments in /hot/segments/ (tmpfs)
+        segments_dir = os.path.join(capture_dir, 'hot', 'segments')
+    else:
+        # SD mode: segments in /segments/ root
+        segments_dir = os.path.join(capture_dir, 'segments')
     
     # CRITICAL FIX: Check cache first - only rescan directory every 5 seconds
     if capture_dir in _latest_segment_cache:

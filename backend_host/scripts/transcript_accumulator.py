@@ -11,7 +11,7 @@ import time
 import subprocess
 import logging
 from datetime import datetime
-from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
+from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode
 
 # Add paths for imports (script is in backend_host/scripts/)
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -243,7 +243,11 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
 
 def load_hourly_transcript(stream_dir, hour_window, capture_folder):
     """Load transcript data for a specific hour window (aligned with archive manifests)"""
-    transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+    # Use hot storage if RAM mode is active
+    if is_ram_mode(stream_dir):
+        transcript_path = os.path.join(stream_dir, 'hot', f'transcript_hour{hour_window}.json')
+    else:
+        transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
     
     if os.path.exists(transcript_path):
         with open(transcript_path, 'r') as f:
@@ -259,7 +263,15 @@ def load_hourly_transcript(stream_dir, hour_window, capture_folder):
 
 def save_hourly_transcript(stream_dir, hour_window, transcript_data):
     """Save transcript data for a specific hour window (atomic write)"""
-    transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+    # Use hot storage if RAM mode is active
+    if is_ram_mode(stream_dir):
+        # Ensure hot directory exists
+        hot_dir = os.path.join(stream_dir, 'hot')
+        os.makedirs(hot_dir, exist_ok=True)
+        transcript_path = os.path.join(hot_dir, f'transcript_hour{hour_window}.json')
+    else:
+        transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+    
     with open(transcript_path + '.tmp', 'w') as f:
         json.dump(transcript_data, f, indent=2)
     os.rename(transcript_path + '.tmp', transcript_path)
@@ -267,8 +279,14 @@ def save_hourly_transcript(stream_dir, hour_window, transcript_data):
 def cleanup_old_hourly_transcripts(stream_dir):
     """Remove hourly transcript files older than 24 hours (circular cleanup)"""
     try:
+        # Use hot storage if RAM mode is active
+        if is_ram_mode(stream_dir):
+            search_dir = os.path.join(stream_dir, 'hot')
+        else:
+            search_dir = stream_dir
+        
         # Use fast os.scandir (no subprocess overhead)
-        transcript_files = get_files_by_pattern(stream_dir, r'^transcript_hour.*\.json$')
+        transcript_files = get_files_by_pattern(search_dir, r'^transcript_hour.*\.json$')
         
         if len(transcript_files) > 24:
             # Sort by modification time and remove oldest
@@ -295,7 +313,14 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         stream_dir = capture_dir.replace('/captures', '')
         
         # Load global state (track last processed segment across all hours)
-        state_path = os.path.join(stream_dir, 'transcript_state.json')
+        # Use hot storage if RAM mode is active
+        if is_ram_mode(stream_dir):
+            hot_dir = os.path.join(stream_dir, 'hot')
+            os.makedirs(hot_dir, exist_ok=True)
+            state_path = os.path.join(hot_dir, 'transcript_state.json')
+        else:
+            state_path = os.path.join(stream_dir, 'transcript_state.json')
+        
         if os.path.exists(state_path):
             with open(state_path, 'r') as f:
                 state = json.load(f)

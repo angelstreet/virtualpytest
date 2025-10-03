@@ -99,55 +99,87 @@ def get_device_info_from_capture_folder(capture_folder):
     return device_info
 
 
-def get_capture_directories():
-    """Find active capture directories from /tmp/active_captures.conf (centralized config)"""
+def get_capture_base_directories():
+    """
+    Get list of capture base directories from /tmp/active_captures.conf
+    Returns base paths like /var/www/html/stream/capture1 (not /captures subdirectory)
+    
+    This is the CENTRALIZED source of truth for all capture directory lookups.
+    """
     active_captures_file = '/tmp/active_captures.conf'
+    base_dirs = []
     
     # Read from centralized config file written by run_ffmpeg_and_rename_local.sh
     if os.path.exists(active_captures_file):
         try:
             with open(active_captures_file, 'r') as f:
-                # Each line contains a capture directory path (e.g., /var/www/html/stream/capture1)
-                base_dirs = []
                 for line in f:
                     capture_base = line.strip()
-                    if capture_base:
-                        # Add /captures subdirectory
-                        capture_dir = os.path.join(capture_base, 'captures')
-                        if os.path.exists(capture_dir):
-                            base_dirs.append(capture_dir)
+                    if capture_base and os.path.isdir(capture_base):
+                        base_dirs.append(capture_base)
                 
                 logger.info(f"✅ Loaded {len(base_dirs)} capture directories from {active_captures_file}")
                 return base_dirs
         except Exception as e:
             logger.error(f"❌ Error reading {active_captures_file}: {e}")
     
-    # Auto-discover all capture directories if config file doesn't exist
+    # Auto-discover if config file doesn't exist
     logger.warning(f"⚠️ {active_captures_file} not found, auto-discovering directories")
-    base_dirs = []
-    
-    # Scan for all capture[0-9]* directories
     stream_base = "/var/www/html/stream"
+    
     if os.path.exists(stream_base):
         for entry in sorted(os.listdir(stream_base)):
-            if entry.startswith('capture') and entry[7:].isdigit():
-                capture_dir = os.path.join(stream_base, entry, 'captures')
-                if os.path.exists(capture_dir):
-                    base_dirs.append(capture_dir)
-                    logger.info(f"✅ Auto-discovered: {capture_dir}")
+            if entry.startswith('capture') and os.path.isdir(os.path.join(stream_base, entry)):
+                base_dirs.append(os.path.join(stream_base, entry))
     
-    # If no directories found, use hardcoded fallback for all 4 captures
+    # Hardcoded fallback
     if not base_dirs:
         logger.warning(f"⚠️ No directories found, using hardcoded fallback")
         base_dirs = [
-            "/var/www/html/stream/capture1/captures",
-            "/var/www/html/stream/capture2/captures",
-            "/var/www/html/stream/capture3/captures",
-            "/var/www/html/stream/capture4/captures",
+            "/var/www/html/stream/capture1",
+            "/var/www/html/stream/capture2",
+            "/var/www/html/stream/capture3",
+            "/var/www/html/stream/capture4",
         ]
         base_dirs = [d for d in base_dirs if os.path.exists(d)]
     
     return base_dirs
+
+
+def get_capture_directories():
+    """
+    Get list of capture directories (with /captures subdirectory)
+    Legacy function for backward compatibility with capture_monitor.py
+    """
+    base_dirs = get_capture_base_directories()
+    return [os.path.join(d, 'captures') for d in base_dirs if os.path.exists(os.path.join(d, 'captures'))]
+
+
+def is_ram_mode(capture_base_dir):
+    """
+    Check if capture directory uses RAM hot storage
+    Returns True if /hot/ exists and is mounted as tmpfs
+    
+    Args:
+        capture_base_dir: Base directory like /var/www/html/stream/capture1
+    """
+    hot_path = os.path.join(capture_base_dir, 'hot')
+    
+    if not os.path.exists(hot_path):
+        return False
+    
+    # Check if it's a tmpfs mount (RAM)
+    try:
+        with open('/proc/mounts', 'r') as f:
+            mounts = f.read()
+            if hot_path in mounts and 'tmpfs' in mounts:
+                return True
+    except Exception:
+        pass
+    
+    # If /hot/ exists but isn't tmpfs, still treat as RAM mode
+    # (for development/testing)
+    return True
 
 def get_capture_folder(capture_dir):
     """Extract capture folder from path"""
@@ -183,8 +215,14 @@ def generate_manifest_for_segments(stream_dir, segments, manifest_name):
     
     manifest_content.append("#EXT-X-ENDLIST")
     
-    # Write manifest atomically
-    manifest_path = os.path.join(stream_dir, manifest_name)
+    # Write manifest atomically - use hot storage if RAM mode
+    if is_ram_mode(stream_dir):
+        hot_dir = os.path.join(stream_dir, 'hot')
+        os.makedirs(hot_dir, exist_ok=True)
+        manifest_path = os.path.join(hot_dir, manifest_name)
+    else:
+        manifest_path = os.path.join(stream_dir, manifest_name)
+    
     with open(manifest_path + '.tmp', 'w') as f:
         f.write('\n'.join(manifest_content))
     
@@ -207,8 +245,14 @@ def update_archive_manifest(capture_dir):
         SEGMENTS_PER_WINDOW = WINDOW_HOURS * 3600 // SEGMENT_DURATION  # 3,600 segments per 1h window
         MAX_MANIFESTS = 24  # Support up to 24 hours (24 manifests)
         
-        # Load state for incremental updates
-        state_file = os.path.join(stream_dir, 'archive_state.json')
+        # Load state for incremental updates - use hot storage if RAM mode
+        if is_ram_mode(stream_dir):
+            hot_dir = os.path.join(stream_dir, 'hot')
+            os.makedirs(hot_dir, exist_ok=True)
+            state_file = os.path.join(hot_dir, 'archive_state.json')
+        else:
+            state_file = os.path.join(stream_dir, 'archive_state.json')
+        
         state = json.load(open(state_file, 'r')) if os.path.exists(state_file) else {}
         last_max_segment = state.get('last_max_segment', 0)
         
@@ -289,8 +333,12 @@ def update_archive_manifest(capture_dir):
             "manifests": manifest_metadata
         }
         
-        # Write metadata JSON
-        metadata_path = os.path.join(stream_dir, 'archive_metadata.json')
+        # Write metadata JSON - use hot storage if RAM mode
+        if is_ram_mode(stream_dir):
+            metadata_path = os.path.join(stream_dir, 'hot', 'archive_metadata.json')
+        else:
+            metadata_path = os.path.join(stream_dir, 'archive_metadata.json')
+        
         try:
             with open(metadata_path + '.tmp', 'w') as f:
                 json.dump(metadata, f, indent=2)
@@ -302,9 +350,15 @@ def update_archive_manifest(capture_dir):
         
         # Legacy archive.m3u8 - points to most recent manifest for simple players
         if manifests_generated > 0:
-            archive_path = os.path.join(stream_dir, 'archive.m3u8')
-            last_manifest_name = f'archive{manifests_generated}.m3u8'
-            last_manifest_path = os.path.join(stream_dir, last_manifest_name)
+            # Use hot storage if RAM mode
+            if is_ram_mode(stream_dir):
+                archive_path = os.path.join(stream_dir, 'hot', 'archive.m3u8')
+                last_manifest_name = f'archive{manifests_generated}.m3u8'
+                last_manifest_path = os.path.join(stream_dir, 'hot', last_manifest_name)
+            else:
+                archive_path = os.path.join(stream_dir, 'archive.m3u8')
+                last_manifest_name = f'archive{manifests_generated}.m3u8'
+                last_manifest_path = os.path.join(stream_dir, last_manifest_name)
             
             try:
                 with open(archive_path + '.tmp', 'w') as f:
@@ -321,8 +375,13 @@ def update_archive_manifest(capture_dir):
         
         # Cleanup old manifests beyond current window
         # If we only generated 5 manifests, remove archive6-24 if they exist from previous runs
+        if is_ram_mode(stream_dir):
+            manifests_dir = os.path.join(stream_dir, 'hot')
+        else:
+            manifests_dir = stream_dir
+        
         for old_idx in range(manifests_generated + 1, MAX_MANIFESTS + 1):
-            old_manifest = os.path.join(stream_dir, f'archive{old_idx}.m3u8')
+            old_manifest = os.path.join(manifests_dir, f'archive{old_idx}.m3u8')
             if os.path.exists(old_manifest):
                 try:
                     os.remove(old_manifest)

@@ -32,6 +32,13 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Tuple, Optional
 
+# Add parent directory to path for imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
+# Import centralized utilities
+from archive_utils import get_capture_base_directories, is_ram_mode
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -74,60 +81,8 @@ FILE_PATTERNS = {
 }
 
 
-def get_capture_directories() -> List[str]:
-    """Get list of active capture directories from config file"""
-    capture_dirs = []
-    
-    if os.path.exists(ACTIVE_CAPTURES_FILE):
-        try:
-            with open(ACTIVE_CAPTURES_FILE, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and os.path.isdir(line):
-                        capture_dirs.append(line)
-            logger.info(f"Loaded {len(capture_dirs)} capture directories from config")
-        except Exception as e:
-            logger.error(f"Error reading config file: {e}")
-    
-    # Fallback: Auto-discover
-    if not capture_dirs:
-        logger.warning("Config not found, auto-discovering capture directories")
-        base_path = Path('/var/www/html/stream')
-        if base_path.exists():
-            for capture_dir in base_path.glob('capture[0-9]*'):
-                if capture_dir.is_dir():
-                    capture_dirs.append(str(capture_dir))
-        
-        # Last resort fallback
-        if not capture_dirs:
-            capture_dirs = [
-                '/var/www/html/stream/capture1',
-                '/var/www/html/stream/capture2',
-                '/var/www/html/stream/capture3',
-                '/var/www/html/stream/capture4'
-            ]
-    
-    return capture_dirs
-
-
-def is_ram_mode(capture_dir: str) -> bool:
-    """Check if capture directory uses RAM hot storage"""
-    hot_path = os.path.join(capture_dir, 'hot')
-    if not os.path.exists(hot_path):
-        return False
-    
-    # Check if it's a tmpfs mount (RAM)
-    try:
-        with open('/proc/mounts', 'r') as f:
-            mounts = f.read()
-            if hot_path in mounts and 'tmpfs' in mounts:
-                return True
-    except Exception:
-        pass
-    
-    # If /hot/ exists but isn't tmpfs, still treat as RAM mode
-    # (for development/testing)
-    return True
+# Use centralized function from archive_utils.py
+# No local implementation needed - single source of truth!
 
 
 def get_file_hour(filepath: str) -> int:
@@ -138,6 +93,58 @@ def get_file_hour(filepath: str) -> int:
     except Exception as e:
         logger.error(f"Error getting file hour for {filepath}: {e}")
         return datetime.now().hour
+
+
+def calculate_time_based_name(filepath: str, file_type: str, fps: int = 5) -> str:
+    """
+    Calculate time-based sequential filename for 24h rolling buffer
+    
+    Uses file mtime to calculate position in 24h cycle:
+    - Segments (1s): 0-86399 (24h × 3600s)
+    - Images (5fps): 0-431999 (86400s × 5fps)
+    - Images (2fps): 0-172799 (86400s × 2fps)
+    
+    Args:
+        filepath: Original file path
+        file_type: 'segments', 'captures', 'thumbnails', 'metadata'
+        fps: Frames per second (for images only)
+    
+    Returns:
+        New filename with time-based sequential number
+    """
+    try:
+        mtime = os.path.getmtime(filepath)
+        dt = datetime.fromtimestamp(mtime)
+        
+        # Calculate seconds since midnight
+        seconds_today = (dt.hour * 3600) + (dt.minute * 60) + dt.second
+        
+        if file_type == 'segments':
+            # 1 segment per second: 0-86399
+            sequence_num = seconds_today
+            new_name = f"segment_{sequence_num:06d}.ts"
+        elif file_type in ['captures', 'thumbnails', 'metadata']:
+            # Images at FPS rate
+            sequence_num = seconds_today * fps
+            
+            # Get original filename to extract extension and type
+            original_name = os.path.basename(filepath)
+            
+            if file_type == 'thumbnails':
+                new_name = f"capture_{sequence_num:06d}_thumbnail.jpg"
+            elif file_type == 'metadata':
+                new_name = f"capture_{sequence_num:06d}.json"
+            else:  # captures
+                new_name = f"capture_{sequence_num:06d}.jpg"
+        else:
+            # Unknown type, keep original name
+            return os.path.basename(filepath)
+        
+        return new_name
+        
+    except Exception as e:
+        logger.error(f"Error calculating time-based name for {filepath}: {e}")
+        return os.path.basename(filepath)
 
 
 def archive_hot_files(capture_dir: str, file_type: str) -> int:
@@ -228,13 +235,24 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
                 # Ensure hour folder exists
                 os.makedirs(hour_folder, exist_ok=True)
                 
-                # Move file to hour folder (RAM → SD or SD root → SD hour)
-                dest_path = os.path.join(hour_folder, filepath.name)
+                # Calculate time-based sequential name for 24h rolling buffer
+                # FPS detection: segments=1fps, captures/thumbnails=5fps default
+                fps = 5 if file_type in ['captures', 'thumbnails', 'metadata'] else 1
+                new_filename = calculate_time_based_name(str(filepath), file_type, fps)
+                
+                # Move file to hour folder with time-based name (RAM → SD or SD root → SD hour)
+                dest_path = os.path.join(hour_folder, new_filename)
+                
+                # If file exists (24h rollover), overwrite it (natural rolling buffer behavior)
+                if os.path.exists(dest_path):
+                    logger.debug(f"Overwriting existing {new_filename} (24h rollover)")
+                    os.remove(dest_path)
+                
                 shutil.move(str(filepath), dest_path)
                 
                 archived_count += 1
                 mode_label = "RAM→SD" if ram_mode else "hot→cold"
-                logger.debug(f"Archived {filepath.name} → {file_type}/{file_hour}/ ({mode_label})")
+                logger.debug(f"Archived {filepath.name} → {file_type}/{file_hour}/{new_filename} ({mode_label})")
                 
             except Exception as e:
                 logger.error(f"Error archiving {filepath}: {e}")
@@ -425,7 +443,7 @@ def main_loop():
     logger.info("=" * 60)
     
     # Detect mode from first capture directory
-    capture_dirs = get_capture_directories()
+    capture_dirs = get_capture_base_directories()
     ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
     run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
     
@@ -448,7 +466,7 @@ def main_loop():
             logger.info("=" * 60)
             
             # Get active capture directories
-            capture_dirs = get_capture_directories()
+            capture_dirs = get_capture_base_directories()
             logger.info(f"Processing {len(capture_dirs)} capture directories")
             
             # Process each directory

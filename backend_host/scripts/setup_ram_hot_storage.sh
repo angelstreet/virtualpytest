@@ -44,6 +44,7 @@ for DEVICE in "${DEVICES[@]}"; do
   mkdir -p "$HOT_PATH/captures"
   mkdir -p "$HOT_PATH/thumbnails"
   mkdir -p "$HOT_PATH/segments"
+  mkdir -p "$HOT_PATH/metadata"
   
   echo "✓ $DEVICE hot storage ready"
   echo ""

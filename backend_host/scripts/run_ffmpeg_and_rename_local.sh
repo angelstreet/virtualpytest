@@ -17,6 +17,8 @@
 # ============================================================================
 
 # Find and load .env file
+# NOTE: Python scripts use archive_utils.py for centralized directory discovery
+# This bash script uses .env directly (same source of truth, different languages)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_HOST_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$BACKEND_HOST_DIR/src/.env"
@@ -125,52 +127,39 @@ reset_video_device() {
 
 # Clean up playlist files for a specific capture directory
 clean_playlist_files() {
-  local output_dir=$1
-  echo "Cleaning playlist files for $output_dir (preserving segments for 24h retention)..."
-  rm -f "$output_dir"/output.m3u8
-  rm -f "$output_dir"/archive.m3u8
+  local capture_dir=$1
+  echo "Cleaning playlist files in hot storage..."
+  # Clean playlists in hot storage (RAM)
+  rm -f "$capture_dir/hot/segments/output.m3u8" 2>/dev/null || true
+  rm -f "$capture_dir/hot/segments/archive.m3u8" 2>/dev/null || true
 }
 
-# Get last segment number to continue from where we left off
-get_last_segment_number() {
-  local capture_dir="$1"
-  local last_segment=$(find "$capture_dir" -maxdepth 1 -name 'segment_*.ts' -printf '%f\n' 2>/dev/null | \
-    sed 's/segment_\([0-9]*\)\.ts/\1/' | \
-    sort -n | tail -1)
-  
-  if [ -n "$last_segment" ]; then
-    # Add 1 to continue from next number (remove leading zeros with 10#)
-    echo $((10#$last_segment + 1))
-  else
-    echo 0
-  fi
-}
 
-# Setup hot/cold directory structure (unified architecture)
+# Setup capture directory structure and detect storage mode
 setup_capture_directories() {
   local capture_dir=$1
   
-  echo "Setting up unified hot/cold directory structure for $capture_dir..."
-  
-  # Create root directories (hot storage)
-  mkdir -p "$capture_dir/segments"
-  mkdir -p "$capture_dir/captures"
-  mkdir -p "$capture_dir/thumbnails"
-  mkdir -p "$capture_dir/metadata"
-  
-  # Create 24 hour folders for EACH type (unified architecture)
-  for hour in {0..23}; do
-    mkdir -p "$capture_dir/segments/$hour"
-    mkdir -p "$capture_dir/captures/$hour"
-    mkdir -p "$capture_dir/thumbnails/$hour"
-    mkdir -p "$capture_dir/metadata/$hour"
-  done
-  
-  echo "✓ Created unified hot/cold structure for $capture_dir"
-  echo "  - segments/    : hot (10 files) + 24 hour folders"
-  echo "  - captures/    : hot (100 files) + 24 hour folders"
-  echo "  - thumbnails/  : hot (100 files) + 24 hour folders"
-  echo "  - metadata/    : hot (100 files) + 24 hour folders"
+  # Check if hot storage is mounted (RAM mode)
+  if mount | grep -q "$capture_dir/hot"; then
+    echo "✓ RAM hot storage detected at $capture_dir/hot"
+    # Create subdirectories in RAM hot storage
+    mkdir -p "$capture_dir/hot/segments"
+    mkdir -p "$capture_dir/hot/captures"
+    mkdir -p "$capture_dir/hot/thumbnails"
+    mkdir -p "$capture_dir/hot/metadata"
+    echo "✓ Using RAM mode (99% SD write reduction)"
+    return 0  # RAM mode
+  else
+    echo "⚠️  No RAM hot storage found at $capture_dir/hot"
+    echo "   Run: setup_ram_hot_storage.sh to enable RAM mode"
+    # Create directories on SD card
+    mkdir -p "$capture_dir/segments"
+    mkdir -p "$capture_dir/captures"
+    mkdir -p "$capture_dir/thumbnails"
+    mkdir -p "$capture_dir/metadata"
+    echo "✓ Using SD card mode (direct write)"
+    return 1  # SD mode
+  fi
 }
 
 # Cleanup function
@@ -192,22 +181,30 @@ start_grabber() {
     return 1
   fi
 
-  # Create unified hot/cold directory structure
-  setup_capture_directories "$capture_dir"
+  # Setup capture directory structure and detect storage mode
+  if setup_capture_directories "$capture_dir"; then
+    # RAM mode detected - use hot storage
+    local storage_base="$capture_dir/hot"
+    local storage_mode="RAM"
+  else
+    # SD mode - use direct paths
+    local storage_base="$capture_dir"
+    local storage_mode="SD"
+  fi
+  
+  # Set output paths based on storage mode
+  local output_segments="$storage_base/segments"
+  local output_captures="$storage_base/captures"
+  local output_thumbnails="$storage_base/thumbnails"
+  
+  echo "✓ Storage mode: $storage_mode"
+  echo "✓ Output base: $storage_base"
 
   # Clean playlist files for fresh start
   clean_playlist_files "$capture_dir"
-
-  # Get last segment number to continue from (9-digit counter supports decades of operation)
-  local start_num=$(get_last_segment_number "$capture_dir")
-  echo "Starting segment numbering from: $start_num (max: 1B segments = 31yr @ 1sec)"
-
-  # Get last image number to continue from (9-digit counter supports 1 year continuous operation)
-  local last_image=$(find "$capture_dir/captures" -maxdepth 1 -name 'capture_*.jpg' ! -name '*_thumbnail.jpg' -printf '%f\n' 2>/dev/null | \
-    sed 's/capture_\([0-9]*\)\.jpg/\1/' | \
-    sort -n | tail -1)
-  local image_start_num=$((10#${last_image:-0} + 1))
-  echo "Starting image numbering from: $image_start_num (max: 1B frames = 1yr @ 5fps)"
+  
+  # Always start from 0 (archiver renames based on file timestamp for 24h rolling buffer)
+  echo "✓ Starting from: segment #0, image #0"
 
   # Reset video device if it's a hardware device
   if [ "$source_type" = "v4l2" ]; then
@@ -218,6 +215,7 @@ start_grabber() {
   if [ "$source_type" = "v4l2" ]; then
     # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
     # Audio resilience: Images continue even if ALSA buffer xrun occurs
+    # RAM HOT STORAGE: All outputs go to RAM for 99% SD write reduction
     FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
@@ -234,16 +232,16 @@ start_grabber() {
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 10 -hls_flags omit_endlist+split_by_time -lhls 1 \
-      -hls_start_number_source generic -start_number $start_num \
-      -hls_segment_filename $capture_dir/segments/segment_%09d.ts \
-      $capture_dir/segments/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 -start_number $image_start_num \
-      $capture_dir/captures/capture_%09d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 -start_number $image_start_num \
-      $capture_dir/thumbnails/capture_%09d_thumbnail.jpg"
+      -hls_segment_filename $output_segments/segment_%09d.ts \
+      $output_segments/output.m3u8 \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
+      $output_captures/capture_%09d.jpg \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
+      $output_thumbnails/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
     # Optimized: single fps operation, no mouse cursor, CBR encoding, faster scaling
+    # RAM HOT STORAGE: All outputs go to RAM for 99% SD write reduction
     # Setup X11 display environment
     export DISPLAY="$source"
     export XAUTHORITY=~/.Xauthority
@@ -267,13 +265,12 @@ start_grabber() {
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
       -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
-      -hls_start_number_source generic -start_number $start_num \
-      -hls_segment_filename $capture_dir/segments/segment_%09d.ts \
-      $capture_dir/segments/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 -start_number $image_start_num \
-      $capture_dir/captures/capture_%09d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 -start_number $image_start_num \
-      $capture_dir/thumbnails/capture_%09d_thumbnail.jpg"
+      -hls_segment_filename $output_segments/segment_%09d.ts \
+      $output_segments/output.m3u8 \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
+      $output_captures/capture_%09d.jpg \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
+      $output_thumbnails/capture_%09d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1
@@ -315,7 +312,6 @@ for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
 
   source_type=$(detect_source_type "$source")
-  last_segment=$(get_last_segment_number "$capture_dir")
 
   echo "Grabber $index:"
   echo "  Source: $source ($source_type)"
@@ -326,7 +322,7 @@ for index in "${!GRABBERS[@]}"; do
   echo "  Audio: $audio_device"
   echo "  Output: $capture_dir"
   echo "  Input FPS: $input_fps"
-  echo "  Last segment: $last_segment (will start from $last_segment)"
+  echo "  Start: segment #0, image #0 (RAM hot storage is ephemeral)"
   echo
 done
 
