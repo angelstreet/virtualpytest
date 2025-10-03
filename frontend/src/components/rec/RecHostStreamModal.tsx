@@ -313,14 +313,30 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, []);
 
-  // Handle screenshot - open in new tab
-  const handleScreenshot = useCallback(() => {
-    const screenshotUrl = buildServerUrl(
-      `/server/screenshot?host_name=${host.host_name}&device_id=${device?.device_id || 'device1'}`
-    );
-    window.open(screenshotUrl, '_blank');
-    console.log(`[@component:RecHostStreamModal] Opening screenshot in new tab: ${screenshotUrl}`);
-  }, [host.host_name, device?.device_id]);
+  // Handle screenshot - call API and open image in new tab
+  const handleScreenshot = useCallback(async () => {
+    try {
+      const response = await fetch(buildServerUrl('/server/stream/av/screenshot'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device?.device_id || 'device1'
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success && result.screenshot_url) {
+        window.open(result.screenshot_url, '_blank');
+        console.log(`[@component:RecHostStreamModal] Opening screenshot: ${result.screenshot_url}`);
+      } else {
+        showError(`Screenshot failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      showError('Failed to take screenshot');
+      console.error('[@component:RecHostStreamModal] Screenshot error:', error);
+    }
+  }, [host.host_name, device?.device_id, showError]);
 
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
@@ -674,7 +690,6 @@ const RecHostStreamModalContent: React.FC<{
               <MonitoringPlayer
                 host={host}
                 device={device!}
-                baseUrlPattern={baseUrlPatterns.get(`${host.host_name}-${device?.device_id}`)}
               />
             ) : restartMode && isControlActive ? (
               <RestartPlayer host={host} device={device!} includeAudioAnalysis={true} />
