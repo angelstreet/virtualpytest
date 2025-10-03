@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+thumb#!/usr/bin/env python3
 """
 HOT/COLD STORAGE ARCHIVER - RAM + SD Architecture
 ==================================================
@@ -422,7 +422,7 @@ def rotate_hot_captures(capture_dir: str) -> int:
 
 def clean_old_thumbnails(capture_dir: str) -> int:
     """
-    Clean old on-demand generated thumbnails - keep only newest 100 files.
+    Clean old thumbnails from /hot/thumbnails/ directory - keep only newest 100 files.
     
     Thumbnails are generated on-demand for freeze incidents (R2 upload).
     We keep a small buffer (100 files = ~1.2MB) for recent incidents.
@@ -432,11 +432,11 @@ def clean_old_thumbnails(capture_dir: str) -> int:
     """
     ram_mode = is_ram_mode(capture_dir)
     
-    # Determine hot path based on mode
+    # Thumbnails are in separate directory for better organization
     if ram_mode:
-        hot_dir = os.path.join(capture_dir, 'hot', 'captures')
+        hot_dir = os.path.join(capture_dir, 'hot', 'thumbnails')
     else:
-        hot_dir = os.path.join(capture_dir, 'captures')
+        hot_dir = os.path.join(capture_dir, 'thumbnails')
     
     if not os.path.isdir(hot_dir):
         return 0
