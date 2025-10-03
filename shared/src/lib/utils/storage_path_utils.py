@@ -132,6 +132,39 @@ def get_device_info_from_capture_folder(capture_folder):
     return device_info
 
 
+def parse_active_captures_conf():
+    """
+    Parse /tmp/active_captures.conf and return structured data.
+    CSV Format: /var/www/html/stream/capture1,PID,quality
+    
+    Returns:
+        List of dicts with 'directory', 'pid', 'quality'
+    """
+    active_captures_file = '/tmp/active_captures.conf'
+    captures = []
+    
+    if os.path.exists(active_captures_file):
+        try:
+            with open(active_captures_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    parts = line.split(',')
+                    captures.append({
+                        'directory': parts[0],
+                        'pid': parts[1],
+                        'quality': parts[2]
+                    })
+            
+            logger.debug(f"Parsed {len(captures)} capture entries from {active_captures_file}")
+        except Exception as e:
+            logger.error(f"❌ Error reading {active_captures_file}: {e}")
+    
+    return captures
+
+
 def get_capture_base_directories():
     """
     Get list of capture base directories from /tmp/active_captures.conf
@@ -139,39 +172,11 @@ def get_capture_base_directories():
     
     This is the CENTRALIZED source of truth for all capture directory lookups.
     """
-    active_captures_file = '/tmp/active_captures.conf'
-    base_dirs = []
+    captures = parse_active_captures_conf()
+    base_dirs = [c['directory'] for c in captures if os.path.isdir(c['directory'])]
     
-    # Read from centralized config file written by run_ffmpeg_and_rename_local.sh
-    if os.path.exists(active_captures_file):
-        try:
-            with open(active_captures_file, 'r') as f:
-                for line in f:
-                    capture_base = line.strip()
-                    if capture_base and os.path.isdir(capture_base):
-                        base_dirs.append(capture_base)
-                
-                logger.info(f"✅ Loaded {len(base_dirs)} capture directories from {active_captures_file}")
-                return base_dirs
-        except Exception as e:
-            logger.error(f"❌ Error reading {active_captures_file}: {e}")
-    
-    # Auto-discover if config file doesn't exist
-    logger.warning(f"⚠️ {active_captures_file} not found, auto-discovering directories")
-    stream_base = get_stream_base_path()  # CENTRALIZED - No hardcoding!
-    
-    if os.path.exists(stream_base):
-        for entry in sorted(os.listdir(stream_base)):
-            if entry.startswith('capture') and os.path.isdir(os.path.join(stream_base, entry)):
-                base_dirs.append(os.path.join(stream_base, entry))
-    
-    # Fallback to common capture folders
-    if not base_dirs:
-        logger.warning(f"⚠️ No directories found, using default capture folders")
-        for i in range(1, 5):  # capture1-4
-            capture_dir = get_device_base_path(f'capture{i}')
-            if os.path.exists(capture_dir):
-                base_dirs.append(capture_dir)
+    if base_dirs:
+        logger.info(f"✅ Loaded {len(base_dirs)} capture directories from active_captures.conf")
     
     return base_dirs
 

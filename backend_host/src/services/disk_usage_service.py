@@ -241,20 +241,22 @@ class DiskUsageService:
     
     @staticmethod
     def get_config_status() -> Dict[str, Any]:
-        """Check active captures configuration"""
+        """Check active captures configuration (CSV format: directory,pid,quality)"""
         try:
-            config_path = '/tmp/active_captures.conf'
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    config_dirs = [line.strip() for line in f if line.strip()]
+            from shared.src.lib.utils.storage_path_utils import parse_active_captures_conf
+            
+            config_entries = parse_active_captures_conf()
+            
+            if config_entries:
                 return {
                     'exists': True,
-                    'configured_captures': config_dirs,
-                    'count': len(config_dirs)
+                    'configured_captures': config_entries,
+                    'count': len(config_entries)
                 }
+            
             return {
                 'exists': False,
-                'warning': 'Config file missing - cleanup using fallback/auto-discovery'
+                'warning': 'Config file missing'
             }
         except Exception as e:
             return {'error': str(e)}

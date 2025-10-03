@@ -114,6 +114,23 @@ get_device_quality() {
 - `backend_server/src/routes/server_system_routes.py`
   - No changes needed (auto-passes request body)
 
+### Shared Utilities (CSV Format)
+- `shared/src/lib/utils/storage_path_utils.py`
+  - **NEW**: `parse_active_captures_conf()` - centralized CSV parser
+  - Returns structured data: `[{'directory': '...', 'pid': '...', 'quality': '...'}]`
+  - Updated `get_capture_base_directories()` to use centralized parser
+  - Removed auto-discover fallback (clean, no legacy)
+
+- `backend_host/src/services/disk_usage_service.py`
+  - Updated `get_config_status()` to use centralized `parse_active_captures_conf()`
+  - No duplicate parsing logic
+
+- `backend_host/scripts/hot_cold_archiver.py`
+  - No changes (uses `get_capture_base_directories()`)
+
+- `backend_host/src/services/navigation/navigation_executor.py`
+  - No changes (uses `get_capture_directories()`)
+
 ## Testing
 
 ### Test SD/HD Toggle
