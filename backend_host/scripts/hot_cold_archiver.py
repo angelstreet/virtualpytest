@@ -52,19 +52,20 @@ ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
 RAM_RUN_INTERVAL = 120  # 2min for RAM mode (segments-only archival)
 SD_RUN_INTERVAL = 120   # 2min (same for consistency)
 
-# Hot storage limits - SEGMENTS-ONLY ARCHIVE
-# Captures pushed to cloud, don't need local archive (thumbnails removed - created on-demand)
+# Hot storage limits - ALIGNED WITH 120s RUN INTERVAL
+# Captures pushed to cloud immediately, keep 120s buffer (same as archiver interval)
+# Thumbnails created on-demand for incidents, keep small buffer
 # Only segments need 24h history for video playback
 #
-# RAM Usage (OPTIMIZED - NO THUMBNAILS):
+# RAM Usage (OPTIMIZED):
 # - Segments: 150 × 45KB = 6.8MB (2.5min buffer, archive every 2min)
-# - Captures: 1500 × 16KB = 24MB (5min rolling buffer, no archive)
-# - Thumbnails: REMOVED (created on-demand, saves 18MB!)
-# Total: ~31MB per device ✅ (18MB saved, 85% free!)
+# - Captures: 700 × 16KB = 11MB (120s buffer at 5fps + safety margin)
+# - Thumbnails: 100 × 12KB = 1.2MB (on-demand generated, small buffer)
+# Total: ~19MB per device ✅ (90% RAM saved vs old 200MB!)
 #
 HOT_LIMITS = {
     'segments': 150,      # 2.5min buffer → archive to hour folders
-    'captures': 1500,     # 5min rolling buffer (no archive, just rotate)
+    'captures': 700,      # 120s buffer at 5fps (600) + 100 safety margin
     'metadata': 100       # Minimal (not used)
 }
 
@@ -360,11 +361,134 @@ def update_all_manifests(capture_dir: str):
 # No retention configuration or cleanup logic needed!
 
 
+def rotate_hot_captures(capture_dir: str) -> int:
+    """
+    Rotate hot captures - keep only newest 1500 files, DELETE old ones.
+    
+    Captures don't go to cold storage (pushed to cloud), so we just delete old files.
+    This keeps RAM usage under control (24MB instead of 200MB).
+    
+    Returns: Number of files deleted
+    """
+    ram_mode = is_ram_mode(capture_dir)
+    
+    # Determine hot path based on mode
+    if ram_mode:
+        hot_dir = os.path.join(capture_dir, 'hot', 'captures')
+    else:
+        hot_dir = os.path.join(capture_dir, 'captures')
+    
+    if not os.path.isdir(hot_dir):
+        return 0
+    
+    hot_limit = HOT_LIMITS['captures']
+    
+    try:
+        # Get all capture files in hot storage
+        files = []
+        for item in Path(hot_dir).glob('capture_*[0-9].jpg'):
+            if item.is_file() and item.parent == Path(hot_dir):
+                files.append(item)
+        
+        file_count = len(files)
+        
+        if file_count <= hot_limit:
+            logger.debug(f"captures: {file_count} files (within limit {hot_limit})")
+            return 0
+        
+        # Calculate how many to delete
+        to_delete = file_count - hot_limit
+        
+        # Sort by modification time (oldest first) - CRITICAL for keeping newest files
+        files.sort(key=lambda f: f.stat().st_mtime)
+        
+        # Delete oldest files
+        deleted_count = 0
+        for filepath in files[:to_delete]:
+            try:
+                os.remove(str(filepath))
+                deleted_count += 1
+            except Exception as e:
+                logger.error(f"Error deleting {filepath}: {e}")
+        
+        logger.info(f"captures: Deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {hot_limit})")
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f"Error rotating captures: {e}")
+        return 0
+
+
+def clean_old_thumbnails(capture_dir: str) -> int:
+    """
+    Clean old on-demand generated thumbnails - keep only newest 100 files.
+    
+    Thumbnails are generated on-demand for freeze incidents (R2 upload).
+    We keep a small buffer (100 files = ~1.2MB) for recent incidents.
+    Old thumbnails are deleted to save RAM.
+    
+    Returns: Number of files deleted
+    """
+    ram_mode = is_ram_mode(capture_dir)
+    
+    # Determine hot path based on mode
+    if ram_mode:
+        hot_dir = os.path.join(capture_dir, 'hot', 'captures')
+    else:
+        hot_dir = os.path.join(capture_dir, 'captures')
+    
+    if not os.path.isdir(hot_dir):
+        return 0
+    
+    # Keep only 100 thumbnails (generated on-demand for incidents)
+    thumbnail_limit = 100
+    
+    try:
+        # Get all thumbnail files (*_thumbnail.jpg)
+        files = []
+        for item in Path(hot_dir).glob('capture_*_thumbnail.jpg'):
+            if item.is_file() and item.parent == Path(hot_dir):
+                files.append(item)
+        
+        file_count = len(files)
+        
+        if file_count <= thumbnail_limit:
+            if file_count > 0:
+                logger.debug(f"thumbnails: {file_count} files (within limit {thumbnail_limit})")
+            return 0
+        
+        # Calculate how many to delete
+        to_delete = file_count - thumbnail_limit
+        
+        # Sort by modification time (oldest first)
+        files.sort(key=lambda f: f.stat().st_mtime)
+        
+        # Delete oldest thumbnails
+        deleted_count = 0
+        for filepath in files[:to_delete]:
+            try:
+                os.remove(str(filepath))
+                deleted_count += 1
+            except Exception as e:
+                logger.error(f"Error deleting thumbnail {filepath}: {e}")
+        
+        logger.info(f"thumbnails: Deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {thumbnail_limit})")
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f"Error cleaning thumbnails: {e}")
+        return 0
+
+
 def process_capture_directory(capture_dir: str):
     """
     Process a single capture directory:
-    1. Archive ONLY segments (captures stay in RAM, rotate naturally)
-    2. Update segment manifests
+    1. Rotate captures (delete old files, keep newest 1500)
+    2. Clean old thumbnails (keep newest 100)
+    3. Archive segments (to hour folders)
+    4. Update segment manifests
     
     NOTE: Captures pushed to cloud, no local archive needed. Thumbnails created on-demand.
     """
@@ -372,15 +496,21 @@ def process_capture_directory(capture_dir: str):
     
     start_time = time.time()
     
-    # 1. Archive ONLY segments (images stay in RAM)
-    archived = archive_hot_files(capture_dir, 'segments')
+    # 1. Rotate captures (delete old, keep newest 1500)
+    deleted_captures = rotate_hot_captures(capture_dir)
     
-    # 2. Update archive manifests (segments only)
+    # 2. Clean old thumbnails (keep newest 100)
+    deleted_thumbnails = clean_old_thumbnails(capture_dir)
+    
+    # 3. Archive segments (to hour folders)
+    archived_segments = archive_hot_files(capture_dir, 'segments')
+    
+    # 4. Update archive manifests (segments only)
     update_all_manifests(capture_dir)
     
     elapsed = time.time() - start_time
     
-    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (archived {archived} segments)")
+    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (deleted {deleted_captures} captures, {deleted_thumbnails} thumbnails, archived {archived_segments} segments)")
 
 
 def main_loop():
