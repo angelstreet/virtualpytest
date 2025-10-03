@@ -383,7 +383,14 @@ done
 
 echo "✅ All grabbers started"
 
-# Script exits after starting background ffmpeg processes
-# Systemd Type=forking will track the ffmpeg PIDs
-echo "🔍 DEBUG: Script complete - ffmpeg processes running in background"
-exit 0
+if [ "$SINGLE_DEVICE_MODE" = true ]; then
+  echo "🔍 DEBUG: Single device mode - exiting"
+  exit 0
+fi
+
+# Keep script running for systemd (Type=simple with Restart=always)
+# The script must stay alive or systemd will restart it continuously
+echo "🔍 DEBUG: Keeping service alive (systemd Type=simple)"
+while true; do
+  sleep 3600
+done
