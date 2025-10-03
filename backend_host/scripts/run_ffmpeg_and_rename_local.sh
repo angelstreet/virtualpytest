@@ -65,15 +65,14 @@ if [ "$SINGLE_DEVICE_MODE" = true ]; then
             IFS='|' read -r _ _ capture_dir _ <<< "${GRABBERS[$index]}"
             OLD_PID=$(get_device_info "$capture_dir" "pid")
             if [ -n "$OLD_PID" ]; then
-                sudo kill -9 "$OLD_PID" 2>/dev/null
+                kill -9 "$OLD_PID" 2>/dev/null || sudo kill -9 "$OLD_PID" 2>/dev/null
             fi
             break
         fi
     done
     sleep 1
 else
-    sudo pkill -f ffmpeg 2>/dev/null
-    sudo pkill -f clean_captures.sh 2>/dev/null
+    pkill -f ffmpeg 2>/dev/null || sudo pkill -f ffmpeg 2>/dev/null
     sleep 3
 fi
 
@@ -146,7 +145,7 @@ get_vnc_resolution() {
 # Function to reset video device before capture
 reset_video_device() {
   local device="$1"
-  sudo fuser -k "$device" 2>/dev/null || true
+  fuser -k "$device" 2>/dev/null || sudo fuser -k "$device" 2>/dev/null || true
   sleep 3
 }
 
