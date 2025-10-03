@@ -9,6 +9,7 @@ import {
   Refresh as RefreshIcon,
   RadioButtonChecked as LiveIcon,
   History as ArchiveIcon,
+  CameraAlt as CameraIcon,
 } from '@mui/icons-material';
 import { Box, IconButton, Typography, Button, CircularProgress } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
@@ -21,6 +22,7 @@ import { useDeviceControl } from '../../hooks/useDeviceControl';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
@@ -311,6 +313,15 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, []);
 
+  // Handle screenshot - open in new tab
+  const handleScreenshot = useCallback(() => {
+    const screenshotUrl = buildServerUrl(
+      `/server/screenshot?host_name=${host.host_name}&device_id=${device?.device_id || 'device1'}`
+    );
+    window.open(screenshotUrl, '_blank');
+    console.log(`[@component:RecHostStreamModal] Opening screenshot in new tab: ${screenshotUrl}`);
+  }, [host.host_name, device?.device_id]);
+
   // Stable device resolution to prevent re-renders
   const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
 
@@ -421,6 +432,18 @@ const RecHostStreamModalContent: React.FC<{
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Screenshot Button - Only show when NOT in monitoring or restart mode */}
+            {!monitoringMode && !restartMode && (
+              <IconButton
+                onClick={handleScreenshot}
+                sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
+                aria-label="Take Screenshot"
+                title="Take Screenshot (opens in new tab)"
+              >
+                <CameraIcon />
+              </IconButton>
+            )}
+
             {/* Live/24h Mode Toggle Button - Only show when NOT in monitoring or restart mode */}
             {!monitoringMode && !restartMode && (
               <Button
