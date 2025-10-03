@@ -11,6 +11,7 @@ from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 from shared.src.lib.utils.cloudflare_utils import upload_heatmap_html
 from backend_server.src.lib.utils.heatmap_report_utils import generate_comprehensive_heatmap_html
 from datetime import datetime, timedelta
+from uuid import uuid4
 import os
 
 # Create blueprint
@@ -205,17 +206,40 @@ def generate_html_report():
                 'error': f'Failed to upload HTML: {html_result.get("error", "Unknown error")}'
             }), 500
         
+        # Extract R2 paths from the mosaic_url (includes server path)
+        # mosaic_url format: https://r2.dev/heatmaps/server-path/1800.jpg
+        # We need to extract "heatmaps/server-path/1800.jpg"
+        try:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(mosaic_url)
+            mosaic_r2_path = parsed_url.path.lstrip('/')  # Remove leading slash
+            # Extract server path from mosaic_r2_path (e.g., "heatmaps/server-path" from "heatmaps/server-path/1800.jpg")
+            path_parts = mosaic_r2_path.split('/')
+            if len(path_parts) >= 3:
+                server_path = path_parts[1]  # Extract "server-path"
+                metadata_r2_path = f"heatmaps/{server_path}/{time_key}.json"
+            else:
+                # Fallback if path structure is unexpected
+                metadata_r2_path = f"heatmaps/{time_key}.json"
+        except Exception as e:
+            print(f"[@route:server_heatmap:generate_html_report] Warning: Could not parse mosaic URL: {e}")
+            mosaic_r2_path = f"heatmaps/{time_key}.jpg"
+            metadata_r2_path = f"heatmaps/{time_key}.json"
+        
         # Save to database
         team_id = get_team_id()
         timestamp = datetime.now().isoformat()
+        job_id = str(uuid4())  # Generate proper UUID for job_id
+        
+        print(f"[@route:server_heatmap:generate_html_report] Saving to DB with job_id: {job_id}")
         
         heatmap_id = save_heatmap_to_db(
             team_id=team_id,
             timestamp=timestamp,
-            job_id=f"report_{time_key}_{int(datetime.now().timestamp())}",
-            mosaic_r2_path=f"heatmaps/{time_key}.jpg",
+            job_id=job_id,
+            mosaic_r2_path=mosaic_r2_path,
             mosaic_r2_url=mosaic_url,
-            metadata_r2_path=f"heatmaps/{time_key}.json",
+            metadata_r2_path=metadata_r2_path,
             metadata_r2_url=data.get('analysis_url', ''),
             html_r2_path=html_result['html_path'],
             html_r2_url=html_result['html_url'],

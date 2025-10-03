@@ -355,17 +355,28 @@ class FFmpegCaptureController(AVControllerInterface):
                     shell=True, cwd=captures_path, capture_output=True, text=True, timeout=2
                 )
                 
+                print(f"[{self.capture_source}]: ls command returncode: {result.returncode}")
+                
                 if result.returncode == 0 and result.stdout.strip():
+                    files_checked = 0
                     for filename in result.stdout.strip().split('\n'):
                         if filename:
+                            files_checked += 1
                             path = os.path.join(captures_path, filename)
                             try:
                                 mtime = os.path.getmtime(path)
+                                age = now - mtime
+                                print(f"[{self.capture_source}]: File {filename} age: {age:.2f}s (cutoff: 3s)")
                                 if mtime >= cutoff_time:
-                                    age = now - mtime
                                     recent_files.append((age, path))
-                            except OSError:
+                            except OSError as e:
+                                print(f"[{self.capture_source}]: OSError for {filename}: {e}")
                                 continue
+                    print(f"[{self.capture_source}]: Total files checked: {files_checked}")
+                else:
+                    print(f"[{self.capture_source}]: ls command failed or no output")
+                    if result.stderr:
+                        print(f"[{self.capture_source}]: stderr: {result.stderr}")
             except subprocess.TimeoutExpired:
                 print(f"[{self.capture_source}]: WARNING - Timeout checking recent files")
             

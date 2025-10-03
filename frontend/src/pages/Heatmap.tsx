@@ -22,7 +22,6 @@ import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
 import { HeatMapHistory, HeatMapHistoryRef } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
-import { buildThumbnailUrlFromFrame } from '../utils/buildUrlUtils';
 import { HostManagerProvider } from '../contexts/HostManagerProvider';
 import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
@@ -102,10 +101,10 @@ const HeatmapContent: React.FC = () => {
     setStreamModalOpen(true);
   };
 
-  // Helper function to construct frame URLs from local file paths
-  // Note: Real-time heatmap uses local paths, MonitoringIncidents uses R2 URLs
-  const constructFrameUrl = (filename: string, originalImageUrl: string): string => {
-    return buildThumbnailUrlFromFrame(filename, originalImageUrl);
+  // Helper function for freeze modal - URLs are now complete R2 URLs from backend
+  // Same as MonitoringIncidents: freeze images are uploaded to R2 immediately
+  const constructFrameUrl = (url: string, _baseUrl: string): string => {
+    return url; // URL is already complete from R2 (either full R2 URL or will fallback to local)
   };
 
   // Generate report for current frame
