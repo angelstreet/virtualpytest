@@ -6,15 +6,15 @@ HOT/COLD STORAGE ARCHIVER - RAM + SD Architecture
 This service manages hot/cold storage with two modes:
 
 **RAM MODE (if /hot/ exists):**
-- FFmpeg writes to /hot/captures/, /hot/thumbnails/, /hot/segments/ (tmpfs RAM)
-- Archives to SD: /captures/X/, /thumbnails/X/, /segments/X/
-- Runs every 5 seconds (RAM is limited!)
-- 99% SD write reduction
+- FFmpeg writes to /hot/captures/, /hot/segments/ (tmpfs RAM) - NO THUMBNAILS
+- Archives to SD: /captures/X/, /segments/X/
+- Runs every 2 minutes
+- 99% SD write reduction + 18MB RAM saved per device
 
 **SD MODE (fallback if no /hot/):**
-- Files in root directories (captures/, thumbnails/, segments/)
+- Files in root directories (captures/, segments/) - NO THUMBNAILS
 - Archives to hour subfolders
-- Runs every 5 minutes (traditional behavior)
+- Runs every 2 minutes (same as RAM mode)
 
 Responsibilities:
 1. Archive hot files when they exceed limits
@@ -53,19 +53,18 @@ RAM_RUN_INTERVAL = 120  # 2min for RAM mode (segments-only archival)
 SD_RUN_INTERVAL = 120   # 2min (same for consistency)
 
 # Hot storage limits - SEGMENTS-ONLY ARCHIVE
-# Images (captures/thumbnails) pushed to cloud, don't need local archive
+# Captures pushed to cloud, don't need local archive (thumbnails removed - created on-demand)
 # Only segments need 24h history for video playback
 #
-# RAM Usage (200MB per device):
+# RAM Usage (OPTIMIZED - NO THUMBNAILS):
 # - Segments: 150 × 45KB = 6.8MB (2.5min buffer, archive every 2min)
 # - Captures: 1500 × 16KB = 24MB (5min rolling buffer, no archive)
-# - Thumbnails: 3000 × 6KB = 18MB (10min rolling buffer, no archive)
-# Total: ~49MB per device ✅ (75% free, safe for HD segments)
+# - Thumbnails: REMOVED (created on-demand, saves 18MB!)
+# Total: ~31MB per device ✅ (18MB saved, 85% free!)
 #
 HOT_LIMITS = {
     'segments': 150,      # 2.5min buffer → archive to hour folders
     'captures': 1500,     # 5min rolling buffer (no archive, just rotate)
-    'thumbnails': 3000,   # 10min rolling buffer (no archive, just rotate)
     'metadata': 100       # Minimal (not used)
 }
 
@@ -79,11 +78,10 @@ HOT_LIMITS = {
 # - After 24h, same time → same filename → automatic overwrite
 # - Result: All hour folders maintain 24h of data automatically
 
-# File patterns for each type
+# File patterns for each type (thumbnails removed - created on-demand)
 FILE_PATTERNS = {
     'segments': 'segment_*.ts',
-    'captures': 'capture_*[0-9].jpg',  # Exclude thumbnails
-    'thumbnails': 'capture_*_thumbnail.jpg',
+    'captures': 'capture_*[0-9].jpg',  # Full captures only
     'metadata': 'capture_*.json'
 }
 
@@ -113,7 +111,7 @@ def calculate_time_based_name(filepath: str, file_type: str, fps: int = 5) -> st
     
     Args:
         filepath: Original file path
-        file_type: 'segments', 'captures', 'thumbnails', 'metadata'
+        file_type: 'segments', 'captures', 'metadata' (thumbnails removed)
         fps: Frames per second (for images only)
     
     Returns:
@@ -130,16 +128,14 @@ def calculate_time_based_name(filepath: str, file_type: str, fps: int = 5) -> st
             # 1 segment per second: 0-86399
             sequence_num = seconds_today
             new_name = f"segment_{sequence_num:06d}.ts"
-        elif file_type in ['captures', 'thumbnails', 'metadata']:
+        elif file_type in ['captures', 'metadata']:
             # Images at FPS rate
             sequence_num = seconds_today * fps
             
             # Get original filename to extract extension and type
             original_name = os.path.basename(filepath)
             
-            if file_type == 'thumbnails':
-                new_name = f"capture_{sequence_num:06d}_thumbnail.jpg"
-            elif file_type == 'metadata':
+            if file_type == 'metadata':
                 new_name = f"capture_{sequence_num:06d}.json"
             else:  # captures
                 new_name = f"capture_{sequence_num:06d}.jpg"
@@ -243,8 +239,8 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
                 os.makedirs(hour_folder, exist_ok=True)
                 
                 # Calculate time-based sequential name for 24h rolling buffer
-                # FPS detection: segments=1fps, captures/thumbnails=5fps default
-                fps = 5 if file_type in ['captures', 'thumbnails', 'metadata'] else 1
+                # FPS detection: segments=1fps, captures/metadata=5fps default
+                fps = 5 if file_type in ['captures', 'metadata'] else 1
                 new_filename = calculate_time_based_name(str(filepath), file_type, fps)
                 
                 # Move file to hour folder with time-based name (RAM → SD or SD root → SD hour)
@@ -367,10 +363,10 @@ def update_all_manifests(capture_dir: str):
 def process_capture_directory(capture_dir: str):
     """
     Process a single capture directory:
-    1. Archive ONLY segments (captures/thumbnails stay in RAM, rotate naturally)
+    1. Archive ONLY segments (captures stay in RAM, rotate naturally)
     2. Update segment manifests
     
-    NOTE: Images pushed to cloud, no local archive needed. Only segments for video playback.
+    NOTE: Captures pushed to cloud, no local archive needed. Thumbnails created on-demand.
     """
     logger.info(f"Processing {capture_dir}")
     
@@ -390,7 +386,7 @@ def process_capture_directory(capture_dir: str):
 def main_loop():
     """
     Main service loop - SEGMENTS-ONLY archival
-    Archives only segments every 2min (captures/thumbnails rotate in RAM)
+    Archives only segments every 2min (captures rotate in RAM, no thumbnails)
     """
     logger.info("=" * 60)
     logger.info("HOT/COLD ARCHIVER - SEGMENTS-ONLY ARCHIVE")

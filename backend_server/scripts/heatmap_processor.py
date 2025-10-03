@@ -270,11 +270,12 @@ class HeatmapProcessor:
                     sequence = sequence_match.group(1) if sequence_match else ''
                     
                     if sequence:
-                        from shared.src.lib.utils.build_url_utils import buildThumbnailUrl, buildMetadataUrl
-                        # Use thumbnail for heatmap (hot/cold architecture - thumbnails in separate folder)
-                        thumbnail_filename = f"capture_{sequence}_thumbnail.jpg"
+                        from shared.src.lib.utils.build_url_utils import buildCaptureUrl, buildMetadataUrl
+                        # Use capture images (no more thumbnails - FFmpeg no longer generates them)
+                        # Heatmap downscales to 400x300 anyway, so using captures is better quality
+                        capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
-                        image_url = buildThumbnailUrl(device['host_data'], thumbnail_filename, device_id)
+                        image_url = buildCaptureUrl(device['host_data'], capture_filename, device_id)
                         json_url = buildMetadataUrl(device['host_data'], json_filename, device_id)
                         
                         # Load JSON analysis data

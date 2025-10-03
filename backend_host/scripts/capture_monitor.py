@@ -126,19 +126,20 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] Issues detected: {issues}")
             
             # Upload freeze frames to R2 immediately (for heatmap display)
+            # Thumbnails now created on-demand from captures
             if detection_result and detection_result.get('freeze', False):
-                last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
-                if last_3_thumbnails:
+                last_3_captures = detection_result.get('last_3_filenames', [])
+                if last_3_captures:
                     from datetime import datetime
                     current_timestamp = datetime.now().isoformat()
                     r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                        [], last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
+                        last_3_captures, None, capture_folder, current_timestamp, thumbnails_only=True
                     )
                     if r2_urls and r2_urls.get('thumbnail_urls'):
                         # Replace local paths with R2 URLs for heatmap display
                         detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
                         detection_result['r2_images'] = r2_urls
-                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2 for heatmap")
+                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2 for heatmap (thumbnails created on-demand)")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation
