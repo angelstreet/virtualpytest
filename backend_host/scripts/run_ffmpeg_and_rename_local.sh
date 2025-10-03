@@ -96,7 +96,9 @@ if [ "$SINGLE_DEVICE_MODE" = true ]; then
     done
     sleep 1
 else
-    pkill -f ffmpeg 2>/dev/null || sudo pkill -f ffmpeg 2>/dev/null
+    # Kill ffmpeg processes but NOT this script (which has "ffmpeg" in its filename)
+    # Use /usr/bin/ffmpeg to avoid matching our script name
+    pkill -f '/usr/bin/ffmpeg' 2>/dev/null || sudo pkill -f '/usr/bin/ffmpeg' 2>/dev/null || true
     sleep 3
 fi
 
