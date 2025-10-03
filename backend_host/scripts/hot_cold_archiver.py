@@ -49,25 +49,35 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
-RAM_RUN_INTERVAL = 5    # 5 seconds for RAM mode (critical!)
-SD_RUN_INTERVAL = 120   # 2 minutes (safety buffer for 5min storage)
+RAM_RUN_INTERVAL = 30   # 30 seconds for RAM mode (balanced)
+SD_RUN_INTERVAL = 30    # 30 seconds (same for consistency)
 
 # Hot storage limits (files to keep in root before archiving)
+# Target: 200MB RAM per device, use max 120MB (80MB safety margin)
+# 
+# With HD stream-only (captures stay SD for RAM efficiency):
+# - Segments HD: 40 × 1.5MB = 60MB (40s buffer)
+# - Captures SD: 80 × 500KB = 40MB (40s at 2/sec)
+# - Thumbnails:  200 × 50KB = 10MB (40s at 5/sec)
+# Total: ~110MB peak usage ✅ (leaves 90MB safety margin!)
+#
+# 30s archival interval = comfortable for 40s buffer
 HOT_LIMITS = {
-    'segments': 10,
-    'captures': 100,
-    'thumbnails': 100,
-    'metadata': 100
+    'segments': 40,      # 40s HLS window (HD: 60MB)
+    'captures': 80,      # 40s at 2/sec (SD: 40MB)
+    'thumbnails': 200,   # 40s at 5/sec (10MB)
+    'metadata': 80       # 40s at 2/sec (0.16MB)
 }
 
-# Retention policy (hours to keep in archive folders)
-# Different retention based on file purpose
-RETENTION_HOURS = {
-    'segments': 24,      # Full 24h for video playback
-    'captures': 1,       # Only 1h for full-res (incident verification)
-    'thumbnails': 24,    # Full 24h for heatmap/gallery
-    'metadata': 24       # Full 24h for incident analysis
-}
+# REMOVED: RETENTION_HOURS config
+# 
+# WHY: Natural 24h rolling buffer through time-based sequential filenames
+# All files naturally overwrite after 24h - no retention configuration needed!
+# 
+# How it works:
+# - Files get time-based names based on seconds since midnight
+# - After 24h, same time → same filename → automatic overwrite
+# - Result: All hour folders maintain 24h of data automatically
 
 # File patterns for each type
 FILE_PATTERNS = {

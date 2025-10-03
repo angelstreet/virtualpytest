@@ -4,7 +4,7 @@
 
 set -e
 
-MOUNT_SIZE="100M"
+MOUNT_SIZE="200M"
 BASE_PATH="/var/www/html/stream"
 DEVICES=("capture1" "capture2" "capture3" "capture4" )
 FSTAB_BACKUP="/etc/fstab.backup.$(date +%Y%m%d_%H%M%S)"

@@ -222,16 +222,19 @@ start_grabber() {
   fi
 
   if [ "$source_type" = "v4l2" ]; then
+    # HD mode: Only upgrade STREAM quality, keep captures at SD for RAM efficiency
     if [ "$quality" = "hd" ]; then
       local stream_scale="1280:720"
       local stream_bitrate="1500k"
       local stream_maxrate="1800k"
       local stream_bufsize="3600k"
+      local capture_scale="640:360"    # Captures stay SD (saves 66% RAM!)
     else
       local stream_scale="640:360"
       local stream_bitrate="350k"
       local stream_maxrate="400k"
       local stream_bufsize="800k"
+      local capture_scale="640:360"    # Captures SD
     fi
     FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
@@ -241,7 +244,7 @@ start_grabber() {
       -f alsa -thread_queue_size 2048 -async 1 -err_detect ignore_err -i \"$audio_device\" \
       -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
         [str]scale=${stream_scale}:flags=fast_bilinear,fps=$input_fps[streamout]; \
-        [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
+        [cap]scale=${capture_scale}:flags=fast_bilinear,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" -map 1:a? \
       -c:v libx264 -preset ultrafast -tune zerolatency \
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
@@ -256,16 +259,19 @@ start_grabber() {
       -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
       $output_thumbnails/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
+    # HD mode: Only upgrade STREAM quality, keep captures at SD for RAM efficiency
     if [ "$quality" = "hd" ]; then
       local stream_scale="1280:720"
       local stream_bitrate="1000k"
       local stream_maxrate="1200k"
       local stream_bufsize="2400k"
+      local capture_scale="480:360"    # Captures stay SD (saves RAM!)
     else
       local stream_scale="480:360"
       local stream_bitrate="250k"
       local stream_maxrate="300k"
       local stream_bufsize="600k"
+      local capture_scale="480:360"    # Captures SD
     fi
     
     export DISPLAY="$source"
@@ -281,7 +287,7 @@ start_grabber() {
       -an \
       -filter_complex \"[0:v]fps=2[v2];[v2]split=3[str][cap][thm]; \
         [str]scale=${stream_scale}:flags=neighbor[streamout]; \
-        [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
+        [cap]scale=${capture_scale}:flags=neighbor,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency \
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
