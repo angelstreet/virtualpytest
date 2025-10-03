@@ -81,26 +81,24 @@ for device in "${!GRABBERS[@]}"; do
     echo "  - $device"
 done
 
-# Kill existing ffmpeg processes once at start
-echo "🔍 DEBUG: Killing existing processes..."
+# Single device restart: kill only the specific device's process
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
+    echo "🔍 DEBUG: Killing process for $TARGET_DEVICE..."
     for index in "${!GRABBERS[@]}"; do
         if [ "$index" = "$TARGET_DEVICE" ]; then
             IFS='|' read -r _ _ capture_dir _ <<< "${GRABBERS[$index]}"
             OLD_PID=$(get_device_info "$capture_dir" "pid")
             if [ -n "$OLD_PID" ]; then
                 sudo kill -9 "$OLD_PID" 2>/dev/null || true
+                echo "✅ Killed old process PID: $OLD_PID"
             fi
             break
         fi
     done
-else
-    # Kill all ffmpeg processes (use full path to avoid matching this script's filename)
-    sudo pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
+    sleep 1
 fi
 
-sleep 1
-echo "✅ Process cleanup complete"
+# Note: For "all devices" mode, systemd ExecStartPre handles cleanup
 
 reset_log_if_large() {
   local logfile="$1" max_size_mb=30
