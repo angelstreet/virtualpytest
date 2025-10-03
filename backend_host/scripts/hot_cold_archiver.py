@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
 RAM_RUN_INTERVAL = 5    # 5 seconds for RAM mode (critical!)
-SD_RUN_INTERVAL = 300   # 5 minutes for SD mode
+SD_RUN_INTERVAL = 120   # 2 minutes (safety buffer for 5min storage)
 
 # Hot storage limits (files to keep in root before archiving)
 HOT_LIMITS = {
@@ -444,7 +444,7 @@ def main_loop():
     ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
     run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
     
-    mode_name = "RAM MODE (5s interval)" if ram_mode else "SD MODE (5min interval)"
+    mode_name = "RAM MODE (5s interval)" if ram_mode else "SD MODE (2min interval)"
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")

@@ -20,9 +20,6 @@ RestartSec=5
 StandardOutput=truncate:/tmp/hot_cold_archiver.log
 StandardError=truncate:/tmp/hot_cold_archiver.log
 
-# Resource limits
-MemoryLimit=256M
-CPUQuota=10%
 
 # Security
 NoNewPrivileges=true
