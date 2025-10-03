@@ -346,20 +346,19 @@ if [ "$SINGLE_DEVICE_MODE" = false ]; then
   echo "Starting ${#GRABBERS[@]} devices"
 fi
 
-# Start grabbers
-PIDS=()
+# Start grabbers (serially to avoid race condition in active_captures.conf)
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
-  start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$input_fps" &
-  PIDS+=($!)
+  start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$input_fps"
+  # Note: Starts serially (no &), takes ~1-2s total for 4 devices
+  # FFmpeg processes themselves run in background inside start_grabber
 done
 
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
   exit 0
 fi
 
-wait "${PIDS[@]}"
-
+# Keep service running (FFmpeg processes run in background)
 while true; do
   sleep 3600
 done
