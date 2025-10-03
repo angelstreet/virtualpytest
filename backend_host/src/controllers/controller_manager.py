@@ -138,7 +138,7 @@ def _get_devices_config_from_environment() -> List[Dict[str, Any]]:
     devices_config = []
     
     # Look for DEVICE1, DEVICE2, DEVICE3, DEVICE4
-    for i in range(1, 9):
+    for i in range(1, 7):
         device_name = os.getenv(f'DEVICE{i}_NAME')
         
         if device_name:
