@@ -206,12 +206,13 @@ def extract_potential_node_phrases(prompt: str) -> List[str]:
 def preprocess_prompt(prompt: str, available_nodes: List[str], 
                      team_id: str, userinterface_name: str) -> Dict:
     """
-    Pre-process prompt: apply learned mappings and check for ambiguities.
+    Pre-process prompt: try to solve WITHOUT AI, or prepare for AI generation.
     
     This runs BEFORE AI plan generation to:
-    1. Apply learned mappings automatically
-    2. Detect ambiguous phrases that need user input
-    3. Auto-correct high-confidence single matches
+    1. Find exact matches → return direct navigation plan (SKIP AI)
+    2. Apply learned mappings automatically
+    3. Detect ambiguous phrases that need user input
+    4. Auto-correct high-confidence single matches
     
     Args:
         prompt: User's natural language prompt
@@ -221,28 +222,38 @@ def preprocess_prompt(prompt: str, available_nodes: List[str],
     
     Returns:
         {
-            'status': 'clear' | 'auto_corrected' | 'needs_disambiguation',
+            'status': 'exact_match' | 'clear' | 'auto_corrected' | 'needs_disambiguation',
+            'target_node': str (if exact_match),
             'corrected_prompt': str (if auto_corrected),
             'corrections': [...] (if auto_corrected),
             'ambiguities': [...] (if needs_disambiguation)
         }
     """
+    print(f"[@ai_prompt_validation:preprocess] Starting preprocessing: '{prompt}'")
+    print(f"[@ai_prompt_validation:preprocess] Available nodes: {len(available_nodes)} nodes")
+    
     # Extract potential node phrases from prompt
     phrases = extract_potential_node_phrases(prompt)
+    print(f"[@ai_prompt_validation:preprocess] Extracted phrases: {phrases}")
     
     # Get learned mappings from database (batch query for efficiency)
     learned = get_learned_mappings_batch(team_id, userinterface_name, phrases)
+    if learned:
+        print(f"[@ai_prompt_validation:preprocess] Found {len(learned)} learned mappings")
     
-    # Track what we corrected vs what needs user input
+    # Track what we found
+    exact_matches = []
     auto_corrections = []
     needs_disambiguation = []
     
     for phrase in phrases:
-        # Skip if exact match exists
+        # Check for exact match first (HIGHEST PRIORITY - skip AI entirely)
         if phrase in available_nodes:
+            exact_matches.append(phrase)
+            print(f"[@ai_prompt_validation:preprocess] ✅ Exact match: '{phrase}'")
             continue
         
-        # Check learned mapping (HIGHEST PRIORITY)
+        # Check learned mapping (SECOND PRIORITY)
         if phrase in learned:
             learned_node = learned[phrase]
             # Validate learned mapping is still valid (node might have been deleted)
@@ -255,7 +266,7 @@ def preprocess_prompt(prompt: str, available_nodes: List[str],
                 print(f"[@ai_prompt_validation:preprocess] Learned mapping: '{phrase}' → '{learned_node}'")
                 continue
         
-        # Find fuzzy matches (max 2 with higher quality threshold)
+        # Find fuzzy matches (THIRD PRIORITY)
         matches = find_fuzzy_matches(phrase, available_nodes, max_results=2, cutoff=0.6)
         
         if len(matches) == 1:
@@ -272,36 +283,64 @@ def preprocess_prompt(prompt: str, available_nodes: List[str],
                 'original': phrase,
                 'suggestions': matches  # Max 2 suggestions
             })
-            print(f"[@ai_prompt_validation:preprocess] Ambiguous: '{phrase}' → {matches}")
+            print(f"[@ai_prompt_validation:preprocess] ⚠️ Ambiguous: '{phrase}' → {matches}")
+        else:
+            print(f"[@ai_prompt_validation:preprocess] ⚠️ No match found: '{phrase}'")
     
-    # Determine status and return appropriate response
-    if not auto_corrections and not needs_disambiguation:
-        return {'status': 'clear', 'prompt': prompt}
+    # CASE 1: Single exact match found → Direct navigation (SKIP AI)
+    if len(exact_matches) == 1 and not auto_corrections and not needs_disambiguation:
+        print(f"[@ai_prompt_validation:preprocess] ✅ Result: EXACT_MATCH → '{exact_matches[0]}' (AI not needed)")
+        return {
+            'status': 'exact_match',
+            'target_node': exact_matches[0],
+            'original_prompt': prompt
+        }
     
+    # CASE 2: Multiple exact matches → needs clarification
+    if len(exact_matches) > 1:
+        print(f"[@ai_prompt_validation:preprocess] ⚠️ Result: AMBIGUOUS (multiple exact matches: {exact_matches})")
+        needs_disambiguation.append({
+            'original': 'multiple_nodes',
+            'suggestions': exact_matches[:2]  # Max 2 for UI
+        })
+    
+    # CASE 3: Needs user disambiguation
     if needs_disambiguation:
+        print(f"[@ai_prompt_validation:preprocess] ⚠️ Result: NEEDS_DISAMBIGUATION ({len(needs_disambiguation)} ambiguities)")
         return {
             'status': 'needs_disambiguation',
             'original_prompt': prompt,
             'ambiguities': needs_disambiguation,
-            'auto_corrections': auto_corrections  # Show what was auto-corrected
+            'auto_corrections': auto_corrections,
+            'exact_matches': exact_matches
         }
     
-    # Auto-corrected only (apply corrections to prompt)
-    corrected_prompt = prompt
-    for correction in auto_corrections:
-        # Use word boundaries to avoid partial replacements
-        corrected_prompt = re.sub(
-            r'\b' + re.escape(correction['from']) + r'\b',
-            correction['to'],
-            corrected_prompt,
-            flags=re.IGNORECASE
-        )
+    # CASE 4: Auto-corrected (apply corrections to prompt)
+    if auto_corrections:
+        corrected_prompt = prompt
+        for correction in auto_corrections:
+            # Use word boundaries to avoid partial replacements
+            corrected_prompt = re.sub(
+                r'\b' + re.escape(correction['from']) + r'\b',
+                correction['to'],
+                corrected_prompt,
+                flags=re.IGNORECASE
+            )
+        print(f"[@ai_prompt_validation:preprocess] ✅ Result: AUTO_CORRECTED → '{corrected_prompt}'")
+        return {
+            'status': 'auto_corrected',
+            'original_prompt': prompt,
+            'corrected_prompt': corrected_prompt,
+            'corrections': auto_corrections,
+            'exact_matches': exact_matches
+        }
     
+    # CASE 5: Clear (no changes needed, but AI required)
+    print(f"[@ai_prompt_validation:preprocess] ✅ Result: CLEAR (AI generation needed)")
     return {
-        'status': 'auto_corrected',
-        'original_prompt': prompt,
-        'corrected_prompt': corrected_prompt,
-        'corrections': auto_corrections
+        'status': 'clear',
+        'prompt': prompt,
+        'exact_matches': exact_matches
     }
 
 

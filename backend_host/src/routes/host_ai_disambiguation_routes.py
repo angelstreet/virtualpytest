@@ -81,6 +81,35 @@ def analyze_prompt():
         
         print(f"[@host_ai_disambiguation:analyze_prompt] Analysis status: {analysis.get('status')}")
         
+        # Handle exact match - create direct navigation plan (skip AI)
+        if analysis.get('status') == 'exact_match':
+            target_node = analysis.get('target_node')
+            print(f"[@host_ai_disambiguation:analyze_prompt] ✅ Exact match found: '{target_node}' - creating direct plan (AI not needed)")
+            
+            # Create direct navigation plan
+            direct_plan = {
+                'steps': [{
+                    'step_number': 1,
+                    'command': 'execute_navigation',
+                    'params': {
+                        'target_node': target_node
+                    },
+                    'description': f"Navigate to {target_node}",
+                    'source': 'direct_match'
+                }],
+                'total_steps': 1,
+                'estimated_duration': '5s',
+                'source': 'preprocessing',
+                'reason': 'exact_match_found'
+            }
+            
+            return jsonify({
+                'success': True,
+                'analysis': analysis,
+                'direct_plan': direct_plan,  # Include ready-to-execute plan
+                'available_nodes': available_nodes
+            })
+        
         return jsonify({
             'success': True,
             'analysis': analysis,
