@@ -25,23 +25,34 @@ class HDMIStreamController(FFmpegCaptureController):
         super().__init__("HDMI Stream Controller", "HDMI", video_stream_path, video_capture_path, **kwargs)
 
         
-    def restart_stream(self) -> bool:
-        """Restart HDMI streaming using centralized system utilities."""
+    def restart_stream(self, quality: str = 'sd') -> bool:
+        """Restart HDMI streaming with quality parameter."""
         try:
-            print(f"HDMI[{self.capture_source}]: Restarting stream service")
+            import os
+            device_id = self.capture_source
+            print(f"HDMI[{device_id}]: Restarting with quality: {quality}")
             
-            from shared.src.lib.utils.system_utils import restart_systemd_service
-            result = restart_systemd_service('stream')
+            # Get script path relative to this file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+            script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
             
-            if result['success']:
-                print(f"HDMI[{self.capture_source}]: Stream service restarted successfully")
+            result = subprocess.run(
+                [script_path, device_id, quality],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                print(f"HDMI[{device_id}]: Restarted successfully")
                 return True
             else:
-                print(f"HDMI[{self.capture_source}]: Failed to restart stream service: {result.get('error', 'Unknown error')}")
+                print(f"HDMI[{device_id}]: Failed: {result.stderr}")
                 return False
                 
         except Exception as e:
-            print(f"HDMI[{self.capture_source}]: Error restarting stream: {e}")
+            print(f"HDMI[{self.capture_source}]: Error: {e}")
             return False
 
 

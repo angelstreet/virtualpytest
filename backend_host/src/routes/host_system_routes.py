@@ -54,10 +54,11 @@ def reboot_host():
 
 @host_system_bp.route('/restartHostStreamService', methods=['POST'])
 def restart_host_stream_service():
-    """Restart streaming service on host device"""
+    """Restart streaming service on host device with quality"""
     try:
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
+        quality = data.get('quality', 'sd')
         
         from backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
         
@@ -77,16 +78,15 @@ def restart_host_stream_service():
                 'available_capabilities': device.get_capabilities()
             }), 404
         
-        restart_result = av_controller.restart_stream()
+        restart_result = av_controller.restart_stream(quality=quality)
         
         if restart_result:
-            status = av_controller.get_status()
             return jsonify({
                 'success': True,
                 'restarted': True,
-                'status': status,
                 'device_id': device_id,
-                'message': 'Stream service restarted successfully'
+                'quality': quality,
+                'message': f'Stream restarted with {quality.upper()} quality'
             }), 200
         else:
             return jsonify({

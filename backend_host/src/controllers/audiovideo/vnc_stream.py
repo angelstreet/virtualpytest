@@ -34,20 +34,34 @@ class VNCStreamController(FFmpegCaptureController):
         self.web_browser_path = kwargs.get('web_browser_path', '/usr/bin/chromium')
 
         
-    def restart_stream(self) -> bool:
-        """Restart VNC streaming - for VNC this is mostly a no-op since VNC server should always be running."""
+    def restart_stream(self, quality: str = 'sd') -> bool:
+        """Restart VNC streaming with quality parameter."""
         try:
-            print(f"VNC[{self.capture_source}]: VNC stream restart requested")
+            import os
+            device_id = self.capture_source
+            print(f"VNC[{device_id}]: Restarting with quality: {quality}")
             
-            # For VNC, we don't restart the VNC server itself
-            # We could restart the screenshot capture service if needed
-            # For now, this is a successful no-op
+            # Get script path relative to this file
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+            script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
             
-            print(f"VNC[{self.capture_source}]: VNC stream restart completed (no action needed)")
-            return True
+            result = subprocess.run(
+                [script_path, device_id, quality],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                print(f"VNC[{device_id}]: Restarted successfully")
+                return True
+            else:
+                print(f"VNC[{device_id}]: Failed: {result.stderr}")
+                return False
                 
         except Exception as e:
-            print(f"VNC[{self.capture_source}]: Error restarting VNC stream: {e}")
+            print(f"VNC[{self.capture_source}]: Error: {e}")
             return False
 
 

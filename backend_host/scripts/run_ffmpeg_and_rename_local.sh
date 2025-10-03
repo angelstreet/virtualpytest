@@ -1,24 +1,11 @@
 #!/bin/bash
 
-# ============================================================================
-# MASTER CAPTURE CONFIGURATION - READS FROM .env FILE
-# ============================================================================
-# This script reads capture configuration from backend_host/src/.env file.
-# The .env file is the SINGLE SOURCE OF TRUTH for all capture settings.
-#
-# To add a new capture: Edit backend_host/src/.env and restart service.
-# To disable a capture: Prefix variable name with 'x' or comment with '#'
-#
-# Required .env variables per device:
-#   HOST_VIDEO_SOURCE, HOST_VIDEO_AUDIO, HOST_VIDEO_CAPTURE_PATH, HOST_VIDEO_FPS
-#   DEVICE*_VIDEO, DEVICE*_VIDEO_AUDIO, DEVICE*_VIDEO_CAPTURE_PATH, DEVICE*_VIDEO_FPS
-#
-# See CAPTURE_CONFIG.md for details.
-# ============================================================================
+# Usage: ./run_ffmpeg_and_rename_local.sh [device_id] [quality]
+# Examples:
+#   ./run_ffmpeg_and_rename_local.sh              # Start all devices (systemd mode)
+#   ./run_ffmpeg_and_rename_local.sh device1 hd   # Restart device1 with HD
+#   ./run_ffmpeg_and_rename_local.sh host sd      # Restart host with SD
 
-# Find and load .env file
-# NOTE: Python scripts use archive_utils.py for centralized directory discovery
-# This bash script uses .env directly (same source of truth, different languages)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_HOST_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$BACKEND_HOST_DIR/src/.env"
@@ -28,70 +15,108 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-echo "Loading configuration from $ENV_FILE..."
+# Parse arguments
+TARGET_DEVICE="${1:-all}"
+TARGET_QUALITY="${2:-sd}"
+SINGLE_DEVICE_MODE=false
 
-# Load .env file (filter out comments and empty lines)
+if [ "$TARGET_DEVICE" != "all" ]; then
+    SINGLE_DEVICE_MODE=true
+    echo "🎯 Restarting $TARGET_DEVICE with quality: $TARGET_QUALITY"
+fi
+
+# Load .env
 set -a
 source <(grep -v '^#' "$ENV_FILE" | grep -v '^$' | grep -v '^x')
 set +a
 
-# Build GRABBERS array dynamically from .env
-# Format: source|audio_device|capture_dir|input_fps
 declare -A GRABBERS=()
 
-# Check HOST configuration (if VIDEO_SOURCE is set and not disabled)
-if [ -n "$HOST_VIDEO_SOURCE" ]; then
+# Build GRABBERS array (filtered by target device if in single mode)
+if [ -n "$HOST_VIDEO_SOURCE" ] && { [ "$SINGLE_DEVICE_MODE" = false ] || [ "$TARGET_DEVICE" = "host" ]; }; then
     GRABBERS["host"]="$HOST_VIDEO_SOURCE|${HOST_VIDEO_AUDIO:-null}|${HOST_VIDEO_CAPTURE_PATH}|${HOST_VIDEO_FPS:-2}"
-    echo "✓ Added HOST: $HOST_VIDEO_SOURCE -> $HOST_VIDEO_CAPTURE_PATH (${HOST_VIDEO_FPS:-2} FPS)"
 fi
 
-# Check DEVICE1-10 configuration
 for i in {1..10}; do
-    # Use indirect variable expansion to get DEVICE*_VIDEO value
     video_var="DEVICE${i}_VIDEO"
     audio_var="DEVICE${i}_VIDEO_AUDIO"
     capture_var="DEVICE${i}_VIDEO_CAPTURE_PATH"
     fps_var="DEVICE${i}_VIDEO_FPS"
-    name_var="DEVICE${i}_NAME"
     
     video_source="${!video_var}"
     audio_device="${!audio_var}"
     capture_path="${!capture_var}"
     fps="${!fps_var}"
-    device_name="${!name_var:-device$i}"
     
-    # Only add if VIDEO source is defined and not empty
-    if [ -n "$video_source" ]; then
+    if [ -n "$video_source" ] && { [ "$SINGLE_DEVICE_MODE" = false ] || [ "$TARGET_DEVICE" = "device$i" ]; }; then
         GRABBERS["device$i"]="$video_source|${audio_device:-null}|${capture_path}|${fps:-10}"
-        echo "✓ Added DEVICE$i ($device_name): $video_source -> $capture_path (${fps:-10} FPS)"
     fi
 done
 
-# Check if we have any grabbers configured
 if [ ${#GRABBERS[@]} -eq 0 ]; then
-    echo "ERROR: No capture devices configured in .env file!"
+    echo "ERROR: No devices configured"
     exit 1
 fi
 
-echo "Total active captures: ${#GRABBERS[@]}"
+# Kill processes
+if [ "$SINGLE_DEVICE_MODE" = true ]; then
+    for index in "${!GRABBERS[@]}"; do
+        if [ "$index" = "$TARGET_DEVICE" ]; then
+            IFS='|' read -r _ _ capture_dir _ <<< "${GRABBERS[$index]}"
+            OLD_PID=$(get_device_info "$capture_dir" "pid")
+            if [ -n "$OLD_PID" ]; then
+                sudo kill -9 "$OLD_PID" 2>/dev/null
+            fi
+            break
+        fi
+    done
+    sleep 1
+else
+    sudo pkill -f ffmpeg 2>/dev/null
+    sudo pkill -f clean_captures.sh 2>/dev/null
+    sleep 3
+fi
 
-# Kill all existing ffmpeg and clean_captures processes
-echo "Stopping all existing capture processes..."
-sudo pkill -f ffmpeg 2>/dev/null && echo "Killed all ffmpeg processes" || echo "No ffmpeg processes found"
-sudo pkill -f clean_captures.sh 2>/dev/null && echo "Killed all clean_captures processes" || echo "No clean_captures processes found"
-sleep 3
-
-# Simple log reset function - truncates log if over 30MB
 reset_log_if_large() {
   local logfile="$1" max_size_mb=30
-
-  # Check if log file exists and its size
   if [ -f "$logfile" ]; then
     local size_mb=$(du -m "$logfile" | cut -f1)
     if [ "$size_mb" -ge "$max_size_mb" ]; then
-      echo "$(date): Log $logfile exceeded ${max_size_mb}MB, resetting..." >> "${logfile}"
-      > "$logfile"  # Truncate the file
-      echo "$(date): Log reset" >> "${logfile}"
+      > "$logfile"
+    fi
+  fi
+}
+
+get_device_info() {
+  local capture_dir="$1"
+  local field="$2"  # 'pid' or 'quality'
+  
+  if [ ! -f "/tmp/active_captures.conf" ]; then
+    echo ""
+    return
+  fi
+  
+  local line=$(grep "^${capture_dir}," /tmp/active_captures.conf)
+  if [ -n "$line" ]; then
+    IFS=',' read -r _ pid quality <<< "$line"
+    if [ "$field" = "pid" ]; then
+      echo "$pid"
+    elif [ "$field" = "quality" ]; then
+      echo "$quality"
+    fi
+  fi
+}
+
+get_device_quality() {
+  local capture_dir="$1"
+  if [ "$SINGLE_DEVICE_MODE" = true ]; then
+    echo "$TARGET_QUALITY"
+  else
+    local quality=$(get_device_info "$capture_dir" "quality")
+    if [ -z "$quality" ]; then
+      echo "sd"
+    else
+      echo "$quality"
     fi
   fi
 }
@@ -170,52 +195,44 @@ cleanup() {
   echo "Note: hot_cold_archiver.service handles cleanup independently"
 }
 
-# Function to start processes for a single grabber
 start_grabber() {
   local source=$1 audio_device=$2 capture_dir=$3 index=$4 input_fps=$5
-
-  # Detect source type
+  local quality=$(get_device_quality "$capture_dir")
   local source_type=$(detect_source_type "$source")
+  
   if [ "$source_type" = "unknown" ]; then
     echo "ERROR: Unknown source type for $source"
     return 1
   fi
 
-  # Setup capture directory structure and detect storage mode
   if setup_capture_directories "$capture_dir"; then
-    # RAM mode detected - use hot storage
     local storage_base="$capture_dir/hot"
-    local storage_mode="RAM"
   else
-    # SD mode - use direct paths
     local storage_base="$capture_dir"
-    local storage_mode="SD"
   fi
   
-  # Set output paths based on storage mode
   local output_segments="$storage_base/segments"
   local output_captures="$storage_base/captures"
   local output_thumbnails="$storage_base/thumbnails"
-  
-  echo "✓ Storage mode: $storage_mode"
-  echo "✓ Output base: $storage_base"
 
-  # Clean playlist files for fresh start
   clean_playlist_files "$capture_dir"
-  
-  # Always start from 0 (archiver renames based on file timestamp for 24h rolling buffer)
-  echo "✓ Starting from: segment #0, image #0"
 
-  # Reset video device if it's a hardware device
   if [ "$source_type" = "v4l2" ]; then
     reset_video_device "$source"
   fi
 
-  # Build FFmpeg command based on source type
   if [ "$source_type" = "v4l2" ]; then
-    # Hardware video device - Triple output: stream, full-res captures, thumbnails (5 FPS controlled)
-    # Audio resilience: Images continue even if ALSA buffer xrun occurs
-    # RAM HOT STORAGE: All outputs go to RAM for 99% SD write reduction
+    if [ "$quality" = "hd" ]; then
+      local stream_scale="1280:720"
+      local stream_bitrate="1500k"
+      local stream_maxrate="1800k"
+      local stream_bufsize="3600k"
+    else
+      local stream_scale="640:360"
+      local stream_bitrate="350k"
+      local stream_maxrate="400k"
+      local stream_bufsize="800k"
+    fi
     FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
@@ -223,11 +240,11 @@ start_grabber() {
       -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 2048 -async 1 -err_detect ignore_err -i \"$audio_device\" \
       -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
-        [str]scale=640:360:flags=fast_bilinear,fps=$input_fps[streamout]; \
+        [str]scale=${stream_scale}:flags=fast_bilinear,fps=$input_fps[streamout]; \
         [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" -map 1:a? \
       -c:v libx264 -preset ultrafast -tune zerolatency \
-      -b:v 350k -maxrate 400k -bufsize 800k \
+      -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
       -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
@@ -239,16 +256,22 @@ start_grabber() {
       -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
       $output_thumbnails/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # VNC display - Optimized for low CPU usage: triple output (stream + captures + thumbnails)
-    # Optimized: single fps operation, no mouse cursor, CBR encoding, faster scaling
-    # RAM HOT STORAGE: All outputs go to RAM for 99% SD write reduction
-    # Setup X11 display environment
+    if [ "$quality" = "hd" ]; then
+      local stream_scale="1280:720"
+      local stream_bitrate="1000k"
+      local stream_maxrate="1200k"
+      local stream_bufsize="2400k"
+    else
+      local stream_scale="480:360"
+      local stream_bitrate="250k"
+      local stream_maxrate="300k"
+      local stream_bufsize="600k"
+    fi
+    
     export DISPLAY="$source"
     export XAUTHORITY=~/.Xauthority
-    # Allow local connections and set resolution
-    echo "Setting up X11 display $source..."
-    xhost +local: 2>/dev/null || echo "Warning: xhost command failed"
-    xrandr -display "$source" -s 1280x720 2>/dev/null || echo "Warning: xrandr resolution set failed"
+    xhost +local: 2>/dev/null
+    xrandr -display "$source" -s 1280x720 2>/dev/null
     local resolution=$(get_vnc_resolution "$source")
 
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -loglevel error -y \
@@ -257,11 +280,11 @@ start_grabber() {
       -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
       -filter_complex \"[0:v]fps=2[v2];[v2]split=3[str][cap][thm]; \
-        [str]scale=480:360:flags=neighbor[streamout]; \
+        [str]scale=${stream_scale}:flags=neighbor[streamout]; \
         [cap]setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency \
-      -b:v 250k -maxrate 300k -bufsize 600k \
+      -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
       -f hls -hls_time 4 -hls_list_size 10 -hls_flags omit_endlist \
@@ -276,57 +299,48 @@ start_grabber() {
     return 1
   fi
 
-  # Start ffmpeg
-  echo "Starting ffmpeg for $source ($source_type) with audio: $audio_device..."
   local FFMPEG_LOG="/tmp/ffmpeg_output_${index}.log"
-  
-  # Clean log file for fresh start
-  echo "Cleaning log file for fresh start: $FFMPEG_LOG"
   > "$FFMPEG_LOG"
-  
-  # Also set up log size management for long-running sessions
   reset_log_if_large "$FFMPEG_LOG"
   
   eval $FFMPEG_CMD > "$FFMPEG_LOG" 2>&1 &
   local FFMPEG_PID=$!
-  echo "Started ffmpeg for $source with PID: $FFMPEG_PID"
   
-  # Note: Cleanup/archiving handled by systemd service: hot_cold_archiver.service
-  # No inline cleanup loop needed - archiver runs every 5 minutes automatically
-
-  # Set up trap for this grabber
+  # Update active_captures.conf with CSV format
+  update_active_captures "$capture_dir" "$FFMPEG_PID" "$quality"
+  
+  echo "✅ Started $index PID:$FFMPEG_PID quality:$quality"
+  
   trap "cleanup $FFMPEG_PID 0 $source" SIGINT SIGTERM
 }
 
-# Create active captures configuration file
-ACTIVE_CAPTURES_FILE="/tmp/active_captures.conf"
-> "$ACTIVE_CAPTURES_FILE"
-for index in "${!GRABBERS[@]}"; do
-  IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
-  echo "$capture_dir" >> "$ACTIVE_CAPTURES_FILE"
-done
-
-# Print configuration and check availability
-echo "=== Unified Capture Configuration ==="
-for index in "${!GRABBERS[@]}"; do
-  IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
-
-  source_type=$(detect_source_type "$source")
-
-  echo "Grabber $index:"
-  echo "  Source: $source ($source_type)"
-  if [ "$source_type" = "x11grab" ]; then
-    resolution=$(get_vnc_resolution "$source" 2>/dev/null || echo "1024x768")
-    echo "  Resolution: $resolution"
+update_active_captures() {
+  local capture_dir="$1"
+  local pid="$2"
+  local quality="$3"
+  
+  local temp_file="/tmp/active_captures.conf.tmp"
+  
+  if [ -f "/tmp/active_captures.conf" ]; then
+    # Remove old entry for this capture_dir
+    grep -v "^${capture_dir}," /tmp/active_captures.conf > "$temp_file" 2>/dev/null || true
+  else
+    > "$temp_file"
   fi
-  echo "  Audio: $audio_device"
-  echo "  Output: $capture_dir"
-  echo "  Input FPS: $input_fps"
-  echo "  Start: segment #0, image #0 (RAM hot storage is ephemeral)"
-  echo
-done
+  
+  # Add new entry
+  echo "${capture_dir},${pid},${quality}" >> "$temp_file"
+  
+  mv "$temp_file" /tmp/active_captures.conf
+}
 
-# Main loop to start all grabbers
+# Initialize active captures file (will be populated by start_grabber)
+if [ "$SINGLE_DEVICE_MODE" = false ]; then
+  > "/tmp/active_captures.conf"
+  echo "Starting ${#GRABBERS[@]} devices"
+fi
+
+# Start grabbers
 PIDS=()
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
@@ -334,10 +348,12 @@ for index in "${!GRABBERS[@]}"; do
   PIDS+=($!)
 done
 
-# Wait for all grabber processes
+if [ "$SINGLE_DEVICE_MODE" = true ]; then
+  exit 0
+fi
+
 wait "${PIDS[@]}"
 
-# Keep script alive for systemd compatibility
 while true; do
   sleep 3600
 done
