@@ -24,8 +24,12 @@ shared/src/lib/utils/storage_path_utils.py (SINGLE SOURCE OF TRUTH)
 ├── is_ram_mode(capture_base_dir)           # Detect RAM hot storage
 ├── get_capture_storage_path(base_dir, subfolder)  # Get correct path
 ├── get_capture_base_directories()          # Get all active captures
-├── get_device_info_from_capture_folder()   # Device .env mapping
-└── update_archive_manifest()               # Manifest generation
+└── get_device_info_from_capture_folder()   # Device .env mapping
+
+backend_host/scripts/hot_cold_archiver.py (MANIFEST GENERATION)
+├── generate_hour_manifest()                # Create/update hour-based manifests
+├── update_all_manifests()                  # Update all 24 hour manifests
+└── archive_hot_files()                     # Move files to hour folders
 ```
 
 ---

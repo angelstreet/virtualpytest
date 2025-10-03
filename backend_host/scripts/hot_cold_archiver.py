@@ -351,59 +351,17 @@ def update_all_manifests(capture_dir: str):
         logger.info(f"Updated {updated_count} archive manifests")
 
 
-def clean_old_hour_folders(capture_dir: str, file_type: str) -> int:
-    """
-    Clean old hour folders based on retention policy
-    
-    Different file types have different retention:
-    - captures: 1 hour (large files, only for recent incidents)
-    - thumbnails/metadata/segments: 24 hours
-    
-    Returns: Number of folders deleted
-    """
-    retention_hours = RETENTION_HOURS.get(file_type, 24)
-    current_time = datetime.now()
-    deleted_count = 0
-    
-    type_dir = os.path.join(capture_dir, file_type)
-    
-    if not os.path.isdir(type_dir):
-        return 0
-    
-    try:
-        # Check all 24 hour folders
-        for hour in range(24):
-            folder_path = os.path.join(type_dir, str(hour))
-            
-            if not os.path.isdir(folder_path):
-                continue
-            
-            # Check if this folder is older than retention period
-            # Calculate the most recent time this hour occurred
-            if hour == current_time.hour:
-                # Current hour - check if folder has old files (from 24h ago)
-                hours_ago = 24
-            elif hour > current_time.hour:
-                # Future hour in clock time = yesterday
-                hours_ago = 24 - (hour - current_time.hour)
-            else:
-                # Past hour today
-                hours_ago = current_time.hour - hour
-            
-            if hours_ago >= retention_hours:
-                # This folder is beyond retention period
-                file_count = len(list(Path(folder_path).glob('*')))
-                
-                if file_count > 0:
-                    logger.info(f"Deleting {file_type}/{hour}/ ({hours_ago}h old, {file_count} files, retention={retention_hours}h)")
-                    shutil.rmtree(folder_path)
-                    os.makedirs(folder_path, exist_ok=True)  # Recreate empty
-                    deleted_count += 1
-        
-    except Exception as e:
-        logger.error(f"Error cleaning {file_type} folders: {e}")
-    
-    return deleted_count
+# REMOVED: clean_old_hour_folders() function
+#
+# WHY: Natural 24h rolling buffer through time-based sequential filenames
+# Files automatically overwrite after 24h cycle - no cleanup needed!
+# 
+# How it works:
+# - Files get time-based names based on seconds since midnight
+# - After 24h, same time → same filename → automatic overwrite
+# - Result: All hour folders maintain 24h of data automatically
+#
+# No retention configuration or cleanup logic needed!
 
 
 def process_capture_directory(capture_dir: str):
@@ -411,13 +369,13 @@ def process_capture_directory(capture_dir: str):
     Process a single capture directory:
     1. Archive hot files for all types
     2. Update archive manifests
-    3. Clean old folders (different retention per type)
+    
+    NOTE: No cleanup needed - 24h rolling buffer handles retention automatically!
     """
     logger.info(f"Processing {capture_dir}")
     
     start_time = time.time()
     total_archived = 0
-    total_deleted = 0
     
     # 1. Archive hot files (unified pattern for all types)
     for file_type in ['segments', 'captures', 'thumbnails', 'metadata']:
@@ -427,16 +385,9 @@ def process_capture_directory(capture_dir: str):
     # 2. Update archive manifests (segments only)
     update_all_manifests(capture_dir)
     
-    # 3. Clean old folders (different retention per type)
-    # - captures: 1h retention (large files)
-    # - others: 24h retention
-    for file_type in ['segments', 'captures', 'thumbnails', 'metadata']:
-        deleted = clean_old_hour_folders(capture_dir, file_type)
-        total_deleted += deleted
-    
     elapsed = time.time() - start_time
     
-    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (archived {total_archived} files, deleted {total_deleted} folders)")
+    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (archived {total_archived} files)")
 
 
 def main_loop():
@@ -454,12 +405,11 @@ def main_loop():
     ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
     run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
     
-    mode_name = "RAM MODE (5s interval)" if ram_mode else "SD MODE (2min interval)"
+    mode_name = "RAM MODE (30s interval)" if ram_mode else "SD MODE (30s interval)"
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info(f"Retention: {RETENTION_HOURS}")
-    logger.info("NOTE: Captures = 1h retention (large files), Others = 24h")
+    logger.info("Retention: Natural 24h rolling buffer (automatic overwrite)")
     logger.info("=" * 60)
     
     while True:
