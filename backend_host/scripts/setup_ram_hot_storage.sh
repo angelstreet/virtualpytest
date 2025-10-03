@@ -62,14 +62,15 @@ for DEVICE in "${DEVICES[@]}"; do
   fi
   
   # Create subdirectories in RAM (instant, no SD card I/O)
-  # These inherit www-data:www-data ownership from parent mount
-  mkdir -p "$HOT_PATH/captures"
-  mkdir -p "$HOT_PATH/thumbnails"
-  mkdir -p "$HOT_PATH/segments"
-  mkdir -p "$HOT_PATH/metadata"
+  sudo mkdir -p "$HOT_PATH/captures"
+  sudo mkdir -p "$HOT_PATH/thumbnails"
+  sudo mkdir -p "$HOT_PATH/segments"
+  sudo mkdir -p "$HOT_PATH/metadata"
   
-  # Set group write permissions on subdirectories
-  chmod 775 "$HOT_PATH"/*
+  # Fix ownership and permissions (www-data:www-data, group writable)
+  sudo chown -R www-data:www-data "$HOT_PATH"
+  sudo chmod 775 "$HOT_PATH"
+  sudo chmod 775 "$HOT_PATH"/*
   
   echo "✓ $DEVICE hot storage ready (www-data:www-data, group writable)"
   echo ""
