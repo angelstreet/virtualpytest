@@ -6,7 +6,7 @@ set -e
 
 MOUNT_SIZE="100M"
 BASE_PATH="/var/www/html/stream"
-DEVICES=("capture1" "capture2" "capture3" "capture4")
+DEVICES=("capture1" "capture2" "capture3" "capture4" "capture5" "capture6" "capture7" "capture8")
 FSTAB_BACKUP="/etc/fstab.backup.$(date +%Y%m%d_%H%M%S)"
 
 echo "================================"
