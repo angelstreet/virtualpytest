@@ -153,14 +153,51 @@ sudo cp backend_host/systemd/hot_cold_archiver.service /etc/systemd/system/
 sudo cp backend_host/systemd/transcript-stream.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# Create required directories
-echo "📁 Creating stream directories..."
-sudo mkdir -p /var/www/html/stream/capture1/captures
-sudo mkdir -p /var/www/html/stream/capture2/captures
-sudo mkdir -p /var/www/html/stream/capture3/captures
-sudo mkdir -p /var/www/html/stream/capture4/captures
-sudo chown -R $USER:$USER /var/www/html/stream
-echo "✅ Stream directories created"
+# Setup RAM hot storage (optional but recommended)
+echo ""
+echo "🚀 Setting up RAM hot storage (99% SD write reduction)..."
+echo "This creates tmpfs RAM mounts for hot storage to extend SD card lifespan"
+echo ""
+
+# Ask user if they want RAM mode
+read -p "Enable RAM hot storage? (Y/n): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    echo "Setting up RAM hot storage..."
+    if "$PROJECT_ROOT/backend_host/scripts/setup_ram_hot_storage.sh"; then
+        echo "✅ RAM hot storage setup complete"
+        echo "   Hot files: RAM tmpfs (100MB per device)"
+        echo "   Archives: SD card (hour folders)"
+        echo "   Archival: Every 5 seconds (hot_cold_archiver service)"
+    else
+        echo "⚠️  RAM setup had issues - continuing with SD-only mode"
+        echo "   The system will use traditional SD hot/cold storage"
+    fi
+else
+    echo "Skipping RAM setup - using SD-only mode"
+    echo "   Files will be stored directly on SD card"
+    echo "   Archival: Every 5 minutes (hot_cold_archiver service)"
+    
+    # Create required directories for SD-only mode
+    echo "📁 Creating SD stream directories..."
+    sudo mkdir -p /var/www/html/stream/capture1/captures
+    sudo mkdir -p /var/www/html/stream/capture2/captures
+    sudo mkdir -p /var/www/html/stream/capture3/captures
+    sudo mkdir -p /var/www/html/stream/capture4/captures
+    
+    # Create hour folders
+    for i in {1..4}; do
+        for hour in {0..23}; do
+            sudo mkdir -p /var/www/html/stream/capture$i/captures/$hour
+            sudo mkdir -p /var/www/html/stream/capture$i/thumbnails/$hour
+            sudo mkdir -p /var/www/html/stream/capture$i/metadata/$hour
+            sudo mkdir -p /var/www/html/stream/capture$i/segments/$hour
+        done
+    done
+    
+    sudo chown -R $USER:$USER /var/www/html/stream
+    echo "✅ SD stream directories created"
+fi
 
 # Make project scripts executable (no copying needed - .env driven)
 echo "📋 Making project scripts executable..."

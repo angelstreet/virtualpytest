@@ -114,6 +114,12 @@ fi
 
 cd ../..
 
+# Make RAM setup script executable
+chmod +x "$PROJECT_ROOT/backend_host/scripts/setup_ram_hot_storage.sh"
+chmod +x "$PROJECT_ROOT/backend_host/scripts/hot_cold_archiver.py"
+
+echo "✅ Scripts made executable"
+
 # Configure firewall ports for backend_host
 echo "🔥 Configuring firewall for backend_host..."
 
@@ -131,4 +137,7 @@ echo "   - Backend Host API: $HOST_PORT"
 check_and_open_port "$HOST_PORT" "backend_host API" "tcp"
 
 echo "✅ backend_host installation completed!"
-echo "🚀 You can now run: ./setup/local/launch_host.sh" 
+echo ""
+echo "📝 Next steps:"
+echo "   1. Run: ./setup/local/install_host_services.sh  # Setup services & RAM storage"
+echo "   2. Run: ./setup/local/launch_host.sh            # Start backend_host" 

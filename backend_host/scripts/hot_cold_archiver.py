@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
 """
-HOT/COLD STORAGE ARCHIVER - Unified Architecture
-=================================================
+HOT/COLD STORAGE ARCHIVER - RAM + SD Architecture
+==================================================
 
-This service manages the hot/cold storage pattern for all file types:
-- Segments: 10 hot files + 24 hour folders
-- Captures: 100 hot files + 24 hour folders
-- Thumbnails: 100 hot files + 24 hour folders
-- Metadata: 100 hot files + 24 hour folders
+This service manages hot/cold storage with two modes:
+
+**RAM MODE (if /hot/ exists):**
+- FFmpeg writes to /hot/captures/, /hot/thumbnails/, /hot/segments/ (tmpfs RAM)
+- Archives to SD: /captures/X/, /thumbnails/X/, /segments/X/
+- Runs every 5 seconds (RAM is limited!)
+- 99% SD write reduction
+
+**SD MODE (fallback if no /hot/):**
+- Files in root directories (captures/, thumbnails/, segments/)
+- Archives to hour subfolders
+- Runs every 5 minutes (traditional behavior)
 
 Responsibilities:
 1. Archive hot files when they exceed limits
 2. Generate HLS manifests for hour folders (segments only)
-3. Clean 24h old hour folders
+3. Clean old hour folders (1h for captures, 24h for others)
 4. No full directory scans - fast and efficient!
-
-Runs every 5 minutes to maintain storage health.
 """
 
 import os
@@ -40,7 +45,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
-RUN_INTERVAL = 300  # 5 minutes
+RAM_RUN_INTERVAL = 5    # 5 seconds for RAM mode (critical!)
+SD_RUN_INTERVAL = 300   # 5 minutes for SD mode
 
 # Hot storage limits (files to keep in root before archiving)
 HOT_LIMITS = {
@@ -104,6 +110,26 @@ def get_capture_directories() -> List[str]:
     return capture_dirs
 
 
+def is_ram_mode(capture_dir: str) -> bool:
+    """Check if capture directory uses RAM hot storage"""
+    hot_path = os.path.join(capture_dir, 'hot')
+    if not os.path.exists(hot_path):
+        return False
+    
+    # Check if it's a tmpfs mount (RAM)
+    try:
+        with open('/proc/mounts', 'r') as f:
+            mounts = f.read()
+            if hot_path in mounts and 'tmpfs' in mounts:
+                return True
+    except Exception:
+        pass
+    
+    # If /hot/ exists but isn't tmpfs, still treat as RAM mode
+    # (for development/testing)
+    return True
+
+
 def get_file_hour(filepath: str) -> int:
     """Get hour (0-23) from file modification time"""
     try:
@@ -118,6 +144,9 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
     """
     Archive hot files to hour folders when exceeding limit
     
+    **RAM MODE:** Reads from /hot/captures/, archives to /captures/X/
+    **SD MODE:** Reads from /captures/, archives to /captures/X/
+    
     GUARANTEES:
     - Always keeps the NEWEST hot_limit files in hot storage
     - Never archives files less than 60 seconds old (safety buffer)
@@ -125,7 +154,17 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
     
     Returns: Number of files archived
     """
-    hot_dir = os.path.join(capture_dir, file_type)
+    ram_mode = is_ram_mode(capture_dir)
+    
+    # Determine hot and cold paths based on mode
+    if ram_mode:
+        # RAM mode: hot storage in /hot/ subdirectory
+        hot_dir = os.path.join(capture_dir, 'hot', file_type)
+        cold_dir = os.path.join(capture_dir, file_type)
+    else:
+        # SD mode: hot storage in root, cold in hour subfolders
+        hot_dir = os.path.join(capture_dir, file_type)
+        cold_dir = hot_dir  # Same directory, hour folders are subdirs
     
     if not os.path.isdir(hot_dir):
         return 0
@@ -184,17 +223,18 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
             try:
                 # Get hour from file mtime
                 file_hour = get_file_hour(str(filepath))
-                hour_folder = os.path.join(hot_dir, str(file_hour))
+                hour_folder = os.path.join(cold_dir, str(file_hour))
                 
                 # Ensure hour folder exists
                 os.makedirs(hour_folder, exist_ok=True)
                 
-                # Move file to hour folder
+                # Move file to hour folder (RAM → SD or SD root → SD hour)
                 dest_path = os.path.join(hour_folder, filepath.name)
                 shutil.move(str(filepath), dest_path)
                 
                 archived_count += 1
-                logger.debug(f"Archived {filepath.name} → {file_type}/{file_hour}/")
+                mode_label = "RAM→SD" if ram_mode else "hot→cold"
+                logger.debug(f"Archived {filepath.name} → {file_type}/{file_hour}/ ({mode_label})")
                 
             except Exception as e:
                 logger.error(f"Error archiving {filepath}: {e}")
@@ -376,12 +416,22 @@ def process_capture_directory(capture_dir: str):
 
 def main_loop():
     """
-    Main service loop - runs every 5 minutes
+    Main service loop - interval depends on mode
+    RAM mode: 5 seconds (critical!)
+    SD mode: 5 minutes (traditional)
     """
     logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER STARTED - Unified Architecture")
+    logger.info("HOT/COLD ARCHIVER STARTED - RAM + SD Architecture")
     logger.info("=" * 60)
-    logger.info(f"Run interval: {RUN_INTERVAL}s ({RUN_INTERVAL // 60} minutes)")
+    
+    # Detect mode from first capture directory
+    capture_dirs = get_capture_directories()
+    ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
+    run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
+    
+    mode_name = "RAM MODE (5s interval)" if ram_mode else "SD MODE (5min interval)"
+    logger.info(f"Mode: {mode_name}")
+    logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
     logger.info(f"Retention: {RETENTION_HOURS}")
     logger.info("NOTE: Captures = 1h retention (large files), Others = 24h")
@@ -411,18 +461,18 @@ def main_loop():
             cycle_elapsed = time.time() - cycle_start
             logger.info("=" * 60)
             logger.info(f"Cycle completed in {cycle_elapsed:.2f}s")
-            logger.info(f"Next run in {RUN_INTERVAL}s")
+            logger.info(f"Next run in {run_interval}s")
             logger.info("=" * 60)
             
             # Sleep until next cycle
-            time.sleep(RUN_INTERVAL)
+            time.sleep(run_interval)
             
         except KeyboardInterrupt:
             logger.info("Received interrupt signal, shutting down...")
             break
         except Exception as e:
             logger.error(f"Error in main loop: {e}", exc_info=True)
-            time.sleep(RUN_INTERVAL)
+            time.sleep(run_interval)
 
 
 if __name__ == '__main__':
