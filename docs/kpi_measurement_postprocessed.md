@@ -281,7 +281,7 @@ Each node can have `kpi_references` configured:
 
 ### 1. **Service File**
 
-Location: `backend_host/systemd/kpi-executor.service`
+Location: `backend_host/config/services/kpi-executor.service`
 
 ```ini
 [Unit]
@@ -315,7 +315,7 @@ The service is installed by `setup/local/install_host_services.sh`:
 
 ```bash
 # Install KPI executor service
-sudo cp backend_host/systemd/kpi-executor.service /etc/systemd/system/
+sudo cp backend_host/config/services/kpi-executor.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable kpi-executor.service
 sudo systemctl start kpi-executor.service

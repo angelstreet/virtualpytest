@@ -26,10 +26,7 @@ from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler('/tmp/transcript_accumulator.log'),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 

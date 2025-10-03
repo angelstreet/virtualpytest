@@ -349,7 +349,7 @@ if __name__ == '__main__':
     main()
 ```
 
-### **Systemd Service:** `backend_host/systemd/archive_hot_to_cold.service`
+### **Systemd Service:** `backend_host/config/services/archive_hot_to_cold.service`
 ```ini
 [Unit]
 Description=Hot-to-Cold Archival Service

@@ -39,14 +39,11 @@ sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, is_ram_mode
 
-# Configure logging
+# Configure logging (systemd handles file output)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [HOT_COLD_ARCHIVER] %(levelname)s: %(message)s',
-    handlers=[
-        logging.FileHandler('/tmp/hot_cold_archiver.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
 

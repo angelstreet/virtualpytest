@@ -18,14 +18,11 @@ from shared.src.lib.utils.storage_path_utils import get_capture_directories, get
 from detector import detect_issues
 from incident_manager import IncidentManager
 
-# Setup logging to /tmp/capture_monitor.log
+# Setup logging (systemd handles file output)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler('/tmp/capture_monitor.log'),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
@@ -192,29 +189,8 @@ class InotifyFrameMonitor:
                 except:
                     pass
 
-def cleanup_logs_on_startup():
-    """Clean up monitoring log on service restart for fresh debugging"""
-    try:
-        log_file = '/tmp/capture_monitor.log'
-        
-        print(f"[@capture_monitor] Cleaning monitor log on service restart...")
-        
-        if os.path.exists(log_file):
-            # Truncate the file instead of deleting to avoid permission issues
-            with open(log_file, 'w') as f:
-                f.write(f"=== LOG CLEANED ON MONITOR RESTART: {datetime.now().isoformat()} ===\n")
-            print(f"[@capture_monitor] ✓ Cleaned: {log_file}")
-        else:
-            print(f"[@capture_monitor] ○ Not found (will be created): {log_file}")
-                
-        print(f"[@capture_monitor] Log cleanup complete")
-                
-    except Exception as e:
-        print(f"[@capture_monitor] Warning: Could not clean log file: {e}")
-
 def main():
     """Main entry point"""
-    cleanup_logs_on_startup()  # Clean logs on startup
     
     logger.info("=" * 80)
     logger.info("Starting inotify-based incident monitor")

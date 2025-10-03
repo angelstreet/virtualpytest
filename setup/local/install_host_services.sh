@@ -143,14 +143,13 @@ EOF
 
 # Install systemd services
 echo "📋 Installing systemd services..."
-# Core services (matching backend_host/config/services/ names)
-sudo cp backend_host/systemd/monitor.service /etc/systemd/system/
-sudo cp backend_host/systemd/stream.service /etc/systemd/system/
-sudo cp backend_host/systemd/vncserver.service /etc/systemd/system/
-sudo cp backend_host/systemd/novnc.service /etc/systemd/system/
-# Additional host services from backend_host/systemd/
-sudo cp backend_host/systemd/hot_cold_archiver.service /etc/systemd/system/
-sudo cp backend_host/systemd/transcript-stream.service /etc/systemd/system/
+sudo cp backend_host/config/services/monitor.service /etc/systemd/system/
+sudo cp backend_host/config/services/stream.service /etc/systemd/system/
+sudo cp backend_host/config/services/vncserver.service /etc/systemd/system/
+sudo cp backend_host/config/services/novnc.service /etc/systemd/system/
+sudo cp backend_host/config/services/hot_cold_archiver.service /etc/systemd/system/
+sudo cp backend_host/config/services/transcript-stream.service /etc/systemd/system/
+sudo cp backend_host/config/services/backend-host.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Setup RAM hot storage (optional but recommended)

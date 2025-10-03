@@ -362,7 +362,7 @@ if __name__ == '__main__':
 
 ### **TASK 4: Create Systemd Service**
 
-**File:** `backend_host/systemd/archive_hot_to_cold.service` (NEW)
+**File:** `backend_host/config/services/archive_hot_to_cold.service` (NEW)
 
 ```ini
 [Unit]
@@ -649,9 +649,9 @@ backend_host/src/services/cache/tier1_cache.py          # DELETE
 backend_host/src/services/cache/tier2_cache.py          # DELETE
 backend_host/src/services/cache/tier3_cache.py          # DELETE
 backend_host/src/services/cache/cache_manager.py        # DELETE
-backend_host/systemd/tier1_cache.service                # DELETE
-backend_host/systemd/tier2_cache.service                # DELETE
-backend_host/systemd/tier3_cache.service                # DELETE
+backend_host/config/services/tier1_cache.service                # DELETE
+backend_host/config/services/tier2_cache.service                # DELETE
+backend_host/config/services/tier3_cache.service                # DELETE
 ```
 
 **Remove cache imports from:**

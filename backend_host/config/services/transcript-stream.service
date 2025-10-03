@@ -3,7 +3,7 @@
 # with correct dynamic paths for your system.
 
 [Unit]
-Description=VirtualPyTest Capture Monitor Service
+Description=Transcript Accumulator - 24h Audio Transcription
 After=network.target
 Wants=network.target
 
@@ -14,14 +14,15 @@ Group=%USER%
 WorkingDirectory=%PROJECT_ROOT%
 Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_host/src
 Environment=PATH=%PROJECT_ROOT%/venv/bin:/usr/bin:/usr/local/bin
-ExecStart=%PROJECT_ROOT%/venv/bin/python backend_host/scripts/capture_monitor.py
+ExecStart=%PROJECT_ROOT%/venv/bin/python backend_host/scripts/transcript_accumulator.py
 Restart=always
 RestartSec=10
-StandardOutput=append:/tmp/capture_monitor_service.log
-StandardError=append:/tmp/capture_monitor_service.log
+StandardOutput=truncate:/tmp/transcript_accumulator.log
+StandardError=truncate:/tmp/transcript_accumulator.log
 
 # Security
 NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
+
