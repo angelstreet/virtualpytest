@@ -286,70 +286,14 @@ def measure_network_speed():
 def get_capture_folder_size(capture_folder: str) -> str:
     """Get disk usage for a single capture folder"""
     try:
-        capture_path = f'/var/www/html/stream/{capture_folder}'
+        from shared.src.lib.utils.storage_path_utils import get_device_base_path
+        capture_path = get_device_base_path(capture_folder)
         if not os.path.exists(capture_path):
             return 'N/A'
         result = subprocess.run(['du', '-sh', capture_path], capture_output=True, text=True, timeout=5)
         return result.stdout.split()[0] if result.returncode == 0 else 'unknown'
     except Exception:
         return 'unknown'
-
-def get_active_capture_dirs():
-    """Read active capture directories from configuration file created by FFmpeg script"""
-    config_file = "/tmp/active_captures.conf"
-    capture_dirs = []
-    
-    try:
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
-                for line in f:
-                    capture_dir = line.strip()
-                    if capture_dir and os.path.exists(capture_dir):
-                        capture_dirs.append(capture_dir)
-        else:
-            print(f"🔍 [CONFIG] Configuration file not found: {config_file}, auto-discovering")
-            # Auto-discover all capture directories
-            capture_dirs = []
-            stream_base = '/var/www/html/stream'
-            if os.path.exists(stream_base):
-                for entry in sorted(os.listdir(stream_base)):
-                    if entry.startswith('capture') and entry[7:].isdigit():
-                        capture_path = os.path.join(stream_base, entry)
-                        if os.path.exists(capture_path):
-                            capture_dirs.append(capture_path)
-            
-            # If no directories found, use hardcoded fallback
-            if not capture_dirs:
-                capture_dirs = [
-                    '/var/www/html/stream/capture1',
-                    '/var/www/html/stream/capture2', 
-                    '/var/www/html/stream/capture3',
-                    '/var/www/html/stream/capture4'
-                ]
-    except Exception as e:
-        # Auto-discover on error or use hardcoded fallback
-        capture_dirs = []
-        try:
-            stream_base = '/var/www/html/stream'
-            if os.path.exists(stream_base):
-                for entry in sorted(os.listdir(stream_base)):
-                    if entry.startswith('capture') and entry[7:].isdigit():
-                        capture_path = os.path.join(stream_base, entry)
-                        if os.path.exists(capture_path):
-                            capture_dirs.append(capture_path)
-        except:
-            pass
-        
-        # Final hardcoded fallback if auto-discovery failed
-        if not capture_dirs:
-            capture_dirs = [
-                '/var/www/html/stream/capture1',
-                '/var/www/html/stream/capture2', 
-                '/var/www/html/stream/capture3',
-                '/var/www/html/stream/capture4'
-            ]
-        
-    return capture_dirs
 
 def get_process_start_time(capture_folder: str, process_type: str) -> float:
     """Get process start time from system"""
@@ -429,20 +373,16 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
         last_activity_time = None
         
         if process_type == 'ffmpeg':
-            # Check FFmpeg output files (only JPG images)
-            capture_dir = f'/var/www/html/stream/{capture_folder}'
-            if os.path.exists(capture_dir):
-                captures_dir = os.path.join(capture_dir, 'captures')
-                last_activity_time = get_last_file_mtime(
-                    captures_dir,
-                    r'^capture_.*\.jpg$',
-                    max_age_seconds=60,
-                    exclude_pattern=r'_thumbnail\.jpg$'
-                )
+            captures_dir = get_capture_storage_path(capture_folder, 'captures')
+            last_activity_time = get_last_file_mtime(
+                captures_dir,
+                r'^capture_.*\.jpg$',
+                max_age_seconds=60,
+                exclude_pattern=r'_thumbnail\.jpg$'
+            )
                     
         elif process_type == 'monitor':
-            # Check Monitor JSON files (sequential format to avoid race condition)
-            captures_dir = f'/var/www/html/stream/{capture_folder}/captures'
+            captures_dir = get_capture_storage_path(capture_folder, 'captures')
             last_activity_time = get_last_file_mtime(
                 captures_dir,
                 r'^capture_.*\.json$',
@@ -806,18 +746,12 @@ def check_ffmpeg_status():
             print(f"⚠️ Could not get stream service start time: {e}")
             pass
         
-        # Check recent file creation in capture directories (dynamic from config)
-        capture_dirs = get_active_capture_dirs()
-        
-        current_time = time.time()
-        cutoff_time = current_time - 300  # Look for files from last 5 minutes
+        capture_dirs = get_capture_base_directories()
         
         for capture_dir in capture_dirs:
             if os.path.exists(capture_dir):
                 device_name = os.path.basename(capture_dir)
-                
-                # Check for recent images (.jpg files) with sequential format only
-                captures_dir = os.path.join(capture_dir, 'captures')
+                captures_dir = get_capture_storage_path(capture_dir, 'captures')
                 recent_jpg_count = count_recent_files(
                     captures_dir,
                     r'^capture_.*\.jpg$',
@@ -914,15 +848,12 @@ def check_monitor_status():
             print(f"⚠️ Could not get monitor service start time: {e}")
             pass
         
-        # Check recent JSON file creation (dynamic from config)
-        base_capture_dirs = get_active_capture_dirs()
-        capture_dirs = [os.path.join(d, 'captures') for d in base_capture_dirs]
+        capture_base_dirs = get_capture_base_directories()
         
-        for captures_dir in capture_dirs:
-            if os.path.exists(captures_dir):
-                device_name = os.path.basename(os.path.dirname(captures_dir))  # capture1, capture2, etc.
-                
-                # Check for recent JSON files with sequential format
+        for capture_dir in capture_base_dirs:
+            if os.path.exists(capture_dir):
+                device_name = os.path.basename(capture_dir)
+                captures_dir = get_capture_storage_path(capture_dir, 'captures')
                 recent_json_count = count_recent_files(
                     captures_dir,
                     r'^capture_.*\.json$',

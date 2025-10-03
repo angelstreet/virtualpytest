@@ -1262,7 +1262,7 @@ class NavigationExecutor:
         Returns None if not found - no fallback.
         """
         try:
-            from backend_host.scripts.archive_utils import (
+            from shared.src.lib.utils.storage_path_utils import (
                 get_capture_directories,
                 get_capture_folder,
                 get_device_info_from_capture_folder,

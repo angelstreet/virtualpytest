@@ -13,12 +13,7 @@ import re
 import time
 from datetime import datetime
 
-# Add project paths for imports
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
-
-# Import centralized hot/cold utilities
-from archive_utils import is_ram_mode
+from shared.src.lib.utils.storage_path_utils import is_ram_mode
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls
 _audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
@@ -164,14 +159,7 @@ def analyze_audio(capture_dir):
         if cached_mtime == latest_mtime:
             return has_audio, volume, db
     
-    # Reuse shared audio detection logic (same as transcription utils)
     try:
-        import sys
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(os.path.dirname(script_dir))
-        if project_root not in sys.path:
-            sys.path.insert(0, project_root)
-        
         from shared.src.lib.utils.audio_transcription_utils import detect_audio_level
         
         has_audio, volume_percentage, mean_volume = detect_audio_level(latest, device_id="")
@@ -208,14 +196,7 @@ def detect_issues(image_path):
         freeze_diffs = freeze_details['frame_differences']
         
     if freeze_details and 'frames_compared' in freeze_details:
-        # Use centralized path utility for hot/cold architecture
         try:
-            import sys
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(script_dir))
-            if project_root not in sys.path:
-                sys.path.insert(0, project_root)
-            
             from shared.src.lib.utils.build_url_utils import get_device_local_thumbnails_path
             
             captures_dir = os.path.dirname(image_path)

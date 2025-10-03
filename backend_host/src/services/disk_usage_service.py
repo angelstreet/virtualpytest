@@ -10,14 +10,17 @@ import time
 import subprocess
 from typing import Dict, Any, List, Optional
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
+from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_stream_base_path
 
 
 class DiskUsageService:
     """Service for disk usage analysis and diagnostics"""
     
     @staticmethod
-    def get_system_disk_info(path: str = '/var/www/html/stream') -> Dict[str, Any]:
+    def get_system_disk_info(path: str = None) -> Dict[str, Any]:
         """Get overall system disk usage for a path"""
+        if path is None:
+            path = get_stream_base_path()
         try:
             df_result = subprocess.run(
                 ['df', '-h', path],
@@ -267,18 +270,12 @@ class DiskUsageService:
         Returns:
             Complete diagnostics report
         """
-        # Get capture directories
         if capture_filter == 'all':
-            capture_dirs = [
-                '/var/www/html/stream/capture1',
-                '/var/www/html/stream/capture2',
-                '/var/www/html/stream/capture3',
-                '/var/www/html/stream/capture4'
-            ]
+            capture_dirs = get_capture_base_directories()
         else:
-            capture_dirs = [f'/var/www/html/stream/{capture_filter}']
+            from shared.src.lib.utils.storage_path_utils import get_device_base_path
+            capture_dirs = [get_device_base_path(capture_filter)]
         
-        # Filter to existing directories
         capture_dirs = [d for d in capture_dirs if os.path.exists(d)]
         
         if not capture_dirs:

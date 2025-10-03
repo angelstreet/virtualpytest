@@ -1,7 +1,18 @@
 #!/usr/bin/env python3
 """
-Shared utilities for archive manifest and transcript generation
-Extracted from capture_monitor.py to avoid code duplication
+Centralized Storage Path Utilities
+
+Single source of truth for hot/cold storage path resolution.
+Eliminates path duplication across the codebase.
+
+HOT/COLD ARCHITECTURE:
+- RAM MODE: Files in /hot/ subdirectory (tmpfs mounted)
+- SD MODE: Files in root directory (traditional)
+
+This module provides functions to:
+- Detect storage mode (RAM vs SD)
+- Resolve correct paths automatically
+- Get device mappings from .env
 """
 import os
 import sys
@@ -10,16 +21,38 @@ import logging
 import re
 import time
 
-# Add project paths for shared utilities import
-current_dir = os.path.dirname(os.path.abspath(__file__))
-backend_host_dir = os.path.dirname(current_dir)
-project_root = os.path.dirname(backend_host_dir)
-sys.path.insert(0, project_root)
-
-# Import centralized file scanning utilities
-from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
-
 logger = logging.getLogger(__name__)
+
+# =====================================================
+# BASE PATH CONFIGURATION (NO HARDCODING!)
+# =====================================================
+
+# Single source of truth for stream base path
+# Can be overridden via environment variable
+_STREAM_BASE_PATH = os.getenv('STREAM_BASE_PATH', '/var/www/html/stream')
+
+def get_stream_base_path():
+    """
+    Get the base stream path (configurable via environment).
+    CENTRALIZED - Use this instead of hardcoding '/var/www/html/stream'!
+    
+    Returns:
+        Base stream path (e.g., '/var/www/html/stream')
+    """
+    return _STREAM_BASE_PATH
+
+def get_device_base_path(device_folder):
+    """
+    Get device base directory path.
+    CENTRALIZED - No more hardcoding!
+    
+    Args:
+        device_folder: Device folder name (e.g., 'capture1', 'capture2')
+        
+    Returns:
+        Full device base path (e.g., '/var/www/html/stream/capture1')
+    """
+    return os.path.join(get_stream_base_path(), device_folder)
 
 # Cache for device mappings to avoid repeated .env lookups
 _device_mapping_cache = {}
@@ -125,23 +158,20 @@ def get_capture_base_directories():
     
     # Auto-discover if config file doesn't exist
     logger.warning(f"⚠️ {active_captures_file} not found, auto-discovering directories")
-    stream_base = "/var/www/html/stream"
+    stream_base = get_stream_base_path()  # CENTRALIZED - No hardcoding!
     
     if os.path.exists(stream_base):
         for entry in sorted(os.listdir(stream_base)):
             if entry.startswith('capture') and os.path.isdir(os.path.join(stream_base, entry)):
                 base_dirs.append(os.path.join(stream_base, entry))
     
-    # Hardcoded fallback
+    # Fallback to common capture folders
     if not base_dirs:
-        logger.warning(f"⚠️ No directories found, using hardcoded fallback")
-        base_dirs = [
-            "/var/www/html/stream/capture1",
-            "/var/www/html/stream/capture2",
-            "/var/www/html/stream/capture3",
-            "/var/www/html/stream/capture4",
-        ]
-        base_dirs = [d for d in base_dirs if os.path.exists(d)]
+        logger.warning(f"⚠️ No directories found, using default capture folders")
+        for i in range(1, 5):  # capture1-4
+            capture_dir = get_device_base_path(f'capture{i}')
+            if os.path.exists(capture_dir):
+                base_dirs.append(capture_dir)
     
     return base_dirs
 
@@ -162,6 +192,9 @@ def is_ram_mode(capture_base_dir):
     
     Args:
         capture_base_dir: Base directory like /var/www/html/stream/capture1
+        
+    Returns:
+        True if RAM mode is active, False otherwise
     """
     hot_path = os.path.join(capture_base_dir, 'hot')
     
@@ -180,6 +213,46 @@ def is_ram_mode(capture_base_dir):
     # If /hot/ exists but isn't tmpfs, still treat as RAM mode
     # (for development/testing)
     return True
+
+def get_capture_storage_path(device_folder_or_path, subfolder):
+    """
+    Get the correct storage path based on hot/cold architecture.
+    CENTRALIZED PATH RESOLUTION - Use this everywhere!
+    
+    Args:
+        device_folder_or_path: Either:
+            - Device folder name (e.g., 'capture1') - RECOMMENDED
+            - Full base path (e.g., '/var/www/html/stream/capture1') - backward compatible
+        subfolder: Subfolder name ('captures', 'thumbnails', 'segments', 'metadata')
+        
+    Returns:
+        Path to the active storage location (hot if RAM mode, cold otherwise)
+        
+    Examples:
+        # Recommended usage (just device name):
+        get_capture_storage_path('capture1', 'captures')
+        -> '/var/www/html/stream/capture1/hot/captures' (RAM mode)
+        -> '/var/www/html/stream/capture1/captures' (SD mode)
+        
+        # Backward compatible (full path):
+        get_capture_storage_path('/var/www/html/stream/capture1', 'captures')
+        -> Same result as above
+    """
+    # Auto-detect if we got a device name or full path
+    if '/' in device_folder_or_path:
+        # Full path provided (backward compatible)
+        capture_base_dir = device_folder_or_path
+    else:
+        # Device name provided (recommended) - build full path
+        capture_base_dir = get_device_base_path(device_folder_or_path)
+    
+    # Check RAM mode and return appropriate path
+    if is_ram_mode(capture_base_dir):
+        # RAM mode: files in /hot/ subdirectory
+        return os.path.join(capture_base_dir, 'hot', subfolder)
+    else:
+        # SD mode: files in root directory
+        return os.path.join(capture_base_dir, subfolder)
 
 def get_capture_folder(capture_dir):
     """Extract capture folder from path"""
@@ -233,11 +306,10 @@ def generate_manifest_for_segments(stream_dir, segments, manifest_name):
 def update_archive_manifest(capture_dir):
     """Generate dynamic 1-hour archive manifests with progressive creation (with incremental updates)"""
     try:
-        # Use centralized path utility instead of string replacement
-        from shared.src.lib.utils.build_url_utils import get_device_directory_from_captures
-        
         capture_folder = get_capture_folder(capture_dir)
-        stream_dir = get_device_directory_from_captures(capture_dir)  # /var/www/html/stream/capture1
+        
+        # Get device base directory (parent of /captures/)
+        stream_dir = os.path.dirname(capture_dir.rstrip('/'))  # /var/www/html/stream/capture1
         
         # Configuration for 1-hour manifest windows
         WINDOW_HOURS = 1
@@ -278,7 +350,21 @@ def update_archive_manifest(capture_dir):
         
         # Get segments from last 24 hours only
         cutoff_time = time.time() - (24 * 3600)
-        segments = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$', min_mtime=cutoff_time)
+        
+        # Use os.scandir directly (avoid circular import with system_info_utils)
+        segments = []
+        segment_pattern = re.compile(r'^segment_.*\.ts$')
+        try:
+            for entry in os.scandir(stream_dir):
+                if entry.is_file() and segment_pattern.match(entry.name):
+                    try:
+                        mtime = entry.stat().st_mtime
+                        if mtime >= cutoff_time:
+                            segments.append(entry.path)
+                    except (FileNotFoundError, OSError):
+                        continue
+        except (FileNotFoundError, OSError):
+            pass
         
         if not segments:
             logger.debug(f"[@update_archive] [{capture_folder}] No segments in last 24h")

@@ -6,10 +6,9 @@ from flask import Blueprint, request, jsonify
 import sys
 import os
 
-# Add shared library to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../shared'))
+from backend_host.src.lib.utils.translation_utils import batch_translate_restart_content, translate_text, detect_language_from_text
+from shared.src.lib.utils.storage_path_utils import get_device_base_path
 
-from  backend_host.src.lib.utils.translation_utils import batch_translate_restart_content, translate_text, detect_language_from_text
 import json
 
 # Create blueprint
@@ -148,8 +147,8 @@ def translate_transcripts(capture_folder):
                 'error': 'Missing target_language'
             }), 400
         
-        # Load transcript JSON
-        transcript_path = f'/var/www/html/stream/{capture_folder}/transcript_segments.json'
+        device_path = get_device_base_path(capture_folder)
+        transcript_path = os.path.join(device_path, 'transcript_segments.json')
         
         if not os.path.exists(transcript_path):
             return jsonify({

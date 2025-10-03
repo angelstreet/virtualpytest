@@ -5,13 +5,18 @@ Watches for new frames and processes them immediately (zero CPU when idle)
 Uses FFmpeg atomic_writing feature to detect completed files
 """
 import os
+import sys
 import json
 import logging
 from datetime import datetime
 import inotify.adapters
+
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
+
+from shared.src.lib.utils.storage_path_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
 from detector import detect_issues
 from incident_manager import IncidentManager
-from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
 
 # Setup logging to /tmp/capture_monitor.log
 logging.basicConfig(

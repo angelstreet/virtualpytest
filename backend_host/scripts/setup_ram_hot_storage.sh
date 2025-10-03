@@ -19,9 +19,30 @@ if ! sudo -n true 2>/dev/null; then
     exit 1
 fi
 
-# Get user info for ownership
-USER_ID=$(id -u)
-GROUP_ID=$(id -g)
+# Get www-data user info for web server access
+WWW_DATA_UID=$(id -u www-data 2>/dev/null || echo "33")  # Default UID 33 if www-data doesn't exist yet
+WWW_DATA_GID=$(id -g www-data 2>/dev/null || echo "33")  # Default GID 33
+
+# Get current user info (for fallback/verification)
+CURRENT_USER=$(whoami)
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
+
+echo "Mount ownership: www-data (uid=$WWW_DATA_UID, gid=$WWW_DATA_GID)"
+echo "Current user: $CURRENT_USER (uid=$CURRENT_UID)"
+echo ""
+
+# Add current user to www-data group for access (if not already in it)
+if ! groups "$CURRENT_USER" | grep -q "\bwww-data\b"; then
+    echo "Adding $CURRENT_USER to www-data group for access..."
+    sudo usermod -a -G www-data "$CURRENT_USER"
+    echo "✓ User $CURRENT_USER added to www-data group"
+    echo "⚠️  You may need to log out and back in for group changes to take effect"
+    echo ""
+else
+    echo "✓ User $CURRENT_USER already in www-data group"
+    echo ""
+fi
 
 for DEVICE in "${DEVICES[@]}"; do
   HOT_PATH="$BASE_PATH/$DEVICE/hot"
@@ -34,19 +55,23 @@ for DEVICE in "${DEVICES[@]}"; do
   if mount | grep -q "$HOT_PATH"; then
     echo "✓ $HOT_PATH already mounted"
   else
-    # Mount tmpfs with ownership set at mount time
+    # Mount tmpfs with www-data ownership (for nginx access) + group writable
     echo "Mounting tmpfs ($MOUNT_SIZE) at $HOT_PATH"
-    sudo mount -t tmpfs -o size=$MOUNT_SIZE,noexec,nodev,nosuid,uid=$USER_ID,gid=$GROUP_ID tmpfs "$HOT_PATH"
-    echo "✓ Mounted"
+    sudo mount -t tmpfs -o size=$MOUNT_SIZE,noexec,nodev,nosuid,uid=$WWW_DATA_UID,gid=$WWW_DATA_GID,mode=775 tmpfs "$HOT_PATH"
+    echo "✓ Mounted (owner: www-data, mode: 775)"
   fi
   
   # Create subdirectories in RAM (instant, no SD card I/O)
+  # These inherit www-data:www-data ownership from parent mount
   mkdir -p "$HOT_PATH/captures"
   mkdir -p "$HOT_PATH/thumbnails"
   mkdir -p "$HOT_PATH/segments"
   mkdir -p "$HOT_PATH/metadata"
   
-  echo "✓ $DEVICE hot storage ready"
+  # Set group write permissions on subdirectories
+  chmod 775 "$HOT_PATH"/*
+  
+  echo "✓ $DEVICE hot storage ready (www-data:www-data, group writable)"
   echo ""
 done
 
@@ -63,7 +88,7 @@ ENTRIES_ADDED=0
 
 for DEVICE in "${DEVICES[@]}"; do
   HOT_PATH="$BASE_PATH/$DEVICE/hot"
-  FSTAB_LINE="tmpfs $HOT_PATH tmpfs size=$MOUNT_SIZE,noexec,nodev,nosuid,uid=$USER_ID,gid=$GROUP_ID 0 0"
+  FSTAB_LINE="tmpfs $HOT_PATH tmpfs size=$MOUNT_SIZE,noexec,nodev,nosuid,uid=$WWW_DATA_UID,gid=$WWW_DATA_GID,mode=775 0 0"
   
   # Check if entry already exists
   if grep -q "$HOT_PATH" /etc/fstab; then
@@ -71,7 +96,7 @@ for DEVICE in "${DEVICES[@]}"; do
   else
     echo "Adding $HOT_PATH to /etc/fstab..."
     echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
-    echo "✓ Added"
+    echo "✓ Added (www-data:www-data, mode: 775)"
     ENTRIES_ADDED=$((ENTRIES_ADDED + 1))
   fi
 done
@@ -98,6 +123,11 @@ echo "================================"
 echo ""
 echo "✅ RAM hot storage setup complete!"
 echo "   • All devices mounted in RAM ($MOUNT_SIZE each)"
+echo "   • Owner: www-data:www-data (mode: 775)"
+echo "   • Group members can read/write (nginx + capture services)"
 echo "   • Auto-mount configured in /etc/fstab"
 echo "   • Will automatically remount on reboot"
+echo ""
+echo "⚠️  NOTE: If you just added $CURRENT_USER to www-data group,"
+echo "   you may need to log out and back in for changes to take effect"
 echo ""

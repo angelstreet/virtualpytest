@@ -9,21 +9,15 @@ import logging
 import time
 from datetime import datetime
 
-# Add project paths
-current_dir = os.path.dirname(os.path.abspath(__file__))  # backend_host/scripts/
-backend_host_dir = os.path.dirname(current_dir)           # backend_host/
-project_root = os.path.dirname(backend_host_dir)          # project root
+from shared.src.lib.utils.storage_path_utils import get_device_info_from_capture_folder
 
-sys.path.insert(0, project_root)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_host_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(backend_host_dir)
 
-# Import shared device detection utility
-from archive_utils import get_device_info_from_capture_folder
-
-# Load environment variables from BOTH .env files
 try:
     from dotenv import load_dotenv
     
-    # Load project root .env first (database, R2, etc.)
     project_env_path = os.path.join(project_root, '.env')
     if os.path.exists(project_env_path):
         load_dotenv(project_env_path)

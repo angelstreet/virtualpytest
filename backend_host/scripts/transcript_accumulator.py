@@ -11,14 +11,14 @@ import time
 import subprocess
 import logging
 from datetime import datetime
-from archive_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode
 
-# Add paths for imports (script is in backend_host/scripts/)
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
-backend_host_dir = os.path.dirname(script_dir)  # backend_host/
-project_root = os.path.dirname(backend_host_dir)  # virtualpytest/
+backend_host_dir = os.path.dirname(script_dir)
+project_root = os.path.dirname(backend_host_dir)
 sys.path.insert(0, project_root)
 
+from shared.src.lib.utils.storage_path_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode
 from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern

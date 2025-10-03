@@ -32,12 +32,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Tuple, Optional
 
-# Add parent directory to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
+project_root = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, project_root)
 
-# Import centralized utilities
-from archive_utils import get_capture_base_directories, is_ram_mode
+from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, is_ram_mode
 
 # Configure logging
 logging.basicConfig(
