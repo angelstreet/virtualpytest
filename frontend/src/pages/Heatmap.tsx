@@ -15,11 +15,11 @@ import {
   MenuItem,
   FormControl,
 } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 import { HeatMapAnalysisSection } from '../components/heatmap/HeatMapAnalysisSection';
 import { HeatMapFreezeModal } from '../components/heatmap/HeatMapFreezeModal';
-import { HeatMapHistory } from '../components/heatmap/HeatMapHistory';
+import { HeatMapHistory, HeatMapHistoryRef } from '../components/heatmap/HeatMapHistory';
 import { MosaicPlayer } from '../components/MosaicPlayer';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 import { buildThumbnailUrlFromFrame } from '../utils/buildUrlUtils';
@@ -30,6 +30,7 @@ import { useHostManager } from '../hooks/useHostManager';
 import { Host, Device } from '../types/common/Host_Types';
 
 const HeatmapContent: React.FC = () => {
+  const historyRef = useRef<HeatMapHistoryRef>(null);
   const {
     timeline,
     currentIndex,
@@ -115,6 +116,11 @@ const HeatmapContent: React.FC = () => {
     try {
       await generateReport();
       console.log('HTML report generated for frame:', timeline[currentIndex].timeKey);
+      
+      // Refresh history to show the new report
+      if (historyRef.current) {
+        await historyRef.current.refreshReports();
+      }
     } catch (error) {
       console.error('Error generating report:', error);
       setError('Failed to generate report');
@@ -223,7 +229,7 @@ const HeatmapContent: React.FC = () => {
       </Box>
 
       {/* History Section */}
-      <HeatMapHistory />
+      <HeatMapHistory ref={historyRef} />
 
       {/* Freeze Modal */}
       <HeatMapFreezeModal

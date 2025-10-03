@@ -316,7 +316,7 @@ const RecHostStreamModalContent: React.FC<{
   // Handle screenshot - call API and open image in new tab
   const handleScreenshot = useCallback(async () => {
     try {
-      const response = await fetch(buildServerUrl('/server/stream/av/screenshot'), {
+      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

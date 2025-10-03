@@ -18,14 +18,17 @@ import {
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { useTeam } from '../../contexts/TeamContext';
+
 interface HeatmapReport {
   id: string;
   timestamp: string;
-  name: string;
-  html_url: string;
-  devices_count: number;
+  html_r2_url: string;
+  mosaic_r2_url: string;
+  hosts_included: number;
+  hosts_total: number;
   incidents_count: number;
-  created_at: string;
+  generated_at: string;
 }
 
 interface HeatMapHistoryProps {
@@ -37,23 +40,33 @@ export interface HeatMapHistoryRef {
 }
 
 export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>((_props, ref) => {
+  const { currentTeam } = useTeam();
   const [reports, setReports] = useState<HeatmapReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch last 10 heatmap reports
   const fetchReports = async () => {
+    if (!currentTeam?.id) {
+      console.warn('[@component:HeatMapHistory] No team_id available');
+      setReports([]);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(buildServerUrl('/server/heatmap/history?limit=10'));
+      const response = await fetch(
+        buildServerUrl(`/server/heatmap/history?team_id=${currentTeam.id}&limit=10`)
+      );
 
       if (!response.ok) {
         throw new Error(`Failed to fetch reports: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('[@component:HeatMapHistory] Fetched reports:', data.reports?.length || 0);
       setReports(data.reports || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch reports');
@@ -68,10 +81,10 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
     refreshReports: fetchReports,
   }));
 
-  // Load reports on component mount
+  // Load reports on component mount and when team changes
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [currentTeam?.id]);
 
   // Auto-refresh when component becomes visible (page focus)
   useEffect(() => {
@@ -237,7 +250,7 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={report.devices_count || 0}
+                      label={report.hosts_included || 0}
                       size="small"
                       color="primary"
                       variant="outlined"
@@ -254,10 +267,10 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
                   <TableCell align="center">
                     <IconButton
                       size="small"
-                      href={report.html_url}
+                      href={report.html_r2_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      disabled={!report.html_url}
+                      disabled={!report.html_r2_url}
                     >
                       <OpenInNew fontSize="small" />
                     </IconButton>

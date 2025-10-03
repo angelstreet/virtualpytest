@@ -49,24 +49,24 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
-RAM_RUN_INTERVAL = 30   # 30 seconds for RAM mode (balanced)
-SD_RUN_INTERVAL = 30    # 30 seconds (same for consistency)
+RAM_RUN_INTERVAL = 120  # 2min for RAM mode (segments-only archival)
+SD_RUN_INTERVAL = 120   # 2min (same for consistency)
 
-# Hot storage limits (files to keep in root before archiving)
-# Target: 200MB RAM per device, use max 120MB (80MB safety margin)
-# 
-# With HD stream-only (captures stay SD for RAM efficiency):
-# - Segments HD: 40 × 1.5MB = 60MB (40s buffer)
-# - Captures SD: 80 × 500KB = 40MB (40s at 2/sec)
-# - Thumbnails:  200 × 50KB = 10MB (40s at 5/sec)
-# Total: ~110MB peak usage ✅ (leaves 90MB safety margin!)
+# Hot storage limits - SEGMENTS-ONLY ARCHIVE
+# Images (captures/thumbnails) pushed to cloud, don't need local archive
+# Only segments need 24h history for video playback
 #
-# 30s archival interval = comfortable for 40s buffer
+# RAM Usage (200MB per device):
+# - Segments: 150 × 45KB = 6.8MB (2.5min buffer, archive every 2min)
+# - Captures: 1500 × 16KB = 24MB (5min rolling buffer, no archive)
+# - Thumbnails: 3000 × 6KB = 18MB (10min rolling buffer, no archive)
+# Total: ~49MB per device ✅ (75% free, safe for HD segments)
+#
 HOT_LIMITS = {
-    'segments': 40,      # 40s HLS window (HD: 60MB)
-    'captures': 80,      # 40s at 2/sec (SD: 40MB)
-    'thumbnails': 200,   # 40s at 5/sec (10MB)
-    'metadata': 80       # 40s at 2/sec (0.16MB)
+    'segments': 150,      # 2.5min buffer → archive to hour folders
+    'captures': 1500,     # 5min rolling buffer (no archive, just rotate)
+    'thumbnails': 3000,   # 10min rolling buffer (no archive, just rotate)
+    'metadata': 100       # Minimal (not used)
 }
 
 # REMOVED: RETENTION_HOURS config
@@ -367,37 +367,33 @@ def update_all_manifests(capture_dir: str):
 def process_capture_directory(capture_dir: str):
     """
     Process a single capture directory:
-    1. Archive hot files for all types
-    2. Update archive manifests
+    1. Archive ONLY segments (captures/thumbnails stay in RAM, rotate naturally)
+    2. Update segment manifests
     
-    NOTE: No cleanup needed - 24h rolling buffer handles retention automatically!
+    NOTE: Images pushed to cloud, no local archive needed. Only segments for video playback.
     """
     logger.info(f"Processing {capture_dir}")
     
     start_time = time.time()
-    total_archived = 0
     
-    # 1. Archive hot files (unified pattern for all types)
-    for file_type in ['segments', 'captures', 'thumbnails', 'metadata']:
-        archived = archive_hot_files(capture_dir, file_type)
-        total_archived += archived
+    # 1. Archive ONLY segments (images stay in RAM)
+    archived = archive_hot_files(capture_dir, 'segments')
     
     # 2. Update archive manifests (segments only)
     update_all_manifests(capture_dir)
     
     elapsed = time.time() - start_time
     
-    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (archived {total_archived} files)")
+    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (archived {archived} segments)")
 
 
 def main_loop():
     """
-    Main service loop - interval depends on mode
-    RAM mode: 5 seconds (critical!)
-    SD mode: 5 minutes (traditional)
+    Main service loop - SEGMENTS-ONLY archival
+    Archives only segments every 2min (captures/thumbnails rotate in RAM)
     """
     logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER STARTED - RAM + SD Architecture")
+    logger.info("HOT/COLD ARCHIVER - SEGMENTS-ONLY ARCHIVE")
     logger.info("=" * 60)
     
     # Detect mode from first capture directory
@@ -405,11 +401,11 @@ def main_loop():
     ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
     run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
     
-    mode_name = "RAM MODE (30s interval)" if ram_mode else "SD MODE (30s interval)"
+    mode_name = "RAM MODE (2min interval)" if ram_mode else "SD MODE (2min interval)"
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Retention: Natural 24h rolling buffer (automatic overwrite)")
+    logger.info("Strategy: Archive segments only (images pushed to cloud)")
     logger.info("=" * 60)
     
     while True:
