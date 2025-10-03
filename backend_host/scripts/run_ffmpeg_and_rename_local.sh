@@ -6,14 +6,30 @@
 #   ./run_ffmpeg_and_rename_local.sh device1 hd   # Restart device1 with HD
 #   ./run_ffmpeg_and_rename_local.sh host sd      # Restart host with SD
 
+# Enable debugging
+set -x  # Print commands as they execute
+# set -e  # Exit on error (commented out for debugging)
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_HOST_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$BACKEND_HOST_DIR/src/.env"
+
+echo "🔍 DEBUG: Running as user: $(whoami)"
+echo "🔍 DEBUG: SCRIPT_DIR: $SCRIPT_DIR"
+echo "🔍 DEBUG: ENV_FILE: $ENV_FILE"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: .env file not found at $ENV_FILE"
     exit 1
 fi
+
+if [ ! -r "$ENV_FILE" ]; then
+    echo "ERROR: .env file not readable by $(whoami)"
+    ls -la "$ENV_FILE"
+    exit 1
+fi
+
+echo "✅ .env file found and readable"
 
 # Parse arguments
 TARGET_DEVICE="${1:-all}"
@@ -26,9 +42,11 @@ if [ "$TARGET_DEVICE" != "all" ]; then
 fi
 
 # Load .env
+echo "🔍 DEBUG: Loading .env file..."
 set -a
 source <(grep -v '^#' "$ENV_FILE" | grep -v '^$' | grep -v '^x')
 set +a
+echo "✅ .env loaded successfully"
 
 declare -A GRABBERS=()
 
@@ -58,7 +76,13 @@ if [ ${#GRABBERS[@]} -eq 0 ]; then
     exit 1
 fi
 
+echo "🔍 DEBUG: Found ${#GRABBERS[@]} device(s) configured"
+for device in "${!GRABBERS[@]}"; do
+    echo "  - $device"
+done
+
 # Kill processes
+echo "🔍 DEBUG: Killing existing processes..."
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
     for index in "${!GRABBERS[@]}"; do
         if [ "$index" = "$TARGET_DEVICE" ]; then
@@ -75,6 +99,8 @@ else
     pkill -f ffmpeg 2>/dev/null || sudo pkill -f ffmpeg 2>/dev/null
     sleep 3
 fi
+
+echo "✅ Process cleanup complete"
 
 reset_log_if_large() {
   local logfile="$1" max_size_mb=30
@@ -346,14 +372,19 @@ if [ "$SINGLE_DEVICE_MODE" = false ]; then
 fi
 
 # Start grabbers (serially to avoid race condition in active_captures.conf)
+echo "🔍 DEBUG: Starting grabbers..."
 for index in "${!GRABBERS[@]}"; do
   IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$index]}"
+  echo "🔍 DEBUG: Starting grabber for $index (source: $source)"
   start_grabber "$source" "$audio_device" "$capture_dir" "$index" "$input_fps"
   # Note: Starts serially (no &), takes ~1-2s total for 4 devices
   # FFmpeg processes themselves run in background inside start_grabber
 done
 
+echo "✅ All grabbers started"
+
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
+  echo "🔍 DEBUG: Single device mode - exiting"
   exit 0
 fi
 
