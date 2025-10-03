@@ -18,7 +18,6 @@ import {
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { useTeam } from '../../contexts/TeamContext';
 
 interface HeatmapReport {
   id: string;
@@ -40,25 +39,19 @@ export interface HeatMapHistoryRef {
 }
 
 export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>((_props, ref) => {
-  const { currentTeam } = useTeam();
   const [reports, setReports] = useState<HeatmapReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch last 10 heatmap reports
   const fetchReports = async () => {
-    if (!currentTeam?.id) {
-      console.warn('[@component:HeatMapHistory] No team_id available');
-      setReports([]);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
+      // buildServerUrl automatically adds team_id to all server URLs
       const response = await fetch(
-        buildServerUrl(`/server/heatmap/history?team_id=${currentTeam.id}&limit=10`)
+        buildServerUrl('/server/heatmap/history?limit=10')
       );
 
       if (!response.ok) {
@@ -81,10 +74,10 @@ export const HeatMapHistory = forwardRef<HeatMapHistoryRef, HeatMapHistoryProps>
     refreshReports: fetchReports,
   }));
 
-  // Load reports on component mount and when team changes
+  // Load reports on component mount
   useEffect(() => {
     fetchReports();
-  }, [currentTeam?.id]);
+  }, []);
 
   // Auto-refresh when component becomes visible (page focus)
   useEffect(() => {

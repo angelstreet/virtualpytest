@@ -108,8 +108,8 @@ const RecHostStreamModalContent: React.FC<{
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
 
-  // Get baseUrlPatterns and VNC scaling for monitoring
-  const { baseUrlPatterns, calculateVncScaling } = useRec();
+  // Get VNC scaling for monitoring
+  const { calculateVncScaling } = useRec();
 
   // NEW: Use device control hook (replaces all duplicate control logic)
   const { isControlActive, isControlLoading, controlError, handleToggleControl, clearError } =
