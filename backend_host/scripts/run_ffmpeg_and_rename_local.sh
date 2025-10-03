@@ -172,7 +172,7 @@ get_vnc_resolution() {
 reset_video_device() {
   local device="$1"
   sudo fuser -k "$device" 2>/dev/null || true
-  sleep 3
+  sleep 1
 }
 
 # Clean up playlist files for a specific capture directory
