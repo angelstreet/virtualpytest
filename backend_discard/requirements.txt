@@ -3,6 +3,9 @@
 # HTTP client for API calls
 requests>=2.28.0
 
+# Redis client for efficient queue operations
+redis>=5.0.0
+
 # Database connectivity  
 supabase>=2.0.0
 

@@ -332,17 +332,18 @@ class BackendDiscardService:
         return health_thread
     
     def run(self):
-        """Main service loop"""
+        """Main service loop with efficient BLPOP"""
         self.running = True
         # Get configuration and log startup details
         service_port = int(os.getenv('SERVER_PORT', '6209'))
         debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
         
-        print(f"🚀 Backend Discard Service started")
+        print(f"🚀 Backend Discard Service started (BLPOP mode - efficient!)")
         print(f"   Service Port: {service_port}")
         print(f"   Debug Mode: {debug_mode}")
         print(f"   Processing priority: P1 (alerts) → P2 (scripts) → P3 (reserved)")
         print(f"   Health endpoint: http://localhost:{service_port}/health")
+        print(f"   ⚡ Using BLPOP for instant task retrieval (no polling overhead)")
         
         # Show initial queue lengths
         initial_queue_lengths = self.queue_processor.get_all_queue_lengths()
@@ -352,39 +353,29 @@ class BackendDiscardService:
         health_server = self._start_health_server(service_port)
         
         last_stats_time = time.time()
-        last_queue_check_time = time.time()
         stats_interval = 60 if debug_mode else 300  # Print stats every 1 minute in debug, 5 minutes in production
-        queue_check_interval = 10  # Check queue lengths every 10 seconds when idle
-        task_check_interval = 10  # Check for new tasks every 10 seconds when idle
+        blpop_timeout = 60  # BLPOP waits up to 60 seconds for tasks
         
         while self.running:
             try:
-                # Check queue lengths before attempting to get tasks
-                queue_lengths_before = self.queue_processor.get_all_queue_lengths()
-                total_tasks = queue_lengths_before.get('p1_alerts', 0) + queue_lengths_before.get('p2_scripts', 0) + queue_lengths_before.get('p3_reserved', 0)
-                
-                if total_tasks > 0:
-                    print(f"📊 Queue lengths before retrieval: P1={queue_lengths_before.get('p1_alerts', 0)}, P2={queue_lengths_before.get('p2_scripts', 0)}, P3={queue_lengths_before.get('p3_reserved', 0)}")
-                
-                # Get next task from queues (priority order built into queue_processor)
-                task = self.queue_processor.get_next_task()
+                # Use BLPOP to efficiently wait for tasks (blocks until task arrives or timeout)
+                # No need to poll or sleep - Redis does the waiting for us!
+                task = self.queue_processor.get_next_task_blocking(timeout=blpop_timeout)
                 
                 if task:
+                    # Task arrived - process it immediately
+                    queue_lengths_before = self.queue_processor.get_all_queue_lengths()
+                    print(f"📊 Queue lengths before processing: P1={queue_lengths_before.get('p1_alerts', 0)}, P2={queue_lengths_before.get('p2_scripts', 0)}, P3={queue_lengths_before.get('p3_reserved', 0)}")
+                    
                     self.process_task(task)
                     
                     # Show queue lengths after processing
                     queue_lengths_after = self.queue_processor.get_all_queue_lengths()
                     print(f"📊 Queue lengths after processing: P1={queue_lengths_after.get('p1_alerts', 0)}, P2={queue_lengths_after.get('p2_scripts', 0)}, P3={queue_lengths_after.get('p3_reserved', 0)}")
                 else:
-                    # No tasks available, check queue lengths periodically
-                    current_time = time.time()
-                    if current_time - last_queue_check_time >= queue_check_interval:
-                        queue_lengths = self.queue_processor.get_all_queue_lengths()
-                        print(f"📊 [IDLE] Queue check: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
-                        last_queue_check_time = current_time
-                    
-                    # Sleep for task check interval (10 seconds) when no tasks
-                    time.sleep(task_check_interval)
+                    # BLPOP timeout (no tasks for 60 seconds) - this is normal
+                    queue_lengths = self.queue_processor.get_all_queue_lengths()
+                    print(f"📊 [IDLE] No tasks for {blpop_timeout}s: P1={queue_lengths.get('p1_alerts', 0)}, P2={queue_lengths.get('p2_scripts', 0)}, P3={queue_lengths.get('p3_reserved', 0)}")
                 
                 # Print full stats periodically
                 current_time = time.time()

@@ -1,56 +1,58 @@
 """
 Queue Processor for Backend Discard Service
 
-Handles Redis queue operations using Upstash REST API.
+Handles Redis queue operations using native Redis client with BLPOP.
 Processes tasks in priority order: P1 (alerts) → P2 (scripts) → P3 (reserved)
 """
 
-import requests
+import redis
 import json
 import os
-import time
 from typing import Optional, Dict, Any
 from datetime import datetime
 
 
 class SimpleQueueProcessor:
-    """Simple queue processor using Upstash Redis REST API"""
+    """Queue processor using native Redis client with efficient BLPOP"""
     
     def __init__(self):
-        # Use Upstash Redis REST API (loaded from project root .env via app.py)
-        self.redis_url = os.getenv('UPSTASH_REDIS_REST_URL')
-        self.redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN')
+        # Get Redis connection details from environment
+        # Upstash provides both REST API and native Redis protocol
+        redis_url = os.getenv('UPSTASH_REDIS_REST_URL', '')
+        redis_token = os.getenv('UPSTASH_REDIS_REST_TOKEN', '')
         
-        if not self.redis_url or not self.redis_token:
-            raise ValueError("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN in environment")
+        # Parse host from REST URL (e.g., https://host.upstash.io -> host.upstash.io)
+        if redis_url:
+            host = redis_url.replace('https://', '').replace('http://', '').split('/')[0]
+            # For Upstash, password is the token, port is typically 6379 (or 6380 for TLS)
+            self.redis_client = redis.Redis(
+                host=host,
+                port=6379,
+                password=redis_token,
+                ssl=True,
+                ssl_cert_reqs=None,
+                decode_responses=True,  # Automatically decode bytes to strings
+                socket_connect_timeout=5,
+                socket_timeout=5
+            )
+        else:
+            # Fallback to local Redis if Upstash not configured
+            redis_host = os.getenv('REDIS_HOST', 'localhost')
+            redis_port = int(os.getenv('REDIS_PORT', '6379'))
+            redis_password = os.getenv('REDIS_PASSWORD', None)
+            
+            self.redis_client = redis.Redis(
+                host=redis_host,
+                port=redis_port,
+                password=redis_password,
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5
+            )
         
-        self.headers = {
-            'Authorization': f'Bearer {self.redis_token}',
-            'Content-Type': 'application/json'
-        }
         self.queues = ['p1_alerts', 'p2_scripts', 'p3_reserved']
         
-        print(f"[@queue_processor] Initialized with Upstash Redis: {self.redis_url[:50]}...")
-    
-    def _redis_command(self, command: list) -> Optional[dict]:
-        """Execute Redis command via REST API"""
-        try:
-            response = requests.post(
-                self.redis_url,
-                headers=self.headers,
-                json=command,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"[@queue_processor] Redis API error: {response.status_code} - {response.text}")
-                
-        except Exception as e:
-            print(f"[@queue_processor] Redis command failed: {e}")
-        
-        return None
+        print(f"[@queue_processor] Initialized native Redis client")
     
     def add_alert_to_queue(self, alert_id: str, alert_data: Dict[str, Any]) -> bool:
         """Add alert to p1 queue (highest priority)"""
@@ -63,9 +65,9 @@ class SimpleQueueProcessor:
                 'priority': 1
             }
             
-            result = self._redis_command(['LPUSH', 'p1_alerts', json.dumps(task)])
+            result = self.redis_client.lpush('p1_alerts', json.dumps(task))
             
-            if result and result.get('result'):
+            if result:
                 print(f"[@queue_processor] Added alert {alert_id} to P1 queue")
                 return True
             else:
@@ -87,9 +89,9 @@ class SimpleQueueProcessor:
                 'priority': 2
             }
             
-            result = self._redis_command(['LPUSH', 'p2_scripts', json.dumps(task)])
+            result = self.redis_client.lpush('p2_scripts', json.dumps(task))
             
-            if result and result.get('result'):
+            if result:
                 print(f"[@queue_processor] Added script {script_id} to P2 queue")
                 return True
             else:
@@ -100,33 +102,41 @@ class SimpleQueueProcessor:
             print(f"[@queue_processor] Error adding script to queue: {e}")
             return False
     
-    def get_next_task(self) -> Optional[Dict[str, Any]]:
-        """Get next task in priority order: p1 → p2 → p3 (most recent first)"""
-        for queue in self.queues:
-            try:
-                result = self._redis_command(['LPOP', queue])
+    def get_next_task_blocking(self, timeout: int = 60) -> Optional[Dict[str, Any]]:
+        """
+        Get next task using BLPOP (blocking pop) - EFFICIENT!
+        
+        Waits up to 'timeout' seconds for a task to arrive.
+        Checks queues in priority order: p1 → p2 → p3
+        
+        Returns immediately when task arrives, or after timeout if no tasks.
+        """
+        try:
+            # BLPOP blocks until data is available or timeout
+            result = self.redis_client.blpop(self.queues, timeout=timeout)
+            
+            if result:
+                queue_name, task_json = result
+                task_data = json.loads(task_json)
+                print(f"[@queue_processor] Retrieved task {task_data['id']} from {queue_name}")
+                return task_data
                 
-                if result and result.get('result'):
-                    task_data = json.loads(result['result'])
-                    print(f"[@queue_processor] Retrieved task {task_data['id']} from {queue}")
-                    return task_data
-                    
-            except Exception as e:
-                print(f"[@queue_processor] Error retrieving from {queue}: {e}")
-                continue
+        except redis.TimeoutError:
+            # Timeout is normal when queues are empty
+            return None
+        except Exception as e:
+            print(f"[@queue_processor] Error retrieving task: {e}")
+            return None
         
         return None
     
     def get_queue_length(self, queue_name: str) -> int:
         """Get length of specific queue"""
         try:
-            result = self._redis_command(['LLEN', queue_name])
-            if result and 'result' in result:
-                return int(result['result'])
+            return self.redis_client.llen(queue_name)
         except Exception as e:
             print(f"[@queue_processor] Error getting queue length for {queue_name}: {e}")
-        
-        return 0
+            return 0
     
     def get_all_queue_lengths(self) -> Dict[str, int]:
         """Get lengths of all queues"""
@@ -138,10 +148,16 @@ class SimpleQueueProcessor:
     def health_check(self) -> bool:
         """Check if Redis connection is working"""
         try:
-            result = self._redis_command(['PING'])
-            return result and result.get('result') == 'PONG'
+            return self.redis_client.ping()
         except Exception:
             return False
+    
+    def close(self):
+        """Close Redis connection"""
+        try:
+            self.redis_client.close()
+        except Exception:
+            pass
 
 
 # Global instance for easy import
