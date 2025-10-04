@@ -373,28 +373,48 @@ update_active_captures() {
   local quality="$3"
   
   local temp_file="/tmp/active_captures.conf.tmp.$$"
+  local conf_file="/tmp/active_captures.conf"
   
-  # Create temp file with proper permissions from the start
-  > "$temp_file"
-  chmod 666 "$temp_file" 2>/dev/null || true
-  
-  if [ -f "/tmp/active_captures.conf" ]; then
-    # Remove old entry for this capture_dir
-    grep -v "^${capture_dir}," /tmp/active_captures.conf > "$temp_file" 2>/dev/null || true
-  fi
-  
-  # Add new entry
-  echo "${capture_dir},${pid},${quality}" >> "$temp_file"
-  
-  # Instead of mv, use sudo mv
-  if ! sudo mv "$temp_file" /tmp/active_captures.conf 2>/dev/null; then
-    echo "⚠️  WARNING: Failed to update active_captures.conf (permission issue?)" >&2
+  # Use flock for atomic updates without sudo complications
+  (
+    # Acquire exclusive lock
+    flock -x 200
+    
+    # Create temp file with proper permissions
+    > "$temp_file"
+    chmod 666 "$temp_file" 2>/dev/null || true
+    
+    if [ -f "$conf_file" ]; then
+      # Remove old entry for this capture_dir
+      grep -v "^${capture_dir}," "$conf_file" > "$temp_file" 2>/dev/null || true
+    fi
+    
+    # Add new entry
+    echo "${capture_dir},${pid},${quality}" >> "$temp_file"
+    
+    # Atomic move (replace target file)
+    # Use cat instead of mv to preserve permissions if file exists
+    if [ -f "$conf_file" ]; then
+      cat "$temp_file" > "$conf_file" 2>/dev/null
+      local move_status=$?
+    else
+      # File doesn't exist, create it
+      cat "$temp_file" > "$conf_file" 2>/dev/null
+      chmod 666 "$conf_file" 2>/dev/null || true
+      local move_status=$?
+    fi
+    
     rm -f "$temp_file"
-    return 1
-  fi
-
-  # Use sudo for chmod
-  sudo chmod 666 "/tmp/active_captures.conf" 2>/dev/null || echo "⚠️  WARNING: Failed to set permissions on active_captures.conf" >&2
+    
+    if [ $move_status -ne 0 ]; then
+      echo "⚠️  WARNING: Failed to update active_captures.conf" >&2
+      return 1
+    fi
+    
+  ) 200>"${conf_file}.lock"
+  
+  # Ensure readable by all (in case of permission drift)
+  chmod 666 "$conf_file" 2>/dev/null || true
 }
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
