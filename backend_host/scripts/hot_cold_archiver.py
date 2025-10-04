@@ -195,7 +195,7 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
         
         file_count = len(files)
         
-        if file_count <= hot_limit:
+race        if file_count < hot_limit:
             logger.debug(f"{file_type}: {file_count} files (within limit {hot_limit})")
             return 0
         
@@ -393,7 +393,7 @@ def rotate_hot_captures(capture_dir: str) -> int:
         
         file_count = len(files)
         
-        if file_count <= hot_limit:
+        if file_count < hot_limit:
             logger.debug(f"captures: {file_count} files (within limit {hot_limit})")
             return 0
         
@@ -454,7 +454,7 @@ def clean_old_thumbnails(capture_dir: str) -> int:
         
         file_count = len(files)
         
-        if file_count <= thumbnail_limit:
+        if file_count < thumbnail_limit:
             if file_count > 0:
                 logger.debug(f"thumbnails: {file_count} files (within limit {thumbnail_limit})")
             return 0
