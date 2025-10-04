@@ -669,17 +669,21 @@ export function HLSVideoPlayer({
   }, [streamUrl, currentStreamUrl, streamLoaded, streamError, ffmpegStuck, shouldPause]);
 
   // Handle shouldPause prop - pause to show last frame (e.g., during quality transition)
+  const prevShouldPause = useRef(shouldPause);
   useEffect(() => {
     if (!videoRef.current) return;
+
+    const shouldPauseChanged = prevShouldPause.current !== shouldPause;
+    prevShouldPause.current = shouldPause;
 
     if (shouldPause) {
       console.log('[@component:HLSVideoPlayer] Quality switch started - pausing and preventing init');
       if (streamLoaded) {
         videoRef.current.pause();
       }
-    } else if (streamUrl && isStreamActive) {
-      console.log('[@component:HLSVideoPlayer] Quality switch complete (shouldPause=false) - initializing stream');
-      // When shouldPause changes to false, reinitialize the stream
+    } else if (shouldPauseChanged && streamUrl && isStreamActive) {
+      // Only reinitialize when shouldPause changes from true to false (quality switch completes)
+      console.log('[@component:HLSVideoPlayer] Quality switch complete (shouldPause changed from true to false) - initializing stream');
       setStreamLoaded(false);
       setStreamError(null);
       initializeStream();
