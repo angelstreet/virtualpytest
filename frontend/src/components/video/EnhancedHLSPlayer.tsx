@@ -75,6 +75,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true); // Start playing automatically
   const [isTransitioning, setIsTransitioning] = useState(false); // Mode transition state
+  const qualityTimestampRef = useRef<number>(Date.now()); // Track timestamp for quality changes
   
   // Archive metadata and manifest switching state
   const [archiveMetadata, setArchiveMetadata] = useState<ArchiveMetadata | null>(null);
@@ -97,6 +98,16 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   
   // Track previous mode to detect changes
   const prevIsLiveMode = useRef(isLiveMode);
+  const prevQuality = useRef(quality);
+  
+  // Update timestamp ref when quality changes
+  useEffect(() => {
+    if (prevQuality.current !== quality) {
+      console.log(`[@EnhancedHLSPlayer] Quality changed: ${prevQuality.current} -> ${quality}`);
+      qualityTimestampRef.current = Date.now();
+      prevQuality.current = quality;
+    }
+  }, [quality]);
 
   // Use useStream hook when host is provided and no streamUrl is given (same as RecHostPreview)
   const { streamUrl: hookStreamUrl } = useStream({
@@ -264,11 +275,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/0/archive.m3u8`;
     }
     
-    // Append quality parameter to force reload when quality changes (without unmounting component)
-    if (quality) {
-      const separator = url.includes('?') ? '&' : '?';
-      url = `${url}${separator}q=${quality}`;
-    }
+    // Append quality and timestamp parameters to force reload when quality changes (without unmounting component)
+    // The URL itself doesn't change, but FFmpeg restarts with new quality settings on the backend
+    const separator = url.includes('?') ? '&' : '?';
+    url = `${url}${separator}q=${quality}&t=${qualityTimestampRef.current}`;
     
     return url;
   }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex, quality]);
