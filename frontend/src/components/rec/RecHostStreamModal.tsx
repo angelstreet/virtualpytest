@@ -787,6 +787,29 @@ const RecHostStreamModalContent: React.FC<{
               backgroundColor: 'black',
             }}
           >
+            {/* Quality transition overlay - hide corrupted frames during FFmpeg restart */}
+            {isQualitySwitching && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'black',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1000,
+                }}
+              >
+                <CircularProgress size={60} sx={{ color: 'warning.main' }} />
+                <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
+                  Switching to {isHDMode ? 'HD' : 'SD'} quality...
+                </Typography>
+              </Box>
+            )}
             {monitoringMode && isControlActive ? (
               <MonitoringPlayer
                 host={host}

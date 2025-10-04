@@ -340,7 +340,19 @@ export function HLSVideoPlayer({
     try {
       console.log('[@component:HLSVideoPlayer] Initializing HLS stream:', streamUrl);
 
-      if (currentStreamUrl !== streamUrl || hlsRef.current) {
+      // If HLS instance exists and URL changed, just reload source (safer than destroy/recreate)
+      if (hlsRef.current && currentStreamUrl !== streamUrl) {
+        console.log('[@component:HLSVideoPlayer] Reloading source without destroying HLS instance');
+        setCurrentStreamUrl(streamUrl);
+        hlsRef.current.stopLoad();
+        hlsRef.current.detachMedia();
+        hlsRef.current.loadSource(streamUrl);
+        hlsRef.current.attachMedia(videoRef.current);
+        return;
+      }
+
+      // Full cleanup only if no HLS instance yet
+      if (hlsRef.current) {
         cleanupStream();
       }
 
