@@ -22,7 +22,7 @@ import { useDeviceControl } from '../../hooks/useDeviceControl';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildStreamUrl } from '../../utils/buildUrlUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
@@ -311,8 +311,8 @@ const RecHostStreamModalContent: React.FC<{
 
   // Poll for new stream availability - checks manifest for segment count
   const pollForNewStream = useCallback((deviceId: string) => {
-    const captureNum = deviceId === 'device1' ? '1' : deviceId === 'device2' ? '2' : deviceId === 'device3' ? '3' : '4';
-    const manifestUrl = `${buildServerUrl('')}/host/stream/capture${captureNum}/segments/output.m3u8`;
+    // Use proper buildStreamUrl to handle all host-specific paths (e.g., /pi2/, /pi3/, etc.)
+    const manifestUrl = buildStreamUrl(host, deviceId);
     console.log(`[@component:RecHostStreamModal] Starting manifest polling for new stream: ${manifestUrl}`);
     
     let pollCount = 0;
@@ -382,7 +382,7 @@ const RecHostStreamModalContent: React.FC<{
         console.log(`[@component:RecHostStreamModal] Manifest check failed: ${error}`);
       }
     }, 1000); // Changed from 500ms to 1000ms (1 second)
-  }, [showWarning]);
+  }, [host, showWarning]);
 
   // Common function to switch quality (reused for initial entry and button clicks)
   const switchQuality = useCallback(async (targetQuality: 'low' | 'sd' | 'hd', showLoadingOverlay: boolean = true, isInitialLoad: boolean = false) => {

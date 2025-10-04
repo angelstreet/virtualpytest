@@ -265,16 +265,16 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/archive.m3u8`);
         console.log(`[@EnhancedHLSPlayer] Using hour ${hour} manifest, URL: ${url}`);
       } else {
-        url = providedStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8') 
-          || hookStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8')
-          || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/0/archive.m3u8`;
+        // Fallback when currentManifest doesn't exist - use buildStreamUrl for proper path handling
+        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8');
       }
     }
     // Fallback to first hour (0) while metadata is loading
     else {
-      url = providedStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8')
-        || hookStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8')
-        || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/0/archive.m3u8`;
+      // Use buildStreamUrl for proper path handling (supports all host prefixes and devices)
+      const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+      url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8');
     }
     
     // Append quality and timestamp parameters to force reload when quality changes (without unmounting component)

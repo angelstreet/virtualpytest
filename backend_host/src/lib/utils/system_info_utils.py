@@ -761,7 +761,7 @@ def check_ffmpeg_status():
                 )
                 
                 # Single line per folder with debug info including process status
-                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 2s) | Processes: {status['processes_running']}")
+                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 10s) | Processes: {status['processes_running']}")
                 
                 status['recent_files'][device_name] = {
                     'images': recent_jpg_count,
@@ -862,7 +862,7 @@ def check_monitor_status():
                 )
                 
                 # Single line per folder with debug info including process status
-                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 2s) | Process: {'running' if status['process_running'] else 'stopped'}")
+                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 10s) | Process: {'running' if status['process_running'] else 'stopped'}")
                 
                 status['recent_json_files'][device_name] = {
                     'count': recent_json_count,

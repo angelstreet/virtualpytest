@@ -126,7 +126,8 @@ class VideoRestartHelpers:
             compressor = VideoCompressionUtils()
             
             # Get correct path for video file (handles hot/cold storage)
-            local_video_path = self._get_restart_video_path("restart_original_video.mp4")
+            video_filename = "restart_original_video.mp4"
+            local_video_path = self._get_restart_video_path(video_filename)
             print(f"RestartHelpers[{self.device_name}]: Writing video to: {local_video_path} (mode: {mode_str})")
             
             compression_result = compressor.compress_hls_to_mp4(
@@ -403,7 +404,8 @@ class VideoRestartHelpers:
             compressor = VideoCompressionUtils()
             
             # Get correct path for video file (handles hot/cold storage)
-            local_video_path = self._get_restart_video_path("restart_original_video.mp4")
+            video_filename = "restart_original_video.mp4"
+            local_video_path = self._get_restart_video_path(video_filename)
             
             compression_result = compressor.compress_hls_to_mp4(
                 m3u8_path=m3u8_path,
@@ -504,12 +506,19 @@ class VideoRestartHelpers:
             return []
     
     def _build_video_url(self, video_filename: str) -> str:
-        """Build proper video URL using host URL building utilities"""
+        """
+        Build proper video URL using host URL building utilities.
+        Handles hot/cold storage architecture automatically.
+        
+        Args:
+            video_filename: Name of the video file (used for fallback URL only)
+        """
         try:
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
             from  backend_host.src.lib.utils.host_utils import get_host_instance
             
-            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            # Get correct path considering hot/cold storage
+            local_video_path = self._get_restart_video_path(video_filename)
             host = get_host_instance()
             video_url = buildHostImageUrl(host.to_dict(), local_video_path)
             return video_url

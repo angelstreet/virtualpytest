@@ -437,24 +437,45 @@ class VideoMonitoringHelpers:
             return []
     
     def _build_json_url(self, json_filepath: str) -> str:
-        """Build URL for JSON file using existing URL building utilities"""
+        """
+        Build URL for JSON file from metadata folder path.
+        Properly handles hot/cold storage paths using centralized utilities.
+        
+        Example paths:
+          RAM: /var/www/html/stream/capture1/hot/metadata/capture_000000433.json
+          SD:  /var/www/html/stream/capture1/metadata/capture_000000433.json
+        
+        Returns URL: /host/stream/capture1/metadata/capture_000000433.json
+        (NGINX handles hot/cold fallback via try_files directive)
+        """
         try:
-            from shared.src.lib.utils.build_url_utils import buildCaptureUrlFromPath
-            from  backend_host.src.lib.utils.host_utils import get_host_instance as get_host
+            from shared.src.lib.utils.build_url_utils import buildHostUrl
+            from backend_host.src.lib.utils.host_utils import get_host_instance as get_host
             
+            # Extract components from filepath
+            # Path format: /var/www/html/stream/{device_folder}/[hot/]{subfolder}/{filename}
+            filename = os.path.basename(json_filepath)
+            
+            # Extract device folder (e.g., 'capture1')
+            path_parts = json_filepath.split('/')
+            stream_idx = path_parts.index('stream') if 'stream' in path_parts else -1
+            if stream_idx < 0:
+                raise ValueError(f"Invalid path format - 'stream' not found: {json_filepath}")
+            
+            device_folder = path_parts[stream_idx + 1]  # Next after 'stream'
+            
+            # Build URL path: /host/stream/{device_folder}/metadata/{filename}
+            # NGINX try_files will handle hot/cold fallback automatically
+            url_path = f"host/stream/{device_folder}/metadata/{filename}"
+            
+            # Get host info and build complete URL
             host = get_host()
             host_dict = host.to_dict()
             
-            # Get the device_id from the AV controller
-            device_id = getattr(self.av_controller, 'device_id', 'device1')
+            json_url = buildHostUrl(host_dict, url_path)
             
-            # Build URL using existing pattern, then fix extension
-            json_url = buildCaptureUrlFromPath(host_dict, json_filepath, device_id)
-            json_url = json_url.replace('.jpg', '.json')  # Fix the extension
-            
-            client_json_url = json_url
-            
-            return client_json_url
+            print(f"MonitoringHelpers[{self.device_name}]: Built JSON URL: {json_url}")
+            return json_url
             
         except Exception as e:
             print(f"MonitoringHelpers[{self.device_name}]: JSON URL building error: {e}")
