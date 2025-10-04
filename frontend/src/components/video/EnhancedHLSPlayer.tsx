@@ -562,7 +562,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       <Box sx={{ position: 'relative', height }}>
         {!isTransitioning ? (
           <HLSVideoPlayer
-            key={`${isLiveMode ? 'live' : 'archive'}-${quality}`} // Include quality to force reload on quality change
+            key={`${isLiveMode ? 'live' : 'archive'}`} // Only remount on mode change, not quality change
             streamUrl={streamUrl}
             isStreamActive={true}
             videoElementRef={videoRef}

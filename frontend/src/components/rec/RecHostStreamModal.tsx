@@ -569,10 +569,9 @@ const RecHostStreamModalContent: React.FC<{
                   fontSize: '0.75rem',
                   minWidth: 80,
                   color: isHDMode ? 'white' : 'inherit',
-                  animation: isQualitySwitching ? 'quality-blink 0.8s ease-in-out infinite' : 'none',
-                  '@keyframes quality-blink': {
-                    '0%, 100%': { opacity: 1 },
-                    '50%': { opacity: 0.3 },
+                  backgroundColor: isQualitySwitching ? 'warning.main' : undefined, // Orange during transition
+                  '&:hover': {
+                    backgroundColor: isQualitySwitching ? 'warning.dark' : undefined,
                   },
                 }}
                 title={isHDMode ? 'Switch to SD Quality (640x360)' : 'Switch to HD Quality (1280x720)'}
