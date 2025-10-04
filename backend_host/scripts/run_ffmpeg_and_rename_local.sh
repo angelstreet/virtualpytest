@@ -81,6 +81,10 @@ for device in "${!GRABBERS[@]}"; do
     echo "  - $device"
 done
 
+# Clean up any stale temp files from previous runs
+echo "🔍 DEBUG: Cleaning stale temp files..."
+sudo rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
+
 # Single device restart: kill only the specific device's process
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
     echo "🔍 DEBUG: Killing process for $TARGET_DEVICE..."
@@ -368,13 +372,15 @@ update_active_captures() {
   local pid="$2"
   local quality="$3"
   
-  local temp_file="/tmp/active_captures.conf.tmp"
+  local temp_file="/tmp/active_captures.conf.tmp.$$"
+  
+  # Create temp file with proper permissions from the start
+  > "$temp_file"
+  chmod 666 "$temp_file" 2>/dev/null || true
   
   if [ -f "/tmp/active_captures.conf" ]; then
     # Remove old entry for this capture_dir
     grep -v "^${capture_dir}," /tmp/active_captures.conf > "$temp_file" 2>/dev/null || true
-  else
-    > "$temp_file"
   fi
   
   # Add new entry
@@ -386,14 +392,24 @@ update_active_captures() {
     rm -f "$temp_file"
     return 1
   fi
-  chmod 666 "/tmp/active_captures.conf" 2>/dev/null || true  # Ensure writable
+  chmod 666 "/tmp/active_captures.conf" 2>/dev/null || true  # Ensure writable by all
 }
 
-# Initialize active captures file (will be populated by start_grabber)
+# Initialize active captures file - ALWAYS clean start for proper permissions
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
+  # Remove old file completely to avoid permission conflicts
+  sudo rm -f "/tmp/active_captures.conf" 2>/dev/null || rm -f "/tmp/active_captures.conf" 2>/dev/null || true
+  # Create fresh file with proper permissions for both www-data and current user
   > "/tmp/active_captures.conf"
-  chmod 666 "/tmp/active_captures.conf"  # Make writable by all users (prevents permission issues)
+  chmod 666 "/tmp/active_captures.conf"  # Readable/writable by all users (www-data + current user)
+  echo "✅ Created fresh active_captures.conf with permissions 666"
   echo "Starting ${#GRABBERS[@]} devices"
+else
+  # Single device mode: ensure file exists with proper permissions
+  if [ ! -f "/tmp/active_captures.conf" ]; then
+    > "/tmp/active_captures.conf"
+    chmod 666 "/tmp/active_captures.conf"
+  fi
 fi
 
 # Start grabbers (serially to avoid race condition in active_captures.conf)
@@ -417,6 +433,8 @@ fi
 cleanup_all() {
   echo "🛑 Received shutdown signal - cleaning up..."
   sudo pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
+  # Clean up temp files
+  sudo rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
   echo "✅ Cleanup complete - exiting"
   exit 0
 }
