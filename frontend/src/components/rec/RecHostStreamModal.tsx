@@ -309,43 +309,57 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, []);
 
-  // Poll for new stream availability - checks multiple segments to ensure stability
+  // Poll for new stream availability - checks manifest for segment count
   const pollForNewStream = useCallback((deviceId: string) => {
     const captureNum = deviceId === 'device1' ? '1' : deviceId === 'device2' ? '2' : deviceId === 'device3' ? '3' : '4';
-    const baseUrl = `${buildServerUrl('')}/host/stream/capture${captureNum}/segments`;
-    console.log(`[@component:RecHostStreamModal] Starting robust polling for new stream at: ${baseUrl}`);
+    const manifestUrl = `${buildServerUrl('')}/host/stream/capture${captureNum}/segments/output.m3u8`;
+    console.log(`[@component:RecHostStreamModal] Starting manifest polling for new stream: ${manifestUrl}`);
     
     let pollCount = 0;
     const maxPolls = 30; // 15 seconds max (500ms * 30)
-    const requiredSuccessfulSegments = 3; // Need at least 3 segments with 200 OK
-    let successfulSegmentCount = 0;
+    const requiredSegments = 3; // Need at least 3 segments in manifest
     
     pollingIntervalRef.current = setInterval(async () => {
       pollCount++;
       console.log(`[@component:RecHostStreamModal] Polling attempt ${pollCount}/${maxPolls}`);
       
-      // Check segments 0-9 to find which ones exist
-      const segmentChecks = [];
-      for (let i = 0; i < 10; i++) {
-        const segmentNum = String(i).padStart(9, '0'); // segment_000000000.ts to segment_000000009.ts
-        const segmentUrl = `${baseUrl}/segment_${segmentNum}.ts`;
-        segmentChecks.push(
-          fetch(segmentUrl, { method: 'HEAD' })
-            .then(res => ({ segment: i, ok: res.ok, status: res.status }))
-            .catch(() => ({ segment: i, ok: false, status: 0 }))
-        );
-      }
-      
       try {
-        const results = await Promise.all(segmentChecks);
-        const successful = results.filter(r => r.ok);
-        successfulSegmentCount = successful.length;
+        const response = await fetch(manifestUrl, { 
+          method: 'GET',
+          cache: 'no-cache' // Don't cache manifest during polling
+        });
         
-        console.log(`[@component:RecHostStreamModal] Found ${successfulSegmentCount} segments:`, 
-          successful.map(s => `segment_${String(s.segment).padStart(9, '0')}.ts`).join(', '));
+        if (!response.ok) {
+          console.log(`[@component:RecHostStreamModal] Manifest not ready yet (status: ${response.status})`);
+          
+          // Timeout after max polls
+          if (pollCount >= maxPolls) {
+            console.warn(`[@component:RecHostStreamModal] Polling timeout - manifest never became available`);
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            setShouldPausePlayer(false);
+            setIsQualitySwitching(false);
+            showWarning('Stream restart took longer than expected');
+          }
+          return;
+        }
         
-        if (successfulSegmentCount >= requiredSuccessfulSegments) {
-          console.log(`[@component:RecHostStreamModal] Stream stabilized! ${successfulSegmentCount} segments available`);
+        const manifestText = await response.text();
+        
+        // Check if manifest has proper header
+        if (!manifestText.includes('#EXTM3U')) {
+          console.log(`[@component:RecHostStreamModal] Invalid manifest - no #EXTM3U header`);
+          return;
+        }
+        
+        // Count segments in manifest by counting #EXTINF lines
+        const segmentCount = (manifestText.match(/#EXTINF/g) || []).length;
+        console.log(`[@component:RecHostStreamModal] Manifest has ${segmentCount} segments (need ${requiredSegments})`);
+        
+        if (segmentCount >= requiredSegments) {
+          console.log(`[@component:RecHostStreamModal] Stream ready! Manifest shows ${segmentCount} segments`);
           // Clear polling
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -354,11 +368,9 @@ const RecHostStreamModalContent: React.FC<{
           // Resume player and hide overlay
           setShouldPausePlayer(false);
           setIsQualitySwitching(false);
-        } else {
-          console.log(`[@component:RecHostStreamModal] Stream not stable yet (${successfulSegmentCount}/${requiredSuccessfulSegments} segments)`);
         }
       } catch (error) {
-        console.log(`[@component:RecHostStreamModal] Segment check failed: ${error}`);
+        console.log(`[@component:RecHostStreamModal] Manifest check failed (expected during restart): ${error}`);
       }
       
       // Timeout after max polls
