@@ -10,6 +10,9 @@
 set -x  # Print commands as they execute
 # set -e  # Exit on error (commented out for debugging)
 
+# Set umask to allow world read/write for shared temp files
+umask 0000
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_HOST_DIR="$(dirname "$SCRIPT_DIR")"
 ENV_FILE="$BACKEND_HOST_DIR/src/.env"
@@ -375,14 +378,13 @@ update_active_captures() {
   local temp_file="/tmp/active_captures.conf.tmp.$$"
   local conf_file="/tmp/active_captures.conf"
   
-  # Use flock for atomic updates without sudo complications
+  # Use flock for atomic updates
   (
     # Acquire exclusive lock
     flock -x 200
     
-    # Create temp file with proper permissions
+    # Create temp file (umask 0000 ensures 666 permissions)
     > "$temp_file"
-    chmod 666 "$temp_file" 2>/dev/null || true
     
     if [ -f "$conf_file" ]; then
       # Remove old entry for this capture_dir
@@ -392,45 +394,24 @@ update_active_captures() {
     # Add new entry
     echo "${capture_dir},${pid},${quality}" >> "$temp_file"
     
-    # Atomic move (replace target file)
-    # Use cat instead of mv to preserve permissions if file exists
-    if [ -f "$conf_file" ]; then
-      cat "$temp_file" > "$conf_file" 2>/dev/null
-      local move_status=$?
-    else
-      # File doesn't exist, create it
-      cat "$temp_file" > "$conf_file" 2>/dev/null
-      chmod 666 "$conf_file" 2>/dev/null || true
-      local move_status=$?
-    fi
-    
-    rm -f "$temp_file"
-    
-    if [ $move_status -ne 0 ]; then
-      echo "⚠️  WARNING: Failed to update active_captures.conf" >&2
-      return 1
-    fi
+    # Atomic move (preserves umask-based permissions)
+    mv "$temp_file" "$conf_file"
     
   ) 200>"${conf_file}.lock"
-  
-  # Ensure readable by all (in case of permission drift)
-  chmod 666 "$conf_file" 2>/dev/null || true
 }
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
   # Remove old file completely to avoid permission conflicts
   sudo rm -f "/tmp/active_captures.conf" 2>/dev/null || rm -f "/tmp/active_captures.conf" 2>/dev/null || true
-  # Create fresh file with proper permissions for both www-data and current user
+  # Create fresh file (umask 0000 ensures 666 permissions automatically)
   > "/tmp/active_captures.conf"
-  chmod 666 "/tmp/active_captures.conf"  # Readable/writable by all users (www-data + current user)
-  echo "✅ Created fresh active_captures.conf with permissions 666"
+  echo "✅ Created fresh active_captures.conf with world read/write permissions"
   echo "Starting ${#GRABBERS[@]} devices"
 else
-  # Single device mode: ensure file exists with proper permissions
+  # Single device mode: ensure file exists (umask 0000 handles permissions)
   if [ ! -f "/tmp/active_captures.conf" ]; then
     > "/tmp/active_captures.conf"
-    chmod 666 "/tmp/active_captures.conf"
   fi
 fi
 
