@@ -316,50 +316,59 @@ const RecHostStreamModalContent: React.FC<{
     console.log(`[@component:RecHostStreamModal] Starting manifest polling for new stream: ${manifestUrl}`);
     
     let pollCount = 0;
-    const maxPolls = 30; // 15 seconds max (500ms * 30)
+    const maxPolls = 20; // 20 seconds max (1000ms * 20) - changed from 30 * 500ms
     const requiredSegments = 3; // Need at least 3 segments in manifest
     
     pollingIntervalRef.current = setInterval(async () => {
       pollCount++;
+      
+      // Check timeout FIRST before polling
+      if (pollCount > maxPolls) {
+        console.warn(`[@component:RecHostStreamModal] Polling timeout after ${maxPolls} attempts - forcing player resume`);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setShouldPausePlayer(false);
+        setIsQualitySwitching(false);
+        showWarning('Stream restart took longer than expected');
+        return; // Stop this iteration
+      }
+      
       console.log(`[@component:RecHostStreamModal] Polling attempt ${pollCount}/${maxPolls}`);
       
       try {
-        const response = await fetch(manifestUrl, { 
+        // Add timestamp to prevent caching
+        const cacheBustUrl = `${manifestUrl}?_t=${Date.now()}`;
+        const response = await fetch(cacheBustUrl, { 
           method: 'GET',
-          cache: 'no-cache' // Don't cache manifest during polling
+          cache: 'no-store', // Stronger than no-cache
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
         });
         
         if (!response.ok) {
           console.log(`[@component:RecHostStreamModal] Manifest not ready yet (status: ${response.status})`);
-          
-          // Timeout after max polls
-          if (pollCount >= maxPolls) {
-            console.warn(`[@component:RecHostStreamModal] Polling timeout - manifest never became available`);
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-            setShouldPausePlayer(false);
-            setIsQualitySwitching(false);
-            showWarning('Stream restart took longer than expected');
-          }
           return;
         }
         
         const manifestText = await response.text();
+        console.log(`[@component:RecHostStreamModal] Manifest received, length: ${manifestText.length} bytes`);
         
         // Check if manifest has proper header
         if (!manifestText.includes('#EXTM3U')) {
-          console.log(`[@component:RecHostStreamModal] Invalid manifest - no #EXTM3U header`);
+          console.log(`[@component:RecHostStreamModal] Invalid manifest - no #EXTM3U header. First 100 chars:`, manifestText.substring(0, 100));
           return;
         }
         
         // Count segments in manifest by counting #EXTINF lines
         const segmentCount = (manifestText.match(/#EXTINF/g) || []).length;
-        console.log(`[@component:RecHostStreamModal] Manifest has ${segmentCount} segments (need ${requiredSegments})`);
+        console.log(`[@component:RecHostStreamModal] Manifest valid! Has ${segmentCount} segments (need ${requiredSegments})`);
         
         if (segmentCount >= requiredSegments) {
-          console.log(`[@component:RecHostStreamModal] Stream ready! Manifest shows ${segmentCount} segments`);
+          console.log(`[@component:RecHostStreamModal] ✅ Stream ready! Manifest shows ${segmentCount} segments`);
           // Clear polling
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -370,21 +379,9 @@ const RecHostStreamModalContent: React.FC<{
           setIsQualitySwitching(false);
         }
       } catch (error) {
-        console.log(`[@component:RecHostStreamModal] Manifest check failed (expected during restart): ${error}`);
+        console.log(`[@component:RecHostStreamModal] Manifest check failed: ${error}`);
       }
-      
-      // Timeout after max polls
-      if (pollCount >= maxPolls) {
-        console.warn(`[@component:RecHostStreamModal] Polling timeout after ${maxPolls} attempts - forcing player resume`);
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
-        setShouldPausePlayer(false);
-        setIsQualitySwitching(false);
-        showWarning('Stream restart took longer than expected');
-      }
-    }, 500);
+    }, 1000); // Changed from 500ms to 1000ms (1 second)
   }, [showWarning]);
 
   // Common function to switch quality (reused for initial entry and button clicks)
@@ -406,11 +403,16 @@ const RecHostStreamModalContent: React.FC<{
     
     // Show loading overlay if requested
     if (showLoadingOverlay) {
+      console.log(`[@component:RecHostStreamModal] Setting isQualitySwitching=true (showLoadingOverlay=${showLoadingOverlay})`);
+      setIsQualitySwitching(true); // Show loading overlay
+      
       // Only pause existing video on manual quality switch, NOT on initial load
       if (!isInitialLoad) {
+        console.log(`[@component:RecHostStreamModal] Setting shouldPausePlayer=true (manual quality switch)`);
         setShouldPausePlayer(true); // Pause existing player to prevent corruption during FFmpeg restart
+      } else {
+        console.log(`[@component:RecHostStreamModal] Keeping shouldPausePlayer=false (initial load)`);
       }
-      setIsQualitySwitching(true); // Show loading overlay
     }
     
     try {
@@ -900,31 +902,34 @@ const RecHostStreamModalContent: React.FC<{
             }}
           >
             {/* Quality transition overlay - solid black to hide corrupted frames during FFmpeg restart */}
-            {isQualitySwitching && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: 'black', // Solid black to completely hide any corruption
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 1000,
-                }}
-              >
-                <CircularProgress size={60} sx={{ color: 'warning.main' }} />
-                <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
-                  {isHDMode ? 'Loading HD' : 'Loading SD'} quality stream...
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
-                  Waiting for stable stream
-                </Typography>
-              </Box>
-            )}
+            {isQualitySwitching && (() => {
+              console.log(`[@component:RecHostStreamModal] 🎬 RENDERING LOADING OVERLAY - isQualitySwitching=${isQualitySwitching}, isHDMode=${isHDMode}`);
+              return (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'black', // Solid black to completely hide any corruption
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                  }}
+                >
+                  <CircularProgress size={60} sx={{ color: 'warning.main' }} />
+                  <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
+                    {isHDMode ? 'Loading HD' : 'Loading SD'} quality stream...
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
+                    Waiting for stable stream
+                  </Typography>
+                </Box>
+              );
+            })()}
             {monitoringMode && isControlActive ? (
               <MonitoringPlayer
                 host={host}
