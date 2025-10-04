@@ -378,7 +378,7 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             last_activity_time = get_last_file_mtime(
                 captures_dir,
                 r'^capture_.*\.jpg$',
-                max_age_seconds=2,
+                max_age_seconds=20, #need to cover stream restart
                 exclude_pattern=r'_thumbnail\.jpg$'
             )
                     
@@ -387,7 +387,7 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             last_activity_time = get_last_file_mtime(
                 captures_dir,
                 r'^capture_.*\.json$',
-                max_age_seconds=3
+                max_age_seconds=20  #need to cover stream restart
             )
         
         # Calculate working uptime: start -> last activity
