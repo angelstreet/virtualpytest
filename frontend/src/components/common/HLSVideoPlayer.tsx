@@ -644,6 +644,12 @@ export function HLSVideoPlayer({
   useEffect(() => {
     if (!streamUrl || !videoRef.current) return;
 
+    // Don't initialize during quality switching - wait for polling to complete
+    if (shouldPause) {
+      console.log('[@component:HLSVideoPlayer] Skipping init - quality switch in progress (shouldPause=true)');
+      return;
+    }
+
     // Always initialize if URL changed (don't skip even if already loaded)
     if (currentStreamUrl === streamUrl && streamLoaded && !streamError && !ffmpegStuck) {
       console.log('[@component:HLSVideoPlayer] Skipping init - already loaded with same URL');
@@ -660,20 +666,25 @@ export function HLSVideoPlayer({
     setCurrentStreamUrl(streamUrl);
 
     initializeStream(); // Initialize without destructive cleanup
-  }, [streamUrl, currentStreamUrl, streamLoaded, streamError, ffmpegStuck]);
+  }, [streamUrl, currentStreamUrl, streamLoaded, streamError, ffmpegStuck, shouldPause]);
 
   // Handle shouldPause prop - pause to show last frame (e.g., during quality transition)
   useEffect(() => {
-    if (!videoRef.current || !streamLoaded) return;
+    if (!videoRef.current) return;
 
     if (shouldPause) {
-      console.log('[@component:HLSVideoPlayer] Pausing video to show last frame (shouldPause=true)');
-      videoRef.current.pause();
-    } else if (isStreamActive) {
-      console.log('[@component:HLSVideoPlayer] Resuming video playback (shouldPause=false)');
-      attemptPlay();
+      console.log('[@component:HLSVideoPlayer] Quality switch started - pausing and preventing init');
+      if (streamLoaded) {
+        videoRef.current.pause();
+      }
+    } else if (streamUrl && isStreamActive) {
+      console.log('[@component:HLSVideoPlayer] Quality switch complete (shouldPause=false) - initializing stream');
+      // When shouldPause changes to false, reinitialize the stream
+      setStreamLoaded(false);
+      setStreamError(null);
+      initializeStream();
     }
-  }, [shouldPause, streamLoaded, isStreamActive, attemptPlay]);
+  }, [shouldPause, streamUrl, isStreamActive, streamLoaded, initializeStream]);
 
   // Pause/resume - non-destructive
   useEffect(() => {
@@ -764,7 +775,8 @@ export function HLSVideoPlayer({
           height: '100%',
           objectFit: layoutConfig?.objectFit || 'contain', // Use config value, fallback to contain
           backgroundColor: '#000000',
-          display: streamLoaded ? 'block' : 'none',
+          // Hide video during quality switch to prevent corrupted frames from showing
+          display: streamLoaded && !shouldPause ? 'block' : 'none',
         }}
         autoPlay
         playsInline

@@ -435,9 +435,9 @@ const RecHostStreamModalContent: React.FC<{
 
   // Auto-switch to SD quality when modal opens, revert to LOW when closes
   useEffect(() => {
-    console.log('[@component:RecHostStreamModal] Modal opened - auto-switching to SD quality (no loading overlay)');
-    // Use common function WITHOUT loading overlay (background switch during initial load)
-    switchQuality('sd', false);
+    console.log('[@component:RecHostStreamModal] Modal opened - auto-switching to SD quality WITH loading overlay');
+    // Use common function WITH loading overlay to prevent corrupted frames during initial FFmpeg restart
+    switchQuality('sd', true);
 
     // Cleanup: revert to LOW quality when component unmounts
     return () => {
@@ -884,7 +884,7 @@ const RecHostStreamModalContent: React.FC<{
               backgroundColor: 'black',
             }}
           >
-            {/* Quality transition overlay - semi-transparent to show last frame underneath */}
+            {/* Quality transition overlay - solid black to hide corrupted frames during FFmpeg restart */}
             {isQualitySwitching && (
               <Box
                 sx={{
@@ -893,7 +893,7 @@ const RecHostStreamModalContent: React.FC<{
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  backgroundColor: 'rgba(0, 0, 0, 0.1)', // 10% opacity - shows last frame
+                  backgroundColor: 'black', // Solid black to completely hide any corruption
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -902,8 +902,11 @@ const RecHostStreamModalContent: React.FC<{
                 }}
               >
                 <CircularProgress size={60} sx={{ color: 'warning.main' }} />
-                <Typography variant="h6" sx={{ color: 'white', mt: 2, textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-                  Switching to {isHDMode ? 'HD' : 'SD'} quality...
+                <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
+                  {isHDMode ? 'Loading HD' : 'Loading SD'} quality stream...
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
+                  Waiting for stable stream
                 </Typography>
               </Box>
             )}
