@@ -137,7 +137,7 @@ get_device_quality() {
   else
     local quality=$(get_device_info "$capture_dir" "quality")
     if [ -z "$quality" ]; then
-      echo "sd"
+      echo "low"  # Default to LOW quality (240:180) for preview/monitoring
     else
       echo "$quality"
     fi
@@ -190,20 +190,22 @@ setup_capture_directories() {
   # Check if hot storage is mounted (RAM mode)
   if mount | grep -q "$capture_dir/hot"; then
     echo "✓ RAM hot storage detected at $capture_dir/hot"
-    # Create subdirectories in RAM hot storage (no thumbnails - created on-demand)
+    # Create subdirectories in RAM hot storage
     mkdir -p "$capture_dir/hot/segments"
     mkdir -p "$capture_dir/hot/captures"
+    mkdir -p "$capture_dir/hot/thumbnails"
     mkdir -p "$capture_dir/hot/metadata"
-    echo "✓ Using RAM mode (99% SD write reduction + no thumbnail generation)"
+    echo "✓ Using RAM mode (99% SD write reduction)"
     return 0  # RAM mode
   else
     echo "⚠️  No RAM hot storage found at $capture_dir/hot"
     echo "   Run: setup_ram_hot_storage.sh to enable RAM mode"
-    # Create directories on SD card (no thumbnails - created on-demand)
+    # Create directories on SD card
     mkdir -p "$capture_dir/segments"
     mkdir -p "$capture_dir/captures"
+    mkdir -p "$capture_dir/thumbnails"
     mkdir -p "$capture_dir/metadata"
-    echo "✓ Using SD card mode (direct write, no thumbnail generation)"
+    echo "✓ Using SD card mode (direct write)"
     return 1  # SD mode
   fi
 }
@@ -234,7 +236,7 @@ start_grabber() {
   
   local output_segments="$storage_base/segments"
   local output_captures="$storage_base/captures"
-  # Thumbnails removed - created on-demand when needed (saves 18MB RAM + 2-5% CPU per device)
+  local output_thumbnails="$storage_base/thumbnails"
 
   clean_playlist_files "$capture_dir"
 
@@ -243,19 +245,29 @@ start_grabber() {
   fi
 
   if [ "$source_type" = "v4l2" ]; then
-    # HD mode: Only upgrade STREAM quality, keep captures at SD for RAM efficiency
+    # 3-tier quality system: LOW (preview) → SD (modal opened) → HD (user clicks HD)
+    # Captures always stay at 1280:720 for high-quality detection (zap, freeze, etc)
     if [ "$quality" = "hd" ]; then
+      # HD: Full quality stream for single device focus
       local stream_scale="1280:720"
       local stream_bitrate="1500k"
       local stream_maxrate="1800k"
       local stream_bufsize="3600k"
-      local capture_scale="640:360"    # Captures stay SD (saves 66% RAM!)
-    else
+      local capture_scale="1280:720"    # Captures at HD for best detection quality
+    elif [ "$quality" = "sd" ]; then
+      # SD: Medium quality when modal opened (single device)
       local stream_scale="640:360"
       local stream_bitrate="350k"
       local stream_maxrate="400k"
       local stream_bufsize="800k"
-      local capture_scale="640:360"    # Captures SD
+      local capture_scale="1280:720"    # Captures at HD for best detection quality
+    else
+      # LOW (default): Minimal quality for preview/monitoring (multiple devices)
+      local stream_scale="240:180"
+      local stream_bitrate="150k"
+      local stream_maxrate="200k"
+      local stream_bufsize="400k"
+      local capture_scale="1280:720"    # Captures at HD for best detection quality
     fi
     FFMPEG_CMD="/usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
@@ -263,9 +275,9 @@ start_grabber() {
       -thread_queue_size 512 \
       -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 2048 -async 1 -err_detect ignore_err -i \"$audio_device\" \
-      -filter_complex \"[0:v]fps=5[v5];[v5]split=2[str][cap]; \
+      -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
         [str]scale=${stream_scale}:flags=fast_bilinear,fps=$input_fps[streamout]; \
-        [cap]scale=${capture_scale}:flags=fast_bilinear,setpts=PTS-STARTPTS[captureout]\" \
+        [cap]scale=${capture_scale}:flags=fast_bilinear,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" -map 1:a? \
       -c:v libx264 -preset ultrafast -tune zerolatency \
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
@@ -276,21 +288,33 @@ start_grabber() {
       -hls_segment_filename $output_segments/segment_%09d.ts \
       $output_segments/output.m3u8 \
       -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
-      $output_captures/capture_%09d.jpg"
+      $output_captures/capture_%09d.jpg \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
+      $output_thumbnails/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
-    # HD mode: Only upgrade STREAM quality, keep captures at SD for RAM efficiency
+    # 3-tier quality system: LOW (preview) → SD (modal opened) → HD (user clicks HD)
+    # Captures always stay at 1280:720 for high-quality VNC detection (aligned with v4l2)
     if [ "$quality" = "hd" ]; then
+      # HD: Full quality stream for single device focus
       local stream_scale="1280:720"
       local stream_bitrate="1000k"
       local stream_maxrate="1200k"
       local stream_bufsize="2400k"
-      local capture_scale="480:360"    # Captures stay SD (saves RAM!)
+      local capture_scale="1280:720"    # Captures at HD for best detection quality
+    elif [ "$quality" = "sd" ]; then
+      # SD: Medium quality when modal opened (single device)
+      local stream_scale="640:360"
+      local stream_bitrate="350k"
+      local stream_maxrate="400k"
+      local stream_bufsize="800k"
+      local capture_scale="1280:720"    # Captures at HD for best detection quality
     else
-      local stream_scale="480:360"
-      local stream_bitrate="250k"
-      local stream_maxrate="300k"
-      local stream_bufsize="600k"
-      local capture_scale="480:360"    # Captures SD
+      # LOW (default): Minimal quality for preview/monitoring (multiple devices)
+      local stream_scale="240:180"
+      local stream_bitrate="120k"
+      local stream_maxrate="150k"
+      local stream_bufsize="300k"
+      local capture_scale="1280:720"    # Captures at HD for best detection quality
     fi
     
     export DISPLAY="$source"
@@ -304,9 +328,9 @@ start_grabber() {
       -draw_mouse 0 -show_region 0 \
       -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
-      -filter_complex \"[0:v]fps=2[v2];[v2]split=2[str][cap]; \
+      -filter_complex \"[0:v]fps=2[v2];[v2]split=3[str][cap][thm]; \
         [str]scale=${stream_scale}:flags=neighbor[streamout]; \
-        [cap]scale=${capture_scale}:flags=neighbor,setpts=PTS-STARTPTS[captureout]\" \
+        [cap]scale=${capture_scale}:flags=neighbor,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" \
       -c:v libx264 -preset ultrafast -tune zerolatency \
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
@@ -316,7 +340,9 @@ start_grabber() {
       -hls_segment_filename $output_segments/segment_%09d.ts \
       $output_segments/output.m3u8 \
       -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
-      $output_captures/capture_%09d.jpg"
+      $output_captures/capture_%09d.jpg \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
+      $output_thumbnails/capture_%09d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
     return 1

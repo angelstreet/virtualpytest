@@ -104,17 +104,23 @@ def analyze_audio(capture_dir):
 
 def detect_issues(image_path, fps=5):
     """
-    Main detection function - OPTIMIZED with image reuse
+    Main detection function - returns EXACT same format as original analyze_audio_video.py
     
     Args:
         image_path: Path to capture image
-        fps: Frames per second (5 for v4l2, 2 for x11grab)
-    
-    Optimizations:
-    - Downscales image once, reuses for blackscreen detection
-    - Compares frames 1 second apart for freeze detection
+        fps: Frames per second (5 for v4l2, 2 for x11grab/VNC) - used for freeze detection
     """
     capture_dir = os.path.dirname(os.path.dirname(image_path))  # Go up from /captures/
+    
+    # Get thumbnails directory (handles both RAM and SD modes)
+    try:
+        from shared.src.lib.utils.build_url_utils import get_device_local_thumbnails_path
+        thumbnails_dir = get_device_local_thumbnails_path(image_path)
+    except:
+        # Fallback to manual path construction
+        captures_dir = os.path.dirname(image_path)
+        capture_parent = os.path.dirname(captures_dir)
+        thumbnails_dir = os.path.join(capture_parent, 'thumbnails')
     
     # Load and downscale image ONCE for blackscreen detection (320x180)
     # Saves: 1280x720 → 320x180 = 16× less pixels to process
@@ -123,8 +129,8 @@ def detect_issues(image_path, fps=5):
     # Video Analysis
     blackscreen, blackscreen_percentage = analyze_blackscreen(image_path, downscaled_img=downscaled_img)
     
-    # Freeze detection with 1-second spacing and downscaling
-    frozen, freeze_details = analyze_freeze(image_path, fps=fps)
+    # Freeze detection using thumbnails (5fps for v4l2, 2fps for VNC)
+    frozen, freeze_details = analyze_freeze(image_path, thumbnails_dir, fps)
     
     # Skip macroblock analysis if freeze or blackscreen detected (performance optimization)
     if blackscreen or frozen:
@@ -135,23 +141,31 @@ def detect_issues(image_path, fps=5):
     # Audio Analysis
     has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
     
-    # Get frame paths for R2 upload - SIMPLIFIED (thumbnails created on-demand)
+    # Get frame paths for R2 upload - freeze_details now contains thumbnail filenames
     freeze_diffs = []
     last_3_filenames = []
+    last_3_thumbnails = []
     
     if freeze_details and 'frame_differences' in freeze_details:
         freeze_diffs = freeze_details['frame_differences']
         
     if freeze_details and 'frames_compared' in freeze_details:
-        # Only need capture file paths - thumbnails will be created on-demand during upload
+        # frames_compared now contains thumbnail filenames (e.g., capture_000009_thumbnail.jpg)
+        # Build full paths for both captures and thumbnails
         captures_dir = os.path.dirname(image_path)
         
-        for frame_filename in freeze_details['frames_compared']:
-            # Capture filename with full path
-            original_full_path = os.path.join(captures_dir, frame_filename)
-            last_3_filenames.append(original_full_path)
+        for thumbnail_filename in freeze_details['frames_compared']:
+            # Convert thumbnail filename to capture filename by removing _thumbnail suffix
+            # capture_000009_thumbnail.jpg → capture_000009.jpg
+            capture_filename = thumbnail_filename.replace('_thumbnail.jpg', '.jpg')
+            capture_full_path = os.path.join(captures_dir, capture_filename)
+            last_3_filenames.append(capture_full_path)
+            
+            # Thumbnail with full path (already determined by thumbnails_dir above)
+            thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
+            last_3_thumbnails.append(thumbnail_full_path)
     
-    # Return detection results - thumbnails created on-demand, no longer needed here
+    # Return EXACT same format as original (CRITICAL FOR R2 UPLOAD)
     return {
         'timestamp': datetime.fromtimestamp(os.path.getmtime(image_path)).isoformat(),
         'filename': os.path.basename(image_path),
@@ -159,7 +173,8 @@ def detect_issues(image_path, fps=5):
         'blackscreen_percentage': round(blackscreen_percentage, 1),
         'freeze': bool(frozen),
         'freeze_diffs': freeze_diffs,
-        'last_3_filenames': last_3_filenames,      # Capture paths for R2 upload (thumbnails created on-demand)
+        'last_3_filenames': last_3_filenames,      # ← CRITICAL FOR R2 UPLOAD
+        'last_3_thumbnails': last_3_thumbnails,   # ← CRITICAL FOR R2 UPLOAD
         'macroblocks': bool(macroblocks),
         'quality_score': round(quality_score, 1),
         'audio': has_audio,

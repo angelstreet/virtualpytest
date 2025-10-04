@@ -410,22 +410,18 @@ class IncidentManager:
         return transitions  # Return all transitions that occurred
 
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails=None, device_id=None, timestamp=None, thumbnails_only=False):
-        """Upload freeze incident frames to R2 storage - ON-DEMAND THUMBNAIL GENERATION
+        """Upload freeze incident frames to R2 storage
         
         Args:
             last_3_filenames: List of capture image paths
-            last_3_thumbnails: DEPRECATED - kept for backward compatibility, not used
+            last_3_thumbnails: List of pre-generated thumbnail paths (from FFmpeg)
             device_id: Device identifier
             timestamp: Timestamp string
             thumbnails_only: If True, only upload thumbnails. Default False
-        
-        Note: Thumbnails are now created on-demand from captures, eliminating continuous FFmpeg generation
         """
         try:
             # Import utilities
             from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
-            from shared.src.lib.utils.image_utils import create_thumbnail_from_capture
-            import tempfile
             
             uploader = get_cloudflare_utils()
             if not uploader:
@@ -474,31 +470,19 @@ class IncidentManager:
                     else:
                         logger.error(f"[{device_id}] Failed to upload original frame {i}: {upload_result.get('error')}")
             
-            # Create and upload thumbnails on-demand from captures (NEW APPROACH)
-            logger.info(f"[{device_id}] Creating thumbnails on-demand from {len(last_3_filenames)} captures")
-            
-            for i, capture_path in enumerate(last_3_filenames):
-                if not capture_path or not os.path.exists(capture_path):
-                    logger.warning(f"[{device_id}] Capture file not found: {capture_path}")
-                    continue
+            # Upload pre-generated thumbnails from FFmpeg
+            if last_3_thumbnails:
+                logger.info(f"[{device_id}] R2 upload started for {len(last_3_thumbnails)} thumbnails")
                 
-                # Create thumbnail on-demand (320x180)
-                thumbnail_bytes = create_thumbnail_from_capture(capture_path, thumbnail_size=(320, 180), quality=85)
-                
-                if not thumbnail_bytes:
-                    logger.error(f"[{device_id}] Failed to create thumbnail from {capture_path}")
-                    continue
-                
-                # Save to temp file for upload
-                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_thumb:
-                    temp_thumb.write(thumbnail_bytes)
-                    temp_thumb_path = temp_thumb.name
-                
-                try:
+                for i, thumbnail_path in enumerate(last_3_thumbnails):
+                    if not thumbnail_path or not os.path.exists(thumbnail_path):
+                        logger.warning(f"[{device_id}] Thumbnail file not found: {thumbnail_path}")
+                        continue
+                    
                     # R2 path: alerts/freeze/device1/20250124123456/thumb_0.jpg
                     r2_path = f"{base_r2_path}/thumb_{i}.jpg"
                     
-                    file_mappings = [{'local_path': temp_thumb_path, 'remote_path': r2_path}]
+                    file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
                     upload_result = uploader.upload_files(file_mappings)
                     
                     # Convert to single file result
@@ -513,13 +497,11 @@ class IncidentManager:
                     if upload_result.get('success'):
                         r2_results['thumbnail_urls'].append(upload_result['url'])
                         r2_results['thumbnail_r2_paths'].append(r2_path)
-                        logger.info(f"[{device_id}] Uploaded on-demand thumbnail {i}: {r2_path}")
+                        logger.info(f"[{device_id}] Uploaded thumbnail {i}: {r2_path}")
                     else:
                         logger.error(f"[{device_id}] Failed to upload thumbnail {i}: {upload_result.get('error')}")
-                finally:
-                    # Clean up temp file
-                    if os.path.exists(temp_thumb_path):
-                        os.unlink(temp_thumb_path)
+            else:
+                logger.warning(f"[{device_id}] No thumbnails provided for upload")
             
             # Log completion results
             if r2_results['original_urls'] or r2_results['thumbnail_urls']:

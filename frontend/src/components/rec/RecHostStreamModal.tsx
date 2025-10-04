@@ -80,6 +80,7 @@ const RecHostStreamModalContent: React.FC<{
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
+  const [isHDMode, setIsHDMode] = useState<boolean>(false); // Start in SD mode (auto-switched from LOW)
   
   // AI Disambiguation state and handlers
   const [disambiguationData, setDisambiguationData] = useState<any>(null);
@@ -97,13 +98,47 @@ const RecHostStreamModalContent: React.FC<{
     setDisambiguationCancel(() => cancel);
   }, []);
 
-  // Cleanup stream when component unmounts
+  // Auto-switch to SD quality when modal opens, revert to LOW when closes
   useEffect(() => {
-    return () => {
-      console.log('[@component:RecHostStreamModal] Component unmounting, stopping stream');
-      setIsStreamActive(false);
+    const switchToSD = async () => {
+      try {
+        console.log('[@component:RecHostStreamModal] Auto-switching to SD quality on modal open');
+        const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_name: host.host_name,
+            device_id: device?.device_id || 'device1',
+            quality: 'sd' // Auto-switch to SD when modal opens
+          })
+        });
+        if (response.ok) {
+          console.log('[@component:RecHostStreamModal] Stream switched to SD quality');
+        }
+      } catch (error) {
+        console.error('[@component:RecHostStreamModal] Failed to switch to SD:', error);
+      }
     };
-  }, []);
+
+    switchToSD();
+
+    // Cleanup: revert to LOW quality when component unmounts
+    return () => {
+      console.log('[@component:RecHostStreamModal] Component unmounting, reverting to LOW quality');
+      setIsStreamActive(false);
+      
+      // Switch back to LOW quality for preview/monitoring
+      fetch(buildServerUrl('/server/system/restartHostStreamService'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device?.device_id || 'device1',
+          quality: 'low' // Revert to LOW when modal closes
+        })
+      }).catch(err => console.error('[@component:RecHostStreamModal] Failed to revert to LOW:', err));
+    };
+  }, [host.host_name, device?.device_id]);
 
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
@@ -313,6 +348,36 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, []);
 
+  // Handle HD quality toggle
+  const handleToggleHD = useCallback(async () => {
+    const newMode = !isHDMode;
+    setIsHDMode(newMode);
+    
+    try {
+      console.log(`[@component:RecHostStreamModal] Switching to ${newMode ? 'HD' : 'SD'} quality`);
+      const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device?.device_id || 'device1',
+          quality: newMode ? 'hd' : 'sd'
+        })
+      });
+      
+      if (response.ok) {
+        console.log(`[@component:RecHostStreamModal] Stream switched to ${newMode ? 'HD' : 'SD'} quality`);
+      } else {
+        showError(`Failed to switch quality`);
+        setIsHDMode(!newMode); // Revert on error
+      }
+    } catch (error) {
+      showError('Failed to switch quality');
+      setIsHDMode(!newMode); // Revert on error
+      console.error('[@component:RecHostStreamModal] Quality switch error:', error);
+    }
+  }, [isHDMode, host.host_name, device?.device_id, showError]);
+
   // Handle screenshot - call API and open image in new tab
   const handleScreenshot = useCallback(async () => {
     try {
@@ -369,6 +434,7 @@ const RecHostStreamModalContent: React.FC<{
     setMonitoringMode(false);
     setAiAgentMode(false);
     setRestartMode(false);
+    setIsHDMode(false); // Reset HD mode
     onClose();
   }, [onClose]);
 
@@ -476,6 +542,24 @@ const RecHostStreamModalContent: React.FC<{
                 title={isLiveMode ? 'Switch to 24h Archive' : 'Switch to Live Stream'}
               >
                 {isLiveMode ? 'Live' : '24h'}
+              </Button>
+            )}
+
+            {/* HD Quality Toggle Button - Only show when NOT in monitoring or restart mode */}
+            {!monitoringMode && !restartMode && (
+              <Button
+                variant={isHDMode ? 'contained' : 'outlined'}
+                size="small"
+                onClick={handleToggleHD}
+                color={isHDMode ? 'secondary' : 'primary'}
+                sx={{
+                  fontSize: '0.75rem',
+                  minWidth: 80,
+                  color: isHDMode ? 'white' : 'inherit',
+                }}
+                title={isHDMode ? 'Switch to SD Quality (640x360)' : 'Switch to HD Quality (1280x720)'}
+              >
+                {isHDMode ? 'HD' : 'SD'}
               </Button>
             )}
 

@@ -139,7 +139,7 @@ class InotifyFrameMonitor:
                         # Replace local paths with R2 URLs for heatmap display
                         detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
                         detection_result['r2_images'] = r2_urls
-                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2 for heatmap (thumbnails created on-demand)")
+                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2 for heatmap")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation

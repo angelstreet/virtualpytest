@@ -1,131 +1,16 @@
 """
-Image Utilities - Thumbnail Generation and Image Analysis
+Image Utilities - Image Analysis
 
 Provides utilities for:
-- Creating thumbnails from capture images on-demand
 - Image analysis functions (blackscreen, freeze, macroblocks detection)
+- Image preprocessing for detection algorithms
 """
 
 import os
 import re
 from typing import Optional, Tuple
-from PIL import Image
-import io
 import cv2
 import numpy as np
-
-
-def create_thumbnail_from_capture(
-    capture_path: str,
-    thumbnail_size: Tuple[int, int] = (320, 180),
-    quality: int = 85
-) -> Optional[bytes]:
-    """
-    Create thumbnail from capture image on-demand.
-    
-    This replaces continuous FFmpeg thumbnail generation with on-demand creation
-    only when needed (freeze uploads, reports, etc).
-    
-    Args:
-        capture_path: Full path to capture image (e.g., /path/to/capture_001.jpg)
-        thumbnail_size: Target size as (width, height). Default (320, 180)
-        quality: JPEG quality (1-100). Default 85
-    
-    Returns:
-        Thumbnail image as bytes (ready for upload/save), or None if error
-        
-    Example:
-        >>> thumb_bytes = create_thumbnail_from_capture('/path/to/capture_001.jpg')
-        >>> with open('thumb.jpg', 'wb') as f:
-        ...     f.write(thumb_bytes)
-    """
-    try:
-        if not os.path.exists(capture_path):
-            print(f"[@image_utils] Error: Capture file not found: {capture_path}")
-            return None
-        
-        # Load and resize image
-        img = Image.open(capture_path)
-        
-        # Use thumbnail() for aspect-ratio preserving resize
-        # BILINEAR is faster than LANCZOS with minimal quality loss for small images
-        img.thumbnail(thumbnail_size, Image.Resampling.BILINEAR)
-        
-        # Convert to bytes
-        buffer = io.BytesIO()
-        img.save(buffer, format='JPEG', quality=quality)
-        
-        return buffer.getvalue()
-        
-    except Exception as e:
-        print(f"[@image_utils] Error creating thumbnail from {capture_path}: {e}")
-        return None
-
-
-def create_thumbnail_file(
-    capture_path: str,
-    output_path: Optional[str] = None,
-    thumbnail_size: Tuple[int, int] = (320, 180),
-    quality: int = 85
-) -> Optional[str]:
-    """
-    Create thumbnail file from capture image.
-    
-    Args:
-        capture_path: Full path to capture image
-        output_path: Output path for thumbnail. If None, uses capture_path with _thumbnail suffix
-        thumbnail_size: Target size as (width, height)
-        quality: JPEG quality (1-100)
-    
-    Returns:
-        Path to created thumbnail file, or None if error
-        
-    Example:
-        >>> thumb_path = create_thumbnail_file('/path/to/capture_001.jpg')
-        >>> # Creates /path/to/capture_001_thumbnail.jpg
-    """
-    try:
-        # Generate output path if not provided
-        if output_path is None:
-            base, ext = os.path.splitext(capture_path)
-            output_path = f"{base}_thumbnail{ext}"
-        
-        # Create thumbnail bytes
-        thumb_bytes = create_thumbnail_from_capture(capture_path, thumbnail_size, quality)
-        
-        if thumb_bytes is None:
-            return None
-        
-        # Write to file
-        with open(output_path, 'wb') as f:
-            f.write(thumb_bytes)
-        
-        return output_path
-        
-    except Exception as e:
-        print(f"[@image_utils] Error saving thumbnail to {output_path}: {e}")
-        return None
-
-
-def resize_image_for_upload(
-    image_path: str,
-    max_size: Tuple[int, int] = (320, 180),
-    quality: int = 85
-) -> Optional[bytes]:
-    """
-    Resize image for efficient R2 upload.
-    
-    Alias for create_thumbnail_from_capture() with clearer naming for upload context.
-    
-    Args:
-        image_path: Full path to image
-        max_size: Maximum size as (width, height)
-        quality: JPEG quality (1-100)
-    
-    Returns:
-        Resized image as bytes, or None if error
-    """
-    return create_thumbnail_from_capture(image_path, max_size, quality)
 
 
 # =============================================================================
@@ -185,26 +70,24 @@ def analyze_blackscreen(image_path: str, threshold: int = 10, downscaled_img=Non
     return is_blackscreen, dark_percentage
 
 
-def analyze_freeze(image_path: str, fps: int = 5) -> Tuple[bool, Optional[dict]]:
+def analyze_freeze(capture_path: str, thumbnails_dir: str, fps: int = 5) -> Tuple[bool, Optional[dict]]:
     """
-    Detect if image is frozen - OPTIMIZED with 1-second spacing and downscaling
+    Detect if image is frozen using thumbnails (5fps for v4l2, 2fps for VNC) - SIMPLE and EFFICIENT
     
-    Improvements:
-    - Compares frames 1 second apart (not consecutive 200ms frames)
-    - Downscales 1280x720 → 320x180 before comparison (16× faster)
-    - More accurate freeze detection with meaningful time gaps
+    Takes last 3 thumbnails spaced 1 second apart.
+    At 5fps: current, -5, -10 (1s apart each)
+    At 2fps: current, -2, -4 (1s apart each)
     
     Args:
-        image_path: Path to current frame
-        fps: Frames per second (5 for v4l2, 2 for x11grab)
+        capture_path: Path to current capture (e.g., /path/captures/capture_000009.jpg)
+        thumbnails_dir: Path to thumbnails directory
+        fps: Frames per second (5 for v4l2, 2 for x11grab/VNC)
     
     Returns:
         Tuple of (is_frozen, freeze_details)
     """
-    directory = os.path.dirname(image_path)
-    current_filename = os.path.basename(image_path)
-    
-    # Extract frame number and format
+    # Extract frame number from capture filename
+    current_filename = os.path.basename(capture_path)
     match = re.match(r'capture_(\d+)\.jpg', current_filename)
     if not match:
         return False, None
@@ -217,34 +100,35 @@ def analyze_freeze(image_path: str, fps: int = 5) -> Tuple[bool, Optional[dict]]
     if current_num < (2 * fps):
         return False, None
     
-    # Compare frames 1 SECOND apart (not consecutive!)
-    # Example at 5 FPS: frame 15 vs 10 vs 5 (3s, 2s, 1s)
-    prev1_num = current_num - fps      # 1 second ago
-    prev2_num = current_num - (2 * fps) # 2 seconds ago
+    # Get last 3 thumbnails spaced 1 second apart
+    thumb_current_num = current_num
+    thumb_prev1_num = current_num - fps        # 1 second ago
+    thumb_prev2_num = current_num - (2 * fps)  # 2 seconds ago
     
-    prev1_filename = f"capture_{prev1_num:0{num_digits}d}.jpg"
-    prev2_filename = f"capture_{prev2_num:0{num_digits}d}.jpg"
+    thumb_current_filename = f"capture_{thumb_current_num:0{num_digits}d}_thumbnail.jpg"
+    thumb_prev1_filename = f"capture_{thumb_prev1_num:0{num_digits}d}_thumbnail.jpg"
+    thumb_prev2_filename = f"capture_{thumb_prev2_num:0{num_digits}d}_thumbnail.jpg"
     
-    prev1_path = os.path.join(directory, prev1_filename)
-    prev2_path = os.path.join(directory, prev2_filename)
+    thumb_current_path = os.path.join(thumbnails_dir, thumb_current_filename)
+    thumb_prev1_path = os.path.join(thumbnails_dir, thumb_prev1_filename)
+    thumb_prev2_path = os.path.join(thumbnails_dir, thumb_prev2_filename)
     
-    # Check if files exist
-    if not os.path.exists(prev1_path) or not os.path.exists(prev2_path):
+    # Check if all 3 thumbnails exist
+    if not os.path.exists(thumb_current_path) or not os.path.exists(thumb_prev1_path) or not os.path.exists(thumb_prev2_path):
         return False, None
     
-    # Load and downscale images to 320x180 for faster comparison
-    # Downscaling 1280x720 → 320x180 reduces pixels by 16×!
-    current_img = load_and_downscale_image(image_path, target_size=(320, 180))
-    prev1_img = load_and_downscale_image(prev1_path, target_size=(320, 180))
-    prev2_img = load_and_downscale_image(prev2_path, target_size=(320, 180))
+    # Load thumbnails (already small at 320x180, no need to downscale further!)
+    thumb_current = cv2.imread(thumb_current_path, cv2.IMREAD_GRAYSCALE)
+    thumb_prev1 = cv2.imread(thumb_prev1_path, cv2.IMREAD_GRAYSCALE)
+    thumb_prev2 = cv2.imread(thumb_prev2_path, cv2.IMREAD_GRAYSCALE)
     
-    if current_img is None or prev1_img is None or prev2_img is None:
+    if thumb_current is None or thumb_prev1 is None or thumb_prev2 is None:
         return False, None
     
-    # Calculate differences between all 3 frames (1 second apart each)
-    diff_1vs2 = cv2.absdiff(prev2_img, prev1_img)
-    diff_1vs3 = cv2.absdiff(prev2_img, current_img)
-    diff_2vs3 = cv2.absdiff(prev1_img, current_img)
+    # Calculate differences between all 3 thumbnails (1 second apart each)
+    diff_1vs2 = cv2.absdiff(thumb_prev2, thumb_prev1)
+    diff_1vs3 = cv2.absdiff(thumb_prev2, thumb_current)
+    diff_2vs3 = cv2.absdiff(thumb_prev1, thumb_current)
     
     mean_diff_1vs2 = np.mean(diff_1vs2)
     mean_diff_1vs3 = np.mean(diff_1vs3)
@@ -257,7 +141,7 @@ def analyze_freeze(image_path: str, fps: int = 5) -> Tuple[bool, Optional[dict]]
                 mean_diff_2vs3 < freeze_threshold)
     
     freeze_details = {
-        'frames_compared': [prev2_filename, prev1_filename, current_filename],
+        'frames_compared': [thumb_prev2_filename, thumb_prev1_filename, thumb_current_filename],
         'frame_differences': [round(mean_diff_1vs2, 2), round(mean_diff_1vs3, 2), round(mean_diff_2vs3, 2)],
         'threshold': freeze_threshold,
         'time_spacing': f'{fps} frames = 1 second'
