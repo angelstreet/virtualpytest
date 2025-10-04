@@ -39,6 +39,11 @@ TARGET_DEVICE="${1:-all}"
 TARGET_QUALITY="${2:-sd}"
 SINGLE_DEVICE_MODE=false
 
+echo "🔍 DEBUG: Script called with arguments:"
+echo "  \$1 (TARGET_DEVICE): '$TARGET_DEVICE'"
+echo "  \$2 (TARGET_QUALITY): '$TARGET_QUALITY'"
+echo "  All args: $@"
+
 if [ "$TARGET_DEVICE" != "all" ]; then
     SINGLE_DEVICE_MODE=true
     echo "🎯 Restarting $TARGET_DEVICE with quality: $TARGET_QUALITY"
@@ -375,6 +380,11 @@ update_active_captures() {
   local pid="$2"
   local quality="$3"
   
+  echo "🔍 DEBUG: update_active_captures called with:"
+  echo "  capture_dir: $capture_dir"
+  echo "  pid: $pid"
+  echo "  quality: $quality"
+  
   local temp_file="/tmp/active_captures.conf.tmp.$$"
   local conf_file="/tmp/active_captures.conf"
   
@@ -396,6 +406,9 @@ update_active_captures() {
     
     # Atomic move (preserves umask-based permissions)
     mv "$temp_file" "$conf_file"
+    
+    echo "🔍 DEBUG: Updated active_captures.conf:"
+    cat "$conf_file"
     
   ) 200>"${conf_file}.lock"
 }

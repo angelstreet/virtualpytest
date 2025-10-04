@@ -30,15 +30,19 @@ class HDMIStreamController(FFmpegCaptureController):
         try:
             import os
             device_id = self.device_id
-            print(f"HDMI[{device_id}]: Restarting with quality: {quality}")
+            print(f"[HDMI_CONTROLLER] restart_stream called with quality={quality} (type: {type(quality).__name__})")
+            print(f"[HDMI_CONTROLLER] device_id={device_id}")
             
             # Get script path relative to this file
             current_dir = os.path.dirname(os.path.abspath(__file__))
             backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
             script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
             
+            cmd = [script_path, device_id, quality]
+            print(f"[HDMI_CONTROLLER] Running command: {' '.join(cmd)}")
+            
             result = subprocess.run(
-                [script_path, device_id, quality],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=30
