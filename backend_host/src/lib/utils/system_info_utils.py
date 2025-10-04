@@ -387,7 +387,7 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             last_activity_time = get_last_file_mtime(
                 captures_dir,
                 r'^capture_.*\.json$',
-                max_age_seconds=3s
+                max_age_seconds=3
             )
         
         # Calculate working uptime: start -> last activity
