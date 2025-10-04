@@ -386,13 +386,15 @@ update_active_captures() {
   # Add new entry
   echo "${capture_dir},${pid},${quality}" >> "$temp_file"
   
-  # Move with error checking
-  if ! mv "$temp_file" /tmp/active_captures.conf 2>/dev/null; then
-    echo "⚠️  WARNING: Failed to update active_captures.conf (permission issue?)"
+  # Instead of mv, use sudo mv
+  if ! sudo mv "$temp_file" /tmp/active_captures.conf 2>/dev/null; then
+    echo "⚠️  WARNING: Failed to update active_captures.conf (permission issue?)" >&2
     rm -f "$temp_file"
     return 1
   fi
-  chmod 666 "/tmp/active_captures.conf" 2>/dev/null || true  # Ensure writable by all
+
+  # Use sudo for chmod
+  sudo chmod 666 "/tmp/active_captures.conf" 2>/dev/null || echo "⚠️  WARNING: Failed to set permissions on active_captures.conf" >&2
 }
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
