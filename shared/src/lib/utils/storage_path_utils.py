@@ -263,34 +263,3 @@ def get_capture_folder(capture_dir):
     """Extract capture folder from path"""
     # /var/www/html/stream/capture1/captures -> capture1
     return os.path.basename(os.path.dirname(capture_dir))
-
-
-# ============================================================================
-# LEGACY MANIFEST FUNCTIONS REMOVED
-# ============================================================================
-#
-# DELETED: generate_manifest_for_segments() and update_archive_manifest()
-#
-# WHY: Replaced by hot_cold_archiver.py hour-based architecture
-#
-# OLD APPROACH (archive1.m3u8, archive2.m3u8, ...):
-# - Flat manifest structure at root level
-# - Complex state management with archive_state.json
-# - No hour-based organization
-# - Doesn't integrate with hot/cold storage
-#
-# NEW APPROACH (hot_cold_archiver.py):
-# - Hour folders: segments/0/, segments/1/, ..., segments/23/
-# - Each hour has its own archive.m3u8 manifest
-# - One unified loop: move files → update manifests
-# - Natural 24h rolling buffer (time-based sequential filenames)
-# - Automatic overwrite after 24h (no deletion needed!)
-#
-# SEE: backend_host/scripts/hot_cold_archiver.py
-# - generate_hour_manifest() - Creates/updates hour-based manifests
-# - update_all_manifests() - Updates all 24 hour manifests
-# - archive_hot_files() - Moves files to correct hour folder
-#
-# RESULT: Perfect 24h video buffer with no complexity!
-# ============================================================================
-
