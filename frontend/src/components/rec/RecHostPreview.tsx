@@ -127,8 +127,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   }, []);
 
   useEffect(() => {
-    setIsStreamActive(!isAnyModalOpen);
-  }, [isAnyModalOpen]);
+    const newStreamActive = !isAnyModalOpen;
+    setIsStreamActive(newStreamActive);
+    console.log(`[@RecHostPreview] Stream ${newStreamActive ? 'resumed' : 'paused'} for ${host.host_name}-${device?.device_id} (modal ${isAnyModalOpen ? 'open' : 'closed'})`);
+  }, [isAnyModalOpen, host.host_name, device?.device_id]);
 
 
   // Handle opening/closing with restored state
@@ -269,23 +271,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
             backgroundColor: 'black',
           }}
         >
-          {isPausingForModal ? (
-            <Box
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'text.secondary',
-                backgroundColor: 'black',
-              }}
-            >
-              <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
-                {pauseMessage}
-              </Typography>
-            </Box>
-          ) : streamUrl ? (
+          {streamUrl ? (
             isVncDevice ? (
               <Box
                 sx={{
@@ -306,6 +292,27 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   }}
                   title="VNC Desktop Preview"
                 />
+                {/* Pause overlay when modal is open */}
+                {isPausingForModal && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                      zIndex: 2,
+                    }}
+                  >
+                    <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
+                      {pauseMessage}
+                    </Typography>
+                  </Box>
+                )}
                 {/* Click overlay to open full modal */}
                 <Box
                   onClick={handleOpenStreamModal}
@@ -317,6 +324,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     bottom: 0,
                     cursor: 'pointer',
                     backgroundColor: 'transparent',
+                    zIndex: 1,
                     '&:hover': {
                       backgroundColor: 'rgba(0, 0, 0, 0.1)',
                     },
@@ -333,6 +341,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
+                {/* Keep HLS player mounted, control via isStreamActive prop */}
                 <MemoizedHLSPlayer
                     streamUrl={streamUrl}
                     isStreamActive={isStreamActive}
@@ -342,6 +351,27 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     isExpanded={false}
                     muted={true} // Always muted in preview
                   />
+                {/* Pause overlay when modal is open */}
+                {isPausingForModal && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                      zIndex: 2,
+                    }}
+                  >
+                    <Typography variant="caption" align="center" sx={{ color: 'grey.500' }}>
+                      {pauseMessage}
+                    </Typography>
+                  </Box>
+                )}
                 {/* Click overlay to open full modal */}
                 <Box
                   onClick={handleOpenStreamModal}
@@ -353,6 +383,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     bottom: 0,
                     cursor: 'pointer',
                     backgroundColor: 'transparent',
+                    zIndex: 1,
                     '&:hover': {
                       backgroundColor: 'rgba(0, 0, 0, 0.05)',
                     },
