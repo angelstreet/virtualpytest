@@ -141,6 +141,29 @@ class Device:
         """
         return "mobile" in self.device_model.lower()
     
+    def get_capture_dir(self, subfolder: str = 'captures') -> Optional[str]:
+        """
+        Get capture directory for this device with automatic hot/cold storage resolution.
+        
+        This is the SINGLE SOURCE OF TRUTH for capture path lookup - all executors should use this.
+        
+        Args:
+            subfolder: Subfolder name ('captures', 'thumbnails', 'segments', 'metadata')
+        
+        Returns:
+            Full path to capture directory (hot if RAM mode, cold otherwise), or None if not available
+        
+        Examples:
+            device.get_capture_dir('captures') -> '/var/www/html/stream/capture1/hot/captures' (RAM mode)
+            device.get_capture_dir('thumbnails') -> '/var/www/html/stream/capture1/thumbnails' (SD mode)
+        """
+        if not self.video_capture_path:
+            return None
+        
+        # Use centralized hot/cold resolution (same pattern as base_controller.py)
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+        
+        return get_capture_storage_path(self.video_capture_path, subfolder)
 
     
     def get_capabilities(self) -> List[str]:

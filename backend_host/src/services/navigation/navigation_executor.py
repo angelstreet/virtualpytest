@@ -1201,7 +1201,7 @@ class NavigationExecutor:
                 return
             
             # Get capture directory from device (MANDATORY)
-            capture_dir = self._get_device_capture_dir()
+            capture_dir = self.device.get_capture_dir('captures')
             if not capture_dir:
                 print(f"⚠️ [NavigationExecutor] No capture_dir for device {self.device_id} - KPI skipped")
                 return
@@ -1256,42 +1256,6 @@ class NavigationExecutor:
             # Unexpected errors - log and skip
             print(f"❌ [NavigationExecutor] KPI queue error: {e}")
     
-    def _get_device_capture_dir(self) -> Optional[str]:
-        """
-        Get capture directory for this device from active_captures.conf.
-        Returns None if not found - no fallback.
-        """
-        try:
-            from shared.src.lib.utils.storage_path_utils import (
-                get_capture_base_directories,
-                get_capture_storage_path,
-                get_device_info_from_capture_folder,
-            )
-        except Exception as import_error:
-            print(f"❌ [NavigationExecutor] Unable to load capture utilities: {import_error}")
-            return None
-
-        # Get base directories and resolve hot/cold paths automatically
-        base_dirs = get_capture_base_directories()
-        if not base_dirs:
-            print(f"⚠️ [NavigationExecutor] No active capture directories reported for KPI lookup")
-            return None
-
-        for base_dir in base_dirs:
-            # Extract device folder name (e.g., 'capture1' from '/var/www/html/stream/capture1')
-            device_folder = os.path.basename(base_dir)
-            device_info = get_device_info_from_capture_folder(device_folder)
-            if device_info.get('device_id') == self.device_id:
-                # Use centralized path resolution (handles hot/cold automatically)
-                capture_dir = get_capture_storage_path(device_folder, 'captures')
-                if os.path.exists(capture_dir):
-                    storage_type = "HOT (RAM)" if '/hot/' in capture_dir else "COLD (SD)"
-                    print(f"[@navigation_executor] Matched capture directory [{storage_type}]: '{capture_dir}' for device {self.device_id}")
-                    return capture_dir
-
-        print(f"⚠️ [NavigationExecutor] No capture directory mapping found for device {self.device_id}")
-        return None
-
     # ========================================
     # POSITION TRACKING METHODS
     # ========================================
