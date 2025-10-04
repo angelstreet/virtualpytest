@@ -20,9 +20,6 @@ RestartSec=10
 StandardOutput=truncate:/tmp/transcript_accumulator.log
 StandardError=truncate:/tmp/transcript_accumulator.log
 
-# Security
-NoNewPrivileges=true
-
 [Install]
 WantedBy=multi-user.target
 
