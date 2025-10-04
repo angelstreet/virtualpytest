@@ -616,43 +616,43 @@ export function HLSVideoPlayer({
     }
   }, [useNativePlayer, streamUrl, isStreamActive, tryNativePlayback]);
 
-  // Removed visibility change handler since URL never changes - no need to re-initialize
-
+  // Initialization effect - runs when streamUrl changes
   useEffect(() => {
-    // Don't initialize if FFmpeg is stuck
-    if (ffmpegStuck) {
-      console.warn('[@component:HLSVideoPlayer] FFmpeg is stuck, skipping initialization');
-      return;
-    }
+    if (!streamUrl || !videoRef.current) return;
 
-    // Only initialize when we have a new URL or stream becomes active
-    if (streamUrl && isStreamActive && videoRef.current) {
-      // If we already have this stream URL loaded and working, don't reinitialize
-      if (currentStreamUrl === streamUrl && streamLoaded && !streamError) {
-        return;
-      }
-      
-      console.log('[@component:HLSVideoPlayer] Initializing stream:', streamUrl);
-      setUseNativePlayer(false);
-      setRetryCount(0);
-      setStreamLoaded(false);
-      setStreamError(null);
-      setSegmentFailureCount(0);
-      setFfmpegStuck(false);
+    // Cleanup previous if any
+    cleanupStream();
 
-      setTimeout(() => {
-        initializeStream();
-      }, 100);
-    } else if (!isStreamActive && videoRef.current) {
-      cleanupStream();
-    }
+    // Reset states
+    setStreamLoaded(false);
+    setStreamError(null);
+    setRetryCount(0);
+    setSegmentFailureCount(0);
+    setFfmpegStuck(false);
+    setCurrentStreamUrl(streamUrl);
+
+    initializeStream();
 
     return () => {
-      // Always cleanup when component unmounts
-      console.log('[@component:HLSVideoPlayer] Component unmounting or effect cleanup, forcing stream cleanup');
+      // Cleanup on streamUrl change
       cleanupStream();
     };
-  }, [streamUrl, isStreamActive, currentStreamUrl, ffmpegStuck]); // Added ffmpegStuck dependency
+  }, [streamUrl]);
+
+  // Separate effect for stream active state
+  useEffect(() => {
+    if (!hlsRef.current || !videoRef.current) return;
+
+    if (isStreamActive) {
+      console.log('[@component:HLSVideoPlayer] Resuming stream');
+      hlsRef.current.startLoad();
+      attemptPlay();
+    } else {
+      console.log('[@component:HLSVideoPlayer] Pausing stream');
+      hlsRef.current.stopLoad();
+      videoRef.current.pause();
+    }
+  }, [isStreamActive, attemptPlay]);
 
   // Simplified video ready check - no polling needed
   useEffect(() => {

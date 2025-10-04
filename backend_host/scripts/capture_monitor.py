@@ -14,7 +14,7 @@ import inotify.adapters
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.storage_path_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder
+from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder
 from detector import detect_issues
 from incident_manager import IncidentManager
 
@@ -38,12 +38,19 @@ class InotifyFrameMonitor:
         # Map capture_dir paths to their folder names for logging
         self.dir_to_info = {}
         
-        # Watch all capture directories (get_capture_directories already returns paths ending in /captures)
+        # Watch all capture directories (handles both hot and cold storage)
         for capture_dir in capture_dirs:
-            # capture_dir is already /var/www/html/stream/captureX/captures
-            # Extract captureX from the path (e.g., capture1, capture2, capture3)
-            parent_dir = os.path.dirname(capture_dir)  # /var/www/html/stream/captureX
-            capture_folder = os.path.basename(parent_dir)  # captureX
+            # Extract capture folder name correctly for hot/cold storage
+            if '/hot/' in capture_dir:
+                # Hot: /var/www/html/stream/capture1/hot/captures -> capture1
+                parts = capture_dir.split('/')
+                capture_folder = parts[-3]  # capture1
+                parent_dir = '/'.join(parts[:-2])  # /var/www/html/stream/capture1
+            else:
+                # Cold: /var/www/html/stream/capture1/captures -> capture1
+                parent_dir = os.path.dirname(capture_dir)  # /var/www/html/stream/capture1
+                capture_folder = os.path.basename(parent_dir)  # capture1
+            
             self.dir_to_info[capture_dir] = {
                 'capture_dir': parent_dir,
                 'capture_folder': capture_folder
@@ -215,15 +222,37 @@ def main():
     logger.info("=" * 80)
     
     host_name = os.getenv('USER', 'unknown')
-    capture_dirs = get_capture_directories()
+    
+    # Get base directories and resolve hot/cold paths automatically
+    base_dirs = get_capture_base_directories()
+    capture_dirs = []
+    
+    for base_dir in base_dirs:
+        # Extract device folder name (e.g., 'capture1' from '/var/www/html/stream/capture1')
+        device_folder = os.path.basename(base_dir)
+        # Use centralized path resolution (handles hot/cold automatically)
+        capture_path = get_capture_storage_path(device_folder, 'captures')
+        capture_dirs.append(capture_path)
     
     logger.info(f"Found {len(capture_dirs)} capture directories")
     for capture_dir in capture_dirs:
-        capture_folder = os.path.basename(os.path.dirname(capture_dir))  # Extract captureX from path
-        logger.info(f"Monitoring: {capture_dir} -> {capture_folder}")
+        # Check if it's hot or cold storage
+        storage_type = "HOT (RAM)" if '/hot/' in capture_dir else "COLD (SD)"
+        capture_folder = capture_dir.split('/')[-2] if '/hot/' in capture_dir else os.path.basename(os.path.dirname(capture_dir))
+        logger.info(f"Monitoring [{storage_type}]: {capture_dir} -> {capture_folder}")
     
     # Auto-resolve orphaned incidents for capture folders no longer being monitored
-    monitored_capture_folders = [os.path.basename(os.path.dirname(d)) for d in capture_dirs]
+    # Extract capture folder names correctly (handle both hot and cold paths)
+    monitored_capture_folders = []
+    for capture_dir in capture_dirs:
+        if '/hot/' in capture_dir:
+            # Hot path: /var/www/html/stream/capture1/hot/captures -> capture1
+            capture_folder = capture_dir.split('/')[-3]
+        else:
+            # Cold path: /var/www/html/stream/capture1/captures -> capture1
+            capture_folder = os.path.basename(os.path.dirname(capture_dir))
+        monitored_capture_folders.append(capture_folder)
+    
     incident_manager = IncidentManager()
     incident_manager.cleanup_orphaned_incidents(monitored_capture_folders, host_name)
     

@@ -18,7 +18,7 @@ backend_host_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_host_dir)
 sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.storage_path_utils import get_capture_directories, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode
+from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode
 from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
@@ -527,24 +527,30 @@ def main():
     logger.info("Using audio_transcription_utils (clean, no dependencies)...")
     
     try:
-        capture_dirs = get_capture_directories()
-        logger.info(f"Found {len(capture_dirs)} capture directories")
+        # Get base directories and resolve hot/cold paths automatically
+        base_dirs = get_capture_base_directories()
+        logger.info(f"Found {len(base_dirs)} capture base directories")
         
         # Filter out host device from monitored directories (no audio capture)
         # Uses lightweight device mapping without loading incidents from DB
         monitored_devices = []
-        for capture_dir in capture_dirs:
-            capture_folder = get_capture_folder(capture_dir)
-            device_info = get_device_info_from_capture_folder(capture_folder)
-            device_id = device_info.get('device_id', capture_folder)
+        for base_dir in base_dirs:
+            # Extract device folder name (e.g., 'capture1' from '/var/www/html/stream/capture1')
+            device_folder = os.path.basename(base_dir)
+            # Use centralized path resolution (handles hot/cold automatically)
+            capture_dir = get_capture_storage_path(device_folder, 'captures')
+            
+            device_info = get_device_info_from_capture_folder(device_folder)
+            device_id = device_info.get('device_id', device_folder)
             is_host = (device_id == 'host')
             
-            logger.info(f"  [{capture_folder}] device_id={device_id}, is_host={is_host}")
+            storage_type = "HOT (RAM)" if '/hot/' in capture_dir else "COLD (SD)"
+            logger.info(f"  [{device_folder}] device_id={device_id}, is_host={is_host}, storage={storage_type}")
             
             if is_host:
-                logger.info(f"  ⊗ Skipping: {capture_dir} -> {capture_folder} (host has no audio)")
+                logger.info(f"  ⊗ Skipping: {capture_dir} -> {device_folder} (host has no audio)")
             else:
-                logger.info(f"  ✓ Monitoring: {capture_dir} -> {capture_folder}")
+                logger.info(f"  ✓ Monitoring [{storage_type}]: {capture_dir} -> {device_folder}")
                 monitored_devices.append(capture_dir)
         
         # Whisper model will be loaded on first use and cached globally

@@ -181,15 +181,6 @@ def get_capture_base_directories():
     return base_dirs
 
 
-def get_capture_directories():
-    """
-    Get list of capture directories (with /captures subdirectory)
-    Legacy function for backward compatibility with capture_monitor.py
-    """
-    base_dirs = get_capture_base_directories()
-    return [os.path.join(d, 'captures') for d in base_dirs if os.path.exists(os.path.join(d, 'captures'))]
-
-
 def is_ram_mode(capture_base_dir):
     """
     Check if capture directory uses RAM hot storage

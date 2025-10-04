@@ -129,7 +129,7 @@ get_device_quality() {
   - No changes (uses `get_capture_base_directories()`)
 
 - `backend_host/src/services/navigation/navigation_executor.py`
-  - No changes (uses `get_capture_directories()`)
+  - ✅ UPDATED: Now uses `get_capture_base_directories()` + `get_capture_storage_path()` (hot/cold aware)
 
 ## Testing
 

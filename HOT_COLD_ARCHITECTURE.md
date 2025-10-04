@@ -276,25 +276,12 @@ def archive_segments(capture_dir: str):
     except Exception as e:
         logger.error(f"Error archiving segments: {e}")
 
-def get_capture_directories():
-    """Get active capture directories from config"""
-    config_file = '/tmp/active_captures.conf'
-    
-    if os.path.exists(config_file):
-        with open(config_file, 'r') as f:
-            return [line.strip() for line in f if line.strip()]
-    
-    # Fallback
-    return [
-        '/var/www/html/stream/capture1',
-        '/var/www/html/stream/capture2',
-        '/var/www/html/stream/capture3',
-        '/var/www/html/stream/capture4'
-    ]
-
 def archive_cycle():
     """One archive cycle for all capture directories"""
-    capture_dirs = get_capture_directories()
+    # Use centralized utilities - respects hot/cold storage architecture
+    from shared.src.lib.utils.storage_path_utils import get_capture_base_directories
+    
+    capture_dirs = get_capture_base_directories()
     
     for capture_dir in capture_dirs:
         if not os.path.exists(capture_dir):
