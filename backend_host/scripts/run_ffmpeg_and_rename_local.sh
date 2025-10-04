@@ -137,7 +137,7 @@ get_device_quality() {
   else
     local quality=$(get_device_info "$capture_dir" "quality")
     if [ -z "$quality" ]; then
-      echo "low"  # Default to LOW quality (240:180) for preview/monitoring
+      echo "low"  # Default to LOW quality (320:180) for preview/monitoring
     else
       echo "$quality"
     fi
@@ -263,7 +263,7 @@ start_grabber() {
       local capture_scale="1280:720"    # Captures at HD for best detection quality
     else
       # LOW (default): Minimal quality for preview/monitoring (multiple devices)
-      local stream_scale="240:180"
+      local stream_scale="320:180"
       local stream_bitrate="150k"
       local stream_maxrate="200k"
       local stream_bufsize="400k"
@@ -310,7 +310,7 @@ start_grabber() {
       local capture_scale="1280:720"    # Captures at HD for best detection quality
     else
       # LOW (default): Minimal quality for preview/monitoring (multiple devices)
-      local stream_scale="240:180"
+      local stream_scale="320:180"
       local stream_bitrate="120k"
       local stream_maxrate="150k"
       local stream_bufsize="300k"
