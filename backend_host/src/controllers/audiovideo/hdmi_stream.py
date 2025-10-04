@@ -29,7 +29,7 @@ class HDMIStreamController(FFmpegCaptureController):
         """Restart HDMI streaming with quality parameter."""
         try:
             import os
-            device_id = self.capture_source
+            device_id = self.device_id
             print(f"HDMI[{device_id}]: Restarting with quality: {quality}")
             
             # Get script path relative to this file

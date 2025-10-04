@@ -508,6 +508,7 @@ def restart_host_stream_service_proxy():
         data = request.get_json() or {}
         host_name = data.get('host_name')
         device_id = data.get('device_id', 'device1')
+        quality = data.get('quality', 'sd')  # Extract quality parameter
         
         if not host_name:
             return jsonify({
@@ -528,7 +529,7 @@ def restart_host_stream_service_proxy():
         from shared.src.lib.utils.build_url_utils import buildHostUrl
         host_url = buildHostUrl(host_data, '/host/system/restartHostStreamService')
         
-        response = requests.post(host_url, json={'device_id': device_id}, timeout=60)
+        response = requests.post(host_url, json={'device_id': device_id, 'quality': quality}, timeout=60)
         
         if response.status_code == 200:
             return jsonify(response.json()), 200
