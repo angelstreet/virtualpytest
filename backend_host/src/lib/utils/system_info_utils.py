@@ -15,6 +15,7 @@ import re
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from shared.src.lib.utils.supabase_utils import get_supabase_client
+from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_base_directories
 
 # Global cache for process start times
 _process_start_cache = {}
@@ -377,7 +378,7 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             last_activity_time = get_last_file_mtime(
                 captures_dir,
                 r'^capture_.*\.jpg$',
-                max_age_seconds=60,
+                max_age_seconds=2,
                 exclude_pattern=r'_thumbnail\.jpg$'
             )
                     
@@ -386,7 +387,7 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             last_activity_time = get_last_file_mtime(
                 captures_dir,
                 r'^capture_.*\.json$',
-                max_age_seconds=60
+                max_age_seconds=3
             )
         
         # Calculate working uptime: start -> last activity
@@ -755,12 +756,12 @@ def check_ffmpeg_status():
                 recent_jpg_count = count_recent_files(
                     captures_dir,
                     r'^capture_.*\.jpg$',
-                    max_age_seconds=60,
+                    max_age_seconds=2,
                     exclude_pattern=r'_thumbnail\.jpg$'
                 )
                 
                 # Single line per folder with debug info including process status
-                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 1m) | Processes: {status['processes_running']}")
+                print(f"🔍 [FFMPEG] {device_name}: {recent_jpg_count} JPG files (last 2s) | Processes: {status['processes_running']}")
                 
                 status['recent_files'][device_name] = {
                     'images': recent_jpg_count,
@@ -857,11 +858,11 @@ def check_monitor_status():
                 recent_json_count = count_recent_files(
                     captures_dir,
                     r'^capture_.*\.json$',
-                    max_age_seconds=60
+                    max_age_seconds=2
                 )
                 
                 # Single line per folder with debug info including process status
-                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 1m) | Process: {'running' if status['process_running'] else 'stopped'}")
+                print(f"🔍 [MONITOR] {device_name}: {recent_json_count} JSON files (last 2s) | Process: {'running' if status['process_running'] else 'stopped'}")
                 
                 status['recent_json_files'][device_name] = {
                     'count': recent_json_count,
