@@ -616,43 +616,41 @@ export function HLSVideoPlayer({
     }
   }, [useNativePlayer, streamUrl, isStreamActive, tryNativePlayback]);
 
-  // Initialization effect - runs when streamUrl changes
+  // Initialization - only on streamUrl change
   useEffect(() => {
     if (!streamUrl || !videoRef.current) return;
 
-    // Cleanup previous if any
-    cleanupStream();
+    // Guard: skip if already initialized with same URL
+    if (currentStreamUrl === streamUrl && streamLoaded && !streamError && !ffmpegStuck) {
+      console.log('[@component:HLSVideoPlayer] Skipping init - already loaded');
+      return;
+    }
 
-    // Reset states
-    setStreamLoaded(false);
+    // Reset error states but don't cleanup (preserve if possible)
     setStreamError(null);
     setRetryCount(0);
     setSegmentFailureCount(0);
     setFfmpegStuck(false);
+    setStreamLoaded(false);
     setCurrentStreamUrl(streamUrl);
 
-    initializeStream();
+    initializeStream(); // Initialize without destructive cleanup
+  }, [streamUrl, currentStreamUrl, streamLoaded, streamError, ffmpegStuck]);
 
-    return () => {
-      // Cleanup on streamUrl change
-      cleanupStream();
-    };
-  }, [streamUrl]);
-
-  // Separate effect for stream active state
+  // Pause/resume - non-destructive
   useEffect(() => {
-    if (!hlsRef.current || !videoRef.current) return;
+    if (!hlsRef.current || !videoRef.current || !streamLoaded) return;
 
     if (isStreamActive) {
-      console.log('[@component:HLSVideoPlayer] Resuming stream');
+      console.log('[@component:HLSVideoPlayer] Resuming stream (non-destructive)');
       hlsRef.current.startLoad();
       attemptPlay();
     } else {
-      console.log('[@component:HLSVideoPlayer] Pausing stream');
+      console.log('[@component:HLSVideoPlayer] Pausing stream (non-destructive)');
       hlsRef.current.stopLoad();
       videoRef.current.pause();
     }
-  }, [isStreamActive, attemptPlay]);
+  }, [isStreamActive, streamLoaded, attemptPlay]);
 
   // Simplified video ready check - no polling needed
   useEffect(() => {
@@ -666,19 +664,8 @@ export function HLSVideoPlayer({
   // Dedicated cleanup effect for component unmount - always runs
   useEffect(() => {
     return () => {
-      console.log('[@component:HLSVideoPlayer] Component unmounting - final cleanup');
-      // Force cleanup regardless of any conditions
-      if (hlsRef.current) {
-        try {
-          hlsRef.current.stopLoad();
-          hlsRef.current.removeAllListeners();
-          hlsRef.current.detachMedia();
-          hlsRef.current.destroy();
-        } catch (error) {
-          console.warn('[@component:HLSVideoPlayer] Final cleanup error:', error);
-        }
-        hlsRef.current = null;
-      }
+      console.log('[@component:HLSVideoPlayer] Final unmount cleanup');
+      cleanupStream();
     };
   }, []); // Empty dependency array - only runs on mount/unmount
 
