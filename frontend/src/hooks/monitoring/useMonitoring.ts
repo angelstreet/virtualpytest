@@ -252,7 +252,7 @@ export const useMonitoring = ({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [fetchLatestMonitoringData, loadFrameJsonAsync, analyzeFrameAIAsync, lastProcessedSequence, userSelectedFrame, isPlaying, isInitialLoading]);
+  }, [fetchLatestMonitoringData, loadFrameJsonAsync, analyzeFrameAIAsync, userSelectedFrame, isPlaying, isInitialLoading]);
 
   // Load analysis for selected frame
   useEffect(() => {
