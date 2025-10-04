@@ -46,8 +46,9 @@ class VNCStreamController(FFmpegCaptureController):
             backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
             script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
             
+            # Run as www-data to match stream.service user (ensures consistent file permissions)
             result = subprocess.run(
-                [script_path, device_id, quality],
+                ['sudo', '-u', 'www-data', script_path, device_id, quality],
                 capture_output=True,
                 text=True,
                 timeout=30

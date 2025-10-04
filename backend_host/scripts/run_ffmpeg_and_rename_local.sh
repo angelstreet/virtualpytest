@@ -91,7 +91,7 @@ done
 
 # Clean up any stale temp files from previous runs
 echo "🔍 DEBUG: Cleaning stale temp files..."
-sudo rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
+rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
 
 # Single device restart: kill only the specific device's process
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
@@ -101,7 +101,7 @@ if [ "$SINGLE_DEVICE_MODE" = true ]; then
             IFS='|' read -r _ _ capture_dir _ <<< "${GRABBERS[$index]}"
             OLD_PID=$(get_device_info "$capture_dir" "pid")
             if [ -n "$OLD_PID" ]; then
-                sudo kill -9 "$OLD_PID" 2>/dev/null || true
+                kill -9 "$OLD_PID" 2>/dev/null || true
                 echo "✅ Killed old process PID: $OLD_PID"
             fi
             break
@@ -181,7 +181,7 @@ get_vnc_resolution() {
 # Function to reset video device before capture
 reset_video_device() {
   local device="$1"
-  sudo fuser -k "$device" 2>/dev/null || true
+  fuser -k "$device" 2>/dev/null || true
   sleep 1
 }
 
@@ -415,8 +415,8 @@ update_active_captures() {
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
-  # Remove old file completely to avoid permission conflicts
-  sudo rm -f "/tmp/active_captures.conf" 2>/dev/null || rm -f "/tmp/active_captures.conf" 2>/dev/null || true
+  # Remove old file completely to avoid permission conflicts (no sudo needed with umask 0000)
+  rm -f "/tmp/active_captures.conf" 2>/dev/null || true
   # Create fresh file (umask 0000 ensures 666 permissions automatically)
   > "/tmp/active_captures.conf"
   echo "✅ Created fresh active_captures.conf with world read/write permissions"
@@ -448,9 +448,9 @@ fi
 # Graceful shutdown handler for systemd stop/restart
 cleanup_all() {
   echo "🛑 Received shutdown signal - cleaning up..."
-  sudo pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
-  # Clean up temp files
-  sudo rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
+  pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
+  # Clean up temp files (no sudo needed with umask 0000)
+  rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
   echo "✅ Cleanup complete - exiting"
   exit 0
 }

@@ -38,7 +38,8 @@ class HDMIStreamController(FFmpegCaptureController):
             backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
             script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
             
-            cmd = [script_path, device_id, quality]
+            # Run as www-data to match stream.service user (ensures consistent file permissions)
+            cmd = ['sudo', '-u', 'www-data', script_path, device_id, quality]
             print(f"[HDMI_CONTROLLER] Running command: {' '.join(cmd)}")
             
             result = subprocess.run(
