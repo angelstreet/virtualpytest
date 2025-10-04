@@ -830,6 +830,7 @@ const RecHostStreamModalContent: React.FC<{
                     height={isMobileModel ? 600 : 400}
                     muted={isMuted}
                     isLiveMode={isLiveMode}
+                    quality={isHDMode ? 'hd' : 'sd'} // Pass quality to force reload on change
                 />
               )
             ) : (

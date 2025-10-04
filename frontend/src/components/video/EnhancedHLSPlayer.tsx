@@ -52,6 +52,7 @@ interface EnhancedHLSPlayerProps {
   muted?: boolean; // Add muted prop for audio control
   className?: string;
   isLiveMode?: boolean;
+  quality?: 'low' | 'sd' | 'hd'; // Stream quality - forces reload when changed
 }
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
@@ -63,7 +64,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   height = 400,
   muted = true, // Default to muted for autoplay compliance
   className,
-  isLiveMode: externalIsLiveMode
+  isLiveMode: externalIsLiveMode,
+  quality = 'sd' // Default to SD quality
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [internalIsLiveMode] = useState(true); // Start in live mode
@@ -558,7 +560,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       <Box sx={{ position: 'relative', height }}>
         {!isTransitioning ? (
           <HLSVideoPlayer
-            key={isLiveMode ? 'live' : 'archive'} // Removed -${streamUrl} to prevent remount on manifest changes
+            key={`${isLiveMode ? 'live' : 'archive'}-${quality}`} // Include quality to force reload on quality change
             streamUrl={streamUrl}
             isStreamActive={true}
             videoElementRef={videoRef}
