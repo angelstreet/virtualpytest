@@ -229,40 +229,49 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   // Build the appropriate stream URL based on mode and current manifest
   // NEW: Hot/cold architecture - segments/ subfolder for all manifests
   const streamUrl = useMemo(() => {
+    let url: string;
+    
     // Live mode - use segments/output.m3u8
     if (isLiveMode) {
       if (providedStreamUrl) {
         // Replace old paths with new segments/ structure
-        return providedStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
+        url = providedStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
+      } else if (hookStreamUrl) {
+        url = hookStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
+      } else {
+        url = buildStreamUrl(host, deviceId);
       }
-      if (hookStreamUrl) {
-        return hookStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
-      }
-      return buildStreamUrl(host, deviceId);
     }
-    
     // Archive mode - use hour-based manifests: segments/X/archive.m3u8
-    if (archiveMetadata && archiveMetadata.manifests.length > 0) {
+    else if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         // Extract hour from manifest window_index and build path: segments/X/archive.m3u8
         const hour = currentManifest.window_index; // 0-23
-        const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/archive.m3u8`);
-        console.log(`[@EnhancedHLSPlayer] Using hour ${hour} manifest, URL: ${manifestUrl}`);
-        return manifestUrl;
+        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/archive.m3u8`);
+        console.log(`[@EnhancedHLSPlayer] Using hour ${hour} manifest, URL: ${url}`);
+      } else {
+        url = providedStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8') 
+          || hookStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8')
+          || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/0/archive.m3u8`;
       }
     }
-    
     // Fallback to first hour (0) while metadata is loading
-    if (providedStreamUrl) {
-      return providedStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8');
+    else {
+      url = providedStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8')
+        || hookStreamUrl?.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8')
+        || `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/0/archive.m3u8`;
     }
-    if (hookStreamUrl) {
-      return hookStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8');
+    
+    // Append quality parameter to force reload when quality changes (without unmounting component)
+    if (quality) {
+      const separator = url.includes('?') ? '&' : '?';
+      url = `${url}${separator}q=${quality}`;
     }
-    return `/host/stream/capture${deviceId === 'device1' ? '1' : '2'}/segments/0/archive.m3u8`;
-  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex]);
+    
+    return url;
+  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex, quality]);
 
   // Seek to live edge when switching to live mode
   const seekToLive = () => {
