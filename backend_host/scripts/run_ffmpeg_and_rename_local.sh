@@ -380,12 +380,19 @@ update_active_captures() {
   # Add new entry
   echo "${capture_dir},${pid},${quality}" >> "$temp_file"
   
-  mv "$temp_file" /tmp/active_captures.conf
+  # Move with error checking
+  if ! mv "$temp_file" /tmp/active_captures.conf 2>/dev/null; then
+    echo "⚠️  WARNING: Failed to update active_captures.conf (permission issue?)"
+    rm -f "$temp_file"
+    return 1
+  fi
+  chmod 666 "/tmp/active_captures.conf" 2>/dev/null || true  # Ensure writable
 }
 
 # Initialize active captures file (will be populated by start_grabber)
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
   > "/tmp/active_captures.conf"
+  chmod 666 "/tmp/active_captures.conf"  # Make writable by all users (prevents permission issues)
   echo "Starting ${#GRABBERS[@]} devices"
 fi
 
