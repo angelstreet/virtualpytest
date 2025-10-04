@@ -51,7 +51,14 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                 'device_id': device_id
             }
         
-        capture_folder = os.path.join(capture_path, 'captures')
+        # Use centralized storage path resolution (handles hot/cold automatically)
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder as get_folder_name
+        
+        # Extract device folder name from capture path
+        device_folder = os.path.basename(capture_path)  # e.g., 'capture1'
+        
+        capture_folder = get_capture_storage_path(device_folder, 'captures')
+        metadata_folder = get_capture_storage_path(device_folder, 'metadata')
         
         if not os.path.exists(capture_folder):
             return {
@@ -81,9 +88,9 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
                 filepath = os.path.join(capture_folder, filename)
                 if os.path.getmtime(filepath) >= cutoff_time:
                     
-                    # Check for analysis files
+                    # Check for metadata JSON files in metadata/ directory (not captures/)
                     base_name = filename.replace('.jpg', '')
-                    frame_json_path = os.path.join(capture_folder, f"{base_name}.json")
+                    frame_json_path = os.path.join(metadata_folder, f"{base_name}.json")
                     
                     # Include all images, with fallback data for missing JSON analysis
                     analysis_data = None
@@ -176,7 +183,14 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
         Dict with success status and analysis data
     """
     try:
-        capture_folder = os.path.join(capture_path, 'captures')
+        # Use centralized storage path resolution (handles hot/cold automatically)
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+        
+        # Extract device folder name from capture path
+        device_folder = os.path.basename(capture_path)  # e.g., 'capture1'
+        
+        capture_folder = get_capture_storage_path(device_folder, 'captures')
+        metadata_folder = get_capture_storage_path(device_folder, 'metadata')
         
         if not os.path.exists(capture_folder):
             return {
@@ -206,9 +220,9 @@ def load_recent_analysis_data_from_path(capture_path: str, timeframe_minutes: in
                 filepath = os.path.join(capture_folder, filename)
                 if os.path.getmtime(filepath) >= cutoff_time:
                     
-                    # Check for analysis files
+                    # Check for metadata JSON files in metadata/ directory (not captures/)
                     base_name = filename.replace('.jpg', '')
-                    frame_json_path = os.path.join(capture_folder, f"{base_name}.json")
+                    frame_json_path = os.path.join(metadata_folder, f"{base_name}.json")
                     
                     # Include all images, with fallback data for missing JSON analysis
                     analysis_data = None

@@ -12,7 +12,7 @@ import {
   CameraAlt as CameraIcon,
 } from '@mui/icons-material';
 import { Box, IconButton, Typography, Button, CircularProgress } from '@mui/material';
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
@@ -82,6 +82,8 @@ const RecHostStreamModalContent: React.FC<{
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
   const [isHDMode, setIsHDMode] = useState<boolean>(false); // Start in SD mode (auto-switched from LOW)
   const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
+  const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // AI Disambiguation state and handlers
   const [disambiguationData, setDisambiguationData] = useState<any>(null);
@@ -98,48 +100,6 @@ const RecHostStreamModalContent: React.FC<{
     setDisambiguationResolve(() => resolve);
     setDisambiguationCancel(() => cancel);
   }, []);
-
-  // Auto-switch to SD quality when modal opens, revert to LOW when closes
-  useEffect(() => {
-    const switchToSD = async () => {
-      try {
-        console.log('[@component:RecHostStreamModal] Auto-switching to SD quality on modal open');
-        const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host_name: host.host_name,
-            device_id: device?.device_id || 'device1',
-            quality: 'sd' // Auto-switch to SD when modal opens
-          })
-        });
-        if (response.ok) {
-          console.log('[@component:RecHostStreamModal] Stream switched to SD quality');
-        }
-      } catch (error) {
-        console.error('[@component:RecHostStreamModal] Failed to switch to SD:', error);
-      }
-    };
-
-    switchToSD();
-
-    // Cleanup: revert to LOW quality when component unmounts
-    return () => {
-      console.log('[@component:RecHostStreamModal] Component unmounting, reverting to LOW quality');
-      setIsStreamActive(false);
-      
-      // Switch back to LOW quality for preview/monitoring
-      fetch(buildServerUrl('/server/system/restartHostStreamService'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1',
-          quality: 'low' // Revert to LOW when modal closes
-        })
-      }).catch(err => console.error('[@component:RecHostStreamModal] Failed to revert to LOW:', err));
-    };
-  }, [host.host_name, device?.device_id]);
 
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
@@ -349,42 +309,164 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, []);
 
-  // Handle HD quality toggle
-  const handleToggleHD = useCallback(async () => {
-    const newMode = !isHDMode;
-    console.log(`[@component:RecHostStreamModal] ===== QUALITY TOGGLE START =====`);
-    console.log(`[@component:RecHostStreamModal] Switching from ${isHDMode ? 'HD' : 'SD'} to ${newMode ? 'HD' : 'SD'}`);
-    setIsHDMode(newMode);
-    setIsQualitySwitching(true); // Show loading overlay
-    console.log(`[@component:RecHostStreamModal] isQualitySwitching set to TRUE - overlay should appear`);
+  // Poll for new stream availability - checks multiple segments to ensure stability
+  const pollForNewStream = useCallback((deviceId: string) => {
+    const captureNum = deviceId === 'device1' ? '1' : deviceId === 'device2' ? '2' : deviceId === 'device3' ? '3' : '4';
+    const baseUrl = `${buildServerUrl('')}/host/stream/capture${captureNum}/segments`;
+    console.log(`[@component:RecHostStreamModal] Starting robust polling for new stream at: ${baseUrl}`);
+    
+    let pollCount = 0;
+    const maxPolls = 30; // 15 seconds max (500ms * 30)
+    const requiredSuccessfulSegments = 3; // Need at least 3 segments with 200 OK
+    let successfulSegmentCount = 0;
+    
+    pollingIntervalRef.current = setInterval(async () => {
+      pollCount++;
+      console.log(`[@component:RecHostStreamModal] Polling attempt ${pollCount}/${maxPolls}`);
+      
+      // Check segments 0-9 to find which ones exist
+      const segmentChecks = [];
+      for (let i = 0; i < 10; i++) {
+        const segmentNum = String(i).padStart(9, '0'); // segment_000000000.ts to segment_000000009.ts
+        const segmentUrl = `${baseUrl}/segment_${segmentNum}.ts`;
+        segmentChecks.push(
+          fetch(segmentUrl, { method: 'HEAD' })
+            .then(res => ({ segment: i, ok: res.ok, status: res.status }))
+            .catch(() => ({ segment: i, ok: false, status: 0 }))
+        );
+      }
+      
+      try {
+        const results = await Promise.all(segmentChecks);
+        const successful = results.filter(r => r.ok);
+        successfulSegmentCount = successful.length;
+        
+        console.log(`[@component:RecHostStreamModal] Found ${successfulSegmentCount} segments:`, 
+          successful.map(s => `segment_${String(s.segment).padStart(9, '0')}.ts`).join(', '));
+        
+        if (successfulSegmentCount >= requiredSuccessfulSegments) {
+          console.log(`[@component:RecHostStreamModal] Stream stabilized! ${successfulSegmentCount} segments available`);
+          // Clear polling
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          // Resume player and hide overlay
+          setShouldPausePlayer(false);
+          setIsQualitySwitching(false);
+        } else {
+          console.log(`[@component:RecHostStreamModal] Stream not stable yet (${successfulSegmentCount}/${requiredSuccessfulSegments} segments)`);
+        }
+      } catch (error) {
+        console.log(`[@component:RecHostStreamModal] Segment check failed: ${error}`);
+      }
+      
+      // Timeout after max polls
+      if (pollCount >= maxPolls) {
+        console.warn(`[@component:RecHostStreamModal] Polling timeout after ${maxPolls} attempts - forcing player resume`);
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setShouldPausePlayer(false);
+        setIsQualitySwitching(false);
+        showWarning('Stream restart took longer than expected');
+      }
+    }, 500);
+  }, [showWarning]);
+
+  // Common function to switch quality (reused for initial entry and button clicks)
+  const switchQuality = useCallback(async (targetQuality: 'low' | 'sd' | 'hd', showLoadingOverlay: boolean = true) => {
+    console.log(`[@component:RecHostStreamModal] Switching to ${targetQuality.toUpperCase()} quality (showOverlay=${showLoadingOverlay})`);
+    
+    // Stop any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
+    // Update state based on target quality
+    if (targetQuality === 'hd') {
+      setIsHDMode(true);
+    } else {
+      setIsHDMode(false);
+    }
+    
+    // Show loading overlay if requested (for manual switches, not initial load)
+    if (showLoadingOverlay) {
+      setShouldPausePlayer(true); // Pause player to show last frame
+      setIsQualitySwitching(true); // Show loading overlay (10% opacity)
+    }
     
     try {
-      console.log(`[@component:RecHostStreamModal] Sending restart request to backend...`);
       const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host_name: host.host_name,
           device_id: device?.device_id || 'device1',
-          quality: newMode ? 'hd' : 'sd'
+          quality: targetQuality
         })
       });
       
       if (response.ok) {
-        console.log(`[@component:RecHostStreamModal] Stream switch initiated to ${newMode ? 'HD' : 'SD'} quality`);
-        // Don't stop blinking here - wait for player to reload successfully
+        console.log(`[@component:RecHostStreamModal] Stream restart initiated for ${targetQuality.toUpperCase()} - starting to poll for stabilized stream`);
+        // Start polling for new stream if we showed the loading overlay
+        if (showLoadingOverlay) {
+          pollForNewStream(device?.device_id || 'device1');
+        }
       } else {
-        showError(`Failed to switch quality`);
-        setIsHDMode(!newMode); // Revert on error
-        setIsQualitySwitching(false); // Stop blinking on error
+        if (showLoadingOverlay) {
+          showError(`Failed to switch to ${targetQuality.toUpperCase()} quality`);
+          setShouldPausePlayer(false);
+          setIsQualitySwitching(false);
+        }
+        console.error(`[@component:RecHostStreamModal] Failed to switch quality: ${response.status}`);
       }
     } catch (error) {
-      showError('Failed to switch quality');
-      setIsHDMode(!newMode); // Revert on error
-      setIsQualitySwitching(false); // Stop blinking on error
+      if (showLoadingOverlay) {
+        showError(`Failed to switch to ${targetQuality.toUpperCase()} quality`);
+        setShouldPausePlayer(false);
+        setIsQualitySwitching(false);
+      }
       console.error('[@component:RecHostStreamModal] Quality switch error:', error);
     }
-  }, [isHDMode, host.host_name, device?.device_id, showError]);
+  }, [host.host_name, device?.device_id, showError, pollForNewStream]);
+
+  // Auto-switch to SD quality when modal opens, revert to LOW when closes
+  useEffect(() => {
+    console.log('[@component:RecHostStreamModal] Modal opened - auto-switching to SD quality (no loading overlay)');
+    // Use common function WITHOUT loading overlay (background switch during initial load)
+    switchQuality('sd', false);
+
+    // Cleanup: revert to LOW quality when component unmounts
+    return () => {
+      console.log('[@component:RecHostStreamModal] Component unmounting, reverting to LOW quality');
+      setIsStreamActive(false);
+      
+      // Switch back to LOW quality for preview/monitoring
+      fetch(buildServerUrl('/server/system/restartHostStreamService'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device?.device_id || 'device1',
+          quality: 'low' // Revert to LOW when modal closes
+        })
+      }).catch(err => console.error('[@component:RecHostStreamModal] Failed to revert to LOW:', err));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount/unmount - switchQuality is stable
+
+  // Handle HD quality toggle - uses common switchQuality function
+  const handleToggleHD = useCallback(async () => {
+    const targetQuality = !isHDMode ? 'hd' : 'sd';
+    console.log(`[@component:RecHostStreamModal] ===== HD/SD BUTTON CLICKED =====`);
+    console.log(`[@component:RecHostStreamModal] Switching from ${isHDMode ? 'HD' : 'SD'} to ${targetQuality.toUpperCase()}`);
+    
+    // Use common function with loading overlay enabled
+    await switchQuality(targetQuality, true);
+  }, [isHDMode, switchQuality]);
 
   // Handle player ready after quality switch
   const handlePlayerReady = useCallback(() => {
@@ -445,6 +527,12 @@ const RecHostStreamModalContent: React.FC<{
   const handleClose = useCallback(async () => {
     console.log('[@component:RecHostStreamModal] Closing modal');
 
+    // Stop any polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
     // Stop stream before closing
     setIsStreamActive(false);
 
@@ -455,6 +543,8 @@ const RecHostStreamModalContent: React.FC<{
     setAiAgentMode(false);
     setRestartMode(false);
     setIsHDMode(false); // Reset HD mode
+    setShouldPausePlayer(false);
+    setIsQualitySwitching(false);
     onClose();
   }, [onClose]);
 
@@ -794,32 +884,29 @@ const RecHostStreamModalContent: React.FC<{
               backgroundColor: 'black',
             }}
           >
-            {/* Quality transition overlay - hide corrupted frames during FFmpeg restart */}
-            {isQualitySwitching && (() => {
-              console.log('[@component:RecHostStreamModal] RENDERING QUALITY TRANSITION OVERLAY');
-              return (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'black',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                  }}
-                >
-                  <CircularProgress size={60} sx={{ color: 'warning.main' }} />
-                  <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
-                    Switching to {isHDMode ? 'HD' : 'SD'} quality...
-                  </Typography>
-                </Box>
-              );
-            })()}
+            {/* Quality transition overlay - semi-transparent to show last frame underneath */}
+            {isQualitySwitching && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.1)', // 10% opacity - shows last frame
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1000,
+                }}
+              >
+                <CircularProgress size={60} sx={{ color: 'warning.main' }} />
+                <Typography variant="h6" sx={{ color: 'white', mt: 2, textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                  Switching to {isHDMode ? 'HD' : 'SD'} quality...
+                </Typography>
+              </Box>
+            )}
             {monitoringMode && isControlActive ? (
               <MonitoringPlayer
                 host={host}
@@ -881,7 +968,8 @@ const RecHostStreamModalContent: React.FC<{
                     muted={isMuted}
                     isLiveMode={isLiveMode}
                     quality={isHDMode ? 'hd' : 'sd'} // Pass quality to force reload on change
-                    onPlayerReady={handlePlayerReady} // Stop blinking when player reloads successfully
+                    shouldPause={shouldPausePlayer} // Pause during quality transition to show last frame
+                    onPlayerReady={handlePlayerReady} // Called when new stream is ready
                 />
               )
             ) : (

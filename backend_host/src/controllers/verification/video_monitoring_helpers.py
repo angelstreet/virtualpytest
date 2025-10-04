@@ -134,7 +134,7 @@ class VideoMonitoringHelpers:
         try:
             print(f"MonitoringHelpers[{self.device_name}]: Getting latest JSON for monitoring")
             
-            # Get capture folder - need to get it from image controller
+            # Get capture folder path first
             capture_folder = self._get_capture_folder()
             
             if not capture_folder or not os.path.exists(capture_folder):
@@ -143,12 +143,28 @@ class VideoMonitoringHelpers:
                     'error': f'Capture folder not found: {capture_folder}'
                 }
             
-            # Find the latest JSON file
+            # Get metadata folder - JSON files are stored there, not in captures/
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            # Extract device folder from path (e.g., /var/www/html/stream/capture1/hot/captures -> capture1)
+            if '/hot/' in capture_folder:
+                device_folder = capture_folder.split('/')[-3]
+            else:
+                device_folder = os.path.basename(os.path.dirname(capture_folder))
+            
+            metadata_folder = get_capture_storage_path(device_folder, 'metadata')
+            
+            if not os.path.exists(metadata_folder):
+                return {
+                    'success': False,
+                    'error': f'Metadata folder not found: {metadata_folder}'
+                }
+            
+            # Find the latest JSON file from metadata folder
             json_files = []
-            for filename in os.listdir(capture_folder):
+            for filename in os.listdir(metadata_folder):
                 if (filename.startswith('capture_') and 
                     filename.endswith('.json')):
-                    filepath = os.path.join(capture_folder, filename)
+                    filepath = os.path.join(metadata_folder, filename)
                     if os.path.isfile(filepath):
                         # Use file creation time instead of sequence number to handle FFmpeg restarts
                         file_ctime = os.path.getctime(filepath)

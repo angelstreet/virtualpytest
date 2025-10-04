@@ -15,6 +15,7 @@ interface HLSVideoPlayerProps {
   isExpanded?: boolean;
   muted?: boolean; // Add muted prop
   isArchiveMode?: boolean; // Add archive mode prop
+  shouldPause?: boolean; // Pause player to show last frame (during quality transition)
   onRestartRequest?: () => void; // Callback to expose restart functionality
   onPlayerReady?: () => void; // Callback when player loads successfully
 }
@@ -44,6 +45,7 @@ export function HLSVideoPlayer({
   layoutConfig,
   muted = true, // Default to muted for autoplay compliance
   isArchiveMode = false, // Default to live mode
+  shouldPause = false, // Default to not paused
   onRestartRequest, // New prop for external restart trigger
   onPlayerReady, // Callback when player loads successfully
 }: HLSVideoPlayerProps) {
@@ -659,6 +661,19 @@ export function HLSVideoPlayer({
 
     initializeStream(); // Initialize without destructive cleanup
   }, [streamUrl, currentStreamUrl, streamLoaded, streamError, ffmpegStuck]);
+
+  // Handle shouldPause prop - pause to show last frame (e.g., during quality transition)
+  useEffect(() => {
+    if (!videoRef.current || !streamLoaded) return;
+
+    if (shouldPause) {
+      console.log('[@component:HLSVideoPlayer] Pausing video to show last frame (shouldPause=true)');
+      videoRef.current.pause();
+    } else if (isStreamActive) {
+      console.log('[@component:HLSVideoPlayer] Resuming video playback (shouldPause=false)');
+      attemptPlay();
+    }
+  }, [shouldPause, streamLoaded, isStreamActive, attemptPlay]);
 
   // Pause/resume - non-destructive
   useEffect(() => {

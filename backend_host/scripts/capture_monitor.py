@@ -87,19 +87,30 @@ class InotifyFrameMonitor:
             return
         
         frame_path = os.path.join(captures_path, filename)
-        json_file = frame_path.replace('.jpg', '.json')
         
-        # Skip if already analyzed
-        if os.path.exists(json_file):
-            return
-        
-        # Get capture info
+        # CRITICAL: Write JSON metadata to metadata/ directory, not captures/
+        # Get capture info to determine device folder
         if captures_path not in self.dir_to_info:
             logger.warning(f"Unknown capture path: {captures_path}")
             return
         
         info = self.dir_to_info[captures_path]
         capture_folder = info['capture_folder']
+        
+        # Get metadata path using centralized storage resolution (handles hot/cold automatically)
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+        metadata_path = get_capture_storage_path(capture_folder, 'metadata')
+        
+        # Ensure metadata directory exists
+        os.makedirs(metadata_path, exist_ok=True)
+        
+        # JSON file goes to metadata directory with same filename
+        json_filename = filename.replace('.jpg', '.json')
+        json_file = os.path.join(metadata_path, json_filename)
+        
+        # Skip if already analyzed
+        if os.path.exists(json_file):
+            return
         
         # Add visual separator when switching devices
         if self.last_processed_folder != capture_folder:

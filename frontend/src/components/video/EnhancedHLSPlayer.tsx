@@ -53,6 +53,7 @@ interface EnhancedHLSPlayerProps {
   className?: string;
   isLiveMode?: boolean;
   quality?: 'low' | 'sd' | 'hd'; // Stream quality - forces reload when changed
+  shouldPause?: boolean; // Pause player to show last frame (during quality transition)
   onPlayerReady?: () => void; // Callback when player loads successfully
 }
 
@@ -67,6 +68,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   className,
   isLiveMode: externalIsLiveMode,
   quality = 'sd', // Default to SD quality
+  shouldPause = false, // Default to not paused
   onPlayerReady
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -587,6 +589,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             videoElementRef={videoRef}
             muted={muted} // Use the muted prop from parent
             isArchiveMode={!isLiveMode} // Pass archive mode flag
+            shouldPause={shouldPause} // Pause to show last frame during quality transition
             sx={{ width: '100%', height: '100%' }}
             onPlayerReady={onPlayerReady} // Pass callback to notify when player loads successfully
           />
