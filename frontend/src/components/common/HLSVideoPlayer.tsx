@@ -343,11 +343,16 @@ export function HLSVideoPlayer({
       // If HLS instance exists and URL changed, just reload source (safer than destroy/recreate)
       if (hlsRef.current && currentStreamUrl !== streamUrl) {
         console.log('[@component:HLSVideoPlayer] Reloading source without destroying HLS instance');
+        console.log('[@component:HLSVideoPlayer] Old URL:', currentStreamUrl);
+        console.log('[@component:HLSVideoPlayer] New URL:', streamUrl);
         setCurrentStreamUrl(streamUrl);
+        setStreamLoaded(false); // Mark as not loaded during transition
         hlsRef.current.stopLoad();
         hlsRef.current.detachMedia();
         hlsRef.current.loadSource(streamUrl);
         hlsRef.current.attachMedia(videoRef.current);
+        // The existing MANIFEST_PARSED handler will fire and call onPlayerReady
+        console.log('[@component:HLSVideoPlayer] Source reloaded, waiting for manifest parse...');
         return;
       }
 
@@ -637,12 +642,13 @@ export function HLSVideoPlayer({
   useEffect(() => {
     if (!streamUrl || !videoRef.current) return;
 
-    // Guard: skip if already initialized with same URL
+    // Always initialize if URL changed (don't skip even if already loaded)
     if (currentStreamUrl === streamUrl && streamLoaded && !streamError && !ffmpegStuck) {
-      console.log('[@component:HLSVideoPlayer] Skipping init - already loaded');
+      console.log('[@component:HLSVideoPlayer] Skipping init - already loaded with same URL');
       return;
     }
 
+    console.log('[@component:HLSVideoPlayer] URL changed or error state - reinitializing');
     // Reset error states but don't cleanup (preserve if possible)
     setStreamError(null);
     setRetryCount(0);

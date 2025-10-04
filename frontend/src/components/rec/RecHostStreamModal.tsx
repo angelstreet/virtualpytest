@@ -352,11 +352,14 @@ const RecHostStreamModalContent: React.FC<{
   // Handle HD quality toggle
   const handleToggleHD = useCallback(async () => {
     const newMode = !isHDMode;
+    console.log(`[@component:RecHostStreamModal] ===== QUALITY TOGGLE START =====`);
+    console.log(`[@component:RecHostStreamModal] Switching from ${isHDMode ? 'HD' : 'SD'} to ${newMode ? 'HD' : 'SD'}`);
     setIsHDMode(newMode);
-    setIsQualitySwitching(true); // Start blinking
+    setIsQualitySwitching(true); // Show loading overlay
+    console.log(`[@component:RecHostStreamModal] isQualitySwitching set to TRUE - overlay should appear`);
     
     try {
-      console.log(`[@component:RecHostStreamModal] Switching to ${newMode ? 'HD' : 'SD'} quality`);
+      console.log(`[@component:RecHostStreamModal] Sending restart request to backend...`);
       const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -385,9 +388,13 @@ const RecHostStreamModalContent: React.FC<{
 
   // Handle player ready after quality switch
   const handlePlayerReady = useCallback(() => {
+    console.log(`[@component:RecHostStreamModal] ===== PLAYER READY CALLBACK =====`);
+    console.log(`[@component:RecHostStreamModal] isQualitySwitching=${isQualitySwitching}`);
     if (isQualitySwitching) {
-      console.log('[@component:RecHostStreamModal] Player reloaded successfully - stopping quality switch animation');
+      console.log('[@component:RecHostStreamModal] Player reloaded successfully - hiding overlay');
       setIsQualitySwitching(false);
+    } else {
+      console.log('[@component:RecHostStreamModal] Player ready but not during quality switch - ignoring');
     }
   }, [isQualitySwitching]);
 
@@ -788,28 +795,31 @@ const RecHostStreamModalContent: React.FC<{
             }}
           >
             {/* Quality transition overlay - hide corrupted frames during FFmpeg restart */}
-            {isQualitySwitching && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: 'black',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 1000,
-                }}
-              >
-                <CircularProgress size={60} sx={{ color: 'warning.main' }} />
-                <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
-                  Switching to {isHDMode ? 'HD' : 'SD'} quality...
-                </Typography>
-              </Box>
-            )}
+            {isQualitySwitching && (() => {
+              console.log('[@component:RecHostStreamModal] RENDERING QUALITY TRANSITION OVERLAY');
+              return (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'black',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                  }}
+                >
+                  <CircularProgress size={60} sx={{ color: 'warning.main' }} />
+                  <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
+                    Switching to {isHDMode ? 'HD' : 'SD'} quality...
+                  </Typography>
+                </Box>
+              );
+            })()}
             {monitoringMode && isControlActive ? (
               <MonitoringPlayer
                 host={host}
