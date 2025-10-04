@@ -388,8 +388,8 @@ const RecHostStreamModalContent: React.FC<{
   }, [showWarning]);
 
   // Common function to switch quality (reused for initial entry and button clicks)
-  const switchQuality = useCallback(async (targetQuality: 'low' | 'sd' | 'hd', showLoadingOverlay: boolean = true) => {
-    console.log(`[@component:RecHostStreamModal] Switching to ${targetQuality.toUpperCase()} quality (showOverlay=${showLoadingOverlay})`);
+  const switchQuality = useCallback(async (targetQuality: 'low' | 'sd' | 'hd', showLoadingOverlay: boolean = true, isInitialLoad: boolean = false) => {
+    console.log(`[@component:RecHostStreamModal] Switching to ${targetQuality.toUpperCase()} quality (showOverlay=${showLoadingOverlay}, isInitialLoad=${isInitialLoad})`);
     
     // Stop any existing polling
     if (pollingIntervalRef.current) {
@@ -404,10 +404,13 @@ const RecHostStreamModalContent: React.FC<{
       setIsHDMode(false);
     }
     
-    // Show loading overlay if requested (for manual switches, not initial load)
+    // Show loading overlay if requested
     if (showLoadingOverlay) {
-      setShouldPausePlayer(true); // Pause player to show last frame
-      setIsQualitySwitching(true); // Show loading overlay (10% opacity)
+      // Only pause existing video on manual quality switch, NOT on initial load
+      if (!isInitialLoad) {
+        setShouldPausePlayer(true); // Pause existing player to prevent corruption during FFmpeg restart
+      }
+      setIsQualitySwitching(true); // Show loading overlay
     }
     
     try {
@@ -447,9 +450,9 @@ const RecHostStreamModalContent: React.FC<{
 
   // Auto-switch to SD quality when modal opens, revert to LOW when closes
   useEffect(() => {
-    console.log('[@component:RecHostStreamModal] Modal opened - auto-switching to SD quality WITH loading overlay');
-    // Use common function WITH loading overlay to prevent corrupted frames during initial FFmpeg restart
-    switchQuality('sd', true);
+    console.log('[@component:RecHostStreamModal] Modal opened - auto-switching to SD quality (initial load)');
+    // Use common function with isInitialLoad=true - shows overlay but doesn't block HLS initialization
+    switchQuality('sd', true, true); // showLoadingOverlay=true, isInitialLoad=true
 
     // Cleanup: revert to LOW quality when component unmounts
     return () => {
@@ -476,8 +479,8 @@ const RecHostStreamModalContent: React.FC<{
     console.log(`[@component:RecHostStreamModal] ===== HD/SD BUTTON CLICKED =====`);
     console.log(`[@component:RecHostStreamModal] Switching from ${isHDMode ? 'HD' : 'SD'} to ${targetQuality.toUpperCase()}`);
     
-    // Use common function with loading overlay enabled
-    await switchQuality(targetQuality, true);
+    // Use common function with loading overlay enabled, NOT initial load (so it blocks HLS)
+    await switchQuality(targetQuality, true, false); // showLoadingOverlay=true, isInitialLoad=false
   }, [isHDMode, switchQuality]);
 
   // Handle player ready after quality switch
