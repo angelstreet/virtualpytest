@@ -1341,8 +1341,11 @@ class VideoContentHelpers:
             List of image data dictionaries with sub-second precision
         """
         try:
-            # Images are in the captures subfolder
-            captures_folder = os.path.join(folder_path, 'captures')
+            # Use centralized storage path utilities for hot/cold architecture
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            
+            # Images are in the captures subfolder (handles hot/cold storage automatically)
+            captures_folder = get_capture_storage_path(folder_path, 'captures')
             
             if not os.path.exists(captures_folder):
                 print(f"VideoContent[{self.device_name}]: Captures folder not found: {captures_folder}")

@@ -520,13 +520,20 @@ class FFmpegCaptureController(AVControllerInterface):
             
             # Compress segments to MP4 using VideoCompressionUtils directly
             from backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, is_ram_mode
+            
             compressor = VideoCompressionUtils()
             
             video_filename = "test_video.mp4"
-            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            # Write to correct location based on hot/cold storage architecture
+            if is_ram_mode(self.video_capture_path):
+                local_video_path = os.path.join(self.video_capture_path, 'hot', video_filename)
+            else:
+                local_video_path = os.path.join(self.video_capture_path, video_filename)
             
-            # Create M3U8 path (required by compression utils) - hot/cold architecture
-            m3u8_path = os.path.join(self.video_capture_path, "segments", "output.m3u8")
+            # Get M3U8 path using centralized storage utilities (handles hot/cold)
+            segments_folder = get_capture_storage_path(self.video_capture_path, 'segments')
+            m3u8_path = os.path.join(segments_folder, "output.m3u8")
             
             compression_result = compressor.compress_hls_to_mp4(
                 m3u8_path=m3u8_path,

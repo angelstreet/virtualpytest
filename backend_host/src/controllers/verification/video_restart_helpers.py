@@ -49,21 +49,66 @@ class VideoRestartHelpers:
         self._status_dir = os.path.join(self.video_capture_path, "status")
         os.makedirs(self._status_dir, exist_ok=True)
     
+    def _get_restart_video_path(self, filename: str = "restart_original_video.mp4") -> str:
+        """
+        Get the correct path for restart video files based on hot/cold storage architecture.
+        
+        Args:
+            filename: Name of the restart video file
+            
+        Returns:
+            Full path to the video file in the correct storage location
+        """
+        from shared.src.lib.utils.storage_path_utils import is_ram_mode
+        
+        if is_ram_mode(self.video_capture_path):
+            # RAM mode: write to /hot/ subdirectory
+            return os.path.join(self.video_capture_path, 'hot', filename)
+        else:
+            # SD mode: write to root directory
+            return os.path.join(self.video_capture_path, filename)
+    
+    def _get_storage_aware_base_dir(self) -> str:
+        """
+        Get the base directory for restart files, considering hot/cold storage.
+        This should be passed to dubbing helpers so they can find restart files.
+        
+        Returns:
+            Base directory path (includes /hot/ if in RAM mode)
+        """
+        from shared.src.lib.utils.storage_path_utils import is_ram_mode
+        
+        if is_ram_mode(self.video_capture_path):
+            # RAM mode: files are in /hot/ subdirectory
+            return os.path.join(self.video_capture_path, 'hot')
+        else:
+            # SD mode: files are in root directory
+            return self.video_capture_path
+    
     def generate_restart_video_only(self, duration_seconds: float = 10.0) -> Optional[Dict[str, Any]]:
         """Generate video only - fast response"""
         try:
             print(f"RestartHelpers[{self.device_name}]: Generating restart video ({duration_seconds}s)")
             
+            # Use centralized storage path utilities for hot/cold architecture
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, is_ram_mode
+            
+            # Determine if we're in hot (RAM) mode
+            ram_mode = is_ram_mode(self.video_capture_path)
+            mode_str = "RAM (hot)" if ram_mode else "SD (cold)"
+            print(f"RestartHelpers[{self.device_name}]: Storage mode: {mode_str}")
+            
             # Video generation logic
-            # NEW: Manifest is in segments/ subfolder (hot/cold architecture)
-            m3u8_path = os.path.join(self.video_capture_path, "segments", "output.m3u8")
+            # Get segments folder using centralized path resolution
+            segments_folder = get_capture_storage_path(self.video_capture_path, 'segments')
+            m3u8_path = os.path.join(segments_folder, "output.m3u8")
+            
             if not os.path.exists(m3u8_path):
+                print(f"RestartHelpers[{self.device_name}]: M3U8 not found at {m3u8_path}")
                 return None
             
-            # NEW: Segments are in segments/ subfolder (hot/cold architecture)
             # Get segments using fast os.scandir (no subprocess overhead)
             try:
-                segments_folder = os.path.join(self.video_capture_path, 'segments')
                 all_segment_paths = get_files_by_pattern(segments_folder, r'^segment_.*\.ts$')
                 all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
             except Exception as e:
@@ -80,8 +125,9 @@ class VideoRestartHelpers:
             from  backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
-            video_filename = "restart_original_video.mp4"
-            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            # Get correct path for video file (handles hot/cold storage)
+            local_video_path = self._get_restart_video_path("restart_original_video.mp4")
+            print(f"RestartHelpers[{self.device_name}]: Writing video to: {local_video_path} (mode: {mode_str})")
             
             compression_result = compressor.compress_hls_to_mp4(
                 m3u8_path=m3u8_path,
@@ -330,9 +376,12 @@ class VideoRestartHelpers:
                 
             print(f"RestartHelpers[{self.device_name}]: Compressing {duration_seconds}s HLS video to MP4")
             
-            # Find the M3U8 file
-            # NEW: Manifest is in segments/ subfolder (hot/cold architecture)
-            m3u8_path = os.path.join(self.video_capture_path, "segments", "output.m3u8")
+            # Use centralized storage path utilities for hot/cold architecture
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            
+            # Find the M3U8 file using centralized path resolution
+            segments_folder = get_capture_storage_path(self.video_capture_path, 'segments')
+            m3u8_path = os.path.join(segments_folder, "output.m3u8")
             
             if not os.path.exists(m3u8_path):
                 print(f"RestartHelpers[{self.device_name}]: No M3U8 file found at {m3u8_path}")
@@ -353,8 +402,8 @@ class VideoRestartHelpers:
             from  backend_host.src.lib.utils.video_compression_utils import VideoCompressionUtils
             compressor = VideoCompressionUtils()
             
-            video_filename = "restart_original_video.mp4"
-            local_video_path = os.path.join(self.video_capture_path, video_filename)
+            # Get correct path for video file (handles hot/cold storage)
+            local_video_path = self._get_restart_video_path("restart_original_video.mp4")
             
             compression_result = compressor.compress_hls_to_mp4(
                 m3u8_path=m3u8_path,
@@ -597,8 +646,8 @@ class VideoRestartHelpers:
             
             print(f"RestartHelpers[{self.device_name}]: Extracting audio from existing MP4 video (avoiding double merge)")
             
-            # Extract audio directly from the already-created MP4 video
-            video_file = os.path.join(self.video_capture_path, "restart_original_video.mp4")
+            # Extract audio directly from the already-created MP4 video (use correct path)
+            video_file = self._get_restart_video_path("restart_original_video.mp4")
             
             if not os.path.exists(video_file):
                 print(f"RestartHelpers[{self.device_name}]: MP4 video not found, falling back to segment merging")
@@ -710,17 +759,18 @@ class VideoRestartHelpers:
     def prepare_dubbing_audio(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Step 1: Prepare audio for dubbing (extract + separate)"""
         try:
-            video_filename = "restart_original_video.mp4"
-            video_file = os.path.join(self.video_capture_path, video_filename)
+            # Get correct path for video file (handles hot/cold storage)
+            video_file = self._get_restart_video_path("restart_original_video.mp4")
             
             if not os.path.exists(video_file):
                 return {
                     'success': False,
-                    'error': f'Video file not found: {video_filename}',
+                    'error': f'Video file not found: {video_file}',
                     'duration_seconds': 0.0
                 }
             
-            return self.dubbing_helpers.prepare_dubbing_audio(video_file, self.video_capture_path)
+            # Pass storage-aware base directory to dubbing helpers (includes /hot/ if RAM mode)
+            return self.dubbing_helpers.prepare_dubbing_audio(video_file, self._get_storage_aware_base_dir())
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Audio preparation error: {e}")
@@ -763,7 +813,8 @@ class VideoRestartHelpers:
             # Clean translated text before TTS (remove AI prompt artifacts)
             translated_text = self._clean_translated_text(translation_result['translated_text'])
             
-            return self.dubbing_helpers.generate_edge_speech(translated_text, target_language, self.video_capture_path)
+            # Pass storage-aware base directory to dubbing helpers (includes /hot/ if RAM mode)
+            return self.dubbing_helpers.generate_edge_speech(translated_text, target_language, self._get_storage_aware_base_dir())
             
         except Exception as e:
             print(f"RestartHelpers[{self.device_name}]: Edge-TTS generation error: {e}")
@@ -776,13 +827,13 @@ class VideoRestartHelpers:
     def create_dubbed_video(self, video_id: str, target_language: str, voice_choice: str = 'edge') -> Optional[Dict[str, Any]]:
         """Step 3: Create final dubbed video"""
         try:
-            video_filename = "restart_original_video.mp4"
-            video_file = os.path.join(self.video_capture_path, video_filename)
+            # Get correct path for video file (handles hot/cold storage)
+            video_file = self._get_restart_video_path("restart_original_video.mp4")
             
             if not os.path.exists(video_file):
                 return {
                     'success': False,
-                    'error': f'Video file not found: {video_filename}',
+                    'error': f'Video file not found: {video_file}',
                     'duration_seconds': 0.0
                 }
             
@@ -799,13 +850,13 @@ class VideoRestartHelpers:
     def create_dubbed_video_fast(self, video_id: str, target_language: str, existing_transcript: str) -> Optional[Dict[str, Any]]:
         """NEW: Fast 2-step dubbing process"""
         try:
-            video_filename = "restart_original_video.mp4"
-            video_file = os.path.join(self.video_capture_path, video_filename)
+            # Get correct path for video file (handles hot/cold storage)
+            video_file = self._get_restart_video_path("restart_original_video.mp4")
             
             if not os.path.exists(video_file):
                 return {
                     'success': False,
-                    'error': f'Video file not found: {video_filename}',
+                    'error': f'Video file not found: {video_file}',
                     'duration_seconds': 0.0
                 }
             
@@ -817,8 +868,9 @@ class VideoRestartHelpers:
             print(f"RestartHelpers[{self.device_name}]: Using provided translated transcript for {target_language}")
             
             # Call complete dubbing method (combines Edge-TTS generation + video creation)
+            # Pass storage-aware base directory to dubbing helpers (includes /hot/ if RAM mode)
             return self.dubbing_helpers.create_dubbed_video_complete(
-                translated_text, target_language, video_file, self.video_capture_path
+                translated_text, target_language, video_file, self._get_storage_aware_base_dir()
             )
             
         except Exception as e:

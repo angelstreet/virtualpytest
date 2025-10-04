@@ -362,9 +362,11 @@ class VideoVerificationHelpers:
                     # Find the image where blackscreen ended (first content after zapping)
                     end_image_name = zapping_result.get('first_content_after_blackscreen', '')
                     if end_image_name:
-                        # Reconstruct full path to the end image (images are in captures subfolder)
+                        # Reconstruct full path to the end image (use centralized storage for hot/cold)
                         import os
-                        end_image_path = os.path.join(folder_path, 'captures', end_image_name)
+                        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+                        captures_folder = get_capture_storage_path(folder_path, 'captures')
+                        end_image_path = os.path.join(captures_folder, end_image_name)
                         
                         # Check if banner is present before expensive AI call
                         if self.controller.ai_helpers.detect_banner_presence(end_image_path, banner_region):

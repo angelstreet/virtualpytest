@@ -80,8 +80,11 @@ class AudioAIHelpers:
                 print(f"AudioAI[{self.device_name}]: Capture folder does not exist: {capture_folder}")
                 return []
             
-            # NEW: Segments are in segments/ subfolder (hot/cold architecture)
-            segments_folder = os.path.join(capture_folder, 'segments')
+            # Use centralized storage path utilities for hot/cold architecture
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            
+            # Get segments folder using centralized path resolution (handles hot/cold storage)
+            segments_folder = get_capture_storage_path(capture_folder, 'segments')
             if not os.path.exists(segments_folder):
                 print(f"AudioAI[{self.device_name}]: Segments folder does not exist: {segments_folder}")
                 return []
@@ -110,7 +113,9 @@ class AudioAIHelpers:
             
             if not recent_files:
                 # Check if we have image captures but no TS files (device compatibility check)
-                captures_folder = os.path.join(capture_folder, 'captures')
+                # Use centralized storage path utilities for hot/cold architecture
+                from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+                captures_folder = get_capture_storage_path(capture_folder, 'captures')
                 jpg_files = []
                 if os.path.exists(captures_folder):
                     for filename in os.listdir(captures_folder):

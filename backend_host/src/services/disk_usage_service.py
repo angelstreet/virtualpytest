@@ -124,8 +124,11 @@ class DiskUsageService:
     @staticmethod
     def analyze_capture_directory(capture_dir: str) -> Dict[str, Any]:
         """Complete analysis of a single capture directory"""
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+        
         capture_name = os.path.basename(capture_dir)
-        captures_subdir = os.path.join(capture_dir, 'captures')
+        # Use centralized storage path utilities for hot/cold architecture
+        captures_subdir = get_capture_storage_path(capture_dir, 'captures')
         
         analysis = {
             'capture_name': capture_name,
