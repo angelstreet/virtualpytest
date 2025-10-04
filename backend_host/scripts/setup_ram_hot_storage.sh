@@ -72,7 +72,19 @@ for DEVICE in "${DEVICES[@]}"; do
   sudo chmod 775 "$HOT_PATH"
   sudo chmod 775 "$HOT_PATH"/*
   
+  # CRITICAL: metadata directory needs 777 for archiver to move files (different user)
+  sudo chmod 777 "$HOT_PATH/metadata"
+  
   echo "✓ $DEVICE hot storage ready (www-data:www-data, group writable)"
+  
+  # Also ensure cold storage metadata directory exists with correct permissions
+  COLD_METADATA="$BASE_PATH/$DEVICE/metadata"
+  if [ ! -d "$COLD_METADATA" ]; then
+    sudo mkdir -p "$COLD_METADATA"
+    sudo chown www-data:www-data "$COLD_METADATA"
+  fi
+  sudo chmod 777 "$COLD_METADATA"
+  echo "✓ Cold storage metadata directory ready with 777 permissions"
   echo ""
 done
 

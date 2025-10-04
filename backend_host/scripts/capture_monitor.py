@@ -101,8 +101,9 @@ class InotifyFrameMonitor:
         from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
         metadata_path = get_capture_storage_path(capture_folder, 'metadata')
         
-        # Ensure metadata directory exists
-        os.makedirs(metadata_path, exist_ok=True)
+        # Ensure metadata directory exists with correct permissions (mode=0o777 for full access)
+        # This ensures the archiver (running as different user) can move files
+        os.makedirs(metadata_path, mode=0o777, exist_ok=True)
         
         # JSON file goes to metadata directory with same filename
         json_filename = filename.replace('.jpg', '.json')
