@@ -53,6 +53,7 @@ interface EnhancedHLSPlayerProps {
   className?: string;
   isLiveMode?: boolean;
   quality?: 'low' | 'sd' | 'hd'; // Stream quality - forces reload when changed
+  onPlayerReady?: () => void; // Callback when player loads successfully
 }
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
@@ -65,7 +66,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   muted = true, // Default to muted for autoplay compliance
   className,
   isLiveMode: externalIsLiveMode,
-  quality = 'sd' // Default to SD quality
+  quality = 'sd', // Default to SD quality
+  onPlayerReady
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [internalIsLiveMode] = useState(true); // Start in live mode
@@ -567,6 +569,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             muted={muted} // Use the muted prop from parent
             isArchiveMode={!isLiveMode} // Pass archive mode flag
             sx={{ width: '100%', height: '100%' }}
+            onPlayerReady={onPlayerReady} // Pass callback to notify when player loads successfully
           />
         ) : (
           <Box

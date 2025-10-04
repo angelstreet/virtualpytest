@@ -207,6 +207,18 @@ chmod +x backend_host/scripts/transcript_accumulator.py
 echo "✅ Scripts made executable in project directory"
 echo "ℹ️  Scripts now read configuration from backend_host/src/.env (single source of truth)"
 
+# Configure sudo permissions for cross-user FFmpeg spawning
+echo ""
+echo "🔐 Configuring sudo permissions for stream quality control..."
+echo "   Allows $USER to spawn FFmpeg processes as www-data (stream service user)"
+sudo tee /etc/sudoers.d/virtualpytest > /dev/null << EOF
+# VirtualPyTest - Allow backend_host user to run commands as www-data
+# This enables dynamic stream quality changes via Python backend
+$USER ALL=(www-data) NOPASSWD: ALL
+EOF
+sudo chmod 440 /etc/sudoers.d/virtualpytest
+echo "✅ Sudo permissions configured: $USER can run commands as www-data"
+
 # Install and configure nginx for local development
 echo ""
 echo "🌐 Installing and configuring nginx for local development..."
@@ -463,6 +475,7 @@ echo "✅ backend_host services installation completed!"
 echo ""
 echo "📋 Configuration files:"
 echo "   backend_host/src/.env                      # MASTER config (edit here only)"
+echo "   /etc/sudoers.d/virtualpytest              # Sudo permissions for quality control"
 echo ""
 echo "📝 Required .env variables for FFmpeg capture:"
 echo "   HOST_VIDEO_SOURCE, HOST_VIDEO_AUDIO, HOST_VIDEO_CAPTURE_PATH, HOST_VIDEO_FPS"

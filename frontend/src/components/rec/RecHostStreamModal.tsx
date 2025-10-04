@@ -81,6 +81,7 @@ const RecHostStreamModalContent: React.FC<{
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
   const [isHDMode, setIsHDMode] = useState<boolean>(false); // Start in SD mode (auto-switched from LOW)
+  const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
   
   // AI Disambiguation state and handlers
   const [disambiguationData, setDisambiguationData] = useState<any>(null);
@@ -352,6 +353,7 @@ const RecHostStreamModalContent: React.FC<{
   const handleToggleHD = useCallback(async () => {
     const newMode = !isHDMode;
     setIsHDMode(newMode);
+    setIsQualitySwitching(true); // Start blinking
     
     try {
       console.log(`[@component:RecHostStreamModal] Switching to ${newMode ? 'HD' : 'SD'} quality`);
@@ -366,17 +368,28 @@ const RecHostStreamModalContent: React.FC<{
       });
       
       if (response.ok) {
-        console.log(`[@component:RecHostStreamModal] Stream switched to ${newMode ? 'HD' : 'SD'} quality`);
+        console.log(`[@component:RecHostStreamModal] Stream switch initiated to ${newMode ? 'HD' : 'SD'} quality`);
+        // Don't stop blinking here - wait for player to reload successfully
       } else {
         showError(`Failed to switch quality`);
         setIsHDMode(!newMode); // Revert on error
+        setIsQualitySwitching(false); // Stop blinking on error
       }
     } catch (error) {
       showError('Failed to switch quality');
       setIsHDMode(!newMode); // Revert on error
+      setIsQualitySwitching(false); // Stop blinking on error
       console.error('[@component:RecHostStreamModal] Quality switch error:', error);
     }
   }, [isHDMode, host.host_name, device?.device_id, showError]);
+
+  // Handle player ready after quality switch
+  const handlePlayerReady = useCallback(() => {
+    if (isQualitySwitching) {
+      console.log('[@component:RecHostStreamModal] Player reloaded successfully - stopping quality switch animation');
+      setIsQualitySwitching(false);
+    }
+  }, [isQualitySwitching]);
 
   // Handle screenshot - call API and open image in new tab
   const handleScreenshot = useCallback(async () => {
@@ -556,6 +569,11 @@ const RecHostStreamModalContent: React.FC<{
                   fontSize: '0.75rem',
                   minWidth: 80,
                   color: isHDMode ? 'white' : 'inherit',
+                  animation: isQualitySwitching ? 'quality-blink 0.8s ease-in-out infinite' : 'none',
+                  '@keyframes quality-blink': {
+                    '0%, 100%': { opacity: 1 },
+                    '50%': { opacity: 0.3 },
+                  },
                 }}
                 title={isHDMode ? 'Switch to SD Quality (640x360)' : 'Switch to HD Quality (1280x720)'}
               >
@@ -831,6 +849,7 @@ const RecHostStreamModalContent: React.FC<{
                     muted={isMuted}
                     isLiveMode={isLiveMode}
                     quality={isHDMode ? 'hd' : 'sd'} // Pass quality to force reload on change
+                    onPlayerReady={handlePlayerReady} // Stop blinking when player reloads successfully
                 />
               )
             ) : (

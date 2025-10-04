@@ -16,6 +16,7 @@ interface HLSVideoPlayerProps {
   muted?: boolean; // Add muted prop
   isArchiveMode?: boolean; // Add archive mode prop
   onRestartRequest?: () => void; // Callback to expose restart functionality
+  onPlayerReady?: () => void; // Callback when player loads successfully
 }
 
 /**
@@ -44,6 +45,7 @@ export function HLSVideoPlayer({
   muted = true, // Default to muted for autoplay compliance
   isArchiveMode = false, // Default to live mode
   onRestartRequest, // New prop for external restart trigger
+  onPlayerReady, // Callback when player loads successfully
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
@@ -236,6 +238,7 @@ export function HLSVideoPlayer({
         setStreamLoaded(true);
         setStreamError(null); // Clear any existing errors
         setRetryCount(0);
+        onPlayerReady?.(); // Notify parent that player is ready
         attemptPlay();
       };
 
@@ -263,6 +266,7 @@ export function HLSVideoPlayer({
       const handleCanPlay = () => {
         setStreamLoaded(true);
         setStreamError(null); // Clear any existing errors
+        onPlayerReady?.(); // Notify parent that player is ready
       };
 
       // Store handlers for cleanup
@@ -396,6 +400,7 @@ export function HLSVideoPlayer({
         setStreamError(null); // Clear any existing errors
         setRetryCount(0);
         setSegmentFailureCount(0); // Reset segment failure count on successful manifest parse
+        onPlayerReady?.(); // Notify parent that player is ready
         setFfmpegStuck(false); // Reset FFmpeg stuck state
         attemptPlay();
       });
