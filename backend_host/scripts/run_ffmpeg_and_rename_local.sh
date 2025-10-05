@@ -329,10 +329,8 @@ start_grabber() {
       local capture_scale="1280:720"    # Captures at HD for best detection quality
     fi
     
+    # X11 access is configured by vncserver.service ExecStartPost
     export DISPLAY="$source"
-    export XAUTHORITY=~/.Xauthority
-    xhost +local: 2>/dev/null
-    xrandr -display "$source" -s 1280x720 2>/dev/null
     local resolution=$(get_vnc_resolution "$source")
 
     FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -loglevel error -y \

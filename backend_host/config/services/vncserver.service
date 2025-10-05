@@ -12,6 +12,7 @@ Type=forking
 User=%USER%
 Group=%USER%
 ExecStart=/usr/bin/vncserver :1 -rfbauth %HOME%/.vnc/passwd -rfbport 5901 -localhost no
+ExecStartPost=/bin/bash -c 'sleep 3 && DISPLAY=:1 XAUTHORITY=/home/%USER%/.Xauthority xhost +local: && xrandr -display :1 -s 1280x720'
 ExecStop=/usr/bin/vncserver -kill :1
 Restart=always
 RestartSec=10
