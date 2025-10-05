@@ -90,8 +90,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [isAtLiveEdge, setIsAtLiveEdge] = useState(true); // Start as true for live mode
   const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Live stream buffer timeline state
-  const [userPosition, setUserPosition] = useState(0); // User's position in buffer (0 = oldest, 1 = live edge)
+  // Live stream buffer timeline state - FIXED WINDOW approach
+  const [userBufferPosition, setUserBufferPosition] = useState(1.0); // User's chosen position (0 = oldest, 1 = live edge)
   const [bufferDuration, setBufferDuration] = useState(0); // Total buffer duration in seconds
   
   // Available hours tracking and caching
@@ -438,13 +438,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       
-      // Update buffer information for live mode
+      // Update buffer information for live mode - FIXED WINDOW approach
       if (isLiveMode && video.buffered.length > 0) {
         const buffered = video.buffered;
         const bufferStart = buffered.start(0);
         const bufferEnd = buffered.end(buffered.length - 1);
         const totalBufferDuration = bufferEnd - bufferStart;
         
+        // Update buffer window duration (changes as buffer slides forward)
         setBufferDuration(totalBufferDuration);
         
         // Check if we're at live edge (within 3 seconds)
@@ -457,11 +458,9 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           console.log(`[@EnhancedHLSPlayer] Live edge status: ${atLiveEdge ? 'LIVE' : 'BEHIND'} (latency: ${latency.toFixed(2)}s)`);
         }
         
-        // Update user position in buffer only if user is not dragging
-        if (!isDraggingSlider) {
-          const positionInBuffer = (video.currentTime - bufferStart) / totalBufferDuration;
-          setUserPosition(Math.max(0, Math.min(1, positionInBuffer)));
-        }
+        // CRITICAL: DON'T update userBufferPosition here!
+        // User's position only changes when they drag the slider
+        // The buffer window slides underneath, but thumb stays where user put it
       }
       
       // Calculate global time if using multi-manifest archive
@@ -548,7 +547,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode) {
         console.log('[@EnhancedHLSPlayer] Switching to live mode - ensuring live edge status');
         setIsAtLiveEdge(true); // Assume we're at live edge when switching to live
-        setUserPosition(1.0); // Start at live edge (right side of timeline)
+        setUserBufferPosition(1.0); // Start at live edge (right side of timeline)
         seekToLive();
       } else {
         // For archive mode, seek to beginning
@@ -569,7 +568,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     if (isLiveMode) {
       // For live mode, value is 0-1 representing position in buffer
       const position = Math.max(0, Math.min(1, sliderValue));
-      setUserPosition(position);
+      setUserBufferPosition(position);
       setIsDraggingSlider(true);
       setDragSliderValue(position);
       
@@ -613,7 +612,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         
         console.log(`[@EnhancedHLSPlayer] Live mode seek to buffer position ${(position * 100).toFixed(1)}% (${targetTime.toFixed(1)}s)`);
         video.currentTime = targetTime;
-        setUserPosition(position);
+        setUserBufferPosition(position);
+        
+        // If seeking to live edge, keep video at live edge
+        if (position > 0.9) {
+          video.currentTime = bufferEnd - 1; // Stay 1 second behind to avoid buffering
+        }
       }
     } else {
       // Archive mode - only allow seeking within available hours
@@ -969,8 +973,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               <Slider
                 value={(() => {
                   if (isLiveMode) {
-                    // Live mode: show user position in buffer (0-1)
-                    return isDraggingSlider ? dragSliderValue : userPosition;
+                    // Live mode: show user's fixed position in buffer (0-1)
+                    return isDraggingSlider ? dragSliderValue : userBufferPosition;
                   } else {
                     // Archive mode: show time position
                     return isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
@@ -1011,15 +1015,33 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             
             {/* Time display row */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0 }}>  
-              <Typography variant="caption" sx={{ color: 'white' }}>
+              <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
                 {(() => {
                   if (isLiveMode) {
-                    // Live mode: show relative position
+                    // Live mode: show where oldest buffer starts (left edge of timeline)
+                    if (bufferDuration > 0) {
+                      const oldestBufferSeconds = Math.round(bufferDuration);
+                      const minutes = Math.floor(oldestBufferSeconds / 60);
+                      const seconds = oldestBufferSeconds % 60;
+                      return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                    return '-0:00';
+                  } else {
+                    // Archive mode: show absolute time
+                    return formatTime(isDraggingSlider ? dragSliderValue : (archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime));
+                  }
+                })()}
+              </Typography>
+              
+              {/* Center: User's current position */}
+              <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
+                {(() => {
+                  if (isLiveMode) {
+                    // Show where user is in the buffer
                     if (isAtLiveEdge) {
                       return 'LIVE';
                     } else {
-                      // Calculate how far behind live edge
-                      const behindSeconds = Math.round((1 - userPosition) * bufferDuration);
+                      const behindSeconds = Math.round((1 - userBufferPosition) * bufferDuration);
                       if (behindSeconds < 60) {
                         return `-${behindSeconds}s`;
                       } else {
@@ -1028,10 +1050,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                         return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                       }
                     }
-                  } else {
-                    // Archive mode: show absolute time
-                    return formatTime(isDraggingSlider ? dragSliderValue : (archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime));
                   }
+                  return null;
                 })()}
               </Typography>
               
