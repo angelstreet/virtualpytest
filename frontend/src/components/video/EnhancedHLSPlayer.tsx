@@ -86,6 +86,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [preloadedNextManifest, setPreloadedNextManifest] = useState(false);
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
   const [dragSliderValue, setDragSliderValue] = useState(0);
+  const [isAtLiveEdge, setIsAtLiveEdge] = useState(true); // Track if we're at live edge
+  const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Transcript overlay state
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
@@ -315,6 +317,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       
+      // Check if we're at live edge in live mode
+      if (isLiveMode && video.duration) {
+        const latency = video.duration - video.currentTime;
+        const atLiveEdge = latency < 2; // Within 2 seconds of live edge
+        setIsAtLiveEdge(atLiveEdge);
+      }
+      
       // Calculate global time if using multi-manifest archive
       if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
         const currentManifest = archiveMetadata.manifests[currentManifestIndex];
@@ -385,6 +394,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      
+      // Cleanup live edge timeout
+      if (liveEdgeTimeoutRef.current) {
+        clearTimeout(liveEdgeTimeoutRef.current);
+      }
     };
   }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData]);
 
@@ -407,18 +421,37 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
 
   // Handle slider drag (visual feedback only)
   const handleSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    if (isLiveMode) return;
-    
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
+    
+    // In live mode, allow scrubbing within the buffered content (back-buffer)
+    if (isLiveMode && videoRef.current) {
+      const video = videoRef.current;
+      const buffered = video.buffered;
+      
+      // Check if seek time is within any buffered range
+      let canSeek = false;
+      for (let i = 0; i < buffered.length; i++) {
+        if (seekTime >= buffered.start(i) && seekTime <= buffered.end(i)) {
+          canSeek = true;
+          break;
+        }
+      }
+      
+      // Don't allow seeking beyond buffered content in live mode
+      if (!canSeek) {
+        console.log(`[@EnhancedHLSPlayer] Live mode: Cannot seek to ${seekTime.toFixed(1)}s (not in buffer)`);
+        return;
+      }
+    }
     
     setIsDraggingSlider(true);
     setDragSliderValue(seekTime);
   }, [isLiveMode]);
 
-  // Archive timeline controls with multi-manifest seeking (actual seek on release)
+  // Timeline seeking - works for both live and archive modes
   const handleSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    if (!videoRef.current || isLiveMode) return;
+    if (!videoRef.current) return;
     
     setIsDraggingSlider(false);
     
@@ -428,8 +461,44 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const video = videoRef.current;
     const wasPlaying = !video.paused;
     
-    // If using multi-manifest archive, find correct manifest and seek within it
-    if (archiveMetadata && archiveMetadata.manifests.length > 0) {
+    // Live mode seeking - only within buffered content
+    if (isLiveMode) {
+      const buffered = video.buffered;
+      let canSeek = false;
+      
+      // Check if seek time is within any buffered range
+      for (let i = 0; i < buffered.length; i++) {
+        if (seekTime >= buffered.start(i) && seekTime <= buffered.end(i)) {
+          canSeek = true;
+          break;
+        }
+      }
+      
+      if (canSeek) {
+        console.log(`[@EnhancedHLSPlayer] Live mode seek to ${seekTime.toFixed(1)}s (within buffer)`);
+        video.currentTime = seekTime;
+        setIsDraggingSlider(false);
+        
+        // Set up auto-return to live edge after 10 seconds of inactivity
+        if (liveEdgeTimeoutRef.current) {
+          clearTimeout(liveEdgeTimeoutRef.current);
+        }
+        
+        liveEdgeTimeoutRef.current = setTimeout(() => {
+          console.log('[@EnhancedHLSPlayer] Auto-returning to live edge after inactivity');
+          seekToLive();
+        }, 10000); // 10 seconds
+        
+        return;
+      } else {
+        console.warn(`[@EnhancedHLSPlayer] Live mode: Cannot seek to ${seekTime.toFixed(1)}s (not buffered)`);
+        setIsDraggingSlider(false);
+        return;
+      }
+    }
+    
+    // Archive mode seeking - if using multi-manifest archive, find correct manifest and seek within it
+    else if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       // Find which manifest contains this time
       let targetManifestIndex = -1;
       let targetLocalTime = 0;
@@ -579,6 +648,17 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
 
   return (
     <Box className={className} sx={{ width, position: 'relative' }}>
+      {/* CSS keyframes for live indicator pulse animation */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
+      
       {/* Reuse HLSVideoPlayer for all streaming logic */}
       <Box sx={{ position: 'relative', height }}>
         {!isTransitioning ? (
@@ -740,13 +820,22 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                 max={archiveMetadata ? archiveMetadata.total_duration_seconds : duration}
                 onChange={handleSliderChange}
                 onChangeCommitted={handleSeek}
-                marks={hourMarks}
+                marks={!isLiveMode ? hourMarks : []} // Only show hour marks in archive mode
                 sx={{ 
-                  color: 'primary.main', 
+                  color: isLiveMode ? 'error.main' : 'primary.main', // Red for live, blue for archive
                   flex: 1,
                   '& .MuiSlider-thumb': {
                     width: 16,
                     height: 16,
+                    // In live mode, position thumb at right (live edge) when at current time
+                    ...(isLiveMode && !isDraggingSlider && Math.abs(currentTime - duration) < 1 ? {
+                      right: '0px !important',
+                      left: 'auto !important'
+                    } : {})
+                  },
+                  '& .MuiSlider-track': {
+                    // Different track styling for live vs archive
+                    backgroundColor: isLiveMode ? 'error.main' : 'primary.main'
                   },
                   '& .MuiSlider-markLabel': {
                     fontSize: '0.7rem',
@@ -757,10 +846,36 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             </Box>
             
             {/* Time display row */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', pl: 7 }}>  
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 7 }}>  
               <Typography variant="caption" sx={{ color: 'white' }}>
                 {formatTime(isDraggingSlider ? dragSliderValue : (archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime))}
               </Typography>
+              
+              {/* Live indicator in live mode */}
+              {isLiveMode && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: isAtLiveEdge ? 'error.main' : 'warning.main',
+                      animation: isAtLiveEdge ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                    }}
+                  />
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: isAtLiveEdge ? 'error.main' : 'warning.main',
+                      fontWeight: 600,
+                      fontSize: '0.65rem'
+                    }}
+                  >
+                    {isAtLiveEdge ? 'LIVE' : 'BEHIND'}
+                  </Typography>
+                </Box>
+              )}
+              
               {archiveMetadata && (
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
                   Manifest {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
