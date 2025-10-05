@@ -412,10 +412,10 @@ const MonitoringIncidents: React.FC = () => {
     if (!alert || !alert.metadata?.r2_images) return null;
     
     const r2Images = alert.metadata.r2_images;
-    const imageUrls = r2Images.thumbnail_urls || [];
+    const thumbnailUrls = r2Images.thumbnail_urls || [];
     const freezeDiffs = alert.metadata.freeze_diffs || [];
     
-    if (imageUrls.length === 0) return null;
+    if (thumbnailUrls.length === 0) return null;
     
     return {
       host_name: alert.host_name,
@@ -424,7 +424,7 @@ const MonitoringIncidents: React.FC = () => {
       analysis_json: {
         freeze: true,
         freeze_diffs: freezeDiffs,
-        last_3_filenames: imageUrls,
+        last_3_thumbnails: thumbnailUrls,  // Use last_3_thumbnails for R2 URLs
       }
     };
   };
