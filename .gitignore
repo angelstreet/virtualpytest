@@ -26,3 +26,4 @@ backend_core/virtualpytest_backend_core.egg-info/
 backend_server/config/grafana/grafana.db
 backend_server/config/grafana/grafana.db-shm
 backend_server/config/grafana/grafana.db-wal
+SSH.md
