@@ -83,10 +83,16 @@ def get_latest_monitoring_json():
 
 @host_monitoring_bp.route('/json-by-time', methods=['POST'])
 def get_json_by_time():
-    """Get metadata JSON for specific video timestamp (archive mode)"""
+    """
+    Get metadata JSON for specific video timestamp
+    
+    Strategy:
+    - LIVE (recent): Look in HOT storage (individual files, 150s buffer)
+    - ARCHIVE (old): Look in COLD storage (10-min chunks, 24h history)
+    """
     import os
     import json
-    from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder
+    from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder, is_ram_mode
     
     try:
         data = request.get_json() or {}
@@ -100,34 +106,54 @@ def get_json_by_time():
         # Calculate sequence
         sequence = int(timestamp_seconds * fps)
         
-        # Get metadata path
+        # Get capture folder path
         capture_folder = get_capture_folder(None, device_id)
-        metadata_path = get_capture_storage_path(capture_folder, 'metadata')
+        base_path = f"/var/www/html/stream/{capture_folder}"
         
-        # Look for exact match
+        # STEP 1: Try HOT storage first (live monitoring, last 150s)
+        ram_mode = is_ram_mode(base_path)
+        hot_metadata_path = os.path.join(base_path, 'hot', 'metadata') if ram_mode else os.path.join(base_path, 'metadata')
+        
         json_filename = f"capture_{sequence:06d}.json"
-        json_filepath = os.path.join(metadata_path, json_filename)
+        hot_json_filepath = os.path.join(hot_metadata_path, json_filename)
         
-        if os.path.exists(json_filepath):
-            with open(json_filepath, 'r') as f:
+        if os.path.exists(hot_json_filepath):
+            with open(hot_json_filepath, 'r') as f:
                 json_data = json.load(f)
-            return jsonify({'success': True, 'json_data': json_data, 'sequence': sequence, 'found_exact': True})
+            return jsonify({'success': True, 'json_data': json_data, 'sequence': sequence, 'found_exact': True, 'source': 'hot'})
         
-        # Find nearest (±10 sequences)
-        for offset in range(1, 11):
-            for direction in [-1, 1]:
-                nearby_seq = sequence + (offset * direction)
-                if nearby_seq < 0:
-                    continue
-                nearby_filename = f"capture_{nearby_seq:06d}.json"
-                nearby_filepath = os.path.join(metadata_path, nearby_filename)
-                
-                if os.path.exists(nearby_filepath):
-                    with open(nearby_filepath, 'r') as f:
-                        json_data = json.load(f)
-                    return jsonify({'success': True, 'json_data': json_data, 'sequence': sequence, 'found_exact': False, 'nearest_sequence': nearby_seq})
+        # STEP 2: Try COLD storage (archive, 10-min chunks)
+        # Calculate chunk position
+        hour = (sequence // (3600 * fps)) % 24
+        chunk_index = ((sequence % (3600 * fps)) // (600 * fps))  # 0-5
         
-        return jsonify({'success': False, 'error': 'No metadata found', 'sequence': sequence}), 404
+        chunk_path = os.path.join(base_path, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
+        
+        if os.path.exists(chunk_path):
+            with open(chunk_path, 'r') as f:
+                chunk_data = json.load(f)
+            
+            # Find frame in chunk by sequence
+            frames = chunk_data.get('frames', [])
+            
+            # Find exact match
+            for frame in frames:
+                if frame.get('sequence') == sequence:
+                    return jsonify({'success': True, 'json_data': frame, 'sequence': sequence, 'found_exact': True, 'source': 'cold'})
+            
+            # Find nearest frame (within ±5 frames = 1 second)
+            closest_frame = None
+            min_diff = float('inf')
+            for frame in frames:
+                diff = abs(frame.get('sequence', 0) - sequence)
+                if diff < min_diff and diff <= 5:  # Within 1 second
+                    min_diff = diff
+                    closest_frame = frame
+            
+            if closest_frame:
+                return jsonify({'success': True, 'json_data': closest_frame, 'sequence': sequence, 'found_exact': False, 'nearest_sequence': closest_frame.get('sequence'), 'source': 'cold'})
+        
+        return jsonify({'success': False, 'error': 'No metadata found in hot or cold storage', 'sequence': sequence, 'checked_chunk': f'{hour}/chunk_10min_{chunk_index}.json'}), 404
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
