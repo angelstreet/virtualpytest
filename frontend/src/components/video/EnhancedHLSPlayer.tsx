@@ -936,7 +936,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           <Box
             sx={{
               position: 'absolute',
-              bottom: -20, // Compensate for modal's 20px margin from window height
+              bottom: -25, // Compensate for modal's 20px margin from window height
               left: 0,
               right: 0,
               background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
@@ -944,7 +944,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             }}
           >
             {/* Timeline controls row */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
               {/* Play/Pause Button - Only show in archive mode */}
               {!isLiveMode && (
                 <IconButton
