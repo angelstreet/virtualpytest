@@ -14,7 +14,7 @@ type HeatmapImage = {
     volume_percentage?: number;
     mean_volume_db?: number;
     freeze_diffs?: number[];
-    last_3_filenames?: string[];
+    last_3_thumbnails?: string[];  // R2 thumbnail URLs
   };
 };
 
@@ -39,17 +39,17 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
   const analysisJson = freezeModalImage.analysis_json;
   if (!analysisJson || !analysisJson.freeze) return null;
 
-  const framesCompared = analysisJson.last_3_filenames || [];
+  const thumbnailUrls = analysisJson.last_3_thumbnails || [];
   const frameDifferences = analysisJson.freeze_diffs || [];
 
-  // Only show modal if we have frame data
-  if (framesCompared.length === 0) return null;
+  // Only show modal if we have thumbnail URLs
+  if (thumbnailUrls.length === 0) return null;
 
-  // Debug: Log the frame URLs being displayed
-  console.log('[@HeatMapFreezeModal] Displaying freeze frames:', {
+  // Debug: Log the thumbnail URLs being displayed
+  console.log('[@HeatMapFreezeModal] Displaying freeze thumbnails:', {
     device: `${freezeModalImage.host_name}-${freezeModalImage.device_id}`,
-    frameCount: framesCompared.length,
-    frames: framesCompared,
+    thumbnailCount: thumbnailUrls.length,
+    thumbnails: thumbnailUrls,
     diffs: frameDifferences
   });
 
@@ -142,36 +142,20 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
 
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
-          {framesCompared.map((filename: string, index: number) => {
-            // Handle three formats:
-            // 1. R2 URLs from alerts: https://...r2.../alerts/freeze/device1/.../thumb_0.jpg (complete thumbnail URLs)
-            // 2. R2 URLs from heatmap: https://...r2.../heatmaps/.../capture_000001.jpg (need _thumbnail suffix)
-            // 3. Local paths: /var/www/.../capture_000001.jpg (needs thumbnail suffix)
-            const isFullUrl = filename.startsWith('http://') || filename.startsWith('https://');
+          {thumbnailUrls.map((thumbnailUrl: string, index: number) => {
+            // Thumbnails are now always R2 URLs (https://...r2.../alerts/freeze/.../thumb_0.jpg)
+            // No need for format detection or URL construction - use directly
+            const isR2Url = thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://');
             
             // Extract just the filename for sequence number display
-            const cleanFilename = filename.includes('/')
-              ? filename.split('/').pop() || filename
-              : filename;
+            const cleanFilename = thumbnailUrl.includes('/')
+              ? thumbnailUrl.split('/').pop() || thumbnailUrl
+              : thumbnailUrl;
             
-            // Determine the frame URL to display
-            let frameUrl: string;
-            
-            // If it's a full R2 URL from alerts (contains /thumb_), use as-is
-            // These are already thumbnail URLs uploaded by the monitoring system
-            if (isFullUrl && filename.includes('/thumb_')) {
-              frameUrl = filename;
-            }
-            // For R2 heatmap URLs or other full URLs, need to add _thumbnail suffix
-            else if (isFullUrl) {
-              const thumbnailFilename = cleanFilename.replace('.jpg', '_thumbnail.jpg');
-              frameUrl = filename.replace(/[^/]+\.jpg$/, thumbnailFilename);
-            }
-            // For local paths, use constructFrameUrl
-            else {
-              const thumbnailFilename = cleanFilename.replace('.jpg', '_thumbnail.jpg');
-              frameUrl = constructFrameUrl(thumbnailFilename, freezeModalImage.image_url);
-            }
+            // Use R2 URL directly, or fallback to constructFrameUrl for legacy local paths
+            const frameUrl = isR2Url 
+              ? thumbnailUrl 
+              : constructFrameUrl(cleanFilename, freezeModalImage.image_url);
             
             const diff = frameDifferences[index];
 
@@ -187,7 +171,7 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
 
             return (
               <Box
-                key={filename}
+                key={thumbnailUrl}
                 sx={{
                   flex: 1,
                   display: 'flex',

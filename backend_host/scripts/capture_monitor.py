@@ -202,22 +202,22 @@ class InotifyFrameMonitor:
                             # Cache R2 URLs in device state for reuse during this freeze event
                             device_state['freeze_r2_urls'] = r2_urls['thumbnail_urls']
                             device_state['freeze_r2_images'] = r2_urls
-                            # Use R2 URLs in JSON
-                            detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
+                            # Replace last_3_thumbnails with R2 URLs (keep last_3_filenames as-is for reference)
+                            detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
                             detection_result['r2_images'] = r2_urls
-                            logger.info(f"[{capture_folder}] 📤 Uploaded {len(r2_urls['thumbnail_urls'])} freeze frames to R2:")
+                            logger.info(f"[{capture_folder}] 📤 Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails to R2:")
                             for i, url in enumerate(r2_urls['thumbnail_urls']):
-                                logger.info(f"[{capture_folder}]   Frame {i}: {url}")
+                                logger.info(f"[{capture_folder}]   Thumbnail {i}: {url}")
                         else:
                             logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
                     
                     else:
                         # Freeze ongoing - reuse cached R2 URLs from first upload
-                        detection_result['last_3_filenames'] = cached_r2_urls
+                        detection_result['last_3_thumbnails'] = cached_r2_urls
                         detection_result['r2_images'] = device_state.get('freeze_r2_images', {
                             'thumbnail_urls': cached_r2_urls
                         })
-                        logger.info(f"[{capture_folder}] ♻️ Freeze ongoing - reusing cached R2 URLs")
+                        logger.info(f"[{capture_folder}] ♻️ Freeze ongoing - reusing cached R2 thumbnail URLs")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation
@@ -233,11 +233,11 @@ class InotifyFrameMonitor:
                     
                     # Debug: Log what we're saving for freeze
                     if detection_result.get('freeze'):
-                        last_3 = detection_result.get('last_3_filenames', [])
-                        if last_3:
-                            logger.info(f"[{capture_folder}] 💾 Saving JSON with freeze R2 URLs:")
-                            for i, url in enumerate(last_3):
-                                logger.info(f"[{capture_folder}]    Frame {i}: {url}")
+                        last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
+                        if last_3_thumbnails and isinstance(last_3_thumbnails, list) and last_3_thumbnails[0].startswith('http'):
+                            logger.info(f"[{capture_folder}] 💾 Saving JSON with freeze R2 thumbnail URLs:")
+                            for i, url in enumerate(last_3_thumbnails):
+                                logger.info(f"[{capture_folder}]    Thumbnail {i}: {url}")
                 else:
                     logger.error(f"[{capture_folder}] ERROR: detection_result is None/empty, saving fallback")
                     analysis_data = {

@@ -32,7 +32,7 @@ export interface AnalysisData {
       volume_percentage?: number;
       mean_volume_db?: number;
       freeze_diffs?: number[];
-      last_3_filenames?: string[];
+      last_3_thumbnails?: string[];  // R2 thumbnail URLs for freeze frames
     };
   }>;
   incidents_count: number;
