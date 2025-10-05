@@ -392,20 +392,20 @@ export function HLSVideoPlayer({
         liveBackBufferLength: 30,      // Keep back buffer
         liveDurationInfinity: false,   // Finite duration for archive
       } : {
-        // Live mode - low latency configuration
+        // Live mode - low latency with scrubbing capability
         enableWorker: false,
         lowLatencyMode: true,
         liveSyncDuration: 1,           // Stay closer to live edge
         liveMaxLatencyDuration: 3,     // Max allowed latency
-        maxBufferLength: 2,            // Minimal buffering
-        maxMaxBufferLength: 4,         // Prevent over-buffering
-        backBufferLength: 0,           // No back buffer
-        maxBufferSize: 2 * 1000 * 1000, // Reduced buffer size
+        maxBufferLength: 5,            // Minimal buffering
+        maxMaxBufferLength: 10,        // Prevent over-buffering
+        backBufferLength: 150,         // Keep 2.5min for scrubbing
+        maxBufferSize: 5 * 1000 * 1000, // Increased for back buffer
         maxBufferHole: 0.1,            // Fill gaps faster
         fragLoadingTimeOut: 5000,      // Fail faster
         manifestLoadingTimeOut: 3000,  // Fail faster
         levelLoadingTimeOut: 3000,     // Fail faster
-        liveBackBufferLength: 0,       // No live back buffer
+        liveBackBufferLength: 150,     // Allow scrubbing back 2.5min
         liveDurationInfinity: true,    // Allow infinite live duration
       };
 

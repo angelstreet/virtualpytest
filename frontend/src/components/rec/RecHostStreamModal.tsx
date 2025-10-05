@@ -11,7 +11,7 @@ import {
   History as ArchiveIcon,
   CameraAlt as CameraIcon,
 } from '@mui/icons-material';
-import { Box, IconButton, Typography, Button, CircularProgress, ButtonGroup } from '@mui/material';
+import { Box, IconButton, Typography, Button, CircularProgress, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
@@ -469,15 +469,18 @@ const RecHostStreamModalContent: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount/unmount
 
-  // Handle quality selection - direct selection instead of cycling
-  const handleQualitySelect = useCallback(async (targetQuality: 'low' | 'sd' | 'hd') => {
-    if (targetQuality === currentQuality) return; // No change needed
+  // Handle quality selection - for ToggleButtonGroup
+  const handleQualityChange = useCallback(async (
+    _event: React.MouseEvent<HTMLElement>,
+    newQuality: 'low' | 'sd' | 'hd' | null,
+  ) => {
+    if (!newQuality || newQuality === currentQuality) return; // No change needed or null value
     
     console.log(`[@component:RecHostStreamModal] ===== QUALITY BUTTON CLICKED =====`);
-    console.log(`[@component:RecHostStreamModal] Switching from ${currentQuality.toUpperCase()} to ${targetQuality.toUpperCase()}`);
+    console.log(`[@component:RecHostStreamModal] Switching from ${currentQuality.toUpperCase()} to ${newQuality.toUpperCase()}`);
     
     // Use common function with loading overlay enabled, NOT initial load (so it blocks HLS)
-    await switchQuality(targetQuality, true, false); // showLoadingOverlay=true, isInitialLoad=false
+    await switchQuality(newQuality, true, false); // showLoadingOverlay=true, isInitialLoad=false
   }, [currentQuality, switchQuality]);
 
   // Handle player ready after quality switch
@@ -667,54 +670,77 @@ const RecHostStreamModalContent: React.FC<{
               </Button>
             )}
 
-            {/* Quality Button Group - Only show when NOT in monitoring or restart mode */}
+            {/* Quality Toggle Button Group - Only show when NOT in monitoring or restart mode */}
             {!monitoringMode && !restartMode && (
-              <ButtonGroup
+              <ToggleButtonGroup
+                value={currentQuality}
+                exclusive
+                onChange={handleQualityChange}
                 size="small"
                 aria-label="Quality selection"
                 sx={{
                   backgroundColor: isQualitySwitching ? 'warning.main' : undefined, // Orange during transition
-                  '& .MuiButton-root': {
+                  '& .MuiToggleButton-root': {
                     fontSize: '0.75rem',
                     minWidth: 45,
                     px: 1,
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    '&.Mui-selected': {
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      },
+                    },
                   },
                 }}
               >
-                <Button
-                  variant={currentQuality === 'low' ? 'contained' : 'outlined'}
-                  color={currentQuality === 'low' ? 'success' : 'inherit'}
-                  onClick={() => handleQualitySelect('low')}
-                  sx={{
-                    color: currentQuality === 'low' ? 'white' : 'inherit',
-                  }}
+                <ToggleButton
+                  value="low"
+                  aria-label="Low quality"
                   title="Switch to LOW Quality (320x180) - Fastest loading"
+                  sx={{
+                    '&.Mui-selected': {
+                      backgroundColor: 'success.main',
+                      '&:hover': {
+                        backgroundColor: 'success.dark',
+                      },
+                    },
+                  }}
                 >
                   LOW
-                </Button>
-                <Button
-                  variant={currentQuality === 'sd' ? 'contained' : 'outlined'}
-                  color={currentQuality === 'sd' ? 'primary' : 'inherit'}
-                  onClick={() => handleQualitySelect('sd')}
-                  sx={{
-                    color: currentQuality === 'sd' ? 'white' : 'inherit',
-                  }}
+                </ToggleButton>
+                <ToggleButton
+                  value="sd"
+                  aria-label="Standard definition"
                   title="Switch to SD Quality (640x360) - Balanced"
+                  sx={{
+                    '&.Mui-selected': {
+                      backgroundColor: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark',
+                      },
+                    },
+                  }}
                 >
                   SD
-                </Button>
-                <Button
-                  variant={currentQuality === 'hd' ? 'contained' : 'outlined'}
-                  color={currentQuality === 'hd' ? 'secondary' : 'inherit'}
-                  onClick={() => handleQualitySelect('hd')}
-                  sx={{
-                    color: currentQuality === 'hd' ? 'white' : 'inherit',
-                  }}
+                </ToggleButton>
+                <ToggleButton
+                  value="hd"
+                  aria-label="High definition"
                   title="Switch to HD Quality (1280x720) - Best quality"
+                  sx={{
+                    '&.Mui-selected': {
+                      backgroundColor: 'secondary.main',
+                      '&:hover': {
+                        backgroundColor: 'secondary.dark',
+                      },
+                    },
+                  }}
                 >
                   HD
-                </Button>
-              </ButtonGroup>
+                </ToggleButton>
+              </ToggleButtonGroup>
             )}
 
             {/* Volume Toggle Button - Only show when NOT in monitoring mode */}

@@ -701,8 +701,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
-        {/* Archive Timeline Overlay with integrated Play/Pause button */}
-        {!isLiveMode && !isTransitioning && duration > 0 && (
+        {/* Timeline Overlay with integrated Play/Pause button (Live & Archive) */}
+        {!isTransitioning && duration > 0 && (
           <Box
             sx={{
               position: 'absolute',
