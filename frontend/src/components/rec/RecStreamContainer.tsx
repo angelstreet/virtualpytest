@@ -2,9 +2,18 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import React from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
+import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
-import { MonitoringPlayer } from '../monitoring/MonitoringPlayer';
 import { RestartPlayer } from './RestartPlayer';
+
+interface ErrorTrendData {
+  blackscreenConsecutive: number;
+  freezeConsecutive: number;
+  audioLossConsecutive: number;
+  macroblocksConsecutive: number;
+  hasWarning: boolean;
+  hasError: boolean;
+}
 
 interface RecStreamContainerProps {
   host: Host;
@@ -47,6 +56,14 @@ interface RecStreamContainerProps {
   
   // Callbacks
   onPlayerReady: () => void;
+  
+  // Monitoring data props (for overlay on live video)
+  monitoringAnalysis?: MonitoringAnalysis;
+  subtitleAnalysis?: SubtitleAnalysis;
+  languageMenuAnalysis?: LanguageMenuAnalysis;
+  aiDescription?: string;
+  errorTrendData?: ErrorTrendData;
+  analysisTimestamp?: string;
 }
 
 export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
@@ -69,6 +86,13 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   finalStreamContainerDimensions,
   calculateVncScaling,
   onPlayerReady,
+  // Monitoring props
+  monitoringAnalysis,
+  subtitleAnalysis,
+  languageMenuAnalysis,
+  aiDescription,
+  errorTrendData,
+  analysisTimestamp,
 }) => {
   return (
     <Box
@@ -120,12 +144,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
       })()}
       
       {/* Content based on mode */}
-      {monitoringMode && isControlActive ? (
-        <MonitoringPlayer
-          host={host}
-          device={device!}
-        />
-      ) : restartMode && isControlActive ? (
+      {restartMode && isControlActive ? (
         <RestartPlayer host={host} device={device!} includeAudioAnalysis={true} />
       ) : streamUrl ? (
         // Check if this is a VNC device - use iframe instead of HLS player
@@ -183,6 +202,14 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             quality={currentQuality} // Pass quality to force reload on change
             shouldPause={shouldPausePlayer} // Pause during quality transition to show last frame
             onPlayerReady={onPlayerReady} // Called when new stream is ready
+            // Monitoring overlay props
+            monitoringMode={monitoringMode}
+            monitoringAnalysis={monitoringAnalysis}
+            subtitleAnalysis={subtitleAnalysis}
+            languageMenuAnalysis={languageMenuAnalysis}
+            aiDescription={aiDescription}
+            errorTrendData={errorTrendData}
+            analysisTimestamp={analysisTimestamp}
           />
         )
       ) : (

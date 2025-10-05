@@ -1,7 +1,6 @@
 import {
   Close as CloseIcon,
   Tv as TvIcon,
-  Analytics as AnalyticsIcon,
   SmartToy as AIIcon,
   Language as WebIcon,
   VolumeOff as VolumeOffIcon,
@@ -227,6 +226,25 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           </ToggleButtonGroup>
         )}
 
+        {/* Monitoring Toggle Button - Works independently from control (passive observation) */}
+        {!restartMode && (
+          <IconButton
+            onClick={onToggleMonitoring}
+            sx={{
+              color: monitoringMode ? 'primary.main' : 'grey.300',
+              backgroundColor: monitoringMode ? 'rgba(33, 150, 243, 0.1)' : undefined,
+              '&:hover': {
+                color: 'white',
+                backgroundColor: monitoringMode ? 'rgba(33, 150, 243, 0.2)' : undefined,
+              },
+            }}
+            aria-label={monitoringMode ? 'Hide Monitoring Overlay' : 'Show Monitoring Overlay'}
+            title={monitoringMode ? 'Hide Monitoring Overlay' : 'Show Monitoring Overlay (Freeze, Blackscreen, Audio, Subtitles, AI)'}
+          >
+            {monitoringMode ? <VisibilityIcon /> : <VisibilityOffIcon />}
+          </IconButton>
+        )}
+
         {/* Volume Toggle Button - Only show when NOT in monitoring mode */}
         {!monitoringMode && !restartMode && (
           <IconButton
@@ -271,30 +289,6 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
         {hasPowerControl && device && (
           <PowerButton host={host} device={device} disabled={!isControlActive} />
         )}
-
-        {/* Monitoring Toggle Button */}
-        <Button
-          variant={monitoringMode ? 'contained' : 'outlined'}
-          size="small"
-          onClick={onToggleMonitoring}
-          disabled={!isControlActive}
-          startIcon={<AnalyticsIcon />}
-          color={monitoringMode ? 'warning' : 'primary'}
-          sx={{
-            fontSize: '0.75rem',
-            minWidth: 120,
-            color: monitoringMode ? 'white' : 'inherit',
-          }}
-          title={
-            !isControlActive
-              ? 'Take control first to enable monitoring'
-              : monitoringMode
-                ? 'Disable Monitoring'
-                : 'Enable Monitoring'
-          }
-        >
-          {monitoringMode ? 'Stop Monitoring' : 'Monitoring'}
-        </Button>
 
         {/* Restart Toggle Button */}
         <Button

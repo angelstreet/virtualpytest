@@ -6,6 +6,7 @@ import { useStream } from '../../hooks/controller';
 import { useRec } from '../../hooks/pages/useRec';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
 import { useToast } from '../../hooks/useToast';
+import { useMonitoring } from '../../hooks/monitoring/useMonitoring';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
@@ -104,7 +105,12 @@ const RecHostStreamModalContent: React.FC<{
     device_id: device?.device_id || 'device1',
   });
 
-
+  // Use monitoring hook (polls every 500ms when monitoring mode is active)
+  const monitoringData = useMonitoring({
+    host,
+    device,
+    enabled: monitoringMode, // Only poll when monitoring is ON
+  });
 
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
@@ -218,27 +224,21 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, [isControlActive, showWarning]);
 
-  // Handle monitoring mode toggle
+  // Handle monitoring mode toggle (passive observation - no control needed)
   const handleToggleMonitoring = useCallback(() => {
-    if (!isControlActive) {
-      showWarning('Please take control of the device first to enable monitoring');
-      return;
-    }
-
     setMonitoringMode((prev) => {
       const newMode = !prev;
-      console.log(`[@component:RecHostStreamModal] Monitoring mode toggled: ${newMode}`);
+      console.log(`[@component:RecHostStreamModal] Monitoring overlay toggled: ${newMode}`);
 
       // Disable AI agent mode and restart mode when enabling monitoring
       if (newMode) {
         setAiAgentMode(false);
         setRestartMode(false);
-        // Remove auto-show remote - user must click remote individually
       }
 
       return newMode;
     });
-  }, [isControlActive, showWarning]);
+  }, []);
 
   // Handle AI agent mode toggle
   const handleToggleAiAgent = useCallback(() => {
@@ -609,7 +609,7 @@ const RecHostStreamModalContent: React.FC<{
           <RecStreamContainer
                 host={host}
             device={device}
-                    streamUrl={streamUrl}
+                    streamUrl={streamUrl || undefined}
             isLoadingUrl={isLoadingUrl}
             urlError={urlError}
             monitoringMode={monitoringMode}
@@ -626,6 +626,13 @@ const RecHostStreamModalContent: React.FC<{
             finalStreamContainerDimensions={finalStreamContainerDimensions}
             calculateVncScaling={calculateVncScaling}
             onPlayerReady={handlePlayerReady}
+            // Monitoring data props
+            monitoringAnalysis={monitoringData.latestAnalysis || undefined}
+            subtitleAnalysis={monitoringData.latestSubtitleAnalysis || undefined}
+            languageMenuAnalysis={monitoringData.latestLanguageMenuAnalysis || undefined}
+            aiDescription={monitoringData.latestAIDescription || undefined}
+            errorTrendData={monitoringData.errorTrendData || undefined}
+            analysisTimestamp={monitoringData.analysisTimestamp || undefined}
           />
 
           {/* Panel Manager */}
