@@ -11,7 +11,7 @@ import {
   History as ArchiveIcon,
   CameraAlt as CameraIcon,
 } from '@mui/icons-material';
-import { Box, IconButton, Typography, Button, CircularProgress } from '@mui/material';
+import { Box, IconButton, Typography, Button, CircularProgress, ButtonGroup } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
@@ -80,7 +80,7 @@ const RecHostStreamModalContent: React.FC<{
   const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
-  const [isHDMode, setIsHDMode] = useState<boolean>(false); // Start in SD mode (auto-switched from LOW)
+  const [currentQuality, setCurrentQuality] = useState<'low' | 'sd' | 'hd'>('low'); // Start with LOW quality
   const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
   const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -395,11 +395,7 @@ const RecHostStreamModalContent: React.FC<{
     }
     
     // Update state based on target quality
-    if (targetQuality === 'hd') {
-      setIsHDMode(true);
-    } else {
-      setIsHDMode(false);
-    }
+    setCurrentQuality(targetQuality);
     
     // Show loading overlay if requested
     if (showLoadingOverlay) {
@@ -450,11 +446,9 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [host.host_name, device?.device_id, showError, pollForNewStream]);
 
-  // Auto-switch to SD quality when modal opens, revert to LOW when closes
+  // Cleanup: revert to LOW quality when modal closes
   useEffect(() => {
-    console.log('[@component:RecHostStreamModal] Modal opened - auto-switching to SD quality (initial load)');
-    // Use common function with isInitialLoad=true - shows overlay but doesn't block HLS initialization
-    switchQuality('sd', true, true); // showLoadingOverlay=true, isInitialLoad=true
+    console.log('[@component:RecHostStreamModal] Modal opened - starting with LOW quality');
 
     // Cleanup: revert to LOW quality when component unmounts
     return () => {
@@ -473,17 +467,18 @@ const RecHostStreamModalContent: React.FC<{
       }).catch(err => console.error('[@component:RecHostStreamModal] Failed to revert to LOW:', err));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount/unmount - switchQuality is stable
+  }, []); // Only run on mount/unmount
 
-  // Handle HD quality toggle - uses common switchQuality function
-  const handleToggleHD = useCallback(async () => {
-    const targetQuality = !isHDMode ? 'hd' : 'sd';
-    console.log(`[@component:RecHostStreamModal] ===== HD/SD BUTTON CLICKED =====`);
-    console.log(`[@component:RecHostStreamModal] Switching from ${isHDMode ? 'HD' : 'SD'} to ${targetQuality.toUpperCase()}`);
+  // Handle quality selection - direct selection instead of cycling
+  const handleQualitySelect = useCallback(async (targetQuality: 'low' | 'sd' | 'hd') => {
+    if (targetQuality === currentQuality) return; // No change needed
+    
+    console.log(`[@component:RecHostStreamModal] ===== QUALITY BUTTON CLICKED =====`);
+    console.log(`[@component:RecHostStreamModal] Switching from ${currentQuality.toUpperCase()} to ${targetQuality.toUpperCase()}`);
     
     // Use common function with loading overlay enabled, NOT initial load (so it blocks HLS)
     await switchQuality(targetQuality, true, false); // showLoadingOverlay=true, isInitialLoad=false
-  }, [isHDMode, switchQuality]);
+  }, [currentQuality, switchQuality]);
 
   // Handle player ready after quality switch
   const handlePlayerReady = useCallback(() => {
@@ -559,7 +554,7 @@ const RecHostStreamModalContent: React.FC<{
     setMonitoringMode(false);
     setAiAgentMode(false);
     setRestartMode(false);
-    setIsHDMode(false); // Reset HD mode
+      setCurrentQuality('low'); // Reset to LOW quality
     setShouldPausePlayer(false);
     setIsQualitySwitching(false);
     onClose();
@@ -672,26 +667,54 @@ const RecHostStreamModalContent: React.FC<{
               </Button>
             )}
 
-            {/* HD Quality Toggle Button - Only show when NOT in monitoring or restart mode */}
+            {/* Quality Button Group - Only show when NOT in monitoring or restart mode */}
             {!monitoringMode && !restartMode && (
-              <Button
-                variant={isHDMode ? 'contained' : 'outlined'}
+              <ButtonGroup
                 size="small"
-                onClick={handleToggleHD}
-                color={isHDMode ? 'secondary' : 'primary'}
+                aria-label="Quality selection"
                 sx={{
-                  fontSize: '0.75rem',
-                  minWidth: 80,
-                  color: isHDMode ? 'white' : 'inherit',
                   backgroundColor: isQualitySwitching ? 'warning.main' : undefined, // Orange during transition
-                  '&:hover': {
-                    backgroundColor: isQualitySwitching ? 'warning.dark' : undefined,
+                  '& .MuiButton-root': {
+                    fontSize: '0.75rem',
+                    minWidth: 45,
+                    px: 1,
                   },
                 }}
-                title={isHDMode ? 'Switch to SD Quality (640x360)' : 'Switch to HD Quality (1280x720)'}
               >
-                {isHDMode ? 'HD' : 'SD'}
-              </Button>
+                <Button
+                  variant={currentQuality === 'low' ? 'contained' : 'outlined'}
+                  color={currentQuality === 'low' ? 'success' : 'inherit'}
+                  onClick={() => handleQualitySelect('low')}
+                  sx={{
+                    color: currentQuality === 'low' ? 'white' : 'inherit',
+                  }}
+                  title="Switch to LOW Quality (320x180) - Fastest loading"
+                >
+                  LOW
+                </Button>
+                <Button
+                  variant={currentQuality === 'sd' ? 'contained' : 'outlined'}
+                  color={currentQuality === 'sd' ? 'primary' : 'inherit'}
+                  onClick={() => handleQualitySelect('sd')}
+                  sx={{
+                    color: currentQuality === 'sd' ? 'white' : 'inherit',
+                  }}
+                  title="Switch to SD Quality (640x360) - Balanced"
+                >
+                  SD
+                </Button>
+                <Button
+                  variant={currentQuality === 'hd' ? 'contained' : 'outlined'}
+                  color={currentQuality === 'hd' ? 'secondary' : 'inherit'}
+                  onClick={() => handleQualitySelect('hd')}
+                  sx={{
+                    color: currentQuality === 'hd' ? 'white' : 'inherit',
+                  }}
+                  title="Switch to HD Quality (1280x720) - Best quality"
+                >
+                  HD
+                </Button>
+              </ButtonGroup>
             )}
 
             {/* Volume Toggle Button - Only show when NOT in monitoring mode */}
@@ -903,7 +926,7 @@ const RecHostStreamModalContent: React.FC<{
           >
             {/* Quality transition overlay - solid black to hide corrupted frames during FFmpeg restart */}
             {isQualitySwitching && (() => {
-              console.log(`[@component:RecHostStreamModal] 🎬 RENDERING LOADING OVERLAY - isQualitySwitching=${isQualitySwitching}, isHDMode=${isHDMode}`);
+              console.log(`[@component:RecHostStreamModal] 🎬 RENDERING LOADING OVERLAY - isQualitySwitching=${isQualitySwitching}, currentQuality=${currentQuality}`);
               return (
                 <Box
                   sx={{
@@ -922,7 +945,7 @@ const RecHostStreamModalContent: React.FC<{
                 >
                   <CircularProgress size={60} sx={{ color: 'warning.main' }} />
                   <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
-                    {isHDMode ? 'Loading HD' : 'Loading SD'} quality stream...
+                    Loading {currentQuality.toUpperCase()} quality stream...
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
                     Waiting for stable stream
@@ -990,7 +1013,7 @@ const RecHostStreamModalContent: React.FC<{
                     height={isMobileModel ? 600 : 400}
                     muted={isMuted}
                     isLiveMode={isLiveMode}
-                    quality={isHDMode ? 'hd' : 'sd'} // Pass quality to force reload on change
+                    quality={currentQuality} // Pass quality to force reload on change
                     shouldPause={shouldPausePlayer} // Pause during quality transition to show last frame
                     onPlayerReady={handlePlayerReady} // Called when new stream is ready
                 />
