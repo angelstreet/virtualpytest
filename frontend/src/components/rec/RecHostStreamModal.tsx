@@ -1,7 +1,6 @@
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Box } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
 import { useStream } from '../../hooks/controller';
 import { useRec } from '../../hooks/pages/useRec';
@@ -12,14 +11,10 @@ import { getZIndex } from '../../utils/zIndexUtils';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
-import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
-import { DesktopPanel } from '../controller/desktop/DesktopPanel';
-import { RemotePanel } from '../controller/remote/RemotePanel';
-import { WebPanel } from '../controller/web/WebPanel';
-import { MonitoringPlayer } from '../monitoring/MonitoringPlayer';
 
-import { RestartPlayer } from './RestartPlayer';
 import { RecStreamModalHeader } from './RecStreamModalHeader';
+import { RecStreamContainer } from './RecStreamContainer';
+import { RecPanelManager } from './RecPanelManager';
 
 interface RecHostStreamModalProps {
   host: Host;
@@ -468,9 +463,6 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [host.host_name, device?.device_id, showError]);
 
-  // Stable device resolution to prevent re-renders
-  const stableDeviceResolution = useMemo(() => DEFAULT_DEVICE_RESOLUTION, []);
-
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {
     const model = device?.device_model;
@@ -613,295 +605,40 @@ const RecHostStreamModalContent: React.FC<{
             position: 'relative',
           }}
         >
-          {/* Stream Viewer / Monitoring Player */}
-          <Box
-            sx={{
-              width: (() => {
-                if (!isControlActive) return '100%';
-                const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
-                if (panelCount === 0) return '100%';
-                if (panelCount === 1) return '80%'; // Changed from 75% to 80% (100% - 20%)
-                return '60%'; // Changed from 50% to 60% (100% - 40% for two 20% panels)
-              })(),
-              height: '100%', // Use full available height (already excluding header)
-              position: 'relative',
-              overflow: 'hidden',
-              display: 'flex',
-              alignItems: isMobileModel ? 'flex-start' : 'center', // Top-align mobile to avoid bottom black bars
-              justifyContent: 'center',
-              backgroundColor: 'black',
-            }}
-          >
-            {/* Quality transition overlay - solid black to hide corrupted frames during FFmpeg restart */}
-            {isQualitySwitching && (() => {
-              console.log(`[@component:RecHostStreamModal] 🎬 RENDERING LOADING OVERLAY - isQualitySwitching=${isQualitySwitching}, currentQuality=${currentQuality}`);
-              return (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'black', // Solid black to completely hide any corruption
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                  }}
-                >
-                  <CircularProgress size={60} sx={{ color: 'warning.main' }} />
-                  <Typography variant="h6" sx={{ color: 'white', mt: 2 }}>
-                    Loading {currentQuality.toUpperCase()} quality stream...
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 1 }}>
-                    Waiting for stable stream
-                  </Typography>
-                </Box>
-              );
-            })()}
-            {monitoringMode && isControlActive ? (
-              <MonitoringPlayer
+          {/* Stream Container */}
+          <RecStreamContainer
                 host={host}
-                device={device!}
-              />
-            ) : restartMode && isControlActive ? (
-              <RestartPlayer host={host} device={device!} includeAudioAnalysis={true} />
-            ) : streamUrl ? (
-              // Check if this is a VNC device - use iframe instead of HLS player
-              device?.device_model === 'host_vnc' ? (
-                (() => {
-                  const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
-                  const hasPanel = panelCount > 0 && isControlActive;
-                  
-                  // Calculate target size based on current modal stream area
-                  const targetWidth = hasPanel 
-                    ? finalStreamContainerDimensions.width * 0.80  // 80% when panels shown (changed from 75%)
-                    : finalStreamContainerDimensions.width;        // 100% when no panels
-                  const targetHeight = finalStreamContainerDimensions.height;
-                  
-                  const vncScaling = calculateVncScaling({ 
-                    width: targetWidth, 
-                    height: targetHeight 
-                  });
-
-                  return (
-                    <Box
-                      sx={{
-                        position: 'relative',
-                        width: '100%',
-                        height: '100%',
-                        backgroundColor: 'black',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <iframe
-                        src={streamUrl}
-                        style={{
-                          border: 'none',
-                          backgroundColor: '#000',
-                          display: 'block',
-                          margin: '0 auto', // Center horizontally
-                          ...vncScaling, // Apply calculated scaling
-                        }}
-                        title="VNC Desktop Stream"
-                        allow="fullscreen"
-                      />
-                    </Box>
-                  );
-                })()
-              ) : (
-                <EnhancedHLSPlayer
-                    deviceId={device?.device_id || 'device1'}
-                    hostName={host.host_name}
-                    host={host}
+            device={device}
                     streamUrl={streamUrl}
-                    width="100%"
-                    height={isMobileModel ? 600 : 400}
-                    muted={isMuted}
+            isLoadingUrl={isLoadingUrl}
+            urlError={urlError}
+            monitoringMode={monitoringMode}
+            restartMode={restartMode}
                     isLiveMode={isLiveMode}
-                    quality={currentQuality} // Pass quality to force reload on change
-                    shouldPause={shouldPausePlayer} // Pause during quality transition to show last frame
-                    onPlayerReady={handlePlayerReady} // Called when new stream is ready
-                />
-              )
-            ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  color: 'white',
-                }}
-              >
-                <Typography>
-                  {isLoadingUrl
-                    ? 'Loading stream...'
-                    : urlError
-                      ? 'Stream error'
-                      : 'No stream available'}
-                </Typography>
-              </Box>
-            )}
-          </Box>
+            isControlActive={isControlActive}
+            currentQuality={currentQuality}
+            isQualitySwitching={isQualitySwitching}
+            shouldPausePlayer={shouldPausePlayer}
+            isMuted={isMuted}
+            isMobileModel={isMobileModel}
+            showRemote={showRemote}
+            showWeb={showWeb}
+            finalStreamContainerDimensions={finalStreamContainerDimensions}
+            calculateVncScaling={calculateVncScaling}
+            onPlayerReady={handlePlayerReady}
+          />
 
-          {/* Remote Control Panel or Desktop Terminal */}
-          {showRemote && isControlActive && (
-            <Box
-              sx={{
-                width: (() => {
-                  const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
-                  return panelCount === 2 ? '20%' : '20%'; // Changed from 25% to 20% each
-                })(),
-                backgroundColor: 'background.default',
-                borderLeft: '1px solid',
-                borderColor: 'divider',
-                overflow: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-              }}
-            >
-              {isDesktopDevice ? (
-                <DesktopPanel
+          {/* Panel Manager */}
+          <RecPanelManager
                   host={host}
-                  deviceId={device?.device_id || 'device1'}
-                  deviceModel={device?.device_model || 'host_vnc'}
-                  isConnected={isControlActive}
+            device={device}
+            showRemote={showRemote}
+            showWeb={showWeb}
+            isControlActive={isControlActive}
+            isDesktopDevice={isDesktopDevice}
+            finalStreamContainerDimensions={finalStreamContainerDimensions}
                   onReleaseControl={handleReleaseControl}
-                  initialCollapsed={false}
-                  streamContainerDimensions={finalStreamContainerDimensions}
-                />
-              ) : (() => {
-                // Handle multiple remote controllers
-                const remoteCapability = device?.device_capabilities?.remote;
-                const hasMultipleRemotes = Array.isArray(remoteCapability) || device?.device_model === 'fire_tv';
-                
-                if (hasMultipleRemotes && device?.device_model === 'fire_tv') {
-                  // For Fire TV devices, render both remotes directly (like host VNC)
-                  // Account for panel overhead: header (30px) only, no disconnect button in modal
-                  const panelOverhead = 30; // Header only, disconnect button removed in modal
-                  const availableHeightForRemotes = finalStreamContainerDimensions.height - (panelOverhead * 2); 
-                  const stackedDimensions = {
-                    ...finalStreamContainerDimensions,
-                    height: Math.round(availableHeightForRemotes / 2) + panelOverhead
-                  };
-                  return (
-                    <>
-                      <RemotePanel
-                        host={host}
-                        deviceId={device?.device_id || 'device1'}
-                        deviceModel={device?.device_model || 'fire_tv'}
-                        remoteType="android_tv"
-                        isConnected={isControlActive}
-                        onReleaseControl={handleReleaseControl}
-                        initialCollapsed={false}
-                        deviceResolution={stableDeviceResolution}
-                        streamCollapsed={false}
-                        streamMinimized={false}
-                        streamContainerDimensions={stackedDimensions}
-                        disableResize={true}
-                      />
-                      <RemotePanel
-                        host={host}
-                        deviceId={device?.device_id || 'device1'}
-                        deviceModel={device?.device_model || 'fire_tv'}
-                        remoteType="ir_remote"
-                        isConnected={isControlActive}
-                        onReleaseControl={handleReleaseControl}
-                        initialCollapsed={false}
-                        deviceResolution={stableDeviceResolution}
-                        streamCollapsed={false}
-                        streamMinimized={false}
-                        disableResize={true}
-                        streamContainerDimensions={stackedDimensions}
-                      />
-                    </>
-                  );
-                } else if (hasMultipleRemotes) {
-                  // For other devices with multiple remote controllers
-                  const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
-                  const filteredRemoteTypes = remoteTypes.filter(Boolean);
-                  // Account for panel overhead: header (30px) only, no disconnect button in modal
-                  const panelOverhead = 30; // Header only, disconnect button removed in modal
-                  const availableHeightForRemotes = finalStreamContainerDimensions.height - (panelOverhead * filteredRemoteTypes.length);
-                  const stackedDimensions = {
-                    ...finalStreamContainerDimensions,
-                    height: Math.round(availableHeightForRemotes / filteredRemoteTypes.length) + panelOverhead
-                  };
-                  return (
-                    <>
-                      {filteredRemoteTypes.map((remoteType: string) => (
-                        <RemotePanel
-                          key={`${device?.device_id}-${remoteType}`}
-                          host={host}
-                          deviceId={device?.device_id || 'device1'}
-                          deviceModel={device?.device_model || 'unknown'}
-                          remoteType={remoteType}
-                          isConnected={isControlActive}
-                          onReleaseControl={handleReleaseControl}
-                          initialCollapsed={false}
-                          deviceResolution={stableDeviceResolution}
-                          streamCollapsed={false}
-                          disableResize={true}
-                          streamMinimized={false}
-                          streamContainerDimensions={stackedDimensions}
-                        />
-                      ))}
-                    </>
-                  );
-                } else {
-                  // Single remote controller
-                  return (
-                    <RemotePanel
-                      host={host}
-                      deviceId={device?.device_id || 'device1'}
-                      deviceModel={device?.device_model || 'unknown'}
-                      isConnected={isControlActive}
-                      onReleaseControl={handleReleaseControl}
-                      initialCollapsed={false}
-                      deviceResolution={stableDeviceResolution}
-                      streamCollapsed={false}
-                      streamMinimized={false}
-                      streamContainerDimensions={finalStreamContainerDimensions}
-                      disableResize={true}
-                    />
-                  );
-                }
-              })()}
-            </Box>
-          )}
-
-          {/* Web Control Panel */}
-          {showWeb && isControlActive && isDesktopDevice && (
-            <Box
-              sx={{
-                width: (() => {
-                  const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
-                  return panelCount === 2 ? '20%' : '20%'; // Changed from 25% to 20% each
-                })(),
-                backgroundColor: 'background.default',
-                borderLeft: '1px solid',
-                borderColor: 'divider',
-                overflow: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-              }}
-            >
-              <WebPanel
-                host={host}
-                deviceId={device?.device_id || 'device1'}
-                deviceModel={device?.device_model || 'host_vnc'}
-                isConnected={isControlActive}
-                onReleaseControl={handleReleaseControl}
-                initialCollapsed={false}
-                streamContainerDimensions={streamContainerDimensions}
-              />
-            </Box>
-          )}
+          />
 
           {/* AI Agent Panel */}
           <AIExecutionPanel
