@@ -170,11 +170,8 @@ class InotifyFrameMonitor:
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
-                    # Get device state from incident manager
-                    device_state = self.incident_manager.device_states.get(capture_folder, {})
-                    if not device_state:
-                        # Initialize device state if it doesn't exist
-                        device_state = self.incident_manager._get_device_state(capture_folder)
+                    # Get device state from incident manager (creates if doesn't exist)
+                    device_state = self.incident_manager.get_device_state(capture_folder)
                     
                     # Check if we already uploaded for this freeze event
                     cached_r2_urls = device_state.get('freeze_r2_urls')
