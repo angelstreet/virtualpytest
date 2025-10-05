@@ -239,13 +239,23 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
         logger.error(f"[{capture_folder}] AI enhancement error: {e}")
         return {}
 
-def load_hourly_transcript(stream_dir, hour_window, capture_folder):
-    """Load transcript data for a specific hour window (aligned with archive manifests)"""
-    # Use hot storage if RAM mode is active
+def load_chunk_transcript(stream_dir, hour, chunk_index, capture_folder):
+    """Load transcript data for a specific 10-minute chunk (aligned with MP4 chunks)
+    
+    Args:
+        stream_dir: Base stream directory
+        hour: Hour (0-23)
+        chunk_index: Chunk within hour (0-5, each 10 minutes)
+        capture_folder: Device identifier
+    """
+    # Transcript files stored in /transcript/{hour}/ folder structure
     if is_ram_mode(stream_dir):
-        transcript_path = os.path.join(stream_dir, 'hot', f'transcript_hour{hour_window}.json')
+        transcript_dir = os.path.join(stream_dir, 'hot', 'transcript', str(hour))
     else:
-        transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+        transcript_dir = os.path.join(stream_dir, 'transcript', str(hour))
+    
+    os.makedirs(transcript_dir, exist_ok=True)
+    transcript_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}.json')
     
     if os.path.exists(transcript_path):
         with open(transcript_path, 'r') as f:
@@ -253,50 +263,63 @@ def load_hourly_transcript(stream_dir, hour_window, capture_folder):
     else:
         return {
             'capture_folder': capture_folder,
-            'hour_window': hour_window,
+            'hour': hour,
+            'chunk_index': chunk_index,
             'sample_interval_seconds': SAMPLE_INTERVAL,
             'segments': [],
             'samples_since_ai_enhancement': 0
         }
 
-def save_hourly_transcript(stream_dir, hour_window, transcript_data):
-    """Save transcript data for a specific hour window (atomic write)"""
-    # Use hot storage if RAM mode is active
+def save_chunk_transcript(stream_dir, hour, chunk_index, transcript_data):
+    """Save transcript data for a specific 10-minute chunk (atomic write, aligned with MP4 chunks)
+    
+    Args:
+        stream_dir: Base stream directory
+        hour: Hour (0-23)
+        chunk_index: Chunk within hour (0-5, each 10 minutes)
+        transcript_data: Transcript data to save
+    """
+    # Transcript files stored in /transcript/{hour}/ folder structure
     if is_ram_mode(stream_dir):
-        # Ensure hot directory exists
-        hot_dir = os.path.join(stream_dir, 'hot')
-        os.makedirs(hot_dir, exist_ok=True)
-        transcript_path = os.path.join(hot_dir, f'transcript_hour{hour_window}.json')
+        transcript_dir = os.path.join(stream_dir, 'hot', 'transcript', str(hour))
     else:
-        transcript_path = os.path.join(stream_dir, f'transcript_hour{hour_window}.json')
+        transcript_dir = os.path.join(stream_dir, 'transcript', str(hour))
+    
+    os.makedirs(transcript_dir, exist_ok=True)
+    transcript_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}.json')
     
     with open(transcript_path + '.tmp', 'w') as f:
         json.dump(transcript_data, f, indent=2)
     os.rename(transcript_path + '.tmp', transcript_path)
 
-def cleanup_old_hourly_transcripts(stream_dir):
-    """Remove hourly transcript files older than 24 hours (circular cleanup)"""
+def cleanup_old_chunk_transcripts(stream_dir):
+    """Remove old 10-minute chunk transcript files (24h rolling cleanup)"""
     try:
         # Use hot storage if RAM mode is active
         if is_ram_mode(stream_dir):
-            search_dir = os.path.join(stream_dir, 'hot')
+            search_dir = os.path.join(stream_dir, 'hot', 'transcript')
         else:
-            search_dir = stream_dir
+            search_dir = os.path.join(stream_dir, 'transcript')
         
-        # Use fast os.scandir (no subprocess overhead)
-        transcript_files = get_files_by_pattern(search_dir, r'^transcript_hour.*\.json$')
+        if not os.path.exists(search_dir):
+            return
         
-        if len(transcript_files) > 24:
+        # Find all chunk transcript files
+        transcript_files = get_files_by_pattern(search_dir, r'^chunk_10min_.*\.json$')
+        
+        # Keep last 24 hours × 6 chunks = 144 files
+        max_chunks = 24 * 6
+        if len(transcript_files) > max_chunks:
             # Sort by modification time and remove oldest
             transcript_files.sort(key=lambda x: os.path.getmtime(x))
-            for old_file in transcript_files[:-24]:
+            for old_file in transcript_files[:-max_chunks]:
                 os.remove(old_file)
                 logger.info(f"Cleaned up old transcript: {os.path.basename(old_file)}")
     except Exception as e:
         logger.warning(f"Failed to cleanup old transcripts: {e}")
 
 def update_transcript_buffer(capture_dir, max_samples_per_run=1):
-    """Update transcript buffer with new samples (hourly files aligned with archive manifests)
+    """Update transcript buffer with new samples (10-min chunk files aligned with MP4 chunks)
     
     Args:
         capture_dir: Path to capture directory
@@ -387,27 +410,30 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         else:
             logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)} new samples (6 segments per sample)...")
         
-        # Group segments by hour window (aligned with archive manifests)
-        segments_by_hour = {}
+        # Group segments by 10-minute chunks (aligned with MP4 chunks: 6 per hour)
+        segments_by_chunk = {}
         for segment_num, segment_batch in segments_to_process:
             relative_seconds = segment_num
-            hour_window = (relative_seconds // 3600) + 1  # 1-24
+            hour = relative_seconds // 3600  # 0-23
+            minutes_in_hour = (relative_seconds % 3600) // 60  # 0-59
+            chunk_index = minutes_in_hour // 10  # 0-5 (10-min chunks per hour)
             
-            if hour_window not in segments_by_hour:
-                segments_by_hour[hour_window] = []
-            segments_by_hour[hour_window].append((segment_num, segment_batch))
+            chunk_key = (hour, chunk_index)
+            if chunk_key not in segments_by_chunk:
+                segments_by_chunk[chunk_key] = []
+            segments_by_chunk[chunk_key].append((segment_num, segment_batch))
         
-        # Process each hour separately
-        for hour_window in sorted(segments_by_hour.keys()):
-            hour_segments = segments_by_hour[hour_window]
-            logger.info(f"[{capture_folder}] Processing {len(hour_segments)} samples for hour window {hour_window}")
+        # Process each 10-minute chunk separately
+        for (hour, chunk_index) in sorted(segments_by_chunk.keys()):
+            chunk_segments = segments_by_chunk[(hour, chunk_index)]
+            logger.info(f"[{capture_folder}] Processing {len(chunk_segments)} samples for hour {hour}, chunk {chunk_index}")
             
-            # Load hourly transcript file
-            transcript_data = load_hourly_transcript(stream_dir, hour_window, capture_folder)
+            # Load chunk transcript file (10-minute aligned with MP4 chunks)
+            transcript_data = load_chunk_transcript(stream_dir, hour, chunk_index, capture_folder)
             existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
             
-            # Process new samples for this hour
-            for segment_num, segment_batch in hour_segments:
+            # Process new samples for this chunk
+            for segment_num, segment_batch in chunk_segments:
                 # Extract TS file paths from batch
                 ts_file_paths = [seg_path for _, seg_path in segment_batch]
                 
@@ -435,7 +461,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                     'language': language,
                     'transcript': transcript,
                     'confidence': confidence,
-                    'hour_window': hour_window,
+                    'hour': hour,
+                    'chunk_index': chunk_index,
                     'segments_merged': len(segment_batch)
                 }
                 
@@ -453,7 +480,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             
             # AI Enhancement
             samples_since_enhancement = transcript_data.get('samples_since_ai_enhancement', 0)
-            samples_since_enhancement += len(hour_segments)
+            samples_since_enhancement += len(chunk_segments)
             
             if AI_ENHANCEMENT_ENABLED and samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
                 segments_to_enhance = [seg for seg in all_segments[-AI_ENHANCEMENT_BATCH:] if seg.get('transcript', '').strip()]
@@ -471,24 +498,25 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             elif not AI_ENHANCEMENT_ENABLED:
                 samples_since_enhancement = 0
             
-            # Update and save hourly transcript data
+            # Update and save 10-minute chunk transcript data
             transcript_data['capture_folder'] = capture_folder
-            transcript_data['hour_window'] = hour_window
+            transcript_data['hour'] = hour
+            transcript_data['chunk_index'] = chunk_index
             transcript_data['sample_interval_seconds'] = SAMPLE_INTERVAL
             transcript_data['segments'] = all_segments
             transcript_data['last_update'] = datetime.now().isoformat()
             transcript_data['total_samples'] = len(all_segments)
             transcript_data['samples_since_ai_enhancement'] = samples_since_enhancement
             
-            # Save this hour's transcript file
-            save_hourly_transcript(stream_dir, hour_window, transcript_data)
+            # Save this chunk's transcript file (10-min aligned with MP4 chunks)
+            save_chunk_transcript(stream_dir, hour, chunk_index, transcript_data)
             
             # Count enhanced transcripts if enabled
             if AI_ENHANCEMENT_ENABLED:
                 enhanced_count = sum(1 for seg in all_segments if seg.get('enhanced_transcript'))
-                logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples ({enhanced_count} enhanced)")
+                logger.info(f"[{capture_folder}] ✅ Saved chunk_10min_{chunk_index}.json (hour {hour}): {len(all_segments)} samples ({enhanced_count} enhanced)")
             else:
-                logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples")
+                logger.info(f"[{capture_folder}] ✅ Saved chunk_10min_{chunk_index}.json (hour {hour}): {len(all_segments)} samples")
         
         # Update global state
         state['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
@@ -496,11 +524,11 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             json.dump(state, f, indent=2)
         os.rename(state_path + '.tmp', state_path)
         
-        # Cleanup old hourly transcripts (keep last 24 hours)
-        cleanup_old_hourly_transcripts(stream_dir)
+        # Cleanup old chunk transcripts (keep last 24 hours × 6 chunks = 144)
+        cleanup_old_chunk_transcripts(stream_dir)
         
         elapsed = time.time() - start_time
-        logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_hour)} hour window(s) [{elapsed:.2f}s]")
+        logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_chunk)} chunk(s) [{elapsed:.2f}s]")
         logger.info("=" * 80)
         return True
         

@@ -92,7 +92,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   
   // Live stream buffer timeline state - FIXED WINDOW approach
   const [userBufferPosition, setUserBufferPosition] = useState(1.0); // User's chosen position (0 = oldest, 1 = live edge)
-  const [bufferDuration, setBufferDuration] = useState(0); // Total buffer duration in seconds
+  // Using fixed 150-second buffer (150 segments) for timeline display
   
   // Available hours tracking and caching
   const [availableHours, setAvailableHours] = useState<number[]>([]);
@@ -130,8 +130,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   // Check if a specific hour has MP4 files available
   const checkHourAvailability = useCallback(async (hour: number, baseUrl: string): Promise<boolean> => {
     try {
-      // Check if hourly MP4 exists (simplified structure)
-      const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/hour_${hour.toString().padStart(2, '0')}.mp4`);
+      // Check if first 10-minute chunk exists (6 chunks per hour: 0-5)
+      const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/chunk_10min_0.mp4`);
       
       const response = await fetch(testUrl, { method: 'HEAD' });
       return response.ok;
@@ -271,28 +271,30 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           return;
         }
         
-        // Generate metadata only for available hours - SIMPLIFIED: 1 MP4 per hour
+        // Generate metadata for available hours - 6× 10-minute chunks per hour
         const metadata: ArchiveMetadata = {
-          total_segments: available.length, // 1 MP4 per available hour
+          total_segments: available.length * 6, // 6 chunks per available hour
           total_duration_seconds: available.length * 3600, // Available hours duration
           window_hours: 1, // 1 hour per folder
-          segments_per_window: 1, // 1 MP4 file per hour (simplified)
+          segments_per_window: 6, // 6× 10-minute chunks per hour
           manifests: []
         };
         
-        // Generate 1 MP4 reference per available hour (simplified structure)
+        // Generate 6 MP4 chunk references per available hour
         for (const hour of available) {
-          const globalIndex = metadata.manifests.length; // Sequential index for available hours
-          metadata.manifests.push({
-            name: `${hour}/hour_${hour.toString().padStart(2, '0')}.mp4`, // Single hourly MP4: "13/hour_13.mp4"
-            window_index: hour, // Original hour (0-23)
-            chunk_index: 0, // Always 0 since only 1 file per hour
-            start_segment: globalIndex, // Sequential global index
-            end_segment: globalIndex, // Same (one file)
-            start_time_seconds: hour * 3600, // Hour start time
-            end_time_seconds: (hour + 1) * 3600, // Hour end time
-            duration_seconds: 3600 // 1 hour duration
-          });
+          for (let chunk = 0; chunk < 6; chunk++) {
+            const globalIndex = metadata.manifests.length; // Sequential index for available chunks
+            metadata.manifests.push({
+              name: `${hour}/chunk_10min_${chunk}.mp4`, // 10-minute chunk path
+              window_index: hour, // Original hour (0-23)
+              chunk_index: chunk, // Chunk within hour (0-5)
+              start_segment: globalIndex, // Sequential global chunk index
+              end_segment: globalIndex, // Same (one chunk)
+              start_time_seconds: hour * 3600 + chunk * 600, // Absolute time from hour start
+              end_time_seconds: hour * 3600 + (chunk + 1) * 600, // Absolute time chunk end
+              duration_seconds: 600 // 10 minutes per chunk
+            });
+          }
         }
         
         console.log('[@EnhancedHLSPlayer] Generated MP4 archive metadata for available hours:', {
@@ -314,33 +316,33 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [isLiveMode, archiveMetadata, isTransitioning, isCheckingAvailability, providedStreamUrl, hookStreamUrl, deviceId, checkAvailableHours]);
 
-  // Load transcript data from hour folders (aligned with MP4 archive structure)
+  // Load transcript data from HOT transcript folder (10-min chunks aligned with MP4 chunks)
   useEffect(() => {
     if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
-        const hourWindow = currentManifest.window_index;
+        const hour = currentManifest.window_index;
+        const chunkIndex = currentManifest.chunk_index;
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         
-        // NEW: Look for transcript in hour folder alongside MP4 file
-        // transcript_hour13.json should now be in segments/13/ folder after archiver processes it
-        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hourWindow}/transcript_hour${hourWindow}.json`);
+        // Load 10-min chunk transcript (aligned with MP4: chunk_10min_0.json matches chunk_10min_0.mp4)
+        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
         
-        console.log(`[@EnhancedHLSPlayer] Loading transcript from hour folder ${hourWindow}:`, transcriptUrl);
+        console.log(`[@EnhancedHLSPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
         
         fetch(transcriptUrl)
           .then(res => res.json())
           .then(transcript => {
             if (transcript && transcript.segments) {
-              console.log(`[@EnhancedHLSPlayer] Transcript hour${hourWindow} loaded from archive: ${transcript.segments.length} samples`);
+              console.log(`[@EnhancedHLSPlayer] Transcript chunk loaded: ${transcript.segments.length} samples`);
               setTranscriptData(transcript);
             } else {
-              console.log(`[@EnhancedHLSPlayer] No transcript data in hour folder ${hourWindow}`);
+              console.log(`[@EnhancedHLSPlayer] No transcript data for chunk ${chunkIndex}`);
               setTranscriptData(null);
             }
           })
           .catch(() => {
-            console.log(`[@EnhancedHLSPlayer] No transcript available in hour folder ${hourWindow} (not yet archived or missing)`);
+            console.log(`[@EnhancedHLSPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex}`);
             setTranscriptData(null);
           });
       }
@@ -382,22 +384,22 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        // Direct hourly MP4 path: segments/X/hour_XX.mp4
-        const hourlyMp4Path = currentManifest.name; // Already formatted: "13/hour_13.mp4"
-        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hourlyMp4Path}`);
-        console.log(`[@EnhancedHLSPlayer] Using hourly MP4 (hour ${currentManifest.window_index}):`, url);
+        // Direct 10-minute chunk path: segments/X/chunk_10min_Y.mp4
+        const chunkPath = currentManifest.name; // Already formatted: "13/chunk_10min_0.mp4"
+        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${chunkPath}`);
+        console.log(`[@EnhancedHLSPlayer] Using 10-min chunk (hour ${currentManifest.window_index}, chunk ${currentManifest.chunk_index}):`, url);
       } else {
-        // Fallback when currentManifest doesn't exist - use first available hour
+        // Fallback when currentManifest doesn't exist - use first available hour, first chunk
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         const firstHour = availableHours.length > 0 ? availableHours[0] : 0;
-        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${firstHour}/hour_${firstHour.toString().padStart(2, '0')}.mp4`);
+        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${firstHour}/chunk_10min_0.mp4`);
       }
     }
     // Fallback while metadata is loading
     else {
       const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
       const firstHour = availableHours.length > 0 ? availableHours[0] : 0;
-      url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${firstHour}/hour_${firstHour.toString().padStart(2, '0')}.mp4`);
+      url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${firstHour}/chunk_10min_0.mp4`);
     }
     
     // Append quality and timestamp parameters to force reload when quality changes (without unmounting component)
@@ -441,12 +443,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       // Update buffer information for live mode - FIXED WINDOW approach
       if (isLiveMode && video.buffered.length > 0) {
         const buffered = video.buffered;
-        const bufferStart = buffered.start(0);
         const bufferEnd = buffered.end(buffered.length - 1);
-        const totalBufferDuration = bufferEnd - bufferStart;
-        
-        // Update buffer window duration (changes as buffer slides forward)
-        setBufferDuration(totalBufferDuration);
         
         // Check if we're at live edge (within 3 seconds)
         const latency = bufferEnd - video.currentTime;
@@ -1015,17 +1012,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             
             {/* Time display row */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0 }}>  
+              {/* Left: Oldest buffer position */}
               <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
                 {(() => {
                   if (isLiveMode) {
-                    // Live mode: show where oldest buffer starts (left edge of timeline)
-                    if (bufferDuration > 0) {
-                      const oldestBufferSeconds = Math.round(bufferDuration);
-                      const minutes = Math.floor(oldestBufferSeconds / 60);
-                      const seconds = oldestBufferSeconds % 60;
-                      return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    }
-                    return '-0:00';
+                    // Live mode: always show -02:30 (150 segments = 150 seconds)
+                    return '-02:30';
                   } else {
                     // Archive mode: show absolute time
                     return formatTime(isDraggingSlider ? dragSliderValue : (archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime));
@@ -1041,7 +1033,9 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                     if (isAtLiveEdge) {
                       return 'LIVE';
                     } else {
-                      const behindSeconds = Math.round((1 - userBufferPosition) * bufferDuration);
+                      // Calculate seconds behind based on fixed 150-second buffer
+                      const totalBufferSeconds = 150;
+                      const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
                       if (behindSeconds < 60) {
                         return `-${behindSeconds}s`;
                       } else {
@@ -1055,41 +1049,18 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                 })()}
               </Typography>
               
-              {/* Live indicator in live mode */}
-              {isLiveMode && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: isAtLiveEdge ? 'error.main' : 'warning.main',
-                      animation: isAtLiveEdge ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                    }}
-                  />
-                  <Typography 
-                    variant="caption" 
-                    sx={{ 
-                      color: isAtLiveEdge ? 'error.main' : 'warning.main',
-                      fontWeight: 600,
-                      fontSize: '0.65rem'
-                    }}
-                  >
-                    {bufferDuration > 0 ? `${Math.round(bufferDuration)}s buffer` : 'Buffering...'}
-                  </Typography>
-                </Box>
-              )}
-              
+              {/* Right side: Archive metadata or "Now" for live */}
               {archiveMetadata && !isLiveMode && (
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                  {availableHours.length > 0 ? `${availableHours.length} hours available` : 'No archive available'} • Hour {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
+                  {availableHours.length > 0 ? `${availableHours.length} hours available` : 'No archive available'} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
                 </Typography>
               )}
               
+              {/* Right: Now indicator for live, duration for archive */}
               <Typography variant="caption" sx={{ color: 'white' }}>
                 {(() => {
                   if (isLiveMode) {
-                    return 'Rolling Buffer';
+                    return 'Now';
                   } else {
                     // Show last available hour instead of total duration
                     return availableHours.length > 0 ? formatTime((availableHours[availableHours.length - 1] + 1) * 3600) : formatTime(duration);
