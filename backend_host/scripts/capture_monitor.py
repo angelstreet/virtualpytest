@@ -167,20 +167,38 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] Issues detected: {issues}")
             
             # Upload freeze frames to R2 immediately (for heatmap display)
-            # Thumbnails now created on-demand from captures
+            # Generate thumbnails from captures before upload
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
                     from datetime import datetime
+                    import os
+                    
                     current_timestamp = datetime.now().isoformat()
+                    
+                    # Generate thumbnail paths (FFmpeg creates these as capture_NNNNNN_thumbnail.jpg)
+                    last_3_thumbnails = []
+                    for capture_path in last_3_captures:
+                        if os.path.exists(capture_path):
+                            # Check for existing thumbnail
+                            thumbnail_path = capture_path.replace('.jpg', '_thumbnail.jpg')
+                            if os.path.exists(thumbnail_path):
+                                last_3_thumbnails.append(thumbnail_path)
+                            else:
+                                logger.warning(f"[{capture_folder}] Thumbnail not found for {capture_path}, using original")
+                                last_3_thumbnails.append(capture_path)  # Fallback to original
+                    
+                    logger.info(f"[{capture_folder}] Uploading {len(last_3_thumbnails)} thumbnails to R2 for heatmap")
                     r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                        last_3_captures, None, capture_folder, current_timestamp, thumbnails_only=True
+                        last_3_captures, last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
                     )
                     if r2_urls and r2_urls.get('thumbnail_urls'):
                         # Replace local paths with R2 URLs for heatmap display
                         detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
                         detection_result['r2_images'] = r2_urls
                         logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2 for heatmap")
+                    else:
+                        logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation
