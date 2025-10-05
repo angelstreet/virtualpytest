@@ -165,36 +165,58 @@ class InotifyFrameMonitor:
             if issues:
                 logger.info(f"[{capture_folder}] Issues detected: {issues}")
             
-            # Upload freeze frames to R2 immediately (for heatmap display)
-            # Generate thumbnails from captures before upload
+            # Upload freeze frames to R2 ONCE per freeze event (not every frame)
+            # Only upload on FIRST freeze detection, then reuse URLs while freeze continues
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
-                    current_timestamp = datetime.now().isoformat()
+                    # Check freeze state from incident manager
+                    incident_state = self.incident_manager.pending_incidents.get(capture_folder, {}).get('freeze', {})
+                    consecutive = incident_state.get('consecutive_count', 0)
+                    cached_r2_urls = incident_state.get('r2_urls')
                     
-                    # Generate thumbnail paths (FFmpeg creates these as capture_NNNNNN_thumbnail.jpg)
-                    last_3_thumbnails = []
-                    for capture_path in last_3_captures:
-                        if os.path.exists(capture_path):
-                            # Check for existing thumbnail
-                            thumbnail_path = capture_path.replace('.jpg', '_thumbnail.jpg')
-                            if os.path.exists(thumbnail_path):
-                                last_3_thumbnails.append(thumbnail_path)
-                            else:
-                                logger.warning(f"[{capture_folder}] Thumbnail not found for {capture_path}, using original")
-                                last_3_thumbnails.append(capture_path)  # Fallback to original
+                    # Only upload on FIRST detection (consecutive_count == 1)
+                    if consecutive <= 1 and not cached_r2_urls:
+                        current_timestamp = datetime.now().isoformat()
+                        
+                        # Generate thumbnail paths (FFmpeg creates these as capture_NNNNNN_thumbnail.jpg)
+                        last_3_thumbnails = []
+                        for capture_path in last_3_captures:
+                            if os.path.exists(capture_path):
+                                # Check for existing thumbnail
+                                thumbnail_path = capture_path.replace('.jpg', '_thumbnail.jpg')
+                                if os.path.exists(thumbnail_path):
+                                    last_3_thumbnails.append(thumbnail_path)
+                                else:
+                                    logger.warning(f"[{capture_folder}] Thumbnail not found for {capture_path}, using original")
+                                    last_3_thumbnails.append(capture_path)  # Fallback to original
+                        
+                        logger.info(f"[{capture_folder}] 🆕 First freeze detection - uploading {len(last_3_thumbnails)} thumbnails to R2")
+                        r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
+                            last_3_captures, last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
+                        )
+                        if r2_urls and r2_urls.get('thumbnail_urls'):
+                            # Cache R2 URLs in incident state for reuse
+                            incident_state['r2_urls'] = r2_urls['thumbnail_urls']
+                            # Use R2 URLs in JSON
+                            detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
+                            detection_result['r2_images'] = r2_urls
+                            logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2, URLs cached for reuse")
+                        else:
+                            logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
                     
-                    logger.info(f"[{capture_folder}] Uploading {len(last_3_thumbnails)} thumbnails to R2 for heatmap")
-                    r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                        last_3_captures, last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
-                    )
-                    if r2_urls and r2_urls.get('thumbnail_urls'):
-                        # Replace local paths with R2 URLs for heatmap display
-                        detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
-                        detection_result['r2_images'] = r2_urls
-                        logger.info(f"[{capture_folder}] 📤 Uploaded freeze frames to R2 for heatmap")
+                    elif cached_r2_urls:
+                        # Freeze ongoing - reuse cached R2 URLs from first upload
+                        detection_result['last_3_filenames'] = cached_r2_urls
+                        # Also set r2_images for consistency
+                        detection_result['r2_images'] = {
+                            'thumbnail_urls': cached_r2_urls,
+                            'timestamp': incident_state.get('start_time')
+                        }
+                        logger.info(f"[{capture_folder}] ♻️ Freeze ongoing (count={consecutive}) - reusing cached R2 URLs")
                     else:
-                        logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
+                        # Edge case: consecutive > 1 but no cached URLs (shouldn't happen)
+                        logger.warning(f"[{capture_folder}] Freeze ongoing but no cached URLs, keeping local paths")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation
