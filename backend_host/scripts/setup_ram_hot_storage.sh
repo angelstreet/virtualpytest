@@ -28,17 +28,29 @@ fi
 echo "Reading device configuration from: $ENV_FILE"
 echo ""
 
-# Parse devices from .env file (look for DEVICE1_VIDEO_CAPTURE_PATH, etc.)
+# Parse devices from .env file (look for HOST_VIDEO_CAPTURE_PATH and DEVICE{N}_VIDEO_CAPTURE_PATH)
 DEVICES=()
-for i in {1..8}; do
+
+# Check for HOST device first
+HOST_CAPTURE_PATH=$(grep "^HOST_VIDEO_CAPTURE_PATH=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f 2- | tr -d '"' | tr -d "'")
+if [ -n "$HOST_CAPTURE_PATH" ]; then
+    CAPTURE_FOLDER=$(basename "$HOST_CAPTURE_PATH")
+    DEVICES+=("$CAPTURE_FOLDER")
+    echo "✓ Found host: HOST -> $CAPTURE_FOLDER"
+fi
+
+# Check for regular devices (dynamically detect up to 100)
+for i in {1..14}; do
     DEVICE_NAME=$(grep "^DEVICE${i}_NAME=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f 2- | tr -d '"' | tr -d "'")
     VIDEO_CAPTURE_PATH=$(grep "^DEVICE${i}_VIDEO_CAPTURE_PATH=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f 2- | tr -d '"' | tr -d "'")
     
     if [ -n "$VIDEO_CAPTURE_PATH" ]; then
-        # Extract capture folder name from path (e.g., /var/www/html/stream/capture1 -> capture1)
         CAPTURE_FOLDER=$(basename "$VIDEO_CAPTURE_PATH")
         DEVICES+=("$CAPTURE_FOLDER")
         echo "✓ Found device$i: $DEVICE_NAME -> $CAPTURE_FOLDER"
+    elif [ $i -gt 20 ] && [ ${#DEVICES[@]} -gt 0 ]; then
+        # Stop scanning after 20 consecutive empty slots beyond configured devices
+        break
     fi
 done
 
@@ -181,28 +193,38 @@ echo "================================"
 echo "Cleaning up unused devices..."
 echo "================================"
 
-for i in {1..8}; do
-  CAPTURE_FOLDER="capture$i"
-  HOT_PATH="$BASE_PATH/$CAPTURE_FOLDER/hot"
+# Find all mounted hot storage paths and check if they're still configured
+MOUNTED_HOT_PATHS=$(mount | grep "$BASE_PATH.*hot" | awk '{print $3}')
+CLEANUP_COUNT=0
+
+for HOT_PATH in $MOUNTED_HOT_PATHS; do
+  CAPTURE_FOLDER=$(basename "$(dirname "$HOT_PATH")")
   
   # Check if this device is in our active list
   if [[ ! " ${DEVICES[*]} " =~ " ${CAPTURE_FOLDER} " ]]; then
-    # Device not in .env, check if it's mounted or in fstab
-    if mount | grep -q "$HOT_PATH"; then
-      echo "Unmounting unused device: $CAPTURE_FOLDER"
-      sudo umount "$HOT_PATH" 2>/dev/null || echo "  ⚠️  Could not unmount $HOT_PATH"
-    fi
-    
-    # Remove from fstab if present
-    if grep -q "$HOT_PATH" /etc/fstab 2>/dev/null; then
-      echo "Removing $CAPTURE_FOLDER from /etc/fstab..."
-      sudo cp /etc/fstab "$FSTAB_BACKUP.cleanup"
-      sudo grep -v "$HOT_PATH" /etc/fstab | sudo tee /etc/fstab.tmp > /dev/null
-      sudo mv /etc/fstab.tmp /etc/fstab
-      echo "  ✓ Removed from /etc/fstab"
-    fi
+    echo "Unmounting unused device: $CAPTURE_FOLDER"
+    sudo umount "$HOT_PATH" 2>/dev/null && CLEANUP_COUNT=$((CLEANUP_COUNT + 1)) || echo "  ⚠️  Could not unmount $HOT_PATH"
   fi
 done
+
+# Also check fstab for entries not in active list
+FSTAB_HOT_PATHS=$(grep "$BASE_PATH.*hot" /etc/fstab 2>/dev/null | awk '{print $2}')
+for HOT_PATH in $FSTAB_HOT_PATHS; do
+  CAPTURE_FOLDER=$(basename "$(dirname "$HOT_PATH")")
+  
+  if [[ ! " ${DEVICES[*]} " =~ " ${CAPTURE_FOLDER} " ]]; then
+    echo "Removing $CAPTURE_FOLDER from /etc/fstab..."
+    sudo cp /etc/fstab "$FSTAB_BACKUP.cleanup"
+    sudo grep -v "$HOT_PATH" /etc/fstab | sudo tee /etc/fstab.tmp > /dev/null
+    sudo mv /etc/fstab.tmp /etc/fstab
+    echo "  ✓ Removed from /etc/fstab"
+    CLEANUP_COUNT=$((CLEANUP_COUNT + 1))
+  fi
+done
+
+if [ $CLEANUP_COUNT -eq 0 ]; then
+  echo "✓ No unused devices found"
+fi
 
 # Show mounted RAM disks
 echo ""
@@ -222,7 +244,7 @@ echo "   • Will automatically remount on reboot"
 echo ""
 echo "💡 To add/remove devices:"
 echo "   1. Edit $ENV_FILE"
-echo "   2. Add/remove DEVICE{N}_VIDEO_CAPTURE_PATH entries"
+echo "   2. Add/remove HOST_VIDEO_CAPTURE_PATH or DEVICE{N}_VIDEO_CAPTURE_PATH"
 echo "   3. Re-run this script to apply changes"
 echo ""
 echo "⚠️  NOTE: If you just added $CURRENT_USER to www-data group,"
