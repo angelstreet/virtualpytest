@@ -228,6 +228,13 @@ class InotifyFrameMonitor:
                         "analyzed": True,
                         **detection_result  # Include all detection data (freeze, blackscreen, audio, etc.)
                     }
+                    
+                    # Debug: Log what we're saving for freeze
+                    if detection_result.get('freeze'):
+                        last_3 = detection_result.get('last_3_filenames', [])
+                        if last_3:
+                            first_url = last_3[0][:80] if last_3[0] else 'None'
+                            logger.info(f"[{capture_folder}] 💾 Saving JSON with last_3_filenames[0]: {first_url}...")
                 else:
                     logger.error(f"[{capture_folder}] ERROR: detection_result is None/empty, saving fallback")
                     analysis_data = {
