@@ -121,31 +121,45 @@ for DEVICE in "${DEVICES[@]}"; do
   
   # Fix ownership and permissions (www-data:www-data, group writable)
   sudo chown -R www-data:www-data "$HOT_PATH"
-  sudo chmod 775 "$HOT_PATH"
-  sudo chmod 775 "$HOT_PATH"/*
+  sudo chmod 777 "$HOT_PATH"
+  sudo chmod 777 "$HOT_PATH/captures"
+  sudo chmod 777 "$HOT_PATH/thumbnails"
+  sudo chmod 777 "$HOT_PATH/segments"
+  sudo chmod 777 "$HOT_PATH/audio"
   
   # CRITICAL: metadata directory needs 777 for archiver to move files (different user)
   sudo chmod 777 "$HOT_PATH/metadata"
   
   echo "✓ $DEVICE hot storage ready (www-data:www-data, group writable)"
   
-  # Also ensure cold storage directories exist with correct permissions
-  COLD_METADATA="$BASE_PATH/$DEVICE/metadata"
-  COLD_AUDIO="$BASE_PATH/$DEVICE/audio"
+  # Create ALL cold storage directories with 777 permissions
+  for subdir in captures segments metadata audio; do
+    COLD_DIR="$BASE_PATH/$DEVICE/$subdir"
+    if [ ! -d "$COLD_DIR" ]; then
+      sudo mkdir -p "$COLD_DIR"
+      sudo chown www-data:www-data "$COLD_DIR"
+    fi
+    sudo chmod 777 "$COLD_DIR"
+  done
   
-  if [ ! -d "$COLD_METADATA" ]; then
-    sudo mkdir -p "$COLD_METADATA"
-    sudo chown www-data:www-data "$COLD_METADATA"
+  # Create hour folders and temp directory
+  for hour in {0..23}; do
+    HOUR_DIR="$BASE_PATH/$DEVICE/segments/$hour"
+    if [ ! -d "$HOUR_DIR" ]; then
+      sudo mkdir -p "$HOUR_DIR"
+      sudo chown www-data:www-data "$HOUR_DIR"
+    fi
+    sudo chmod 777 "$HOUR_DIR"
+  done
+  
+  TEMP_DIR="$BASE_PATH/$DEVICE/segments/temp"
+  if [ ! -d "$TEMP_DIR" ]; then
+    sudo mkdir -p "$TEMP_DIR"
+    sudo chown www-data:www-data "$TEMP_DIR"
   fi
-  sudo chmod 777 "$COLD_METADATA"
+  sudo chmod 777 "$TEMP_DIR"
   
-  if [ ! -d "$COLD_AUDIO" ]; then
-    sudo mkdir -p "$COLD_AUDIO"
-    sudo chown www-data:www-data "$COLD_AUDIO"
-  fi
-  sudo chmod 775 "$COLD_AUDIO"
-  
-  echo "✓ Cold storage metadata & audio directories ready"
+  echo "✓ Cold storage ready (all dirs 777)"
   echo ""
 done
 
@@ -237,8 +251,8 @@ echo ""
 echo "✅ RAM hot storage setup complete!"
 echo "   • Devices configured: ${#DEVICES[@]} (${DEVICES[*]})"
 echo "   • Each device mounted in RAM ($MOUNT_SIZE)"
-echo "   • Owner: www-data:www-data (mode: 775)"
-echo "   • Group members can read/write (nginx + capture services)"
+echo "   • Owner: www-data:www-data"
+echo "   • All directories: 777 (full cross-service access)"
 echo "   • Auto-mount configured in /etc/fstab"
 echo "   • Will automatically remount on reboot"
 echo ""
