@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import React from 'react';
 
 import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
@@ -14,13 +14,14 @@ interface ConsecutiveErrorCounts {
 
 interface MonitoringOverlayProps {
   sx?: any;
-  monitoringAnalysis?: MonitoringAnalysis; // Core audio/video monitoring data from backend
-  subtitleAnalysis?: SubtitleAnalysis | null; // Subtitle analysis from frontend detection
-  languageMenuAnalysis?: LanguageMenuAnalysis | null; // Language menu analysis from AI detection
-  consecutiveErrorCounts?: ConsecutiveErrorCounts | null; // Consecutive error counts for trend indicators
-  showSubtitles?: boolean; // Whether to show subtitle information in overlay
-  showLanguageMenu?: boolean; // Whether to show language menu information in overlay
-  analysisTimestamp?: string; // Timestamp of the JSON file being analyzed
+  monitoringAnalysis?: MonitoringAnalysis;
+  subtitleAnalysis?: SubtitleAnalysis | null;
+  languageMenuAnalysis?: LanguageMenuAnalysis | null;
+  consecutiveErrorCounts?: ConsecutiveErrorCounts | null;
+  showSubtitles?: boolean;
+  showLanguageMenu?: boolean;
+  analysisTimestamp?: string;
+  isAIAnalyzing?: boolean;
 }
 
 export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
@@ -32,6 +33,7 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   showSubtitles = false,
   showLanguageMenu = false,
   analysisTimestamp,
+  isAIAnalyzing = false,
 }) => {
   // Use separate data sources
   const analysis = monitoringAnalysis;
@@ -76,11 +78,19 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           ...sx,
         }}
       >
-        {/* Analysis Timestamp */}
         {analysisTimestamp && (
           <Typography variant="body2" sx={{ color: '#ffffff', mb: 0.5 }}>
             {formatTimestamp(analysisTimestamp)}
           </Typography>
+        )}
+
+        {isAIAnalyzing && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+            <CircularProgress size={16} sx={{ mr: 1 }} />
+            <Typography variant="body2" sx={{ color: '#00bfff' }}>
+              AI Analyzing...
+            </Typography>
+          </Box>
         )}
 
         {/* Blackscreen */}

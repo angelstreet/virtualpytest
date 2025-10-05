@@ -26,20 +26,15 @@ interface AnalysisSnapshot {
 }
 
 interface UseMonitoringReturn {
-  // Latest analysis data
   latestAnalysis: MonitoringAnalysis | null;
   latestSubtitleAnalysis: SubtitleAnalysis | null;
   latestLanguageMenuAnalysis: LanguageMenuAnalysis | null;
   latestAIDescription: string | null;
-
-  // Error trend analysis (based on last 10 samples)
   errorTrendData: ErrorTrendData | null;
-
-  // Loading state
   isLoading: boolean;
-
-  // Current analysis timestamp
   analysisTimestamp: string | null;
+  requestAIAnalysisForFrame: (imageUrl: string, sequence: string) => Promise<void>;
+  isAIAnalyzing: boolean;
 }
 
 interface UseMonitoringProps {
@@ -61,6 +56,7 @@ export const useMonitoring = ({
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
+  const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -70,23 +66,37 @@ export const useMonitoring = ({
       const response = await fetch(jsonUrl);
       if (response.ok) {
         const data = await response.json();
-        return {
+        console.log('[useMonitoring] Raw JSON data:', { 
+          freeze: data.freeze, 
+          audio: data.audio, 
+          blackscreen: data.blackscreen 
+        });
+        
+        const parsed = {
           timestamp: data.timestamp || '',
           filename: data.filename || '',
           thumbnail: data.thumbnail || '',
-          blackscreen: data.blackscreen || false,
-          blackscreen_percentage: data.blackscreen_percentage || 0,
-          freeze: data.freeze || false,
+          blackscreen: data.blackscreen ?? false,
+          blackscreen_percentage: data.blackscreen_percentage ?? 0,
+          freeze: data.freeze ?? false,
           freeze_diffs: data.freeze_diffs || [],
           last_3_filenames: data.last_3_filenames || [],
           last_3_thumbnails: data.last_3_thumbnails || [],
-          audio: data.audio || false,
-          volume_percentage: data.volume_percentage || 0,
-          mean_volume_db: data.mean_volume_db || -100,
-          macroblocks: data.macroblocks || false,
-          quality_score: data.quality_score || 0,
-          has_incidents: data.has_incidents || false,
+          audio: data.audio ?? false,
+          volume_percentage: data.volume_percentage ?? 0,
+          mean_volume_db: data.mean_volume_db ?? -100,
+          macroblocks: data.macroblocks ?? false,
+          quality_score: data.quality_score ?? 0,
+          has_incidents: data.has_incidents ?? false,
         };
+        
+        console.log('[useMonitoring] Parsed data:', { 
+          freeze: parsed.freeze, 
+          audio: parsed.audio, 
+          blackscreen: parsed.blackscreen 
+        });
+        
+        return parsed;
       } else if (response.status === 404) {
         console.log('[useMonitoring] JSON not found (404) - capture not yet available');
       }
@@ -142,6 +152,17 @@ export const useMonitoring = ({
     return { subtitleAnalysis, languageMenuAnalysis, aiDescription };
   }, [host, device?.device_id]);
 
+  const requestAIAnalysisForFrame = useCallback(async (imageUrl: string, sequence: string) => {
+    setIsAIAnalyzing(true);
+    try {
+      const aiResults = await analyzeFrameAIAsync(imageUrl, sequence);
+      setAnalysisHistory(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, ...aiResults } : s));
+    } catch (error) {
+      console.error('[useMonitoring] AI analysis failed:', error);
+    } finally {
+      setIsAIAnalyzing(false);
+    }
+  }, [analyzeFrameAIAsync]);
 
   // Fetch latest JSON file and derive image URL
   const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string, sequence: string} | null> => {
@@ -197,9 +218,42 @@ export const useMonitoring = ({
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.json_data) {
+          const data = result.json_data;
+          
+          console.log('[useMonitoring] Archive raw JSON:', { 
+            freeze: data.freeze, 
+            audio: data.audio, 
+            blackscreen: data.blackscreen 
+          });
+          
+          // Parse with proper boolean handling
+          const parsedAnalysis: MonitoringAnalysis = {
+            timestamp: data.timestamp || new Date().toISOString(),
+            filename: data.filename || '',
+            thumbnail: data.thumbnail || '',
+            blackscreen: data.blackscreen ?? false,
+            blackscreen_percentage: data.blackscreen_percentage ?? 0,
+            freeze: data.freeze ?? false,
+            freeze_diffs: data.freeze_diffs || [],
+            last_3_filenames: data.last_3_filenames || [],
+            last_3_thumbnails: data.last_3_thumbnails || [],
+            audio: data.audio ?? false,
+            volume_percentage: data.volume_percentage ?? 0,
+            mean_volume_db: data.mean_volume_db ?? -100,
+            macroblocks: data.macroblocks ?? false,
+            quality_score: data.quality_score ?? 0,
+            has_incidents: data.has_incidents ?? false,
+          };
+          
+          console.log('[useMonitoring] Archive parsed:', { 
+            freeze: parsedAnalysis.freeze, 
+            audio: parsedAnalysis.audio, 
+            blackscreen: parsedAnalysis.blackscreen 
+          });
+          
           const snapshot: AnalysisSnapshot = {
-            timestamp: result.json_data.timestamp || new Date().toISOString(),
-            analysis: result.json_data,
+            timestamp: parsedAnalysis.timestamp,
+            analysis: parsedAnalysis,
             subtitleAnalysis: null,
             languageMenuAnalysis: null,
             aiDescription: null,
@@ -365,19 +419,14 @@ export const useMonitoring = ({
   const latestSnapshot = analysisHistory.length > 0 ? analysisHistory[analysisHistory.length - 1] : null;
 
   return {
-    // Latest analysis data
     latestAnalysis: latestSnapshot?.analysis || null,
     latestSubtitleAnalysis: latestSnapshot?.subtitleAnalysis || null,
     latestLanguageMenuAnalysis: latestSnapshot?.languageMenuAnalysis || null,
     latestAIDescription: latestSnapshot?.aiDescription || null,
-
-    // Error trend analysis
     errorTrendData: computeErrorTrends(),
-
-    // Loading state
     isLoading,
-
-    // Current analysis timestamp
     analysisTimestamp: latestSnapshot?.timestamp || null,
+    requestAIAnalysisForFrame,
+    isAIAnalyzing,
   };
 };

@@ -99,8 +99,8 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
       </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {/* Screenshot Button - Only show when NOT in monitoring or restart mode */}
-        {!monitoringMode && !restartMode && (
+        {/* Screenshot Button */}
+        {!restartMode && (
           <IconButton
             onClick={onScreenshot}
             sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
@@ -111,8 +111,8 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           </IconButton>
         )}
 
-        {/* Live/Restart Mode Toggle Button Group - Only show when NOT in monitoring or restart mode */}
-        {!monitoringMode && !restartMode && (
+        {/* Live/Archive Mode Toggle Button Group */}
+        {!restartMode && (
           <ToggleButtonGroup
             value={isLiveMode ? 'live' : 'restart'}
             exclusive
@@ -147,8 +147,8 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           </ToggleButtonGroup>
         )}
 
-        {/* Quality Toggle Button Group - Only show when NOT in monitoring or restart mode */}
-        {!monitoringMode && !restartMode && (
+        {/* Quality Toggle Button Group */}
+        {!restartMode && (
           <ToggleButtonGroup
             value={currentQuality}
             exclusive
@@ -228,25 +228,25 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
 
         {/* Monitoring Toggle Button - Works independently from control (passive observation) */}
         {!restartMode && (
-          <IconButton
+          <Button
+            variant={monitoringMode ? 'contained' : 'outlined'}
+            size="small"
             onClick={onToggleMonitoring}
+            startIcon={monitoringMode ? <VisibilityIcon /> : <VisibilityOffIcon />}
+            color={monitoringMode ? 'primary' : 'inherit'}
             sx={{
-              color: monitoringMode ? 'primary.main' : 'grey.300',
-              backgroundColor: monitoringMode ? 'rgba(33, 150, 243, 0.1)' : undefined,
-              '&:hover': {
-                color: 'white',
-                backgroundColor: monitoringMode ? 'rgba(33, 150, 243, 0.2)' : undefined,
-              },
+              fontSize: '0.75rem',
+              minWidth: 120,
+              color: monitoringMode ? 'white' : 'inherit',
             }}
-            aria-label={monitoringMode ? 'Hide Monitoring Overlay' : 'Show Monitoring Overlay'}
             title={monitoringMode ? 'Hide Monitoring Overlay' : 'Show Monitoring Overlay (Freeze, Blackscreen, Audio, Subtitles, AI)'}
           >
-            {monitoringMode ? <VisibilityIcon /> : <VisibilityOffIcon />}
-          </IconButton>
+            Monitoring
+          </Button>
         )}
 
-        {/* Volume Toggle Button - Only show when NOT in monitoring mode */}
-        {!monitoringMode && !restartMode && (
+        {/* Volume Toggle Button */}
+        {!restartMode && (
           <IconButton
             onClick={onToggleMute}
             sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}

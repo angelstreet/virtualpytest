@@ -77,6 +77,7 @@ interface EnhancedHLSPlayerProps {
   aiDescription?: string | null;
   errorTrendData?: ErrorTrendData | null;
   analysisTimestamp?: string | null;
+  isAIAnalyzing?: boolean;
 }
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
@@ -102,6 +103,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   aiDescription,
   errorTrendData,
   analysisTimestamp,
+  isAIAnalyzing = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [internalIsLiveMode] = useState(true); // Start in live mode
@@ -942,6 +944,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               showSubtitles={!!subtitleAnalysis}
               showLanguageMenu={!!languageMenuAnalysis}
               analysisTimestamp={analysisTimestamp || undefined}
+              isAIAnalyzing={isAIAnalyzing}
             />
 
             {/* AI Description overlay (if available) */}
@@ -1111,61 +1114,69 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             
             {/* Time display row */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0 }}>  
-              {/* Left: Oldest buffer position */}
-              <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
-                {(() => {
-                  if (isLiveMode) {
-                    // Live mode: always show -02:30 (150 segments = 150 seconds)
-                    return '-02:30';
-                  } else {
-                    // Archive mode: show absolute time
-                    return formatTime(isDraggingSlider ? dragSliderValue : (archiveMetadata && archiveMetadata.manifests.length > 0 ? globalCurrentTime : currentTime));
-                  }
-                })()}
-              </Typography>
-              
-              {/* Center: User's current position */}
-              <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
-                {(() => {
-                  if (isLiveMode) {
-                    // Show where user is in the buffer
-                    if (isAtLiveEdge) {
-                      return 'LIVE';
-                    } else {
-                      // Calculate seconds behind based on fixed 150-second buffer
-                      const totalBufferSeconds = 150;
-                      const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
-                      if (behindSeconds < 60) {
-                        return `-${behindSeconds}s`;
+              {isLiveMode ? (
+                <>
+                  {/* Live Mode: 3-column layout */}
+                  {/* Left: Oldest buffer position */}
+                  <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
+                    -02:30
+                  </Typography>
+                  
+                  {/* Center: User's current position */}
+                  <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
+                    {(() => {
+                      // Show where user is in the buffer
+                      if (isAtLiveEdge) {
+                        return 'LIVE';
                       } else {
-                        const minutes = Math.floor(behindSeconds / 60);
-                        const seconds = behindSeconds % 60;
-                        return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        // Calculate seconds behind based on fixed 150-second buffer
+                        const totalBufferSeconds = 150;
+                        const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
+                        if (behindSeconds < 60) {
+                          return `-${behindSeconds}s`;
+                        } else {
+                          const minutes = Math.floor(behindSeconds / 60);
+                          const seconds = behindSeconds % 60;
+                          return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        }
                       }
-                    }
-                  }
-                  return null;
-                })()}
-              </Typography>
-              
-              {/* Right side: Archive metadata or "Now" for live */}
-              {archiveMetadata && !isLiveMode && (
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                  {availableHours.length > 0 ? `${availableHours.length} hours available` : 'No archive available'} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
-                </Typography>
+                    })()}
+                  </Typography>
+                  
+                  {/* Right: Now indicator */}
+                  <Typography variant="caption" sx={{ color: 'white' }}>
+                    Now
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  {/* Archive Mode: Left empty, centered metadata, right shows last chunk time */}
+                  <Box sx={{ minWidth: '60px' }} />
+                  
+                  {/* Center: Archive metadata */}
+                  {archiveMetadata && (
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
+                      {availableHours.length > 0 ? `${availableHours.length}h available` : 'No archive available'} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
+                    </Typography>
+                  )}
+                  
+                  {/* Right: Last available chunk time (e.g., "20h50" for chunk 5 of hour 20) */}
+                  <Typography variant="caption" sx={{ color: 'white' }}>
+                    {(() => {
+                      if (archiveMetadata && availableHours.length > 0) {
+                        const lastManifest = archiveMetadata.manifests[archiveMetadata.manifests.length - 1];
+                        if (lastManifest) {
+                          const hour = lastManifest.window_index;
+                          const chunk = lastManifest.chunk_index;
+                          const minutes = chunk * 10; // Each chunk is 10 minutes, show start time of last chunk
+                          return `${hour}h${minutes.toString().padStart(2, '0')}`;
+                        }
+                      }
+                      return formatTime(duration);
+                    })()}
+                  </Typography>
+                </>
               )}
-              
-              {/* Right: Now indicator for live, duration for archive */}
-              <Typography variant="caption" sx={{ color: 'white' }}>
-                {(() => {
-                  if (isLiveMode) {
-                    return 'Now';
-                  } else {
-                    // Show last available hour instead of total duration
-                    return availableHours.length > 0 ? formatTime((availableHours[availableHours.length - 1] + 1) * 3600) : formatTime(duration);
-                  }
-                })()}
-              </Typography>
             </Box>
           </Box>
         )}

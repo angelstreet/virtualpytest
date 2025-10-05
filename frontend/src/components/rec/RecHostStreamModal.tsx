@@ -9,7 +9,7 @@ import { useToast } from '../../hooks/useToast';
 import { useMonitoring } from '../../hooks/monitoring/useMonitoring';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 
@@ -227,21 +227,25 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, [isControlActive, showWarning]);
 
-  // Handle monitoring mode toggle (passive observation - no control needed)
   const handleToggleMonitoring = useCallback(() => {
     setMonitoringMode((prev) => {
       const newMode = !prev;
-      console.log(`[@component:RecHostStreamModal] Monitoring overlay toggled: ${newMode}`);
+      console.log(`[@component:RecHostStreamModal] Monitoring toggled: ${newMode}`);
 
-      // Disable AI agent mode and restart mode when enabling monitoring
       if (newMode) {
         setAiAgentMode(false);
         setRestartMode(false);
+        
+        setTimeout(() => {
+          const sequence = monitoringData.analysisTimestamp || '000000';
+          const imageUrl = buildCaptureUrl(host, sequence, device?.device_id || 'device1');
+          monitoringData.requestAIAnalysisForFrame(imageUrl, sequence);
+        }, 100);
       }
 
       return newMode;
     });
-  }, []);
+  }, [monitoringData, host, device]);
 
   // Handle AI agent mode toggle
   const handleToggleAiAgent = useCallback(() => {

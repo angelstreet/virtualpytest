@@ -527,10 +527,14 @@ const MonitoringIncidents: React.FC = () => {
                 </Grid>
               )}
 
-              {/* 3 Freeze Frames */}
+              {/* 3 Freeze Frames - using R2 thumbnail URLs directly */}
               {freezeImageUrls.map((imageUrl, index) => {
                 const diff = freezeDiffs[index];
                 const isCurrentFrame = index === 2;
+
+                // R2 URLs from alert metadata are already complete thumbnail URLs
+                // Format: https://r2.dev/alerts/freeze/device1/timestamp/thumb_0.jpg
+                console.log(`[@MonitoringIncidents] Freeze frame ${index}:`, imageUrl);
 
                 return (
                   <Grid item key={index}>

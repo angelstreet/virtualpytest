@@ -45,6 +45,14 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
   // Only show modal if we have frame data
   if (framesCompared.length === 0) return null;
 
+  // Debug: Log the frame URLs being displayed
+  console.log('[@HeatMapFreezeModal] Displaying freeze frames:', {
+    device: `${freezeModalImage.host_name}-${freezeModalImage.device_id}`,
+    frameCount: framesCompared.length,
+    frames: framesCompared,
+    diffs: frameDifferences
+  });
+
   return (
     <Modal
       open={freezeModalOpen}
@@ -135,28 +143,36 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
           {framesCompared.map((filename: string, index: number) => {
-            // Handle both formats:
-            // 1. R2 URLs: https://...r2.../thumb_0.jpg (full URL to thumbnail)
-            // 2. Local paths: /var/www/.../capture_000001.jpg (needs thumbnail suffix)
+            // Handle three formats:
+            // 1. R2 URLs from alerts: https://...r2.../alerts/freeze/device1/.../thumb_0.jpg (complete thumbnail URLs)
+            // 2. R2 URLs from heatmap: https://...r2.../heatmaps/.../capture_000001.jpg (need _thumbnail suffix)
+            // 3. Local paths: /var/www/.../capture_000001.jpg (needs thumbnail suffix)
             const isFullUrl = filename.startsWith('http://') || filename.startsWith('https://');
             
-            // Extract just the filename for local paths or from URL for sequence number display
+            // Extract just the filename for sequence number display
             const cleanFilename = filename.includes('/')
               ? filename.split('/').pop() || filename
               : filename;
             
-            // Determine thumbnail filename based on format:
-            // - R2 URLs use thumb_0.jpg (already thumbnails)
-            // - Local files use capture_0001.jpg -> need capture_0001_thumbnail.jpg
-            const isThumbnailAlready = cleanFilename.startsWith('thumb_');
-            const thumbnailFilename = isThumbnailAlready
-              ? cleanFilename
-              : cleanFilename.replace('.jpg', '_thumbnail.jpg');
+            // Determine the frame URL to display
+            let frameUrl: string;
             
-            // If it's a full URL, replace the filename part with thumbnail version; otherwise construct it
-            const frameUrl = isFullUrl 
-              ? filename.replace(/[^/]+\.jpg$/, thumbnailFilename)
-              : constructFrameUrl(thumbnailFilename, freezeModalImage.image_url);
+            // If it's a full R2 URL from alerts (contains /thumb_), use as-is
+            // These are already thumbnail URLs uploaded by the monitoring system
+            if (isFullUrl && filename.includes('/thumb_')) {
+              frameUrl = filename;
+            }
+            // For R2 heatmap URLs or other full URLs, need to add _thumbnail suffix
+            else if (isFullUrl) {
+              const thumbnailFilename = cleanFilename.replace('.jpg', '_thumbnail.jpg');
+              frameUrl = filename.replace(/[^/]+\.jpg$/, thumbnailFilename);
+            }
+            // For local paths, use constructFrameUrl
+            else {
+              const thumbnailFilename = cleanFilename.replace('.jpg', '_thumbnail.jpg');
+              frameUrl = constructFrameUrl(thumbnailFilename, freezeModalImage.image_url);
+            }
+            
             const diff = frameDifferences[index];
 
             // Extract sequence number from filename (format: capture_0001.jpg or thumb_0.jpg)
