@@ -180,16 +180,18 @@ class InotifyFrameMonitor:
                         # First freeze frame - upload to R2
                         current_timestamp = datetime.now().isoformat()
                         
-                        # Generate thumbnail paths (FFmpeg creates these as capture_NNNNNN_thumbnail.jpg)
+                        # Generate thumbnail paths (FFmpeg creates these in thumbnails/ directory)
                         last_3_thumbnails = []
                         for capture_path in last_3_captures:
                             if os.path.exists(capture_path):
-                                # Check for existing thumbnail
-                                thumbnail_path = capture_path.replace('.jpg', '_thumbnail.jpg')
+                                # Thumbnails are in /thumbnails/ not /captures/
+                                # /var/www/html/stream/capture1/hot/captures/capture_000014342.jpg
+                                # -> /var/www/html/stream/capture1/hot/thumbnails/capture_000014342_thumbnail.jpg
+                                thumbnail_path = capture_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
                                 if os.path.exists(thumbnail_path):
                                     last_3_thumbnails.append(thumbnail_path)
                                 else:
-                                    logger.warning(f"[{capture_folder}] Thumbnail not found for {capture_path}, using original")
+                                    logger.warning(f"[{capture_folder}] Thumbnail not found: {thumbnail_path}, using original")
                                     last_3_thumbnails.append(capture_path)  # Fallback to original
                         
                         logger.info(f"[{capture_folder}] 🆕 Freeze confirmed (3 matching frames) - uploading {len(last_3_thumbnails)} thumbnails to R2")
@@ -233,8 +235,9 @@ class InotifyFrameMonitor:
                     if detection_result.get('freeze'):
                         last_3 = detection_result.get('last_3_filenames', [])
                         if last_3:
-                            first_url = last_3[0][:80] if last_3[0] else 'None'
-                            logger.info(f"[{capture_folder}] 💾 Saving JSON with last_3_filenames[0]: {first_url}...")
+                            logger.info(f"[{capture_folder}] 💾 Saving JSON with freeze R2 URLs:")
+                            for i, url in enumerate(last_3):
+                                logger.info(f"[{capture_folder}]    Frame {i}: {url}")
                 else:
                     logger.error(f"[{capture_folder}] ERROR: detection_result is None/empty, saving fallback")
                     analysis_data = {

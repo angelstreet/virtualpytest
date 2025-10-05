@@ -426,8 +426,8 @@ class HeatmapProcessor:
             else:
                 active_count += 1
                 
-            # Check for incidents using raw analysis data
-            analysis_data = device.get('analysis_json', {})
+            # Check for incidents using raw analysis data (handle None)
+            analysis_data = device.get('analysis_json') or {}
             has_incident = (
                 analysis_data.get('blackscreen', False) or
                 analysis_data.get('freeze', False) or
