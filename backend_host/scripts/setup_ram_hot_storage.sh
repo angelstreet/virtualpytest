@@ -1,17 +1,56 @@
 #!/bin/bash
-# Setup RAM-based hot storage - CLEAN IMPLEMENTATION
+# Setup RAM-based hot storage - DYNAMIC FROM .ENV
 # Auto-configures /etc/fstab for automatic remount on reboot
+# Reads device configuration from backend_host/src/.env
 
 set -e
 
 MOUNT_SIZE="200M"
 BASE_PATH="/var/www/html/stream"
-DEVICES=("capture1" "capture2" "capture3" "capture4" "capture5" "capture6" "capture7" "capture8" )
 FSTAB_BACKUP="/etc/fstab.backup.$(date +%Y%m%d_%H%M%S)"
 
+# Get script directory and find .env file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ENV_FILE="$PROJECT_ROOT/backend_host/src/.env"
+
 echo "================================"
-echo "RAM Hot Storage Setup (Auto-mount)"
+echo "RAM Hot Storage Setup (Dynamic)"
 echo "================================"
+
+# Check if .env file exists
+if [ ! -f "$ENV_FILE" ]; then
+    echo "❌ Error: .env file not found at $ENV_FILE"
+    echo "   Please run install_host.sh first to create .env file"
+    exit 1
+fi
+
+echo "Reading device configuration from: $ENV_FILE"
+echo ""
+
+# Parse devices from .env file (look for DEVICE1_VIDEO_CAPTURE_PATH, etc.)
+DEVICES=()
+for i in {1..8}; do
+    DEVICE_NAME=$(grep "^DEVICE${i}_NAME=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f 2- | tr -d '"' | tr -d "'")
+    VIDEO_CAPTURE_PATH=$(grep "^DEVICE${i}_VIDEO_CAPTURE_PATH=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f 2- | tr -d '"' | tr -d "'")
+    
+    if [ -n "$VIDEO_CAPTURE_PATH" ]; then
+        # Extract capture folder name from path (e.g., /var/www/html/stream/capture1 -> capture1)
+        CAPTURE_FOLDER=$(basename "$VIDEO_CAPTURE_PATH")
+        DEVICES+=("$CAPTURE_FOLDER")
+        echo "✓ Found device$i: $DEVICE_NAME -> $CAPTURE_FOLDER"
+    fi
+done
+
+if [ ${#DEVICES[@]} -eq 0 ]; then
+    echo "⚠️  No devices found in .env file"
+    echo "   Please configure DEVICE1_VIDEO_CAPTURE_PATH, etc. in $ENV_FILE"
+    exit 1
+fi
+
+echo ""
+echo "Configuring RAM storage for ${#DEVICES[@]} device(s): ${DEVICES[*]}"
+echo ""
 
 # Check if we have sudo access
 if ! sudo -n true 2>/dev/null; then
@@ -136,6 +175,35 @@ if [ $ENTRIES_ADDED -gt 0 ]; then
   fi
 fi
 
+# Clean up: Unmount and remove from fstab any devices NOT in .env
+echo ""
+echo "================================"
+echo "Cleaning up unused devices..."
+echo "================================"
+
+for i in {1..8}; do
+  CAPTURE_FOLDER="capture$i"
+  HOT_PATH="$BASE_PATH/$CAPTURE_FOLDER/hot"
+  
+  # Check if this device is in our active list
+  if [[ ! " ${DEVICES[*]} " =~ " ${CAPTURE_FOLDER} " ]]; then
+    # Device not in .env, check if it's mounted or in fstab
+    if mount | grep -q "$HOT_PATH"; then
+      echo "Unmounting unused device: $CAPTURE_FOLDER"
+      sudo umount "$HOT_PATH" 2>/dev/null || echo "  ⚠️  Could not unmount $HOT_PATH"
+    fi
+    
+    # Remove from fstab if present
+    if grep -q "$HOT_PATH" /etc/fstab 2>/dev/null; then
+      echo "Removing $CAPTURE_FOLDER from /etc/fstab..."
+      sudo cp /etc/fstab "$FSTAB_BACKUP.cleanup"
+      sudo grep -v "$HOT_PATH" /etc/fstab | sudo tee /etc/fstab.tmp > /dev/null
+      sudo mv /etc/fstab.tmp /etc/fstab
+      echo "  ✓ Removed from /etc/fstab"
+    fi
+  fi
+done
+
 # Show mounted RAM disks
 echo ""
 echo "================================"
@@ -145,11 +213,17 @@ echo "================================"
 
 echo ""
 echo "✅ RAM hot storage setup complete!"
-echo "   • All devices mounted in RAM ($MOUNT_SIZE each)"
+echo "   • Devices configured: ${#DEVICES[@]} (${DEVICES[*]})"
+echo "   • Each device mounted in RAM ($MOUNT_SIZE)"
 echo "   • Owner: www-data:www-data (mode: 775)"
 echo "   • Group members can read/write (nginx + capture services)"
 echo "   • Auto-mount configured in /etc/fstab"
 echo "   • Will automatically remount on reboot"
+echo ""
+echo "💡 To add/remove devices:"
+echo "   1. Edit $ENV_FILE"
+echo "   2. Add/remove DEVICE{N}_VIDEO_CAPTURE_PATH entries"
+echo "   3. Re-run this script to apply changes"
 echo ""
 echo "⚠️  NOTE: If you just added $CURRENT_USER to www-data group,"
 echo "   you may need to log out and back in for changes to take effect"
