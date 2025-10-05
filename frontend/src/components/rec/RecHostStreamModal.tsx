@@ -1,17 +1,4 @@
-import {
-  Close as CloseIcon,
-  Tv as TvIcon,
-  Analytics as AnalyticsIcon,
-  SmartToy as AIIcon,
-  Language as WebIcon,
-  VolumeOff as VolumeOffIcon,
-  VolumeUp as VolumeUpIcon,
-  Refresh as RefreshIcon,
-  RadioButtonChecked as LiveIcon,
-  History as ArchiveIcon,
-  CameraAlt as CameraIcon,
-} from '@mui/icons-material';
-import { Box, IconButton, Typography, Button, CircularProgress, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
@@ -27,12 +14,12 @@ import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
 import { DesktopPanel } from '../controller/desktop/DesktopPanel';
-import { PowerButton } from '../controller/power/PowerButton';
 import { RemotePanel } from '../controller/remote/RemotePanel';
 import { WebPanel } from '../controller/web/WebPanel';
 import { MonitoringPlayer } from '../monitoring/MonitoringPlayer';
 
 import { RestartPlayer } from './RestartPlayer';
+import { RecStreamModalHeader } from './RecStreamModalHeader';
 
 interface RecHostStreamModalProps {
   host: Host;
@@ -587,306 +574,34 @@ const RecHostStreamModalContent: React.FC<{
         }}
       >
         {/* Header */}
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            backgroundColor: 'grey.800',
-            color: 'white',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderRadius: '8px 8px 0 0',
-            minHeight: 48,
-          }}
-        >
-          <Typography variant="h6" component="h2">
-            {device?.device_name || host.host_name} -{' '}
-            {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live Stream' : '24h Archive'}
-          </Typography>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Screenshot Button - Only show when NOT in monitoring or restart mode */}
-            {!monitoringMode && !restartMode && (
-              <IconButton
-                onClick={handleScreenshot}
-                sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
-                aria-label="Take Screenshot"
-                title="Take Screenshot (opens in new tab)"
-              >
-                <CameraIcon />
-              </IconButton>
-            )}
-
-            {/* Live/24h Mode Toggle Button - Only show when NOT in monitoring or restart mode */}
-            {!monitoringMode && !restartMode && (
-              <Button
-                variant={isLiveMode ? 'contained' : 'outlined'}
-                size="small"
-                onClick={handleToggleLiveMode}
-                startIcon={isLiveMode ? <LiveIcon /> : <ArchiveIcon />}
-                color={isLiveMode ? 'error' : 'primary'}
-                sx={{
-                  fontSize: '0.75rem',
-                  minWidth: 100,
-                  color: isLiveMode ? 'white' : 'inherit',
-                }}
-                title={isLiveMode ? 'Switch to 24h Archive' : 'Switch to Live Stream'}
-              >
-                {isLiveMode ? 'Live' : '24h'}
-              </Button>
-            )}
-
-            {/* Quality Toggle Button Group - Only show when NOT in monitoring or restart mode */}
-            {!monitoringMode && !restartMode && (
-              <ToggleButtonGroup
-                value={currentQuality}
-                exclusive
-                onChange={handleQualityChange}
-                size="small"
-                aria-label="Quality selection"
-                sx={{
-                  backgroundColor: isQualitySwitching ? 'warning.main' : undefined, // Orange during transition
-                  '& .MuiToggleButton-root': {
-                    fontSize: '0.75rem',
-                    minWidth: 45,
-                    px: 1,
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    '&.Mui-selected': {
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      },
-                    },
-                  },
-                }}
-              >
-                <ToggleButton
-                  value="low"
-                  aria-label="Low quality"
-                  title="Switch to LOW Quality (320x180) - Fastest loading"
-                  sx={{
-                    '&.Mui-selected': {
-                      backgroundColor: 'success.main',
-                      '&:hover': {
-                        backgroundColor: 'success.dark',
-                      },
-                    },
-                  }}
-                >
-                  LOW
-                </ToggleButton>
-                <ToggleButton
-                  value="sd"
-                  aria-label="Standard definition"
-                  title="Switch to SD Quality (640x360) - Balanced"
-                  sx={{
-                    '&.Mui-selected': {
-                      backgroundColor: 'primary.main',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      },
-                    },
-                  }}
-                >
-                  SD
-                </ToggleButton>
-                <ToggleButton
-                  value="hd"
-                  aria-label="High definition"
-                  title="Switch to HD Quality (1280x720) - Best quality"
-                  sx={{
-                    '&.Mui-selected': {
-                      backgroundColor: 'secondary.main',
-                      '&:hover': {
-                        backgroundColor: 'secondary.dark',
-                      },
-                    },
-                  }}
-                >
-                  HD
-                </ToggleButton>
-              </ToggleButtonGroup>
-            )}
-
-            {/* Volume Toggle Button - Only show when NOT in monitoring mode */}
-            {!monitoringMode && !restartMode && (
-              <IconButton
-                onClick={() => setIsMuted((prev) => !prev)}
-                sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
-                title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-              >
-                {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
-              </IconButton>
-            )}
-
-            {/* Take Control Button */}
-            <Button
-              variant={isControlActive ? 'contained' : 'outlined'}
-              size="small"
-              onClick={handleToggleControl}
-              disabled={isControlLoading}
-              startIcon={isControlLoading ? <CircularProgress size={16} /> : <TvIcon />}
-              color={isControlActive ? 'success' : 'primary'}
-              sx={{
-                fontSize: '0.75rem',
-                minWidth: 120,
-                color: isControlActive ? 'white' : 'inherit',
-              }}
-              title={
-                isControlLoading
-                  ? 'Processing...'
-                  : isControlActive
-                    ? 'Release Control'
-                    : 'Take Control'
-              }
-            >
-              {isControlLoading
-                ? 'Processing...'
-                : isControlActive
-                  ? 'Release Control'
-                  : 'Take Control'}
-            </Button>
-
-            {/* Power Control Button */}
-            {hasPowerControl && device && (
-              <PowerButton host={host} device={device} disabled={!isControlActive} />
-            )}
-
-            {/* Monitoring Toggle Button */}
-            <Button
-              variant={monitoringMode ? 'contained' : 'outlined'}
-              size="small"
-              onClick={handleToggleMonitoring}
-              disabled={!isControlActive}
-              startIcon={<AnalyticsIcon />}
-              color={monitoringMode ? 'warning' : 'primary'}
-              sx={{
-                fontSize: '0.75rem',
-                minWidth: 120,
-                color: monitoringMode ? 'white' : 'inherit',
-              }}
-              title={
-                !isControlActive
-                  ? 'Take control first to enable monitoring'
-                  : monitoringMode
-                    ? 'Disable Monitoring'
-                    : 'Enable Monitoring'
-              }
-            >
-              {monitoringMode ? 'Stop Monitoring' : 'Monitoring'}
-            </Button>
-
-            {/* Restart Toggle Button */}
-            <Button
-              variant={restartMode ? 'contained' : 'outlined'}
-              size="small"
-              onClick={handleToggleRestart}
-              disabled={!isControlActive}
-              startIcon={<RefreshIcon />}
-              color={restartMode ? 'secondary' : 'primary'}
-              sx={{
-                fontSize: '0.75rem',
-                minWidth: 120,
-                color: restartMode ? 'white' : 'inherit',
-              }}
-              title={
-                !isControlActive
-                  ? 'Take control first to enable restart mode'
-                  : restartMode
-                    ? 'Disable Restart Player'
-                    : 'Enable Restart Player'
-              }
-            >
-              {restartMode ? 'Stop Restart' : 'Restart'}
-            </Button>
-
-            {/* AI Agent Toggle Button */}
-            <Button
-              variant={aiAgentMode ? 'contained' : 'outlined'}
-              size="small"
-              onClick={handleToggleAiAgent}
-              disabled={!isControlActive}
-              startIcon={<AIIcon />}
-              color={aiAgentMode ? 'info' : 'primary'}
-              sx={{
-                fontSize: '0.75rem',
-                minWidth: 120,
-                color: aiAgentMode ? 'white' : 'inherit',
-              }}
-              title={
-                !isControlActive
-                  ? 'Take control first to enable AI agent'
-                  : aiAgentMode
-                    ? 'Disable AI Agent'
-                    : 'Enable AI Agent'
-              }
-            >
-              {aiAgentMode ? 'Stop AI Agent' : 'AI Agent'}
-            </Button>
-
-            {/* Web Panel Toggle Button */}
-            {isDesktopDevice && (
-              <Button
-                variant={showWeb ? 'contained' : 'outlined'}
-                size="small"
-                onClick={handleToggleWeb}
-                disabled={!isControlActive}
-                startIcon={<WebIcon />}
-                color={showWeb ? 'secondary' : 'primary'}
-                sx={{
-                  fontSize: '0.75rem',
-                  minWidth: 100,
-                  color: showWeb ? 'white' : 'inherit',
-                }}
-                title={
-                  !isControlActive
-                    ? 'Take control first to use web automation'
-                    : showWeb
-                      ? 'Hide Web'
-                      : 'Show Web '
-                }
-              >
-                {showWeb ? 'Hide Web' : 'Show Web'}
-              </Button>
-            )}
-
-            {/* Remote/Terminal Toggle Button */}
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleToggleRemote}
-              disabled={!isControlActive}
-              sx={{
-                fontSize: '0.75rem',
-                minWidth: 100,
-                color: 'inherit',
-              }}
-              title={
-                !isControlActive
-                  ? `Take control first to use ${isDesktopDevice ? 'terminal' : 'remote'}`
-                  : showRemote
-                    ? `Hide ${isDesktopDevice ? 'Terminal' : 'Remote'}`
-                    : `Show ${isDesktopDevice ? 'Terminal' : 'Remote'}`
-              }
-            >
-              {showRemote
-                ? `Hide ${isDesktopDevice ? 'Terminal' : 'Remote'}`
-                : `Show ${isDesktopDevice ? 'Terminal' : 'Remote'}`}
-            </Button>
-
-            {/* Close Button */}
-            <IconButton
-              onClick={handleClose}
-              sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
-              aria-label="Close"
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </Box>
+        <RecStreamModalHeader
+          host={host}
+          device={device}
+          monitoringMode={monitoringMode}
+          restartMode={restartMode}
+          isLiveMode={isLiveMode}
+          currentQuality={currentQuality}
+          isQualitySwitching={isQualitySwitching}
+          isMuted={isMuted}
+          isControlActive={isControlActive}
+          isControlLoading={isControlLoading}
+          aiAgentMode={aiAgentMode}
+          showWeb={showWeb}
+          showRemote={showRemote}
+          isDesktopDevice={isDesktopDevice}
+          hasPowerControl={!!hasPowerControl}
+          onScreenshot={handleScreenshot}
+          onToggleLiveMode={handleToggleLiveMode}
+          onQualityChange={handleQualityChange}
+          onToggleMute={() => setIsMuted((prev) => !prev)}
+          onToggleControl={handleToggleControl}
+          onToggleMonitoring={handleToggleMonitoring}
+          onToggleRestart={handleToggleRestart}
+          onToggleAiAgent={handleToggleAiAgent}
+          onToggleWeb={handleToggleWeb}
+          onToggleRemote={handleToggleRemote}
+          onClose={handleClose}
+        />
 
         {/* Main Content */}
         <Box

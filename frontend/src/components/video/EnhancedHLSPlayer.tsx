@@ -7,18 +7,19 @@ import { Host } from '../../types/common/Host_Types';
 import { buildStreamUrl } from '../../utils/buildUrlUtils';
 
 interface ArchiveMetadata {
-  total_segments: number;
+  total_segments: number; // Deprecated (for backward compatibility)
   total_duration_seconds: number;
   window_hours: number;
-  segments_per_window: number;
+  segments_per_window: number; // Now represents chunks per hour (6)
   manifests: Array<{
-    name: string;
-    window_index: number;
-    start_segment: number;
-    end_segment: number;
-    start_time_seconds: number;
-    end_time_seconds: number;
-    duration_seconds: number;
+    name: string; // MP4 chunk path: "0/chunk_10min_0.mp4"
+    window_index: number; // Hour (0-23)
+    chunk_index: number; // Chunk within hour (0-5)
+    start_segment: number; // Deprecated (for backward compatibility)
+    end_segment: number; // Deprecated (for backward compatibility)
+    start_time_seconds: number; // Absolute time from midnight
+    end_time_seconds: number; // Absolute time from midnight
+    duration_seconds: number; // Always 600 (10 minutes)
   }>;
 }
 
@@ -162,37 +163,45 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   }, [isLiveMode]);
 
   // Fetch archive metadata when entering archive mode
-  // NEW: Archive metadata no longer needed with hot/cold architecture
-  // Each hour folder (0-23) has its own archive.m3u8 manifest
+  // PURE MP4 ARCHITECTURE: No legacy TS segments
+  // Each hour has 6× 10-minute MP4 chunks (144 total for 24h)
   useEffect(() => {
     if (!isLiveMode && !archiveMetadata && !isTransitioning) {
-      // Hot/cold architecture: Build simple metadata with 24 hour manifests
+      // Pure MP4 architecture: 6 chunks per hour, 144 total
       const metadata: ArchiveMetadata = {
-        total_segments: 0, // Not calculated upfront
+        total_segments: 144, // 24 hours × 6 chunks
         total_duration_seconds: 24 * 3600, // 24 hours
         window_hours: 1, // 1 hour per folder
-        segments_per_window: 3600, // 1 segment per second
+        segments_per_window: 6, // 6× 10-minute chunks per hour
         manifests: []
       };
       
-      // Generate manifests for all 24 hours (0-23)
+      // Generate 144 MP4 chunk references (24 hours × 6 chunks)
       for (let hour = 0; hour < 24; hour++) {
-        metadata.manifests.push({
-          name: `${hour}/archive.m3u8`, // Relative path from segments/
-          window_index: hour,
-          start_segment: hour * 3600,
-          end_segment: (hour + 1) * 3600 - 1,
-          start_time_seconds: hour * 3600,
-          end_time_seconds: (hour + 1) * 3600,
-          duration_seconds: 3600
-        });
+        for (let chunk = 0; chunk < 6; chunk++) {
+          metadata.manifests.push({
+            name: `${hour}/chunk_10min_${chunk}.mp4`, // Direct MP4 chunk path
+            window_index: hour, // Hour (0-23)
+            chunk_index: chunk, // Chunk within hour (0-5)
+            start_segment: hour * 6 + chunk, // Global chunk index (0-143)
+            end_segment: hour * 6 + chunk, // Same (one chunk)
+            start_time_seconds: hour * 3600 + chunk * 600, // Absolute time
+            end_time_seconds: hour * 3600 + (chunk + 1) * 600, // Absolute time
+            duration_seconds: 600 // 10 minutes per chunk
+          });
+        }
       }
       
-      console.log('[@EnhancedHLSPlayer] Generated hour-based archive metadata (hot/cold):', metadata);
+      console.log('[@EnhancedHLSPlayer] Generated MP4 chunk archive metadata (pure MP4, no legacy TS):', {
+        total_chunks: metadata.manifests.length,
+        chunks_per_hour: metadata.segments_per_window,
+        first_chunk: metadata.manifests[0]?.name,
+        last_chunk: metadata.manifests[metadata.manifests.length - 1]?.name
+      });
       setArchiveMetadata(metadata);
       
-      // Start at hour 0 (beginning of 24h archive)
-      console.log('[@EnhancedHLSPlayer] Starting at hour 0');
+      // Start at first chunk (hour 0, chunk 0)
+      console.log('[@EnhancedHLSPlayer] Starting at first chunk: 0/chunk_10min_0.mp4');
       setCurrentManifestIndex(0);
     }
   }, [isLiveMode, archiveMetadata, isTransitioning]);
@@ -242,11 +251,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   }, [archiveMetadata]);
 
   // Build the appropriate stream URL based on mode and current manifest
-  // NEW: Hot/cold architecture - segments/ subfolder for all manifests
+  // PURE MP4 ARCHITECTURE: Live uses HLS, Archive uses direct MP4 chunks
   const streamUrl = useMemo(() => {
     let url: string;
     
-    // Live mode - use segments/output.m3u8
+    // Live mode - use segments/output.m3u8 (HLS for low latency)
     if (isLiveMode) {
       if (providedStreamUrl) {
         // Replace old paths with new segments/ structure
@@ -257,26 +266,25 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         url = buildStreamUrl(host, deviceId);
       }
     }
-    // Archive mode - use hour-based manifests: segments/X/archive.m3u8
+    // Archive mode - use direct MP4 chunks (no HLS manifests)
     else if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
       if (currentManifest) {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        // Extract hour from manifest window_index and build path: segments/X/archive.m3u8
-        const hour = currentManifest.window_index; // 0-23
-        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/archive.m3u8`);
-        console.log(`[@EnhancedHLSPlayer] Using hour ${hour} manifest, URL: ${url}`);
+        // Direct MP4 chunk path: segments/X/chunk_10min_Y.mp4
+        const mp4ChunkPath = currentManifest.name; // Already formatted: "0/chunk_10min_0.mp4"
+        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${mp4ChunkPath}`);
+        console.log(`[@EnhancedHLSPlayer] Using MP4 chunk (hour ${currentManifest.window_index}, chunk ${currentManifest.chunk_index}):`, url);
       } else {
-        // Fallback when currentManifest doesn't exist - use buildStreamUrl for proper path handling
+        // Fallback when currentManifest doesn't exist - use first chunk
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8');
+        url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/chunk_10min_0.mp4');
       }
     }
-    // Fallback to first hour (0) while metadata is loading
+    // Fallback to first chunk while metadata is loading
     else {
-      // Use buildStreamUrl for proper path handling (supports all host prefixes and devices)
       const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-      url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/archive.m3u8');
+      url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/0/chunk_10min_0.mp4');
     }
     
     // Append quality and timestamp parameters to force reload when quality changes (without unmounting component)
