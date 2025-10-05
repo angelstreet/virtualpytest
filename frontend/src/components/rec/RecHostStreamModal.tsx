@@ -66,6 +66,7 @@ const RecHostStreamModalContent: React.FC<{
   const [currentQuality, setCurrentQuality] = useState<'low' | 'sd' | 'hd'>('low'); // Start with LOW quality
   const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
   const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
+  const [currentVideoTime, setCurrentVideoTime] = useState<number>(0); // Track video currentTime for archive monitoring
   const pollingIntervalRef = useRef<NodeJS.Timeout | (() => void) | null>(null);
   
   // AI Disambiguation state and handlers
@@ -110,6 +111,8 @@ const RecHostStreamModalContent: React.FC<{
     host,
     device,
     enabled: monitoringMode, // Only poll when monitoring is ON
+    archiveMode: !isLiveMode, // Archive mode when in Last 24h
+    currentVideoTime: currentVideoTime, // Current video time for archive lookup
   });
 
   // Stable stream container dimensions to prevent re-renders
@@ -438,6 +441,11 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [isQualitySwitching]);
 
+  // Handle video time update for archive monitoring
+  const handleVideoTimeUpdate = useCallback((time: number) => {
+    setCurrentVideoTime(time);
+  }, []);
+
   // Handle screenshot - call API and open image in new tab
   const handleScreenshot = useCallback(async () => {
     try {
@@ -626,6 +634,7 @@ const RecHostStreamModalContent: React.FC<{
             finalStreamContainerDimensions={finalStreamContainerDimensions}
             calculateVncScaling={calculateVncScaling}
             onPlayerReady={handlePlayerReady}
+            onVideoTimeUpdate={handleVideoTimeUpdate}
             // Monitoring data props
             monitoringAnalysis={monitoringData.latestAnalysis || undefined}
             subtitleAnalysis={monitoringData.latestSubtitleAnalysis || undefined}

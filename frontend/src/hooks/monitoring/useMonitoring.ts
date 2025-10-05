@@ -46,18 +46,23 @@ interface UseMonitoringProps {
   host: any; // Host object for API requests
   device: any; // Device object for API requests
   enabled: boolean; // Only poll when monitoring mode is active
+  archiveMode?: boolean; // Archive mode (Last 24h)
+  currentVideoTime?: number; // Video currentTime in seconds
 }
 
 export const useMonitoring = ({
   host,
   device,
   enabled,
+  archiveMode = false,
+  currentVideoTime,
 }: UseMonitoringProps): UseMonitoringReturn => {
   // Store last 10 analysis snapshots for error trend tracking
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper: Load JSON analysis from capture URL
   const loadJsonAnalysis = useCallback(async (jsonUrl: string): Promise<MonitoringAnalysis | null> => {
@@ -175,10 +180,42 @@ export const useMonitoring = ({
     }
   }, [host, device?.device_id]);
 
-  // Poll for latest monitoring data every 500ms (when enabled)
+  // Fetch archive JSON by timestamp
+  const fetchArchiveData = useCallback(async (timestampSeconds: number) => {
+    try {
+      const response = await fetch(buildServerUrl('/server/monitoring/json-by-time'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device?.device_id || 'device1',
+          timestamp_seconds: Math.floor(timestampSeconds),
+          fps: 5
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.json_data) {
+          const snapshot: AnalysisSnapshot = {
+            timestamp: result.json_data.timestamp || new Date().toISOString(),
+            analysis: result.json_data,
+            subtitleAnalysis: null,
+            languageMenuAnalysis: null,
+            aiDescription: null,
+          };
+          setAnalysisHistory([snapshot]);
+          if (isLoading) setIsLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('[useMonitoring] Archive fetch error:', error);
+    }
+  }, [host, device?.device_id, isLoading]);
+
+  // Poll live data OR fetch archive data based on mode
   useEffect(() => {
     if (!enabled) {
-      // Clear state when disabled
       setAnalysisHistory([]);
       setIsLoading(true);
       setLastProcessedSequence('');
@@ -186,24 +223,42 @@ export const useMonitoring = ({
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+        fetchTimeoutRef.current = null;
+      }
       return;
     }
 
+    // Archive mode: debounced fetch on video time change
+    if (archiveMode && currentVideoTime !== undefined) {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      fetchTimeoutRef.current = setTimeout(() => {
+        fetchArchiveData(currentVideoTime);
+      }, 300);
+      
+      return () => {
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+          fetchTimeoutRef.current = null;
+        }
+      };
+    }
+
+    // Live mode: 500ms polling
     let isMounted = true;
     
     const pollLatestData = async () => {
       try {
         const latestData = await fetchLatestMonitoringData();
         if (!isMounted || !latestData) return;
-        if (latestData.sequence === lastProcessedSequence) return; // Skip if already processed
+        if (latestData.sequence === lastProcessedSequence) return;
 
-        console.log(`[useMonitoring] 📸 New capture detected: seq=${latestData.sequence}`);
-
-        // Load JSON immediately (fast, ~100-200ms)
         const analysis = await loadJsonAnalysis(latestData.jsonUrl);
-        if (!analysis) return; // Skip if JSON not available yet
+        if (!analysis) return;
 
-        // Create snapshot with just JSON data first
         const snapshot: AnalysisSnapshot = {
           timestamp: latestData.timestamp,
           analysis,
@@ -212,15 +267,12 @@ export const useMonitoring = ({
           aiDescription: null,
         };
 
-        // Add to history (keep last 10)
         setAnalysisHistory(prev => [...prev, snapshot].slice(-10));
         setLastProcessedSequence(latestData.sequence);
         if (isLoading) setIsLoading(false);
 
-        // Start background AI analysis (non-blocking)
         analyzeFrameAIAsync(latestData.imageUrl, latestData.sequence).then(aiResults => {
           if (!isMounted) return;
-          // Update the snapshot with AI results
           setAnalysisHistory(prev => 
             prev.map(s => 
               s.timestamp === latestData.timestamp 
@@ -236,7 +288,6 @@ export const useMonitoring = ({
       }
     };
 
-    // Poll immediately on enable, then every 500ms
     pollLatestData();
     pollingIntervalRef.current = setInterval(pollLatestData, 500);
 
@@ -247,7 +298,7 @@ export const useMonitoring = ({
         pollingIntervalRef.current = null;
       }
     };
-  }, [enabled, fetchLatestMonitoringData, loadJsonAnalysis, analyzeFrameAIAsync, lastProcessedSequence, isLoading]);
+  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, loadJsonAnalysis, analyzeFrameAIAsync, fetchArchiveData, lastProcessedSequence, isLoading]);
 
   // Compute error trend data from analysis history
   const computeErrorTrends = useCallback((): ErrorTrendData | null => {

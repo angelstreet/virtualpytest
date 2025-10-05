@@ -50,6 +50,24 @@ def get_latest_monitoring_json():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_monitoring_bp.route('/json-by-time', methods=['POST'])
+def get_json_by_time():
+    """Get metadata JSON for specific timestamp (archive mode)"""
+    try:
+        request_data = request.get_json() or {}
+        device_id = request_data.get('device_id', 'device1')
+        
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/monitoring/json-by-time',
+            'POST',
+            request_data,
+            {'device_id': device_id}
+        )
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_monitoring_bp.route('/proxyImage/<filename>', methods=['GET'])
 def proxy_monitoring_image(filename):
     """Proxy monitoring image and JSON requests to the selected host"""

@@ -56,6 +56,7 @@ interface RecStreamContainerProps {
   
   // Callbacks
   onPlayerReady: () => void;
+  onVideoTimeUpdate: (time: number) => void;
   
   // Monitoring data props (for overlay on live video)
   monitoringAnalysis?: MonitoringAnalysis;
@@ -86,6 +87,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   finalStreamContainerDimensions,
   calculateVncScaling,
   onPlayerReady,
+  onVideoTimeUpdate,
   // Monitoring props
   monitoringAnalysis,
   subtitleAnalysis,
@@ -199,9 +201,10 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             height={isMobileModel ? 600 : 400}
             muted={isMuted}
             isLiveMode={isLiveMode}
-            quality={currentQuality} // Pass quality to force reload on change
-            shouldPause={shouldPausePlayer} // Pause during quality transition to show last frame
-            onPlayerReady={onPlayerReady} // Called when new stream is ready
+            quality={currentQuality}
+            shouldPause={shouldPausePlayer}
+            onPlayerReady={onPlayerReady}
+            onVideoTimeUpdate={onVideoTimeUpdate}
             // Monitoring overlay props
             monitoringMode={monitoringMode}
             monitoringAnalysis={monitoringAnalysis}

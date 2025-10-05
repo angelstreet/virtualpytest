@@ -67,6 +67,7 @@ interface EnhancedHLSPlayerProps {
   quality?: 'low' | 'sd' | 'hd'; // Stream quality - forces reload when changed
   shouldPause?: boolean; // Pause player to show last frame (during quality transition)
   onPlayerReady?: () => void; // Callback when player loads successfully
+  onVideoTimeUpdate?: (time: number) => void; // Callback for video time updates (archive monitoring)
   
   // Monitoring mode props (overlay on live video)
   monitoringMode?: boolean;
@@ -91,6 +92,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   quality = 'sd', // Default to SD quality
   shouldPause = false, // Default to not paused
   onPlayerReady,
+  onVideoTimeUpdate,
   
   // Monitoring props
   monitoringMode = false,
@@ -469,6 +471,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       
+      // Notify parent of time update (for archive monitoring)
+      if (onVideoTimeUpdate && !isLiveMode) {
+        onVideoTimeUpdate(video.currentTime);
+      }
+      
       // Update buffer information for live mode - FIXED WINDOW approach
       if (isLiveMode && video.buffered.length > 0) {
         const buffered = video.buffered;
@@ -565,7 +572,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         clearTimeout(liveEdgeTimeoutRef.current);
       }
     };
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData]);
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData, onVideoTimeUpdate]);
 
   // Handle mode changes and seeking
   useEffect(() => {

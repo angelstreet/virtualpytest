@@ -81,6 +81,56 @@ def get_latest_monitoring_json():
             'error': f'Latest JSON error: {str(e)}'
         }), 500
 
+@host_monitoring_bp.route('/json-by-time', methods=['POST'])
+def get_json_by_time():
+    """Get metadata JSON for specific video timestamp (archive mode)"""
+    import os
+    import json
+    from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder
+    
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        timestamp_seconds = data.get('timestamp_seconds')
+        fps = data.get('fps', 5)
+        
+        if timestamp_seconds is None:
+            return jsonify({'success': False, 'error': 'timestamp_seconds required'}), 400
+        
+        # Calculate sequence
+        sequence = int(timestamp_seconds * fps)
+        
+        # Get metadata path
+        capture_folder = get_capture_folder(None, device_id)
+        metadata_path = get_capture_storage_path(capture_folder, 'metadata')
+        
+        # Look for exact match
+        json_filename = f"capture_{sequence:06d}.json"
+        json_filepath = os.path.join(metadata_path, json_filename)
+        
+        if os.path.exists(json_filepath):
+            with open(json_filepath, 'r') as f:
+                json_data = json.load(f)
+            return jsonify({'success': True, 'json_data': json_data, 'sequence': sequence, 'found_exact': True})
+        
+        # Find nearest (±10 sequences)
+        for offset in range(1, 11):
+            for direction in [-1, 1]:
+                nearby_seq = sequence + (offset * direction)
+                if nearby_seq < 0:
+                    continue
+                nearby_filename = f"capture_{nearby_seq:06d}.json"
+                nearby_filepath = os.path.join(metadata_path, nearby_filename)
+                
+                if os.path.exists(nearby_filepath):
+                    with open(nearby_filepath, 'r') as f:
+                        json_data = json.load(f)
+                    return jsonify({'success': True, 'json_data': json_data, 'sequence': sequence, 'found_exact': False, 'nearest_sequence': nearby_seq})
+        
+        return jsonify({'success': False, 'error': 'No metadata found', 'sequence': sequence}), 404
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @host_monitoring_bp.route('/disk-usage', methods=['GET'])
 def disk_usage_diagnostics():
