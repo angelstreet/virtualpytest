@@ -22,7 +22,7 @@ import { useDeviceControl } from '../../hooks/useDeviceControl';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
-import { buildServerUrl, buildStreamUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
@@ -83,7 +83,7 @@ const RecHostStreamModalContent: React.FC<{
   const [currentQuality, setCurrentQuality] = useState<'low' | 'sd' | 'hd'>('low'); // Start with LOW quality
   const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
   const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | (() => void) | null>(null);
   
   // AI Disambiguation state and handlers
   const [disambiguationData, setDisambiguationData] = useState<any>(null);
@@ -105,7 +105,7 @@ const RecHostStreamModalContent: React.FC<{
   const { showError, showWarning } = useToast();
 
   // Get VNC scaling for monitoring
-  const { calculateVncScaling } = useRec();
+  const { calculateVncScaling, pollForFreshStream } = useRec();
 
   // NEW: Use device control hook (replaces all duplicate control logic)
   const { isControlActive, isControlLoading, controlError, handleToggleControl, clearError } =
@@ -309,91 +309,35 @@ const RecHostStreamModalContent: React.FC<{
     });
   }, []);
 
-  // Poll for new stream availability - checks manifest for segment count
+  // Poll for new stream availability using hook function
   const pollForNewStream = useCallback((deviceId: string) => {
-    // Use proper buildStreamUrl to handle all host-specific paths (e.g., /pi2/, /pi3/, etc.)
-    const manifestUrl = buildStreamUrl(host, deviceId);
-    console.log(`[@component:RecHostStreamModal] Starting manifest polling for new stream: ${manifestUrl}`);
+    console.log(`[@component:RecHostStreamModal] Starting polling for new stream using hook function`);
     
-    let pollCount = 0;
-    const maxPolls = 20; // 20 seconds max (1000ms * 20) - changed from 30 * 500ms
-    const requiredSegments = 3; // Need at least 3 segments in manifest
-    
-    pollingIntervalRef.current = setInterval(async () => {
-      pollCount++;
-      
-      // Check timeout FIRST before polling
-      if (pollCount > maxPolls) {
-        console.warn(`[@component:RecHostStreamModal] Polling timeout after ${maxPolls} attempts - forcing player resume`);
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
+    const cleanup = pollForFreshStream(
+      host,
+      deviceId,
+      // onReady callback
+      () => {
+        console.log(`[@component:RecHostStreamModal] ✅ Fresh stream ready from hook - hiding overlay`);
         setShouldPausePlayer(false);
         setIsQualitySwitching(false);
-        showWarning('Stream restart took longer than expected');
-        return; // Stop this iteration
+        // Clear the polling reference
+        pollingIntervalRef.current = null;
+      },
+      // onTimeout callback
+      (error: string) => {
+        console.warn(`[@component:RecHostStreamModal] Polling timeout from hook - ${error}`);
+        setShouldPausePlayer(false);
+        setIsQualitySwitching(false);
+        showWarning(error);
+        // Clear the polling reference
+        pollingIntervalRef.current = null;
       }
-      
-      console.log(`[@component:RecHostStreamModal] Polling attempt ${pollCount}/${maxPolls}`);
-      
-      try {
-        // Add timestamp to prevent caching
-        const cacheBustUrl = `${manifestUrl}?_t=${Date.now()}`;
-        const response = await fetch(cacheBustUrl, { 
-          method: 'GET',
-          cache: 'no-store', // Stronger than no-cache
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        });
-        
-        if (!response.ok) {
-          console.log(`[@component:RecHostStreamModal] Manifest not ready yet (status: ${response.status})`);
-          return;
-        }
-        
-        const manifestText = await response.text();
-        console.log(`[@component:RecHostStreamModal] Manifest received, length: ${manifestText.length} bytes`);
-        
-        // Check if manifest has proper header
-        if (!manifestText.includes('#EXTM3U')) {
-          console.log(`[@component:RecHostStreamModal] Invalid manifest - no #EXTM3U header. First 100 chars:`, manifestText.substring(0, 100));
-          return;
-        }
-        
-        // Count segments in manifest by counting #EXTINF lines
-        const segmentCount = (manifestText.match(/#EXTINF/g) || []).length;
-        
-        // Extract media sequence number to ensure we have a fresh stream
-        const mediaSequenceMatch = manifestText.match(/#EXT-X-MEDIA-SEQUENCE:(\d+)/);
-        const mediaSequence = mediaSequenceMatch ? parseInt(mediaSequenceMatch[1], 10) : -1;
-        
-        console.log(`[@component:RecHostStreamModal] Manifest valid! Has ${segmentCount} segments (need ${requiredSegments}), media sequence: ${mediaSequence}`);
-        
-        // Check both segment count AND that we have a fresh stream (low media sequence)
-        // Fresh stream should start from 0 or very low numbers (allow up to 10 for some tolerance)
-        const isFreshStream = mediaSequence >= 0 && mediaSequence <= 10;
-        
-        if (segmentCount >= requiredSegments && isFreshStream) {
-          console.log(`[@component:RecHostStreamModal] ✅ Stream ready! Fresh stream with ${segmentCount} segments, sequence ${mediaSequence}`);
-          // Clear polling
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          // Resume player and hide overlay
-          setShouldPausePlayer(false);
-          setIsQualitySwitching(false);
-        } else if (segmentCount >= requiredSegments && !isFreshStream) {
-          console.log(`[@component:RecHostStreamModal] ⏳ Manifest has ${segmentCount} segments but sequence ${mediaSequence} is too high - waiting for fresh stream restart`);
-        }
-      } catch (error) {
-        console.log(`[@component:RecHostStreamModal] Manifest check failed: ${error}`);
-      }
-    }, 1000); // Changed from 500ms to 1000ms (1 second)
-  }, [host, showWarning]);
+    );
+    
+    // Store cleanup function reference for manual cleanup if needed
+    pollingIntervalRef.current = cleanup as any; // Store cleanup function instead of interval
+  }, [host, pollForFreshStream, showWarning]);
 
   // Common function to switch quality (reused for initial entry and button clicks)
   const switchQuality = useCallback(async (targetQuality: 'low' | 'sd' | 'hd', showLoadingOverlay: boolean = true, isInitialLoad: boolean = false) => {
@@ -401,7 +345,13 @@ const RecHostStreamModalContent: React.FC<{
     
     // Stop any existing polling
     if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
+      if (typeof pollingIntervalRef.current === 'function') {
+        // New hook-based cleanup function
+        pollingIntervalRef.current();
+      } else {
+        // Legacy interval cleanup (fallback)
+        clearInterval(pollingIntervalRef.current);
+      }
       pollingIntervalRef.current = null;
     }
     
@@ -555,7 +505,13 @@ const RecHostStreamModalContent: React.FC<{
 
     // Stop any polling
     if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
+      if (typeof pollingIntervalRef.current === 'function') {
+        // New hook-based cleanup function
+        pollingIntervalRef.current();
+      } else {
+        // Legacy interval cleanup (fallback)
+        clearInterval(pollingIntervalRef.current);
+      }
       pollingIntervalRef.current = null;
     }
 

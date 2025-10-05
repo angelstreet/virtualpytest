@@ -299,9 +299,9 @@ start_grabber() {
       -f hls -hls_time 1 -hls_list_size 150 -hls_flags delete_segments+omit_endlist+split_by_time -lhls 1 \
       -hls_segment_filename $output_segments/segment_%09d.ts \
       $output_segments/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
       $output_captures/capture_%09d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 5 -f image2 -atomic_writing 1 \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
       $output_thumbnails/capture_%09d_thumbnail.jpg"
   elif [ "$source_type" = "x11grab" ]; then
     # 3-tier quality system: LOW (preview) → SD (modal opened) → HD (user clicks HD)
@@ -349,9 +349,9 @@ start_grabber() {
       -f hls -hls_time 4 -hls_list_size 150 -hls_flags delete_segments+omit_endlist \
       -hls_segment_filename $output_segments/segment_%09d.ts \
       $output_segments/output.m3u8 \
-      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
+      -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 -atomic_writing 1 \
       $output_captures/capture_%09d.jpg \
-      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 8 -f image2 -atomic_writing 1 \
+      -map \"[thumbout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 -atomic_writing 1 \
       $output_thumbnails/capture_%09d_thumbnail.jpg"
   else
     echo "ERROR: Unsupported source type: $source_type"
