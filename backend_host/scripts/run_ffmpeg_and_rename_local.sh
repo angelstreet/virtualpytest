@@ -281,19 +281,21 @@ start_grabber() {
       local stream_bufsize="400k"
       local capture_scale="1280:720"    # Captures at HD for best detection quality
     fi
-    FFMPEG_CMD="/usr/bin/ffmpeg -y \
+    # Pi5-optimized FFmpeg configuration (Cortex-A76 + VideoCore VII)
+    FFMPEG_CMD="nice -n -10 /usr/bin/ffmpeg -y \
       -fflags +nobuffer+genpts+flush_packets \
       -use_wallclock_as_timestamps 1 \
-      -thread_queue_size 512 \
+      -thread_queue_size 1024 \
+      -threads 2 -thread_type frame+slice \
       -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate $input_fps -i $source \
       -f alsa -thread_queue_size 2048 -async 1 -err_detect ignore_err -i \"$audio_device\" \
       -filter_complex \"[0:v]fps=5[v5];[v5]split=3[str][cap][thm]; \
-        [str]scale=${stream_scale}:flags=fast_bilinear,fps=$input_fps[streamout]; \
-        [cap]scale=${capture_scale}:flags=fast_bilinear,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
+        [str]scale=${stream_scale}:flags=lanczos:threads=2,fps=$input_fps[streamout]; \
+        [cap]scale=${capture_scale}:flags=lanczos:threads=2,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" -map 1:a? \
-      -c:v libx264 -preset ultrafast -tune zerolatency \
+      -c:v libx264 -preset faster -tune zerolatency \
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
-      -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0 \
+      -x264opts keyint=10:min-keyint=10:no-scenecut:bframes=0:ref=1:me=hex:subme=2:trellis=0:8x8dct=0:fast-pskip=1:threads=2 \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -c:a aac -b:a 32k -ar 48000 -ac 2 \
       -f hls -hls_time 1 -hls_list_size 150 -hls_flags delete_segments+omit_endlist+split_by_time -lhls 1 \
@@ -333,19 +335,21 @@ start_grabber() {
     export DISPLAY="$source"
     local resolution=$(get_vnc_resolution "$source")
 
-    FFMPEG_CMD="DISPLAY=\"$source\" /usr/bin/ffmpeg -loglevel error -y \
+    # Pi5-optimized X11grab configuration  
+    FFMPEG_CMD="DISPLAY=\"$source\" nice -n -10 /usr/bin/ffmpeg -loglevel error -y \
       -probesize 32M -analyzeduration 0 \
       -draw_mouse 0 -show_region 0 \
+      -threads 2 -thread_type frame+slice \
       -f x11grab -video_size $resolution -framerate $input_fps -i $source \
       -an \
       -filter_complex \"[0:v]fps=2[v2];[v2]split=3[str][cap][thm]; \
-        [str]scale=${stream_scale}:flags=neighbor[streamout]; \
-        [cap]scale=${capture_scale}:flags=neighbor,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
+        [str]scale=${stream_scale}:flags=lanczos:threads=2[streamout]; \
+        [cap]scale=${capture_scale}:flags=lanczos:threads=2,setpts=PTS-STARTPTS[captureout];[thm]scale=320:180:flags=neighbor[thumbout]\" \
       -map \"[streamout]\" \
-      -c:v libx264 -preset ultrafast -tune zerolatency \
+      -c:v libx264 -preset faster -tune zerolatency \
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
-      -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
+      -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=hex:subme=2:trellis=0:8x8dct=0:fast-pskip=1:threads=2 \
       -f hls -hls_time 4 -hls_list_size 150 -hls_flags delete_segments+omit_endlist \
       -hls_segment_filename $output_segments/segment_%09d.ts \
       $output_segments/output.m3u8 \
