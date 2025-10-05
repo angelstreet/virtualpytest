@@ -394,6 +394,12 @@ class IncidentManager:
                     self.resolve_incident(device_id, incident_id, issue_type)
                     del active_incidents[issue_type]
                     
+                    # Clear cached R2 URLs for freeze when it ends
+                    if issue_type == 'freeze':
+                        device_state.pop('freeze_r2_urls', None)
+                        device_state.pop('freeze_r2_images', None)
+                        logger.debug(f"[{capture_folder}] Cleared freeze R2 URL cache")
+                    
                     if not active_incidents:
                         device_state['state'] = NORMAL
                         
@@ -406,6 +412,12 @@ class IncidentManager:
                     else:
                         logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time:.1f}s (never reported to DB)")
                     del pending_incidents[issue_type]
+                    
+                    # Clear cached R2 URLs for freeze when it ends
+                    if issue_type == 'freeze':
+                        device_state.pop('freeze_r2_urls', None)
+                        device_state.pop('freeze_r2_images', None)
+                        logger.debug(f"[{capture_folder}] Cleared freeze R2 URL cache")
         
         return transitions  # Return all transitions that occurred
 

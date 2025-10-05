@@ -170,13 +170,16 @@ class InotifyFrameMonitor:
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
-                    # Check freeze state from incident manager
-                    incident_state = self.incident_manager.pending_incidents.get(capture_folder, {}).get('freeze', {})
-                    consecutive = incident_state.get('consecutive_count', 0)
-                    cached_r2_urls = incident_state.get('r2_urls')
+                    # Get device state from incident manager
+                    device_state = self.incident_manager.device_states.get(capture_folder, {})
+                    pending_incidents = device_state.get('pending_incidents', {})
+                    freeze_state = pending_incidents.get('freeze')
                     
-                    # Only upload on FIRST detection (consecutive_count == 1)
-                    if consecutive <= 1 and not cached_r2_urls:
+                    # Check if we already uploaded for this freeze event
+                    cached_r2_urls = device_state.get('freeze_r2_urls')
+                    
+                    # Only upload on FIRST detection (freeze just started)
+                    if freeze_state and not cached_r2_urls:
                         current_timestamp = datetime.now().isoformat()
                         
                         # Generate thumbnail paths (FFmpeg creates these as capture_NNNNNN_thumbnail.jpg)
@@ -196,8 +199,9 @@ class InotifyFrameMonitor:
                             last_3_captures, last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
                         )
                         if r2_urls and r2_urls.get('thumbnail_urls'):
-                            # Cache R2 URLs in incident state for reuse
-                            incident_state['r2_urls'] = r2_urls['thumbnail_urls']
+                            # Cache R2 URLs in device state for reuse during this freeze event
+                            device_state['freeze_r2_urls'] = r2_urls['thumbnail_urls']
+                            device_state['freeze_r2_images'] = r2_urls
                             # Use R2 URLs in JSON
                             detection_result['last_3_filenames'] = r2_urls['thumbnail_urls']
                             detection_result['r2_images'] = r2_urls
@@ -208,15 +212,13 @@ class InotifyFrameMonitor:
                     elif cached_r2_urls:
                         # Freeze ongoing - reuse cached R2 URLs from first upload
                         detection_result['last_3_filenames'] = cached_r2_urls
-                        # Also set r2_images for consistency
-                        detection_result['r2_images'] = {
-                            'thumbnail_urls': cached_r2_urls,
-                            'timestamp': incident_state.get('start_time')
-                        }
-                        logger.info(f"[{capture_folder}] ♻️ Freeze ongoing (count={consecutive}) - reusing cached R2 URLs")
+                        detection_result['r2_images'] = device_state.get('freeze_r2_images', {
+                            'thumbnail_urls': cached_r2_urls
+                        })
+                        logger.info(f"[{capture_folder}] ♻️ Freeze ongoing - reusing cached R2 URLs")
                     else:
-                        # Edge case: consecutive > 1 but no cached URLs (shouldn't happen)
-                        logger.warning(f"[{capture_folder}] Freeze ongoing but no cached URLs, keeping local paths")
+                        # Edge case: freeze detected but no upload happened yet (shouldn't happen)
+                        logger.warning(f"[{capture_folder}] Freeze detected but no cached URLs, keeping local paths")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation
