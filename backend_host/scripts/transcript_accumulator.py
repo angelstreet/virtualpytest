@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 SAMPLE_INTERVAL = 6  # Sample every 6 seconds
 MAX_DURATION_HOURS = 24
 MAX_SAMPLES = (MAX_DURATION_HOURS * 3600) // SAMPLE_INTERVAL  # 14,400 samples
-AI_ENHANCEMENT_BATCH = 10  # Enhance every 10 samples with AI
+AI_ENHANCEMENT_ENABLED = False  # Disable AI enhancement to reduce CPU load
+AI_ENHANCEMENT_BATCH = 10  # Enhance every 10 samples with AI (when enabled)
 
 def cleanup_logs_on_startup():
     """Clean up log file on service restart for fresh debugging"""
@@ -450,30 +451,24 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             # Sort segments for this hour
             all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
             
-            # AI Enhancement: Every 10 new samples for this hour
+            # AI Enhancement
             samples_since_enhancement = transcript_data.get('samples_since_ai_enhancement', 0)
             samples_since_enhancement += len(hour_segments)
             
-            if samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
-                # Get the last 10 segments with transcripts for enhancement
+            if AI_ENHANCEMENT_ENABLED and samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
                 segments_to_enhance = [seg for seg in all_segments[-AI_ENHANCEMENT_BATCH:] if seg.get('transcript', '').strip()]
                 
                 if segments_to_enhance:
                     enhanced_map = enhance_transcripts_with_ai(segments_to_enhance, capture_folder)
                     
-                    # Apply enhanced transcripts back to segments
                     if enhanced_map:
                         for seg in all_segments:
                             seg_num = seg['segment_num']
                             if seg_num in enhanced_map:
                                 seg['enhanced_transcript'] = enhanced_map[seg_num]
-                                original = seg.get('transcript', '')[:40]
-                                enhanced = enhanced_map[seg_num][:40]
-                                # logger.info(f"[{capture_folder}] 🔵 seg#{seg_num} Enhanced:")
-                                # logger.info(f"[{capture_folder}]    Original: '{original}...'")
-                                # logger.info(f"[{capture_folder}]    Enhanced: '{enhanced}...'")
                 
-                # Reset counter
+                samples_since_enhancement = 0
+            elif not AI_ENHANCEMENT_ENABLED:
                 samples_since_enhancement = 0
             
             # Update and save hourly transcript data
@@ -488,9 +483,12 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             # Save this hour's transcript file
             save_hourly_transcript(stream_dir, hour_window, transcript_data)
             
-            # Count how many segments have enhanced transcripts
-            enhanced_count = sum(1 for seg in all_segments if seg.get('enhanced_transcript'))
-            logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples ({enhanced_count} enhanced)")
+            # Count enhanced transcripts if enabled
+            if AI_ENHANCEMENT_ENABLED:
+                enhanced_count = sum(1 for seg in all_segments if seg.get('enhanced_transcript'))
+                logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples ({enhanced_count} enhanced)")
+            else:
+                logger.info(f"[{capture_folder}] ✅ Saved transcript_hour{hour_window}.json: {len(all_segments)} samples")
         
         # Update global state
         state['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
@@ -502,16 +500,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         cleanup_old_hourly_transcripts(stream_dir)
         
         elapsed = time.time() - start_time
-        
-        # Summary: count total enhanced transcripts across all processed hours
-        total_enhanced = 0
-        for hour_window in sorted(segments_by_hour.keys()):
-            transcript_data = load_hourly_transcript(stream_dir, hour_window, capture_folder)
-            total_enhanced += sum(1 for seg in transcript_data.get('segments', []) if seg.get('enhanced_transcript'))
-        
         logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_hour)} hour window(s) [{elapsed:.2f}s]")
-        if total_enhanced > 0:
-            logger.info(f"[{capture_folder}] 🔵 Total AI-enhanced transcripts in processed hours: {total_enhanced}")
         logger.info("=" * 80)
         return True
         

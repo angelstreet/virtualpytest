@@ -66,6 +66,7 @@ for DEVICE in "${DEVICES[@]}"; do
   sudo mkdir -p "$HOT_PATH/thumbnails"
   sudo mkdir -p "$HOT_PATH/segments"
   sudo mkdir -p "$HOT_PATH/metadata"
+  sudo mkdir -p "$HOT_PATH/audio"
   
   # Fix ownership and permissions (www-data:www-data, group writable)
   sudo chown -R www-data:www-data "$HOT_PATH"
@@ -77,14 +78,23 @@ for DEVICE in "${DEVICES[@]}"; do
   
   echo "✓ $DEVICE hot storage ready (www-data:www-data, group writable)"
   
-  # Also ensure cold storage metadata directory exists with correct permissions
+  # Also ensure cold storage directories exist with correct permissions
   COLD_METADATA="$BASE_PATH/$DEVICE/metadata"
+  COLD_AUDIO="$BASE_PATH/$DEVICE/audio"
+  
   if [ ! -d "$COLD_METADATA" ]; then
     sudo mkdir -p "$COLD_METADATA"
     sudo chown www-data:www-data "$COLD_METADATA"
   fi
   sudo chmod 777 "$COLD_METADATA"
-  echo "✓ Cold storage metadata directory ready with 777 permissions"
+  
+  if [ ! -d "$COLD_AUDIO" ]; then
+    sudo mkdir -p "$COLD_AUDIO"
+    sudo chown www-data:www-data "$COLD_AUDIO"
+  fi
+  sudo chmod 775 "$COLD_AUDIO"
+  
+  echo "✓ Cold storage metadata & audio directories ready"
   echo ""
 done
 

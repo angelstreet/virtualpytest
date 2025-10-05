@@ -120,6 +120,82 @@ chmod +x "$PROJECT_ROOT/backend_host/scripts/hot_cold_archiver.py"
 
 echo "✅ Scripts made executable"
 
+# Setup SD card storage directories with correct permissions
+echo "📁 Setting up SD card storage directories..."
+
+STREAM_BASE="/var/www/html/stream"
+DEVICES=("capture1" "capture2" "capture3" "capture4" "capture5" "capture6" "capture7" "capture8")
+
+# Check if SD card is mounted at expected location
+if [ ! -d "$STREAM_BASE" ]; then
+    echo "⚠️  Creating base directory: $STREAM_BASE"
+    sudo mkdir -p "$STREAM_BASE"
+fi
+
+# Get www-data user info
+WWW_DATA_UID=$(id -u www-data 2>/dev/null || echo "33")
+WWW_DATA_GID=$(id -g www-data 2>/dev/null || echo "33")
+
+echo "Setting up directories for each device..."
+for DEVICE in "${DEVICES[@]}"; do
+    DEVICE_PATH="$STREAM_BASE/$DEVICE"
+    
+    # Create device directory structure
+    echo "  Setting up $DEVICE..."
+    sudo mkdir -p "$DEVICE_PATH"/{captures,thumbnails,segments,metadata,audio}
+    
+    # Create hour folders (0-23) for rolling 24h storage
+    for hour in {0..23}; do
+        sudo mkdir -p "$DEVICE_PATH/captures/$hour"
+        sudo mkdir -p "$DEVICE_PATH/segments/$hour"
+        sudo mkdir -p "$DEVICE_PATH/metadata/$hour"
+        sudo mkdir -p "$DEVICE_PATH/audio/$hour"
+    done
+    
+    # Create segments temp directory for progressive MP4 merging
+    sudo mkdir -p "$DEVICE_PATH/segments/temp"
+    
+    # Set ownership to www-data:www-data
+    sudo chown -R www-data:www-data "$DEVICE_PATH"
+    
+    # Set permissions: 775 for most directories (group writable)
+    sudo chmod 775 "$DEVICE_PATH"
+    sudo chmod 775 "$DEVICE_PATH"/{captures,thumbnails,segments,metadata,audio}
+    
+    # Hour folders also group writable
+    for hour in {0..23}; do
+        sudo chmod 775 "$DEVICE_PATH/captures/$hour"
+        sudo chmod 775 "$DEVICE_PATH/segments/$hour"
+        sudo chmod 775 "$DEVICE_PATH/metadata/$hour"
+        sudo chmod 775 "$DEVICE_PATH/audio/$hour"
+    done
+    
+    # Temp directory group writable
+    sudo chmod 775 "$DEVICE_PATH/segments/temp"
+    
+    # CRITICAL: metadata root needs 777 for hot_cold_archiver (runs as different user)
+    sudo chmod 777 "$DEVICE_PATH/metadata"
+    
+    echo "  ✓ $DEVICE directories created with www-data:www-data ownership"
+done
+
+# Add current user to www-data group for access
+CURRENT_USER=$(whoami)
+if ! groups "$CURRENT_USER" | grep -q "\bwww-data\b"; then
+    echo "Adding $CURRENT_USER to www-data group..."
+    sudo usermod -a -G www-data "$CURRENT_USER"
+    echo "✓ User added to www-data group (may need to re-login)"
+else
+    echo "✓ User $CURRENT_USER already in www-data group"
+fi
+
+echo "✅ SD card storage setup complete"
+echo "   • All device directories created: captures, thumbnails, segments, metadata, audio"
+echo "   • Hour folders (0-23) created for 24h rolling storage"
+echo "   • Owner: www-data:www-data, Mode: 775 (group writable)"
+echo "   • Ready for progressive MP4 merging and audio extraction"
+echo ""
+
 # Configure firewall ports for backend_host
 echo "🔥 Configuring firewall for backend_host..."
 

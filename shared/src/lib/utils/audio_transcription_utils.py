@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from typing import List, Tuple, Dict, Any, Optional
 from datetime import datetime
+from shared.src.lib.utils.video_utils import merge_video_files
 
 
 # Global Whisper model cache (singleton pattern)
@@ -33,64 +34,20 @@ def get_whisper_model(model_name: str = "tiny"):
 
 def merge_ts_files(ts_file_paths: List[str], output_path: Optional[str] = None, device_id: str = "") -> Optional[str]:
     """
-    Merge multiple TS files into a single TS file using ffmpeg
-    
-    Args:
-        ts_file_paths: List of TS file paths to merge
-        output_path: Optional output path (if None, uses fixed temp file - OVERWRITTEN)
-        device_id: Device identifier for logging (e.g., "capture1")
-    
-    Returns:
-        Path to merged TS file or None on failure
+    Legacy function for transcript accumulator - merges TS to temp TS file
     """
-    prefix = f"[{device_id}] " if device_id else ""
     if not ts_file_paths:
         return None
     
     if len(ts_file_paths) == 1:
-        return ts_file_paths[0]  # No merge needed
+        return ts_file_paths[0]
     
-    try:
-        # Create output path if not provided - use FIXED name, overwrite each time
-        if output_path is None:
-            temp_dir = tempfile.gettempdir()
-            device_suffix = f"_{device_id}" if device_id else ""
-            merged_filename = f"merged_ts{device_suffix}.ts"
-            output_path = os.path.join(temp_dir, merged_filename)
-        
-        # Build ffmpeg command for TS concatenation
-        cmd = ['ffmpeg', '-y']
-        
-        # Add all input files
-        for ts in ts_file_paths:
-            cmd.extend(['-i', ts])
-        
-        # Build filter_complex for concat
-        inputs = ''.join(f'[{i}:v][{i}:a]' for i in range(len(ts_file_paths)))
-        cmd.extend([
-            '-filter_complex', f'{inputs}concat=n={len(ts_file_paths)}:v=1:a=1[v][a]',
-            '-map', '[v]',
-            '-map', '[a]',
-            output_path
-        ])
-        
-        # Run ffmpeg
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        
-        if result.returncode == 0:
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 1024:
-                # Success - return without logging (caller will log)
-                return output_path
-            else:
-                print(f"{prefix}[AudioTranscriptionUtils] ❌ Merged file is empty or too small")
-        else:
-            print(f"{prefix}[AudioTranscriptionUtils] ❌ ffmpeg merge error: {result.stderr}")
-        
-        return None
-            
-    except Exception as e:
-        print(f"{prefix}[AudioTranscriptionUtils] ❌ Error merging TS files: {e}")
-        return None
+    if output_path is None:
+        temp_dir = tempfile.gettempdir()
+        device_suffix = f"_{device_id}" if device_id else ""
+        output_path = os.path.join(temp_dir, f"merged_ts{device_suffix}.ts")
+    
+    return merge_video_files(ts_file_paths, output_path, 'ts', False, 60)
 
 
 def extract_audio_from_ts(ts_file_path: str, output_path: Optional[str] = None, device_id: str = "") -> Optional[str]:

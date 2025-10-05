@@ -3,19 +3,14 @@
 """
 Video Compression Utilities for VirtualPyTest
 
-Compress HLS segments into single MP4 files before upload to reduce:
-- Number of files (184 segments -> 1 MP4)
-- Total file size (better compression)
-- Upload time and bandwidth
-- Storage costs
+Wrapper for shared video_utils - provides backward compatibility
 """
 
 import os
-import subprocess
-import tempfile
 import time
-from typing import Optional, Dict, List, Tuple
 import logging
+from typing import Optional, Dict, List, Tuple
+from shared.src.lib.utils.video_utils import compress_video_segments
 
 logger = logging.getLogger(__name__)
 
@@ -31,151 +26,34 @@ class VideoCompressionUtils:
     ) -> Dict[str, any]:
         """
         Convert HLS segments to a single compressed MP4.
+        Uses shared video_utils for actual compression.
         
         Args:
-            m3u8_path: Path to M3U8 playlist file
+            m3u8_path: Path to M3U8 playlist file (not used, kept for compatibility)
             segment_files: List of (segment_name, segment_path) tuples
             output_path: Output MP4 path (auto-generated if None)
-            compression_level: "fast", "medium", "high", "pi_optimized" compression
+            compression_level: "fast", "medium", "high", "low", "pi_optimized"
             
         Returns:
             Dict with success status, output path, and compression stats
         """
-        try:
-            if not segment_files:
-                return {'success': False, 'error': 'No segments provided'}
-            
-            # Generate output path if not provided
-            if output_path is None:
-                timestamp = int(time.time())
-                output_path = f"/tmp/compressed_video_{timestamp}.mp4"
-            
-            # Ensure output directory exists
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            
-            # Get compression settings
-            settings = VideoCompressionUtils._get_compression_settings(compression_level)
-            
-            # Create temporary concat file for FFmpeg
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as concat_file:
-                for segment_name, segment_path in segment_files:
-                    if os.path.exists(segment_path):
-                        concat_file.write(f"file '{segment_path}'\n")
-                concat_file_path = concat_file.name
-            
-            try:
-                # Calculate original size
-                original_size = sum(
-                    os.path.getsize(segment_path) 
-                    for _, segment_path in segment_files 
-                    if os.path.exists(segment_path)
-                )
-                
-                # FFmpeg command to concatenate and compress
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-f', 'concat',
-                    '-safe', '0',
-                    '-i', concat_file_path,
-                    '-c:v', 'libx264',
-                    '-preset', settings['preset'],
-                    '-crf', str(settings['crf']),
-                    '-maxrate', settings['maxrate'],
-                    '-bufsize', settings['bufsize']
-                ]
-                
-                # Add fps filter for Pi optimization
-                if 'fps' in settings:
-                    cmd.extend(['-vf', f'fps={settings["fps"]}'])
-                
-                cmd.extend([
-                    '-c:a', 'aac',
-                    '-b:a', '64k',
-                    '-movflags', '+faststart',  # Optimize for streaming
-                    output_path
-                ])
-                
-                logger.info(f"Compressing {len(segment_files)} HLS segments to MP4...")
-                logger.info(f"Command: {' '.join(cmd)}")
-                
-                # Run FFmpeg compression
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=300  # 5 minute timeout
-                )
-                
-                if result.returncode != 0:
-                    logger.error(f"FFmpeg compression failed: {result.stderr}")
-                    return {
-                        'success': False,
-                        'error': f'FFmpeg failed: {result.stderr}'
-                    }
-                
-                # Calculate compression stats
-                if os.path.exists(output_path):
-                    compressed_size = os.path.getsize(output_path)
-                    compression_ratio = (original_size - compressed_size) / original_size * 100
-                    
-                    logger.info(f"Compression complete:")
-                    logger.info(f"  Original: {original_size / 1024 / 1024:.1f} MB ({len(segment_files)} segments)")
-                    logger.info(f"  Compressed: {compressed_size / 1024 / 1024:.1f} MB (1 file)")
-                    logger.info(f"  Savings: {compression_ratio:.1f}%")
-                    
-                    return {
-                        'success': True,
-                        'output_path': output_path,
-                        'original_size': original_size,
-                        'compressed_size': compressed_size,
-                        'compression_ratio': compression_ratio,
-                        'segments_count': len(segment_files)
-                    }
-                else:
-                    return {'success': False, 'error': 'Output file not created'}
-                    
-            finally:
-                # Clean up temp concat file
-                if os.path.exists(concat_file_path):
-                    os.unlink(concat_file_path)
-                    
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Compression timeout (>5 minutes)'}
-        except Exception as e:
-            logger.error(f"Video compression error: {e}")
-            return {'success': False, 'error': str(e)}
-    
-    @staticmethod
-    def _get_compression_settings(level: str) -> Dict[str, any]:
-        """Get FFmpeg settings for different compression levels."""
-        settings = {
-            'fast': {
-                'preset': 'veryfast',
-                'crf': 28,
-                'maxrate': '1000k',
-                'bufsize': '2000k'
-            },
-            'medium': {
-                'preset': 'medium',
-                'crf': 23,
-                'maxrate': '800k',
-                'bufsize': '1600k'
-            },
-            'high': {
-                'preset': 'slow',
-                'crf': 20,
-                'maxrate': '600k',
-                'bufsize': '1200k'
-            },
-            'pi_optimized': {
-                'preset': 'ultrafast',
-                'crf': 30,
-                'maxrate': '500k',
-                'bufsize': '1000k',
-                'fps': 15  # Special setting for Pi optimization
-            }
-        }
-        return settings.get(level, settings['medium'])
+        if output_path is None:
+            timestamp = int(time.time())
+            output_path = f"/tmp/compressed_video_{timestamp}.mp4"
+        
+        logger.info(f"Compressing {len(segment_files)} HLS segments to MP4...")
+        
+        result = compress_video_segments(segment_files, output_path, compression_level)
+        
+        if result.get('success'):
+            logger.info(f"Compression complete:")
+            logger.info(f"  Original: {result['original_size'] / 1024 / 1024:.1f} MB ({result['segments_count']} segments)")
+            logger.info(f"  Compressed: {result['compressed_size'] / 1024 / 1024:.1f} MB (1 file)")
+            logger.info(f"  Savings: {result['compression_ratio']:.1f}%")
+        else:
+            logger.error(f"Compression failed: {result.get('error')}")
+        
+        return result
     
     @staticmethod
     def estimate_compression_time(segment_count: int, duration_seconds: float) -> float:

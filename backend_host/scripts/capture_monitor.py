@@ -3,11 +3,18 @@
 inotify-based frame monitor - eliminates directory scanning bottleneck
 Watches for new frames and processes them immediately (zero CPU when idle)
 Uses FFmpeg atomic_writing feature to detect completed files
+
+Per-device queue processing:
+- Each device has dedicated queue and worker thread
+- Sequential processing within device prevents CPU spikes
+- Parallel processing across devices maintains performance
 """
 import os
 import sys
 import json
 import logging
+import queue
+import threading
 from datetime import datetime
 import inotify.adapters
 
@@ -27,29 +34,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class InotifyFrameMonitor:
-    """Event-driven frame monitor using inotify - zero CPU when idle"""
+    """Event-driven frame monitor with per-device queue processing"""
     
     def __init__(self, capture_dirs, host_name):
         self.host_name = host_name
         self.incident_manager = IncidentManager()
         self.inotify = inotify.adapters.Inotify()
-        self.last_processed_folder = None  # Track last device for log separation
+        self.last_processed_folder = None
         
-        # Map capture_dir paths to their folder names for logging
         self.dir_to_info = {}
+        self.device_queues = {}
+        self.device_workers = {}
         
-        # Watch all capture directories (handles both hot and cold storage)
         for capture_dir in capture_dirs:
-            # Extract capture folder name correctly for hot/cold storage
             if '/hot/' in capture_dir:
-                # Hot: /var/www/html/stream/capture1/hot/captures -> capture1
                 parts = capture_dir.split('/')
-                capture_folder = parts[-3]  # capture1
-                parent_dir = '/'.join(parts[:-2])  # /var/www/html/stream/capture1
+                capture_folder = parts[-3]
+                parent_dir = '/'.join(parts[:-2])
             else:
-                # Cold: /var/www/html/stream/capture1/captures -> capture1
-                parent_dir = os.path.dirname(capture_dir)  # /var/www/html/stream/capture1
-                capture_folder = os.path.basename(parent_dir)  # capture1
+                parent_dir = os.path.dirname(capture_dir)
+                capture_folder = os.path.basename(parent_dir)
             
             self.dir_to_info[capture_dir] = {
                 'capture_dir': parent_dir,
@@ -61,19 +65,37 @@ class InotifyFrameMonitor:
                 logger.info(f"Watching: {capture_dir} -> {capture_folder}")
             else:
                 logger.warning(f"Directory not found: {capture_dir}")
+            
+            work_queue = queue.Queue(maxsize=1000)
+            self.device_queues[capture_folder] = work_queue
+            
+            worker = threading.Thread(
+                target=self._device_worker,
+                args=(capture_folder, work_queue),
+                daemon=True,
+                name=f"worker-{capture_folder}"
+            )
+            worker.start()
+            self.device_workers[capture_folder] = worker
+            logger.info(f"Started worker thread: {capture_folder}")
         
-        # Process any existing unanalyzed frames on startup
         self.process_existing_frames(capture_dirs)
     
+    def _device_worker(self, capture_folder, work_queue):
+        """Worker thread for sequential frame processing per device"""
+        while True:
+            path, filename = work_queue.get()
+            try:
+                self.process_frame(path, filename)
+            except Exception as e:
+                logger.error(f"[{capture_folder}] Worker error: {e}")
+            finally:
+                work_queue.task_done()
+    
     def process_existing_frames(self, capture_dirs):
-        """Process any frames that were created before monitor started - OPTIMIZED"""
+        """Skip startup scan - inotify catches new frames immediately"""
         logger.info("Skipping startup scan (inotify will catch new frames immediately)")
-        # NOTE: We skip scanning existing files because:
-        # 1. With 220K+ files, scanning takes minutes and defeats inotify's purpose
-        # 2. Old unanalyzed frames aren't critical (incidents already in DB)
-        # 3. New frames will be caught immediately by inotify events
-        # 4. System will self-correct as new frames arrive
-        return  # Skip expensive startup scan
+        return
     
     def process_frame(self, captures_path, filename):
         """Process a single frame - called by both inotify and startup scan"""
@@ -198,7 +220,7 @@ class InotifyFrameMonitor:
                 pass
     
     def run(self):
-        """Main event loop - blocks until events occur (zero CPU when idle!)"""
+        """Main event loop - enqueue frames for worker threads"""
         logger.info("Starting inotify event loop (zero CPU when idle)...")
         logger.info("Waiting for FFmpeg to write new frames...")
         
@@ -206,18 +228,19 @@ class InotifyFrameMonitor:
             for event in self.inotify.event_gen(yield_nones=False):
                 (_, type_names, path, filename) = event
                 
-                # Only process MOVED_TO (atomic rename completion)
-                # This fires when FFmpeg renames .tmp → final file
                 if 'IN_MOVED_TO' in type_names:
                     if path in self.dir_to_info:
                         capture_folder = self.dir_to_info[path]['capture_folder']
                         logger.debug(f"[{capture_folder}] inotify event: {filename}")
-                        self.process_frame(path, filename)
+                        
+                        try:
+                            self.device_queues[capture_folder].put_nowait((path, filename))
+                        except queue.Full:
+                            logger.warning(f"[{capture_folder}] Queue full, dropping frame: {filename}")
                         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
         finally:
-            # Cleanup watches
             for path in self.dir_to_info.keys():
                 try:
                     self.inotify.remove_watch(path)

@@ -1,27 +1,13 @@
 #!/usr/bin/env python3
 """
-HOT/COLD STORAGE ARCHIVER - RAM + SD Architecture
-==================================================
-
-This service manages hot/cold storage with two modes:
-
-**RAM MODE (if /hot/ exists):**
-- FFmpeg writes to /hot/captures/, /hot/segments/ (tmpfs RAM) - NO THUMBNAILS
-- Archives to SD: /captures/X/, /segments/X/, /metadata/X/
-- Runs every 1 minute
-- 99% SD write reduction + 18MB RAM saved per device
-
-**SD MODE (fallback if no /hot/):**
-- Files in root directories (captures/, segments/, metadata/) - NO THUMBNAILS
-- Archives to hour subfolders
-- Runs every 1 minute (same as RAM mode)
+HOT/COLD STORAGE ARCHIVER - Progressive MP4 Optimization
+=========================================================
 
 Responsibilities:
-1. Archive hot files when they exceed limits (segments + metadata)
-2. Generate HLS manifests for hour folders (segments only)
-3. Clean old hour folders (1h for captures, 24h for segments/metadata)
-4. Metadata archived for 24h transcript system access
-5. No full directory scans - fast and efficient!
+1. Progressive MP4 merging: 6s TS → 6s MP4 → 1min MP4 → 10min MP4
+2. Archive metadata to hour folders
+3. Clean old files to maintain RAM limits
+4. 98% disk write reduction through progressive grouping
 """
 
 import os
@@ -39,6 +25,7 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, is_ram_mode
+from shared.src.lib.utils.video_utils import merge_progressive_batch
 
 # Configure logging (systemd handles file output)
 logging.basicConfig(
@@ -281,88 +268,6 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
         return 0
 
 
-def generate_hour_manifest(capture_dir: str, hour: int) -> bool:
-    """
-    Generate HLS manifest for a specific hour folder
-    
-    Only for segments/ - creates archive.m3u8
-    """
-    hour_dir = os.path.join(capture_dir, 'segments', str(hour))
-    
-    if not os.path.isdir(hour_dir):
-        return False
-    
-    try:
-        # Get all segments in this hour folder
-        segments = sorted(
-            Path(hour_dir).glob('segment_*.ts'),
-            key=lambda f: int(f.stem.split('_')[1])
-        )
-        
-        if not segments:
-            return False
-        
-        manifest_path = os.path.join(hour_dir, 'archive.m3u8')
-        
-        # Generate HLS manifest
-        with open(manifest_path, 'w') as f:
-            f.write('#EXTM3U\n')
-            f.write('#EXT-X-VERSION:3\n')
-            f.write('#EXT-X-TARGETDURATION:4\n')
-            f.write(f'#EXT-X-MEDIA-SEQUENCE:{int(segments[0].stem.split("_")[1])}\n')
-            
-            for seg in segments:
-                f.write('#EXTINF:1.000000,\n')
-                f.write(f'{seg.name}\n')
-            
-            f.write('#EXT-X-ENDLIST\n')
-        
-        logger.info(f"Generated manifest: segments/{hour}/archive.m3u8 ({len(segments)} segments)")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error generating manifest for hour {hour}: {e}")
-        return False
-
-
-def update_all_manifests(capture_dir: str):
-    """
-    Update manifests for all hour folders that have segments
-    
-    Fast operation: only checks hour folders, not full directory scan
-    """
-    segments_dir = os.path.join(capture_dir, 'segments')
-    
-    if not os.path.isdir(segments_dir):
-        return
-    
-    updated_count = 0
-    
-    # Check all 24 hour folders
-    for hour in range(24):
-        hour_dir = os.path.join(segments_dir, str(hour))
-        if os.path.isdir(hour_dir):
-            # Only update if there are segments
-            has_segments = any(Path(hour_dir).glob('segment_*.ts'))
-            if has_segments:
-                if generate_hour_manifest(capture_dir, hour):
-                    updated_count += 1
-    
-    if updated_count > 0:
-        logger.info(f"Updated {updated_count} archive manifests")
-
-
-# REMOVED: clean_old_hour_folders() function
-#
-# WHY: Natural 24h rolling buffer through time-based sequential filenames
-# Files automatically overwrite after 24h cycle - no cleanup needed!
-# 
-# How it works:
-# - Files get time-based names based on seconds since midnight
-# - After 24h, same time → same filename → automatic overwrite
-# - Result: All hour folders maintain 24h of data automatically
-#
-# No retention configuration or cleanup logic needed!
 
 
 def rotate_hot_captures(capture_dir: str) -> int:
@@ -488,48 +393,55 @@ def clean_old_thumbnails(capture_dir: str) -> int:
 
 def process_capture_directory(capture_dir: str):
     """
-    Process a single capture directory:
-    1. Rotate captures (delete old files, keep newest 300 = 60s buffer)
+    Process single capture directory:
+    1. Rotate captures (delete old, keep newest 300 = 60s buffer)
     2. Clean old thumbnails (keep newest 100 for freeze detection)
-    3. Archive metadata (to hour folders for 24h transcript access)
-    4. Archive segments (to hour folders)
-    5. Update segment manifests
-    
-    NOTE: Captures pushed to cloud, no local archive needed. Thumbnails generated by FFmpeg.
-    Metadata archived to hour folders for transcript system 24h access.
+    3. Archive metadata (to hour folders)
+    4. Progressive MP4 merging (6s → 1min → 10min)
     """
     logger.info(f"Processing {capture_dir}")
     
     start_time = time.time()
     
-    # 1. Rotate captures (delete old, keep newest 300)
     deleted_captures = rotate_hot_captures(capture_dir)
-    
-    # 2. Clean old thumbnails (keep newest 100 for freeze detection)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
-    
-    # 3. Archive metadata (to hour folders for 24h transcript access)
     archived_metadata = archive_hot_files(capture_dir, 'metadata')
     
-    # 4. Archive segments (to hour folders)
-    archived_segments = archive_hot_files(capture_dir, 'segments')
+    ram_mode = is_ram_mode(capture_dir)
+    hot_segments = os.path.join(capture_dir, 'hot', 'segments') if ram_mode else os.path.join(capture_dir, 'segments')
+    temp_dir = os.path.join(capture_dir, 'segments', 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
     
-    # 5. Update archive manifests (segments only)
-    update_all_manifests(capture_dir)
+    mp4_6s = merge_progressive_batch(hot_segments, 'segment_*.ts', os.path.join(temp_dir, f'6s_{int(time.time())}.mp4'), 6, True, 10)
+    if mp4_6s:
+        logger.info("Created 6s MP4")
+    
+    mp4_1min = merge_progressive_batch(temp_dir, '6s_*.mp4', os.path.join(temp_dir, f'1min_{int(time.time())}.mp4'), 10, True, 15)
+    if mp4_1min:
+        logger.info("Created 1min MP4")
+    
+    hour = datetime.now().hour
+    hour_dir = os.path.join(capture_dir, 'segments', str(hour))
+    os.makedirs(hour_dir, exist_ok=True)
+    chunk_index = len(list(Path(hour_dir).glob('chunk_10min_*.mp4')))
+    mp4_10min = merge_progressive_batch(temp_dir, '1min_*.mp4', os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4'), 10, True, 20)
+    if mp4_10min:
+        logger.info(f"Created 10min chunk: {hour}/chunk_10min_{chunk_index}.mp4")
     
     elapsed = time.time() - start_time
+    mp4_status = [s for s, result in [("6s", mp4_6s), ("1min", mp4_1min), ("10min", mp4_10min)] if result]
+    mp4_info = f", MP4: {'+'.join(mp4_status)}" if mp4_status else ""
     
-    logger.info(f"✓ Completed {capture_dir} in {elapsed:.2f}s (deleted {deleted_captures} captures, {deleted_thumbnails} thumbnails, archived {archived_metadata} metadata, {archived_segments} segments)")
+    logger.info(f"✓ Completed in {elapsed:.2f}s (del: {deleted_captures} cap, {deleted_thumbnails} thumb, arch: {archived_metadata} meta{mp4_info})")
 
 
 def main_loop():
     """
-    Main service loop - SEGMENTS + METADATA archival
-    Archives segments and metadata every 1min (captures rotate in RAM)
-    Metadata archived for 24h transcript system access
+    Main service loop - Progressive MP4 merging
+    Processes every 1min: 6s→1min→10min MP4 grouping
     """
     logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER - SEGMENTS + METADATA ARCHIVE")
+    logger.info("HOT/COLD ARCHIVER - PROGRESSIVE MP4 OPTIMIZATION")
     logger.info("=" * 60)
     
     # Detect mode from first capture directory
@@ -537,11 +449,11 @@ def main_loop():
     ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
     run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
     
-    mode_name = "RAM MODE (1min interval)" if ram_mode else "SD MODE (1min interval)"
+    mode_name = "RAM MODE" if ram_mode else "SD MODE"
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Strategy: Archive segments + metadata (images pushed to cloud, metadata for transcripts)")
+    logger.info("Strategy: Progressive MP4 (6s→1min→10min) + metadata archive")
     logger.info("=" * 60)
     
     while True:
