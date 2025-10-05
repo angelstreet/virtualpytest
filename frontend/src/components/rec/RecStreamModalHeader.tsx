@@ -10,6 +10,8 @@ import {
   RadioButtonChecked as LiveIcon,
   History as ArchiveIcon,
   CameraAlt as CameraIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
 import { Box, IconButton, Typography, Button, CircularProgress, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import React from 'react';

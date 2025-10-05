@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Box, Slider, Typography, IconButton, Select, MenuItem, CircularProgress } from '@mui/material';
 import { PlayArrow, Pause, Translate, AutoAwesome } from '@mui/icons-material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
+import { MonitoringOverlay } from '../monitoring/MonitoringOverlay';
 import { useStream } from '../../hooks/controller';
 import { Host } from '../../types/common/Host_Types';
+import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 import { buildStreamUrl } from '../../utils/buildUrlUtils';
 
 interface ArchiveMetadata {
@@ -43,6 +45,15 @@ interface TranscriptData {
   total_samples: number;
 }
 
+interface ErrorTrendData {
+  blackscreenConsecutive: number;
+  freezeConsecutive: number;
+  audioLossConsecutive: number;
+  macroblocksConsecutive: number;
+  hasWarning: boolean;
+  hasError: boolean;
+}
+
 interface EnhancedHLSPlayerProps {
   deviceId: string;
   hostName: string;
@@ -56,6 +67,15 @@ interface EnhancedHLSPlayerProps {
   quality?: 'low' | 'sd' | 'hd'; // Stream quality - forces reload when changed
   shouldPause?: boolean; // Pause player to show last frame (during quality transition)
   onPlayerReady?: () => void; // Callback when player loads successfully
+  
+  // Monitoring mode props (overlay on live video)
+  monitoringMode?: boolean;
+  monitoringAnalysis?: MonitoringAnalysis | null;
+  subtitleAnalysis?: SubtitleAnalysis | null;
+  languageMenuAnalysis?: LanguageMenuAnalysis | null;
+  aiDescription?: string | null;
+  errorTrendData?: ErrorTrendData | null;
+  analysisTimestamp?: string | null;
 }
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
@@ -70,7 +90,16 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isLiveMode: externalIsLiveMode,
   quality = 'sd', // Default to SD quality
   shouldPause = false, // Default to not paused
-  onPlayerReady
+  onPlayerReady,
+  
+  // Monitoring props
+  monitoringMode = false,
+  monitoringAnalysis,
+  subtitleAnalysis,
+  languageMenuAnalysis,
+  aiDescription,
+  errorTrendData,
+  analysisTimestamp,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [internalIsLiveMode] = useState(true); // Start in live mode
@@ -882,6 +911,69 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               <MenuItem value="Portuguese">Portuguese</MenuItem>
             </Select>
             {isTranslating && <CircularProgress size={20} sx={{ color: 'white' }} />}
+          </Box>
+        )}
+
+        {/* Monitoring Overlay - Shows when monitoring mode is enabled (Live mode) */}
+        {monitoringMode && isLiveMode && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              zIndex: 100,
+            }}
+          >
+            <MonitoringOverlay
+              monitoringAnalysis={monitoringAnalysis || undefined}
+              subtitleAnalysis={subtitleAnalysis}
+              languageMenuAnalysis={languageMenuAnalysis}
+              consecutiveErrorCounts={errorTrendData || undefined}
+              showSubtitles={!!subtitleAnalysis}
+              showLanguageMenu={!!languageMenuAnalysis}
+              analysisTimestamp={analysisTimestamp || undefined}
+            />
+
+            {/* AI Description overlay (if available) */}
+            {aiDescription && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 16,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  maxWidth: '60%',
+                  minWidth: 300,
+                  p: 1,
+                  backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                  borderRadius: 1,
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  textAlign: 'center',
+                  zIndex: 30,
+                  pointerEvents: 'none',
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: '#ffffff',
+                    fontSize: '0.7rem',
+                    lineHeight: 1.2,
+                    fontWeight: 400,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {aiDescription}
+                </Typography>
+              </Box>
+            )}
           </Box>
         )}
 
