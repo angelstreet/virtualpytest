@@ -646,6 +646,7 @@ const RecHostStreamModalContent: React.FC<{
             aiDescription={monitoringData.latestAIDescription || undefined}
             errorTrendData={monitoringData.errorTrendData || undefined}
             analysisTimestamp={monitoringData.analysisTimestamp || undefined}
+            isAIAnalyzing={monitoringData.isAIAnalyzing}
           />
 
           {/* Panel Manager */}

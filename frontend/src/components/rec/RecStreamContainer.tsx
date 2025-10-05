@@ -65,6 +65,7 @@ interface RecStreamContainerProps {
   aiDescription?: string;
   errorTrendData?: ErrorTrendData;
   analysisTimestamp?: string;
+  isAIAnalyzing?: boolean;
 }
 
 export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
@@ -95,6 +96,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   aiDescription,
   errorTrendData,
   analysisTimestamp,
+  isAIAnalyzing,
 }) => {
   return (
     <Box
@@ -213,6 +215,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             aiDescription={aiDescription}
             errorTrendData={errorTrendData}
             analysisTimestamp={analysisTimestamp}
+            isAIAnalyzing={isAIAnalyzing}
           />
         )
       ) : (
