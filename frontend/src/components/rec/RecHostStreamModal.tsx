@@ -365,10 +365,19 @@ const RecHostStreamModalContent: React.FC<{
         
         // Count segments in manifest by counting #EXTINF lines
         const segmentCount = (manifestText.match(/#EXTINF/g) || []).length;
-        console.log(`[@component:RecHostStreamModal] Manifest valid! Has ${segmentCount} segments (need ${requiredSegments})`);
         
-        if (segmentCount >= requiredSegments) {
-          console.log(`[@component:RecHostStreamModal] ✅ Stream ready! Manifest shows ${segmentCount} segments`);
+        // Extract media sequence number to ensure we have a fresh stream
+        const mediaSequenceMatch = manifestText.match(/#EXT-X-MEDIA-SEQUENCE:(\d+)/);
+        const mediaSequence = mediaSequenceMatch ? parseInt(mediaSequenceMatch[1], 10) : -1;
+        
+        console.log(`[@component:RecHostStreamModal] Manifest valid! Has ${segmentCount} segments (need ${requiredSegments}), media sequence: ${mediaSequence}`);
+        
+        // Check both segment count AND that we have a fresh stream (low media sequence)
+        // Fresh stream should start from 0 or very low numbers (allow up to 10 for some tolerance)
+        const isFreshStream = mediaSequence >= 0 && mediaSequence <= 10;
+        
+        if (segmentCount >= requiredSegments && isFreshStream) {
+          console.log(`[@component:RecHostStreamModal] ✅ Stream ready! Fresh stream with ${segmentCount} segments, sequence ${mediaSequence}`);
           // Clear polling
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -377,6 +386,8 @@ const RecHostStreamModalContent: React.FC<{
           // Resume player and hide overlay
           setShouldPausePlayer(false);
           setIsQualitySwitching(false);
+        } else if (segmentCount >= requiredSegments && !isFreshStream) {
+          console.log(`[@component:RecHostStreamModal] ⏳ Manifest has ${segmentCount} segments but sequence ${mediaSequence} is too high - waiting for fresh stream restart`);
         }
       } catch (error) {
         console.log(`[@component:RecHostStreamModal] Manifest check failed: ${error}`);
