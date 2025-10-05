@@ -394,9 +394,9 @@ export function HLSVideoPlayer({
       } : {
         // Live mode - low latency with scrubbing capability
         enableWorker: false,
-        lowLatencyMode: true,
-        liveSyncDuration: 1,           // Stay closer to live edge
-        liveMaxLatencyDuration: 3,     // Max allowed latency
+        lowLatencyMode: false,         // Disable low latency mode to prevent auto-seeking to live
+        liveSyncDuration: 1,           // Target sync position
+        liveMaxLatencyDuration: 180,   // Allow full buffer scrubbing (150s + margin) without forcing back to live
         maxBufferLength: 5,            // Minimal buffering
         maxMaxBufferLength: 10,        // Prevent over-buffering
         backBufferLength: 150,         // Keep 2.5min for scrubbing
