@@ -54,13 +54,15 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Thumbnails: 100 × 28KB = 3MB (for freeze detection comparisons)
 # - Metadata: 750 × 1KB = 0.75MB (150s buffer = matches segment buffer for live scrubbing)
 # - Transcripts: 24 × 50KB = 1.2MB (hourly transcript files, KEPT IN HOT - light data)
-# Total: ~85MB per device ✅ (42% of 200MB budget, high quality preserved)
+# - Audio: 6 × 1MB = 6MB (1h buffer of 10-min chunks, archived to /audio/{hour}/)
+# Total: ~91MB per device ✅ (45% of 200MB budget, high quality preserved)
 #
 HOT_LIMITS = {
     'segments': 150,      # 2.5min buffer → archive to hour folders
     'captures': 300,      # 60s buffer at 5fps (same as archiver interval)
     'thumbnails': 100,    # For freeze detection (last 3 frames comparison)
     'metadata': 750,      # 150s buffer at 5fps → matches segment buffer for live scrubbing
+    'audio': 6,          # 6 chunks = 1 hour buffer (10-min chunks, light: ~6MB total)
 }
 
 # REMOVED: RETENTION_HOURS config
@@ -78,6 +80,7 @@ HOT_LIMITS = {
 FILE_PATTERNS = {
     'segments': 'segment_*.ts',
     'captures': 'capture_*[0-9].jpg',  # Full captures only (rotated, not archived)
+    'audio': 'chunk_10min_*.mp3',  # Audio chunks (extracted from MP4)
 }
 
 
@@ -525,6 +528,7 @@ def process_capture_directory(capture_dir: str):
     2. Clean old thumbnails (keep newest 100 for freeze detection)
     3. Progressive metadata grouping (individual JSONs → 1min → 10min chunks)
     4. Progressive MP4 merging (6s TS → 1min → 10min)
+    5. Archive audio chunks (hot → cold /audio/{hour}/)
     
     Note: Metadata aligned with MP4 chunks, transcripts kept in HOT only
     """
@@ -534,6 +538,9 @@ def process_capture_directory(capture_dir: str):
     
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
+    
+    # Archive audio chunks from hot to cold storage
+    archived_audio = archive_hot_files(capture_dir, 'audio')
     
     ram_mode = is_ram_mode(capture_dir)
     
@@ -574,8 +581,16 @@ def process_capture_directory(capture_dir: str):
     if mp4_10min:
         logger.info(f"Created 10min chunk: {hour}/chunk_10min_{chunk_index}.mp4")
         
-        # Extract audio from 10-min MP4 for separate audio archive (aligned with transcripts)
-        audio_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}_audio.mp3')
+        # Extract audio from 10-min MP4 to HOT audio storage (aligned with transcripts)
+        # Audio will be archived to /audio/{hour}/ by archive_hot_files()
+        if ram_mode:
+            hot_audio_dir = os.path.join(capture_dir, 'hot', 'audio')
+        else:
+            hot_audio_dir = os.path.join(capture_dir, 'audio')
+        
+        os.makedirs(hot_audio_dir, exist_ok=True)
+        audio_path = os.path.join(hot_audio_dir, f'chunk_10min_{chunk_index}.mp3')
+        
         try:
             import subprocess
             # Extract audio using FFmpeg: MP4 → MP3
@@ -586,7 +601,7 @@ def process_capture_directory(capture_dir: str):
                 check=True,
                 timeout=30
             )
-            logger.info(f"Extracted audio: {hour}/chunk_10min_{chunk_index}_audio.mp3")
+            logger.info(f"Extracted audio to HOT: chunk_10min_{chunk_index}.mp3")
         except Exception as e:
             logger.warning(f"Failed to extract audio from chunk {chunk_index}: {e}")
     
@@ -599,18 +614,21 @@ def process_capture_directory(capture_dir: str):
     metadata_status = [s for s, result in [("1min", metadata_1min), ("10min", metadata_10min)] if result]
     metadata_info = f", Metadata: {'+'.join(metadata_status)}" if metadata_status else ""
     
-    logger.info(f"✓ Completed in {elapsed:.2f}s (del: {deleted_captures} cap, {deleted_thumbnails} thumb{metadata_info}{mp4_info})")
+    audio_info = f", Audio: {archived_audio} archived" if archived_audio > 0 else ""
+    
+    logger.info(f"✓ Completed in {elapsed:.2f}s (del: {deleted_captures} cap, {deleted_thumbnails} thumb{metadata_info}{mp4_info}{audio_info})")
 
 
 def main_loop():
     """
-    Main service loop - Progressive MP4 & Metadata Grouping
+    Main service loop - Progressive MP4 & Metadata Grouping + Audio Archival
     Processes every 1min:
     - MP4: 6s→1min→10min grouping
     - Metadata: individual JSONs→1min→10min chunks (aligned with MP4)
+    - Audio: Extract from 10min MP4 → HOT → archive to /audio/{hour}/
     """
     logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER - PROGRESSIVE MP4 & METADATA GROUPING")
+    logger.info("HOT/COLD ARCHIVER - PROGRESSIVE MP4 & METADATA GROUPING + AUDIO")
     logger.info("=" * 60)
     
     # Detect mode from first capture directory
@@ -622,7 +640,7 @@ def main_loop():
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Strategy: Progressive grouping (MP4: 6s→1min→10min, Metadata: 1min→10min)")
+    logger.info("Strategy: Progressive grouping (MP4: 6s→1min→10min, Metadata: 1min→10min, Audio: hot→cold)")
     logger.info("=" * 60)
     
     while True:

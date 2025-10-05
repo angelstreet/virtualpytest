@@ -32,7 +32,14 @@ export interface AnalysisData {
       volume_percentage?: number;
       mean_volume_db?: number;
       freeze_diffs?: number[];
-      last_3_thumbnails?: string[];  // R2 thumbnail URLs for freeze frames
+      last_3_thumbnails?: string[];  // Local paths (deprecated, use r2_images)
+      r2_images?: {
+        original_urls: string[];
+        thumbnail_urls: string[];
+        original_r2_paths: string[];
+        thumbnail_r2_paths: string[];
+        timestamp: string;
+      };
     };
   }>;
   incidents_count: number;
@@ -196,13 +203,14 @@ export const useHeatmap = () => {
   }, [currentIndex, selectedServer]);
   
   /**
-   * Load analysis when timeline position changes
+   * Load analysis when timeline position changes (but NOT when timeline regenerates)
+   * Only trigger when currentIndex changes, to avoid duplicate loads
    */
   useEffect(() => {
-    if (timeline[currentIndex]) {
+    if (timeline.length > 0 && timeline[currentIndex]) {
       loadAnalysisData(timeline[currentIndex]);
     }
-  }, [currentIndex, timeline]);
+  }, [currentIndex]);
   
   /**
    * Force refresh analysis data

@@ -54,7 +54,12 @@ const HeatmapContent: React.FC = () => {
   
   // Freeze modal state
   const [freezeModalOpen, setFreezeModalOpen] = useState(false);
-  const [freezeModalImage, setFreezeModalImage] = useState<any>(null);
+  const [freezeModalData, setFreezeModalData] = useState<{
+    hostName: string;
+    deviceId: string;
+    thumbnailUrls: string[];
+    freezeDiffs: number[];
+  } | null>(null);
   
   // Stream modal state
   const [streamModalOpen, setStreamModalOpen] = useState(false);
@@ -64,7 +69,13 @@ const HeatmapContent: React.FC = () => {
   // Handle freeze click from analysis table
   const handleFreezeClick = (deviceData: any) => {
     if (deviceData?.analysis_json?.freeze) {
-      setFreezeModalImage(deviceData);
+      const r2Images = deviceData.analysis_json.r2_images;
+      setFreezeModalData({
+        hostName: deviceData.host_name || '',
+        deviceId: deviceData.device_id || '',
+        thumbnailUrls: r2Images?.thumbnail_urls || [],
+        freezeDiffs: deviceData.analysis_json.freeze_diffs || []
+      });
       setFreezeModalOpen(true);
     }
   };
@@ -101,11 +112,6 @@ const HeatmapContent: React.FC = () => {
     setStreamModalOpen(true);
   };
 
-  // Helper function for freeze modal - URLs are now complete R2 URLs from backend
-  // Same as MonitoringIncidents: freeze images are uploaded to R2 immediately
-  const constructFrameUrl = (url: string, _baseUrl: string): string => {
-    return url; // URL is already complete from R2 (either full R2 URL or will fallback to local)
-  };
 
   // Generate report for current frame
   const handleGenerateReport = async () => {
@@ -233,10 +239,12 @@ const HeatmapContent: React.FC = () => {
       {/* Freeze Modal */}
       <HeatMapFreezeModal
         freezeModalOpen={freezeModalOpen}
-        freezeModalImage={freezeModalImage}
-        onClose={() => setFreezeModalOpen(false)}
-        constructFrameUrl={constructFrameUrl}
+        hostName={freezeModalData?.hostName || ''}
+        deviceId={freezeModalData?.deviceId || ''}
+        thumbnailUrls={freezeModalData?.thumbnailUrls || []}
+        freezeDiffs={freezeModalData?.freezeDiffs || []}
         timestamp={analysisData?.timestamp}
+        onClose={() => setFreezeModalOpen(false)}
       />
 
       {/* Stream Modal */}

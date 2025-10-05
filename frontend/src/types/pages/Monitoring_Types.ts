@@ -15,13 +15,22 @@ export interface MonitoringAnalysis {
   freeze: boolean;
   freeze_diffs: number[];
   last_3_filenames: string[];
-  last_3_thumbnails: string[];
+  last_3_thumbnails: string[]; // Local paths (deprecated, use r2_images)
   audio: boolean;
   volume_percentage: number;
   mean_volume_db: number;
   macroblocks: boolean; // Macroblock/image quality detection
   quality_score: number; // Image quality score (0-100)
   has_incidents: boolean; // Pre-calculated incident status
+  
+  // R2 storage URLs (for freeze incidents - uploaded to R2 on detection)
+  r2_images?: {
+    original_urls: string[];
+    thumbnail_urls: string[];
+    original_r2_paths: string[];
+    thumbnail_r2_paths: string[];
+    timestamp: string;
+  };
 }
 
 // Subtitle analysis from backend detection (video.py) - EXACT field names

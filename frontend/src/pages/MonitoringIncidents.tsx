@@ -402,32 +402,6 @@ const MonitoringIncidents: React.FC = () => {
     setFreezeModalAlert(null);
   };
 
-  // For MonitoringIncidents, we already have full R2 URLs, so just return the URL as-is
-  const constructFrameUrlForModal = (url: string, _baseUrl: string): string => {
-    return url; // URL is already complete from r2_images
-  };
-
-  // Convert Alert to HeatmapImage format for modal
-  const getHeatmapImageFromAlert = (alert: Alert | null): any => {
-    if (!alert || !alert.metadata?.r2_images) return null;
-    
-    const r2Images = alert.metadata.r2_images;
-    const thumbnailUrls = r2Images.thumbnail_urls || [];
-    const freezeDiffs = alert.metadata.freeze_diffs || [];
-    
-    if (thumbnailUrls.length === 0) return null;
-    
-    return {
-      host_name: alert.host_name,
-      device_id: alert.device_id,
-      image_url: '',
-      analysis_json: {
-        freeze: true,
-        freeze_diffs: freezeDiffs,
-        last_3_thumbnails: thumbnailUrls,  // Use last_3_thumbnails for R2 URLs
-      }
-    };
-  };
 
   // Handle clear all alerts
   const handleClearAllAlerts = async () => {
@@ -1250,10 +1224,12 @@ const MonitoringIncidents: React.FC = () => {
       {/* Freeze Modal */}
       <HeatMapFreezeModal
         freezeModalOpen={freezeModalOpen}
-        freezeModalImage={getHeatmapImageFromAlert(freezeModalAlert)}
-        onClose={handleCloseFreezeModal}
-        constructFrameUrl={constructFrameUrlForModal}
+        hostName={freezeModalAlert?.host_name || ''}
+        deviceId={freezeModalAlert?.device_id || ''}
+        thumbnailUrls={freezeModalAlert?.metadata?.r2_images?.thumbnail_urls || []}
+        freezeDiffs={freezeModalAlert?.metadata?.freeze_diffs || []}
         timestamp={freezeModalAlert?.start_time}
+        onClose={handleCloseFreezeModal}
       />
     </Box>
   );

@@ -2,55 +2,32 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { Modal, Box, IconButton, Typography } from '@mui/material';
 import React from 'react';
 
-// Import the device type from AnalysisData
-type HeatmapImage = {
-  host_name: string;
-  device_id: string;
-  image_url: string;
-  analysis_json: {
-    audio?: boolean;
-    blackscreen?: boolean;
-    freeze?: boolean;
-    volume_percentage?: number;
-    mean_volume_db?: number;
-    freeze_diffs?: number[];
-    last_3_thumbnails?: string[];  // R2 thumbnail URLs
-  };
-};
-
 interface HeatMapFreezeModalProps {
   freezeModalOpen: boolean;
-  freezeModalImage: HeatmapImage | null;
+  hostName: string;
+  deviceId: string;
+  thumbnailUrls: string[]; // Direct R2 URLs (3 images)
+  freezeDiffs: number[]; // Frame differences (3 values)
+  timestamp?: string;
   onClose: () => void;
-  constructFrameUrl: (filename: string, baseUrl: string) => string;
-  timestamp?: string; // Add timestamp for metadata display
 }
 
 export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
   freezeModalOpen,
-  freezeModalImage,
-  onClose,
-  constructFrameUrl,
+  hostName,
+  deviceId,
+  thumbnailUrls,
+  freezeDiffs,
   timestamp,
+  onClose,
 }) => {
-  if (!freezeModalOpen || !freezeModalImage) return null;
+  if (!freezeModalOpen || thumbnailUrls.length === 0) return null;
 
-  // Use existing MonitoringAnalysis fields instead of freeze_details
-  const analysisJson = freezeModalImage.analysis_json;
-  if (!analysisJson || !analysisJson.freeze) return null;
-
-  const thumbnailUrls = analysisJson.last_3_thumbnails || [];
-  const frameDifferences = analysisJson.freeze_diffs || [];
-
-  // Only show modal if we have thumbnail URLs
-  if (thumbnailUrls.length === 0) return null;
-
-  // Debug: Log the thumbnail URLs being displayed
   console.log('[@HeatMapFreezeModal] Displaying freeze thumbnails:', {
-    device: `${freezeModalImage.host_name}-${freezeModalImage.device_id}`,
+    device: `${hostName}-${deviceId}`,
     thumbnailCount: thumbnailUrls.length,
     thumbnails: thumbnailUrls,
-    diffs: frameDifferences
+    diffs: freezeDiffs
   });
 
   return (
@@ -136,42 +113,19 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
               mt: 0.5,
             }}
           >
-            Device: {freezeModalImage.host_name}-{freezeModalImage.device_id}
+            Device: {hostName}-{deviceId}
           </Typography>
         </Box>
 
         {/* 3 Images side by side */}
         <Box sx={{ display: 'flex', flex: 1, gap: 1, p: 1 }}>
-          {thumbnailUrls.map((thumbnailUrl: string, index: number) => {
-            // Thumbnails are now always R2 URLs (https://...r2.../alerts/freeze/.../thumb_0.jpg)
-            // No need for format detection or URL construction - use directly
-            const isR2Url = thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://');
-            
-            // Extract just the filename for sequence number display
-            const cleanFilename = thumbnailUrl.includes('/')
-              ? thumbnailUrl.split('/').pop() || thumbnailUrl
-              : thumbnailUrl;
-            
-            // Use R2 URL directly, or fallback to constructFrameUrl for legacy local paths
-            const frameUrl = isR2Url 
-              ? thumbnailUrl 
-              : constructFrameUrl(cleanFilename, freezeModalImage.image_url);
-            
-            const diff = frameDifferences[index];
-
-            // Extract sequence number from filename (format: capture_0001.jpg or thumb_0.jpg)
-            const sequenceMatch = cleanFilename.match(/(?:capture_|thumb_)(\d+)/);
-            const sequenceNumber = sequenceMatch ? sequenceMatch[1] : '';
-
-            // Format sequence number for display
-            const formatSequence = (seq: string) => {
-              if (!seq) return 'Unknown';
-              return `#${seq.padStart(4, '0')}`;
-            };
+          {thumbnailUrls.map((imageUrl: string, index: number) => {
+            const diff = freezeDiffs[index];
+            const frameLabels = ['Frame -2', 'Frame -1', 'Current'];
 
             return (
               <Box
-                key={thumbnailUrl}
+                key={index}
                 sx={{
                   flex: 1,
                   display: 'flex',
@@ -188,15 +142,15 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
                     fontSize: '0.75rem',
                   }}
                 >
-                  {sequenceNumber ? formatSequence(sequenceNumber) : `Frame ${index + 1}`} - Frame ({diff})
+                  {frameLabels[index]} - Diff ({diff !== undefined ? diff.toFixed(1) : 'N/A'})
                 </Typography>
                 <img
-                  src={frameUrl}
+                  src={imageUrl}
                   alt={`Frame ${index}`}
                   style={{
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain', // Keep original size and aspect ratio
+                    objectFit: 'contain',
                   }}
                 />
               </Box>
