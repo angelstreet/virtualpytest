@@ -383,9 +383,9 @@ def calculate_process_working_uptime(capture_folder: str, process_type: str) -> 
             )
                     
         elif process_type == 'monitor':
-            captures_dir = get_capture_storage_path(capture_folder, 'captures')
+            metadata_dir = get_capture_storage_path(capture_folder, 'metadata')
             last_activity_time = get_last_file_mtime(
-                captures_dir,
+                metadata_dir,
                 r'^capture_.*\.json$',
                 max_age_seconds=20  #need to cover stream restart
             )
@@ -854,9 +854,9 @@ def check_monitor_status():
         for capture_dir in capture_base_dirs:
             if os.path.exists(capture_dir):
                 device_name = os.path.basename(capture_dir)
-                captures_dir = get_capture_storage_path(capture_dir, 'captures')
+                metadata_dir = get_capture_storage_path(capture_dir, 'metadata')
                 recent_json_count = count_recent_files(
-                    captures_dir,
+                    metadata_dir,
                     r'^capture_.*\.json$',
                     max_age_seconds=2
                 )

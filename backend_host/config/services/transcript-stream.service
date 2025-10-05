@@ -4,8 +4,9 @@
 
 [Unit]
 Description=Transcript Accumulator - 24h Audio Transcription
-After=network.target
+After=network.target stream.service
 Wants=network.target
+PartOf=stream.service
 
 [Service]
 Type=simple
@@ -14,6 +15,7 @@ Group=%USER%
 WorkingDirectory=%PROJECT_ROOT%
 Environment=PYTHONPATH=%PROJECT_ROOT%/shared/lib:%PROJECT_ROOT%/backend_host/src
 Environment=PATH=%PROJECT_ROOT%/venv/bin:/usr/bin:/usr/local/bin
+ExecStartPre=/bin/sleep 10
 ExecStart=%PROJECT_ROOT%/venv/bin/python backend_host/scripts/transcript_accumulator.py
 Restart=always
 RestartSec=10
