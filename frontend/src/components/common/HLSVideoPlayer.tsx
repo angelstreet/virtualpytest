@@ -437,29 +437,7 @@ export function HLSVideoPlayer({
         });
       });
 
-      // Single latency correction mechanism - only for live mode
-      const latencyCheckInterval = !isArchiveMode ? setInterval(() => {
-        if (videoRef.current && hls.liveSyncPosition !== undefined && hls.liveSyncPosition !== null && !videoRef.current.paused) {
-          const currentTime = videoRef.current.currentTime;
-          const liveEdge = hls.liveSyncPosition;
-          const latency = liveEdge - currentTime;
-          
-          // Only correct if latency is significantly high (>8 seconds)
-          if (latency > 8) {
-            console.log(`[@component:HLSVideoPlayer] High latency detected (${latency.toFixed(2)}s), seeking closer to live edge`);
-            videoRef.current.currentTime = liveEdge - 2; // Stay 2s behind live edge for stability
-          }
-        }
-      }, 5000) : null; // Check every 5 seconds - less frequent, disabled for archive
-
-      // Cleanup interval when HLS is destroyed
-      const originalDestroy = hls.destroy.bind(hls);
-      hls.destroy = () => {
-        if (latencyCheckInterval) {
-          clearInterval(latencyCheckInterval);
-        }
-        originalDestroy();
-      };
+      // Latency correction removed - allow users to scrub back without auto-correction
 
       hls.on(HLS.Events.ERROR, (_event, data) => {
         // Ignore buffer-related errors and transient network timeouts - they are temporary and self-recovering
@@ -742,13 +720,7 @@ export function HLSVideoPlayer({
         attemptPlay();
       }
 
-      if (!isArchiveMode && hlsRef.current?.liveSyncPosition && videoRef.current) {
-        const latency = hlsRef.current.liveSyncPosition - videoRef.current.currentTime;
-        if (latency > 3) {
-          console.log(`[@component:HLSVideoPlayer] Correcting latency on visibility: ${latency.toFixed(2)}s`);
-          videoRef.current.currentTime = hlsRef.current.liveSyncPosition - 1;
-        }
-      }
+      // Latency correction removed - allow users to stay at their chosen position
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
