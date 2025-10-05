@@ -120,7 +120,6 @@ class InotifyFrameMonitor:
         capture_folder = info['capture_folder']
         
         # Get metadata path using centralized storage resolution (handles hot/cold automatically)
-        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
         metadata_path = get_capture_storage_path(capture_folder, 'metadata')
         
         # Ensure metadata directory exists with correct permissions (mode=0o777 for full access)
@@ -171,9 +170,6 @@ class InotifyFrameMonitor:
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
-                    from datetime import datetime
-                    import os
-                    
                     current_timestamp = datetime.now().isoformat()
                     
                     # Generate thumbnail paths (FFmpeg creates these as capture_NNNNNN_thumbnail.jpg)
