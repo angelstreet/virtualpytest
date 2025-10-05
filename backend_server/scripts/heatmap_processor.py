@@ -34,6 +34,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    project_env_path = os.path.join(PROJECT_ROOT, '.env')
+    if os.path.exists(project_env_path):
+        load_dotenv(project_env_path)
+        print(f"[@heatmap_processor] Loaded environment from {project_env_path}")
+        print(f"[@heatmap_processor] SERVER_URL={os.getenv('SERVER_URL')}")
+    else:
+        print(f"[@heatmap_processor] Warning: .env not found at {project_env_path}")
+except ImportError:
+    print("[@heatmap_processor] Warning: python-dotenv not installed")
+
 # Setup logging to /tmp/heatmap.log
 logging.basicConfig(
     level=logging.INFO,
