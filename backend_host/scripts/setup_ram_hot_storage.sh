@@ -248,6 +248,12 @@ df -h | grep -E "hot|Filesystem"
 echo "================================"
 
 echo ""
+# Ensure /tmp/active_captures.conf has correct permissions
+if [ -f "/tmp/active_captures.conf" ]; then
+  sudo chmod 777 "/tmp/active_captures.conf"
+  echo "✓ Fixed /tmp/active_captures.conf permissions (777)"
+fi
+
 echo "✅ RAM hot storage setup complete!"
 echo "   • Devices configured: ${#DEVICES[@]} (${DEVICES[*]})"
 echo "   • Each device mounted in RAM ($MOUNT_SIZE)"

@@ -70,6 +70,15 @@ echo "✅ Fixed $FIXED_COUNT directories"
 echo "============================================"
 echo ""
 
+# Fix /tmp/active_captures.conf permissions (needed by all services)
+if [ -f "/tmp/active_captures.conf" ]; then
+    sudo chmod 777 "/tmp/active_captures.conf"
+    echo "✓ Fixed /tmp/active_captures.conf → 777"
+else
+    echo "ℹ️  /tmp/active_captures.conf not found (will be created by FFmpeg script)"
+fi
+echo ""
+
 # Show current permissions
 echo "Verification (hot storage):"
 ls -ld /var/www/html/stream/capture*/hot/captures 2>/dev/null | awk '{print $1, $9}'

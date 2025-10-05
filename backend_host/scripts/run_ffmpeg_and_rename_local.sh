@@ -393,7 +393,7 @@ update_active_captures() {
     # Acquire exclusive lock
     flock -x 200
     
-    # Create temp file (umask 0000 ensures 666 permissions)
+    # Create temp file (umask 0000 ensures 777 permissions)
     > "$temp_file"
     
     if [ -f "$conf_file" ]; then
@@ -404,8 +404,9 @@ update_active_captures() {
     # Add new entry
     echo "${capture_dir},${pid},${quality}" >> "$temp_file"
     
-    # Atomic move (preserves umask-based permissions)
+    # Atomic move with explicit permissions
     mv "$temp_file" "$conf_file"
+    chmod 777 "$conf_file"
     
     echo "🔍 DEBUG: Updated active_captures.conf:"
     cat "$conf_file"
@@ -415,16 +416,18 @@ update_active_captures() {
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
-  # Remove old file completely to avoid permission conflicts (no sudo needed with umask 0000)
+  # Remove old file completely to avoid permission conflicts
   rm -f "/tmp/active_captures.conf" 2>/dev/null || true
-  # Create fresh file (umask 0000 ensures 666 permissions automatically)
+  # Create fresh file with explicit 777 permissions (world read/write for all services)
   > "/tmp/active_captures.conf"
-  echo "✅ Created fresh active_captures.conf with world read/write permissions"
+  chmod 777 "/tmp/active_captures.conf"
+  echo "✅ Created fresh active_captures.conf with 777 permissions"
   echo "Starting ${#GRABBERS[@]} devices"
 else
-  # Single device mode: ensure file exists (umask 0000 handles permissions)
+  # Single device mode: ensure file exists with correct permissions
   if [ ! -f "/tmp/active_captures.conf" ]; then
     > "/tmp/active_captures.conf"
+    chmod 777 "/tmp/active_captures.conf"
   fi
 fi
 
