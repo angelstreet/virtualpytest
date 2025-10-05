@@ -1038,7 +1038,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           <Box
             sx={{
               position: 'absolute',
-              bottom: -25, // Compensate for modal's 20px margin from window height
+              bottom: -45, // Moved 20px lower to reduce video overlap
               left: 0,
               right: 0,
               background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
