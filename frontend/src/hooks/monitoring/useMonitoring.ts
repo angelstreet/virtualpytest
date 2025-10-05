@@ -1,25 +1,12 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import {
   MonitoringAnalysis,
   SubtitleAnalysis,
-  SubtitleTrendAnalysis,
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
 
 import { buildServerUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
-interface FrameRef {
-  timestamp: string;
-  imageUrl: string;
-  jsonUrl: string;
-  analysis?: MonitoringAnalysis | null;
-  subtitleAnalysis?: SubtitleAnalysis | null;
-  languageMenuAnalysis?: LanguageMenuAnalysis | null;
-  aiDescription?: string | null;
-  // Timeline indicator flags
-  hasAIAnalysis?: boolean; // True when subtitle + summary are loaded
-  hasError?: boolean; // True when JSON shows blackscreen, freeze, or audio loss
-}
 
 interface ErrorTrendData {
   blackscreenConsecutive: number;
@@ -30,89 +17,87 @@ interface ErrorTrendData {
   hasError: boolean;
 }
 
+interface AnalysisSnapshot {
+  timestamp: string;
+  analysis: MonitoringAnalysis | null;
+  subtitleAnalysis?: SubtitleAnalysis | null;
+  languageMenuAnalysis?: LanguageMenuAnalysis | null;
+  aiDescription?: string | null;
+}
+
 interface UseMonitoringReturn {
-  // Frame management
-  frames: FrameRef[];
-  currentIndex: number;
-  currentFrameUrl: string;
-  selectedFrameAnalysis: MonitoringAnalysis | null;
-  isHistoricalFrameLoaded: boolean;
-  isInitialLoading: boolean;
+  // Latest analysis data
+  latestAnalysis: MonitoringAnalysis | null;
+  latestSubtitleAnalysis: SubtitleAnalysis | null;
+  latestLanguageMenuAnalysis: LanguageMenuAnalysis | null;
+  latestAIDescription: string | null;
 
-  // Playback controls
-  isPlaying: boolean;
-  userSelectedFrame: boolean;
-
-  // Actions
-  handlePlayPause: () => void;
-  handleSliderChange: (event: Event, newValue: number | number[]) => void;
-  handleHistoricalFrameLoad: () => void;
-
-
-  // Subtitle trend analysis
-  subtitleTrendAnalysis: SubtitleTrendAnalysis | null;
-
-  // Error trend analysis
+  // Error trend analysis (based on last 10 samples)
   errorTrendData: ErrorTrendData | null;
 
-  // Current analysis data for overlay display
-  currentSubtitleAnalysis: SubtitleAnalysis | null;
-  currentLanguageMenuAnalysis: LanguageMenuAnalysis | null;
-  currentAIDescription: string | null;
+  // Loading state
+  isLoading: boolean;
 
-  // Current frame timestamp for analysis tracking
-  currentFrameTimestamp: string | null;
+  // Current analysis timestamp
+  analysisTimestamp: string | null;
 }
 
 interface UseMonitoringProps {
   host: any; // Host object for API requests
   device: any; // Device object for API requests
+  enabled: boolean; // Only poll when monitoring mode is active
 }
 
 export const useMonitoring = ({
   host,
   device,
+  enabled,
 }: UseMonitoringProps): UseMonitoringReturn => {
-  const [frames, setFrames] = useState<FrameRef[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [userSelectedFrame, setUserSelectedFrame] = useState(false);
-  const [selectedFrameAnalysis, setSelectedFrameAnalysis] = useState<MonitoringAnalysis | null>(
-    null,
-  );
-  const [isHistoricalFrameLoaded, setIsHistoricalFrameLoaded] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  // Store last 10 analysis snapshots for error trend tracking
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisSnapshot[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Helper: Load JSON analysis and determine error status
-  const loadFrameJsonAsync = useCallback(async (jsonUrl: string): Promise<{analysis: any, hasError: boolean}> => {
-    let jsonAnalysis: any = null;
-    let hasError = false;
-    
+  // Helper: Load JSON analysis from capture URL
+  const loadJsonAnalysis = useCallback(async (jsonUrl: string): Promise<MonitoringAnalysis | null> => {
     try {
-      const jsonResponse = await fetch(jsonUrl);
-      if (jsonResponse.ok) {
-        jsonAnalysis = await jsonResponse.json();
-        
-        // Determine if frame has errors (for timeline red/green indicator)
-        hasError = !!(
-          jsonAnalysis?.blackscreen || 
-          jsonAnalysis?.freeze || 
-          !jsonAnalysis?.audio
-        );
-      } else if (jsonResponse.status === 404) {
-        console.log('[useMonitoring] JSON not found (404) - will display image without analysis');
+      const response = await fetch(jsonUrl);
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          timestamp: data.timestamp || '',
+          filename: data.filename || '',
+          thumbnail: data.thumbnail || '',
+          blackscreen: data.blackscreen || false,
+          blackscreen_percentage: data.blackscreen_percentage || 0,
+          freeze: data.freeze || false,
+          freeze_diffs: data.freeze_diffs || [],
+          last_3_filenames: data.last_3_filenames || [],
+          last_3_thumbnails: data.last_3_thumbnails || [],
+          audio: data.audio || false,
+          volume_percentage: data.volume_percentage || 0,
+          mean_volume_db: data.mean_volume_db || -100,
+          macroblocks: data.macroblocks || false,
+          quality_score: data.quality_score || 0,
+          has_incidents: data.has_incidents || false,
+        };
+      } else if (response.status === 404) {
+        console.log('[useMonitoring] JSON not found (404) - capture not yet available');
       }
     } catch (error) {
       console.warn('[useMonitoring] Failed to load JSON:', error);
     }
-    
-    return { analysis: jsonAnalysis, hasError };
+    return null;
   }, []);
 
-  // Background AI analysis for caching (runs separately, non-blocking)
-  const analyzeFrameAIAsync = useCallback(async (imageUrl: string): Promise<void> => {
-    console.log('[useMonitoring] 🤖 Background AI analysis for:', imageUrl);
+  // Background AI analysis (runs separately, non-blocking)
+  const analyzeFrameAIAsync = useCallback(async (imageUrl: string, sequence: string): Promise<{
+    subtitleAnalysis: SubtitleAnalysis | null;
+    languageMenuAnalysis: LanguageMenuAnalysis | null;
+    aiDescription: string | null;
+  }> => {
+    console.log('[useMonitoring] 🤖 Background AI analysis for sequence:', sequence);
 
     // Combined AI analysis in background (single call for both subtitle + description)
     const combinedResult = await fetch(buildServerUrl('/server/verification/video/analyzeImageComplete'), {
@@ -128,8 +113,9 @@ export const useMonitoring = ({
     }).then(r => r.ok ? r.json() : null).catch(() => null);
 
     // Process combined AI results
-    let subtitleAnalysis: any = null;
-    let aiDescription: any = null;
+    let subtitleAnalysis: SubtitleAnalysis | null = null;
+    let languageMenuAnalysis: LanguageMenuAnalysis | null = null;
+    let aiDescription: string | null = null;
     
     if (combinedResult?.success && combinedResult.subtitle_analysis) {
       const data = combinedResult.subtitle_analysis;
@@ -146,17 +132,9 @@ export const useMonitoring = ({
       aiDescription = combinedResult.description_analysis.response;
     }
 
-    console.log(`[useMonitoring] ✅ Background AI completed for:`, imageUrl);
+    console.log(`[useMonitoring] ✅ Background AI completed for sequence:`, sequence);
 
-    // Update frames array with AI results and set hasAIAnalysis flag
-    setFrames(prev => prev.map(frame => 
-      frame.imageUrl === imageUrl ? { 
-        ...frame, 
-        subtitleAnalysis, 
-        aiDescription,
-        hasAIAnalysis: true // Mark that AI analysis is available
-      } : frame
-    ));
+    return { subtitleAnalysis, languageMenuAnalysis, aiDescription };
   }, [host, device?.device_id]);
 
 
@@ -187,7 +165,6 @@ export const useMonitoring = ({
           const jsonUrl = imageUrl.replace('.jpg', '.json');
           const timestamp = result.timestamp || new Date().toISOString();
           
-          console.log(`[useMonitoring] Latest JSON: ${jsonUrl} -> Image: ${imageUrl}`);
           return { imageUrl, jsonUrl, sequence, timestamp };
         }
       }
@@ -196,47 +173,62 @@ export const useMonitoring = ({
       console.error('[useMonitoring] Failed to fetch latest JSON:', error);
       return null;
     }
-  }, [host?.host_name, host?.host_url, device?.device_id]);
+  }, [host, device?.device_id]);
 
-  // Simple 1s polling: Fetch latest frame, load JSON immediately, display instantly
+  // Poll for latest monitoring data every 500ms (when enabled)
   useEffect(() => {
+    if (!enabled) {
+      // Clear state when disabled
+      setAnalysisHistory([]);
+      setIsLoading(true);
+      setLastProcessedSequence('');
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      return;
+    }
+
     let isMounted = true;
     
-    const pollLatestFrame = async () => {
+    const pollLatestData = async () => {
       try {
         const latestData = await fetchLatestMonitoringData();
         if (!isMounted || !latestData) return;
         if (latestData.sequence === lastProcessedSequence) return; // Skip if already processed
 
-        console.log(`[useMonitoring] 📸 New frame detected: seq=${latestData.sequence}`);
+        console.log(`[useMonitoring] 📸 New capture detected: seq=${latestData.sequence}`);
 
         // Load JSON immediately (fast, ~100-200ms)
-        const { analysis, hasError } = await loadFrameJsonAsync(latestData.jsonUrl);
+        const analysis = await loadJsonAnalysis(latestData.jsonUrl);
+        if (!analysis) return; // Skip if JSON not available yet
 
-        // Create frame and add to frames array immediately
-        const frameRef: FrameRef = {
+        // Create snapshot with just JSON data first
+        const snapshot: AnalysisSnapshot = {
           timestamp: latestData.timestamp,
-          imageUrl: latestData.imageUrl,
-          jsonUrl: latestData.jsonUrl,
           analysis,
-          hasError, // Red/green timeline indicator
-          hasAIAnalysis: false, // Will be set to true when AI completes
+          subtitleAnalysis: null,
+          languageMenuAnalysis: null,
+          aiDescription: null,
         };
 
-        setFrames(current => {
-          const newFrames = [...current, frameRef].slice(-100);
-          // Auto-advance to latest if user is following live
-          if (!userSelectedFrame && isPlaying) {
-            setCurrentIndex(newFrames.length - 1);
-          }
-          return newFrames;
-        });
-
+        // Add to history (keep last 10)
+        setAnalysisHistory(prev => [...prev, snapshot].slice(-10));
         setLastProcessedSequence(latestData.sequence);
-        if (isInitialLoading) setIsInitialLoading(false);
+        if (isLoading) setIsLoading(false);
 
-        // Start background AI analysis (non-blocking, will update hasAIAnalysis when done)
-        analyzeFrameAIAsync(latestData.imageUrl).catch(error => {
+        // Start background AI analysis (non-blocking)
+        analyzeFrameAIAsync(latestData.imageUrl, latestData.sequence).then(aiResults => {
+          if (!isMounted) return;
+          // Update the snapshot with AI results
+          setAnalysisHistory(prev => 
+            prev.map(s => 
+              s.timestamp === latestData.timestamp 
+                ? { ...s, ...aiResults }
+                : s
+            )
+          );
+        }).catch(error => {
           console.warn('[useMonitoring] Background AI failed:', error);
         });
       } catch (error) {
@@ -244,141 +236,57 @@ export const useMonitoring = ({
       }
     };
 
-    // Poll immediately on mount, then every 1s
-    pollLatestFrame();
-    const interval = setInterval(pollLatestFrame, 1000);
+    // Poll immediately on enable, then every 500ms
+    pollLatestData();
+    pollingIntervalRef.current = setInterval(pollLatestData, 500);
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
     };
-  }, [fetchLatestMonitoringData, loadFrameJsonAsync, analyzeFrameAIAsync, userSelectedFrame, isPlaying, isInitialLoading]);
+  }, [enabled, fetchLatestMonitoringData, loadJsonAnalysis, analyzeFrameAIAsync, lastProcessedSequence, isLoading]);
 
-  // Load analysis for selected frame
-  useEffect(() => {
-    const loadSelectedFrameAnalysis = async () => {
-      if (frames.length === 0 || currentIndex >= frames.length) {
-        setSelectedFrameAnalysis(null);
-        return;
-      }
-
-      const selectedFrame = frames[currentIndex];
-      if (!selectedFrame) {
-        setSelectedFrameAnalysis(null);
-        return;
-      }
-
-      // If we already have analysis data (including null from failed load), use it
-      if (selectedFrame.hasOwnProperty('analysis')) {
-        setSelectedFrameAnalysis(selectedFrame.analysis || null);
-        return;
-      }
-
-      // No delay needed - JSON is guaranteed to exist since we fetched it from latest API
-      try {
-        console.log('[useMonitoring] Loading analysis:', selectedFrame.jsonUrl);
-        const response = await fetch(selectedFrame.jsonUrl);
-        let analysis: any = null;
-
-        if (response.ok) {
-            const data = await response.json();
-
-            analysis = {
-              timestamp: data.timestamp || '',
-              filename: data.filename || '',
-              thumbnail: data.thumbnail || '',
-              blackscreen: data.blackscreen || false,
-              blackscreen_percentage: data.blackscreen_percentage || 0,
-              freeze: data.freeze || false,
-              freeze_diffs: data.freeze_diffs || [],
-              last_3_filenames: data.last_3_filenames || [],
-              last_3_thumbnails: data.last_3_thumbnails || [],
-              audio: data.audio || false,
-              volume_percentage: data.volume_percentage || 0,
-              mean_volume_db: data.mean_volume_db || -100,
-              macroblocks: data.macroblocks || false,
-              quality_score: data.quality_score || 0,
-              has_incidents: data.has_incidents || false,
-            };
-
-            console.log('[useMonitoring] Analysis loaded:', analysis);
-          } else {
-            console.log('[useMonitoring] Analysis failed:', response.status, response.statusText);
-            
-            // Skip entirely - don't update any state when JSON is missing
-            return;
-          }
-
-          // Cache the analysis in the frame reference
-          setFrames((prev) =>
-            prev.map((frame, index) => (index === currentIndex ? { ...frame, analysis } : frame)),
-          );
-
-          setSelectedFrameAnalysis(analysis);
-        } catch {
-          // Skip entirely - don't update any state when JSON loading fails
-          console.log('[useMonitoring] Analysis loading failed with exception');
-          return;
-        }
-    };
-
-    loadSelectedFrameAnalysis();
-  }, [currentIndex, frames]);
-
-  // Error trend analysis - track consecutive blackscreen and freeze errors
-  const errorTrendData = useMemo((): ErrorTrendData | null => {
-    if (frames.length === 0) return null;
-
-    // Get frames with successfully loaded analysis data (not null, not undefined)
-    // This excludes frames where JSON was missing (404) or failed to load
-    const framesWithValidAnalysis = frames.filter((frame) => frame.analysis !== undefined && frame.analysis !== null);
-
-    if (framesWithValidAnalysis.length === 0) return null;
-
-    // Analyze up to the last 10 frames for error trends
-    const recentFrames = framesWithValidAnalysis.slice(-10);
+  // Compute error trend data from analysis history
+  const computeErrorTrends = useCallback((): ErrorTrendData | null => {
+    if (analysisHistory.length === 0) return null;
 
     let blackscreenConsecutive = 0;
     let freezeConsecutive = 0;
     let audioLossConsecutive = 0;
 
-    // Count consecutive errors from the end (most recent frames)
-    // Only count frames with valid analysis data to avoid false trends from missing JSON files
-    for (let i = recentFrames.length - 1; i >= 0; i--) {
-      const analysis = recentFrames[i].analysis;
-      if (!analysis) break; // This shouldn't happen due to our filtering, but safety check
+    // Count consecutive errors from the end (most recent snapshots)
+    for (let i = analysisHistory.length - 1; i >= 0; i--) {
+      const analysis = analysisHistory[i].analysis;
+      if (!analysis) break;
 
-      // Track whether we found any errors in this frame
-      let hasBlackscreenError = analysis.blackscreen;
-      let hasFreezeError = analysis.freeze;
-      let hasAudioLossError = !analysis.audio;
+      const hasBlackscreen = analysis.blackscreen;
+      const hasFreeze = analysis.freeze;
+      const hasAudioLoss = !analysis.audio;
 
-      // Count consecutive blackscreen errors
-      if (hasBlackscreenError) {
+      // Count consecutive errors
+      if (hasBlackscreen) {
         blackscreenConsecutive++;
-      } else {
-        // Reset blackscreen count if no error in this frame
-        if (blackscreenConsecutive > 0) break;
+      } else if (blackscreenConsecutive > 0) {
+        break;
       }
 
-      // Count consecutive freeze errors
-      if (hasFreezeError) {
+      if (hasFreeze) {
         freezeConsecutive++;
-      } else {
-        // Reset freeze count if no error in this frame
-        if (freezeConsecutive > 0) break;
+      } else if (freezeConsecutive > 0) {
+        break;
       }
 
-      // Count consecutive audio loss errors
-      if (hasAudioLossError) {
+      if (hasAudioLoss) {
         audioLossConsecutive++;
-      } else {
-        // Reset audio loss count if no error in this frame
-        if (audioLossConsecutive > 0) break;
+      } else if (audioLossConsecutive > 0) {
+        break;
       }
 
-      // If no errors are present in this frame, stop all consecutive counts
-      if (!hasBlackscreenError && !hasFreezeError && !hasAudioLossError) {
+      // Stop if no errors
+      if (!hasBlackscreen && !hasFreeze && !hasAudioLoss) {
         break;
       }
     }
@@ -392,163 +300,33 @@ export const useMonitoring = ({
     const hasWarning = maxConsecutive >= 1 && maxConsecutive < 3;
     const hasError = maxConsecutive >= 3;
 
-    console.log('[useMonitoring] Error trend analysis:', {
-      blackscreenConsecutive,
-      freezeConsecutive,
-      audioLossConsecutive,
-      maxConsecutive,
-      hasWarning,
-      hasError,
-      framesAnalyzed: recentFrames.length,
-      totalFrames: frames.length,
-      validAnalysisFrames: framesWithValidAnalysis.length,
-    });
-
     return {
       blackscreenConsecutive,
       freezeConsecutive,
       audioLossConsecutive,
-      macroblocksConsecutive: 0, // TODO: Implement macroblock consecutive tracking
+      macroblocksConsecutive: 0,
       hasWarning,
       hasError,
     };
-  }, [frames]);
+  }, [analysisHistory]);
 
-  // Subtitle trend analysis - computed from autonomous analysis results
-  const subtitleTrendAnalysis = useMemo((): SubtitleTrendAnalysis | null => {
-    if (frames.length === 0) return null;
-
-    // Get frames with subtitle data from autonomous analysis
-    const framesWithSubtitles = frames.filter(
-      (frame) => frame.subtitleAnalysis !== undefined,
-    );
-
-    if (framesWithSubtitles.length === 0) return null;
-
-    // Use up to 3 frames for subtitle trend analysis
-    const targetFrameCount = Math.min(3, framesWithSubtitles.length);
-    const recentFrames = framesWithSubtitles.slice(-targetFrameCount);
-
-    // Check for subtitle presence across frames
-    let noSubtitlesCount = 0;
-    let currentHasSubtitles = false;
-
-    recentFrames.forEach((frame, index) => {
-      const subtitleData = frame.subtitleAnalysis;
-      if (!subtitleData) return;
-
-      // Check current frame (most recent)
-      if (index === recentFrames.length - 1) {
-        currentHasSubtitles = subtitleData.subtitles_detected || false;
-      }
-
-      // Count frames without subtitles
-      if (!subtitleData.subtitles_detected) {
-        noSubtitlesCount++;
-      }
-    });
-
-    // Red indicator logic:
-    // - Show red if ALL analyzed frames have no subtitles
-    // - AND we have analyzed at least the target number of frames
-    const showRedIndicator =
-      noSubtitlesCount === recentFrames.length && recentFrames.length >= targetFrameCount;
-
-    return {
-      showRedIndicator,
-      currentHasSubtitles,
-      framesAnalyzed: recentFrames.length,
-      noSubtitlesStreak: noSubtitlesCount,
-    };
-  }, [frames]);
-
-  // Get current analysis data for overlay display
-  const currentSubtitleAnalysis = useMemo(() => {
-    if (frames.length === 0 || currentIndex >= frames.length) return null;
-    const currentFrame = frames[currentIndex];
-    return currentFrame?.subtitleAnalysis || null;
-  }, [frames, currentIndex]);
-
-  const currentLanguageMenuAnalysis = useMemo(() => {
-    if (frames.length === 0 || currentIndex >= frames.length) return null;
-    const currentFrame = frames[currentIndex];
-    return currentFrame?.languageMenuAnalysis || null;
-  }, [frames, currentIndex]);
-
-  const currentAIDescription = useMemo(() => {
-    if (frames.length === 0 || currentIndex >= frames.length) return null;
-    const currentFrame = frames[currentIndex];
-    return currentFrame?.aiDescription || null;
-  }, [frames, currentIndex]);
-
-  // Handlers
-  const handlePlayPause = useCallback(() => {
-    if (!isPlaying) {
-      // When starting play, only reset to latest if user wants to follow live
-      // Don't force them to latest frame if they're browsing history
-      setUserSelectedFrame(false);
-      // Only jump to latest if they're close to it (within 2 frames)
-      if (frames.length > 0 && currentIndex >= frames.length - 3) {
-        setCurrentIndex(frames.length - 1);
-      }
-    } else {
-      // When pausing, mark as user-selected to stop auto-following
-      setUserSelectedFrame(true);
-    }
-    setIsPlaying(!isPlaying);
-  }, [isPlaying, frames.length, currentIndex]);
-
-  const handleSliderChange = useCallback((_event: Event, newValue: number | number[]) => {
-    const index = newValue as number;
-    setCurrentIndex(index);
-    setIsPlaying(false);
-    setUserSelectedFrame(true); // Mark as manually selected
-    setIsHistoricalFrameLoaded(false); // Reset loading state when changing frames
-  }, []);
-
-  const handleHistoricalFrameLoad = useCallback(() => {
-    setIsHistoricalFrameLoaded(true);
-  }, []);
-
-  // Reset loading state when current frame changes
-  useEffect(() => {
-    setIsHistoricalFrameLoaded(false);
-  }, [currentIndex]);
-
-  // Get current frame URL for display
-  const currentFrameUrl = frames[currentIndex]?.imageUrl || '';
+  // Get latest snapshot (most recent)
+  const latestSnapshot = analysisHistory.length > 0 ? analysisHistory[analysisHistory.length - 1] : null;
 
   return {
-    // Frame management
-    frames,
-    currentIndex,
-    currentFrameUrl,
-    selectedFrameAnalysis,
-    isHistoricalFrameLoaded,
-    isInitialLoading,
-
-    // Playback controls
-    isPlaying,
-    userSelectedFrame,
-
-    // Actions
-    handlePlayPause,
-    handleSliderChange,
-    handleHistoricalFrameLoad,
-
-
-    // Subtitle trend analysis
-    subtitleTrendAnalysis,
+    // Latest analysis data
+    latestAnalysis: latestSnapshot?.analysis || null,
+    latestSubtitleAnalysis: latestSnapshot?.subtitleAnalysis || null,
+    latestLanguageMenuAnalysis: latestSnapshot?.languageMenuAnalysis || null,
+    latestAIDescription: latestSnapshot?.aiDescription || null,
 
     // Error trend analysis
-    errorTrendData,
+    errorTrendData: computeErrorTrends(),
 
-    // Current analysis data for overlay display
-    currentSubtitleAnalysis,
-    currentLanguageMenuAnalysis,
-    currentAIDescription,
+    // Loading state
+    isLoading,
 
-    // Current frame timestamp for analysis tracking
-    currentFrameTimestamp: frames[currentIndex]?.timestamp || null,
+    // Current analysis timestamp
+    analysisTimestamp: latestSnapshot?.timestamp || null,
   };
 };
