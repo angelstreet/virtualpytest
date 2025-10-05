@@ -94,7 +94,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
     >
       <Typography variant="h6" component="h2">
         {device?.device_name || host.host_name} -{' '}
-        {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live Stream' : '24h Archive'}
+        {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live' : 'Last 24h'}
       </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -141,7 +141,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             </ToggleButton>
             <ToggleButton value="restart" aria-label="Restart mode">
               <ArchiveIcon sx={{ fontSize: 16, mr: 0.5 }} />
-              Restart
+              Last 24h
             </ToggleButton>
           </ToggleButtonGroup>
         )}
@@ -154,6 +154,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             onChange={onQualityChange}
             size="small"
             aria-label="Quality selection"
+            disabled={!isLiveMode} // Disable quality buttons in archive mode
             sx={{
               backgroundColor: isQualitySwitching ? 'warning.main' : undefined, // Orange during transition
               '& .MuiToggleButton-root': {
@@ -161,12 +162,17 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
                 minWidth: 45,
                 px: 1,
                 border: '1px solid rgba(255, 255, 255, 0.12)',
+                opacity: !isLiveMode ? 0.5 : 1, // Dim when disabled in archive mode
                 '&.Mui-selected': {
                   backgroundColor: 'primary.main',
                   color: 'white',
                   '&:hover': {
                     backgroundColor: 'primary.dark',
                   },
+                },
+                '&:disabled': {
+                  color: 'rgba(255, 255, 255, 0.3)',
+                  borderColor: 'rgba(255, 255, 255, 0.12)',
                 },
               },
             }}

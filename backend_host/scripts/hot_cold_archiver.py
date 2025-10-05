@@ -51,13 +51,15 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Captures: 300 × 245KB = 74MB (60s buffer at 5fps, HD captures at 1280x720 for best detection)
 # - Thumbnails: 100 × 28KB = 3MB (for freeze detection comparisons)
 # - Metadata: 100 × 2KB = 0.2MB (JSON files, archived to hour folders for transcript system)
-# Total: ~83MB per device ✅ (41% of 200MB budget, high quality preserved)
+# - Transcripts: 24 × 50KB = 1.2MB (hourly transcript files, ~10 samples per hour)
+# Total: ~84.4MB per device ✅ (42% of 200MB budget, high quality preserved)
 #
 HOT_LIMITS = {
     'segments': 150,      # 2.5min buffer → archive to hour folders
     'captures': 300,      # 60s buffer at 5fps (same as archiver interval)
     'thumbnails': 100,    # For freeze detection (last 3 frames comparison)
-    'metadata': 100       # JSON files → archive to hour folders for transcript system
+    'metadata': 100,      # JSON files → archive to hour folders for transcript system
+    'transcripts': 24     # Keep up to 24 hourly transcript files (covers full day)
 }
 
 # REMOVED: RETENTION_HOURS config
@@ -74,7 +76,8 @@ HOT_LIMITS = {
 FILE_PATTERNS = {
     'segments': 'segment_*.ts',
     'captures': 'capture_*[0-9].jpg',  # Full captures only
-    'metadata': 'capture_*.json'
+    'metadata': 'capture_*.json',
+    'transcripts': 'transcript_hour*.json'  # Hourly transcript files from transcript_accumulator.py
 }
 
 
@@ -100,16 +103,21 @@ def calculate_time_based_name(filepath: str, file_type: str, fps: int = 5) -> st
     - Segments (1s): 0-86399 (24h × 3600s)
     - Images (5fps): 0-431999 (86400s × 5fps)
     - Images (2fps): 0-172799 (86400s × 2fps)
+    - Transcripts: Keep original name (transcript_hourX.json)
     
     Args:
         filepath: Original file path
-        file_type: 'segments', 'captures', 'metadata' (thumbnails removed)
+        file_type: 'segments', 'captures', 'metadata', 'transcripts'
         fps: Frames per second (for images only)
     
     Returns:
-        New filename with time-based sequential number
+        New filename with time-based sequential number or original name for transcripts
     """
     try:
+        # Special case: transcripts keep their original name (transcript_hour13.json)
+        if file_type == 'transcripts':
+            return os.path.basename(filepath)
+        
         mtime = os.path.getmtime(filepath)
         dt = datetime.fromtimestamp(mtime)
         
@@ -397,7 +405,8 @@ def process_capture_directory(capture_dir: str):
     1. Rotate captures (delete old, keep newest 300 = 60s buffer)
     2. Clean old thumbnails (keep newest 100 for freeze detection)
     3. Archive metadata (to hour folders)
-    4. Progressive MP4 merging (6s → 1min → 10min)
+    4. Archive transcripts (to hour folders alongside MP4s)
+    5. Progressive MP4 merging (6s → 1min → 10min)
     """
     logger.info(f"Processing {capture_dir}")
     
@@ -406,6 +415,7 @@ def process_capture_directory(capture_dir: str):
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     archived_metadata = archive_hot_files(capture_dir, 'metadata')
+    archived_transcripts = archive_hot_files(capture_dir, 'transcripts')
     
     ram_mode = is_ram_mode(capture_dir)
     hot_segments = os.path.join(capture_dir, 'hot', 'segments') if ram_mode else os.path.join(capture_dir, 'segments')
@@ -431,8 +441,11 @@ def process_capture_directory(capture_dir: str):
     elapsed = time.time() - start_time
     mp4_status = [s for s, result in [("6s", mp4_6s), ("1min", mp4_1min), ("10min", mp4_10min)] if result]
     mp4_info = f", MP4: {'+'.join(mp4_status)}" if mp4_status else ""
+    archive_info = f"arch: {archived_metadata} meta"
+    if archived_transcripts > 0:
+        archive_info += f", {archived_transcripts} transcripts"
     
-    logger.info(f"✓ Completed in {elapsed:.2f}s (del: {deleted_captures} cap, {deleted_thumbnails} thumb, arch: {archived_metadata} meta{mp4_info})")
+    logger.info(f"✓ Completed in {elapsed:.2f}s (del: {deleted_captures} cap, {deleted_thumbnails} thumb, {archive_info}{mp4_info})")
 
 
 def main_loop():

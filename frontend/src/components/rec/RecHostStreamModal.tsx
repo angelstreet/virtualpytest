@@ -286,7 +286,7 @@ const RecHostStreamModalContent: React.FC<{
   const handleToggleLiveMode = useCallback(() => {
     setIsLiveMode((prev) => {
       const newMode = !prev;
-      console.log(`[@component:RecHostStreamModal] Live mode toggled: ${newMode ? 'Live' : '24h Archive'}`);
+      console.log(`[@component:RecHostStreamModal] Live mode toggled: ${newMode ? 'Live' : 'Last 24h'}`);
       return newMode;
     });
   }, []);
