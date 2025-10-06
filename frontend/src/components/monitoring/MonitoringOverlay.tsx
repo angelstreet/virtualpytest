@@ -63,6 +63,30 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
 
   return (
     <>
+      {/* AI Analyzing indicator - separate overlay at top-right */}
+      {isAIAnalyzing && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 30,
+            p: 1.5,
+            borderRadius: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <CircularProgress size={16} sx={{ color: '#00bfff' }} />
+          <Typography variant="body2" sx={{ color: '#00bfff', fontWeight: 500 }}>
+            AI Analyzing...
+          </Typography>
+        </Box>
+      )}
+
       {/* Main analysis overlay - left aligned */}
       <Box
         sx={{
@@ -82,15 +106,6 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           <Typography variant="body2" sx={{ color: '#ffffff', mb: 0.5 }}>
             {formatTimestamp(analysisTimestamp)}
           </Typography>
-        )}
-
-        {isAIAnalyzing && (
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-            <CircularProgress size={16} sx={{ mr: 1 }} />
-            <Typography variant="body2" sx={{ color: '#00bfff' }}>
-              AI Analyzing...
-            </Typography>
-          </Box>
         )}
 
         {/* Blackscreen */}

@@ -196,14 +196,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
 
     setIsCheckingAvailability(true);
-    console.log('[@EnhancedHLSPlayer] Checking available hours (last 6 hours only)...');
+    console.log('[@EnhancedHLSPlayer] Checking available hours (all 24 hours)...');
     
     const available: number[] = [];
     const currentHour = new Date().getHours();
     
-    // Only check last 6 hours instead of all 24 hours
+    // Check all 24 hours for complete archive visibility
     const hoursToCheck = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 24; i++) {
       const hourToCheck = (currentHour - i + 24) % 24;
       hoursToCheck.push(hourToCheck);
     }
@@ -224,7 +224,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     // Sort available hours
     available.sort((a, b) => a - b);
     
-    console.log(`[@EnhancedHLSPlayer] Available hours found (last 6h):`, available);
+    console.log(`[@EnhancedHLSPlayer] Available hours found (24h rolling):`, available);
     
     // Cache results
     if (available.length > 0) {
