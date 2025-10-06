@@ -1192,7 +1192,17 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                         if (isAtLiveEdge) {
                           return 'LIVE';
                         } else {
-                          const totalBufferSeconds = 150;
+                          // Use ACTUAL buffer size from video element
+                          const video = videoRef.current;
+                          let totalBufferSeconds = 0; // Default to 0 when no buffer
+                          
+                          if (video && video.buffered.length > 0) {
+                            const buffered = video.buffered;
+                            const bufferStart = buffered.start(0);
+                            const bufferEnd = buffered.end(buffered.length - 1);
+                            totalBufferSeconds = bufferEnd - bufferStart;
+                          }
+                          
                           const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
                           if (behindSeconds < 60) {
                             return `-${behindSeconds}s`;
@@ -1259,13 +1269,30 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             </Box>
             
             {/* Time display row */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0 }}>  
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2 }}>  
               {isLiveMode ? (
                 <>
                   {/* Live Mode: 3-column layout */}
-                  {/* Left: Oldest buffer position */}
+                  {/* Left: Oldest buffer position (dynamic based on actual buffer) */}
                   <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
-                    -02:30
+                    {(() => {
+                      const video = videoRef.current;
+                      if (video && video.buffered.length > 0) {
+                        const buffered = video.buffered;
+                        const bufferStart = buffered.start(0);
+                        const bufferEnd = buffered.end(buffered.length - 1);
+                        const totalBufferSeconds = Math.floor(bufferEnd - bufferStart);
+                        
+                        if (totalBufferSeconds < 60) {
+                          return `-${totalBufferSeconds}s`;
+                        } else {
+                          const minutes = Math.floor(totalBufferSeconds / 60);
+                          const seconds = totalBufferSeconds % 60;
+                          return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                        }
+                      }
+                      return '-0s'; // No buffer yet
+                    })()}
                   </Typography>
                   
                   {/* Center: User's current position */}
@@ -1275,8 +1302,17 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                       if (isAtLiveEdge) {
                         return 'LIVE';
                       } else {
-                        // Calculate seconds behind based on fixed 150-second buffer
-                        const totalBufferSeconds = 150;
+                        // Use ACTUAL buffer size from video element
+                        const video = videoRef.current;
+                        let totalBufferSeconds = 0; // Default to 0 when no buffer
+                        
+                        if (video && video.buffered.length > 0) {
+                          const buffered = video.buffered;
+                          const bufferStart = buffered.start(0);
+                          const bufferEnd = buffered.end(buffered.length - 1);
+                          totalBufferSeconds = bufferEnd - bufferStart;
+                        }
+                        
                         const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
                         if (behindSeconds < 60) {
                           return `-${behindSeconds}s`;
@@ -1290,7 +1326,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                   </Typography>
                   
                   {/* Right: Now indicator */}
-                  <Typography variant="caption" sx={{ color: 'white' }}>
+                  <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
                     Now
                   </Typography>
                 </>
@@ -1307,7 +1343,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                   )}
                   
                   {/* Right: Last available chunk time (e.g., "20h50" for chunk 5 of hour 20) */}
-                  <Typography variant="caption" sx={{ color: 'white' }}>
+                  <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
                     {(() => {
                       if (archiveMetadata && availableHours.length > 0) {
                         const lastManifest = archiveMetadata.manifests[archiveMetadata.manifests.length - 1];

@@ -529,6 +529,31 @@ const RecHostStreamModalContent: React.FC<{
     onClose();
   }, [onClose]);
 
+  // Prevent body scrolling when modal is open
+  useEffect(() => {
+    // Store original overflow value
+    const originalOverflow = document.body.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+    
+    // Calculate scrollbar width to prevent layout shift
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    
+    // Hide body scrollbar and compensate for layout shift
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    
+    console.log('[@component:RecHostStreamModal] Body scroll disabled, scrollbarWidth:', scrollbarWidth);
+
+    return () => {
+      // Restore original overflow and padding
+      document.body.style.overflow = originalOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+      console.log('[@component:RecHostStreamModal] Body scroll restored');
+    };
+  }, []);
+
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
