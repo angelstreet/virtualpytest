@@ -47,7 +47,8 @@ def analyze_script_parameters(script_path):
                 # Parse format: --param-name:type:default or --param-name:type
                 parts = arg_item.split(':')
                 if len(parts) >= 2:
-                    param_name = parts[0].replace('--', '').replace('-', '_')
+                    # Keep dashes in parameter names - they're used for command-line arguments
+                    param_name = parts[0].replace('--', '')
                     param_type = parts[1] if len(parts) > 1 else 'str'
                     default_value = parts[2] if len(parts) > 2 else None
                     

@@ -571,8 +571,8 @@ const RunTests: React.FC = () => {
 
     // Note: userinterface_name is a framework parameter shown at top level, not here
 
-    // Special handling for goto_live boolean parameter
-    if (param.name === 'goto_live') {
+    // Special handling for goto-live boolean parameter
+    if (param.name === 'goto-live') {
       return (
         <FormControl key={param.name} fullWidth size="small">
           <InputLabel>{`${param.name}${param.required ? ' *' : ''}`}</InputLabel>
@@ -588,8 +588,8 @@ const RunTests: React.FC = () => {
       );
     }
 
-    // Special handling for audio_analysis boolean parameter
-    if (param.name === 'audio_analysis') {
+    // Special handling for audio-analysis boolean parameter
+    if (param.name === 'audio-analysis') {
       return (
         <FormControl key={param.name} fullWidth size="small">
           <InputLabel>{`${param.name}${param.required ? ' *' : ''}`}</InputLabel>
@@ -623,7 +623,7 @@ const RunTests: React.FC = () => {
   // Filter to show required parameters and important optional ones
   // Exclude framework parameters: host, device, userinterface_name (shown at top level)
   // Important optional parameters to always show (even if not required)
-  const importantOptionalParams = ['node', 'max_iteration', 'action', 'goto_live', 'audio_analysis', 'edges'];
+  const importantOptionalParams = ['node', 'max-iteration', 'action', 'goto-live', 'audio-analysis', 'edges'];
   
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
     // Show required parameters (except framework ones)
