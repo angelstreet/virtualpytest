@@ -35,7 +35,8 @@ CREATE TABLE system_metrics (
     download_mbps numeric,
     upload_mbps numeric,
     speedtest_last_run timestamp with time zone,
-    speedtest_age_seconds integer
+    speedtest_age_seconds integer,
+    disk_write_mb_per_sec numeric(10,2) DEFAULT 0
 );
 
 -- System device metrics table for per-device monitoring
@@ -145,6 +146,7 @@ COMMENT ON COLUMN system_metrics.download_mbps IS 'Download speed in Mbps from s
 COMMENT ON COLUMN system_metrics.upload_mbps IS 'Upload speed in Mbps from speedtest (cached 10 min)';
 COMMENT ON COLUMN system_metrics.speedtest_last_run IS 'UTC timestamp when speedtest was last executed';
 COMMENT ON COLUMN system_metrics.speedtest_age_seconds IS 'Age of cached speedtest data in seconds';
+COMMENT ON COLUMN system_metrics.disk_write_mb_per_sec IS 'Disk write speed in MB/s - tracks SD card write activity for health monitoring';
 
 COMMENT ON TABLE system_device_metrics IS 'Stores per-device system performance and process status data';
 COMMENT ON COLUMN system_device_metrics.device_name IS 'Real device name from device registration (e.g., Samsung TV Living Room)';
