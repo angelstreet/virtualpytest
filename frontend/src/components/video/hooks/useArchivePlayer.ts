@@ -367,7 +367,7 @@ export const useArchivePlayer = ({
     setIsCheckingAvailability(false);
   }, []);
 
-  return {
+  return useMemo(() => ({
     archiveMetadata,
     currentManifestIndex,
     globalCurrentTime,
@@ -384,5 +384,20 @@ export const useArchivePlayer = ({
     clearArchiveData,
     setCurrentManifestIndex,
     setPreloadedNextManifest,
-  };
+  }), [
+    archiveMetadata,
+    currentManifestIndex,
+    globalCurrentTime,
+    preloadedNextManifest,
+    isDraggingSlider,
+    dragSliderValue,
+    availableHours,
+    isCheckingAvailability,
+    hourMarks,
+    handleVideoError,
+    handleSliderChange,
+    handleSeek,
+    updateTimeTracking,
+    clearArchiveData,
+  ]);
 };

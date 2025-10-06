@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-HOT/COLD STORAGE ARCHIVER - Progressive MP4 Optimization
-=========================================================
+HOT/COLD STORAGE ARCHIVER - Safety Cleanup + Progressive Grouping
+==================================================================
 
 Responsibilities:
-1. Progressive MP4 merging: 6s TS → 6s MP4 → 1min MP4 → 10min MP4
-2. Archive metadata to hour folders
-3. Clean old files to maintain RAM limits
-4. 98% disk write reduction through progressive grouping
+1. SAFETY CLEANUP: Enforce hot storage limits on ALL file types (prevent RAM exhaustion)
+2. Progressive MP4 merging: 6s TS → 6s MP4 → 1min MP4 → 10min MP4
+3. Progressive metadata grouping: individual JSONs → 1min → 10min chunks
+4. Audio extraction & archival: 10min MP4 → HOT audio → cold /audio/{hour}/
+5. 98% disk write reduction through progressive grouping
+
+Safety cleanup runs FIRST and independently to guarantee hot storage never exceeds
+limits even when merging/archiving pipelines fail or get backlogged.
 """
 
 import os
@@ -281,12 +285,17 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
 
 
 
-def rotate_hot_captures(capture_dir: str) -> int:
+def cleanup_hot_files(capture_dir: str, file_type: str, pattern: str) -> int:
     """
-    Rotate hot captures - keep only newest 300 files, DELETE old ones.
+    Generic safety cleanup for hot storage - keep only newest N files, DELETE old ones.
     
-    Captures don't go to cold storage (pushed to cloud), so we just delete old files.
-    This keeps RAM usage under control (60s buffer = 74MB worst case for video content).
+    This is a safety net to prevent RAM exhaustion when merging/archiving processes fail.
+    Works independently from progressive merging/archiving.
+    
+    Args:
+        capture_dir: Base capture directory
+        file_type: Type of files ('segments', 'captures', 'metadata', 'audio', 'thumbnails')
+        pattern: Glob pattern to match files
     
     Returns: Number of files deleted
     """
@@ -294,26 +303,29 @@ def rotate_hot_captures(capture_dir: str) -> int:
     
     # Determine hot path based on mode
     if ram_mode:
-        hot_dir = os.path.join(capture_dir, 'hot', 'captures')
+        hot_dir = os.path.join(capture_dir, 'hot', file_type)
     else:
-        hot_dir = os.path.join(capture_dir, 'captures')
+        hot_dir = os.path.join(capture_dir, file_type)
     
     if not os.path.isdir(hot_dir):
         return 0
     
-    hot_limit = HOT_LIMITS['captures']
+    hot_limit = HOT_LIMITS.get(file_type)
+    if not hot_limit:
+        return 0
     
     try:
-        # Get all capture files in hot storage
+        # Get all files in hot storage (root only, not subdirs)
         files = []
-        for item in Path(hot_dir).glob('capture_*[0-9].jpg'):
+        for item in Path(hot_dir).glob(pattern):
             if item.is_file() and item.parent == Path(hot_dir):
                 files.append(item)
         
         file_count = len(files)
         
-        if file_count < hot_limit:
-            logger.debug(f"captures: {file_count} files (within limit {hot_limit})")
+        if file_count <= hot_limit:
+            if file_count > 0:
+                logger.debug(f"{file_type}: {file_count} files (within limit {hot_limit})")
             return 0
         
         # Calculate how many to delete
@@ -331,13 +343,25 @@ def rotate_hot_captures(capture_dir: str) -> int:
             except Exception as e:
                 logger.error(f"Error deleting {filepath}: {e}")
         
-        logger.info(f"captures: Deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {hot_limit})")
+        logger.info(f"{file_type}: Safety cleanup deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {hot_limit})")
         
         return deleted_count
         
     except Exception as e:
-        logger.error(f"Error rotating captures: {e}")
+        logger.error(f"Error cleaning {file_type}: {e}")
         return 0
+
+
+def rotate_hot_captures(capture_dir: str) -> int:
+    """
+    Rotate hot captures - keep only newest 300 files, DELETE old ones.
+    
+    Captures don't go to cold storage (pushed to cloud), so we just delete old files.
+    This keeps RAM usage under control (60s buffer = 74MB worst case for video content).
+    
+    Returns: Number of files deleted
+    """
+    return cleanup_hot_files(capture_dir, 'captures', 'capture_*[0-9].jpg')
 
 
 def clean_old_thumbnails(capture_dir: str) -> int:
@@ -350,56 +374,7 @@ def clean_old_thumbnails(capture_dir: str) -> int:
     
     Returns: Number of files deleted
     """
-    ram_mode = is_ram_mode(capture_dir)
-    
-    # Thumbnails are in separate directory for better organization
-    if ram_mode:
-        hot_dir = os.path.join(capture_dir, 'hot', 'thumbnails')
-    else:
-        hot_dir = os.path.join(capture_dir, 'thumbnails')
-    
-    if not os.path.isdir(hot_dir):
-        return 0
-    
-    # Keep only 100 thumbnails (FFmpeg-generated, for freeze detection comparisons)
-    thumbnail_limit = HOT_LIMITS.get('thumbnails', 100)
-    
-    try:
-        # Get all thumbnail files (*_thumbnail.jpg)
-        files = []
-        for item in Path(hot_dir).glob('capture_*_thumbnail.jpg'):
-            if item.is_file() and item.parent == Path(hot_dir):
-                files.append(item)
-        
-        file_count = len(files)
-        
-        if file_count < thumbnail_limit:
-            if file_count > 0:
-                logger.debug(f"thumbnails: {file_count} files (within limit {thumbnail_limit})")
-            return 0
-        
-        # Calculate how many to delete
-        to_delete = file_count - thumbnail_limit
-        
-        # Sort by modification time (oldest first)
-        files.sort(key=lambda f: f.stat().st_mtime)
-        
-        # Delete oldest thumbnails
-        deleted_count = 0
-        for filepath in files[:to_delete]:
-            try:
-                os.remove(str(filepath))
-                deleted_count += 1
-            except Exception as e:
-                logger.error(f"Error deleting thumbnail {filepath}: {e}")
-        
-        logger.info(f"thumbnails: Deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {thumbnail_limit})")
-        
-        return deleted_count
-        
-    except Exception as e:
-        logger.error(f"Error cleaning thumbnails: {e}")
-        return 0
+    return cleanup_hot_files(capture_dir, 'thumbnails', 'capture_*_thumbnail.jpg')
 
 
 def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[str], batch_size: int, fps: int = 5, is_final: bool = False, capture_dir: Optional[str] = None) -> bool:
@@ -536,20 +511,23 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
 def process_capture_directory(capture_dir: str):
     """
     Process single capture directory:
-    1. Rotate captures (delete old, keep newest 300 = 60s buffer)
-    2. Clean old thumbnails (keep newest 100 for freeze detection)
-    3. Progressive metadata grouping (individual JSONs → 1min → 10min chunks)
-    4. Progressive MP4 merging (6s TS → 1min → 10min)
-    5. Archive audio chunks (hot → cold /audio/{hour}/)
+    1. Safety cleanup ALL hot storage types (prevent RAM exhaustion from backlog)
+    2. Progressive metadata grouping (individual JSONs → 1min → 10min chunks)
+    3. Progressive MP4 merging (6s TS → 1min → 10min)
+    4. Archive audio chunks (hot → cold /audio/{hour}/)
     
-    Note: Metadata aligned with MP4 chunks, transcripts kept in HOT only
+    Safety limits ensure RAM never exceeds budget even if merging/archiving fails.
     """
     logger.info(f"Processing {capture_dir}")
     
     start_time = time.time()
     
+    # SAFETY CLEANUP: Keep only newest N files for ALL types (prevent RAM exhaustion)
+    deleted_segments = cleanup_hot_files(capture_dir, 'segments', 'segment_*.ts')
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
+    deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
+    deleted_audio = cleanup_hot_files(capture_dir, 'audio', 'chunk_10min_*.mp3')
     
     # Archive audio chunks from hot to cold storage
     archived_audio = archive_hot_files(capture_dir, 'audio')
@@ -628,19 +606,38 @@ def process_capture_directory(capture_dir: str):
     
     audio_info = f", Audio: {archived_audio} archived" if archived_audio > 0 else ""
     
-    logger.info(f"✓ Completed in {elapsed:.2f}s (del: {deleted_captures} cap, {deleted_thumbnails} thumb{metadata_info}{mp4_info}{audio_info})")
+    # Safety cleanup stats
+    safety_deletes = []
+    if deleted_segments > 0:
+        safety_deletes.append(f"{deleted_segments} seg")
+    if deleted_captures > 0:
+        safety_deletes.append(f"{deleted_captures} cap")
+    if deleted_thumbnails > 0:
+        safety_deletes.append(f"{deleted_thumbnails} thumb")
+    if deleted_metadata > 0:
+        safety_deletes.append(f"{deleted_metadata} meta")
+    if deleted_audio > 0:
+        safety_deletes.append(f"{deleted_audio} aud")
+    
+    cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
+    
+    logger.info(f"✓ Completed in {elapsed:.2f}s ({cleanup_info}{metadata_info}{mp4_info}{audio_info})")
 
 
 def main_loop():
     """
-    Main service loop - Progressive MP4 & Metadata Grouping + Audio Archival
+    Main service loop - Safety Cleanup + Progressive Grouping + Audio Archival
     Processes every 1min:
+    - SAFETY CLEANUP: Enforce limits on ALL hot storage types (prevent RAM exhaustion)
     - MP4: 6s→1min→10min grouping
     - Metadata: individual JSONs→1min→10min chunks (aligned with MP4)
     - Audio: Extract from 10min MP4 → HOT → archive to /audio/{hour}/
+    
+    Safety cleanup runs FIRST and independently from merging/archiving to guarantee
+    hot storage never exceeds limits even when pipeline processes fail.
     """
     logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER - PROGRESSIVE MP4 & METADATA GROUPING + AUDIO")
+    logger.info("HOT/COLD ARCHIVER - SAFETY CLEANUP + PROGRESSIVE GROUPING")
     logger.info("=" * 60)
     
     # Detect mode from first capture directory
@@ -652,7 +649,8 @@ def main_loop():
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Strategy: Progressive grouping (MP4: 6s→1min→10min, Metadata: 1min→10min, Audio: hot→cold)")
+    logger.info("Strategy: Safety cleanup (ALL types) + Progressive grouping (MP4/Metadata) + Audio archival")
+    logger.info("Safety: Enforces limits FIRST to prevent RAM exhaustion from pipeline failures")
     logger.info("=" * 60)
     
     while True:

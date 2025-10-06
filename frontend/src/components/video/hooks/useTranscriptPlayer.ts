@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { TranscriptData, TranscriptSegment, ArchiveMetadata } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
 import { buildStreamUrl } from '../../../utils/buildUrlUtils';
@@ -149,7 +149,7 @@ export const useTranscriptPlayer = ({
     setCurrentTranscript(null);
   }, []);
 
-  return {
+  return useMemo(() => ({
     transcriptData,
     currentTranscript,
     selectedLanguage,
@@ -157,5 +157,13 @@ export const useTranscriptPlayer = ({
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
-  };
+  }), [
+    transcriptData,
+    currentTranscript,
+    selectedLanguage,
+    isTranslating,
+    handleLanguageChange,
+    getCurrentTranscriptText,
+    clearTranscriptData,
+  ]);
 };
