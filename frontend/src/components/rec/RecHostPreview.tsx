@@ -343,18 +343,16 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                <Box sx={{ display: isSelectedForModal ? 'none' : 'block' }}>
-                  <MemoizedHLSPlayer
-                    streamUrl={streamUrl}
-                    isStreamActive={isStreamActive}
-                    isCapturing={false}
-                    model={device?.device_model || 'unknown'}
-                    layoutConfig={layoutConfig}
-                    isExpanded={false}
-                    muted={true}
-                    videoElementRef={sharedVideoRef}
-                  />
-                </Box>
+                <MemoizedHLSPlayer
+                  streamUrl={streamUrl}
+                  isStreamActive={isStreamActive}
+                  isCapturing={false}
+                  model={device?.device_model || 'unknown'}
+                  layoutConfig={layoutConfig}
+                  isExpanded={false}
+                  muted={true}
+                  videoElementRef={sharedVideoRef}
+                />
                 {isPausingForModal && (
                   <Box
                     sx={{
