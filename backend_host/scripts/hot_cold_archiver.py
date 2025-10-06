@@ -445,28 +445,37 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
         # Aggregate data
         all_frames = []
         for file_path in batch_files:
-            with open(file_path, 'r') as f:
-                data = json.load(f)
-                
-                if 'frames' in data:
-                    # Already aggregated (1min file)
-                    all_frames.extend(data['frames'])
-                else:
-                    # Individual frame file
-                    sequence_match = file_path.stem.replace('capture_', '')
-                    sequence = int(sequence_match)
-                    all_frames.append({
-                        'sequence': sequence,
-                        'timestamp': data.get('timestamp'),
-                        'filename': data.get('filename'),
-                        'blackscreen': data.get('blackscreen', False),
-                        'blackscreen_percentage': data.get('blackscreen_percentage', 0),
-                        'freeze': data.get('freeze', False),
-                        'freeze_diffs': data.get('freeze_diffs', []),
-                        'audio': data.get('audio', True),
-                        'volume_percentage': data.get('volume_percentage', 0),
-                        'mean_volume_db': data.get('mean_volume_db', -100.0)
-                    })
+            # Skip empty files
+            if file_path.stat().st_size == 0:
+                logger.warning(f"Skipping empty file: {file_path}")
+                continue
+            
+            try:
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Skipping corrupted JSON file {file_path}: {e}")
+                continue
+            
+            if 'frames' in data:
+                # Already aggregated (1min file)
+                all_frames.extend(data['frames'])
+            else:
+                # Individual frame file
+                sequence_match = file_path.stem.replace('capture_', '')
+                sequence = int(sequence_match)
+                all_frames.append({
+                    'sequence': sequence,
+                    'timestamp': data.get('timestamp'),
+                    'filename': data.get('filename'),
+                    'blackscreen': data.get('blackscreen', False),
+                    'blackscreen_percentage': data.get('blackscreen_percentage', 0),
+                    'freeze': data.get('freeze', False),
+                    'freeze_diffs': data.get('freeze_diffs', []),
+                    'audio': data.get('audio', True),
+                    'volume_percentage': data.get('volume_percentage', 0),
+                    'mean_volume_db': data.get('mean_volume_db', -100.0)
+                })
         
         if not all_frames:
             return False
@@ -510,9 +519,12 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
             json.dump(output_data, f, indent=2)
         os.rename(output_path + '.tmp', output_path)
         
-        # Delete source files
+        # Delete source files (including empty/corrupted ones)
         for file_path in batch_files:
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete {file_path}: {e}")
         
         return True
         
