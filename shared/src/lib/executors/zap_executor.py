@@ -631,10 +631,13 @@ class ZapExecutor:
             result.zapping_detected = verification_result.get('success', False) and (
                 zapping_details.get('zapping_detected', False) or verification_result.get('zapping_detected', False)
             )
-            # Extract blackscreen duration from details or direct field - check multiple possible field names
+            # Extract duration from details or direct field - check multiple possible field names
+            # Note: freeze detection returns 'freeze_duration', blackscreen returns 'blackscreen_duration'
             result.blackscreen_duration = (
                 zapping_details.get('blackscreen_duration') or 
                 verification_result.get('blackscreen_duration') or
+                zapping_details.get('freeze_duration') or 
+                verification_result.get('freeze_duration') or
                 zapping_details.get('duration') or 
                 verification_result.get('duration') or 
                 0.0
