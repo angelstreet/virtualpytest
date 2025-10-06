@@ -416,14 +416,14 @@ def cleanup_cold_captures(capture_dir: str) -> int:
 
 
 def cleanup_cold_thumbnails(capture_dir: str) -> int:
-    """Delete thumbnails from cold root older than 5 MINUTES (not used in scripts)"""
+    """Delete thumbnails from cold root older than 1 HOUR (matches captures retention)"""
     if not is_ram_mode(capture_dir):
         return 0
     
     import time
     deleted = 0
     now = time.time()
-    max_age_seconds = 300  # 5 MINUTES
+    max_age_seconds = 3600  # 1 HOUR
     
     cold_dir = os.path.join(capture_dir, 'thumbnails')
     if not os.path.isdir(cold_dir):
@@ -438,7 +438,7 @@ def cleanup_cold_thumbnails(capture_dir: str) -> int:
         logger.error(f"Error cleaning cold thumbnails: {e}")
     
     if deleted > 0:
-        logger.info(f"Cold thumbnails: Deleted {deleted} files older than 5min")
+        logger.info(f"Cold thumbnails: Deleted {deleted} files older than 1h")
     
     return deleted
 

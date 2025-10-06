@@ -87,38 +87,59 @@ class ScriptExecutionContext:
         self.step_results.append(step_data)
         return self.step_counter
     
-    def _copy_to_cold(self, hot_path: str) -> str:
-        """Copy capture to cold storage: /hot/captures/file.jpg -> /captures/file.jpg"""
-        if '/hot/' not in hot_path or not os.path.exists(hot_path):
-            return hot_path
-        
-        import shutil
-        cold_path = hot_path.replace('/hot/', '/')
-        os.makedirs(os.path.dirname(cold_path), mode=0o777, exist_ok=True)
-        
-        if not os.path.exists(cold_path):
-            shutil.copy2(hot_path, cold_path)
-            print(f"💾 [Context] Copied to cold: {os.path.basename(hot_path)}")
-        
-        return cold_path
-    
-    def _get_path_robust(self, path: str) -> str:
-        """Get capture path - checks hot first, falls back to cold if deleted"""
-        if os.path.exists(path):
-            return path
-        
-        # Try cold: /hot/captures/file.jpg -> /captures/file.jpg
-        cold_path = path.replace('/hot/', '/')
-        if os.path.exists(cold_path):
-            print(f"📂 [Context] Found in cold: {os.path.basename(cold_path)}")
-            return cold_path
-        
-        return path  # Return original if not found anywhere
-
     def add_screenshot(self, screenshot_path: str):
         """Store screenshot path - NO upload (batch upload at script end)"""
         if screenshot_path:
             self.screenshot_paths.append(screenshot_path)
+    
+    def upload_screenshots_to_r2(self) -> None:
+        """Batch upload all local screenshots to R2 at script end"""
+        if not self.screenshot_paths:
+            return
+        
+        print(f"📤 [Context] Batch uploading {len(self.screenshot_paths)} screenshots to R2...")
+        
+        try:
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            uploader = get_cloudflare_utils()
+            device_id = self.selected_device.device_id if hasattr(self, 'selected_device') else 'unknown'
+            
+            updated_paths = []
+            uploaded = 0
+            
+            for path in self.screenshot_paths:
+                # Already R2 URL - keep as-is
+                if path.startswith('https://'):
+                    updated_paths.append(path)
+                    continue
+                
+                # Local path - upload to R2
+                if not os.path.exists(path):
+                    print(f"⚠️ [Context] Screenshot not found: {path}")
+                    updated_paths.append(path)
+                    continue
+                
+                try:
+                    filename = os.path.basename(path)
+                    remote_path = f"script-screenshots/{device_id}/{filename}"
+                    r2_url = uploader.upload_file(path, remote_path)
+                    
+                    if r2_url:
+                        updated_paths.append(r2_url)
+                        uploaded += 1
+                    else:
+                        updated_paths.append(path)
+                except Exception as e:
+                    print(f"⚠️ [Context] Upload failed for {filename}: {e}")
+                    updated_paths.append(path)
+            
+            self.screenshot_paths = updated_paths
+            print(f"✅ [Context] Uploaded {uploaded}/{len(self.screenshot_paths)} screenshots to R2")
+            
+        except Exception as e:
+            print(f"❌ [Context] Batch upload error: {e}")
+            import traceback
+            traceback.print_exc()
     
     def start_stdout_capture(self):
         """Start capturing stdout for log upload"""
@@ -586,17 +607,13 @@ class ScriptExecutor:
                     nav_context['script_context'] = 'script'
                     print(f"📝 [{self.script_name}] Script context populated in device navigation_context")
             
-            # 5. Capture initial screenshot and upload immediately
+            # 5. Capture initial screenshot (stored in cold, uploaded at script end)
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
             try:
-                from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
-                result = capture_and_upload_screenshot(context.selected_device, "initial_state", "script")
-                if result['success'] and result['screenshot_url']:
-                    context.add_screenshot(result['screenshot_url'])  # Store R2 URL
-                    print(f"✅ [{self.script_name}] Initial screenshot uploaded: {result['screenshot_url']}")
-                elif result['screenshot_path']:
-                    context.add_screenshot(result['screenshot_path'])  # Fallback to local path
-                    print(f"✅ [{self.script_name}] Initial screenshot captured (upload failed)")
+                screenshot_path = context.selected_device.av_controller.take_screenshot()
+                if screenshot_path:
+                    context.add_screenshot(screenshot_path)
+                    print(f"✅ [{self.script_name}] Initial screenshot captured: {os.path.basename(screenshot_path)}")
             except Exception as e:
                 print(f"⚠️ [{self.script_name}] Screenshot failed: {e}, continuing...")
             
@@ -616,6 +633,9 @@ class ScriptExecutor:
             print(f"SCRIPT_SUCCESS:{success_str}")
             import sys
             sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
+            
+            # Batch upload all screenshots to R2 BEFORE report generation
+            context.upload_screenshots_to_r2()
             
             # Generate report AFTER outputting success marker
             report_result = None

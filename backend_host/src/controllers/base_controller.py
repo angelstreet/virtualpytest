@@ -326,11 +326,12 @@ class FFmpegCaptureController(AVControllerInterface):
     def take_screenshot(self, filename: str = None) -> Optional[str]:
         """
         Take screenshot using mtime-based lookup for sequential files.
-        Returns local file path only - routes will build URLs using existing URL building functions.
+        Auto-copies to cold storage and returns cold path.
         """
         try:
             import time
             import os
+            import shutil
             from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
             
             # Use centralized path resolution (handles hot/cold storage automatically)
@@ -395,6 +396,24 @@ class FFmpegCaptureController(AVControllerInterface):
                 return None
             
             print(f"[{self.capture_source}]: Using file (age: {closest_age:.2f}s)")
+            
+            # Auto-copy to cold storage (capture + thumbnail)
+            if '/hot/' in closest_path:
+                cold_path = closest_path.replace('/hot/', '/')
+                os.makedirs(os.path.dirname(cold_path), mode=0o777, exist_ok=True)
+                if not os.path.exists(cold_path):
+                    shutil.copy2(closest_path, cold_path)
+                
+                # Also copy thumbnail if exists
+                hot_thumb = closest_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
+                if os.path.exists(hot_thumb):
+                    cold_thumb = hot_thumb.replace('/hot/', '/')
+                    os.makedirs(os.path.dirname(cold_thumb), mode=0o777, exist_ok=True)
+                    if not os.path.exists(cold_thumb):
+                        shutil.copy2(hot_thumb, cold_thumb)
+                
+                return cold_path
+            
             return closest_path
                 
         except Exception as e:
