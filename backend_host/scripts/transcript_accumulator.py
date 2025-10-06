@@ -18,7 +18,7 @@ backend_host_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_host_dir)
 sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode
+from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode, get_device_base_path
 from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
@@ -326,32 +326,33 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
     """
     start_time = time.time()
     try:
+        # Use centralized path utilities
         capture_folder = get_capture_folder(capture_dir)
-        stream_dir = capture_dir.replace('/captures', '')
+        device_base_path = get_device_base_path(capture_folder)  # /var/www/html/stream/capture1
+        
+        # Determine where TS segments are located (hot or cold storage)
+        if is_ram_mode(device_base_path):
+            segments_dir = os.path.join(device_base_path, 'hot')
+            state_path = os.path.join(device_base_path, 'hot', 'transcript_state.json')
+        else:
+            segments_dir = device_base_path
+            state_path = os.path.join(device_base_path, 'transcript_state.json')
         
         # Load global state (track last processed segment across all hours)
-        # Use hot storage if RAM mode is active
-        if is_ram_mode(stream_dir):
-            hot_dir = os.path.join(stream_dir, 'hot')
-            os.makedirs(hot_dir, exist_ok=True)
-            state_path = os.path.join(hot_dir, 'transcript_state.json')
-        else:
-            state_path = os.path.join(stream_dir, 'transcript_state.json')
-        
         if os.path.exists(state_path):
             with open(state_path, 'r') as f:
                 state = json.load(f)
         else:
             state = {'last_processed_segment': 0}
-            logger.info(f"[{capture_folder}] 🆕 First run - creating state file")
-            logger.info(f"[{capture_folder}] Looking for TS segments in: {stream_dir}")
+            logger.info(f"[{capture_folder}] 🆕 First run - creating state file: {state_path}")
+            logger.info(f"[{capture_folder}] Looking for TS segments in: {segments_dir}")
         
         last_processed = state.get('last_processed_segment', 0)
         
         # First run: Start 6 segments back to get immediate feedback
         if last_processed == 0:
             # Use fast os.scandir (no subprocess overhead, no timeout risk)
-            segment_files = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$')
+            segment_files = get_files_by_pattern(segments_dir, r'^segment_.*\.ts$')
             
             if segment_files:
                 latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
@@ -362,13 +363,13 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 state['last_processed_segment'] = last_processed
         
         # Find available segments using fast os.scandir (no subprocess overhead, no timeout risk)
-        segment_files = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$')
+        segment_files = get_files_by_pattern(segments_dir, r'^segment_.*\.ts$')
         if not segment_files:
             # Check if directory exists
-            if not os.path.exists(stream_dir):
-                logger.warning(f"[{capture_folder}] Stream directory does not exist: {stream_dir}")
+            if not os.path.exists(segments_dir):
+                logger.warning(f"[{capture_folder}] Segments directory does not exist: {segments_dir}")
             else:
-                logger.debug(f"[{capture_folder}] No segment files found in: {stream_dir}")
+                logger.debug(f"[{capture_folder}] No segment files found in: {segments_dir}")
             return False
         
         # Get all segments and find new ones to process
@@ -431,7 +432,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             logger.info(f"[{capture_folder}] Processing {len(chunk_segments)} samples for hour {hour}, chunk {chunk_index}")
             
             # Load chunk transcript file (10-minute aligned with MP4 chunks)
-            transcript_data = load_chunk_transcript(stream_dir, hour, chunk_index, capture_folder)
+            transcript_data = load_chunk_transcript(device_base_path, hour, chunk_index, capture_folder)
             existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
             
             # Process new samples for this chunk
@@ -511,7 +512,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
             transcript_data['samples_since_ai_enhancement'] = samples_since_enhancement
             
             # Save this chunk's transcript file (10-min aligned with MP4 chunks)
-            save_chunk_transcript(stream_dir, hour, chunk_index, transcript_data)
+            save_chunk_transcript(device_base_path, hour, chunk_index, transcript_data)
             
             # Count enhanced transcripts if enabled
             if AI_ENHANCEMENT_ENABLED:
@@ -527,7 +528,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         os.rename(state_path + '.tmp', state_path)
         
         # Cleanup old chunk transcripts (keep last 24 hours × 6 chunks = 144)
-        cleanup_old_chunk_transcripts(stream_dir)
+        cleanup_old_chunk_transcripts(device_base_path)
         
         elapsed = time.time() - start_time
         logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_chunk)} chunk(s) [{elapsed:.2f}s]")
