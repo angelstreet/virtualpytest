@@ -11,6 +11,7 @@ import platform
 import time
 import subprocess
 import json
+import fcntl
 import re
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
@@ -206,31 +207,47 @@ def get_files_by_pattern(
 def get_network_speed_cached():
     """Get network speed with 10-min shared cache"""
     try:
-        # Read shared cache
+        # Read shared cache with file locking
         if os.path.exists(SPEEDTEST_CACHE):
-            with open(SPEEDTEST_CACHE, 'r') as f:
-                cache = json.load(f)
-            
-            age = time.time() - cache['timestamp']
-            if age < CACHE_DURATION:
-                # Cache valid - reuse
-                return {
-                    'download_mbps': cache['download_mbps'],
-                    'upload_mbps': cache['upload_mbps'],
-                    'speedtest_last_run': datetime.fromtimestamp(cache['timestamp'], tz=timezone.utc).isoformat(),
-                    'speedtest_age_seconds': int(age)
-                }
+            try:
+                with open(SPEEDTEST_CACHE, 'r') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                    try:
+                        cache = json.load(f)
+                    finally:
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Unlock
+                
+                age = time.time() - cache['timestamp']
+                if age < CACHE_DURATION:
+                    # Cache valid - reuse
+                    return {
+                        'download_mbps': cache['download_mbps'],
+                        'upload_mbps': cache['upload_mbps'],
+                        'speedtest_last_run': datetime.fromtimestamp(cache['timestamp'], tz=timezone.utc).isoformat(),
+                        'speedtest_age_seconds': int(age)
+                    }
+            except (json.JSONDecodeError, KeyError) as cache_error:
+                # Cache corrupted - delete and regenerate
+                print(f"⚠️ [SPEEDTEST] Corrupted cache detected: {cache_error} - regenerating...")
+                try:
+                    os.remove(SPEEDTEST_CACHE)
+                except:
+                    pass
         
-        # Cache expired or missing - run test
+        # Cache expired, missing, or corrupted - run test
         result = measure_network_speed()
         
-        # Save to shared cache
+        # Save to shared cache with file locking
         with open(SPEEDTEST_CACHE, 'w') as f:
-            json.dump({
-                'timestamp': time.time(),
-                'download_mbps': result['download_mbps'],
-                'upload_mbps': result['upload_mbps']
-            }, f)
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+            try:
+                json.dump({
+                    'timestamp': time.time(),
+                    'download_mbps': result['download_mbps'],
+                    'upload_mbps': result['upload_mbps']
+                }, f)
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Unlock
         
         return {
             'download_mbps': result['download_mbps'],
