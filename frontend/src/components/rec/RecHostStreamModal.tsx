@@ -560,7 +560,7 @@ const RecHostStreamModalContent: React.FC<{
           inset: 0,
           zIndex: getZIndex('MODAL_CONTENT'),
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: 'rgba(0, 0, 0, 0.9)',
         }}
