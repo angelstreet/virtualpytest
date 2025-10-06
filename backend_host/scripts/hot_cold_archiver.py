@@ -343,14 +343,20 @@ def cleanup_hot_files(capture_dir: str, file_type: str, pattern: str) -> int:
         
         # Delete oldest files
         deleted_count = 0
+        deleted_files = []
         for filepath in files[:to_delete]:
             try:
                 os.remove(str(filepath))
+                deleted_files.append(filepath.name)
                 deleted_count += 1
             except Exception as e:
                 logger.error(f"Error deleting {filepath}: {e}")
         
-        logger.info(f"{file_type}: Safety cleanup deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {hot_limit})")
+        if deleted_count > 0:
+            first_deleted = deleted_files[0] if deleted_files else 'unknown'
+            last_deleted = deleted_files[-1] if deleted_files else 'unknown'
+            logger.info(f"{file_type}: Safety cleanup deleted {deleted_count} old files ({file_count} → {file_count - deleted_count}, target: {hot_limit})")
+            logger.info(f"{file_type}: Deleted range: {first_deleted} ... {last_deleted}")
         
         return deleted_count
         
