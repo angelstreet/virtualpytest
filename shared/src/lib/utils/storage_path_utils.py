@@ -251,6 +251,30 @@ def get_capture_storage_path(device_folder_or_path, subfolder):
         return os.path.join(capture_base_dir, subfolder)
 
 def get_capture_folder(capture_dir):
-    """Extract capture folder from path"""
-    # /var/www/html/stream/capture1/captures -> capture1
-    return os.path.basename(os.path.dirname(capture_dir))
+    """
+    Extract capture folder name from path (handles both HOT and COLD storage)
+    
+    Examples:
+        /var/www/html/stream/capture1/captures -> capture1
+        /var/www/html/stream/capture1/hot/captures -> capture1
+        /var/www/html/stream/capture4/hot/segments -> capture4
+    """
+    if not capture_dir:
+        return None
+    
+    # Check if this is a hot storage path
+    if '/hot/' in capture_dir:
+        # Hot path: /var/www/html/stream/capture1/hot/captures
+        # Split and get the part before /hot/
+        parts = capture_dir.split('/')
+        # Find the index of 'hot'
+        try:
+            hot_index = parts.index('hot')
+            # Device folder is one level before 'hot'
+            return parts[hot_index - 1]
+        except (ValueError, IndexError):
+            # Fallback to old logic if 'hot' not found
+            return os.path.basename(os.path.dirname(capture_dir))
+    else:
+        # Cold path: /var/www/html/stream/capture1/captures -> capture1
+        return os.path.basename(os.path.dirname(capture_dir))

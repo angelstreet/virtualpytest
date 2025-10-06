@@ -47,13 +47,15 @@ class InotifyFrameMonitor:
         self.device_workers = {}
         
         for capture_dir in capture_dirs:
+            # Use centralized path utilities (handles both hot and cold storage)
+            capture_folder = get_capture_folder(capture_dir)
+            
             if '/hot/' in capture_dir:
-                parts = capture_dir.split('/')
-                capture_folder = parts[-3]
-                parent_dir = '/'.join(parts[:-2])
+                # Hot storage: parent is /var/www/html/stream/capture1
+                parent_dir = '/'.join(capture_dir.split('/')[:-2])
             else:
+                # Cold storage: parent is /var/www/html/stream/capture1
                 parent_dir = os.path.dirname(capture_dir)
-                capture_folder = os.path.basename(parent_dir)
             
             self.dir_to_info[capture_dir] = {
                 'capture_dir': parent_dir,
@@ -319,19 +321,14 @@ def main():
     for capture_dir in capture_dirs:
         # Check if it's hot or cold storage
         storage_type = "HOT (RAM)" if '/hot/' in capture_dir else "COLD (SD)"
-        capture_folder = capture_dir.split('/')[-2] if '/hot/' in capture_dir else os.path.basename(os.path.dirname(capture_dir))
+        capture_folder = get_capture_folder(capture_dir)  # Use centralized utility
         logger.info(f"Monitoring [{storage_type}]: {capture_dir} -> {capture_folder}")
     
     # Auto-resolve orphaned incidents for capture folders no longer being monitored
-    # Extract capture folder names correctly (handle both hot and cold paths)
+    # Use centralized utility to extract capture folder names (handles both hot and cold paths)
     monitored_capture_folders = []
     for capture_dir in capture_dirs:
-        if '/hot/' in capture_dir:
-            # Hot path: /var/www/html/stream/capture1/hot/captures -> capture1
-            capture_folder = capture_dir.split('/')[-3]
-        else:
-            # Cold path: /var/www/html/stream/capture1/captures -> capture1
-            capture_folder = os.path.basename(os.path.dirname(capture_dir))
+        capture_folder = get_capture_folder(capture_dir)  # Use centralized utility
         monitored_capture_folders.append(capture_folder)
     
     incident_manager = IncidentManager()
