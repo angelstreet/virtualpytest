@@ -281,51 +281,6 @@ export const buildHostImageUrl = (host: any, imagePath: string): string => {
 };
 
 /**
- * Build thumbnail URL from freeze frame filename and original image URL
- * HOT/COLD ARCHITECTURE: Thumbnails are in /thumbnails/ folder
- * 
- * Converts paths like:
- *   /host/stream/capture3/captures/image.jpg → /host/stream/capture3/thumbnails/image_thumbnail.jpg
- *   /host/stream/capture3/metadata/image.json → /host/stream/capture3/thumbnails/image_thumbnail.jpg
- * 
- * @param filename - Frame filename (e.g., "capture_000139798.jpg" or full path)
- * @param originalImageUrl - Original image URL to extract device path from
- * @returns Complete URL to thumbnail in /thumbnails/ folder
- */
-export const buildThumbnailUrlFromFrame = (filename: string, originalImageUrl: string): string => {
-  // Extract just the filename if it's a full path
-  const cleanFilename = filename.includes('/') ? filename.split('/').pop() || filename : filename;
-  
-  // Ensure it has _thumbnail suffix
-  const thumbnailFilename = cleanFilename.includes('_thumbnail.jpg')
-    ? cleanFilename
-    : cleanFilename.replace('.jpg', '_thumbnail.jpg');
-  
-  // Extract base URL and device path from original image URL
-  // Example: https://dev.virtualpytest.com/pi2/host/stream/capture3/captures/image.jpg
-  //       -> https://dev.virtualpytest.com/pi2/host/stream/capture3/
-  const urlParts = originalImageUrl.split('/');
-  
-  if (urlParts.length < 2) {
-    console.warn('[buildThumbnailUrlFromFrame] Invalid original URL format:', originalImageUrl);
-    return thumbnailFilename;
-  }
-  
-  // Remove filename and folder name (captures, metadata, etc.)
-  urlParts.pop(); // Remove filename
-  urlParts.pop(); // Remove folder (captures, metadata, etc.)
-  
-  // Build base URL to device root (e.g., .../host/stream/capture3/)
-  const deviceBaseUrl = urlParts.join('/');
-  
-  // HOT/COLD ARCHITECTURE: Thumbnails are in /thumbnails/ folder
-  const thumbnailUrl = `${deviceBaseUrl}/thumbnails/${thumbnailFilename}`;
-  
-  console.log(`[buildThumbnailUrlFromFrame] ${filename} → ${thumbnailUrl}`);
-  return thumbnailUrl;
-};
-
-/**
  * Build URL for images stored in cloud storage (R2, S3, etc.)
  */
 export const buildCloudImageUrl = (
