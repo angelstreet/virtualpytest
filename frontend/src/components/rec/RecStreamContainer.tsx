@@ -198,7 +198,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
               </Box>
             );
           })()
-        ) : (
+        ) : sharedVideoRef?.current ? (
           <EnhancedHLSPlayer
             deviceId={device?.device_id || 'device1'}
             hostName={host.host_name}
@@ -223,6 +223,10 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             analysisTimestamp={analysisTimestamp}
             isAIAnalyzing={isAIAnalyzing}
           />
+        ) : (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <CircularProgress />
+          </Box>
         )
       ) : (
         <Box

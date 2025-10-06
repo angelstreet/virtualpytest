@@ -129,10 +129,10 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   }, []);
 
   useEffect(() => {
-    const newStreamActive = !isAnyModalOpen;
-    setIsStreamActive(newStreamActive);
-    console.log(`[@RecHostPreview] Stream ${newStreamActive ? 'resumed' : 'paused'} for ${host.host_name}-${device?.device_id} (modal ${isAnyModalOpen ? 'open' : 'closed'})`);
-  }, [isAnyModalOpen, host.host_name, device?.device_id]);
+    const shouldPauseThisDevice = isAnyModalOpen && !isSelectedForModal;
+    setIsStreamActive(!shouldPauseThisDevice);
+    console.log(`[@RecHostPreview] Stream ${shouldPauseThisDevice ? 'paused' : 'active'} for ${host.host_name}-${device?.device_id} (modal open=${isAnyModalOpen}, selected=${isSelectedForModal})`);
+  }, [isAnyModalOpen, isSelectedForModal, host.host_name, device?.device_id]);
 
 
   // Handle opening/closing with restored state
@@ -343,8 +343,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                {/* Keep HLS player mounted, control via isStreamActive prop */}
-                <MemoizedHLSPlayer
+                {!isSelectedForModal && (
+                  <MemoizedHLSPlayer
                     streamUrl={streamUrl}
                     isStreamActive={isStreamActive}
                     isCapturing={false}
@@ -354,7 +354,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     muted={true}
                     videoElementRef={sharedVideoRef}
                   />
-                {/* Pause overlay when modal is open */}
+                )}
                 {isPausingForModal && (
                   <Box
                     sx={{
@@ -375,7 +375,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     </Typography>
                   </Box>
                 )}
-                {/* Click overlay to open full modal */}
                 <Box
                   onClick={handleOpenStreamModal}
                   sx={{

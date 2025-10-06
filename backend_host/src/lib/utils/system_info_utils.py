@@ -447,6 +447,24 @@ def get_host_system_stats():
             'monitor_service_uptime_seconds': monitor_service_uptime
         }
         
+        # Add disk I/O write speed tracking
+        try:
+            disk_io = psutil.disk_io_counters()
+            if disk_io:
+                # Store current counters for next calculation
+                if hasattr(get_host_system_stats, '_last_disk_io'):
+                    last_io = get_host_system_stats._last_disk_io
+                    # Calculate MB written per second (uses cpu_percent's 1-sec interval)
+                    bytes_written = disk_io.write_bytes - last_io.write_bytes
+                    stats['disk_write_mb_per_sec'] = round(bytes_written / 1024 / 1024, 2)
+                else:
+                    stats['disk_write_mb_per_sec'] = 0  # First run baseline
+                
+                # Store for next call
+                get_host_system_stats._last_disk_io = disk_io
+        except Exception:
+            stats['disk_write_mb_per_sec'] = 0
+        
         # Add load average (1, 5, 15 minute averages)
         load_avg = os.getloadavg()
         stats['load_average_1m'] = round(load_avg[0], 2)
