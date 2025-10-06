@@ -9,7 +9,8 @@ interface TimelineOverlayProps {
   currentTime: number;
   duration: number;
   isAtLiveEdge: boolean;
-  userBufferPosition: number;
+  liveBufferSeconds: number;
+  liveSliderPosition: number;
   globalCurrentTime: number;
   isDraggingSlider: boolean;
   dragSliderValue: number;
@@ -40,7 +41,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   currentTime,
   duration,
   isAtLiveEdge,
-  userBufferPosition,
+  liveBufferSeconds,
+  liveSliderPosition,
   globalCurrentTime,
   isDraggingSlider,
   dragSliderValue,
@@ -103,10 +105,10 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 bottom: 25,
                 left: (() => {
                   const currentValue = isLiveMode 
-                    ? (isDraggingSlider ? dragSliderValue : userBufferPosition)
-                    : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime));
+                    ? dragSliderValue
+                    : (archiveMetadata ? globalCurrentTime : currentTime);
                   const minValue = isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0);
-                  const maxValue = isLiveMode ? 1 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
+                  const maxValue = isLiveMode ? 150 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
                   
                   const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
                   return `calc(${percentage}% - 25px)`;
@@ -131,26 +133,13 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               >
                 {isLiveMode ? (
                   (() => {
-                    const video = videoRef.current;
-                    let totalBufferSeconds = 0;
-                    
-                    if (video && video.buffered.length > 0) {
-                      const buffered = video.buffered;
-                      const bufferStart = buffered.start(0);
-                      const bufferEnd = buffered.end(buffered.length - 1);
-                      totalBufferSeconds = bufferEnd - bufferStart;
-                    }
-                    
-                    const behindSeconds = Math.round((1 - dragSliderValue) * totalBufferSeconds);
-                    if (behindSeconds < 5) {
-                      return 'LIVE';
-                    } else if (behindSeconds < 60) {
-                      return `-${behindSeconds}s`;
-                    } else {
-                      const minutes = Math.floor(behindSeconds / 60);
-                      const seconds = behindSeconds % 60;
-                      return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    }
+                    if (liveBufferSeconds === 0) return 'Buffering...';
+                    const behindSeconds = Math.round(150 - dragSliderValue);
+                    if (behindSeconds < 5) return 'LIVE';
+                    if (behindSeconds < 60) return `-${behindSeconds}s`;
+                    const minutes = Math.floor(behindSeconds / 60);
+                    const seconds = behindSeconds % 60;
+                    return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                   })()
                 ) : (
                   formatTime(dragSliderValue)
@@ -160,22 +149,11 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           )}
 
           <Slider
-            value={(() => {
-              if (isLiveMode) {
-                return isDraggingSlider ? dragSliderValue : userBufferPosition;
-              } else {
-                return isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
-              }
-            })()}
+            value={isLiveMode ? (isDraggingSlider ? dragSliderValue : liveSliderPosition) : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime))}
             min={isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0)}
-            max={(() => {
-              if (isLiveMode) {
-                return 1;
-              } else {
-                return archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration;
-              }
-            })()}
-            step={isLiveMode ? 0.01 : undefined}
+            max={isLiveMode ? 150 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration)}
+            step={isLiveMode ? 1 : undefined}
+            disabled={isLiveMode && liveBufferSeconds < 10}
             onChange={onSliderChange}
             onChangeCommitted={onSeek}
             marks={!isLiveMode ? hourMarks : []}
@@ -187,7 +165,18 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 16,
               },
               '& .MuiSlider-track': {
-                backgroundColor: isLiveMode ? 'error.main' : 'primary.main'
+                backgroundColor: isLiveMode ? undefined : 'primary.main',
+                background: isLiveMode ? `linear-gradient(to right, 
+                  rgba(255,255,255,0.15) 0%, 
+                  rgba(255,255,255,0.15) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%, 
+                  rgba(244,67,54,0.8) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
+                  rgba(244,67,54,0.8) 100%
+                )` : undefined,
+                height: 6,
+              },
+              '& .MuiSlider-rail': {
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                height: 6,
               },
               '& .MuiSlider-markLabel': {
                 fontSize: '0.7rem',
@@ -201,51 +190,19 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2 }}>  
         {isLiveMode ? (
           <>
-            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
-              {(() => {
-                const video = videoRef.current;
-                if (video && video.buffered.length > 0) {
-                  const buffered = video.buffered;
-                  const bufferStart = buffered.start(0);
-                  const bufferEnd = buffered.end(buffered.length - 1);
-                  const totalBufferSeconds = Math.floor(bufferEnd - bufferStart);
-                  
-                  if (totalBufferSeconds < 60) {
-                    return `-${totalBufferSeconds}s`;
-                  } else {
-                    const minutes = Math.floor(totalBufferSeconds / 60);
-                    const seconds = totalBufferSeconds % 60;
-                    return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                  }
-                }
-                return '-0s';
-              })()}
+            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
+              -2:30
             </Typography>
             
             <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
               {(() => {
-                if (isAtLiveEdge) {
-                  return 'LIVE';
-                } else {
-                  const video = videoRef.current;
-                  let totalBufferSeconds = 0;
-                  
-                  if (video && video.buffered.length > 0) {
-                    const buffered = video.buffered;
-                    const bufferStart = buffered.start(0);
-                    const bufferEnd = buffered.end(buffered.length - 1);
-                    totalBufferSeconds = bufferEnd - bufferStart;
-                  }
-                  
-                  const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
-                  if (behindSeconds < 60) {
-                    return `-${behindSeconds}s`;
-                  } else {
-                    const minutes = Math.floor(behindSeconds / 60);
-                    const seconds = behindSeconds % 60;
-                    return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                  }
-                }
+                if (liveBufferSeconds < 10) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
+                if (liveSliderPosition >= 145) return 'LIVE';
+                const behindSeconds = Math.round(150 - liveSliderPosition);
+                if (behindSeconds < 60) return `-${behindSeconds}s`;
+                const minutes = Math.floor(behindSeconds / 60);
+                const seconds = behindSeconds % 60;
+                return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
               })()}
             </Typography>
             

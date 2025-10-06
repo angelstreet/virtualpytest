@@ -45,7 +45,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const qualityTimestampRef = useRef<number>(Date.now());
   const [isAtLiveEdge, setIsAtLiveEdge] = useState(true);
   const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [userBufferPosition, setUserBufferPosition] = useState(1.0);
+  const [liveBufferSeconds, setLiveBufferSeconds] = useState(0);
+  const [liveSliderPosition, setLiveSliderPosition] = useState(150);
   
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
   
@@ -207,31 +208,35 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   };
 
   const handleLiveSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
-    const position = Math.max(0, Math.min(1, sliderValue));
-    setUserBufferPosition(position);
-    archive.handleSliderChange(_event, position);
-    setIsAtLiveEdge(position > 0.9);
-  }, [archive]);
+    const value = Array.isArray(newValue) ? newValue[0] : newValue;
+    const minAllowed = Math.max(0, 150 - liveBufferSeconds);
+    const clampedValue = Math.max(value, minAllowed);
+    setLiveSliderPosition(clampedValue);
+    archive.handleSliderChange(_event, clampedValue);
+    setIsAtLiveEdge(clampedValue >= 145);
+  }, [archive, liveBufferSeconds]);
 
   const handleLiveSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (!videoRef.current) return;
     
-    const position = Array.isArray(newValue) ? newValue[0] : newValue;
+    const value = Array.isArray(newValue) ? newValue[0] : newValue;
     const video = videoRef.current;
     
     if (video.buffered.length > 0) {
       const buffered = video.buffered;
-      const bufferStart = buffered.start(0);
       const bufferEnd = buffered.end(buffered.length - 1);
-      const targetTime = bufferStart + (position * (bufferEnd - bufferStart));
+      const bufferStart = buffered.start(0);
       
-      console.log(`[@EnhancedHLSPlayer] Live mode seek to buffer position ${(position * 100).toFixed(1)}% (${targetTime.toFixed(1)}s)`);
-      video.currentTime = targetTime;
-      setUserBufferPosition(position);
+      const secondsBehind = 150 - value;
+      const targetTime = bufferEnd - secondsBehind;
       
-      if (position > 0.9) {
+      console.log(`[@EnhancedHLSPlayer] Live seek to ${value}s position (${secondsBehind}s behind live)`);
+      video.currentTime = Math.max(bufferStart, Math.min(targetTime, bufferEnd));
+      setLiveSliderPosition(value);
+      
+      if (value >= 145) {
         video.currentTime = bufferEnd - 1;
+        setLiveSliderPosition(150);
       }
     }
     
@@ -248,8 +253,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode && video.buffered.length > 0) {
         const buffered = video.buffered;
         const bufferEnd = buffered.end(buffered.length - 1);
+        const bufferStart = buffered.start(0);
+        const totalBuffer = bufferEnd - bufferStart;
         const latency = bufferEnd - video.currentTime;
         const atLiveEdge = latency < 3;
+        
+        setLiveBufferSeconds(totalBuffer);
         
         if (atLiveEdge !== isAtLiveEdge) {
           setIsAtLiveEdge(atLiveEdge);
@@ -291,13 +300,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isLiveMode) {
-        console.log('[@EnhancedHLSPlayer] Switching to live mode - ensuring live edge status');
+        console.log('[@EnhancedHLSPlayer] Switching to live mode');
         setIsAtLiveEdge(true);
-        setUserBufferPosition(1.0);
+        setLiveBufferSeconds(0);
+        setLiveSliderPosition(150);
         seekToLive();
       } else {
         if (videoRef.current && videoRef.current.duration) {
-          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning (0:00)`);
+          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning`);
           videoRef.current.currentTime = 0;
         }
       }
@@ -444,7 +454,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           currentTime={currentTime}
           duration={duration}
           isAtLiveEdge={isAtLiveEdge}
-          userBufferPosition={userBufferPosition}
+          liveBufferSeconds={liveBufferSeconds}
+          liveSliderPosition={liveSliderPosition}
           globalCurrentTime={archive.globalCurrentTime}
           isDraggingSlider={archive.isDraggingSlider}
           dragSliderValue={archive.dragSliderValue}
