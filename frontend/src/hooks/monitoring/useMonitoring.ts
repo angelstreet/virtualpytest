@@ -68,55 +68,43 @@ export const useMonitoring = ({
   isLoadingRef.current = isLoading;
   lastProcessedSequenceRef.current = lastProcessedSequence;
 
-  // Helper: Load JSON analysis from capture URL
-  const loadJsonAnalysis = useCallback(async (jsonUrl: string): Promise<{
+  // Helper: Parse JSON data to analysis objects
+  const parseJsonData = useCallback((data: any): {
     analysis: MonitoringAnalysis | null;
     subtitleAnalysis: SubtitleAnalysis | null;
-  }> => {
-    try {
-      const response = await fetch(jsonUrl);
-      if (response.ok) {
-        const data = await response.json();
-        
-        const parsed: MonitoringAnalysis = {
-          timestamp: data.timestamp || '',
-          filename: data.filename || '',
-          thumbnail: data.thumbnail || '',
-          blackscreen: data.blackscreen ?? false,
-          blackscreen_percentage: data.blackscreen_percentage ?? 0,
-          freeze: data.freeze ?? false,
-          freeze_diffs: data.freeze_diffs || [],
-          last_3_filenames: data.last_3_filenames || [],
-          last_3_thumbnails: data.last_3_thumbnails || [],
-          audio: data.audio ?? false,
-          volume_percentage: data.volume_percentage ?? 0,
-          mean_volume_db: data.mean_volume_db ?? -100,
-          macroblocks: data.macroblocks ?? false,
-          quality_score: data.quality_score ?? 0,
-          has_incidents: data.has_incidents ?? false,
-        };
-        
-        // Extract subtitle data from metadata (from detector.py)
-        let subtitleAnalysis: SubtitleAnalysis | null = null;
-        if (data.subtitle_analysis?.has_subtitles) {
-          const sub = data.subtitle_analysis;
-          subtitleAnalysis = {
-            subtitles_detected: sub.has_subtitles,
-            combined_extracted_text: sub.extracted_text || '',
-            detected_language: sub.detected_language !== 'unknown' ? sub.detected_language : undefined,
-            confidence: sub.confidence || 0.9,
-            detection_message: sub.extracted_text ? `Detected: ${sub.extracted_text}` : 'Subtitles detected',
-          };
-        }
-        
-        return { analysis: parsed, subtitleAnalysis };
-      } else if (response.status === 404) {
-        console.log('[useMonitoring] JSON not found (404) - capture not yet available');
-      }
-    } catch (error) {
-      console.warn('[useMonitoring] Failed to load JSON:', error);
+  } => {
+    const parsed: MonitoringAnalysis = {
+      timestamp: data.timestamp || '',
+      filename: data.filename || '',
+      thumbnail: data.thumbnail || '',
+      blackscreen: data.blackscreen ?? false,
+      blackscreen_percentage: data.blackscreen_percentage ?? 0,
+      freeze: data.freeze ?? false,
+      freeze_diffs: data.freeze_diffs || [],
+      last_3_filenames: data.last_3_filenames || [],
+      last_3_thumbnails: data.last_3_thumbnails || [],
+      audio: data.audio ?? false,
+      volume_percentage: data.volume_percentage ?? 0,
+      mean_volume_db: data.mean_volume_db ?? -100,
+      macroblocks: data.macroblocks ?? false,
+      quality_score: data.quality_score ?? 0,
+      has_incidents: data.has_incidents ?? false,
+    };
+    
+    // Extract subtitle data from metadata
+    let subtitleAnalysis: SubtitleAnalysis | null = null;
+    if (data.subtitle_analysis?.has_subtitles) {
+      const sub = data.subtitle_analysis;
+      subtitleAnalysis = {
+        subtitles_detected: sub.has_subtitles,
+        combined_extracted_text: sub.extracted_text || '',
+        detected_language: sub.detected_language !== 'unknown' ? sub.detected_language : undefined,
+        confidence: sub.confidence || 0.9,
+        detection_message: sub.extracted_text ? `Detected: ${sub.extracted_text}` : 'Subtitles detected',
+      };
     }
-    return { analysis: null, subtitleAnalysis: null };
+    
+    return { analysis: parsed, subtitleAnalysis };
   }, []);
 
   // Background AI analysis (runs separately, non-blocking)
@@ -188,10 +176,14 @@ export const useMonitoring = ({
     });
   }, [analyzeFrameAIAsync]);
 
-  // Fetch latest JSON file and derive image URL
-  const fetchLatestMonitoringData = useCallback(async (): Promise<{imageUrl: string, jsonUrl: string, timestamp: string, sequence: string} | null> => {
+  // Fetch latest JSON content directly (no second HTTP request!)
+  const fetchLatestMonitoringData = useCallback(async (): Promise<{
+    jsonData: any;
+    imageUrl: string;
+    timestamp: string;
+    sequence: string;
+  } | null> => {
     try {
-      // Get latest JSON file from the capture directory
       const response = await fetch(buildServerUrl('/server/monitoring/latest-json'), {
         method: 'POST',
         headers: {
@@ -205,17 +197,14 @@ export const useMonitoring = ({
 
       if (response.ok) {
         const result = await response.json();
-        if (result.success && result.latest_json_url) {
-          // Extract filename from the raw URL
-          const rawJsonUrl = result.latest_json_url;
-          const sequenceMatch = rawJsonUrl.match(/capture_(\d+)/);
+        if (result.success && result.json_data && result.filename) {
+          const sequenceMatch = result.filename.match(/capture_(\d+)/);
           const sequence = sequenceMatch ? sequenceMatch[1] : '';
           
           const imageUrl = buildCaptureUrl(host, sequence, device?.device_id);
-          const jsonUrl = imageUrl.replace('.jpg', '.json');
           const timestamp = result.timestamp || new Date().toISOString();
           
-          return { imageUrl, jsonUrl, sequence, timestamp };
+          return { jsonData: result.json_data, imageUrl, sequence, timestamp };
         }
       }
       return null;
@@ -334,7 +323,7 @@ export const useMonitoring = ({
         if (!isMounted || !latestData) return;
         if (latestData.sequence === lastProcessedSequenceRef.current) return;
 
-        const { analysis, subtitleAnalysis } = await loadJsonAnalysis(latestData.jsonUrl);
+        const { analysis, subtitleAnalysis } = parseJsonData(latestData.jsonData);
         if (!analysis) return;
 
         const snapshot: AnalysisSnapshot = {
@@ -381,7 +370,7 @@ export const useMonitoring = ({
         pollingIntervalRef.current = null;
       }
     };
-  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, loadJsonAnalysis, analyzeFrameAIAsync, fetchArchiveData]);
+  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, parseJsonData, analyzeFrameAIAsync, fetchArchiveData]);
 
   // Compute error trend data from analysis history
   const computeErrorTrends = useCallback((): ErrorTrendData | null => {

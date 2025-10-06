@@ -187,14 +187,22 @@ class VideoMonitoringHelpers:
             json_files.sort(key=lambda x: x['timestamp'], reverse=True)
             latest_json = json_files[0]
             
-            # Build URL for the JSON file
-            json_url = self._build_json_url(latest_json['filepath'])
+            # Read JSON content directly (eliminates second HTTP request from frontend)
+            import json
+            try:
+                with open(latest_json['filepath'], 'r') as f:
+                    json_data = json.load(f)
+            except Exception as e:
+                return {
+                    'success': False,
+                    'error': f'Failed to read JSON file: {str(e)}'
+                }
             
             print(f"MonitoringHelpers[{self.device_name}]: Latest JSON: {latest_json['filename']}")
             
             return {
                 'success': True,
-                'latest_json_url': json_url,
+                'json_data': json_data,
                 'filename': latest_json['filename'],
                 'timestamp': latest_json['timestamp']
             }
