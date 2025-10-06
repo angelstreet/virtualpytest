@@ -27,6 +27,7 @@ import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
 import { useHostManager } from '../hooks/useHostManager';
 import { Host, Device } from '../types/common/Host_Types';
+import { buildThumbnailUrl } from '../utils/buildUrlUtils';
 
 const HeatmapContent: React.FC = () => {
   const historyRef = useRef<HeatMapHistoryRef>(null);
@@ -69,12 +70,18 @@ const HeatmapContent: React.FC = () => {
   // Handle freeze click from analysis table
   const handleFreezeClick = (deviceData: any) => {
     if (deviceData?.analysis_json?.freeze) {
-      const r2Images = deviceData.analysis_json.r2_images;
+      const analysisJson = deviceData.analysis_json;
+      const host = getHostByName(deviceData.host_name);
+      
+      // Use r2_images if available, otherwise use last_3_thumbnails
+      const thumbnailPaths = analysisJson.r2_images?.thumbnail_urls || analysisJson.last_3_thumbnails || [];
+      const thumbnailUrls = host ? thumbnailPaths.map((path: string) => buildThumbnailUrl(path, host)) : thumbnailPaths;
+      
       setFreezeModalData({
         hostName: deviceData.host_name || '',
         deviceId: deviceData.device_id || '',
-        thumbnailUrls: r2Images?.thumbnail_urls || [],
-        freezeDiffs: deviceData.analysis_json.freeze_diffs || []
+        thumbnailUrls,
+        freezeDiffs: analysisJson.freeze_diffs || []
       });
       setFreezeModalOpen(true);
     }

@@ -339,6 +339,19 @@ export const buildCloudImageUrl = (
   return `${baseUrl.replace(/\/$/, '')}/${bucketName}/${cleanPath}`;
 };
 
+/**
+ * Convert thumbnail path to usable URL
+ * - If already a URL (http/https) → return as-is
+ * - If local path (/var/www/html) → convert to host URL
+ */
+export const buildThumbnailUrl = (thumbnailPath: string, host: any): string => {
+  if (thumbnailPath.startsWith('http://') || thumbnailPath.startsWith('https://')) {
+    return thumbnailPath;
+  }
+  
+  return buildHostImageUrl(host, thumbnailPath);
+};
+
 // =====================================================
 // MULTI-DEVICE HELPER FUNCTIONS (Frontend)
 // =====================================================
