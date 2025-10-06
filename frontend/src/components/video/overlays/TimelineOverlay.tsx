@@ -147,7 +147,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   (() => {
                     if (liveBufferSeconds === 0) return 'Buffering...';
                     const behindSeconds = Math.round(150 - dragSliderValue);
-                    if (behindSeconds < 5) return 'LIVE';
                     if (behindSeconds < 60) return `-${behindSeconds}s`;
                     const minutes = Math.floor(behindSeconds / 60);
                     const seconds = behindSeconds % 60;
@@ -220,7 +219,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               {(() => {
                 const isBuffering = videoRef.current && videoRef.current.readyState < 3;
                 if (liveBufferSeconds < 10 || isBuffering) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
-                if (liveSliderPosition >= 145) return 'LIVE';
                 const behindSeconds = Math.round(150 - liveSliderPosition);
                 if (behindSeconds < 60) return `-${behindSeconds}s`;
                 const minutes = Math.floor(behindSeconds / 60);
