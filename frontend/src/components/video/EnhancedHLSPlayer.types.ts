@@ -29,7 +29,8 @@ export interface TranscriptSegment {
   translations?: Record<string, string>;
 }
 
-export interface TranscriptData {
+// OLD format (6-second segments)
+export interface TranscriptDataLegacy {
   capture_folder: string;
   sample_interval_seconds: number;
   total_duration_seconds: number;
@@ -37,6 +38,24 @@ export interface TranscriptData {
   last_update: string;
   total_samples: number;
 }
+
+// NEW format (10-minute single transcript per chunk)
+export interface TranscriptData10Min {
+  capture_folder: string;
+  hour: number;
+  chunk_index: number;
+  chunk_duration_minutes: number;
+  language: string;
+  transcript: string;
+  confidence: number;
+  transcription_time_seconds: number;
+  timestamp: string;
+  mp3_file: string;
+  translations?: Record<string, string>;
+}
+
+// Union type for backward compatibility
+export type TranscriptData = TranscriptDataLegacy | TranscriptData10Min;
 
 export interface ErrorTrendData {
   blackscreenConsecutive: number;

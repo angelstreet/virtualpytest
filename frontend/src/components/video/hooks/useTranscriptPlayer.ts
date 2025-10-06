@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { TranscriptData, TranscriptSegment, ArchiveMetadata } from '../EnhancedHLSPlayer.types';
+import { TranscriptData, TranscriptDataLegacy, TranscriptData10Min, TranscriptSegment, ArchiveMetadata } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
 import { buildStreamUrl } from '../../../utils/buildUrlUtils';
 
@@ -14,6 +14,42 @@ interface UseTranscriptPlayerProps {
   deviceId: string;
   hostName: string;
 }
+
+// Type guard to check if transcript is new 10-minute format
+const isTranscriptData10Min = (data: TranscriptData): data is TranscriptData10Min => {
+  return 'chunk_duration_minutes' in data && 'mp3_file' in data;
+};
+
+// Helper to normalize transcript data to legacy format for backward compatibility
+const normalizeTranscriptData = (data: TranscriptData): TranscriptDataLegacy => {
+  if (isTranscriptData10Min(data)) {
+    // Convert new 10-min format to legacy segments format
+    // Create a single segment representing the entire 10-minute chunk
+    const chunkStartSeconds = (data.hour * 3600) + (data.chunk_index * 600);
+    
+    const segment: TranscriptSegment = {
+      segment_num: data.chunk_index,
+      relative_seconds: chunkStartSeconds,
+      language: data.language,
+      transcript: data.transcript,
+      confidence: data.confidence,
+      manifest_window: data.hour,
+      translations: data.translations,
+    };
+    
+    return {
+      capture_folder: data.capture_folder,
+      sample_interval_seconds: 600, // 10 minutes
+      total_duration_seconds: 600,
+      segments: [segment],
+      last_update: data.timestamp,
+      total_samples: 1,
+    };
+  }
+  
+  // Already in legacy format
+  return data as TranscriptDataLegacy;
+};
 
 export const useTranscriptPlayer = ({
   isLiveMode,
@@ -41,21 +77,38 @@ export const useTranscriptPlayer = ({
         
         const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
         
-        console.log(`[@EnhancedHLSPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
+        console.log(`[@useTranscriptPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
         
         fetch(transcriptUrl)
           .then(res => res.json())
-          .then(transcript => {
-            if (transcript && transcript.segments) {
-              console.log(`[@EnhancedHLSPlayer] Transcript chunk loaded: ${transcript.segments.length} samples`);
-              setTranscriptData(transcript);
-            } else {
-              console.log(`[@EnhancedHLSPlayer] No transcript data for chunk ${chunkIndex}`);
+          .then((transcript: TranscriptData) => {
+            if (!transcript) {
+              console.log(`[@useTranscriptPlayer] No transcript data for chunk ${chunkIndex}`);
               setTranscriptData(null);
+              return;
             }
+            
+            // Detect format and normalize
+            const is10Min = isTranscriptData10Min(transcript);
+            console.log(`[@useTranscriptPlayer] Transcript format: ${is10Min ? '10-minute (NEW)' : '6-second segments (LEGACY)'}`);
+            
+            const normalizedData = normalizeTranscriptData(transcript);
+            
+            if (is10Min) {
+              console.log(`[@useTranscriptPlayer] 10-min transcript loaded:`, {
+                language: (transcript as TranscriptData10Min).language,
+                confidence: (transcript as TranscriptData10Min).confidence,
+                textLength: (transcript as TranscriptData10Min).transcript.length,
+                preview: (transcript as TranscriptData10Min).transcript.substring(0, 100)
+              });
+            } else {
+              console.log(`[@useTranscriptPlayer] Transcript chunk loaded: ${normalizedData.segments.length} segments`);
+            }
+            
+            setTranscriptData(normalizedData);
           })
-          .catch(() => {
-            console.log(`[@EnhancedHLSPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex}`);
+          .catch((error) => {
+            console.log(`[@useTranscriptPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex}:`, error.message);
             setTranscriptData(null);
           });
       }
@@ -64,16 +117,36 @@ export const useTranscriptPlayer = ({
 
   useEffect(() => {
     if (transcriptData && transcriptData.segments.length > 0) {
-      const closestSegment = transcriptData.segments.reduce((closest, segment) => {
-        const timeDiff = Math.abs(segment.relative_seconds - globalCurrentTime);
-        const closestDiff = closest ? Math.abs(closest.relative_seconds - globalCurrentTime) : Infinity;
-        return timeDiff < closestDiff ? segment : closest;
-      }, transcriptData.segments[0]);
+      // For 10-minute chunks (1 segment), show transcript for entire chunk duration
+      // For legacy 6-second segments, find closest segment
+      const isLongChunk = transcriptData.sample_interval_seconds >= 600; // 10 minutes
       
-      if (Math.abs(closestSegment.relative_seconds - globalCurrentTime) < 6) {
-        setCurrentTranscript(closestSegment);
+      if (isLongChunk && transcriptData.segments.length === 1) {
+        // NEW format: Show transcript for entire 10-minute chunk
+        const segment = transcriptData.segments[0];
+        const chunkStartTime = segment.relative_seconds;
+        const chunkEndTime = chunkStartTime + 600; // 10 minutes
+        
+        // Check if current time is within this chunk
+        if (globalCurrentTime >= chunkStartTime && globalCurrentTime < chunkEndTime) {
+          console.log(`[@useTranscriptPlayer] Showing 10-min transcript (time ${globalCurrentTime.toFixed(1)}s within chunk ${chunkStartTime}-${chunkEndTime})`);
+          setCurrentTranscript(segment);
+        } else {
+          setCurrentTranscript(null);
+        }
       } else {
-        setCurrentTranscript(null);
+        // LEGACY format: Find closest 6-second segment
+        const closestSegment = transcriptData.segments.reduce((closest, segment) => {
+          const timeDiff = Math.abs(segment.relative_seconds - globalCurrentTime);
+          const closestDiff = closest ? Math.abs(closest.relative_seconds - globalCurrentTime) : Infinity;
+          return timeDiff < closestDiff ? segment : closest;
+        }, transcriptData.segments[0]);
+        
+        if (Math.abs(closestSegment.relative_seconds - globalCurrentTime) < 6) {
+          setCurrentTranscript(closestSegment);
+        } else {
+          setCurrentTranscript(null);
+        }
       }
     } else {
       setCurrentTranscript(null);
