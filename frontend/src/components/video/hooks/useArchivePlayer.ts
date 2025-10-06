@@ -49,7 +49,7 @@ export const useArchivePlayer = ({
       
       const manifest = await response.json();
       console.log(`[@EnhancedHLSPlayer] Loaded manifest: ${manifest.total_chunks} chunks across ${manifest.available_hours.length} hours`);
-      console.log(`[@EnhancedHLSPlayer] Continuous range: ${manifest.continuous_from ? `hour ${manifest.continuous_from.hour}` : 'unknown'} to ${manifest.continuous_to ? `hour ${manifest.continuous_to.hour}` : 'unknown'}`);
+      console.log(`[@EnhancedHLSPlayer] Continuous range: ${manifest.continuous_from ? `hour ${manifest.continuous_from.hour}, chunk ${manifest.continuous_from.chunk_index}` : 'unknown'} to ${manifest.chunks.length > 0 ? `hour ${manifest.chunks[manifest.chunks.length - 1].hour}, chunk ${manifest.chunks[manifest.chunks.length - 1].chunk_index}` : 'unknown'}`);
       
       setAvailableHours(manifest.available_hours);
       

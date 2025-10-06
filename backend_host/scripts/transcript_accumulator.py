@@ -326,16 +326,16 @@ def process_mp3_chunks(capture_dir):
         capture_folder = get_capture_folder(capture_dir)
         device_base_path = get_device_base_path(capture_folder)
         
-        # Determine where MP3 chunks are located
+        # Determine where MP3 chunks are located (in hour folders)
         if is_ram_mode(device_base_path):
-            audio_dir = os.path.join(device_base_path, 'hot', 'audio')
+            audio_base_dir = os.path.join(device_base_path, 'hot', 'audio')
             state_path = os.path.join(device_base_path, 'hot', 'transcript_state.json')
         else:
-            audio_dir = os.path.join(device_base_path, 'audio')
+            audio_base_dir = os.path.join(device_base_path, 'audio')
             state_path = os.path.join(device_base_path, 'transcript_state.json')
         
-        if not os.path.exists(audio_dir):
-            logger.debug(f"[{capture_folder}] Audio directory does not exist: {audio_dir}")
+        if not os.path.exists(audio_base_dir):
+            logger.debug(f"[{capture_folder}] Audio base directory does not exist: {audio_base_dir}")
             return False
         
         # Load state (track which chunks have been transcribed)
@@ -344,15 +344,20 @@ def process_mp3_chunks(capture_dir):
                 state = json.load(f)
         else:
             state = {'processed_chunks': {}}
-            logger.info(f"[{capture_folder}] 🆕 First run - watching for MP3 chunks in: {audio_dir}")
+            logger.info(f"[{capture_folder}] 🆕 First run - watching for MP3 chunks in: {audio_base_dir}/{hour}/")
         
         processed_chunks = state.get('processed_chunks', {})
         
-        # Find all MP3 chunks
-        mp3_files = get_files_by_pattern(audio_dir, r'^chunk_10min_\d+\.mp3$')
+        # Find all MP3 chunks in all hour folders (0-23)
+        mp3_files = []
+        for hour in range(24):
+            hour_dir = os.path.join(audio_base_dir, str(hour))
+            if os.path.exists(hour_dir):
+                hour_files = get_files_by_pattern(hour_dir, r'^chunk_10min_\d+\.mp3$')
+                mp3_files.extend(hour_files)
         
         if not mp3_files:
-            logger.debug(f"[{capture_folder}] No MP3 chunks found yet")
+            logger.debug(f"[{capture_folder}] No MP3 chunks found yet in hour folders")
             return False
         
         # Process new chunks
@@ -361,8 +366,19 @@ def process_mp3_chunks(capture_dir):
         for mp3_path in mp3_files:
             mp3_filename = os.path.basename(mp3_path)
             
+            # Extract hour from path (/audio/{hour}/chunk_10min_X.mp3)
+            hour_folder = os.path.basename(os.path.dirname(mp3_path))
+            try:
+                hour = int(hour_folder)
+            except ValueError:
+                logger.warning(f"[{capture_folder}] Invalid hour folder: {hour_folder}")
+                continue
+            
+            # Create unique key with hour for tracking (since chunk_index resets per hour)
+            mp3_key = f"{hour}/{mp3_filename}"
+            
             # Skip if already processed
-            if mp3_filename in processed_chunks:
+            if mp3_key in processed_chunks:
                 continue
             
             # Extract chunk index from filename (chunk_10min_0.mp3 → 0)
@@ -371,10 +387,6 @@ def process_mp3_chunks(capture_dir):
             except ValueError:
                 logger.warning(f"[{capture_folder}] Invalid MP3 filename: {mp3_filename}")
                 continue
-            
-            # Determine hour from file modification time
-            mtime = os.path.getmtime(mp3_path)
-            hour = datetime.fromtimestamp(mtime).hour
             
             logger.info("=" * 80)
             logger.info(f"[{capture_folder}] 🎵 New MP3 chunk detected: {mp3_filename}")
@@ -386,17 +398,18 @@ def process_mp3_chunks(capture_dir):
                 # Save transcript JSON
                 save_transcript_chunk(device_base_path, hour, chunk_index, transcript_data)
                 
-                # Mark as processed
-                processed_chunks[mp3_filename] = {
+                # Mark as processed (using hour/filename key)
+                processed_chunks[mp3_key] = {
                     'timestamp': datetime.now().isoformat(),
                     'hour': hour,
-                    'chunk_index': chunk_index
+                    'chunk_index': chunk_index,
+                    'mp3_path': mp3_path
                 }
                 new_chunks_processed += 1
                 
-                logger.info(f"[{capture_folder}] ✅ Transcription complete for chunk {chunk_index}")
+                logger.info(f"[{capture_folder}] ✅ Transcription complete for hour {hour}, chunk {chunk_index}")
             else:
-                logger.warning(f"[{capture_folder}] ⚠️ Transcription failed for {mp3_filename}")
+                logger.warning(f"[{capture_folder}] ⚠️ Transcription failed for {mp3_key}")
             
             logger.info("=" * 80)
         

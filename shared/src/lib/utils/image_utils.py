@@ -4,13 +4,26 @@ Image Utilities - Image Analysis
 Provides utilities for:
 - Image analysis functions (blackscreen, freeze, macroblocks detection)
 - Image preprocessing for detection algorithms
+- Subtitle/OCR detection
 """
 
 import os
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 import cv2
 import numpy as np
+
+try:
+    import pytesseract
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
+
+try:
+    from langdetect import detect, LangDetectException
+    LANG_DETECT_AVAILABLE = True
+except ImportError:
+    LANG_DETECT_AVAILABLE = False
 
 
 # =============================================================================
@@ -211,4 +224,135 @@ def analyze_macroblocks(image_path: str) -> Tuple[bool, float]:
     except Exception as e:
         print(f"[@image_utils] Error in macroblocks detection: {e}")
         return False, 0.0
+
+
+# =============================================================================
+# Subtitle/OCR Analysis Functions
+# =============================================================================
+
+def analyze_subtitle_region(img: np.ndarray, extract_text: bool = True) -> Dict[str, Any]:
+    """
+    Analyze subtitle region for text content.
+    
+    Args:
+        img: OpenCV image (BGR format) - any resolution
+        extract_text: Whether to extract text using OCR
+        
+    Returns:
+        Dictionary with subtitle analysis results
+    """
+    try:
+        height, width = img.shape[:2]
+        
+        subtitle_height_start = int(height * 0.62)
+        subtitle_width_start = int(width * 0.20)
+        subtitle_width_end = int(width * 0.80)
+        
+        subtitle_region = img[subtitle_height_start:, subtitle_width_start:subtitle_width_end]
+        gray_subtitle = cv2.cvtColor(subtitle_region, cv2.COLOR_BGR2GRAY)
+        
+        adaptive_thresh = cv2.adaptiveThreshold(
+            gray_subtitle, 255, 
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY, 11, 2
+        )
+        edges = cv2.Canny(adaptive_thresh, 50, 150)
+        subtitle_edges = np.sum(edges > 0)
+        
+        region_pixels = subtitle_region.shape[0] * subtitle_region.shape[1]
+        adaptive_threshold = max(200, region_pixels * 0.002)
+        has_subtitles = bool(subtitle_edges > adaptive_threshold)
+        
+        extracted_text = ""
+        detected_language = "unknown"
+        
+        if extract_text and has_subtitles and OCR_AVAILABLE:
+            extracted_text = extract_text_from_region(subtitle_region)
+            if extracted_text:
+                detected_language = detect_language(extracted_text)
+            else:
+                has_subtitles = False
+        elif extract_text and has_subtitles and not OCR_AVAILABLE:
+            has_subtitles = False
+        
+        confidence = 0.9 if (has_subtitles and extracted_text) else (0.7 if has_subtitles else 0.1)
+        
+        return {
+            'has_subtitles': has_subtitles,
+            'subtitle_edges': int(subtitle_edges),
+            'subtitle_threshold': float(adaptive_threshold),
+            'extracted_text': extracted_text,
+            'detected_language': detected_language,
+            'confidence': confidence,
+            'ocr_available': OCR_AVAILABLE
+        }
+        
+    except Exception as e:
+        return {
+            'has_subtitles': False,
+            'error': str(e),
+            'confidence': 0.0
+        }
+
+
+def extract_text_from_region(region_image: np.ndarray) -> str:
+    """Extract text from image region using OCR."""
+    if not OCR_AVAILABLE:
+        return ''
+    
+    try:
+        if len(region_image.shape) == 3:
+            gray_region = cv2.cvtColor(region_image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_region = region_image
+        
+        enhanced = cv2.convertScaleAbs(gray_region, alpha=2.0, beta=0)
+        _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
+        
+        text = pytesseract.image_to_string(thresh, config='--psm 6').strip()
+        
+        if len(text) < 3:
+            return ''
+        
+        cleaned_text = clean_ocr_text(text)
+        return cleaned_text if len(cleaned_text) >= 3 else text
+        
+    except Exception:
+        return ''
+
+
+def clean_ocr_text(text: str) -> str:
+    """Clean OCR text by removing noise."""
+    if not text:
+        return ''
+    
+    text = re.sub(r'\s+', ' ', text.replace('\n', ' ')).strip()
+    
+    words = []
+    for word in text.split():
+        cleaned_word = re.sub(r'[^\w\s\'-]', '', word).strip()
+        if (len(cleaned_word) >= 2 and 
+            re.search(r'[a-zA-ZÀ-ÿ]', cleaned_word) and 
+            not cleaned_word.isdigit()):
+            words.append(cleaned_word)
+    
+    return ' '.join(words)
+
+
+def detect_language(text: str) -> str:
+    """Detect language from text."""
+    if not LANG_DETECT_AVAILABLE or not text:
+        return 'unknown'
+    
+    try:
+        cleaned_text = clean_ocr_text(text)
+        detection_text = cleaned_text if len(cleaned_text) >= 3 else text
+        
+        if len(detection_text) < 3:
+            return 'unknown'
+        
+        return detect(detection_text)
+        
+    except (LangDetectException, Exception):
+        return 'unknown'
 

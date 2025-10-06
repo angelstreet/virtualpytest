@@ -160,9 +160,16 @@ class InotifyFrameMonitor:
                 issues.append('blackscreen')
             if detection_result and detection_result.get('freeze', False):
                 issues.append('freeze')
-            # Skip audio loss detection for host device (no audio capture)
             if not is_host and detection_result and not detection_result.get('audio', True):
                 issues.append('audio_loss')
+            
+            if detection_result and detection_result.get('subtitle_analysis'):
+                subtitle_data = detection_result['subtitle_analysis']
+                if subtitle_data.get('has_subtitles'):
+                    text = subtitle_data.get('extracted_text', '')
+                    lang = subtitle_data.get('detected_language', 'unknown')
+                    if text:
+                        logger.info(f"[{capture_folder}] 📝 Subtitles [{lang}]: '{text}'")
             
             if issues:
                 logger.info(f"[{capture_folder}] Issues detected: {issues}")

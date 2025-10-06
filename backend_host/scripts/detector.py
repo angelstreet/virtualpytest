@@ -14,12 +14,14 @@ from shared.src.lib.utils.image_utils import (
     load_and_downscale_image,
     analyze_blackscreen,
     analyze_freeze,
-    analyze_macroblocks
+    analyze_macroblocks,
+    analyze_subtitle_region
 )
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls
 _audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
 _latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_time)}
+_subtitle_cache = {}  # {image_path: (mtime, subtitle_result)}
 
 def analyze_audio(capture_dir):
     """Check if audio is present in latest segment - OPTIMIZED with caching"""
@@ -102,6 +104,57 @@ def analyze_audio(capture_dir):
         # Fallback if import fails
         return False, 0, -100.0
 
+def analyze_subtitles(image_path, fps=5):
+    """
+    Analyze subtitle region on full-res capture (1280x720).
+    Runs every 1 second (every 5th frame at 5fps, every 2nd frame at 2fps VNC).
+    """
+    global _subtitle_cache
+    
+    try:
+        filename = os.path.basename(image_path)
+        frame_number = int(filename.split('_')[1].split('.')[0])
+    except:
+        return None
+    
+    sample_interval = fps if fps >= 2 else 2
+    if frame_number % sample_interval != 0:
+        return None
+    
+    if image_path in _subtitle_cache:
+        cached_mtime, cached_result = _subtitle_cache[image_path]
+        try:
+            current_mtime = os.path.getmtime(image_path)
+            if cached_mtime == current_mtime:
+                return cached_result
+        except:
+            pass
+    
+    try:
+        import cv2
+        
+        img = cv2.imread(image_path)
+        if img is None:
+            return None
+        
+        resized = cv2.resize(img, (640, 360), interpolation=cv2.INTER_AREA)
+        result = analyze_subtitle_region(resized, extract_text=True)
+        
+        try:
+            mtime = os.path.getmtime(image_path)
+            _subtitle_cache[image_path] = (mtime, result)
+            if len(_subtitle_cache) > 30:
+                _subtitle_cache = dict(list(_subtitle_cache.items())[-15:])
+        except:
+            pass
+        
+        return result
+        
+    except ImportError:
+        return None
+    except Exception as e:
+        return {'has_subtitles': False, 'error': str(e)}
+
 def detect_issues(image_path, fps=5):
     """
     Main detection function - returns EXACT same format as original analyze_audio_video.py
@@ -141,6 +194,9 @@ def detect_issues(image_path, fps=5):
     # Audio Analysis
     has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
     
+    # Subtitle Analysis (every 1 second only)
+    subtitle_result = analyze_subtitles(image_path, fps)
+    
     # Get frame paths for R2 upload - freeze_details now contains thumbnail filenames
     freeze_diffs = []
     last_3_filenames = []
@@ -165,19 +221,23 @@ def detect_issues(image_path, fps=5):
             thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
             last_3_thumbnails.append(thumbnail_full_path)
     
-    # Return EXACT same format as original (CRITICAL FOR R2 UPLOAD)
-    return {
+    result = {
         'timestamp': datetime.fromtimestamp(os.path.getmtime(image_path)).isoformat(),
         'filename': os.path.basename(image_path),
         'blackscreen': bool(blackscreen),
         'blackscreen_percentage': round(blackscreen_percentage, 1),
         'freeze': bool(frozen),
         'freeze_diffs': freeze_diffs,
-        'last_3_filenames': last_3_filenames,      # ← CRITICAL FOR R2 UPLOAD
-        'last_3_thumbnails': last_3_thumbnails,   # ← CRITICAL FOR R2 UPLOAD
+        'last_3_filenames': last_3_filenames,
+        'last_3_thumbnails': last_3_thumbnails,
         'macroblocks': bool(macroblocks),
         'quality_score': round(quality_score, 1),
         'audio': has_audio,
         'volume_percentage': volume_percentage,
         'mean_volume_db': mean_volume_db
     }
+    
+    if subtitle_result:
+        result['subtitle_analysis'] = subtitle_result
+    
+    return result

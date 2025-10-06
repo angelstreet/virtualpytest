@@ -62,7 +62,7 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Thumbnails: HOT only → deleted (local freeze detection only)
 # - Metadata: HOT individual JSONs → grouped & saved to COLD /metadata/{hour}/
 # - Transcripts: Saved directly to COLD /transcript/{hour}/ (by transcript_accumulator.py)
-# - Audio: HOT 10min chunks → archived to COLD /audio/{hour}/
+# - Audio: Saved to HOT /audio/{hour}/ (natural 24h rolling via hour folders, no cleanup needed)
 #
 # RAM Usage (HIGH QUALITY CAPTURES - Video content worst case):
 # - Segments: 150 × 38KB = 6MB (FFmpeg auto-deletes, 200 limit = safety net)
@@ -70,15 +70,14 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Thumbnails: 100 × 28KB = 3MB (freeze detection → deleted)
 # - Metadata: 750 × 1KB = 0.75MB (150s buffer → grouped to cold)
 # - Transcripts: N/A (saved directly to cold by transcript_accumulator)
-# - Audio: 6 × 1MB = 6MB (1h buffer → archived to cold)
-# Total: ~90MB per device ✅ (45% of 200MB budget, high quality preserved)
+# - Audio: ~144 × 1MB = 144MB (24h × 6 chunks/hour in /audio/{hour}/ folders)
+# Total: ~231MB per device (116% of 200MB budget - acceptable since audio accessible via hour folders)
 #
 HOT_LIMITS = {
     'segments': 200,      # Safety limit > FFmpeg's 150 (only cleanup if FFmpeg fails)
     'captures': 300,      # 60s buffer → deleted (R2 cloud when needed)
     'thumbnails': 100,    # For freeze detection → deleted
     'metadata': 750,      # 150s buffer → grouped to 10min chunks in cold
-    'audio': 6,           # 1h buffer (10-min chunks) → archived to cold
 }
 
 # REMOVED: RETENTION_HOURS config
@@ -94,11 +93,11 @@ HOT_LIMITS = {
 # File patterns for archive_hot_files() function (moves files from hot to cold hour folders)
 # Note: Metadata uses merge_metadata_batch() instead (groups then saves to cold)
 # Note: Transcripts saved directly to cold by transcript_accumulator.py
+# Note: Audio extracted to hot /audio/{hour}/ and stays there (rolling 24h cleanup)
 FILE_PATTERNS = {
     'segments': 'segment_*.ts',     # Archived to cold (will be grouped as MP4)
-    'audio': 'chunk_10min_*.mp3',   # Archived to cold /audio/{hour}/
 }
-# NOT archived (HOT-only with deletion): captures, thumbnails
+# NOT archived (HOT-only with deletion): captures, thumbnails, audio (stays in hot hour folders)
 
 def get_file_hour(filepath: str) -> int:
     """Get hour (0-23) from file modification time"""
@@ -611,8 +610,7 @@ def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
         "last_updated": time.time(),
         "available_hours": sorted(list(set(c["hour"] for c in continuous_chunks))),
         "total_chunks": len(continuous_chunks),
-        "continuous_from": continuous_chunks[0] if continuous_chunks else None,
-        "continuous_to": continuous_chunks[-1] if continuous_chunks else None
+        "continuous_from": continuous_chunks[0] if continuous_chunks else None
     }
     
     return manifest
@@ -695,10 +693,7 @@ def process_capture_directory(capture_dir: str):
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
-    deleted_audio = cleanup_hot_files(capture_dir, 'audio', 'chunk_10min_*.mp3')
-    
-    # Archive audio chunks from hot to cold storage
-    archived_audio = archive_hot_files(capture_dir, 'audio')
+    # Note: Audio files now in hour folders (/audio/{hour}/) - no cleanup needed (24h rolling)
     
     ram_mode = is_ram_mode(capture_dir)
     
@@ -741,13 +736,14 @@ def process_capture_directory(capture_dir: str):
         
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
         
+        # Extract audio with hour folder structure (aligned with video and transcript)
         if ram_mode:
-            hot_audio_dir = os.path.join(capture_dir, 'hot', 'audio')
+            hot_audio_hour_dir = os.path.join(capture_dir, 'hot', 'audio', str(hour))
         else:
-            hot_audio_dir = os.path.join(capture_dir, 'audio')
+            hot_audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
         
-        os.makedirs(hot_audio_dir, exist_ok=True)
-        audio_path = os.path.join(hot_audio_dir, f'chunk_10min_{chunk_index}.mp3')
+        os.makedirs(hot_audio_hour_dir, exist_ok=True)
+        audio_path = os.path.join(hot_audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
         
         try:
             import subprocess
@@ -759,7 +755,7 @@ def process_capture_directory(capture_dir: str):
                 check=True,
                 timeout=30
             )
-            logger.info(f"Extracted audio to HOT: chunk_10min_{chunk_index}.mp3")
+            logger.info(f"Extracted audio to HOT: /audio/{hour}/chunk_10min_{chunk_index}.mp3")
         except Exception as e:
             logger.warning(f"Failed to extract audio from chunk {chunk_index}: {e}")
     
@@ -772,8 +768,6 @@ def process_capture_directory(capture_dir: str):
     metadata_status = [s for s, result in [("1min", metadata_1min), ("10min", metadata_10min)] if result]
     metadata_info = f", Metadata: {'+'.join(metadata_status)}" if metadata_status else ""
     
-    audio_info = f", Audio: {archived_audio} archived" if archived_audio > 0 else ""
-    
     # Safety cleanup stats
     safety_deletes = []
     if deleted_segments > 0:
@@ -784,12 +778,10 @@ def process_capture_directory(capture_dir: str):
         safety_deletes.append(f"{deleted_thumbnails} thumb")
     if deleted_metadata > 0:
         safety_deletes.append(f"{deleted_metadata} meta")
-    if deleted_audio > 0:
-        safety_deletes.append(f"{deleted_audio} aud")
     
     cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
     
-    logger.info(f"✓ Completed in {elapsed:.2f}s ({cleanup_info}{metadata_info}{mp4_info}{audio_info})")
+    logger.info(f"✓ Completed in {elapsed:.2f}s ({cleanup_info}{metadata_info}{mp4_info})")
 
 
 def main_loop():

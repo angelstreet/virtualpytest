@@ -20,19 +20,12 @@ import re
 from datetime import datetime
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 from typing import Dict, Any, Optional, Tuple, List
-
-# Optional imports for text extraction and language detection
-try:
-    import pytesseract
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
-
-try:
-    from langdetect import detect, LangDetectException
-    LANG_DETECT_AVAILABLE = True
-except ImportError:
-    LANG_DETECT_AVAILABLE = False
+from shared.src.lib.utils.image_utils import (
+    analyze_subtitle_region as shared_analyze_subtitle_region,
+    extract_text_from_region,
+    clean_ocr_text,
+    detect_language
+)
 
 # Simplified sampling patterns for performance optimization
 SAMPLING_PATTERNS = {
@@ -306,47 +299,16 @@ class VideoContentHelpers:
     # =============================================================================
     
     def analyze_subtitle_region(self, img, extract_text: bool = True) -> Dict[str, Any]:
-        """
-        Analyze subtitle region for text content and errors.
+        """Analyze subtitle region - uses shared utility with error detection."""
+        result = shared_analyze_subtitle_region(img, extract_text)
         
-        Args:
-            img: OpenCV image (BGR format)
-            extract_text: Whether to extract text using OCR
-            
-        Returns:
-            Dictionary with subtitle analysis results
-        """
         try:
             height, width = img.shape[:2]
-            
-            # Enhanced subtitle detection with adaptive region processing
-            # Expanded to capture 2-line subtitles - start from 70% to bottom (30% of screen height)
-            subtitle_height_start = int(height * 0.62)
-            subtitle_width_start = int(width * 0.2)  # Skip left 20%
-            subtitle_width_end = int(width * 0.8)    # Skip right 20%
-            
-            subtitle_region = img[subtitle_height_start:, subtitle_width_start:subtitle_width_end]
-            gray_subtitle = cv2.cvtColor(subtitle_region, cv2.COLOR_BGR2GRAY)
-            
-            # Apply adaptive thresholding before edge detection for better text extraction
-            adaptive_thresh = cv2.adaptiveThreshold(gray_subtitle, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                                  cv2.THRESH_BINARY, 11, 2)
-            edges = cv2.Canny(adaptive_thresh, 50, 150)
-            subtitle_edges = np.sum(edges > 0)
-            
-            # Dynamic threshold based on region size
-            region_pixels = subtitle_region.shape[0] * subtitle_region.shape[1]
-            adaptive_threshold = max(SAMPLING_PATTERNS["subtitle_edge_threshold"], region_pixels * 0.002)
-            has_subtitles = bool(subtitle_edges > adaptive_threshold)
-            
-            # Error detection - look for prominent red content
             hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
             
-            # Use configurable grid sampling rate
             grid_rate = SAMPLING_PATTERNS["error_grid_rate"]
             sampled_hsv = hsv[::grid_rate, ::grid_rate]
             
-            # Red color range in HSV - more restrictive for actual error messages
             lower_red1 = np.array([0, 100, 100])
             upper_red1 = np.array([10, 255, 255])
             lower_red2 = np.array([170, 100, 100])
@@ -360,61 +322,16 @@ class VideoContentHelpers:
             total_sampled_pixels = sampled_hsv.shape[0] * sampled_hsv.shape[1]
             red_percentage = float((red_pixels / total_sampled_pixels) * 100)
             
-            # Higher threshold for error detection
-            has_errors = bool(red_percentage > 8.0)
-            
-            # Extract text if requested and subtitles detected
-            extracted_text = ""
-            detected_language = "unknown"
-            if extract_text and has_subtitles and OCR_AVAILABLE:
-                extracted_text = self.extract_text_from_region(subtitle_region)
-                if extracted_text:
-                    detected_language = self.detect_language(extracted_text)
-                    print(f"VideoContent[{self.device_name}]: Extracted subtitle text: '{extracted_text}' -> Language: {detected_language}")
-                else:
-                    # If no text extracted, then no real subtitles detected
-                    print(f"VideoContent[{self.device_name}]: Edge detection found {subtitle_edges} edges (threshold: {adaptive_threshold:.0f}) but OCR found no text - likely false positive")
-                    has_subtitles = False
-            elif extract_text and has_subtitles and not OCR_AVAILABLE:
-                # If OCR is not available but we want text extraction, we can't verify subtitles
-                print(f"VideoContent[{self.device_name}]: OCR not available - cannot verify subtitle text")
-                has_subtitles = False
-            
-            # Calculate confidence based on actual findings
-            if has_subtitles and extracted_text:
-                confidence = 0.9  # High confidence when we have both edges and text
-            elif has_subtitles and not extract_text:
-                confidence = 0.7  # Medium confidence when we have edges but didn't try OCR
-            elif has_errors:
-                confidence = 0.8  # High confidence for error detection
-            elif subtitle_edges > adaptive_threshold and not extracted_text and extract_text:
-                confidence = 0.2  # Low confidence when edges detected but no text found (likely false positive)
-            else:
-                confidence = 0.1  # Low confidence when nothing detected
-            
-            return {
-                'has_subtitles': has_subtitles,
-                'has_errors': has_errors,
-                'subtitle_edges': int(subtitle_edges),
-                'subtitle_threshold': float(adaptive_threshold),
-                'red_percentage': round(red_percentage, 2),
-                'error_threshold': 8.0,
-                'extracted_text': extracted_text,
-                'detected_language': detected_language,
-                'subtitle_region_size': f"{subtitle_region.shape[1]}x{subtitle_region.shape[0]}",
-                'image_size': f"{width}x{height}",
-                'confidence': confidence,
-                'ocr_available': OCR_AVAILABLE
-            }
+            result['has_errors'] = bool(red_percentage > 8.0)
+            result['red_percentage'] = round(red_percentage, 2)
+            result['error_threshold'] = 8.0
+            result['image_size'] = f"{width}x{height}"
             
         except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Subtitle region analysis error: {e}")
-            return {
-                'has_subtitles': False,
-                'has_errors': False,
-                'error': str(e),
-                'confidence': 0.0
-            }
+            result['has_errors'] = False
+            result['error'] = str(e)
+        
+        return result
 
     def detect_subtitles_batch(self, image_paths: List[str], extract_text: bool = True) -> Dict[str, Any]:
         """
@@ -599,115 +516,32 @@ class VideoContentHelpers:
         return overall_result
 
     # =============================================================================
-    # Text Extraction and Language Detection
+    # Text Extraction and Language Detection - Using Shared Utilities
     # =============================================================================
     
     def extract_text_from_region(self, region_image) -> str:
-        """Extract text from subtitle region using OCR"""
-        if not OCR_AVAILABLE:
-            return ''
-        
-        try:
-            # Convert to grayscale for better OCR
-            gray_region = cv2.cvtColor(region_image, cv2.COLOR_BGR2GRAY)
-            
-            # Enhance contrast for better text recognition
-            enhanced = cv2.convertScaleAbs(gray_region, alpha=2.0, beta=0)
-            
-            # Apply threshold to get better text
-            _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
-            
-            # Extract text using OCR
-            text = pytesseract.image_to_string(thresh, config='--psm 6')
-            text = text.strip()
-            
-            # Basic text validation
-            if len(text) < 3:
-                return ''
-            
-            # Clean and filter the text for better language detection
-            cleaned_text = self.clean_ocr_text(text)
-            
-            # Return cleaned text if it has meaningful content
-            if len(cleaned_text) >= 3:
-                return cleaned_text
-            else:
-                # If cleaned text is too short, return original for display but it won't be good for language detection
-                return text
-            
-        except Exception as e:
-            print(f"VideoContent[{self.device_name}]: Text extraction error: {e}")
-            return ''
+        """Extract text - uses shared utility"""
+        return extract_text_from_region(region_image)
 
     def clean_ocr_text(self, text: str) -> str:
-        """Clean OCR text by removing noise and keeping only meaningful words"""
-        if not text:
-            return ''
-        
-        # Remove newlines and extra whitespace
-        text = re.sub(r'\s+', ' ', text.replace('\n', ' ')).strip()
-        
-        # Split into words and filter out noise
-        words = text.split()
-        cleaned_words = []
-        
-        for word in words:
-            # Remove common OCR noise patterns
-            cleaned_word = re.sub(r'[^\w\s\'-]', '', word)  # Keep letters, numbers, apostrophes, hyphens
-            cleaned_word = cleaned_word.strip()
-            
-            # Keep words that are:
-            # - At least 2 characters long
-            # - Contain at least one letter
-            # - Are not just numbers or symbols
-            if (len(cleaned_word) >= 2 and 
-                re.search(r'[a-zA-ZÀ-ÿ]', cleaned_word) and  # Contains letters (including accented)
-                not cleaned_word.isdigit()):  # Not just numbers
-                cleaned_words.append(cleaned_word)
-        
-        return ' '.join(cleaned_words)
+        """Clean OCR text - uses shared utility"""
+        return clean_ocr_text(text)
 
     def detect_language(self, text: str) -> str:
-        """Detect language of extracted text"""
-        if not LANG_DETECT_AVAILABLE or not text:
-            return 'unknown'
+        """Detect language - uses shared utility with allowed languages mapping"""
+        detected_lang = detect_language(text)
         
-        try:
-            # Clean the text for better language detection
-            cleaned_text = self.clean_ocr_text(text)
-            
-            # Use cleaned text for detection, but fall back to original if cleaning removed too much
-            detection_text = cleaned_text if len(cleaned_text) >= 6 else text
-            
-            # Check word count - need at least 3 meaningful words for detection
-            words = detection_text.split()
-            if len(words) < 3:
-                return 'unknown'
-            
-            print(f"VideoContent[{self.device_name}]: Language detection - original: '{text[:50]}...', cleaned: '{detection_text[:50]}...', words: {len(words)}")
-            
-            # Detect language
-            detected_lang = detect(detection_text)
-            
-            # Only allow specific languages - map to full names
-            allowed_languages = {
-                'en': 'English',
-                'fr': 'French', 
-                'de': 'German',
-                'it': 'Italian',
-                'es': 'Spanish',
-                'pt': 'Portuguese',
-                'nl': 'Dutch'
-            }
-            
-            result = allowed_languages.get(detected_lang, 'unknown')
-            print(f"VideoContent[{self.device_name}]: Language detected: {detected_lang} -> {result}")
-            
-            return result
-            
-        except (LangDetectException, Exception) as e:
-            print(f"VideoContent[{self.device_name}]: Language detection error: {e}")
-            return 'unknown'
+        allowed_languages = {
+            'en': 'English',
+            'fr': 'French', 
+            'de': 'German',
+            'it': 'Italian',
+            'es': 'Spanish',
+            'pt': 'Portuguese',
+            'nl': 'Dutch'
+        }
+        
+        return allowed_languages.get(detected_lang, 'unknown')
 
     # =============================================================================
     # Motion Analysis from JSON Files
