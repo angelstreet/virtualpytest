@@ -46,6 +46,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const [isAtLiveEdge, setIsAtLiveEdge] = useState(true);
   const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [liveBufferSeconds, setLiveBufferSeconds] = useState(0);
+  const [liveSliderPosition, setLiveSliderPosition] = useState(150);
   
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
   
@@ -210,6 +211,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const value = Array.isArray(newValue) ? newValue[0] : newValue;
     const minAllowed = Math.max(0, 150 - liveBufferSeconds);
     const clampedValue = Math.max(value, minAllowed);
+    setLiveSliderPosition(clampedValue);
     archive.handleSliderChange(_event, clampedValue);
     setIsAtLiveEdge(clampedValue >= 145);
   }, [archive, liveBufferSeconds]);
@@ -230,9 +232,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       
       console.log(`[@EnhancedHLSPlayer] Live seek to ${value}s position (${secondsBehind}s behind live)`);
       video.currentTime = Math.max(bufferStart, Math.min(targetTime, bufferEnd));
+      setLiveSliderPosition(value);
       
       if (value >= 145) {
         video.currentTime = bufferEnd - 1;
+        setLiveSliderPosition(150);
       }
     }
     
@@ -299,6 +303,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         console.log('[@EnhancedHLSPlayer] Switching to live mode');
         setIsAtLiveEdge(true);
         setLiveBufferSeconds(0);
+        setLiveSliderPosition(150);
         seekToLive();
       } else {
         if (videoRef.current && videoRef.current.duration) {
@@ -450,6 +455,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           duration={duration}
           isAtLiveEdge={isAtLiveEdge}
           liveBufferSeconds={liveBufferSeconds}
+          liveSliderPosition={liveSliderPosition}
           globalCurrentTime={archive.globalCurrentTime}
           isDraggingSlider={archive.isDraggingSlider}
           dragSliderValue={archive.dragSliderValue}

@@ -10,6 +10,7 @@ interface TimelineOverlayProps {
   duration: number;
   isAtLiveEdge: boolean;
   liveBufferSeconds: number;
+  liveSliderPosition: number;
   globalCurrentTime: number;
   isDraggingSlider: boolean;
   dragSliderValue: number;
@@ -41,6 +42,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   duration,
   isAtLiveEdge,
   liveBufferSeconds,
+  liveSliderPosition,
   globalCurrentTime,
   isDraggingSlider,
   dragSliderValue,
@@ -57,14 +59,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   if (!show || duration <= 0) {
     return null;
   }
-
-  const getLiveSliderValue = () => {
-    const video = videoRef.current;
-    if (!video?.buffered.length) return 150;
-    const bufferEnd = video.buffered.end(video.buffered.length - 1);
-    const secondsBehind = bufferEnd - video.currentTime;
-    return 150 - secondsBehind;
-  };
 
   return (
     <Box
@@ -155,7 +149,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           )}
 
           <Slider
-            value={isLiveMode ? (isDraggingSlider ? dragSliderValue : getLiveSliderValue()) : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime))}
+            value={isLiveMode ? (isDraggingSlider ? dragSliderValue : liveSliderPosition) : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime))}
             min={isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0)}
             max={isLiveMode ? 150 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration)}
             step={isLiveMode ? 1 : undefined}
@@ -195,18 +189,15 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2 }}>  
         {isLiveMode ? (
           <>
-            <Typography variant="caption" sx={{ color: 'white', minWidth: '80px', fontSize: '0.7rem' }}>
-              {liveBufferSeconds < 10 ? `Buffering... ${Math.floor(liveBufferSeconds)}s` : `${Math.floor(liveBufferSeconds)}s / 150s`}
+            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
+              -2:30
             </Typography>
             
             <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
               {(() => {
-                if (liveBufferSeconds === 0) return 'Buffering...';
-                if (isAtLiveEdge) return 'LIVE';
-                const video = videoRef.current;
-                if (!video?.buffered.length) return 'LIVE';
-                const bufferEnd = video.buffered.end(video.buffered.length - 1);
-                const behindSeconds = Math.round(bufferEnd - video.currentTime);
+                if (liveBufferSeconds < 10) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
+                if (liveSliderPosition >= 145) return 'LIVE';
+                const behindSeconds = Math.round(150 - liveSliderPosition);
                 if (behindSeconds < 60) return `-${behindSeconds}s`;
                 const minutes = Math.floor(behindSeconds / 60);
                 const seconds = behindSeconds % 60;
