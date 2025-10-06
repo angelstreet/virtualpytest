@@ -307,9 +307,10 @@ const RecHostStreamModalContent: React.FC<{
       deviceId,
       // onReady callback
       () => {
-        console.log(`[@component:RecHostStreamModal] ✅ Fresh stream ready from hook - hiding overlay`);
+        console.log(`[@component:RecHostStreamModal] ✅ Fresh stream ready from hook - allowing player to reinitialize`);
         setShouldPausePlayer(false);
-        setIsQualitySwitching(false);
+        // Don't set isQualitySwitching=false here - let handlePlayerReady do it when player actually loads
+        console.log(`[@component:RecHostStreamModal] Waiting for player to report ready via onPlayerReady callback...`);
         // Clear the polling reference
         pollingIntervalRef.current = null;
       },
@@ -443,14 +444,14 @@ const RecHostStreamModalContent: React.FC<{
   // Handle player ready after quality switch
   const handlePlayerReady = useCallback(() => {
     console.log(`[@component:RecHostStreamModal] ===== PLAYER READY CALLBACK =====`);
-    console.log(`[@component:RecHostStreamModal] isQualitySwitching=${isQualitySwitching}`);
+    console.log(`[@component:RecHostStreamModal] isQualitySwitching=${isQualitySwitching}, shouldPausePlayer=${shouldPausePlayer}`);
     if (isQualitySwitching) {
-      console.log('[@component:RecHostStreamModal] Player reloaded successfully - hiding overlay');
+      console.log('[@component:RecHostStreamModal] Player reloaded successfully after quality switch - hiding overlay and resuming playback');
       setIsQualitySwitching(false);
     } else {
-      console.log('[@component:RecHostStreamModal] Player ready but not during quality switch - ignoring');
+      console.log('[@component:RecHostStreamModal] Player ready but not during quality switch - ignoring (normal initial load or other event)');
     }
-  }, [isQualitySwitching]);
+  }, [isQualitySwitching, shouldPausePlayer]);
 
   // Handle video time update for archive monitoring
   const handleVideoTimeUpdate = useCallback((time: number) => {
