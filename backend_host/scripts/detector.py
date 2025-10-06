@@ -250,10 +250,12 @@ def detect_issues(image_path, fps=5):
         timings['audio'] = (time.perf_counter() - start) * 1000
         timings['audio_cached'] = True
     
-    # TIMING: Subtitle Analysis (every 1 second only)
-    start = time.perf_counter()
-    subtitle_result = analyze_subtitles(image_path, fps)
-    timings['subtitles'] = (time.perf_counter() - start) * 1000 if subtitle_result else 0.0
+    # TIMING: Subtitle Analysis - DISABLED (was taking 1.9s per frame, causing massive backlog)
+    # start = time.perf_counter()
+    # subtitle_result = analyze_subtitles(image_path, fps)
+    # timings['subtitles'] = (time.perf_counter() - start) * 1000 if subtitle_result else 0.0
+    subtitle_result = None
+    timings['subtitles'] = 0.0
     
     # Get frame paths for R2 upload - freeze_details now contains thumbnail filenames
     freeze_diffs = []

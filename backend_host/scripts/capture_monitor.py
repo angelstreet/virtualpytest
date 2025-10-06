@@ -164,19 +164,19 @@ class InotifyFrameMonitor:
             # Analyze frame (blackscreen, freeze, audio) with performance timing
             detection_result = detect_issues(frame_path)
             
-            # Log performance metrics (every 25 frames = 5 seconds)
+            # Log performance metrics (every 5 frames = 1 second at 5fps)
             if detection_result and 'performance_ms' in detection_result:
                 frame_num = int(filename.split('_')[1].split('.')[0]) if '_' in filename else 0
-                if frame_num % 25 == 0:  # Log every 5 seconds
+                if frame_num % 5 == 0:  # Log every 1 second (every 5 frames)
                     perf = detection_result['performance_ms']
                     logger.info(f"[{capture_folder}] ⏱️  Performance: "
-                               f"image={perf.get('image_load', 0):.1f}ms, "
-                               f"blackscreen={perf.get('blackscreen', 0):.1f}ms, "
-                               f"freeze={perf.get('freeze', 0):.1f}ms, "
-                               f"macroblocks={perf.get('macroblocks', 0):.1f}ms, "
-                               f"audio={perf.get('audio', 0):.1f}ms{'(cached)' if perf.get('audio_cached') else ''}, "
-                               f"subtitles={perf.get('subtitles', 0):.1f}ms, "
-                               f"TOTAL={perf.get('total', 0):.1f}ms")
+                               f"img={perf.get('image_load', 0):.0f}ms "
+                               f"black={perf.get('blackscreen', 0):.0f}ms "
+                               f"freeze={perf.get('freeze', 0):.0f}ms "
+                               f"macro={perf.get('macroblocks', 0):.0f}ms "
+                               f"audio={perf.get('audio', 0):.0f}ms{'(cache)' if perf.get('audio_cached') else ''} "
+                               f"sub={perf.get('subtitles', 0):.0f}ms "
+                               f"→ TOTAL={perf.get('total', 0):.0f}ms")
             
             # Get device info to check if this is the host
             device_info = get_device_info_from_capture_folder(capture_folder)
