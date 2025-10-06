@@ -23,11 +23,7 @@ from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segment
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[logging.StreamHandler()]
-)
+# Logging will be configured in main() after cleanup_logs_on_startup()
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -347,6 +343,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 state = json.load(f)
         else:
             state = {'last_processed_segment': 0}
+            logger.info(f"[{capture_folder}] 🆕 First run - creating state file")
+            logger.info(f"[{capture_folder}] Looking for TS segments in: {stream_dir}")
         
         last_processed = state.get('last_processed_segment', 0)
         
@@ -366,7 +364,11 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         # Find available segments using fast os.scandir (no subprocess overhead, no timeout risk)
         segment_files = get_files_by_pattern(stream_dir, r'^segment_.*\.ts$')
         if not segment_files:
-            logger.debug(f"[{capture_folder}] No segment files found")
+            # Check if directory exists
+            if not os.path.exists(stream_dir):
+                logger.warning(f"[{capture_folder}] Stream directory does not exist: {stream_dir}")
+            else:
+                logger.debug(f"[{capture_folder}] No segment files found in: {stream_dir}")
             return False
         
         # Get all segments and find new ones to process
@@ -538,9 +540,19 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
         return False
 
 def main():
-    cleanup_logs_on_startup()  # Clean log on startup
+    # Clean log file first
+    cleanup_logs_on_startup()
+    
+    # Configure logging (systemd handles file output via StandardOutput directive)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.StreamHandler()],
+        force=True  # Override any existing configuration
+    )
     
     logger.info("Starting Transcript Accumulator (6s sampling, 24h circular buffer)...")
+    logger.info("Logging to: /tmp/transcript_accumulator.log (via systemd) and journalctl")
     logger.info("Using audio_transcription_utils (clean, no dependencies)...")
     
     try:
@@ -574,23 +586,37 @@ def main():
         logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
         
         logger.info(f"Monitoring {len(monitored_devices)} devices for transcripts (excluding host)")
-        logger.info("Processing strategy: Continuous loop, process when 10 new segments available")
+        logger.info(f"Processing strategy: Continuous loop, 1 sample = {SAMPLE_INTERVAL} TS segments merged")
+        
+        # Counter for periodic status logging
+        check_counter = 0
         
         while True:
             any_processed = False
+            check_counter += 1
+            
+            # Show periodic status every 30 checks (when idle)
+            show_status = (check_counter % 30 == 0)
             
             for i, capture_dir in enumerate(monitored_devices, 1):
                 capture_folder = get_capture_folder(capture_dir)
-                logger.debug(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
+                if show_status:
+                    logger.info(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
+                else:
+                    logger.debug(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
                 # Process 1 sample at a time to alternate between devices
                 # Returns True if processed, False if nothing to process
                 was_processed = update_transcript_buffer(capture_dir, max_samples_per_run=1)
                 if was_processed:
                     any_processed = True
+                    check_counter = 0  # Reset counter when processing happens
             
             # If no device had anything to process, sleep briefly to avoid CPU spin
             if not any_processed:
-                logger.debug(f"⏸️  No devices ready, sleeping 1s...")
+                if show_status:
+                    logger.info(f"⏸️  No devices ready (waiting for new TS segments), sleeping 1s... [check #{check_counter}]")
+                else:
+                    logger.debug(f"⏸️  No devices ready, sleeping 1s...")
                 time.sleep(1)
             
     except Exception as e:
