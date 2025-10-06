@@ -218,7 +218,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             
             <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
               {(() => {
-                if (liveBufferSeconds < 10) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
+                const isBuffering = videoRef.current && videoRef.current.readyState < 3;
+                if (liveBufferSeconds < 10 || isBuffering) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
                 if (liveSliderPosition >= 145) return 'LIVE';
                 const behindSeconds = Math.round(150 - liveSliderPosition);
                 if (behindSeconds < 60) return `-${behindSeconds}s`;
