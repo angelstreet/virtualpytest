@@ -47,6 +47,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [liveBufferSeconds, setLiveBufferSeconds] = useState(0);
   const [liveSliderPosition, setLiveSliderPosition] = useState(150);
+  const maxBufferSecondsRef = useRef<number>(0);
   
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
   
@@ -258,7 +259,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         const latency = bufferEnd - video.currentTime;
         const atLiveEdge = latency < 3;
         
-        setLiveBufferSeconds(totalBuffer);
+        // Track maximum buffer size (DVR window) - only increase, never decrease
+        // This represents the maximum seekable range, not the instantaneous buffered range
+        if (totalBuffer > maxBufferSecondsRef.current) {
+          maxBufferSecondsRef.current = totalBuffer;
+          setLiveBufferSeconds(totalBuffer);
+          console.log(`[@EnhancedHLSPlayer] Buffer growing: ${totalBuffer.toFixed(1)}s`);
+        }
         
         if (atLiveEdge !== isAtLiveEdge) {
           setIsAtLiveEdge(atLiveEdge);
@@ -304,6 +311,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         setIsAtLiveEdge(true);
         setLiveBufferSeconds(0);
         setLiveSliderPosition(150);
+        maxBufferSecondsRef.current = 0; // Reset buffer tracking for new live session
         seekToLive();
       } else {
         if (videoRef.current && videoRef.current.duration) {

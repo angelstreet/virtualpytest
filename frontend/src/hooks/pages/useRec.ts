@@ -220,7 +220,7 @@ export const useRec = (): UseRecReturn => {
     console.log(`[@hook:useRec] Starting manifest polling for fresh stream: ${manifestUrl}`);
     
     let pollCount = 0;
-    const maxPolls = 20; // 20 seconds max (1000ms * 20)
+    const maxPolls = 15; // 15 seconds max (1000ms * 15)
     const requiredSegments = 3; // Need at least 3 segments in manifest
     
     const pollingInterval = setInterval(async () => {

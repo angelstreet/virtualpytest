@@ -66,13 +66,21 @@ const RecHostStreamModalContent: React.FC<{
   const [currentQuality, setCurrentQuality] = useState<'low' | 'sd' | 'hd'>('low'); // Start with LOW quality
   const currentQualityRef = useRef<'low' | 'sd' | 'hd'>('low'); // Ref to track quality for cleanup
   const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
+  const isQualitySwitchingRef = useRef<boolean>(false); // Ref to track quality switching for callback race conditions
   const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0); // Track video currentTime for archive monitoring
   const pollingIntervalRef = useRef<NodeJS.Timeout | (() => void) | null>(null);
+  const qualitySwitchRetryCountRef = useRef<number>(0); // Track retry attempts for quality switch
   // Throttle frequent video time updates to avoid excessive re-renders
   const lastVideoTimeUpdateRef = useRef<number>(0);
   const lastVideoTimeValueRef = useRef<number>(-1);
   
+  // Helper function to update isQualitySwitching state and ref together
+  const setIsQualitySwitchingState = useCallback((value: boolean) => {
+    isQualitySwitchingRef.current = value;
+    setIsQualitySwitching(value);
+  }, []);
+
   // AI Disambiguation state and handlers
   const [disambiguationData, setDisambiguationData] = useState<any>(null);
   const [disambiguationResolve, setDisambiguationResolve] = useState<((selections: Record<string, string>, saveToDb: boolean) => void) | null>(null);
@@ -299,8 +307,8 @@ const RecHostStreamModalContent: React.FC<{
   }, []);
 
   // Poll for new stream availability using hook function
-  const pollForNewStream = useCallback((deviceId: string) => {
-    console.log(`[@component:RecHostStreamModal] Starting polling for new stream using hook function`);
+  const pollForNewStream = useCallback((deviceId: string, targetQuality: 'low' | 'sd' | 'hd') => {
+    console.log(`[@component:RecHostStreamModal] Starting polling for new stream using hook function (retry count: ${qualitySwitchRetryCountRef.current})`);
     
     const cleanup = pollForFreshStream(
       host,
@@ -308,6 +316,7 @@ const RecHostStreamModalContent: React.FC<{
       // onReady callback
       () => {
         console.log(`[@component:RecHostStreamModal] ✅ Fresh stream ready from hook - allowing player to reinitialize`);
+        qualitySwitchRetryCountRef.current = 0; // Reset retry count on success
         setShouldPausePlayer(false);
         // Don't set isQualitySwitching=false here - let handlePlayerReady do it when player actually loads
         console.log(`[@component:RecHostStreamModal] Waiting for player to report ready via onPlayerReady callback...`);
@@ -316,18 +325,60 @@ const RecHostStreamModalContent: React.FC<{
       },
       // onTimeout callback
       (error: string) => {
-        console.warn(`[@component:RecHostStreamModal] Polling timeout from hook - ${error}`);
-        setShouldPausePlayer(false);
-        setIsQualitySwitching(false);
-        showWarning(error);
-        // Clear the polling reference
-        pollingIntervalRef.current = null;
+        console.warn(`[@component:RecHostStreamModal] Polling timeout from hook - ${error} (retry count: ${qualitySwitchRetryCountRef.current})`);
+        
+        // Retry once if this is the first failure
+        if (qualitySwitchRetryCountRef.current === 0) {
+          qualitySwitchRetryCountRef.current = 1;
+          console.log(`[@component:RecHostStreamModal] 🔄 First timeout - retrying quality switch to ${targetQuality.toUpperCase()} (attempt 2/2)`);
+          pollingIntervalRef.current = null;
+          
+          // Retry the quality switch after a brief delay
+          setTimeout(async () => {
+            try {
+              const response = await fetch(buildServerUrl('/server/system/restartHostStreamService'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  host_name: host.host_name,
+                  device_id: deviceId,
+                  quality: targetQuality
+                })
+              });
+              
+              if (response.ok) {
+                console.log(`[@component:RecHostStreamModal] Retry stream restart initiated for ${targetQuality.toUpperCase()}`);
+                pollForNewStream(deviceId, targetQuality); // Start polling again
+              } else {
+                console.error(`[@component:RecHostStreamModal] Retry failed: ${response.status}`);
+                qualitySwitchRetryCountRef.current = 0;
+                setShouldPausePlayer(false);
+                setIsQualitySwitchingState(false);
+                showError(`Failed to switch to ${targetQuality.toUpperCase()} quality after retry`);
+              }
+            } catch (retryError) {
+              console.error('[@component:RecHostStreamModal] Retry error:', retryError);
+              qualitySwitchRetryCountRef.current = 0;
+              setShouldPausePlayer(false);
+              setIsQualitySwitchingState(false);
+              showError(`Failed to switch to ${targetQuality.toUpperCase()} quality after retry`);
+            }
+          }, 1000); // 1 second delay before retry
+        } else {
+          // Already retried once, give up
+          console.error(`[@component:RecHostStreamModal] ❌ Quality switch failed after retry - giving up`);
+          qualitySwitchRetryCountRef.current = 0;
+          setShouldPausePlayer(false);
+          setIsQualitySwitchingState(false);
+          showError(`Stream failed to reload after switching to ${targetQuality.toUpperCase()} quality. Please try again.`);
+          pollingIntervalRef.current = null;
+        }
       }
     );
     
     // Store cleanup function reference for manual cleanup if needed
     pollingIntervalRef.current = cleanup as any; // Store cleanup function instead of interval
-  }, [host, pollForFreshStream, showWarning]);
+  }, [host, pollForFreshStream, showWarning, showError]);
 
   // Common function to switch quality (reused for initial entry and button clicks)
   const switchQuality = useCallback(async (targetQuality: 'low' | 'sd' | 'hd', showLoadingOverlay: boolean = true, isInitialLoad: boolean = false) => {
@@ -352,7 +403,7 @@ const RecHostStreamModalContent: React.FC<{
     // Show loading overlay if requested
     if (showLoadingOverlay) {
       console.log(`[@component:RecHostStreamModal] Setting isQualitySwitching=true (showLoadingOverlay=${showLoadingOverlay})`);
-      setIsQualitySwitching(true); // Show loading overlay
+      setIsQualitySwitchingState(true); // Show loading overlay
       
       // Only pause existing video on manual quality switch, NOT on initial load
       if (!isInitialLoad) {
@@ -378,13 +429,13 @@ const RecHostStreamModalContent: React.FC<{
         console.log(`[@component:RecHostStreamModal] Stream restart initiated for ${targetQuality.toUpperCase()} - starting to poll for stabilized stream`);
         // Start polling for new stream if we showed the loading overlay
         if (showLoadingOverlay) {
-          pollForNewStream(device?.device_id || 'device1');
+          pollForNewStream(device?.device_id || 'device1', targetQuality);
         }
       } else {
         if (showLoadingOverlay) {
           showError(`Failed to switch to ${targetQuality.toUpperCase()} quality`);
           setShouldPausePlayer(false);
-          setIsQualitySwitching(false);
+          setIsQualitySwitchingState(false);
         }
         console.error(`[@component:RecHostStreamModal] Failed to switch quality: ${response.status}`);
       }
@@ -392,11 +443,11 @@ const RecHostStreamModalContent: React.FC<{
       if (showLoadingOverlay) {
         showError(`Failed to switch to ${targetQuality.toUpperCase()} quality`);
         setShouldPausePlayer(false);
-        setIsQualitySwitching(false);
+        setIsQualitySwitchingState(false);
       }
       console.error('[@component:RecHostStreamModal] Quality switch error:', error);
     }
-  }, [host.host_name, device?.device_id, showError, pollForNewStream]);
+  }, [host.host_name, device?.device_id, showError, pollForNewStream, setIsQualitySwitchingState]);
 
   // Modal lifecycle: LOW quality is always default (no restart needed on mount)
   useEffect(() => {
@@ -444,14 +495,14 @@ const RecHostStreamModalContent: React.FC<{
   // Handle player ready after quality switch
   const handlePlayerReady = useCallback(() => {
     console.log(`[@component:RecHostStreamModal] ===== PLAYER READY CALLBACK =====`);
-    console.log(`[@component:RecHostStreamModal] isQualitySwitching=${isQualitySwitching}, shouldPausePlayer=${shouldPausePlayer}`);
-    if (isQualitySwitching) {
+    console.log(`[@component:RecHostStreamModal] isQualitySwitching=${isQualitySwitchingRef.current}, shouldPausePlayer=${shouldPausePlayer}`);
+    if (isQualitySwitchingRef.current) {
       console.log('[@component:RecHostStreamModal] Player reloaded successfully after quality switch - hiding overlay and resuming playback');
-      setIsQualitySwitching(false);
+      setIsQualitySwitchingState(false);
     } else {
       console.log('[@component:RecHostStreamModal] Player ready but not during quality switch - ignoring (normal initial load or other event)');
     }
-  }, [isQualitySwitching, shouldPausePlayer]);
+  }, [shouldPausePlayer, setIsQualitySwitchingState]);
 
   // Handle video time update for archive monitoring
   const handleVideoTimeUpdate = useCallback((time: number) => {
@@ -550,7 +601,7 @@ const RecHostStreamModalContent: React.FC<{
     setRestartMode(false);
     // Quality revert handled by useEffect cleanup (reads from ref for accurate state)
     setShouldPausePlayer(false);
-    setIsQualitySwitching(false);
+    setIsQualitySwitchingState(false);
     onClose();
   }, [onClose]);
 
