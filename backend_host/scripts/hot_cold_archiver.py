@@ -518,33 +518,33 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
 
 def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
     """
-    Scan all hour directories and rebuild manifest from existing chunk files.
-    This ensures old chunks aren't lost when manifest is recreated.
+    Scan hour directories and rebuild manifest with CONTINUOUS chunks only.
+    Works backwards from current time - stops at first missing chunk.
     
-    Returns: Complete manifest dict with all discovered chunks
+    This ensures users get continuous playback experience without gaps.
+    
+    Returns: Manifest dict with only continuous chunks from now backwards
     """
     import json
     
     segments_dir = os.path.join(capture_dir, 'segments')
-    chunks = []
     
     if not os.path.isdir(segments_dir):
         return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
     
-    # Scan all hour directories (0-23)
+    # Build lookup map of all existing chunks: (hour, chunk_index) -> file_info
+    existing_chunks = {}
+    
     for hour in range(24):
         hour_dir = os.path.join(segments_dir, str(hour))
         if not os.path.isdir(hour_dir):
             continue
         
-        # Find all chunk MP4 files
         for mp4_file in Path(hour_dir).glob('chunk_10min_*.mp4'):
             try:
-                # Extract chunk index from filename
                 chunk_index = int(mp4_file.stem.replace('chunk_10min_', ''))
                 mp4_stat = mp4_file.stat()
                 
-                # Check for corresponding metadata
                 metadata_path = os.path.join(capture_dir, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
                 has_metadata = os.path.exists(metadata_path)
                 
@@ -557,7 +557,6 @@ def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
                     "has_metadata": has_metadata
                 }
                 
-                # Add metadata details if available
                 if has_metadata:
                     try:
                         with open(metadata_path) as f:
@@ -570,18 +569,50 @@ def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
                     except:
                         pass
                 
-                chunks.append(chunk_info)
+                existing_chunks[(hour, chunk_index)] = chunk_info
                 
             except Exception as e:
                 logger.warning(f"Error processing chunk file {mp4_file}: {e}")
     
-    # Build complete manifest
-    chunks.sort(key=lambda x: (x["hour"], x["chunk_index"]))
+    if not existing_chunks:
+        return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
+    
+    # Find continuous chunks working backwards from NOW
+    now = datetime.now()
+    current_hour = now.hour
+    # Estimate current chunk index based on minutes (0-5 for each 10min chunk)
+    current_chunk_index = now.minute // 10
+    
+    continuous_chunks = []
+    
+    # Convert to absolute position in 24h cycle (0-143)
+    current_position = current_hour * 6 + current_chunk_index
+    
+    # Work backwards checking each chunk in sequence
+    for step in range(144):  # 24 hours × 6 chunks = 144 total positions
+        # Calculate position going backwards, wrapping around 24h
+        position = (current_position - step) % 144
+        hour = position // 6
+        chunk_index = position % 6
+        
+        # Check if this chunk exists
+        if (hour, chunk_index) in existing_chunks:
+            continuous_chunks.append(existing_chunks[(hour, chunk_index)])
+        else:
+            # First gap found - stop here for continuous playback
+            logger.info(f"Continuous chunks stop at gap: hour={hour}, chunk_index={chunk_index} (found {len(continuous_chunks)} continuous chunks)")
+            break
+    
+    # Sort chunks chronologically (oldest first)
+    continuous_chunks.sort(key=lambda x: (x["hour"], x["chunk_index"]))
+    
     manifest = {
-        "chunks": chunks,
+        "chunks": continuous_chunks,
         "last_updated": time.time(),
-        "available_hours": sorted(list(set(c["hour"] for c in chunks))),
-        "total_chunks": len(chunks)
+        "available_hours": sorted(list(set(c["hour"] for c in continuous_chunks))),
+        "total_chunks": len(continuous_chunks),
+        "continuous_from": continuous_chunks[0] if continuous_chunks else None,
+        "continuous_to": continuous_chunks[-1] if continuous_chunks else None
     }
     
     return manifest
