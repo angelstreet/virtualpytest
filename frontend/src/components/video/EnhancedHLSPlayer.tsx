@@ -288,7 +288,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
 
   // Fetch archive metadata when entering archive mode
   // PURE MP4 ARCHITECTURE: No legacy TS segments
-  // Each hour has 6× 10-minute MP4 chunks (only for available hours)
+  // Check chunk-level availability for fast loading (skip missing chunks)
   useEffect(() => {
     if (!isLiveMode && !archiveMetadata && !isTransitioning && !isCheckingAvailability) {
       const initializeArchiveMode = async () => {
@@ -304,45 +304,79 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           return;
         }
         
-        // Generate metadata for available hours - 6× 10-minute chunks per hour
-        const metadata: ArchiveMetadata = {
-          total_segments: available.length * 6, // 6 chunks per available hour
-          total_duration_seconds: available.length * 3600, // Available hours duration
-          window_hours: 1, // 1 hour per folder
-          segments_per_window: 6, // 6× 10-minute chunks per hour
-          manifests: []
-        };
+        // Check individual chunk availability for available hours (fast parallel checks)
+        console.log('[@EnhancedHLSPlayer] Checking chunk-level availability...');
+        const chunkChecks: Promise<{ path: string; exists: boolean }>[] = [];
         
-        // Generate 6 MP4 chunk references per available hour
         for (const hour of available) {
           for (let chunk = 0; chunk < 6; chunk++) {
-            const globalIndex = metadata.manifests.length; // Sequential index for available chunks
-            metadata.manifests.push({
-              name: `${hour}/chunk_10min_${chunk}.mp4`, // 10-minute chunk path
-              window_index: hour, // Original hour (0-23)
-              chunk_index: chunk, // Chunk within hour (0-5)
-              start_segment: globalIndex, // Sequential global chunk index
-              end_segment: globalIndex, // Same (one chunk)
-              start_time_seconds: hour * 3600 + chunk * 600, // Absolute time from hour start
-              end_time_seconds: hour * 3600 + (chunk + 1) * 600, // Absolute time chunk end
-              duration_seconds: 600 // 10 minutes per chunk
-            });
+            const chunkPath = `${hour}/chunk_10min_${chunk}.mp4`;
+            const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${chunkPath}`);
+            
+            chunkChecks.push(
+              fetch(testUrl, { method: 'HEAD' })
+                .then(res => ({ path: chunkPath, exists: res.ok }))
+                .catch(() => ({ path: chunkPath, exists: false }))
+            );
           }
         }
         
-        console.log('[@EnhancedHLSPlayer] Generated MP4 archive metadata for available hours:', {
+        const chunkResults = await Promise.all(chunkChecks);
+        const availableChunkSet = new Set<string>();
+        
+        for (const { path, exists } of chunkResults) {
+          if (exists) {
+            availableChunkSet.add(path);
+          }
+        }
+        
+        console.log(`[@EnhancedHLSPlayer] Available chunks: ${availableChunkSet.size}/${chunkChecks.length}`, Array.from(availableChunkSet));
+        
+        // Generate metadata ONLY for available chunks (skip missing chunks)
+        const metadata: ArchiveMetadata = {
+          total_segments: availableChunkSet.size,
+          total_duration_seconds: availableChunkSet.size * 600, // 10 min per chunk
+          window_hours: 1,
+          segments_per_window: 6,
+          manifests: []
+        };
+        
+        // Generate manifest entries only for available chunks
+        let globalIndex = 0;
+        for (const hour of available) {
+          for (let chunk = 0; chunk < 6; chunk++) {
+            const chunkPath = `${hour}/chunk_10min_${chunk}.mp4`;
+            
+            // Only add to manifests if chunk exists
+            if (availableChunkSet.has(chunkPath)) {
+              metadata.manifests.push({
+                name: chunkPath,
+                window_index: hour,
+                chunk_index: chunk,
+                start_segment: globalIndex,
+                end_segment: globalIndex,
+                start_time_seconds: hour * 3600 + chunk * 600,
+                end_time_seconds: hour * 3600 + (chunk + 1) * 600,
+                duration_seconds: 600
+              });
+              globalIndex++;
+            }
+          }
+        }
+        
+        console.log('[@EnhancedHLSPlayer] Generated MP4 archive metadata (available chunks only):', {
           available_hours: available,
-          total_chunks: metadata.manifests.length,
-          chunks_per_hour: metadata.segments_per_window,
+          available_chunks: metadata.manifests.length,
           first_chunk: metadata.manifests[0]?.name,
           last_chunk: metadata.manifests[metadata.manifests.length - 1]?.name
         });
         setArchiveMetadata(metadata);
         
-        // Start at first available chunk (first available hour, chunk 0)
-        const firstHour = available[0];
-        console.log(`[@EnhancedHLSPlayer] Starting at first available hour: ${firstHour}/chunk_10min_0.mp4`);
-        setCurrentManifestIndex(0);
+        // Start at first available chunk
+        if (metadata.manifests.length > 0) {
+          console.log(`[@EnhancedHLSPlayer] Starting at first available chunk: ${metadata.manifests[0].name}`);
+          setCurrentManifestIndex(0);
+        }
       };
       
       initializeArchiveMode();
@@ -382,17 +416,33 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [isLiveMode, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId]);
 
-  // Generate hour marks for archive timeline (only for available hours)
+  // Generate hour marks for archive timeline (show all hours, grey out unavailable)
   const hourMarks = useMemo(() => {
-    if (!archiveMetadata || availableHours.length === 0) return [];
+    if (!archiveMetadata) return [];
     
     const marks = [];
-    for (const hour of availableHours) {
-      marks.push({
-        value: hour * 3600, // Use actual hour position in seconds
-        label: `${hour}h`
-      });
+    const allHoursSet = new Set(availableHours);
+    
+    // Get hour range from first to last available
+    if (availableHours.length > 0) {
+      const minHour = Math.min(...availableHours);
+      const maxHour = Math.max(...availableHours);
+      
+      // Show all hours in range
+      for (let hour = minHour; hour <= maxHour; hour++) {
+        const isAvailable = allHoursSet.has(hour);
+        marks.push({
+          value: hour * 3600,
+          label: `${hour}h`,
+          // Add custom styling for unavailable hours
+          style: isAvailable ? {} : {
+            color: 'rgba(255, 255, 255, 0.3)', // Grey out
+            opacity: 0.5
+          }
+        });
+      }
     }
+    
     return marks;
   }, [archiveMetadata, availableHours]);
 
@@ -464,6 +514,28 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       setIsPlaying(!isPlaying);
     }
   };
+
+  // Handle video errors (404 on missing chunks) - skip to next available chunk
+  const handleVideoError = useCallback(() => {
+    if (!videoRef.current || isLiveMode) return;
+    
+    const video = videoRef.current;
+    const error = video.error;
+    
+    if (error && archiveMetadata && archiveMetadata.manifests.length > 0) {
+      console.warn(`[@EnhancedHLSPlayer] Video error (${error.code}): ${error.message}`);
+      
+      // Skip to next available chunk (don't retry missing chunk)
+      const nextIndex = currentManifestIndex + 1;
+      if (nextIndex < archiveMetadata.manifests.length) {
+        console.log(`[@EnhancedHLSPlayer] Skipping to next available chunk (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
+        setCurrentManifestIndex(nextIndex);
+        setPreloadedNextManifest(false);
+      } else {
+        console.warn('[@EnhancedHLSPlayer] No more chunks available');
+      }
+    }
+  }, [isLiveMode, archiveMetadata, currentManifestIndex]);
 
   // Video event handlers for timeline and play state with manifest switching
   useEffect(() => {
@@ -562,19 +634,21 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('error', handleVideoError); // Handle 404 errors
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('error', handleVideoError);
       
       // Cleanup live edge timeout
       if (liveEdgeTimeoutRef.current) {
         clearTimeout(liveEdgeTimeoutRef.current);
       }
     };
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData, onVideoTimeUpdate]);
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData, onVideoTimeUpdate, handleVideoError]);
 
   // Handle mode changes and seeking
   useEffect(() => {
@@ -1068,48 +1142,120 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                 </IconButton>
               )}
               
-              {/* Timeline Slider */}
-              <Slider
-                value={(() => {
-                  if (isLiveMode) {
-                    // Live mode: show user's fixed position in buffer (0-1)
-                    return isDraggingSlider ? dragSliderValue : userBufferPosition;
-                  } else {
-                    // Archive mode: show time position
-                    return isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
-                  }
-                })()}
-                min={isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0)}
-                max={(() => {
-                  if (isLiveMode) {
-                    // Live mode: slider range is 0-1 (buffer position)
-                    return 1;
-                  } else {
-                    // Archive mode: slider range is actual hours (first to last available)
-                    return archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration;
-                  }
-                })()}
-                step={isLiveMode ? 0.01 : undefined} // Smooth steps for live buffer navigation
-                onChange={handleSliderChange}
-                onChangeCommitted={handleSeek}
-                marks={!isLiveMode ? hourMarks : []} // Only show hour marks in archive mode
-                sx={{ 
-                  color: isLiveMode ? 'error.main' : 'primary.main', // Red for live, blue for archive
+              {/* Current Position Label (Floating above slider) */}
+              <Box
+                sx={{
+                  position: 'relative',
                   flex: 1,
-                  '& .MuiSlider-thumb': {
-                    width: 16,
-                    height: 16,
-                  },
-                  '& .MuiSlider-track': {
-                    // Different track styling for live vs archive
-                    backgroundColor: isLiveMode ? 'error.main' : 'primary.main'
-                  },
-                  '& .MuiSlider-markLabel': {
-                    fontSize: '0.7rem',
-                    color: 'rgba(255,255,255,0.7)'
-                  }
                 }}
-              />
+              >
+                {/* Floating time label */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: 25, // Position above the slider
+                    left: (() => {
+                      const currentValue = isLiveMode 
+                        ? (isDraggingSlider ? dragSliderValue : userBufferPosition)
+                        : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime));
+                      const minValue = isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0);
+                      const maxValue = isLiveMode ? 1 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
+                      
+                      // Calculate percentage position (accounting for play/pause button offset in archive mode)
+                      const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
+                      return `calc(${percentage}% - 25px)`; // -25px to center the label
+                    })(),
+                    transform: 'translateX(0)',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: 'inline-block',
+                      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                      color: 'white',
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: 1,
+                      fontWeight: 600,
+                      fontSize: '0.75rem',
+                      border: isLiveMode ? '1px solid rgba(244, 67, 54, 0.8)' : '1px solid rgba(33, 150, 243, 0.8)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {(() => {
+                      if (isLiveMode) {
+                        // Live mode: show LIVE or seconds behind
+                        if (isAtLiveEdge) {
+                          return 'LIVE';
+                        } else {
+                          const totalBufferSeconds = 150;
+                          const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
+                          if (behindSeconds < 60) {
+                            return `-${behindSeconds}s`;
+                          } else {
+                            const minutes = Math.floor(behindSeconds / 60);
+                            const seconds = behindSeconds % 60;
+                            return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                          }
+                        }
+                      } else {
+                        // Archive mode: show HHhMM format
+                        const timeSeconds = isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
+                        const hours = Math.floor(timeSeconds / 3600);
+                        const minutes = Math.floor((timeSeconds % 3600) / 60);
+                        return `${hours}h${minutes.toString().padStart(2, '0')}`;
+                      }
+                    })()}
+                  </Typography>
+                </Box>
+
+                {/* Timeline Slider */}
+                <Slider
+                  value={(() => {
+                    if (isLiveMode) {
+                      // Live mode: show user's fixed position in buffer (0-1)
+                      return isDraggingSlider ? dragSliderValue : userBufferPosition;
+                    } else {
+                      // Archive mode: show time position
+                      return isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
+                    }
+                  })()}
+                  min={isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0)}
+                  max={(() => {
+                    if (isLiveMode) {
+                      // Live mode: slider range is 0-1 (buffer position)
+                      return 1;
+                    } else {
+                      // Archive mode: slider range is actual hours (first to last available)
+                      return archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration;
+                    }
+                  })()}
+                  step={isLiveMode ? 0.01 : undefined} // Smooth steps for live buffer navigation
+                  onChange={handleSliderChange}
+                  onChangeCommitted={handleSeek}
+                  marks={!isLiveMode ? hourMarks : []} // Only show hour marks in archive mode
+                  sx={{ 
+                    color: isLiveMode ? 'error.main' : 'primary.main', // Red for live, blue for archive
+                    flex: 1,
+                    '& .MuiSlider-thumb': {
+                      width: 16,
+                      height: 16,
+                    },
+                    '& .MuiSlider-track': {
+                      // Different track styling for live vs archive
+                      backgroundColor: isLiveMode ? 'error.main' : 'primary.main'
+                    },
+                    '& .MuiSlider-markLabel': {
+                      fontSize: '0.7rem',
+                      color: 'rgba(255,255,255,0.7)'
+                    }
+                  }}
+                />
+              </Box>
             </Box>
             
             {/* Time display row */}
