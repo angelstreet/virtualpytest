@@ -27,7 +27,6 @@ import { DeviceDataProvider } from '../contexts/device/DeviceDataContext';
 import { useHeatmap } from '../hooks/useHeatmap';
 import { useHostManager } from '../hooks/useHostManager';
 import { Host, Device } from '../types/common/Host_Types';
-import { buildFreezeThumbnailUrls } from '../utils/buildUrlUtils';
 
 const HeatmapContent: React.FC = () => {
   const historyRef = useRef<HeatMapHistoryRef>(null);
@@ -72,15 +71,14 @@ const HeatmapContent: React.FC = () => {
     if (deviceData?.analysis_json?.freeze) {
       const analysisJson = deviceData.analysis_json;
       const r2Images = analysisJson.r2_images;
-      const r2BaseUrl = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
       
-      // Extract capture folder from image_url (e.g., "capture2" from ".../stream/capture2/captures/...")
-      const captureFolder = deviceData.image_url?.match(/\/stream\/([^/]+)\//)?.[1] || deviceData.device_id;
+      // JSON is the source of truth - only use r2_images.thumbnail_urls
+      const thumbnailUrls = r2Images?.thumbnail_urls || [];
       
-      // Use R2 URLs if available, otherwise build them predictably from timestamp
-      const thumbnailUrls = r2Images?.thumbnail_urls?.length > 0
-        ? r2Images.thumbnail_urls
-        : buildFreezeThumbnailUrls(r2BaseUrl, captureFolder, analysisJson.timestamp);
+      if (thumbnailUrls.length === 0) {
+        console.warn('[@Heatmap] No R2 thumbnail URLs available for freeze - images not uploaded yet');
+        return;
+      }
       
       setFreezeModalData({
         hostName: deviceData.host_name || '',

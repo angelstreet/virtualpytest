@@ -339,18 +339,6 @@ export const buildCloudImageUrl = (
   return `${baseUrl.replace(/\/$/, '')}/${bucketName}/${cleanPath}`;
 };
 
-/**
- * Build R2 freeze thumbnail URLs - matches incident_manager.py logic exactly
- * @param r2BaseUrl - R2 base URL
- * @param captureFolder - Capture folder name (capture1, capture2, etc.)
- * @param timestamp - ISO timestamp string
- */
-export const buildFreezeThumbnailUrls = (r2BaseUrl: string, captureFolder: string, timestamp: string): string[] => {
-  const timestampStr = timestamp.replace(/:/g, '').replace(/-/g, '').replace(/T/g, '').replace(/\./g, '').substring(0, 14);
-  const baseR2Path = `alerts/freeze/${captureFolder}/${timestampStr}`;
-  return [0, 1, 2].map(i => `${r2BaseUrl}/${baseR2Path}/thumb_${i}.jpg`);
-};
-
 // =====================================================
 // MULTI-DEVICE HELPER FUNCTIONS (Frontend)
 // =====================================================

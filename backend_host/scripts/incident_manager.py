@@ -343,22 +343,9 @@ class IncidentManager:
                         # Issue has persisted for 5+ minutes, report to DB
                         logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB NOW")
                         
-                        # Upload thumbnails for ALL incident types (freeze, audio_loss, blackscreen)
-                        if detection_result:
-                            last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
-                            if last_3_thumbnails:
-                                logger.info(f"[{capture_folder}] Uploading {len(last_3_thumbnails)} thumbnails to R2 for {issue_type} incident...")
-                                current_timestamp = datetime.now().isoformat()
-                                r2_urls = self.upload_freeze_frames_to_r2(
-                                    [], last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
-                                )
-                                if r2_urls:
-                                    detection_result['r2_images'] = r2_urls
-                                    logger.info(f"[{capture_folder}] 📤 Uploaded thumbnails for {issue_type} (confirmed incident)")
-                                else:
-                                    logger.warning(f"[{capture_folder}] ⚠️ R2 upload failed for {issue_type} thumbnails")
-                            else:
-                                logger.warning(f"[{capture_folder}] ⚠️ No thumbnails found for {issue_type} incident")
+                        # DON'T upload again - freeze thumbnails already uploaded immediately when first detected
+                        # r2_images should already be in detection_result from capture_monitor
+                        logger.info(f"[{capture_folder}] Using r2_images from initial freeze detection (no duplicate upload)")
                         
                         logger.info(f"[{capture_folder}] Calling create_incident for {issue_type}...")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
@@ -421,14 +408,14 @@ class IncidentManager:
         
         return transitions  # Return all transitions that occurred
 
-    def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails=None, device_id=None, timestamp=None, thumbnails_only=False):
-        """Upload freeze incident frames to R2 storage
+    def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails=None, device_id=None, time_key=None, thumbnails_only=False):
+        """Upload freeze incident frames to R2 storage with HHMM-based naming
         
         Args:
             last_3_filenames: List of capture image paths
             last_3_thumbnails: List of pre-generated thumbnail paths (from FFmpeg)
-            device_id: Device identifier
-            timestamp: Timestamp string
+            device_id: Device identifier (capture folder name)
+            time_key: HHMM time key (e.g., "1300" for 13:00)
             thumbnails_only: If True, only upload thumbnails. Default False
         """
         try:
@@ -440,16 +427,16 @@ class IncidentManager:
                 logger.warning(f"[{device_id}] R2 uploader not available, skipping frame upload")
                 return None
             
-            # Create R2 folder path for this incident: alerts/freeze/{device_id}/{timestamp}/
-            timestamp_str = timestamp.replace(':', '').replace('-', '').replace('T', '').replace('.', '')[:14]
-            base_r2_path = f"alerts/freeze/{device_id}/{timestamp_str}"
+            # Create R2 folder path: alerts/freeze/{capture_folder}/{HHMM}_thumb_{i}.jpg
+            # Simple, predictable naming that frontend can construct from any timestamp
+            base_r2_path = f"alerts/freeze/{device_id}"
             
             r2_results = {
                 'original_urls': [],
                 'thumbnail_urls': [],
                 'original_r2_paths': [],
                 'thumbnail_r2_paths': [],
-                'timestamp': timestamp
+                'time_key': time_key
             }
             
             # Upload original frames (last 3) - SKIP if thumbnails_only
@@ -461,8 +448,8 @@ class IncidentManager:
                         logger.warning(f"[{device_id}] Original frame file not found: {filename}")
                         continue
                     
-                    # R2 path: alerts/freeze/device1/20250124123456/frame_0.jpg
-                    r2_path = f"{base_r2_path}/frame_{i}.jpg"
+                    # R2 path: alerts/freeze/capture2/1300_frame_0.jpg
+                    r2_path = f"{base_r2_path}/{time_key}_frame_{i}.jpg"
                     
                     file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
                     upload_result = uploader.upload_files(file_mappings)
@@ -491,8 +478,8 @@ class IncidentManager:
                         logger.warning(f"[{device_id}] Thumbnail file not found: {thumbnail_path}")
                         continue
                     
-                    # R2 path: alerts/freeze/device1/20250124123456/thumb_0.jpg
-                    r2_path = f"{base_r2_path}/thumb_{i}.jpg"
+                    # R2 path: alerts/freeze/capture2/1300_thumb_0.jpg
+                    r2_path = f"{base_r2_path}/{time_key}_thumb_{i}.jpg"
                     
                     file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
                     upload_result = uploader.upload_files(file_mappings)

@@ -177,8 +177,9 @@ class InotifyFrameMonitor:
                     cached_r2_urls = device_state.get('freeze_r2_urls')
                     
                     if not cached_r2_urls:
-                        # First freeze frame - upload to R2
-                        current_timestamp = datetime.now().isoformat()
+                        # First freeze frame - upload to R2 with HHMM-based naming
+                        now = datetime.now()
+                        time_key = f"{now.hour:02d}{now.minute:02d}"  # "1300"
                         
                         # Generate thumbnail paths (FFmpeg creates these in thumbnails/ directory)
                         last_3_thumbnails = []
@@ -194,9 +195,9 @@ class InotifyFrameMonitor:
                                     logger.warning(f"[{capture_folder}] Thumbnail not found: {thumbnail_path}, using original")
                                     last_3_thumbnails.append(capture_path)  # Fallback to original
                         
-                        logger.info(f"[{capture_folder}] 🆕 Freeze confirmed (3 matching frames) - uploading {len(last_3_thumbnails)} thumbnails to R2")
+                        logger.info(f"[{capture_folder}] 🆕 Freeze confirmed (3 matching frames) - uploading {len(last_3_thumbnails)} thumbnails to R2 with time_key={time_key}")
                         r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                            last_3_captures, last_3_thumbnails, capture_folder, current_timestamp, thumbnails_only=True
+                            last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
                         )
                         if r2_urls and r2_urls.get('thumbnail_urls'):
                             # Cache R2 URLs in device state for reuse during this freeze event
