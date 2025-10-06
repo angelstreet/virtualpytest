@@ -220,7 +220,8 @@ def store_system_metrics(host_name: str, metrics_data: Dict[str, Any]) -> bool:
             'download_mbps': metrics_data.get('download_mbps'),
             'upload_mbps': metrics_data.get('upload_mbps'),
             'speedtest_last_run': metrics_data.get('speedtest_last_run'),
-            'speedtest_age_seconds': metrics_data.get('speedtest_age_seconds')
+            'speedtest_age_seconds': metrics_data.get('speedtest_age_seconds'),
+            'disk_write_mb_per_sec': metrics_data.get('disk_write_mb_per_sec', 0)
         }
         
         # Add server_name only if it's provided in metrics_data (server-specific)
