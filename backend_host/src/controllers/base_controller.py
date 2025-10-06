@@ -351,7 +351,7 @@ class FFmpegCaptureController(AVControllerInterface):
             try:
                 # Get 20 newest JPG files (not thumbnails) - MUCH faster than os.listdir() with many files
                 result = subprocess.run(
-                    'ls -t | grep "^capture_.*\\.jpg$" | grep -v "_thumbnail\\.jpg$" | head -n 20',
+                    'ls -t | grep "^capture_.*\\.jpg$" | grep -v "_thumbnail\\.jpg$" | head -n 15',
                     shell=True, cwd=captures_path, capture_output=True, text=True, timeout=2
                 )
                 
