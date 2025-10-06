@@ -567,20 +567,10 @@ class ZapExecutor:
                             print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
                             
                             # Add motion analysis images to context.screenshot_paths for batch upload
-                            import shutil
                             for motion_img in motion_images:
                                 image_path = motion_img['path']
-                                
-                                # Ensure file exists in cold (copy from hot if needed)
-                                if not os.path.exists(image_path):
-                                    hot_path = image_path.replace('/captures/', '/hot/captures/')
-                                    if os.path.exists(hot_path):
-                                        os.makedirs(os.path.dirname(image_path), mode=0o777, exist_ok=True)
-                                        shutil.copy2(hot_path, image_path)
-                                        print(f"💾 [ZapExecutor] Copied to cold: {motion_img['filename']}")
-                                
                                 if image_path not in context.screenshot_paths:
-                                    context.add_screenshot(image_path)
+                                    context.add_screenshot(image_path)  # Auto-copies to cold
                                     print(f"🔍 [ZapExecutor] DEBUG: Added motion image: {motion_img['filename']}")
                         else:
                             print(f"🔍 [ZapExecutor] DEBUG: No motion_images created - motion_analysis_images not added")
@@ -683,7 +673,6 @@ class ZapExecutor:
                 # Add zapping images to R2 upload queue with full paths
                 av_controller = self.device._get_controller('av')
                 if av_controller and hasattr(av_controller, 'video_capture_path'):
-                    import shutil
                     capture_folder = f"{av_controller.video_capture_path}/captures"
                     
                     zapping_filenames = [
@@ -699,16 +688,8 @@ class ZapExecutor:
                     for filename in zapping_filenames:
                         if filename:
                             full_path = f"{capture_folder}/{filename}"
-                            
-                            # Ensure file exists in cold (copy from hot if needed)
-                            if not os.path.exists(full_path):
-                                hot_path = full_path.replace('/captures/', '/hot/captures/')
-                                if os.path.exists(hot_path):
-                                    os.makedirs(os.path.dirname(full_path), mode=0o777, exist_ok=True)
-                                    shutil.copy2(hot_path, full_path)
-                            
                             if full_path not in context.screenshot_paths:
-                                context.add_screenshot(full_path)
+                                context.add_screenshot(full_path)  # Auto-copies to cold
                                 print(f"🔍 [ZapExecutor] DEBUG: Added zapping image: {filename}")
             
     
@@ -1060,8 +1041,6 @@ class ZapExecutor:
             if not hasattr(context, 'screenshot_paths'):
                 context.screenshot_paths = []
             
-            import shutil
-            
             # Get the captures subfolder where images are stored
             captures_folder = f"{capture_folder}/captures"
             
@@ -1078,16 +1057,8 @@ class ZapExecutor:
             for image_filename in key_images:
                 if image_filename and validate_capture_filename(image_filename):
                     image_path = f"{captures_folder}/{image_filename}"
-                    
-                    # Ensure file exists in cold (copy from hot if needed)
-                    if not os.path.exists(image_path):
-                        hot_path = image_path.replace('/captures/', '/hot/captures/')
-                        if os.path.exists(hot_path):
-                            os.makedirs(os.path.dirname(image_path), mode=0o777, exist_ok=True)
-                            shutil.copy2(hot_path, image_path)
-                    
                     if image_path not in context.screenshot_paths:
-                        context.add_screenshot(image_path)
+                        context.add_screenshot(image_path)  # Auto-copies to cold
                         print(f"🖼️ [ZapExecutor] Added zapping image: {image_filename}")
             
             # Also add debug images for debugging failed zap detection
@@ -1096,16 +1067,8 @@ class ZapExecutor:
                 for debug_filename in debug_images:
                     if debug_filename and validate_capture_filename(debug_filename):
                         debug_path = f"{captures_folder}/{debug_filename}"
-                        
-                        # Ensure file exists in cold (copy from hot if needed)
-                        if not os.path.exists(debug_path):
-                            hot_path = debug_path.replace('/captures/', '/hot/captures/')
-                            if os.path.exists(hot_path):
-                                os.makedirs(os.path.dirname(debug_path), mode=0o777, exist_ok=True)
-                                shutil.copy2(hot_path, debug_path)
-                        
                         if debug_path not in context.screenshot_paths:
-                            context.add_screenshot(debug_path)
+                            context.add_screenshot(debug_path)  # Auto-copies to cold
                             print(f"🔧 [ZapExecutor] Added debug image: {debug_filename}")
             
         except Exception as e:
@@ -1132,21 +1095,12 @@ class ZapExecutor:
                 print(f"🖼️ [ZapExecutor] Created {detection_method} failure mosaic: {os.path.basename(mosaic_path)}")
                 print(f"   📊 Mosaic contains {len(screenshots)} analyzed images")
                 
-                # Ensure mosaic is in cold storage
-                import shutil
-                if '/hot/' in mosaic_path:
-                    cold_mosaic = mosaic_path.replace('/hot/', '/')
-                    os.makedirs(os.path.dirname(cold_mosaic), mode=0o777, exist_ok=True)
-                    if not os.path.exists(cold_mosaic):
-                        shutil.copy2(mosaic_path, cold_mosaic)
-                    mosaic_path = cold_mosaic
-                
                 # Add mosaic to screenshot collection for R2 upload
                 if not hasattr(context, 'screenshot_paths'):
                     context.screenshot_paths = []
                 
                 if mosaic_path not in context.screenshot_paths:
-                    context.add_screenshot(mosaic_path)
+                    context.add_screenshot(mosaic_path)  # Auto-copies to cold
                 
                 return mosaic_path
             else:
@@ -1183,7 +1137,6 @@ class ZapExecutor:
                 analysis_data_chronological = list(reversed(data_result['analysis_data']))
                 
                 # Add the corresponding image files to screenshot collection
-                import shutil
                 for i, file_item in enumerate(analysis_data_chronological, 1):
                     image_filename = file_item['filename']  # e.g., "capture_0001.jpg"
                     image_path = f"{capture_folder}/{image_filename}"
@@ -1192,15 +1145,8 @@ class ZapExecutor:
                         print(f"🔍 [ZapExecutor] Skipped motion analysis image with invalid format: {image_filename}")
                         continue
                     
-                    # Ensure file exists in cold (copy from hot if needed)
-                    if not os.path.exists(image_path):
-                        hot_path = image_path.replace('/captures/', '/hot/captures/')
-                        if os.path.exists(hot_path):
-                            os.makedirs(os.path.dirname(image_path), mode=0o777, exist_ok=True)
-                            shutil.copy2(hot_path, image_path)
-                    
                     if image_path not in context.screenshot_paths:
-                        context.add_screenshot(image_path)
+                        context.add_screenshot(image_path)  # Auto-copies to cold
                         print(f"🖼️ [ZapExecutor] Added motion analysis image {i}/3: {image_filename}")
                     
                     # Store image info for result (for thumbnails in reports)

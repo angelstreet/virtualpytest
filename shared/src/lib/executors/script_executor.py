@@ -88,8 +88,17 @@ class ScriptExecutionContext:
         return self.step_counter
     
     def add_screenshot(self, screenshot_path: str):
-        """Store screenshot path - NO upload (batch upload at script end)"""
+        """Store screenshot path - auto-copy to cold if in hot storage"""
         if screenshot_path:
+            # Auto-copy from hot to cold if needed (makes images survive 1 hour)
+            if '/hot/' in screenshot_path and not screenshot_path.startswith('https://'):
+                import shutil
+                cold_path = screenshot_path.replace('/hot/', '/')
+                if not os.path.exists(cold_path):
+                    os.makedirs(os.path.dirname(cold_path), mode=0o777, exist_ok=True)
+                    shutil.copy2(screenshot_path, cold_path)
+                screenshot_path = cold_path
+            
             self.screenshot_paths.append(screenshot_path)
     
     def upload_screenshots_to_r2(self) -> None:
