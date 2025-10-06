@@ -444,7 +444,7 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 total_size = sum(os.path.getsize(f) for f in ts_file_paths if os.path.exists(f))
                 
                 # Transcribe merged segments
-                logger.info(f"[{capture_folder}] 🎬 seg#{segment_num} (hour{hour_window}): Merged {len(segment_batch)} TS files ({total_size} bytes)")
+                logger.info(f"[{capture_folder}] 🎬 seg#{segment_num} (hour{hour}): Merged {len(segment_batch)} TS files ({total_size} bytes)")
                 result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
                 
                 transcript = result.get('transcript', '').strip()
@@ -468,8 +468,8 @@ def update_transcript_buffer(capture_dir, max_samples_per_run=1):
                 
                 # Compact logging
                 if transcript:
-                    # logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
-                    # logger.info(f"[{capture_folder}] 💬 '{transcript}'")
+                    logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
+                    logger.info(f"[{capture_folder}] 💬 '{transcript}'")
                 elif skipped:
                     logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
                 else:
