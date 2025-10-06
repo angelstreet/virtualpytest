@@ -88,21 +88,39 @@ class ScriptExecutionContext:
         return self.step_counter
 
     def add_screenshot(self, screenshot_path: str):
-        """Add a screenshot to the collection and copy to cold storage for later upload"""
-        if screenshot_path:
-            # If screenshot is in hot storage, copy to cold immediately (for script upload)
-            if '/hot/captures/' in screenshot_path:
-                import shutil
-                cold_path = screenshot_path.replace('/hot/captures/', '/captures/')
-                try:
-                    os.makedirs(os.path.dirname(cold_path), exist_ok=True)
-                    shutil.copy2(screenshot_path, cold_path)
-                    self.screenshot_paths.append(cold_path)  # Store cold path for upload
-                except Exception as e:
-                    print(f"⚠️ Failed to copy screenshot to cold storage: {e}")
-                    self.screenshot_paths.append(screenshot_path)  # Fallback to hot path
+        """Add screenshot to collection - uploads to R2 if local path"""
+        if not screenshot_path:
+            return
+        
+        # If already R2 URL, store as-is
+        if screenshot_path.startswith('https://'):
+            self.screenshot_paths.append(screenshot_path)
+            return
+        
+        # Local path - upload to R2 immediately
+        try:
+            from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            
+            uploader = get_cloudflare_utils()
+            filename = os.path.basename(screenshot_path)
+            device_id = self.selected_device.device_id if hasattr(self, 'selected_device') else 'unknown'
+            remote_path = f"script-screenshots/{device_id}/{filename}"
+            
+            upload_result = uploader.upload_files([{'local_path': screenshot_path, 'remote_path': remote_path}])
+            
+            if upload_result['uploaded_files']:
+                r2_url = upload_result['uploaded_files'][0]['url']
+                self.screenshot_paths.append(r2_url)
+                print(f"📤 [Context] Uploaded screenshot: {r2_url}")
             else:
+                # Upload failed, store local path as fallback
                 self.screenshot_paths.append(screenshot_path)
+                print(f"⚠️ [Context] Screenshot upload failed, using local path")
+        except Exception as e:
+            # Upload failed, store local path as fallback
+            self.screenshot_paths.append(screenshot_path)
+            print(f"⚠️ [Context] Screenshot upload error: {e}, using local path")
     
     def start_stdout_capture(self):
         """Start capturing stdout for log upload"""
@@ -570,13 +588,17 @@ class ScriptExecutor:
                     nav_context['script_context'] = 'script'
                     print(f"📝 [{self.script_name}] Script context populated in device navigation_context")
             
-            # 5. Capture initial screenshot using device AV controller
+            # 5. Capture initial screenshot and upload immediately
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
             try:
-                av_controller = context.selected_device._get_controller('av')
-                initial_screenshot = av_controller.take_screenshot()
-                context.add_screenshot(initial_screenshot)
-                print(f"✅ [{self.script_name}] Initial screenshot captured")
+                from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+                result = capture_and_upload_screenshot(context.selected_device, "initial_state", "script")
+                if result['success'] and result['screenshot_url']:
+                    context.add_screenshot(result['screenshot_url'])  # Store R2 URL
+                    print(f"✅ [{self.script_name}] Initial screenshot uploaded: {result['screenshot_url']}")
+                elif result['screenshot_path']:
+                    context.add_screenshot(result['screenshot_path'])  # Fallback to local path
+                    print(f"✅ [{self.script_name}] Initial screenshot captured (upload failed)")
             except Exception as e:
                 print(f"⚠️ [{self.script_name}] Screenshot failed: {e}, continuing...")
             
@@ -677,13 +699,17 @@ class ScriptExecutor:
             # Store in context for use in cleanup_and_exit
             context.baseline_execution_time_ms = actual_execution_time_ms
             
-            # Capture final screenshot using device AV controller
+            # Capture final screenshot and upload immediately
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
             try:
-                av_controller = context.selected_device._get_controller('av')
-                final_screenshot = av_controller.take_screenshot()
-                context.add_screenshot(final_screenshot)
-                print(f"✅ [{self.script_name}] Final screenshot captured")
+                from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
+                result = capture_and_upload_screenshot(context.selected_device, "final_state", "script")
+                if result['success'] and result['screenshot_url']:
+                    context.add_screenshot(result['screenshot_url'])  # Store R2 URL
+                    print(f"✅ [{self.script_name}] Final screenshot uploaded: {result['screenshot_url']}")
+                elif result['screenshot_path']:
+                    context.add_screenshot(result['screenshot_path'])  # Fallback to local path
+                    print(f"✅ [{self.script_name}] Final screenshot captured (upload failed)")
             except Exception as e:
                 print(f"⚠️ [{self.script_name}] Screenshot failed: {e}")
             

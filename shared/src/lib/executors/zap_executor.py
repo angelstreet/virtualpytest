@@ -567,13 +567,11 @@ class ZapExecutor:
                             print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
                             
                             # Add motion analysis images to context.screenshot_paths for R2 upload
-                            if not hasattr(context, 'screenshot_paths'):
-                                context.screenshot_paths = []
                             for motion_img in motion_images:
                                 image_path = motion_img['path']
                                 if image_path not in context.screenshot_paths:
-                                    context.screenshot_paths.append(image_path)
-                                    print(f"🔍 [ZapExecutor] DEBUG: Added motion image to R2 upload queue: {motion_img['filename']}")
+                                    context.add_screenshot(image_path)  # Upload immediately
+                                    print(f"🔍 [ZapExecutor] DEBUG: Added motion image: {motion_img['filename']}")
                         else:
                             print(f"🔍 [ZapExecutor] DEBUG: No motion_images created - motion_analysis_images not added")
                     else:
@@ -688,8 +686,8 @@ class ZapExecutor:
                         if filename:
                             full_path = f"{capture_folder}/{filename}"
                             if full_path not in context.screenshot_paths:
-                                context.screenshot_paths.append(full_path)
-                                print(f"🔍 [ZapExecutor] DEBUG: Added zapping image to R2 upload queue: {filename}")
+                                context.add_screenshot(full_path)  # Upload immediately
+                                print(f"🔍 [ZapExecutor] DEBUG: Added zapping image: {filename}")
             
     
 
@@ -1057,8 +1055,8 @@ class ZapExecutor:
                 if image_filename and validate_capture_filename(image_filename):
                     image_path = f"{captures_folder}/{image_filename}"
                     if image_path not in context.screenshot_paths:
-                        context.screenshot_paths.append(image_path)
-                        print(f"🖼️ [ZapExecutor] Added zapping image for R2 upload: {image_filename}")
+                        context.add_screenshot(image_path)  # Upload immediately
+                        print(f"🖼️ [ZapExecutor] Added zapping image: {image_filename}")
             
             # Also add debug images for debugging failed zap detection
             debug_images = zapping_result.get('debug_images', [])
@@ -1067,8 +1065,8 @@ class ZapExecutor:
                     if debug_filename and validate_capture_filename(debug_filename):
                         debug_path = f"{captures_folder}/{debug_filename}"
                         if debug_path not in context.screenshot_paths:
-                            context.screenshot_paths.append(debug_path)
-                            print(f"🔧 [ZapExecutor] Added debug image for R2 upload: {debug_filename}")
+                            context.add_screenshot(debug_path)  # Upload immediately
+                            print(f"🔧 [ZapExecutor] Added debug image: {debug_filename}")
             
         except Exception as e:
             print(f"⚠️ [ZapExecutor] Failed to add zapping images to screenshot collection: {e}")
@@ -1099,7 +1097,7 @@ class ZapExecutor:
                     context.screenshot_paths = []
                 
                 if mosaic_path not in context.screenshot_paths:
-                    context.screenshot_paths.append(mosaic_path)
+                    context.add_screenshot(mosaic_path)  # Upload immediately
                 
                 return mosaic_path
             else:
@@ -1145,8 +1143,8 @@ class ZapExecutor:
                         continue
                     
                     if image_path not in context.screenshot_paths:
-                        context.screenshot_paths.append(image_path)
-                        print(f"🖼️ [ZapExecutor] Added motion analysis image {i}/3 for R2 upload: {image_filename}")
+                        context.add_screenshot(image_path)  # Upload immediately
+                        print(f"🖼️ [ZapExecutor] Added motion analysis image {i}/3: {image_filename}")
                     
                     # Store image info for result (for thumbnails in reports)
                     motion_images.append({

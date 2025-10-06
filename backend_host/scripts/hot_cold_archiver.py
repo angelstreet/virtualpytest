@@ -360,16 +360,15 @@ def cleanup_hot_files(capture_dir: str, file_type: str, pattern: str) -> int:
 
 
 def rotate_hot_captures(capture_dir: str) -> int:
-    """Delete captures older than 1 hour (gives scripts time to upload)"""
-    hot_dir = os.path.join(capture_dir, 'hot', 'captures') if is_ram_mode(capture_dir) else os.path.join(capture_dir, 'captures')
-    if not os.path.isdir(hot_dir): return 0
+    """
+    Rotate hot captures - keep only newest 300 files, DELETE old ones.
     
-    current_time, deleted = time.time(), 0
-    for f in Path(hot_dir).glob('capture_*[0-9].jpg'):
-        if f.is_file() and (current_time - f.stat().st_mtime) > 3600:  # 1 hour
-            try: os.remove(f); deleted += 1
-            except: pass
-    return deleted
+    Captures don't go to cold storage (pushed to cloud), so we just delete old files.
+    This keeps RAM usage under control (60s buffer = 74MB worst case for video content).
+    
+    Returns: Number of files deleted
+    """
+    return cleanup_hot_files(capture_dir, 'captures', 'capture_*[0-9].jpg')
 
 
 def clean_old_thumbnails(capture_dir: str) -> int:

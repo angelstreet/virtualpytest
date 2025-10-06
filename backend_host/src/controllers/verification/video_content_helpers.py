@@ -14,6 +14,7 @@ about video artifacts, subtitles, and visual content patterns.
 
 import os
 import time
+import subprocess
 import cv2
 import numpy as np
 import re
