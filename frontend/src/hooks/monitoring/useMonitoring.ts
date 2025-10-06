@@ -33,7 +33,7 @@ interface UseMonitoringReturn {
   errorTrendData: ErrorTrendData | null;
   isLoading: boolean;
   analysisTimestamp: string | null;
-  requestAIAnalysisForFrame: (imageUrl: string, sequence: string) => Promise<void>;
+  requestAIAnalysisForFrame: (imageUrl: string, sequence: string) => void; // Fire-and-forget (non-blocking)
   isAIAnalyzing: boolean;
 }
 
@@ -152,16 +152,27 @@ export const useMonitoring = ({
     return { subtitleAnalysis, languageMenuAnalysis, aiDescription };
   }, [host, device?.device_id]);
 
-  const requestAIAnalysisForFrame = useCallback(async (imageUrl: string, sequence: string) => {
+  // Non-blocking AI analysis trigger (fire-and-forget pattern like polling loop)
+  const requestAIAnalysisForFrame = useCallback((imageUrl: string, sequence: string) => {
+    console.log('[useMonitoring] 🤖 Manual AI analysis triggered (non-blocking):', sequence);
+    
+    // Show indicator but don't block UI
     setIsAIAnalyzing(true);
-    try {
-      const aiResults = await analyzeFrameAIAsync(imageUrl, sequence);
-      setAnalysisHistory(prev => prev.map((s, idx) => idx === prev.length - 1 ? { ...s, ...aiResults } : s));
-    } catch (error) {
-      console.error('[useMonitoring] AI analysis failed:', error);
-    } finally {
+    
+    // Fire-and-forget - same pattern as automatic polling (line 328)
+    analyzeFrameAIAsync(imageUrl, sequence).then(aiResults => {
+      setAnalysisHistory(prev => 
+        prev.map(s => 
+          s.analysis?.filename?.includes(sequence)
+            ? { ...s, ...aiResults }
+            : s
+        )
+      );
       setIsAIAnalyzing(false);
-    }
+    }).catch(error => {
+      console.warn('[useMonitoring] Manual AI analysis failed:', error);
+      setIsAIAnalyzing(false);
+    });
   }, [analyzeFrameAIAsync]);
 
   // Fetch latest JSON file and derive image URL
