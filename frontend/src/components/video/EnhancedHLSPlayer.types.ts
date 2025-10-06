@@ -59,6 +59,7 @@ export interface EnhancedHLSPlayerProps {
   isLiveMode?: boolean;
   quality?: 'low' | 'sd' | 'hd';
   shouldPause?: boolean;
+  videoElementRef?: React.RefObject<HTMLVideoElement>;
   onPlayerReady?: () => void;
   onVideoTimeUpdate?: (time: number) => void;
   onVideoPause?: () => void;

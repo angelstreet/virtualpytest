@@ -59,6 +59,9 @@ interface RecStreamContainerProps {
   onVideoTimeUpdate: (time: number) => void;
   onVideoPause?: () => void;
   
+  // Shared video ref
+  sharedVideoRef?: React.RefObject<HTMLVideoElement>;
+  
   // Monitoring data props (for overlay on live video)
   monitoringAnalysis?: MonitoringAnalysis;
   subtitleAnalysis?: SubtitleAnalysis;
@@ -91,7 +94,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   onPlayerReady,
   onVideoTimeUpdate,
   onVideoPause,
-  // Monitoring props
+  sharedVideoRef,
   monitoringAnalysis,
   subtitleAnalysis,
   languageMenuAnalysis,
@@ -207,10 +210,10 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             isLiveMode={isLiveMode}
             quality={currentQuality}
             shouldPause={shouldPausePlayer}
+            videoElementRef={sharedVideoRef}
             onPlayerReady={onPlayerReady}
             onVideoTimeUpdate={onVideoTimeUpdate}
             onVideoPause={onVideoPause}
-            // Monitoring overlay props
             monitoringMode={monitoringMode}
             monitoringAnalysis={monitoringAnalysis}
             subtitleAnalysis={subtitleAnalysis}

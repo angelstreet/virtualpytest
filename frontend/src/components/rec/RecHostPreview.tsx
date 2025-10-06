@@ -29,11 +29,12 @@ interface RecHostPreviewProps {
   isEditMode?: boolean;
   isSelected?: boolean;
   onSelectionChange?: (selected: boolean) => void;
-  deviceFlags?: string[]; // Pass flags from parent
+  deviceFlags?: string[];
   onOpenModal?: () => void;
   isAnyModalOpen?: boolean;
   isSelectedForModal?: boolean;
   onStreamActiveChange?: (isActive: boolean) => void;
+  sharedVideoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 // Simple mobile detection function to match MonitoringPlayer logic
@@ -50,11 +51,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   isEditMode = false,
   isSelected = false,
   onSelectionChange,
-  deviceFlags = [], // Default to empty array
+  deviceFlags = [],
   onOpenModal,
   isAnyModalOpen,
   isSelectedForModal,
   onStreamActiveChange,
+  sharedVideoRef,
 }) => {
   useEffect(() => {
     console.log('[@RecHostPreview] mounted', {
@@ -349,7 +351,8 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     model={device?.device_model || 'unknown'}
                     layoutConfig={layoutConfig}
                     isExpanded={false}
-                    muted={true} // Always muted in preview
+                    muted={true}
+                    videoElementRef={sharedVideoRef}
                   />
                 {/* Pause overlay when modal is open */}
                 {isPausingForModal && (

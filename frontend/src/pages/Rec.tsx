@@ -26,7 +26,6 @@ import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 
 // Optimized memoization with deep comparison to prevent re-renders from object reference changes
 const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
-  // Quick reference check first - if references are same, no need for deep comparison
   if (
     prevProps.host === nextProps.host &&
     prevProps.device === nextProps.device &&
@@ -36,9 +35,10 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.onSelectionChange === nextProps.onSelectionChange &&
     prevProps.onOpenModal === nextProps.onOpenModal &&
     prevProps.isAnyModalOpen === nextProps.isAnyModalOpen &&
-    prevProps.isSelectedForModal === nextProps.isSelectedForModal
+    prevProps.isSelectedForModal === nextProps.isSelectedForModal &&
+    prevProps.sharedVideoRef === nextProps.sharedVideoRef
   ) {
-    return true; // Props haven't changed, skip re-render
+    return true;
   }
 
   // Log what changed for debugging
@@ -59,7 +59,6 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     console.log(`[@Rec] Card ${deviceKey} props changed:`, changes);
   }
 
-  // Deep comparison when references differ
   const areEqual = (
     prevProps.host.host_name === nextProps.host.host_name &&
     prevProps.device?.device_id === nextProps.device?.device_id &&
@@ -71,10 +70,11 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.onSelectionChange === nextProps.onSelectionChange &&
     prevProps.onOpenModal === nextProps.onOpenModal &&
     prevProps.isAnyModalOpen === nextProps.isAnyModalOpen &&
-    prevProps.isSelectedForModal === nextProps.isSelectedForModal // Handler should be stable now
+    prevProps.isSelectedForModal === nextProps.isSelectedForModal &&
+    prevProps.sharedVideoRef === nextProps.sharedVideoRef
   );
   
-  return areEqual; // Return true to skip re-render, false to re-render
+  return areEqual;
 });
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
@@ -106,6 +106,16 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   // Modal state
   const [modalHost, setModalHost] = useState<Host | null>(null);
   const [modalDevice, setModalDevice] = useState<Device | null>(null);
+
+  // Shared video refs (one per device) - preserves buffer across preview/modal
+  const sharedVideoRefs = useRef<Map<string, React.RefObject<HTMLVideoElement>>>(new Map());
+
+  const getOrCreateVideoRef = useCallback((deviceKey: string) => {
+    if (!sharedVideoRefs.current.has(deviceKey)) {
+      sharedVideoRefs.current.set(deviceKey, React.createRef<HTMLVideoElement>());
+    }
+    return sharedVideoRefs.current.get(deviceKey)!;
+  }, []);
 
   const openModal = useCallback((host: Host, device: Device) => {
     setModalHost(host);
@@ -737,6 +747,7 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
                   onOpenModal={() => openModal(host, device)}
                   isAnyModalOpen={!!modalHost}
                   isSelectedForModal={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id}
+                  sharedVideoRef={getOrCreateVideoRef(deviceKey)}
                 />
               </Grid>
             );
@@ -749,6 +760,7 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
           device={modalDevice}
           isOpen={true}
           onClose={closeModal}
+          sharedVideoRef={getOrCreateVideoRef(`${modalHost.host_name}-${modalDevice.device_id}`)}
         />
       )}
     </Box>

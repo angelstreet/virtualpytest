@@ -19,10 +19,11 @@ import { RecPanelManager } from './RecPanelManager';
 
 interface RecHostStreamModalProps {
   host: Host;
-  device?: Device; // Optional device for device-specific operations
+  device?: Device;
   isOpen: boolean;
   onClose: () => void;
   showRemoteByDefault?: boolean;
+  sharedVideoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
@@ -31,8 +32,8 @@ export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
   isOpen,
   onClose,
   showRemoteByDefault = false,
+  sharedVideoRef,
 }) => {
-  // Early return if not open - prevents hooks from running
   if (!isOpen || !host) return null;
 
   return (
@@ -42,18 +43,19 @@ export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
         device={device}
         onClose={onClose}
         showRemoteByDefault={showRemoteByDefault}
+        sharedVideoRef={sharedVideoRef}
       />
     </VNCStateProvider>
   );
 };
 
-// Separate component that only mounts when modal is open
 const RecHostStreamModalContent: React.FC<{
   host: Host;
   device?: Device;
   onClose: () => void;
   showRemoteByDefault: boolean;
-}> = ({ host, device, onClose, showRemoteByDefault }) => {
+  sharedVideoRef?: React.RefObject<HTMLVideoElement>;
+}> = ({ host, device, onClose, showRemoteByDefault, sharedVideoRef }) => {
   // Local state
   const [showRemote, setShowRemote] = useState<boolean>(showRemoteByDefault);
   const [showWeb, setShowWeb] = useState<boolean>(false);
@@ -674,16 +676,15 @@ const RecHostStreamModalContent: React.FC<{
             position: 'relative',
           }}
         >
-          {/* Stream Container */}
           <RecStreamContainer
-                host={host}
+            host={host}
             device={device}
-                    streamUrl={streamUrl || undefined}
+            streamUrl={streamUrl || undefined}
             isLoadingUrl={isLoadingUrl}
             urlError={urlError}
             monitoringMode={monitoringMode}
             restartMode={restartMode}
-                    isLiveMode={isLiveMode}
+            isLiveMode={isLiveMode}
             isControlActive={isControlActive}
             currentQuality={currentQuality}
             isQualitySwitching={isQualitySwitching}
@@ -697,7 +698,7 @@ const RecHostStreamModalContent: React.FC<{
             onPlayerReady={handlePlayerReady}
             onVideoTimeUpdate={handleVideoTimeUpdate}
             onVideoPause={handleVideoPause}
-            // Monitoring data props
+            sharedVideoRef={sharedVideoRef}
             monitoringAnalysis={monitoringData.latestAnalysis || undefined}
             subtitleAnalysis={monitoringData.latestSubtitleAnalysis || undefined}
             languageMenuAnalysis={monitoringData.latestLanguageMenuAnalysis || undefined}

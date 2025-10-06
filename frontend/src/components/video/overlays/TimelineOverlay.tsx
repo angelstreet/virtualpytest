@@ -165,17 +165,18 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 16,
               },
               '& .MuiSlider-track': {
-                backgroundColor: isLiveMode ? 'error.main' : 'primary.main'
+                backgroundColor: isLiveMode ? undefined : 'primary.main',
+                background: isLiveMode ? `linear-gradient(to right, 
+                  rgba(255,255,255,0.15) 0%, 
+                  rgba(255,255,255,0.15) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%, 
+                  rgba(244,67,54,0.8) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
+                  rgba(244,67,54,0.8) 100%
+                )` : undefined,
+                height: 6,
               },
               '& .MuiSlider-rail': {
-                backgroundColor: 'rgba(255,255,255,0.15)',
+                backgroundColor: 'rgba(255,255,255,0.05)',
                 height: 6,
-                background: isLiveMode ? `linear-gradient(to right, 
-                  rgba(255,255,255,0.1) 0%, 
-                  rgba(255,255,255,0.1) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%, 
-                  rgba(244,67,54,0.3) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
-                  rgba(244,67,54,0.3) 100%
-                )` : undefined
               },
               '& .MuiSlider-markLabel': {
                 fontSize: '0.7rem',

@@ -23,6 +23,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isLiveMode: externalIsLiveMode,
   quality = 'sd',
   shouldPause = false,
+  videoElementRef,
   onPlayerReady,
   onVideoTimeUpdate,
   onVideoPause,
@@ -36,7 +37,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   analysisTimestamp,
   isAIAnalyzing = false,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const internalVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = videoElementRef || internalVideoRef;
   const [internalIsLiveMode] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
