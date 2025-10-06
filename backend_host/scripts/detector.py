@@ -7,9 +7,12 @@ import os
 import sys
 import subprocess
 import time
+import logging
 from datetime import datetime
 
 from shared.src.lib.utils.storage_path_utils import is_ram_mode
+
+logger = logging.getLogger('capture_monitor')
 from shared.src.lib.utils.image_utils import (
     load_and_downscale_image,
     analyze_blackscreen,
@@ -22,6 +25,7 @@ from shared.src.lib.utils.image_utils import (
 _audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
 _latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_time)}
 _subtitle_cache = {}  # {image_path: (mtime, subtitle_result)}
+_audio_result_cache = {}  # {capture_dir: (has_audio, volume, db)} - Last known audio state per device
 
 def analyze_audio(capture_dir):
     """Check if audio is present in latest segment - OPTIMIZED with caching"""
@@ -191,8 +195,33 @@ def detect_issues(image_path, fps=5):
     else:
         macroblocks, quality_score = analyze_macroblocks(image_path)
     
-    # Audio Analysis
-    has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
+    # Audio Analysis - Sample every 5 seconds to reduce FFmpeg calls (80% reduction)
+    # Extract frame number from filename (capture_000001234.jpg)
+    try:
+        filename = os.path.basename(image_path)
+        frame_number = int(filename.split('_')[1].split('.')[0])
+    except:
+        frame_number = 0
+    
+    # Check audio every 5 seconds: every 25 frames at 5fps, every 10 frames at 2fps
+    audio_check_interval = fps * 5  # 5 seconds worth of frames
+    should_check_audio = (frame_number % audio_check_interval == 0)
+    
+    global _audio_result_cache
+    
+    if should_check_audio:
+        # Actually check audio (calls FFmpeg)
+        has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
+        # Cache the result for use by other frames
+        _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+    else:
+        # Use cached result from last audio check (no FFmpeg call)
+        if capture_dir in _audio_result_cache:
+            has_audio, volume_percentage, mean_volume_db = _audio_result_cache[capture_dir]
+        else:
+            # First frame or no cache yet - do one check to initialize
+            has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
+            _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
     
     # Subtitle Analysis (every 1 second only)
     subtitle_result = analyze_subtitles(image_path, fps)
