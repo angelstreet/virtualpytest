@@ -1,84 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Box, Slider, Typography, IconButton, Select, MenuItem, CircularProgress } from '@mui/material';
-import { PlayArrow, Pause, Translate, AutoAwesome } from '@mui/icons-material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
 import { MonitoringOverlay } from '../monitoring/MonitoringOverlay';
 import { useStream } from '../../hooks/controller';
-import { Host } from '../../types/common/Host_Types';
-import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 import { buildStreamUrl } from '../../utils/buildUrlUtils';
-
-interface ArchiveMetadata {
-  total_segments: number; // Deprecated (for backward compatibility)
-  total_duration_seconds: number;
-  window_hours: number;
-  segments_per_window: number; // Now represents chunks per hour (6)
-  manifests: Array<{
-    name: string; // MP4 chunk path: "0/chunk_10min_0.mp4"
-    window_index: number; // Hour (0-23)
-    chunk_index: number; // Chunk within hour (0-5)
-    start_segment: number; // Deprecated (for backward compatibility)
-    end_segment: number; // Deprecated (for backward compatibility)
-    start_time_seconds: number; // Absolute time from midnight
-    end_time_seconds: number; // Absolute time from midnight
-    duration_seconds: number; // Always 600 (10 minutes)
-  }>;
-}
-
-interface TranscriptSegment {
-  segment_num: number;
-  relative_seconds: number;
-  language: string;
-  transcript: string;
-  enhanced_transcript?: string; // AI-enhanced transcript (preferred if available)
-  confidence: number;
-  manifest_window: number;
-  translations?: Record<string, string>; // On-demand translations
-}
-
-interface TranscriptData {
-  capture_folder: string;
-  sample_interval_seconds: number;
-  total_duration_seconds: number;
-  segments: TranscriptSegment[];
-  last_update: string;
-  total_samples: number;
-}
-
-interface ErrorTrendData {
-  blackscreenConsecutive: number;
-  freezeConsecutive: number;
-  audioLossConsecutive: number;
-  macroblocksConsecutive: number;
-  hasWarning: boolean;
-  hasError: boolean;
-}
-
-interface EnhancedHLSPlayerProps {
-  deviceId: string;
-  hostName: string;
-  host?: Host; // Host object for useStream hook
-  streamUrl?: string; // Server-provided stream URL
-  width?: string | number;
-  height?: string | number;
-  muted?: boolean; // Add muted prop for audio control
-  className?: string;
-  isLiveMode?: boolean;
-  quality?: 'low' | 'sd' | 'hd'; // Stream quality - forces reload when changed
-  shouldPause?: boolean; // Pause player to show last frame (during quality transition)
-  onPlayerReady?: () => void; // Callback when player loads successfully
-  onVideoTimeUpdate?: (time: number) => void; // Callback for video time updates (archive monitoring)
-  
-  // Monitoring mode props (overlay on live video)
-  monitoringMode?: boolean;
-  monitoringAnalysis?: MonitoringAnalysis | null;
-  subtitleAnalysis?: SubtitleAnalysis | null;
-  languageMenuAnalysis?: LanguageMenuAnalysis | null;
-  aiDescription?: string | null;
-  errorTrendData?: ErrorTrendData | null;
-  analysisTimestamp?: string | null;
-  isAIAnalyzing?: boolean;
-}
+import { EnhancedHLSPlayerProps } from './EnhancedHLSPlayer.types';
+import { useArchivePlayer } from './hooks/useArchivePlayer';
+import { useTranscriptPlayer } from './hooks/useTranscriptPlayer';
+import { TimelineOverlay } from './overlays/TimelineOverlay';
+import { TranscriptOverlay } from './overlays/TranscriptOverlay';
+import { LanguageSelector } from './overlays/LanguageSelector';
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   deviceId,
@@ -87,15 +18,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   streamUrl: providedStreamUrl,
   width = '100%',
   height = 400,
-  muted = true, // Default to muted for autoplay compliance
+  muted = true,
   className,
   isLiveMode: externalIsLiveMode,
-  quality = 'sd', // Default to SD quality
-  shouldPause = false, // Default to not paused
+  quality = 'sd',
+  shouldPause = false,
   onPlayerReady,
   onVideoTimeUpdate,
   
-  // Monitoring props
   monitoringMode = false,
   monitoringAnalysis,
   subtitleAnalysis,
@@ -106,47 +36,21 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isAIAnalyzing = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [internalIsLiveMode] = useState(true); // Start in live mode
+  const [internalIsLiveMode] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true); // Start playing automatically
-  const [isTransitioning, setIsTransitioning] = useState(false); // Mode transition state
-  const qualityTimestampRef = useRef<number>(Date.now()); // Track timestamp for quality changes
-  
-  // Archive metadata and manifest switching state
-  const [archiveMetadata, setArchiveMetadata] = useState<ArchiveMetadata | null>(null);
-  const [currentManifestIndex, setCurrentManifestIndex] = useState(0);
-  const [globalCurrentTime, setGlobalCurrentTime] = useState(0); // Time across all manifests
-  const [preloadedNextManifest, setPreloadedNextManifest] = useState(false);
-  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
-  const [dragSliderValue, setDragSliderValue] = useState(0);
-  const [isAtLiveEdge, setIsAtLiveEdge] = useState(true); // Start as true for live mode
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const qualityTimestampRef = useRef<number>(Date.now());
+  const [isAtLiveEdge, setIsAtLiveEdge] = useState(true);
   const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [userBufferPosition, setUserBufferPosition] = useState(1.0);
   
-  // Live stream buffer timeline state - FIXED WINDOW approach
-  const [userBufferPosition, setUserBufferPosition] = useState(1.0); // User's chosen position (0 = oldest, 1 = live edge)
-  // Using fixed 150-second buffer (150 segments) for timeline display
-  
-  // Available hours tracking and caching
-  const [availableHours, setAvailableHours] = useState<number[]>([]);
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
-  
-  // Transcript overlay state
-  const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
-  const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
-  
-  // Translation state
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
-  const [isTranslating, setIsTranslating] = useState(false);
-  
-  // Use external control if provided, otherwise use internal state
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
   
-  // Track previous mode to detect changes
   const prevIsLiveMode = useRef(isLiveMode);
   const prevQuality = useRef(quality);
   
-  // Update timestamp ref when quality changes
   useEffect(() => {
     if (prevQuality.current !== quality) {
       console.log(`[@EnhancedHLSPlayer] Quality changed: ${prevQuality.current} -> ${quality}`);
@@ -155,88 +59,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [quality]);
 
-  // Generate cache key for available hours
-  const getCacheKey = useCallback(() => {
-    return `available-hours-${hostName}-${deviceId}`;
-  }, [hostName, deviceId]);
-
-  // Check if a specific hour has MP4 files available
-  const checkHourAvailability = useCallback(async (hour: number, baseUrl: string): Promise<boolean> => {
-    try {
-      // Check if first 10-minute chunk exists (6 chunks per hour: 0-5)
-      const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/chunk_10min_0.mp4`);
-      
-      const response = await fetch(testUrl, { method: 'HEAD' });
-      return response.ok;
-    } catch (error) {
-      console.log(`[@EnhancedHLSPlayer] Hour ${hour} not available:`, error);
-      return false;
-    }
-  }, []);
-
-  // Check all hours for availability and cache results
-  const checkAvailableHours = useCallback(async (baseUrl: string): Promise<number[]> => {
-    const cacheKey = getCacheKey();
-    
-    // Try to get from cache first
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const cachedHours = JSON.parse(cached);
-        const cacheTime = localStorage.getItem(`${cacheKey}-time`);
-        const isRecent = cacheTime && (Date.now() - parseInt(cacheTime)) < 5 * 60 * 1000; // 5 minutes
-        
-        if (isRecent && Array.isArray(cachedHours) && cachedHours.length > 0) {
-          console.log(`[@EnhancedHLSPlayer] Using cached available hours:`, cachedHours);
-          return cachedHours;
-        }
-      } catch (e) {
-        console.warn('[@EnhancedHLSPlayer] Failed to parse cached hours:', e);
-      }
-    }
-
-    setIsCheckingAvailability(true);
-    console.log('[@EnhancedHLSPlayer] Checking available hours (all 24 hours)...');
-    
-    const available: number[] = [];
-    const currentHour = new Date().getHours();
-    
-    // Check all 24 hours for complete archive visibility
-    const hoursToCheck = [];
-    for (let i = 0; i < 24; i++) {
-      const hourToCheck = (currentHour - i + 24) % 24;
-      hoursToCheck.push(hourToCheck);
-    }
-    
-    // Check hours in parallel for faster loading - simplified to 1 MP4 per hour
-    const checks = hoursToCheck.map(hour => 
-      checkHourAvailability(hour, baseUrl).then(isAvailable => ({ hour, isAvailable }))
-    );
-    
-    const results = await Promise.all(checks);
-    
-    for (const { hour, isAvailable } of results) {
-      if (isAvailable) {
-        available.push(hour);
-      }
-    }
-    
-    // Sort available hours
-    available.sort((a, b) => a - b);
-    
-    console.log(`[@EnhancedHLSPlayer] Available hours found (24h rolling):`, available);
-    
-    // Cache results
-    if (available.length > 0) {
-      localStorage.setItem(cacheKey, JSON.stringify(available));
-      localStorage.setItem(`${cacheKey}-time`, Date.now().toString());
-    }
-    
-    setIsCheckingAvailability(false);
-    return available;
-  }, [getCacheKey, checkHourAvailability]);
-
-  // Use useStream hook when host is provided and no streamUrl is given (same as RecHostPreview)
   const { streamUrl: hookStreamUrl } = useStream({
     host: host || {
       host_name: hostName,
@@ -260,201 +82,52 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     device_id: deviceId,
   });
 
-  // Detect mode changes and trigger transition
+  const archive = useArchivePlayer({
+    isLiveMode,
+    providedStreamUrl,
+    hookStreamUrl: hookStreamUrl || undefined,
+    host,
+    deviceId,
+    isTransitioning,
+    videoRef,
+    onVideoTimeUpdate,
+  });
+
+  const transcript = useTranscriptPlayer({
+    isLiveMode,
+    archiveMetadata: archive.archiveMetadata,
+    currentManifestIndex: archive.currentManifestIndex,
+    globalCurrentTime: archive.globalCurrentTime,
+    providedStreamUrl,
+    hookStreamUrl: hookStreamUrl || undefined,
+    host,
+    deviceId,
+    hostName,
+  });
+
   useEffect(() => {
     if (prevIsLiveMode.current !== isLiveMode) {
       console.log(`[@EnhancedHLSPlayer] Mode change detected: ${prevIsLiveMode.current ? 'Live' : 'Archive'} -> ${isLiveMode ? 'Live' : 'Archive'}`);
       setIsTransitioning(true);
       
-      // When switching back to live, clear archive metadata and transcripts
       if (isLiveMode) {
-        console.log('[@EnhancedHLSPlayer] Clearing archive metadata (switching to live)');
-        setArchiveMetadata(null);
-        setCurrentManifestIndex(0);
-        setTranscriptData(null);
-        setCurrentTranscript(null);
-        setAvailableHours([]);
-        setIsCheckingAvailability(false);
+        archive.clearArchiveData();
+        transcript.clearTranscriptData();
       }
       
-      // Small delay to allow cleanup
       setTimeout(() => {
         setIsTransitioning(false);
       }, 100);
       
       prevIsLiveMode.current = isLiveMode;
     }
-  }, [isLiveMode]);
+  }, [isLiveMode, archive, transcript]);
 
-  // Fetch archive metadata when entering archive mode
-  // PURE MP4 ARCHITECTURE: No legacy TS segments
-  // Check chunk-level availability for fast loading (skip missing chunks)
-  useEffect(() => {
-    if (!isLiveMode && !archiveMetadata && !isTransitioning && !isCheckingAvailability) {
-      const initializeArchiveMode = async () => {
-        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        
-        // Check which hours have MP4 files available
-        const available = await checkAvailableHours(baseUrl);
-        setAvailableHours(available);
-        
-        if (available.length === 0) {
-          console.warn('[@EnhancedHLSPlayer] No archive hours available');
-          setIsCheckingAvailability(false);
-          return;
-        }
-        
-        // Check individual chunk availability for available hours (fast parallel checks)
-        console.log('[@EnhancedHLSPlayer] Checking chunk-level availability...');
-        const chunkChecks: Promise<{ path: string; exists: boolean }>[] = [];
-        
-        for (const hour of available) {
-          for (let chunk = 0; chunk < 6; chunk++) {
-            const chunkPath = `${hour}/chunk_10min_${chunk}.mp4`;
-            const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${chunkPath}`);
-            
-            chunkChecks.push(
-              fetch(testUrl, { method: 'HEAD' })
-                .then(res => ({ path: chunkPath, exists: res.ok }))
-                .catch(() => ({ path: chunkPath, exists: false }))
-            );
-          }
-        }
-        
-        const chunkResults = await Promise.all(chunkChecks);
-        const availableChunkSet = new Set<string>();
-        
-        for (const { path, exists } of chunkResults) {
-          if (exists) {
-            availableChunkSet.add(path);
-          }
-        }
-        
-        console.log(`[@EnhancedHLSPlayer] Available chunks: ${availableChunkSet.size}/${chunkChecks.length}`, Array.from(availableChunkSet));
-        
-        // Generate metadata ONLY for available chunks (skip missing chunks)
-        const metadata: ArchiveMetadata = {
-          total_segments: availableChunkSet.size,
-          total_duration_seconds: availableChunkSet.size * 600, // 10 min per chunk
-          window_hours: 1,
-          segments_per_window: 6,
-          manifests: []
-        };
-        
-        // Generate manifest entries only for available chunks
-        let globalIndex = 0;
-        for (const hour of available) {
-          for (let chunk = 0; chunk < 6; chunk++) {
-            const chunkPath = `${hour}/chunk_10min_${chunk}.mp4`;
-            
-            // Only add to manifests if chunk exists
-            if (availableChunkSet.has(chunkPath)) {
-              metadata.manifests.push({
-                name: chunkPath,
-                window_index: hour,
-                chunk_index: chunk,
-                start_segment: globalIndex,
-                end_segment: globalIndex,
-                start_time_seconds: hour * 3600 + chunk * 600,
-                end_time_seconds: hour * 3600 + (chunk + 1) * 600,
-                duration_seconds: 600
-              });
-              globalIndex++;
-            }
-          }
-        }
-        
-        console.log('[@EnhancedHLSPlayer] Generated MP4 archive metadata (available chunks only):', {
-          available_hours: available,
-          available_chunks: metadata.manifests.length,
-          first_chunk: metadata.manifests[0]?.name,
-          last_chunk: metadata.manifests[metadata.manifests.length - 1]?.name
-        });
-        setArchiveMetadata(metadata);
-        
-        // Start at first available chunk
-        if (metadata.manifests.length > 0) {
-          console.log(`[@EnhancedHLSPlayer] Starting at first available chunk: ${metadata.manifests[0].name}`);
-          setCurrentManifestIndex(0);
-        }
-      };
-      
-      initializeArchiveMode();
-    }
-  }, [isLiveMode, archiveMetadata, isTransitioning, isCheckingAvailability, providedStreamUrl, hookStreamUrl, deviceId, checkAvailableHours]);
-
-  // Load transcript data from HOT transcript folder (10-min chunks aligned with MP4 chunks)
-  useEffect(() => {
-    if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
-      const currentManifest = archiveMetadata.manifests[currentManifestIndex];
-      if (currentManifest) {
-        const hour = currentManifest.window_index;
-        const chunkIndex = currentManifest.chunk_index;
-        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        
-        // Load 10-min chunk transcript (aligned with MP4: chunk_10min_0.json matches chunk_10min_0.mp4)
-        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
-        
-        console.log(`[@EnhancedHLSPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
-        
-        fetch(transcriptUrl)
-          .then(res => res.json())
-          .then(transcript => {
-            if (transcript && transcript.segments) {
-              console.log(`[@EnhancedHLSPlayer] Transcript chunk loaded: ${transcript.segments.length} samples`);
-              setTranscriptData(transcript);
-            } else {
-              console.log(`[@EnhancedHLSPlayer] No transcript data for chunk ${chunkIndex}`);
-              setTranscriptData(null);
-            }
-          })
-          .catch(() => {
-            console.log(`[@EnhancedHLSPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex}`);
-            setTranscriptData(null);
-          });
-      }
-    }
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId]);
-
-  // Generate hour marks for archive timeline (show all hours, grey out unavailable)
-  const hourMarks = useMemo(() => {
-    if (!archiveMetadata) return [];
-    
-    const marks = [];
-    const allHoursSet = new Set(availableHours);
-    
-    // Get hour range from first to last available
-    if (availableHours.length > 0) {
-      const minHour = Math.min(...availableHours);
-      const maxHour = Math.max(...availableHours);
-      
-      // Show all hours in range
-      for (let hour = minHour; hour <= maxHour; hour++) {
-        const isAvailable = allHoursSet.has(hour);
-        marks.push({
-          value: hour * 3600,
-          label: `${hour}h`,
-          // Add custom styling for unavailable hours
-          style: isAvailable ? {} : {
-            color: 'rgba(255, 255, 255, 0.3)', // Grey out
-            opacity: 0.5
-          }
-        });
-      }
-    }
-    
-    return marks;
-  }, [archiveMetadata, availableHours]);
-
-  // Build the appropriate stream URL based on mode and current manifest
-  // PURE MP4 ARCHITECTURE: Live uses HLS, Archive uses direct MP4 chunks
   const streamUrl = useMemo(() => {
     let url: string;
     
-    // Live mode - use segments/output.m3u8 (HLS for low latency)
     if (isLiveMode) {
       if (providedStreamUrl) {
-        // Replace old paths with new segments/ structure
         url = providedStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
       } else if (hookStreamUrl) {
         url = hookStreamUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/output.m3u8');
@@ -462,38 +135,31 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         url = buildStreamUrl(host, deviceId);
       }
     }
-    // Archive mode - use direct MP4 chunks (no HLS manifests)
-    else if (archiveMetadata && archiveMetadata.manifests.length > 0) {
-      const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+    else if (archive.archiveMetadata && archive.archiveMetadata.manifests.length > 0) {
+      const currentManifest = archive.archiveMetadata.manifests[archive.currentManifestIndex];
       if (currentManifest) {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        // Direct 10-minute chunk path: segments/X/chunk_10min_Y.mp4
-        const chunkPath = currentManifest.name; // Already formatted: "13/chunk_10min_0.mp4"
+        const chunkPath = currentManifest.name;
         url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${chunkPath}`);
         console.log(`[@EnhancedHLSPlayer] Using 10-min chunk (hour ${currentManifest.window_index}, chunk ${currentManifest.chunk_index}):`, url);
       } else {
-        // Fallback when currentManifest doesn't exist - use first available hour, first chunk
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-        const firstHour = availableHours.length > 0 ? availableHours[0] : 0;
+        const firstHour = archive.availableHours.length > 0 ? archive.availableHours[0] : 0;
         url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${firstHour}/chunk_10min_0.mp4`);
       }
     }
-    // Fallback while metadata is loading
     else {
       const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-      const firstHour = availableHours.length > 0 ? availableHours[0] : 0;
+      const firstHour = archive.availableHours.length > 0 ? archive.availableHours[0] : 0;
       url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${firstHour}/chunk_10min_0.mp4`);
     }
     
-    // Append quality and timestamp parameters to force reload when quality changes (without unmounting component)
-    // The URL itself doesn't change, but FFmpeg restarts with new quality settings on the backend
     const separator = url.includes('?') ? '&' : '?';
     url = `${url}${separator}q=${quality}&t=${qualityTimestampRef.current}`;
     
     return url;
-  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archiveMetadata, currentManifestIndex, quality, availableHours]);
+  }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archive.archiveMetadata, archive.currentManifestIndex, quality, archive.availableHours, host]);
 
-  // Seek to live edge when switching to live mode
   const seekToLive = () => {
     if (videoRef.current) {
       const video = videoRef.current;
@@ -503,7 +169,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   };
 
-  // Play/pause control
   const togglePlayPause = () => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -515,29 +180,38 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   };
 
-  // Handle video errors (404 on missing chunks) - skip to next available chunk
-  const handleVideoError = useCallback(() => {
-    if (!videoRef.current || isLiveMode) return;
+  const handleLiveSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
+    const position = Math.max(0, Math.min(1, sliderValue));
+    setUserBufferPosition(position);
+    archive.handleSliderChange(_event, position);
+    setIsAtLiveEdge(position > 0.9);
+  }, [archive]);
+
+  const handleLiveSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    if (!videoRef.current) return;
     
+    const position = Array.isArray(newValue) ? newValue[0] : newValue;
     const video = videoRef.current;
-    const error = video.error;
     
-    if (error && archiveMetadata && archiveMetadata.manifests.length > 0) {
-      console.warn(`[@EnhancedHLSPlayer] Video error (${error.code}): ${error.message}`);
+    if (video.buffered.length > 0) {
+      const buffered = video.buffered;
+      const bufferStart = buffered.start(0);
+      const bufferEnd = buffered.end(buffered.length - 1);
+      const targetTime = bufferStart + (position * (bufferEnd - bufferStart));
       
-      // Skip to next available chunk (don't retry missing chunk)
-      const nextIndex = currentManifestIndex + 1;
-      if (nextIndex < archiveMetadata.manifests.length) {
-        console.log(`[@EnhancedHLSPlayer] Skipping to next available chunk (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
-        setCurrentManifestIndex(nextIndex);
-        setPreloadedNextManifest(false);
-      } else {
-        console.warn('[@EnhancedHLSPlayer] No more chunks available');
+      console.log(`[@EnhancedHLSPlayer] Live mode seek to buffer position ${(position * 100).toFixed(1)}% (${targetTime.toFixed(1)}s)`);
+      video.currentTime = targetTime;
+      setUserBufferPosition(position);
+      
+      if (position > 0.9) {
+        video.currentTime = bufferEnd - 1;
       }
     }
-  }, [isLiveMode, archiveMetadata, currentManifestIndex]);
+    
+    archive.handleSeek(_event, newValue);
+  }, [archive, videoRef]);
 
-  // Video event handlers for timeline and play state with manifest switching
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -545,81 +219,20 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       
-      // Notify parent of time update (for archive monitoring)
-      if (onVideoTimeUpdate && !isLiveMode) {
-        onVideoTimeUpdate(video.currentTime);
-      }
-      
-      // Update buffer information for live mode - FIXED WINDOW approach
       if (isLiveMode && video.buffered.length > 0) {
         const buffered = video.buffered;
         const bufferEnd = buffered.end(buffered.length - 1);
-        
-        // Check if we're at live edge (within 3 seconds)
         const latency = bufferEnd - video.currentTime;
         const atLiveEdge = latency < 3;
         
-        // Only update if state actually changed
         if (atLiveEdge !== isAtLiveEdge) {
           setIsAtLiveEdge(atLiveEdge);
           console.log(`[@EnhancedHLSPlayer] Live edge status: ${atLiveEdge ? 'LIVE' : 'BEHIND'} (latency: ${latency.toFixed(2)}s)`);
         }
-        
-        // CRITICAL: DON'T update userBufferPosition here!
-        // User's position only changes when they drag the slider
-        // The buffer window slides underneath, but thumb stays where user put it
       }
       
-      // Calculate global time if using multi-manifest archive
-      if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
-        const currentManifest = archiveMetadata.manifests[currentManifestIndex];
-        if (currentManifest) {
-          const globalTime = currentManifest.start_time_seconds + video.currentTime;
-          setGlobalCurrentTime(globalTime);
-          
-          // Find matching transcript for current time (within this hour's segments)
-          if (transcriptData && transcriptData.segments.length > 0) {
-            const closestSegment = transcriptData.segments.reduce((closest, segment) => {
-              const timeDiff = Math.abs(segment.relative_seconds - globalTime);
-              const closestDiff = closest ? Math.abs(closest.relative_seconds - globalTime) : Infinity;
-              return timeDiff < closestDiff ? segment : closest;
-            }, transcriptData.segments[0]);
-            
-            // Show transcript if within 6s window (sample interval)
-            if (Math.abs(closestSegment.relative_seconds - globalTime) < 6) {
-              setCurrentTranscript(closestSegment);
-            } else {
-              setCurrentTranscript(null);
-            }
-          } else {
-            setCurrentTranscript(null);
-          }
-          
-          // Check if we need to switch to next manifest
-          // Pre-load when 90% through current manifest
-          const progressRatio = video.currentTime / video.duration;
-          if (progressRatio > 0.9 && !preloadedNextManifest) {
-            const nextIndex = currentManifestIndex + 1;
-            if (nextIndex < archiveMetadata.manifests.length) {
-              console.log(`[@EnhancedHLSPlayer] Pre-loading next manifest (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
-              setPreloadedNextManifest(true);
-            }
-          }
-          
-          // Switch to next manifest when reaching the end
-          if (video.currentTime >= video.duration - 1) {
-            const nextIndex = currentManifestIndex + 1;
-            if (nextIndex < archiveMetadata.manifests.length) {
-              console.log(`[@EnhancedHLSPlayer] Switching to manifest ${nextIndex + 1}`);
-              setCurrentManifestIndex(nextIndex);
-              setPreloadedNextManifest(false);
-              // Video will restart at beginning of next manifest
-            }
-          }
-        }
-      } else {
-        // For live mode or single manifest, use video.currentTime directly
-        setGlobalCurrentTime(video.currentTime);
+      if (!isLiveMode) {
+        archive.updateTimeTracking(video);
       }
     };
     
@@ -634,269 +247,41 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
-    video.addEventListener('error', handleVideoError); // Handle 404 errors
+    video.addEventListener('error', archive.handleVideoError);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
-      video.removeEventListener('error', handleVideoError);
+      video.removeEventListener('error', archive.handleVideoError);
       
-      // Cleanup live edge timeout
       if (liveEdgeTimeoutRef.current) {
         clearTimeout(liveEdgeTimeoutRef.current);
       }
     };
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, preloadedNextManifest, transcriptData, onVideoTimeUpdate, handleVideoError]);
+  }, [isLiveMode, archive, isAtLiveEdge]);
 
-  // Handle mode changes and seeking
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isLiveMode) {
         console.log('[@EnhancedHLSPlayer] Switching to live mode - ensuring live edge status');
-        setIsAtLiveEdge(true); // Assume we're at live edge when switching to live
-        setUserBufferPosition(1.0); // Start at live edge (right side of timeline)
+        setIsAtLiveEdge(true);
+        setUserBufferPosition(1.0);
         seekToLive();
       } else {
-        // For archive mode, seek to beginning
         if (videoRef.current && videoRef.current.duration) {
           console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning (0:00)`);
           videoRef.current.currentTime = 0;
         }
       }
-    }, 500); // Small delay to allow HLS player to initialize with new manifest
+    }, 500);
     
     return () => clearTimeout(timer);
   }, [isLiveMode]);
 
-  // Handle slider drag for live buffer navigation
-  const handleSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
-    
-    if (isLiveMode) {
-      // For live mode, value is 0-1 representing position in buffer
-      const position = Math.max(0, Math.min(1, sliderValue));
-      setUserBufferPosition(position);
-      setIsDraggingSlider(true);
-      setDragSliderValue(position);
-      
-      // Update live edge status based on position
-      setIsAtLiveEdge(position > 0.9); // Consider live if within 90% of buffer end
-    } else {
-      // Archive mode - only allow dragging within available hours
-      const seekTime = sliderValue;
-      if (!isFinite(seekTime) || seekTime < 0) return;
-      
-      // Check if seek time is within available hours
-      if (availableHours.length > 0) {
-        const seekHour = Math.floor(seekTime / 3600);
-        if (!availableHours.includes(seekHour)) {
-          console.log(`[@EnhancedHLSPlayer] Cannot drag to hour ${seekHour} - not available`);
-          return;
-        }
-      }
-      
-      setIsDraggingSlider(true);
-      setDragSliderValue(seekTime);
-    }
-  }, [isLiveMode, availableHours]);
-
-  // Handle seeking in live buffer or archive
-  const handleSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    if (!videoRef.current) return;
-    
-    setIsDraggingSlider(false);
-    const video = videoRef.current;
-    
-    if (isLiveMode) {
-      // Live mode - seek within buffer based on position
-      const position = Array.isArray(newValue) ? newValue[0] : newValue;
-      
-      if (video.buffered.length > 0) {
-        const buffered = video.buffered;
-        const bufferStart = buffered.start(0);
-        const bufferEnd = buffered.end(buffered.length - 1);
-        const targetTime = bufferStart + (position * (bufferEnd - bufferStart));
-        
-        console.log(`[@EnhancedHLSPlayer] Live mode seek to buffer position ${(position * 100).toFixed(1)}% (${targetTime.toFixed(1)}s)`);
-        video.currentTime = targetTime;
-        setUserBufferPosition(position);
-        
-        // If seeking to live edge, keep video at live edge
-        if (position > 0.9) {
-          video.currentTime = bufferEnd - 1; // Stay 1 second behind to avoid buffering
-        }
-      }
-    } else {
-      // Archive mode - only allow seeking within available hours
-      const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
-      if (!isFinite(seekTime) || seekTime < 0) return;
-      
-      // Check if seek time is within available hours
-      if (availableHours.length > 0) {
-        const seekHour = Math.floor(seekTime / 3600);
-        if (!availableHours.includes(seekHour)) {
-          console.warn(`[@EnhancedHLSPlayer] Cannot seek to hour ${seekHour} - not available. Available hours: ${availableHours.join(',')}`);
-          return;
-        }
-      }
-      
-      const wasPlaying = !video.paused;
-      
-      // Archive mode seeking - if using multi-manifest archive, find correct manifest and seek within it
-      if (archiveMetadata && archiveMetadata.manifests.length > 0) {
-        // Find which manifest contains this time
-        let targetManifestIndex = -1;
-        let targetLocalTime = 0;
-        
-        for (let i = 0; i < archiveMetadata.manifests.length; i++) {
-          const manifest = archiveMetadata.manifests[i];
-          // Handle seek to exact end of manifest (boundary case)
-          const isAtEnd = seekTime >= manifest.end_time_seconds && i === archiveMetadata.manifests.length - 1;
-          const isInRange = seekTime >= manifest.start_time_seconds && seekTime < manifest.end_time_seconds;
-          
-          if (isInRange || isAtEnd) {
-            targetManifestIndex = i;
-            targetLocalTime = seekTime - manifest.start_time_seconds;
-            
-            // Clamp to manifest duration to avoid seeking beyond
-            const manifestDuration = manifest.duration_seconds;
-            targetLocalTime = Math.min(targetLocalTime, manifestDuration - 0.1);
-            
-            console.log(`[@EnhancedHLSPlayer] User seek: global ${seekTime.toFixed(1)}s -> manifest ${manifest.window_index} at ${targetLocalTime.toFixed(1)}s`);
-            break;
-          }
-        }
-        
-        if (targetManifestIndex === -1) {
-          console.warn(`[@EnhancedHLSPlayer] Seek time ${seekTime}s not found in any manifest`);
-          return;
-        }
-        
-        // Switch manifest if needed
-        if (targetManifestIndex !== currentManifestIndex) {
-          console.log(`[@EnhancedHLSPlayer] Switching from manifest ${currentManifestIndex + 1} to ${targetManifestIndex + 1}`);
-          
-          // Pause video during manifest switch to prevent playback issues
-          video.pause();
-          
-          setCurrentManifestIndex(targetManifestIndex);
-          setPreloadedNextManifest(false);
-          
-          // Wait for new manifest to load, then seek and resume playback
-          setTimeout(() => {
-            if (videoRef.current) {
-              videoRef.current.currentTime = targetLocalTime;
-              
-              // Resume playback if it was playing before seek
-              if (wasPlaying) {
-                videoRef.current.play().catch(err => {
-                  console.warn('[@EnhancedHLSPlayer] Failed to resume playback after manifest switch:', err);
-                });
-              }
-            }
-          }, 1000); // Increased from 800ms
-        } else {
-          // Same manifest, just seek
-          video.currentTime = targetLocalTime;
-          
-          // Video element automatically resumes if it was playing
-        }
-      } else {
-        // Single manifest mode - simple seek
-        video.currentTime = seekTime;
-      }
-    }
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, availableHours]);
-
-  const formatTime = (seconds: number) => {
-    if (!seconds || !isFinite(seconds)) return '0:00';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    return hours > 0 
-      ? `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-      : `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Translation handler (minimal pattern from useRestart.ts)
-  const handleLanguageChange = useCallback(async (language: string) => {
-    setSelectedLanguage(language);
-    
-    // Original = instant switch (no API call)
-    if (language === 'original') {
-      console.log('[@EnhancedHLSPlayer] Switched to original language');
-      return;
-    }
-
-    // Check if translations already exist in transcript data
-    const hasTranslations = transcriptData?.segments.some(
-      seg => seg.translations && seg.translations[language]
-    );
-    
-    if (hasTranslations) {
-      console.log(`[@EnhancedHLSPlayer] Using cached translations for ${language}`);
-      return;
-    }
-
-    // Not cached - translate via backend
-    setIsTranslating(true);
-    console.log(`[@EnhancedHLSPlayer] Translating transcripts to ${language}...`);
-    
-    try {
-      const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-      // Extract capture folder from stream URL (e.g., capture1, capture2)
-      const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
-      const captureFolder = captureMatch ? captureMatch[1] : transcriptData?.capture_folder;
-      
-      // Get current hour window for hourly transcript files
-      const currentManifest = archiveMetadata?.manifests[currentManifestIndex];
-      const hourWindow = currentManifest?.window_index || 1;
-      
-      const response = await fetch(`/host/${captureFolder}/translate-transcripts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target_language: language,
-          hour_window: hourWindow  // Tell backend which hourly file to translate
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log(`[@EnhancedHLSPlayer] Translation complete: ${data.translated_count} segments translated`);
-        
-        // Reload current hourly transcript data with new translations
-        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, `/transcript_hour${hourWindow}.json`);
-        const updatedData = await fetch(transcriptUrl).then(res => res.json());
-        setTranscriptData(updatedData);
-      }
-    } catch (error) {
-      console.error('[@EnhancedHLSPlayer] Translation failed:', error);
-    } finally {
-      setIsTranslating(false);
-    }
-  }, [transcriptData, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, hostName]);
-
-  // Get current transcript text (with AI enhancement and translation support)
-  const getCurrentTranscriptText = useCallback(() => {
-    if (!currentTranscript) return '';
-    
-    if (selectedLanguage === 'original') {
-      // Prefer AI-enhanced transcript if available, otherwise use original Whisper transcript
-      return currentTranscript.enhanced_transcript || currentTranscript.transcript;
-    }
-    
-    // Use translated version if available
-    const translation = currentTranscript.translations?.[selectedLanguage];
-    return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
-  }, [currentTranscript, selectedLanguage]);
-
   return (
     <Box className={className} sx={{ width, position: 'relative' }}>
-      {/* CSS keyframes for live indicator pulse animation */}
       <style>
         {`
           @keyframes pulse {
@@ -907,19 +292,18 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         `}
       </style>
       
-      {/* Reuse HLSVideoPlayer for all streaming logic */}
       <Box sx={{ position: 'relative', height }}>
-        {!isTransitioning && (!isCheckingAvailability && (isLiveMode || availableHours.length > 0)) ? (
+        {!isTransitioning && (!archive.isCheckingAvailability && (isLiveMode || archive.availableHours.length > 0)) ? (
           <HLSVideoPlayer
-            key={`${isLiveMode ? 'live' : 'archive'}`} // Only remount on mode change, not quality change
+            key={`${isLiveMode ? 'live' : 'archive'}`}
             streamUrl={streamUrl}
             isStreamActive={true}
             videoElementRef={videoRef}
-            muted={muted} // Use the muted prop from parent
-            isArchiveMode={!isLiveMode} // Pass archive mode flag
-            shouldPause={shouldPause} // Pause to show last frame during quality transition
+            muted={muted}
+            isArchiveMode={!isLiveMode}
+            shouldPause={shouldPause}
             sx={{ width: '100%', height: '100%' }}
-            onPlayerReady={onPlayerReady} // Pass callback to notify when player loads successfully
+            onPlayerReady={onPlayerReady}
           />
         ) : (
           <Box
@@ -933,12 +317,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               color: 'white',
             }}
           >
-            {isCheckingAvailability ? (
+            {archive.isCheckingAvailability ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <CircularProgress sx={{ color: 'white' }} />
                 <Typography>Checking available archive hours...</Typography>
               </Box>
-            ) : availableHours.length === 0 && !isLiveMode ? (
+            ) : archive.availableHours.length === 0 && !isLiveMode ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <Typography>No archive hours available</Typography>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
@@ -951,53 +335,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
-        {/* Language Selector */}
-        {!isLiveMode && transcriptData && transcriptData.segments.length > 0 && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
-              borderRadius: 1,
-              p: 1,
-            }}
-          >
-            <Translate sx={{ color: 'white', fontSize: 20 }} />
-            <Select
-              value={selectedLanguage}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              size="small"
-              disabled={isTranslating}
-              sx={{
-                color: 'white',
-                minWidth: 120,
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(255, 255, 255, 0.3)',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: 'rgba(255, 255, 255, 0.5)',
-                },
-                '& .MuiSvgIcon-root': {
-                  color: 'white',
-                },
-              }}
-            >
-              <MenuItem value="original">Original</MenuItem>
-              <MenuItem value="French">French</MenuItem>
-              <MenuItem value="Spanish">Spanish</MenuItem>
-              <MenuItem value="German">German</MenuItem>
-              <MenuItem value="Italian">Italian</MenuItem>
-              <MenuItem value="Portuguese">Portuguese</MenuItem>
-            </Select>
-            {isTranslating && <CircularProgress size={20} sx={{ color: 'white' }} />}
-          </Box>
-        )}
+        <LanguageSelector
+          transcriptData={transcript.transcriptData}
+          selectedLanguage={transcript.selectedLanguage}
+          isTranslating={transcript.isTranslating}
+          onLanguageChange={transcript.handleLanguageChange}
+          show={!isLiveMode}
+        />
 
-        {/* Monitoring Overlay - Shows when monitoring mode is enabled (Live mode) */}
         {monitoringMode && isLiveMode && (
           <Box
             sx={{
@@ -1021,7 +366,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
               isAIAnalyzing={isAIAnalyzing}
             />
 
-            {/* AI Description overlay (if available) */}
             {aiDescription && (
               <Box
                 sx={{
@@ -1061,309 +405,33 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
-        {/* Transcript Overlay */}
-        {!isLiveMode && currentTranscript && getCurrentTranscriptText() && (
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 100,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              backgroundColor: 'rgba(0, 0, 0, 0.85)',
-              color: 'white',
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              maxWidth: '80%',
-              textAlign: 'center',
-              // Blue border for AI-enhanced, white for original
-              border: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
-                ? '2px solid rgba(33, 150, 243, 0.8)' // Blue for enhanced
-                : '1px solid rgba(255, 255, 255, 0.3)', // White for original
-              boxShadow: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
-                ? '0 4px 12px rgba(33, 150, 243, 0.4)' // Blue glow for enhanced
-                : '0 4px 12px rgba(0,0,0,0.5)',
-            }}
-          >
-            {/* AI Enhanced Icon */}
-            {currentTranscript.enhanced_transcript && selectedLanguage === 'original' && (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5 }}>
-                <AutoAwesome sx={{ fontSize: 16, color: '#2196f3', mr: 0.5 }} />
-                <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 600 }}>
-                  AI Enhanced
-                </Typography>
-              </Box>
-            )}
-            
-            <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.4 }}>
-              {getCurrentTranscriptText()}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 0.5, display: 'block' }}>
-              {selectedLanguage === 'original' 
-                ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%`
-                : `Translated to ${selectedLanguage}`
-              }
-            </Typography>
-          </Box>
-        )}
+        <TranscriptOverlay
+          currentTranscript={transcript.currentTranscript}
+          transcriptText={transcript.getCurrentTranscriptText()}
+          selectedLanguage={transcript.selectedLanguage}
+          show={!isLiveMode}
+        />
 
-        {/* Timeline Overlay with integrated Play/Pause button (Live & Archive) */}
-        {!isTransitioning && duration > 0 && (
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: -45, // Moved 20px lower to reduce video overlap
-              left: 0,
-              right: 0,
-              background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-              p: 2,
-            }}
-          >
-            {/* Timeline controls row */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
-              {/* Play/Pause Button - Only show in archive mode */}
-              {!isLiveMode && (
-                <IconButton
-                  onClick={togglePlayPause}
-                  sx={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                    color: 'white',
-                    border: '2px solid rgba(255, 255, 255, 0.7)',
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                      border: '2px solid rgba(255, 255, 255, 1)',
-                    },
-                    minWidth: 40,
-                    height: 40,
-                  }}
-                  size="small"
-                >
-                  {isPlaying ? <Pause /> : <PlayArrow />}
-                </IconButton>
-              )}
-              
-              {/* Current Position Label (Floating above slider) - Only show when dragging */}
-              <Box
-                sx={{
-                  position: 'relative',
-                  flex: 1,
-                }}
-              >
-                {/* Floating time label - Only visible during scrubbing */}
-                {isDraggingSlider && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 25, // Position above the slider
-                      left: (() => {
-                        const currentValue = isLiveMode 
-                          ? (isDraggingSlider ? dragSliderValue : userBufferPosition)
-                          : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime));
-                        const minValue = isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0);
-                        const maxValue = isLiveMode ? 1 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
-                        
-                        // Calculate percentage position (accounting for play/pause button offset in archive mode)
-                        const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
-                        return `calc(${percentage}% - 25px)`; // -25px to center the label
-                      })(),
-                      transform: 'translateX(0)',
-                      pointerEvents: 'none',
-                      zIndex: 10,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        display: 'inline-block',
-                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                        color: 'white',
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: 1,
-                        fontWeight: 600,
-                        fontSize: '0.75rem',
-                        border: isLiveMode ? '1px solid rgba(244, 67, 54, 0.8)' : '1px solid rgba(33, 150, 243, 0.8)',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {(() => {
-                        if (isLiveMode) {
-                          // Live mode: show LIVE or seconds behind
-                          if (isAtLiveEdge) {
-                            return 'LIVE';
-                          } else {
-                            // Use ACTUAL buffer size from video element
-                            const video = videoRef.current;
-                            let totalBufferSeconds = 0; // Default to 0 when no buffer
-                            
-                            if (video && video.buffered.length > 0) {
-                              const buffered = video.buffered;
-                              const bufferStart = buffered.start(0);
-                              const bufferEnd = buffered.end(buffered.length - 1);
-                              totalBufferSeconds = bufferEnd - bufferStart;
-                            }
-                            
-                            const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
-                            if (behindSeconds < 60) {
-                              return `-${behindSeconds}s`;
-                            } else {
-                              const minutes = Math.floor(behindSeconds / 60);
-                              const seconds = behindSeconds % 60;
-                              return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                            }
-                          }
-                        } else {
-                          // Archive mode: show HHhMM format
-                          const timeSeconds = isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
-                          const hours = Math.floor(timeSeconds / 3600);
-                          const minutes = Math.floor((timeSeconds % 3600) / 60);
-                          return `${hours}h${minutes.toString().padStart(2, '0')}`;
-                        }
-                      })()}
-                    </Typography>
-                  </Box>
-                )}
-
-                {/* Timeline Slider */}
-                <Slider
-                  value={(() => {
-                    if (isLiveMode) {
-                      // Live mode: show user's fixed position in buffer (0-1)
-                      return isDraggingSlider ? dragSliderValue : userBufferPosition;
-                    } else {
-                      // Archive mode: show time position
-                      return isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
-                    }
-                  })()}
-                  min={isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0)}
-                  max={(() => {
-                    if (isLiveMode) {
-                      // Live mode: slider range is 0-1 (buffer position)
-                      return 1;
-                    } else {
-                      // Archive mode: slider range is actual hours (first to last available)
-                      return archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration;
-                    }
-                  })()}
-                  step={isLiveMode ? 0.01 : undefined} // Smooth steps for live buffer navigation
-                  onChange={handleSliderChange}
-                  onChangeCommitted={handleSeek}
-                  marks={!isLiveMode ? hourMarks : []} // Only show hour marks in archive mode
-                  sx={{ 
-                    color: isLiveMode ? 'error.main' : 'primary.main', // Red for live, blue for archive
-                    flex: 1,
-                    '& .MuiSlider-thumb': {
-                      width: 16,
-                      height: 16,
-                    },
-                    '& .MuiSlider-track': {
-                      // Different track styling for live vs archive
-                      backgroundColor: isLiveMode ? 'error.main' : 'primary.main'
-                    },
-                    '& .MuiSlider-markLabel': {
-                      fontSize: '0.7rem',
-                      color: 'rgba(255,255,255,0.7)'
-                    }
-                  }}
-                />
-              </Box>
-            </Box>
-            
-            {/* Time display row */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2 }}>  
-              {isLiveMode ? (
-                <>
-                  {/* Live Mode: 3-column layout */}
-                  {/* Left: Oldest buffer position (dynamic based on actual buffer) */}
-                  <Typography variant="caption" sx={{ color: 'white', minWidth: '60px' }}>
-                    {(() => {
-                      const video = videoRef.current;
-                      if (video && video.buffered.length > 0) {
-                        const buffered = video.buffered;
-                        const bufferStart = buffered.start(0);
-                        const bufferEnd = buffered.end(buffered.length - 1);
-                        const totalBufferSeconds = Math.floor(bufferEnd - bufferStart);
-                        
-                        if (totalBufferSeconds < 60) {
-                          return `-${totalBufferSeconds}s`;
-                        } else {
-                          const minutes = Math.floor(totalBufferSeconds / 60);
-                          const seconds = totalBufferSeconds % 60;
-                          return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                        }
-                      }
-                      return '-0s'; // No buffer yet
-                    })()}
-                  </Typography>
-                  
-                  {/* Center: User's current position */}
-                  <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
-                    {(() => {
-                      // Show where user is in the buffer
-                      if (isAtLiveEdge) {
-                        return 'LIVE';
-                      } else {
-                        // Use ACTUAL buffer size from video element
-                        const video = videoRef.current;
-                        let totalBufferSeconds = 0; // Default to 0 when no buffer
-                        
-                        if (video && video.buffered.length > 0) {
-                          const buffered = video.buffered;
-                          const bufferStart = buffered.start(0);
-                          const bufferEnd = buffered.end(buffered.length - 1);
-                          totalBufferSeconds = bufferEnd - bufferStart;
-                        }
-                        
-                        const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
-                        if (behindSeconds < 60) {
-                          return `-${behindSeconds}s`;
-                        } else {
-                          const minutes = Math.floor(behindSeconds / 60);
-                          const seconds = behindSeconds % 60;
-                          return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                        }
-                      }
-                    })()}
-                  </Typography>
-                  
-                  {/* Right: Now indicator */}
-                  <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
-                    Now
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  {/* Archive Mode: Left empty, centered metadata, right shows last chunk time */}
-                  <Box sx={{ minWidth: '60px' }} />
-                  
-                  {/* Center: Archive metadata */}
-                  {archiveMetadata && (
-                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
-                      {availableHours.length > 0 ? `${availableHours.length}h available` : 'No archive available'} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
-                    </Typography>
-                  )}
-                  
-                  {/* Right: Last available chunk time (e.g., "20h50" for chunk 5 of hour 20) */}
-                  <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
-                    {(() => {
-                      if (archiveMetadata && availableHours.length > 0) {
-                        const lastManifest = archiveMetadata.manifests[archiveMetadata.manifests.length - 1];
-                        if (lastManifest) {
-                          const hour = lastManifest.window_index;
-                          const chunk = lastManifest.chunk_index;
-                          const minutes = chunk * 10; // Each chunk is 10 minutes, show start time of last chunk
-                          return `${hour}h${minutes.toString().padStart(2, '0')}`;
-                        }
-                      }
-                      return formatTime(duration);
-                    })()}
-                  </Typography>
-                </>
-              )}
-            </Box>
-          </Box>
-        )}
+        <TimelineOverlay
+          isLiveMode={isLiveMode}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          isAtLiveEdge={isAtLiveEdge}
+          userBufferPosition={userBufferPosition}
+          globalCurrentTime={archive.globalCurrentTime}
+          isDraggingSlider={archive.isDraggingSlider}
+          dragSliderValue={archive.dragSliderValue}
+          archiveMetadata={archive.archiveMetadata}
+          availableHours={archive.availableHours}
+          hourMarks={archive.hourMarks}
+          videoRef={videoRef}
+          onTogglePlayPause={togglePlayPause}
+          onSliderChange={isLiveMode ? handleLiveSliderChange : archive.handleSliderChange}
+          onSeek={isLiveMode ? handleLiveSeek : archive.handleSeek}
+          show={!isTransitioning}
+          currentManifestIndex={archive.currentManifestIndex}
+        />
       </Box>
     </Box>
   );
