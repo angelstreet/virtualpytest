@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Circular 24h Transcript Accumulator
-Samples audio every 6s, generates timestamped transcripts, local circular buffer
-Uses audio_transcription_utils for clean, dependency-free transcription
+10-Minute Transcript Accumulator
+Watches for 10min MP3 chunks created by hot_cold_archiver, transcribes them with Whisper
+Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json
+Zero duplicate work - audio already extracted by archiver
 """
 import os
 import sys
@@ -19,7 +20,6 @@ project_root = os.path.dirname(backend_host_dir)
 sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode, get_device_base_path
-from shared.src.lib.utils.audio_transcription_utils import transcribe_ts_segments
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
@@ -27,11 +27,9 @@ from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 logger = logging.getLogger(__name__)
 
 # Configuration
-SAMPLE_INTERVAL = 6  # Sample every 6 seconds
-MAX_DURATION_HOURS = 24
-MAX_SAMPLES = (MAX_DURATION_HOURS * 3600) // SAMPLE_INTERVAL  # 14,400 samples
+CHUNK_DURATION_MINUTES = 10  # Process 10-minute audio chunks
+CHECK_INTERVAL = 10  # Check for new MP3 chunks every 10 seconds
 AI_ENHANCEMENT_ENABLED = False  # Disable AI enhancement to reduce CPU load
-AI_ENHANCEMENT_BATCH = 10  # Enhance every 10 samples with AI (when enabled)
 
 def cleanup_logs_on_startup():
     """Clean up log file on service restart for fresh debugging"""
@@ -53,7 +51,62 @@ def cleanup_logs_on_startup():
     except Exception as e:
         print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
 
-def enhance_transcripts_with_ai(segments: list, capture_folder: str) -> dict:
+def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> dict:
+    """
+    Transcribe a single 10-minute MP3 chunk using Whisper
+    
+    Args:
+        mp3_path: Path to MP3 file (chunk_10min_X.mp3)
+        capture_folder: Device identifier
+        hour: Hour (0-23)
+        chunk_index: Chunk within hour (0-5)
+    
+    Returns:
+        dict: Transcript data with segments
+    """
+    try:
+        logger.info(f"[{capture_folder}] 🎬 Transcribing chunk_10min_{chunk_index}.mp3 (hour {hour})")
+        start_time = time.time()
+        
+        # Use audio_transcription_utils to transcribe MP3
+        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio_file
+        
+        result = transcribe_audio_file(mp3_path, model_name='tiny', device_id=capture_folder)
+        
+        transcript = result.get('transcript', '').strip()
+        language = result.get('language', 'unknown')
+        confidence = result.get('confidence', 0.0)
+        elapsed = time.time() - start_time
+        
+        logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {elapsed:.1f}s")
+        if transcript:
+            # Show first 200 chars of transcript
+            preview = transcript[:200] + ('...' if len(transcript) > 200 else '')
+            logger.info(f"[{capture_folder}] 💬 '{preview}'")
+        else:
+            logger.info(f"[{capture_folder}] 🔇 No speech detected in chunk")
+        
+        # Build transcript data structure
+        transcript_data = {
+            'capture_folder': capture_folder,
+            'hour': hour,
+            'chunk_index': chunk_index,
+            'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
+            'language': language,
+            'transcript': transcript,
+            'confidence': confidence,
+            'transcription_time_seconds': elapsed,
+            'timestamp': datetime.now().isoformat(),
+            'mp3_file': os.path.basename(mp3_path)
+        }
+        
+        return transcript_data
+        
+    except Exception as e:
+        logger.error(f"[{capture_folder}] ❌ Error transcribing MP3 chunk: {e}")
+        return None
+
+def enhance_transcripts_with_ai_old(segments: list, capture_folder: str) -> dict:
     """
     Enhance Whisper transcripts using AI for better accuracy.
     Takes a batch of segments and returns enhanced transcripts.
@@ -235,309 +288,134 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
         logger.error(f"[{capture_folder}] AI enhancement error: {e}")
         return {}
 
-def load_chunk_transcript(stream_dir, hour, chunk_index, capture_folder):
-    """Load transcript data for a specific 10-minute chunk (aligned with MP4 chunks)
-    
-    Args:
-        stream_dir: Base stream directory
-        hour: Hour (0-23)
-        chunk_index: Chunk within hour (0-5, each 10 minutes)
-        capture_folder: Device identifier
+def save_transcript_chunk(device_base_path: str, hour: int, chunk_index: int, transcript_data: dict):
     """
-    # Transcript files stored in /transcript/{hour}/ folder structure
-    if is_ram_mode(stream_dir):
-        transcript_dir = os.path.join(stream_dir, 'hot', 'transcript', str(hour))
-    else:
-        transcript_dir = os.path.join(stream_dir, 'transcript', str(hour))
-    
-    os.makedirs(transcript_dir, exist_ok=True)
-    transcript_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}.json')
-    
-    if os.path.exists(transcript_path):
-        with open(transcript_path, 'r') as f:
-            return json.load(f)
-    else:
-        return {
-            'capture_folder': capture_folder,
-            'hour': hour,
-            'chunk_index': chunk_index,
-            'sample_interval_seconds': SAMPLE_INTERVAL,
-            'segments': [],
-            'samples_since_ai_enhancement': 0
-        }
-
-def save_chunk_transcript(stream_dir, hour, chunk_index, transcript_data):
-    """Save transcript data for a specific 10-minute chunk (atomic write, aligned with MP4 chunks)
+    Save transcript JSON file aligned with MP4/MP3 chunks
     
     Args:
-        stream_dir: Base stream directory
+        device_base_path: Device base path (/var/www/html/stream/capture1)
         hour: Hour (0-23)
-        chunk_index: Chunk within hour (0-5, each 10 minutes)
+        chunk_index: Chunk index (0-5)
         transcript_data: Transcript data to save
     """
-    # Transcript files stored in /transcript/{hour}/ folder structure
-    if is_ram_mode(stream_dir):
-        transcript_dir = os.path.join(stream_dir, 'hot', 'transcript', str(hour))
-    else:
-        transcript_dir = os.path.join(stream_dir, 'transcript', str(hour))
-    
+    # Save to cold storage (transcripts don't need hot RAM storage)
+    transcript_dir = os.path.join(device_base_path, 'transcript', str(hour))
     os.makedirs(transcript_dir, exist_ok=True)
+    
     transcript_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}.json')
     
+    # Atomic write
     with open(transcript_path + '.tmp', 'w') as f:
         json.dump(transcript_data, f, indent=2)
     os.rename(transcript_path + '.tmp', transcript_path)
+    
+    logger.info(f"✅ Saved: /transcript/{hour}/chunk_10min_{chunk_index}.json")
 
-def cleanup_old_chunk_transcripts(stream_dir):
-    """Remove old 10-minute chunk transcript files (24h rolling cleanup)"""
-    try:
-        # Use hot storage if RAM mode is active
-        if is_ram_mode(stream_dir):
-            search_dir = os.path.join(stream_dir, 'hot', 'transcript')
-        else:
-            search_dir = os.path.join(stream_dir, 'transcript')
-        
-        if not os.path.exists(search_dir):
-            return
-        
-        # Find all chunk transcript files
-        transcript_files = get_files_by_pattern(search_dir, r'^chunk_10min_.*\.json$')
-        
-        # Keep last 24 hours × 6 chunks = 144 files
-        max_chunks = 24 * 6
-        if len(transcript_files) > max_chunks:
-            # Sort by modification time and remove oldest
-            transcript_files.sort(key=lambda x: os.path.getmtime(x))
-            for old_file in transcript_files[:-max_chunks]:
-                os.remove(old_file)
-                logger.info(f"Cleaned up old transcript: {os.path.basename(old_file)}")
-    except Exception as e:
-        logger.warning(f"Failed to cleanup old transcripts: {e}")
-
-def update_transcript_buffer(capture_dir, max_samples_per_run=1):
-    """Update transcript buffer with new samples (10-min chunk files aligned with MP4 chunks)
+def process_mp3_chunks(capture_dir):
+    """
+    Watch for new 10-minute MP3 chunks and transcribe them
     
     Args:
-        capture_dir: Path to capture directory
-        max_samples_per_run: Maximum number of samples to process in one call (for alternating between devices)
+        capture_dir: Path to captures directory
     
     Returns:
-        bool: True if samples were processed, False if nothing to process
+        bool: True if chunks were processed, False if nothing to process
     """
-    start_time = time.time()
     try:
         # Use centralized path utilities
         capture_folder = get_capture_folder(capture_dir)
-        device_base_path = get_device_base_path(capture_folder)  # /var/www/html/stream/capture1
+        device_base_path = get_device_base_path(capture_folder)
         
-        # Determine where TS segments are located (hot or cold storage)
+        # Determine where MP3 chunks are located
         if is_ram_mode(device_base_path):
-            segments_dir = os.path.join(device_base_path, 'hot')
+            audio_dir = os.path.join(device_base_path, 'hot', 'audio')
             state_path = os.path.join(device_base_path, 'hot', 'transcript_state.json')
         else:
-            segments_dir = device_base_path
+            audio_dir = os.path.join(device_base_path, 'audio')
             state_path = os.path.join(device_base_path, 'transcript_state.json')
         
-        # Load global state (track last processed segment across all hours)
+        if not os.path.exists(audio_dir):
+            logger.debug(f"[{capture_folder}] Audio directory does not exist: {audio_dir}")
+            return False
+        
+        # Load state (track which chunks have been transcribed)
         if os.path.exists(state_path):
             with open(state_path, 'r') as f:
                 state = json.load(f)
         else:
-            state = {'last_processed_segment': 0}
-            logger.info(f"[{capture_folder}] 🆕 First run - creating state file: {state_path}")
-            logger.info(f"[{capture_folder}] Looking for TS segments in: {segments_dir}")
+            state = {'processed_chunks': {}}
+            logger.info(f"[{capture_folder}] 🆕 First run - watching for MP3 chunks in: {audio_dir}")
         
-        last_processed = state.get('last_processed_segment', 0)
+        processed_chunks = state.get('processed_chunks', {})
         
-        # First run: Start 6 segments back to get immediate feedback
-        if last_processed == 0:
-            # Use fast os.scandir (no subprocess overhead, no timeout risk)
-            segment_files = get_files_by_pattern(segments_dir, r'^segment_.*\.ts$')
-            
-            if segment_files:
-                latest_seg = max(int(os.path.basename(f).split('_')[1].split('.')[0]) for f in segment_files)
-                # Start 6 segments back for immediate processing (1 sample = 6 segments)
-                start_offset = 6
-                last_processed = max(0, latest_seg - start_offset)
-                logger.info(f"[{capture_folder}] 🆕 First run - starting from segment #{last_processed} (6 segments back from #{latest_seg})")
-                state['last_processed_segment'] = last_processed
+        # Find all MP3 chunks
+        mp3_files = get_files_by_pattern(audio_dir, r'^chunk_10min_\d+\.mp3$')
         
-        # Find available segments using fast os.scandir (no subprocess overhead, no timeout risk)
-        segment_files = get_files_by_pattern(segments_dir, r'^segment_.*\.ts$')
-        if not segment_files:
-            # Check if directory exists
-            if not os.path.exists(segments_dir):
-                logger.warning(f"[{capture_folder}] Segments directory does not exist: {segments_dir}")
-            else:
-                logger.debug(f"[{capture_folder}] No segment files found in: {segments_dir}")
+        if not mp3_files:
+            logger.debug(f"[{capture_folder}] No MP3 chunks found yet")
             return False
         
-        # Get all segments and find new ones to process
-        all_segment_nums = []
-        segment_map = {}
-        for seg_file in segment_files:
-            seg_num = int(os.path.basename(seg_file).split('_')[1].split('.')[0])
-            all_segment_nums.append(seg_num)
-            segment_map[seg_num] = seg_file
+        # Process new chunks
+        new_chunks_processed = 0
         
-        all_segment_nums.sort()
-        
-        # Find segments to sample (every 6th segment interval, but merge 6 segments per sample)
-        segments_to_process = []
-        for seg_num in all_segment_nums:
-            if seg_num > last_processed and seg_num % SAMPLE_INTERVAL == 0:
-                # Collect 6 consecutive segments ending at this segment
-                batch = []
-                for i in range(SAMPLE_INTERVAL):
-                    batch_seg_num = seg_num - SAMPLE_INTERVAL + 1 + i
-                    if batch_seg_num in segment_map:
-                        batch.append((batch_seg_num, segment_map[batch_seg_num]))
-                
-                if batch:  # Only process if we have segments in the batch
-                    segments_to_process.append((seg_num, batch))  # (target_seg_num, list_of_6_segments)
-        
-        if not segments_to_process:
-            # No new segments to process
-            logger.debug(f"[{capture_folder}] No new samples (waiting for seg after #{last_processed})")
-            return False
-        
-        # Limit processing to max_samples_per_run (for alternating between devices)
-        total_pending = len(segments_to_process)
-        segments_to_process = segments_to_process[:max_samples_per_run]
-        
-        # Visual separator for readability
-        logger.info("=" * 80)
-        
-        if total_pending > max_samples_per_run:
-            logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)}/{total_pending} samples (alternating with other devices)...")
-        else:
-            logger.info(f"[{capture_folder}] 🔄 Processing {len(segments_to_process)} new samples (6 segments per sample)...")
-        
-        # Group segments by 10-minute chunks (aligned with MP4 chunks: 6 per hour)
-        segments_by_chunk = {}
-        for segment_num, segment_batch in segments_to_process:
-            relative_seconds = segment_num
-            hour = relative_seconds // 3600  # 0-23
-            minutes_in_hour = (relative_seconds % 3600) // 60  # 0-59
-            chunk_index = minutes_in_hour // 10  # 0-5 (10-min chunks per hour)
+        for mp3_path in mp3_files:
+            mp3_filename = os.path.basename(mp3_path)
             
-            chunk_key = (hour, chunk_index)
-            if chunk_key not in segments_by_chunk:
-                segments_by_chunk[chunk_key] = []
-            segments_by_chunk[chunk_key].append((segment_num, segment_batch))
-        
-        # Process each 10-minute chunk separately
-        for (hour, chunk_index) in sorted(segments_by_chunk.keys()):
-            chunk_segments = segments_by_chunk[(hour, chunk_index)]
-            logger.info(f"[{capture_folder}] Processing {len(chunk_segments)} samples for hour {hour}, chunk {chunk_index}")
+            # Skip if already processed
+            if mp3_filename in processed_chunks:
+                continue
             
-            # Load chunk transcript file (10-minute aligned with MP4 chunks)
-            transcript_data = load_chunk_transcript(device_base_path, hour, chunk_index, capture_folder)
-            existing_segments = {s['segment_num']: s for s in transcript_data.get('segments', [])}
+            # Extract chunk index from filename (chunk_10min_0.mp3 → 0)
+            try:
+                chunk_index = int(mp3_filename.replace('chunk_10min_', '').replace('.mp3', ''))
+            except ValueError:
+                logger.warning(f"[{capture_folder}] Invalid MP3 filename: {mp3_filename}")
+                continue
             
-            # Process new samples for this chunk
-            for segment_num, segment_batch in chunk_segments:
-                # Extract TS file paths from batch
-                ts_file_paths = [seg_path for _, seg_path in segment_batch]
+            # Determine hour from file modification time
+            mtime = os.path.getmtime(mp3_path)
+            hour = datetime.fromtimestamp(mtime).hour
+            
+            logger.info("=" * 80)
+            logger.info(f"[{capture_folder}] 🎵 New MP3 chunk detected: {mp3_filename}")
+            
+            # Transcribe MP3 chunk
+            transcript_data = transcribe_mp3_chunk(mp3_path, capture_folder, hour, chunk_index)
+            
+            if transcript_data:
+                # Save transcript JSON
+                save_transcript_chunk(device_base_path, hour, chunk_index, transcript_data)
                 
-                # Start timing
-                seg_start_time = time.time()
-                
-                # Calculate total size of files being merged
-                total_size = sum(os.path.getsize(f) for f in ts_file_paths if os.path.exists(f))
-                
-                # Transcribe merged segments
-                logger.info(f"[{capture_folder}] 🎬 seg#{segment_num} (hour{hour}): Merged {len(segment_batch)} TS files ({total_size} bytes)")
-                result = transcribe_ts_segments(ts_file_paths, merge=True, model_name='tiny', device_id=capture_folder)
-                
-                transcript = result.get('transcript', '').strip()
-                language = result.get('language', 'unknown')
-                confidence = result.get('confidence', 0.0)
-                skipped = result.get('skipped', False)
-                seg_elapsed = time.time() - seg_start_time
-                
-                relative_seconds = segment_num
-                
-                existing_segments[segment_num] = {
-                    'segment_num': segment_num,
-                    'relative_seconds': relative_seconds,
-                    'language': language,
-                    'transcript': transcript,
-                    'confidence': confidence,
+                # Mark as processed
+                processed_chunks[mp3_filename] = {
+                    'timestamp': datetime.now().isoformat(),
                     'hour': hour,
-                    'chunk_index': chunk_index,
-                    'segments_merged': len(segment_batch)
+                    'chunk_index': chunk_index
                 }
+                new_chunks_processed += 1
                 
-                # Compact logging
-                if transcript:
-                    logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {seg_elapsed:.1f}s")
-                    logger.info(f"[{capture_folder}] 💬 '{transcript}'")
-                elif skipped:
-                    logger.info(f"[{capture_folder}] 🔇 Silent (Whisper skipped) | Duration: {seg_elapsed:.1f}s")
-                else:
-                    logger.info(f"[{capture_folder}] 🔇 No speech detected | Duration: {seg_elapsed:.1f}s")
-            
-            # Sort segments for this hour
-            all_segments = sorted(existing_segments.values(), key=lambda x: x['segment_num'])
-            
-            # AI Enhancement
-            samples_since_enhancement = transcript_data.get('samples_since_ai_enhancement', 0)
-            samples_since_enhancement += len(chunk_segments)
-            
-            if AI_ENHANCEMENT_ENABLED and samples_since_enhancement >= AI_ENHANCEMENT_BATCH:
-                segments_to_enhance = [seg for seg in all_segments[-AI_ENHANCEMENT_BATCH:] if seg.get('transcript', '').strip()]
-                
-                if segments_to_enhance:
-                    enhanced_map = enhance_transcripts_with_ai(segments_to_enhance, capture_folder)
-                    
-                    if enhanced_map:
-                        for seg in all_segments:
-                            seg_num = seg['segment_num']
-                            if seg_num in enhanced_map:
-                                seg['enhanced_transcript'] = enhanced_map[seg_num]
-                
-                samples_since_enhancement = 0
-            elif not AI_ENHANCEMENT_ENABLED:
-                samples_since_enhancement = 0
-            
-            # Update and save 10-minute chunk transcript data
-            transcript_data['capture_folder'] = capture_folder
-            transcript_data['hour'] = hour
-            transcript_data['chunk_index'] = chunk_index
-            transcript_data['sample_interval_seconds'] = SAMPLE_INTERVAL
-            transcript_data['segments'] = all_segments
-            transcript_data['last_update'] = datetime.now().isoformat()
-            transcript_data['total_samples'] = len(all_segments)
-            transcript_data['samples_since_ai_enhancement'] = samples_since_enhancement
-            
-            # Save this chunk's transcript file (10-min aligned with MP4 chunks)
-            save_chunk_transcript(device_base_path, hour, chunk_index, transcript_data)
-            
-            # Count enhanced transcripts if enabled
-            if AI_ENHANCEMENT_ENABLED:
-                enhanced_count = sum(1 for seg in all_segments if seg.get('enhanced_transcript'))
-                logger.info(f"[{capture_folder}] ✅ Saved chunk_10min_{chunk_index}.json (hour {hour}): {len(all_segments)} samples ({enhanced_count} enhanced)")
+                logger.info(f"[{capture_folder}] ✅ Transcription complete for chunk {chunk_index}")
             else:
-                logger.info(f"[{capture_folder}] ✅ Saved chunk_10min_{chunk_index}.json (hour {hour}): {len(all_segments)} samples")
+                logger.warning(f"[{capture_folder}] ⚠️ Transcription failed for {mp3_filename}")
+            
+            logger.info("=" * 80)
         
-        # Update global state
-        state['last_processed_segment'] = segments_to_process[-1][0] if segments_to_process else last_processed
-        with open(state_path + '.tmp', 'w') as f:
-            json.dump(state, f, indent=2)
-        os.rename(state_path + '.tmp', state_path)
+        # Save state
+        if new_chunks_processed > 0:
+            state['processed_chunks'] = processed_chunks
+            state['last_update'] = datetime.now().isoformat()
+            
+            with open(state_path + '.tmp', 'w') as f:
+                json.dump(state, f, indent=2)
+            os.rename(state_path + '.tmp', state_path)
+            
+            logger.info(f"[{capture_folder}] 💾 Processed {new_chunks_processed} new chunk(s)")
+            return True
         
-        # Cleanup old chunk transcripts (keep last 24 hours × 6 chunks = 144)
-        cleanup_old_chunk_transcripts(device_base_path)
-        
-        elapsed = time.time() - start_time
-        logger.info(f"[{capture_folder}] ✅ Processed {len(segments_to_process)} new samples across {len(segments_by_chunk)} chunk(s) [{elapsed:.2f}s]")
-        logger.info("=" * 80)
-        return True
+        return False
         
     except Exception as e:
-        elapsed = time.time() - start_time
-        logger.error(f"[{capture_folder}] ❌ Error updating transcript buffer: {e} [{elapsed:.2f}s]")
+        logger.error(f"[{capture_folder}] ❌ Error processing MP3 chunks: {e}")
         return False
 
 def main():
@@ -552,9 +430,10 @@ def main():
         force=True  # Override any existing configuration
     )
     
-    logger.info("Starting Transcript Accumulator (6s sampling, 24h circular buffer)...")
+    logger.info("Starting 10-Minute Transcript Accumulator")
     logger.info("Logging to: /tmp/transcript_accumulator.log (via systemd) and journalctl")
-    logger.info("Using audio_transcription_utils (clean, no dependencies)...")
+    logger.info("Watches for MP3 chunks created by hot_cold_archiver (zero duplicate merging)")
+    logger.info("Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json")
     
     try:
         # Get base directories and resolve hot/cold paths automatically
@@ -586,39 +465,26 @@ def main():
         # Whisper model will be loaded on first use and cached globally
         logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
         
-        logger.info(f"Monitoring {len(monitored_devices)} devices for transcripts (excluding host)")
-        logger.info(f"Processing strategy: Continuous loop, 1 sample = {SAMPLE_INTERVAL} TS segments merged")
-        
-        # Counter for periodic status logging
-        check_counter = 0
+        logger.info(f"Monitoring {len(monitored_devices)} devices for MP3 chunks (excluding host)")
+        logger.info(f"Check interval: {CHECK_INTERVAL}s (waiting for hot_cold_archiver to create MP3 chunks)")
         
         while True:
             any_processed = False
-            check_counter += 1
-            
-            # Show periodic status every 30 checks (when idle)
-            show_status = (check_counter % 30 == 0)
             
             for i, capture_dir in enumerate(monitored_devices, 1):
                 capture_folder = get_capture_folder(capture_dir)
-                if show_status:
-                    logger.info(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
-                else:
-                    logger.debug(f"[{capture_folder}] Checking for new transcript samples... ({i}/{len(monitored_devices)})")
-                # Process 1 sample at a time to alternate between devices
-                # Returns True if processed, False if nothing to process
-                was_processed = update_transcript_buffer(capture_dir, max_samples_per_run=1)
+                logger.debug(f"[{capture_folder}] Checking for new MP3 chunks... ({i}/{len(monitored_devices)})")
+                
+                # Process new MP3 chunks
+                was_processed = process_mp3_chunks(capture_dir)
                 if was_processed:
                     any_processed = True
-                    check_counter = 0  # Reset counter when processing happens
             
-            # If no device had anything to process, sleep briefly to avoid CPU spin
+            # If no device had new chunks, sleep until next check
             if not any_processed:
-                if show_status:
-                    logger.info(f"⏸️  No devices ready (waiting for new TS segments), sleeping 1s... [check #{check_counter}]")
-                else:
-                    logger.debug(f"⏸️  No devices ready, sleeping 1s...")
-                time.sleep(1)
+                logger.debug(f"⏸️  No new MP3 chunks, sleeping {CHECK_INTERVAL}s...")
+            
+            time.sleep(CHECK_INTERVAL)
             
     except Exception as e:
         logger.error(f"Fatal error in main loop: {e}")
