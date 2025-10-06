@@ -387,41 +387,58 @@ def clean_old_thumbnails(capture_dir: str) -> int:
     return cleanup_hot_files(capture_dir, 'thumbnails', 'capture_*_thumbnail.jpg')
 
 
-def cleanup_cold_buffer(capture_dir: str) -> int:
-    """
-    Delete captures/thumbnails from cold root (not hour subdirs) older than 5 minutes.
-    
-    Cold buffer provides safety net for R2 upload:
-    - Images copied to cold when needed for R2 upload
-    - 5 minute retention window allows retry on upload failure
-    - Only cleans root level files (hour folders untouched)
-    
-    Returns: Number of files deleted
-    """
+def cleanup_cold_captures(capture_dir: str) -> int:
+    """Delete captures from cold root older than 1 HOUR (for long scripts)"""
     if not is_ram_mode(capture_dir):
         return 0
     
     import time
     deleted = 0
     now = time.time()
-    max_age_seconds = 300  # 5 minutes
+    max_age_seconds = 3600  # 1 HOUR
     
-    for subdir in ['captures', 'thumbnails']:
-        cold_dir = os.path.join(capture_dir, subdir)
-        if not os.path.isdir(cold_dir):
-            continue
-        
-        try:
-            # Only root level files (not hour subdirs)
-            for f in Path(cold_dir).glob('capture_*.jpg'):
-                if f.parent == Path(cold_dir) and now - f.stat().st_mtime > max_age_seconds:
-                    os.remove(str(f))
-                    deleted += 1
-        except Exception as e:
-            logger.error(f"Error cleaning cold buffer {cold_dir}: {e}")
+    cold_dir = os.path.join(capture_dir, 'captures')
+    if not os.path.isdir(cold_dir):
+        return 0
+    
+    try:
+        for f in Path(cold_dir).glob('capture_*.jpg'):
+            if f.parent == Path(cold_dir) and now - f.stat().st_mtime > max_age_seconds:
+                os.remove(str(f))
+                deleted += 1
+    except Exception as e:
+        logger.error(f"Error cleaning cold captures: {e}")
     
     if deleted > 0:
-        logger.info(f"Cold buffer: Deleted {deleted} files older than 5min")
+        logger.info(f"Cold captures: Deleted {deleted} files older than 1h")
+    
+    return deleted
+
+
+def cleanup_cold_thumbnails(capture_dir: str) -> int:
+    """Delete thumbnails from cold root older than 5 MINUTES (not used in scripts)"""
+    if not is_ram_mode(capture_dir):
+        return 0
+    
+    import time
+    deleted = 0
+    now = time.time()
+    max_age_seconds = 300  # 5 MINUTES
+    
+    cold_dir = os.path.join(capture_dir, 'thumbnails')
+    if not os.path.isdir(cold_dir):
+        return 0
+    
+    try:
+        for f in Path(cold_dir).glob('capture_*_thumbnail.jpg'):
+            if f.parent == Path(cold_dir) and now - f.stat().st_mtime > max_age_seconds:
+                os.remove(str(f))
+                deleted += 1
+    except Exception as e:
+        logger.error(f"Error cleaning cold thumbnails: {e}")
+    
+    if deleted > 0:
+        logger.info(f"Cold thumbnails: Deleted {deleted} files older than 5min")
     
     return deleted
 
@@ -735,7 +752,8 @@ def process_capture_directory(capture_dir: str):
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
-    deleted_cold_buffer = cleanup_cold_buffer(capture_dir)  # Delete cold buffer files >5min old
+    deleted_cold_captures = cleanup_cold_captures(capture_dir)      # 1 hour retention (for scripts)
+    deleted_cold_thumbnails = cleanup_cold_thumbnails(capture_dir)  # 5 min retention (real-time only)
     # Note: Audio files now in hour folders (/audio/{hour}/) - no cleanup needed (24h rolling)
     
     ram_mode = is_ram_mode(capture_dir)
@@ -842,8 +860,10 @@ def process_capture_directory(capture_dir: str):
         safety_deletes.append(f"{deleted_thumbnails} thumb")
     if deleted_metadata > 0:
         safety_deletes.append(f"{deleted_metadata} meta")
-    if deleted_cold_buffer > 0:
-        safety_deletes.append(f"{deleted_cold_buffer} cold")
+    if deleted_cold_captures > 0:
+        safety_deletes.append(f"{deleted_cold_captures} cold_cap")
+    if deleted_cold_thumbnails > 0:
+        safety_deletes.append(f"{deleted_cold_thumbnails} cold_thumb")
     
     cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
     

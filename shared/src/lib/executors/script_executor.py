@@ -116,44 +116,9 @@ class ScriptExecutionContext:
         return path  # Return original if not found anywhere
 
     def add_screenshot(self, screenshot_path: str):
-        """Add screenshot to collection - copies to cold then uploads to R2"""
-        if not screenshot_path:
-            return
-        
-        # If already R2 URL, store as-is
-        if screenshot_path.startswith('https://'):
+        """Store screenshot path - NO upload (batch upload at script end)"""
+        if screenshot_path:
             self.screenshot_paths.append(screenshot_path)
-            return
-        
-        # Local path - copy to cold buffer first, then upload to R2
-        try:
-            from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
-            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
-            
-            # Copy to cold storage first (preserves for 5min if upload fails)
-            cold_path = self._copy_to_cold(screenshot_path)
-            
-            uploader = get_cloudflare_utils()
-            filename = os.path.basename(screenshot_path)
-            device_id = self.selected_device.device_id if hasattr(self, 'selected_device') else 'unknown'
-            remote_path = f"script-screenshots/{device_id}/{filename}"
-            
-            # Upload from cold (more reliable than hot which may be deleted)
-            upload_path = self._get_path_robust(cold_path)
-            upload_result = uploader.upload_files([{'local_path': upload_path, 'remote_path': remote_path}])
-            
-            if upload_result['uploaded_files']:
-                r2_url = upload_result['uploaded_files'][0]['url']
-                self.screenshot_paths.append(r2_url)
-                print(f"📤 [Context] Uploaded screenshot: {r2_url}")
-            else:
-                # Upload failed, but file preserved in cold for retry
-                self.screenshot_paths.append(cold_path)
-                print(f"⚠️ [Context] Screenshot upload failed, stored in cold buffer")
-        except Exception as e:
-            # Upload failed, store local path as fallback
-            self.screenshot_paths.append(screenshot_path)
-            print(f"⚠️ [Context] Screenshot upload error: {e}, using local path")
     
     def start_stdout_capture(self):
         """Start capturing stdout for log upload"""

@@ -614,28 +614,13 @@ class ActionExecutor:
             successful_iterations = len([r for r in iteration_results if r['success']])
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
-        # ALWAYS capture screenshot - success OR failure
+        # Capture screenshot (no upload)
         screenshot_path = ""
         try:
-            # Use capture_and_upload_screenshot for consistent naming (same as NavigationExecutor)
-            if context:
-                from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
-                # Create meaningful step name with command and action number
-                step_name = f"action_{action_number}_{action.get('command', 'unknown')}"
-                screenshot_result = capture_and_upload_screenshot(self.device, step_name, "action")
-                screenshot_path = screenshot_result.get('screenshot_path', '')
-                
-                if screenshot_path:
-                    self.action_screenshots.append(screenshot_path)
-                    print(f"[@action_executor] Screenshot captured: {screenshot_path}")
-                    context.add_screenshot(screenshot_path)
-                    print(f"[@action_executor] Screenshot added to context: {step_name}")
-            else:
-                # Fallback to direct AV controller call if no context
+            if self.av_controller:
                 screenshot_path = self.av_controller.take_screenshot()
-                if screenshot_path:
-                    self.action_screenshots.append(screenshot_path)
-                    print(f"[@action_executor] Screenshot captured: {screenshot_path}")
+                if screenshot_path and context:
+                    context.add_screenshot(screenshot_path)
         except Exception as e:
             print(f"[@action_executor] Screenshot failed: {e}")
         
