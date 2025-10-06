@@ -57,6 +57,7 @@ interface RecStreamContainerProps {
   // Callbacks
   onPlayerReady: () => void;
   onVideoTimeUpdate: (time: number) => void;
+  onVideoPause?: () => void;
   
   // Monitoring data props (for overlay on live video)
   monitoringAnalysis?: MonitoringAnalysis;
@@ -89,6 +90,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   calculateVncScaling,
   onPlayerReady,
   onVideoTimeUpdate,
+  onVideoPause,
   // Monitoring props
   monitoringAnalysis,
   subtitleAnalysis,
@@ -207,6 +209,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             shouldPause={shouldPausePlayer}
             onPlayerReady={onPlayerReady}
             onVideoTimeUpdate={onVideoTimeUpdate}
+            onVideoPause={onVideoPause}
             // Monitoring overlay props
             monitoringMode={monitoringMode}
             monitoringAnalysis={monitoringAnalysis}

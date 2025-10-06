@@ -69,6 +69,9 @@ const RecHostStreamModalContent: React.FC<{
   const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0); // Track video currentTime for archive monitoring
   const pollingIntervalRef = useRef<NodeJS.Timeout | (() => void) | null>(null);
+  // Throttle frequent video time updates to avoid excessive re-renders
+  const lastVideoTimeUpdateRef = useRef<number>(0);
+  const lastVideoTimeValueRef = useRef<number>(-1);
   
   // AI Disambiguation state and handlers
   const [disambiguationData, setDisambiguationData] = useState<any>(null);
@@ -236,17 +239,13 @@ const RecHostStreamModalContent: React.FC<{
       if (newMode) {
         setAiAgentMode(false);
         setRestartMode(false);
-        
-        setTimeout(() => {
-          const sequence = monitoringData.analysisTimestamp || '000000';
-          const imageUrl = buildCaptureUrl(host, sequence, device?.device_id || 'device1');
-          monitoringData.requestAIAnalysisForFrame(imageUrl, sequence);
-        }, 100);
+        // AI analysis now only triggered on pause (live) or video time change (archive)
+        console.log(`[@component:RecHostStreamModal] Monitoring enabled - AI analysis will trigger on pause (live) or time change (archive)`);
       }
 
       return newMode;
     });
-  }, [monitoringData, host, device]);
+  }, []);
 
   // Handle AI agent mode toggle
   const handleToggleAiAgent = useCallback(() => {
@@ -455,8 +454,33 @@ const RecHostStreamModalContent: React.FC<{
 
   // Handle video time update for archive monitoring
   const handleVideoTimeUpdate = useCallback((time: number) => {
+    // In archive mode, we only care about time updates when monitoring is enabled.
+    if (isLiveMode || !monitoringMode) return;
+
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    // Only update at most every 500ms and when time actually changes by >= 0.5s
+    if (now - lastVideoTimeUpdateRef.current < 500) return;
+    if (lastVideoTimeValueRef.current >= 0 && Math.abs(time - lastVideoTimeValueRef.current) < 0.5) return;
+
+    lastVideoTimeUpdateRef.current = now;
+    lastVideoTimeValueRef.current = time;
     setCurrentVideoTime(time);
-  }, []);
+  }, [isLiveMode, monitoringMode]);
+
+  // Handle video pause - trigger AI analysis (called ONLY when video pauses)
+  const handleVideoPause = useCallback(() => {
+    // Only trigger AI analysis in live mode with monitoring ON
+    if (isLiveMode && monitoringMode && monitoringData.latestAnalysis) {
+      const sequence = monitoringData.analysisTimestamp || '000000';
+      const imageUrl = buildCaptureUrl(host, sequence, device?.device_id || 'device1');
+      console.log(`[@component:RecHostStreamModal] 🎬 Video paused in live mode - triggering AI analysis for sequence: ${sequence}`);
+      monitoringData.requestAIAnalysisForFrame(imageUrl, sequence);
+    } else if (!isLiveMode) {
+      console.log(`[@component:RecHostStreamModal] 🎬 Video paused in archive mode - AI analysis handled by time change`);
+    } else {
+      console.log(`[@component:RecHostStreamModal] 🎬 Video paused but monitoring is OFF - skipping AI analysis`);
+    }
+  }, [isLiveMode, monitoringMode, monitoringData, host, device]);
 
   // Handle screenshot - call API and open image in new tab
   const handleScreenshot = useCallback(async () => {
@@ -672,6 +696,7 @@ const RecHostStreamModalContent: React.FC<{
             calculateVncScaling={calculateVncScaling}
             onPlayerReady={handlePlayerReady}
             onVideoTimeUpdate={handleVideoTimeUpdate}
+            onVideoPause={handleVideoPause}
             // Monitoring data props
             monitoringAnalysis={monitoringData.latestAnalysis || undefined}
             subtitleAnalysis={monitoringData.latestSubtitleAnalysis || undefined}
