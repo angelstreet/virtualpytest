@@ -59,6 +59,14 @@ export const useMonitoring = ({
   const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Use refs for values that should NOT trigger effect re-runs
+  const isLoadingRef = useRef(isLoading);
+  const lastProcessedSequenceRef = useRef(lastProcessedSequence);
+  
+  // Keep refs in sync
+  isLoadingRef.current = isLoading;
+  lastProcessedSequenceRef.current = lastProcessedSequence;
 
   // Helper: Load JSON analysis from capture URL
   const loadJsonAnalysis = useCallback(async (jsonUrl: string): Promise<MonitoringAnalysis | null> => {
@@ -270,13 +278,13 @@ export const useMonitoring = ({
             aiDescription: null,
           };
           setAnalysisHistory([snapshot]);
-          if (isLoading) setIsLoading(false);
+          if (isLoadingRef.current) setIsLoading(false);
         }
       }
     } catch (error) {
       console.error('[useMonitoring] Archive fetch error:', error);
     }
-  }, [host, device?.device_id, isLoading]);
+  }, [host, device?.device_id]);
 
   // Poll live data OR fetch archive data based on mode
   useEffect(() => {
@@ -319,7 +327,7 @@ export const useMonitoring = ({
       try {
         const latestData = await fetchLatestMonitoringData();
         if (!isMounted || !latestData) return;
-        if (latestData.sequence === lastProcessedSequence) return;
+        if (latestData.sequence === lastProcessedSequenceRef.current) return;
 
         const analysis = await loadJsonAnalysis(latestData.jsonUrl);
         if (!analysis) return;
@@ -334,7 +342,7 @@ export const useMonitoring = ({
 
         setAnalysisHistory(prev => [...prev, snapshot].slice(-10));
         setLastProcessedSequence(latestData.sequence);
-        if (isLoading) setIsLoading(false);
+        if (isLoadingRef.current) setIsLoading(false);
 
         analyzeFrameAIAsync(latestData.imageUrl, latestData.sequence).then(aiResults => {
           if (!isMounted) return;
@@ -363,7 +371,7 @@ export const useMonitoring = ({
         pollingIntervalRef.current = null;
       }
     };
-  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, loadJsonAnalysis, analyzeFrameAIAsync, fetchArchiveData, lastProcessedSequence, isLoading]);
+  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, loadJsonAnalysis, analyzeFrameAIAsync, fetchArchiveData]);
 
   // Compute error trend data from analysis history
   const computeErrorTrends = useCallback((): ErrorTrendData | null => {

@@ -55,9 +55,9 @@ ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
 RAM_RUN_INTERVAL = 60   # 1min for RAM mode (faster cleanup for video content)
 SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 
-# Hot storage limits - ALIGNED WITH 150s SEGMENT BUFFER
+# Hot storage limits
 # LIFECYCLE:
-# - Segments: HOT individual TS → grouped & saved as MP4 to COLD /segments/{hour}/
+# - Segments: HOT TS (FFmpeg auto-deletes @ 150, safety cleanup @ 200 if needed) → grouped as MP4 to COLD
 # - Captures: HOT only → deleted (uploaded to R2 cloud when needed)
 # - Thumbnails: HOT only → deleted (local freeze detection only)
 # - Metadata: HOT individual JSONs → grouped & saved to COLD /metadata/{hour}/
@@ -65,16 +65,16 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Audio: HOT 10min chunks → archived to COLD /audio/{hour}/
 #
 # RAM Usage (HIGH QUALITY CAPTURES - Video content worst case):
-# - Segments: 150 × 38KB = 6MB (2.5min buffer → grouped to MP4 in cold)
+# - Segments: 150 × 38KB = 6MB (FFmpeg auto-deletes, 200 limit = safety net)
 # - Captures: 300 × 245KB = 74MB (60s buffer → deleted, R2 when needed)
 # - Thumbnails: 100 × 28KB = 3MB (freeze detection → deleted)
 # - Metadata: 750 × 1KB = 0.75MB (150s buffer → grouped to cold)
 # - Transcripts: N/A (saved directly to cold by transcript_accumulator)
 # - Audio: 6 × 1MB = 6MB (1h buffer → archived to cold)
-# Total: ~91MB per device ✅ (45% of 200MB budget, high quality preserved)
+# Total: ~90MB per device ✅ (45% of 200MB budget, high quality preserved)
 #
 HOT_LIMITS = {
-    'segments': 150,      # 2.5min buffer → grouped as MP4 to cold
+    'segments': 200,      # Safety limit > FFmpeg's 150 (only cleanup if FFmpeg fails)
     'captures': 300,      # 60s buffer → deleted (R2 cloud when needed)
     'thumbnails': 100,    # For freeze detection → deleted
     'metadata': 750,      # 150s buffer → grouped to 10min chunks in cold
@@ -520,7 +520,7 @@ def process_capture_directory(capture_dir: str):
     """
     Process single capture directory:
     1. SAFETY CLEANUP: Delete old files for ALL types (prevent RAM exhaustion)
-       - Segments: Keep 150 newest (will be grouped as MP4 to cold)
+       - Segments: Keep 200 newest (safety net - FFmpeg normally auto-deletes @ 150)
        - Captures: Keep 300 newest (deleted, uploaded to R2 when needed)
        - Thumbnails: Keep 100 newest (deleted, local freeze detection only)
        - Metadata: Keep 750 newest (individual JSONs deleted after grouping to cold)
@@ -530,6 +530,7 @@ def process_capture_directory(capture_dir: str):
     4. Archive audio: HOT 10min chunks → COLD /audio/{hour}/
     
     Safety cleanup runs FIRST to guarantee RAM limits regardless of pipeline status.
+    Note: Segment limit (200) > FFmpeg's hls_list_size (150) to avoid race conditions.
     """
     logger.info(f"Processing {capture_dir}")
     
