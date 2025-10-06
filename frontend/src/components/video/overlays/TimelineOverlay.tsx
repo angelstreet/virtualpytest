@@ -239,7 +239,16 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             
             {archiveMetadata && (
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
-                {availableHours.length > 0 ? `${availableHours.length}h available` : 'No archive available'} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
+                {(() => {
+                  if (archiveMetadata.manifests.length === 0) return 'No archive available';
+                  const totalMinutes = archiveMetadata.manifests.length * 10;
+                  const hours = Math.floor(totalMinutes / 60);
+                  const minutes = totalMinutes % 60;
+                  let durationStr = '';
+                  if (hours > 0) durationStr += `${hours}h`;
+                  if (minutes > 0) durationStr += `${minutes}min`;
+                  return `${durationStr} available`;
+                })()} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
               </Typography>
             )}
             
@@ -250,7 +259,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   if (lastManifest) {
                     const hour = lastManifest.window_index;
                     const chunk = lastManifest.chunk_index;
-                    const minutes = chunk * 10;
+                    // Calculate END time of the last chunk (chunk_index + 1) * 10
+                    const minutes = (chunk + 1) * 10;
                     return `${hour}h${minutes.toString().padStart(2, '0')}`;
                   }
                 }
