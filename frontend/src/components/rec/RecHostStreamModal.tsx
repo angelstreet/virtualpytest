@@ -64,6 +64,7 @@ const RecHostStreamModalContent: React.FC<{
   const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
   const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
   const [currentQuality, setCurrentQuality] = useState<'low' | 'sd' | 'hd'>('low'); // Start with LOW quality
+  const currentQualityRef = useRef<'low' | 'sd' | 'hd'>('low'); // Ref to track quality for cleanup
   const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
   const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0); // Track video currentTime for archive monitoring
@@ -346,6 +347,7 @@ const RecHostStreamModalContent: React.FC<{
     
     // Update state based on target quality
     setCurrentQuality(targetQuality);
+    currentQualityRef.current = targetQuality; // Sync ref for cleanup
     
     // Show loading overlay if requested
     if (showLoadingOverlay) {
@@ -402,12 +404,13 @@ const RecHostStreamModalContent: React.FC<{
 
     // Cleanup: ensure LOW quality when component unmounts (for safety)
     return () => {
-      console.log('[@component:RecHostStreamModal] Component unmounting, ensuring LOW quality');
+      const finalQuality = currentQualityRef.current; // Read from ref to get LATEST value
+      console.log(`[@component:RecHostStreamModal] Component unmounting, current quality: ${finalQuality}`);
       setIsStreamActive(false);
       
       // Only restart if we're NOT already at LOW quality
-      if (currentQuality !== 'low') {
-        console.log(`[@component:RecHostStreamModal] Reverting from ${currentQuality.toUpperCase()} to LOW`);
+      if (finalQuality !== 'low') {
+        console.log(`[@component:RecHostStreamModal] Reverting from ${finalQuality.toUpperCase()} to LOW`);
         fetch(buildServerUrl('/server/system/restartHostStreamService'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -520,7 +523,7 @@ const RecHostStreamModalContent: React.FC<{
     setMonitoringMode(false);
     setAiAgentMode(false);
     setRestartMode(false);
-      setCurrentQuality('low'); // Reset to LOW quality
+    // Quality revert handled by useEffect cleanup (reads from ref for accurate state)
     setShouldPausePlayer(false);
     setIsQualitySwitching(false);
     onClose();
