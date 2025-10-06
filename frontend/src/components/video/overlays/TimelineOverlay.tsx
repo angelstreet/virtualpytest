@@ -73,17 +73,40 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const displayMax = isLiveMode ? max : (24 * 3600);
 
   return (
-    <Box
-      sx={{
-        position: 'absolute',
-        bottom: -45,
-        left: 0,
-        right: 0,
-        background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-        p: 2,
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
+    <>
+      {isLiveMode && liveBufferSeconds > 0 && liveBufferSeconds < 150 && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            color: 'white',
+            px: 2,
+            py: 1,
+            borderRadius: 1,
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            zIndex: 20,
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
+            Buffer: {Math.floor(liveBufferSeconds)}s
+          </Typography>
+        </Box>
+      )}
+      
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: -45,
+          left: 0,
+          right: 0,
+          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+          p: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
         {!isLiveMode && (
           <IconButton
             onClick={onTogglePlayPause}
@@ -220,6 +243,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const isBuffering = videoRef.current && videoRef.current.readyState < 3;
                 if (liveBufferSeconds < 10 || isBuffering) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
                 const behindSeconds = Math.round(150 - liveSliderPosition);
+                if (behindSeconds === 0) return 'LIVE';
                 if (behindSeconds < 60) return `-${behindSeconds}s`;
                 const minutes = Math.floor(behindSeconds / 60);
                 const seconds = behindSeconds % 60;
@@ -268,6 +292,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           </>
         )}
       </Box>
-    </Box>
+      </Box>
+    </>
   );
 };

@@ -5,7 +5,7 @@ HOT/COLD STORAGE ARCHIVER - Safety Cleanup + Progressive Grouping
 
 Responsibilities:
 1. SAFETY CLEANUP: Enforce hot storage limits on ALL file types (prevent RAM exhaustion)
-2. Progressive MP4 merging: HOT TS → 6s → 1min → 10min MP4 saved to COLD /segments/{hour}/
+2. Progressive MP4 merging: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
 3. Progressive metadata grouping: HOT JSONs → 1min → 10min chunks saved to COLD /metadata/{hour}/
 4. Audio extraction & archival: 10min MP4 → HOT audio → COLD /audio/{hour}/
 5. 98% disk write reduction through progressive grouping
@@ -678,7 +678,7 @@ def process_capture_directory(capture_dir: str):
        - Metadata: Keep 750 newest (individual JSONs deleted after grouping to cold)
        - Audio: Keep 6 newest (archived to cold)
     2. Progressive metadata grouping: HOT individual JSONs → 1min → 10min chunks in COLD /metadata/{hour}/
-    3. Progressive MP4 merging: HOT TS → 6s → 1min → 10min MP4 chunks in COLD /segments/{hour}/
+    3. Progressive MP4 merging: HOT TS → 1min → 10min MP4 chunks in COLD /segments/{hour}/
     4. Archive audio: HOT 10min chunks → COLD /audio/{hour}/
     
     Safety cleanup runs FIRST to guarantee RAM limits regardless of pipeline status.
@@ -712,25 +712,46 @@ def process_capture_directory(capture_dir: str):
     if metadata_10min:
         logger.info("Created 10min metadata chunk")
     
-    # SEGMENTS PROGRESSIVE GROUPING (existing MP4 flow)
+    # SEGMENTS PROGRESSIVE GROUPING (2-step: TS → 1min → 10min)
     hot_segments = os.path.join(capture_dir, 'hot', 'segments') if ram_mode else os.path.join(capture_dir, 'segments')
     temp_dir = os.path.join(capture_dir, 'segments', 'temp')
     os.makedirs(temp_dir, exist_ok=True)
     
-    mp4_6s = merge_progressive_batch(hot_segments, 'segment_*.ts', os.path.join(temp_dir, f'6s_{int(time.time())}.mp4'), 6, True, 10)
-    if mp4_6s:
-        logger.info("Created 6s MP4")
-    
-    mp4_1min = merge_progressive_batch(temp_dir, '6s_*.mp4', os.path.join(temp_dir, f'1min_{int(time.time())}.mp4'), 10, True, 15)
+    # Step 1: Merge 60 TS segments directly into 1min MP4 (no 6s intermediate)
+    mp4_1min = merge_progressive_batch(hot_segments, 'segment_*.ts', os.path.join(temp_dir, f'1min_{int(time.time())}.mp4'), 60, True, 20)
     if mp4_1min:
         logger.info("Created 1min MP4")
     
-    hour = datetime.now().hour
-    hour_dir = os.path.join(capture_dir, 'segments', str(hour))
-    os.makedirs(hour_dir, exist_ok=True)
-    chunk_index = len(list(Path(hour_dir).glob('chunk_10min_*.mp4')))
-    mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
-    mp4_10min = merge_progressive_batch(temp_dir, '1min_*.mp4', mp4_path, 10, True, 20)
+    # Check if we have enough 1min files for a 10min chunk
+    one_min_files = sorted(
+        [f for f in Path(temp_dir).glob('1min_*.mp4') if f.is_file()],
+        key=os.path.getmtime
+    )
+    
+    mp4_10min = None
+    if len(one_min_files) >= 10:
+        # Get timestamp from OLDEST 1min file to determine correct chunk time
+        oldest_file = one_min_files[0]
+        try:
+            oldest_timestamp = int(oldest_file.stem.replace('1min_', ''))
+            oldest_dt = datetime.fromtimestamp(oldest_timestamp)
+            
+            # Calculate hour and chunk_index from actual video time (not current time!)
+            hour = oldest_dt.hour
+            chunk_index = oldest_dt.minute // 10  # 0-5 based on 10-minute window
+            
+            hour_dir = os.path.join(capture_dir, 'segments', str(hour))
+            os.makedirs(hour_dir, exist_ok=True)
+            mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
+            
+            # Only create if chunk doesn't exist (prevent duplicates within same 10min window)
+            if not os.path.exists(mp4_path):
+                mp4_10min = merge_progressive_batch(temp_dir, '1min_*.mp4', mp4_path, 10, True, 20)
+            else:
+                logger.debug(f"Chunk already exists: {hour}/chunk_10min_{chunk_index}.mp4 (skipping duplicate)")
+        except (ValueError, OSError) as e:
+            logger.error(f"Error calculating chunk time from {oldest_file}: {e}")
+    
     if mp4_10min:
         logger.info(f"Created 10min chunk: {hour}/chunk_10min_{chunk_index}.mp4")
         
@@ -762,7 +783,7 @@ def process_capture_directory(capture_dir: str):
     elapsed = time.time() - start_time
     
     # Build status summary
-    mp4_status = [s for s, result in [("6s", mp4_6s), ("1min", mp4_1min), ("10min", mp4_10min)] if result]
+    mp4_status = [s for s, result in [("1min", mp4_1min), ("10min", mp4_10min)] if result]
     mp4_info = f", MP4: {'+'.join(mp4_status)}" if mp4_status else ""
     
     metadata_status = [s for s, result in [("1min", metadata_1min), ("10min", metadata_10min)] if result]
@@ -790,7 +811,7 @@ def main_loop():
     Processes every 1min:
     - SAFETY CLEANUP: Enforce limits on ALL hot storage types (prevent RAM exhaustion)
     - Metadata: HOT individual JSONs → 1min → 10min chunks saved to COLD /metadata/{hour}/
-    - Segments: HOT TS → 6s → 1min → 10min MP4 saved to COLD /segments/{hour}/
+    - Segments: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
     - Audio: Extract from 10min MP4 → HOT → archive to COLD /audio/{hour}/
     
     Safety cleanup runs FIRST and independently from merging/archiving to guarantee
