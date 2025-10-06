@@ -26,6 +26,7 @@ import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 
 // Optimized memoization with deep comparison to prevent re-renders from object reference changes
 const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
+  // Quick reference check first - if references are same, no need for deep comparison
   if (
     prevProps.host === nextProps.host &&
     prevProps.device === nextProps.device &&
@@ -35,11 +36,9 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.onSelectionChange === nextProps.onSelectionChange &&
     prevProps.onOpenModal === nextProps.onOpenModal &&
     prevProps.isAnyModalOpen === nextProps.isAnyModalOpen &&
-    prevProps.isSelectedForModal === nextProps.isSelectedForModal &&
-    prevProps.sharedVideoRef === nextProps.sharedVideoRef &&
-    prevProps.showFullFeatures === nextProps.showFullFeatures
+    prevProps.isSelectedForModal === nextProps.isSelectedForModal
   ) {
-    return true;
+    return true; // Props haven't changed, skip re-render
   }
 
   // Log what changed for debugging
@@ -54,13 +53,13 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     onOpenModal: prevProps.onOpenModal !== nextProps.onOpenModal,
     isAnyModalOpen: prevProps.isAnyModalOpen !== nextProps.isAnyModalOpen,
     isSelectedForModal: prevProps.isSelectedForModal !== nextProps.isSelectedForModal,
-    showFullFeatures: prevProps.showFullFeatures !== nextProps.showFullFeatures,
   };
   
   if (Object.values(changes).some(v => v)) {
     console.log(`[@Rec] Card ${deviceKey} props changed:`, changes);
   }
 
+  // Deep comparison when references differ
   const areEqual = (
     prevProps.host.host_name === nextProps.host.host_name &&
     prevProps.device?.device_id === nextProps.device?.device_id &&
@@ -72,11 +71,10 @@ const MemoizedRecHostPreview = memo(RecHostPreview, (prevProps, nextProps) => {
     prevProps.onSelectionChange === nextProps.onSelectionChange &&
     prevProps.onOpenModal === nextProps.onOpenModal &&
     prevProps.isAnyModalOpen === nextProps.isAnyModalOpen &&
-    prevProps.isSelectedForModal === nextProps.isSelectedForModal &&
-    prevProps.sharedVideoRef === nextProps.sharedVideoRef
+    prevProps.isSelectedForModal === nextProps.isSelectedForModal // Handler should be stable now
   );
   
-  return areEqual;
+  return areEqual; // Return true to skip re-render, false to re-render
 });
 
 // REC page - directly uses the global HostManagerProvider from App.tsx
@@ -106,36 +104,12 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   const [pendingTags, setPendingTags] = useState<string[]>([]);
 
   // Modal state
-  // The modal controls the player in the selected preview card (which becomes fullscreen)
-  // State flows: Modal → Rec.tsx → Selected Preview → EnhancedHLSPlayer
-  // This preserves the HLS instance and buffer across all transitions:
-  // - Preview → Modal: showFullFeatures=true (preview goes fullscreen)
-  // - Live → Archive: setModalIsLiveMode(false) (player switches mode)
-  // - Archive → Live: setModalIsLiveMode(true) (player switches back)
-  // - Modal → Preview: showFullFeatures=false (preview returns to grid)
   const [modalHost, setModalHost] = useState<Host | null>(null);
   const [modalDevice, setModalDevice] = useState<Device | null>(null);
-  const [modalIsLiveMode, setModalIsLiveMode] = useState(true);
-  const [modalQuality, setModalQuality] = useState<'low' | 'sd' | 'hd'>('low');
-  const [modalMuted, setModalMuted] = useState(true);
-
-  // Shared video refs (one per device) - preserves buffer across preview/modal
-  const sharedVideoRefs = useRef<Map<string, React.RefObject<HTMLVideoElement>>>(new Map());
-
-  const getOrCreateVideoRef = useCallback((deviceKey: string) => {
-    if (!sharedVideoRefs.current.has(deviceKey)) {
-      sharedVideoRefs.current.set(deviceKey, React.createRef<HTMLVideoElement>());
-    }
-    return sharedVideoRefs.current.get(deviceKey)!;
-  }, []);
 
   const openModal = useCallback((host: Host, device: Device) => {
     setModalHost(host);
     setModalDevice(device);
-    // Reset modal state to defaults when opening
-    setModalIsLiveMode(true);
-    setModalQuality('low');
-    setModalMuted(true);
   }, []);
 
   const closeModal = useCallback(() => {
@@ -763,11 +737,6 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
                   onOpenModal={() => openModal(host, device)}
                   isAnyModalOpen={!!modalHost}
                   isSelectedForModal={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id}
-                  sharedVideoRef={getOrCreateVideoRef(deviceKey)}
-                  showFullFeatures={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id}
-                  modalIsLiveMode={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id ? modalIsLiveMode : undefined}
-                  modalQuality={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id ? modalQuality : undefined}
-                  modalMuted={modalHost?.host_name === host.host_name && modalDevice?.device_id === device.device_id ? modalMuted : undefined}
                 />
               </Grid>
             );
@@ -780,13 +749,6 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
           device={modalDevice}
           isOpen={true}
           onClose={closeModal}
-          sharedVideoRef={getOrCreateVideoRef(`${modalHost.host_name}-${modalDevice.device_id}`)}
-          modalIsLiveMode={modalIsLiveMode}
-          onIsLiveModeChange={setModalIsLiveMode}
-          modalQuality={modalQuality}
-          onQualityChange={setModalQuality}
-          modalMuted={modalMuted}
-          onMutedChange={setModalMuted}
         />
       )}
     </Box>

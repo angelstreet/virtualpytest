@@ -59,13 +59,10 @@ export interface EnhancedHLSPlayerProps {
   isLiveMode?: boolean;
   quality?: 'low' | 'sd' | 'hd';
   shouldPause?: boolean;
-  videoElementRef?: React.RefObject<HTMLVideoElement>;
   onPlayerReady?: () => void;
   onVideoTimeUpdate?: (time: number) => void;
   onVideoPause?: () => void;
   
-  showTimeline?: boolean; // Control timeline visibility
-  showMonitoringOverlay?: boolean; // Control monitoring overlay visibility
   monitoringMode?: boolean;
   monitoringAnalysis?: MonitoringAnalysis | null;
   subtitleAnalysis?: SubtitleAnalysis | null;

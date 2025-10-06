@@ -23,13 +23,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isLiveMode: externalIsLiveMode,
   quality = 'sd',
   shouldPause = false,
-  videoElementRef,
   onPlayerReady,
   onVideoTimeUpdate,
   onVideoPause,
   
-  showTimeline = true,
-  showMonitoringOverlay = true,
   monitoringMode = false,
   monitoringAnalysis,
   subtitleAnalysis,
@@ -39,8 +36,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   analysisTimestamp,
   isAIAnalyzing = false,
 }) => {
-  const internalVideoRef = useRef<HTMLVideoElement>(null);
-  const videoRef = videoElementRef || internalVideoRef;
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [internalIsLiveMode] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -49,8 +45,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   const qualityTimestampRef = useRef<number>(Date.now());
   const [isAtLiveEdge, setIsAtLiveEdge] = useState(true);
   const liveEdgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [liveBufferSeconds, setLiveBufferSeconds] = useState(0);
-  const [liveSliderPosition, setLiveSliderPosition] = useState(150);
+  const [userBufferPosition, setUserBufferPosition] = useState(1.0);
   
   const isLiveMode = externalIsLiveMode !== undefined ? externalIsLiveMode : internalIsLiveMode;
   
@@ -119,10 +114,11 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode) {
         archive.clearArchiveData();
         transcript.clearTranscriptData();
-        setTimeout(() => setIsTransitioning(false), 100);
-      } else {
-        setTimeout(() => setIsTransitioning(false), 500);
       }
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 100);
       
       prevIsLiveMode.current = isLiveMode;
     }
@@ -211,35 +207,31 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   };
 
   const handleLiveSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    const value = Array.isArray(newValue) ? newValue[0] : newValue;
-    const minAllowed = Math.max(0, 150 - liveBufferSeconds);
-    const clampedValue = Math.max(value, minAllowed);
-    setLiveSliderPosition(clampedValue);
-    archive.handleSliderChange(_event, clampedValue);
-    setIsAtLiveEdge(clampedValue >= 145);
-  }, [archive, liveBufferSeconds]);
+    const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
+    const position = Math.max(0, Math.min(1, sliderValue));
+    setUserBufferPosition(position);
+    archive.handleSliderChange(_event, position);
+    setIsAtLiveEdge(position > 0.9);
+  }, [archive]);
 
   const handleLiveSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (!videoRef.current) return;
     
-    const value = Array.isArray(newValue) ? newValue[0] : newValue;
+    const position = Array.isArray(newValue) ? newValue[0] : newValue;
     const video = videoRef.current;
     
     if (video.buffered.length > 0) {
       const buffered = video.buffered;
-      const bufferEnd = buffered.end(buffered.length - 1);
       const bufferStart = buffered.start(0);
+      const bufferEnd = buffered.end(buffered.length - 1);
+      const targetTime = bufferStart + (position * (bufferEnd - bufferStart));
       
-      const secondsBehind = 150 - value;
-      const targetTime = bufferEnd - secondsBehind;
+      console.log(`[@EnhancedHLSPlayer] Live mode seek to buffer position ${(position * 100).toFixed(1)}% (${targetTime.toFixed(1)}s)`);
+      video.currentTime = targetTime;
+      setUserBufferPosition(position);
       
-      console.log(`[@EnhancedHLSPlayer] Live seek to ${value}s position (${secondsBehind}s behind live)`);
-      video.currentTime = Math.max(bufferStart, Math.min(targetTime, bufferEnd));
-      setLiveSliderPosition(value);
-      
-      if (value >= 145) {
+      if (position > 0.9) {
         video.currentTime = bufferEnd - 1;
-        setLiveSliderPosition(150);
       }
     }
     
@@ -256,12 +248,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode && video.buffered.length > 0) {
         const buffered = video.buffered;
         const bufferEnd = buffered.end(buffered.length - 1);
-        const bufferStart = buffered.start(0);
-        const totalBuffer = bufferEnd - bufferStart;
         const latency = bufferEnd - video.currentTime;
         const atLiveEdge = latency < 3;
-        
-        setLiveBufferSeconds(totalBuffer);
         
         if (atLiveEdge !== isAtLiveEdge) {
           setIsAtLiveEdge(atLiveEdge);
@@ -303,26 +291,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   useEffect(() => {
     const timer = setTimeout(() => {
       if (isLiveMode) {
-        console.log('[@EnhancedHLSPlayer] Switching to live mode');
+        console.log('[@EnhancedHLSPlayer] Switching to live mode - ensuring live edge status');
         setIsAtLiveEdge(true);
-        setLiveBufferSeconds(0);
-        setLiveSliderPosition(150);
+        setUserBufferPosition(1.0);
         seekToLive();
       } else {
-        const video = videoRef.current;
-        if (!video) return;
-        
-        const seekToStart = () => {
-          if (video.readyState >= 1 && video.duration && !isNaN(video.duration)) {
-            console.log('[@EnhancedHLSPlayer] Archive mode ready, seeking to start');
-            video.currentTime = 0;
-          }
-        };
-        
-        if (video.readyState >= 1) {
-          seekToStart();
-        } else {
-          video.addEventListener('loadedmetadata', seekToStart, { once: true });
+        if (videoRef.current && videoRef.current.duration) {
+          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning (0:00)`);
+          videoRef.current.currentTime = 0;
         }
       }
     }, 500);
@@ -345,6 +321,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       <Box sx={{ position: 'relative', height }}>
         {!isTransitioning && (!archive.isCheckingAvailability && (isLiveMode || archive.availableHours.length > 0)) ? (
           <HLSVideoPlayer
+            key={`${isLiveMode ? 'live' : 'archive'}`}
             streamUrl={streamUrl}
             isStreamActive={true}
             videoElementRef={videoRef}
@@ -461,29 +438,26 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           show={!isLiveMode}
         />
 
-        {showTimeline && (
-          <TimelineOverlay
-            isLiveMode={isLiveMode}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            isAtLiveEdge={isAtLiveEdge}
-            liveBufferSeconds={liveBufferSeconds}
-            liveSliderPosition={liveSliderPosition}
-            globalCurrentTime={archive.globalCurrentTime}
-            isDraggingSlider={archive.isDraggingSlider}
-            dragSliderValue={archive.dragSliderValue}
-            archiveMetadata={archive.archiveMetadata}
-            availableHours={archive.availableHours}
-            hourMarks={archive.hourMarks}
-            videoRef={videoRef}
-            onTogglePlayPause={togglePlayPause}
-            onSliderChange={isLiveMode ? handleLiveSliderChange : archive.handleSliderChange}
-            onSeek={isLiveMode ? handleLiveSeek : archive.handleSeek}
-            show={!isTransitioning}
-            currentManifestIndex={archive.currentManifestIndex}
-          />
-        )}
+        <TimelineOverlay
+          isLiveMode={isLiveMode}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          isAtLiveEdge={isAtLiveEdge}
+          userBufferPosition={userBufferPosition}
+          globalCurrentTime={archive.globalCurrentTime}
+          isDraggingSlider={archive.isDraggingSlider}
+          dragSliderValue={archive.dragSliderValue}
+          archiveMetadata={archive.archiveMetadata}
+          availableHours={archive.availableHours}
+          hourMarks={archive.hourMarks}
+          videoRef={videoRef}
+          onTogglePlayPause={togglePlayPause}
+          onSliderChange={isLiveMode ? handleLiveSliderChange : archive.handleSliderChange}
+          onSeek={isLiveMode ? handleLiveSeek : archive.handleSeek}
+          show={!isTransitioning}
+          currentManifestIndex={archive.currentManifestIndex}
+        />
       </Box>
     </Box>
   );
