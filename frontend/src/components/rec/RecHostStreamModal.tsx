@@ -396,25 +396,30 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [host.host_name, device?.device_id, showError, pollForNewStream]);
 
-  // Cleanup: revert to LOW quality when modal closes
+  // Modal lifecycle: LOW quality is always default (no restart needed on mount)
   useEffect(() => {
-    console.log('[@component:RecHostStreamModal] Modal opened - starting with LOW quality');
+    console.log('[@component:RecHostStreamModal] Modal opened - reusing existing LOW quality stream (no restart)');
 
-    // Cleanup: revert to LOW quality when component unmounts
+    // Cleanup: ensure LOW quality when component unmounts (for safety)
     return () => {
-      console.log('[@component:RecHostStreamModal] Component unmounting, reverting to LOW quality');
+      console.log('[@component:RecHostStreamModal] Component unmounting, ensuring LOW quality');
       setIsStreamActive(false);
       
-      // Switch back to LOW quality for preview/monitoring
-      fetch(buildServerUrl('/server/system/restartHostStreamService'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1',
-          quality: 'low' // Revert to LOW when modal closes
-        })
-      }).catch(err => console.error('[@component:RecHostStreamModal] Failed to revert to LOW:', err));
+      // Only restart if we're NOT already at LOW quality
+      if (currentQuality !== 'low') {
+        console.log(`[@component:RecHostStreamModal] Reverting from ${currentQuality.toUpperCase()} to LOW`);
+        fetch(buildServerUrl('/server/system/restartHostStreamService'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_name: host.host_name,
+            device_id: device?.device_id || 'device1',
+            quality: 'low'
+          })
+        }).catch(err => console.error('[@component:RecHostStreamModal] Failed to revert to LOW:', err));
+      } else {
+        console.log('[@component:RecHostStreamModal] Already at LOW quality - no restart needed');
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount/unmount
