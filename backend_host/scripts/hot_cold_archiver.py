@@ -289,9 +289,6 @@ def archive_hot_files(capture_dir: str, file_type: str) -> int:
         logger.error(f"Error archiving {file_type} files: {e}")
         return 0
 
-
-
-
 def cleanup_hot_files(capture_dir: str, file_type: str, pattern: str) -> int:
     """
     Generic safety cleanup for hot storage - keep only newest N files, DELETE old ones.
@@ -388,6 +385,45 @@ def clean_old_thumbnails(capture_dir: str) -> int:
     Returns: Number of files deleted
     """
     return cleanup_hot_files(capture_dir, 'thumbnails', 'capture_*_thumbnail.jpg')
+
+
+def cleanup_cold_buffer(capture_dir: str) -> int:
+    """
+    Delete captures/thumbnails from cold root (not hour subdirs) older than 5 minutes.
+    
+    Cold buffer provides safety net for R2 upload:
+    - Images copied to cold when needed for R2 upload
+    - 5 minute retention window allows retry on upload failure
+    - Only cleans root level files (hour folders untouched)
+    
+    Returns: Number of files deleted
+    """
+    if not is_ram_mode(capture_dir):
+        return 0
+    
+    import time
+    deleted = 0
+    now = time.time()
+    max_age_seconds = 300  # 5 minutes
+    
+    for subdir in ['captures', 'thumbnails']:
+        cold_dir = os.path.join(capture_dir, subdir)
+        if not os.path.isdir(cold_dir):
+            continue
+        
+        try:
+            # Only root level files (not hour subdirs)
+            for f in Path(cold_dir).glob('capture_*.jpg'):
+                if f.parent == Path(cold_dir) and now - f.stat().st_mtime > max_age_seconds:
+                    os.remove(str(f))
+                    deleted += 1
+        except Exception as e:
+            logger.error(f"Error cleaning cold buffer {cold_dir}: {e}")
+    
+    if deleted > 0:
+        logger.info(f"Cold buffer: Deleted {deleted} files older than 5min")
+    
+    return deleted
 
 
 def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[str], batch_size: int, fps: int = 5, is_final: bool = False, capture_dir: Optional[str] = None) -> bool:
@@ -699,6 +735,7 @@ def process_capture_directory(capture_dir: str):
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
+    deleted_cold_buffer = cleanup_cold_buffer(capture_dir)  # Delete cold buffer files >5min old
     # Note: Audio files now in hour folders (/audio/{hour}/) - no cleanup needed (24h rolling)
     
     ram_mode = is_ram_mode(capture_dir)
@@ -805,6 +842,8 @@ def process_capture_directory(capture_dir: str):
         safety_deletes.append(f"{deleted_thumbnails} thumb")
     if deleted_metadata > 0:
         safety_deletes.append(f"{deleted_metadata} meta")
+    if deleted_cold_buffer > 0:
+        safety_deletes.append(f"{deleted_cold_buffer} cold")
     
     cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
     
