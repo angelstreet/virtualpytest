@@ -23,13 +23,6 @@ export const HeatMapFreezeModal: React.FC<HeatMapFreezeModalProps> = ({
 }) => {
   if (!freezeModalOpen || thumbnailUrls.length === 0) return null;
 
-  console.log('[@HeatMapFreezeModal] Displaying freeze thumbnails:', {
-    device: `${hostName}-${deviceId}`,
-    thumbnailCount: thumbnailUrls.length,
-    thumbnails: thumbnailUrls,
-    diffs: freezeDiffs
-  });
-
   return (
     <Modal
       open={freezeModalOpen}
