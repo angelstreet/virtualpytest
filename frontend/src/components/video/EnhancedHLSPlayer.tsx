@@ -1142,86 +1142,88 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
                 </IconButton>
               )}
               
-              {/* Current Position Label (Floating above slider) */}
+              {/* Current Position Label (Floating above slider) - Only show when dragging */}
               <Box
                 sx={{
                   position: 'relative',
                   flex: 1,
                 }}
               >
-                {/* Floating time label */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: 25, // Position above the slider
-                    left: (() => {
-                      const currentValue = isLiveMode 
-                        ? (isDraggingSlider ? dragSliderValue : userBufferPosition)
-                        : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime));
-                      const minValue = isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0);
-                      const maxValue = isLiveMode ? 1 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
-                      
-                      // Calculate percentage position (accounting for play/pause button offset in archive mode)
-                      const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
-                      return `calc(${percentage}% - 25px)`; // -25px to center the label
-                    })(),
-                    transform: 'translateX(0)',
-                    pointerEvents: 'none',
-                    zIndex: 10,
-                  }}
-                >
-                  <Typography
-                    variant="caption"
+                {/* Floating time label - Only visible during scrubbing */}
+                {isDraggingSlider && (
+                  <Box
                     sx={{
-                      display: 'inline-block',
-                      backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                      color: 'white',
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: 1,
-                      fontWeight: 600,
-                      fontSize: '0.75rem',
-                      border: isLiveMode ? '1px solid rgba(244, 67, 54, 0.8)' : '1px solid rgba(33, 150, 243, 0.8)',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-                      whiteSpace: 'nowrap',
+                      position: 'absolute',
+                      bottom: 25, // Position above the slider
+                      left: (() => {
+                        const currentValue = isLiveMode 
+                          ? (isDraggingSlider ? dragSliderValue : userBufferPosition)
+                          : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime));
+                        const minValue = isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0);
+                        const maxValue = isLiveMode ? 1 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
+                        
+                        // Calculate percentage position (accounting for play/pause button offset in archive mode)
+                        const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
+                        return `calc(${percentage}% - 25px)`; // -25px to center the label
+                      })(),
+                      transform: 'translateX(0)',
+                      pointerEvents: 'none',
+                      zIndex: 10,
                     }}
                   >
-                    {(() => {
-                      if (isLiveMode) {
-                        // Live mode: show LIVE or seconds behind
-                        if (isAtLiveEdge) {
-                          return 'LIVE';
-                        } else {
-                          // Use ACTUAL buffer size from video element
-                          const video = videoRef.current;
-                          let totalBufferSeconds = 0; // Default to 0 when no buffer
-                          
-                          if (video && video.buffered.length > 0) {
-                            const buffered = video.buffered;
-                            const bufferStart = buffered.start(0);
-                            const bufferEnd = buffered.end(buffered.length - 1);
-                            totalBufferSeconds = bufferEnd - bufferStart;
-                          }
-                          
-                          const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
-                          if (behindSeconds < 60) {
-                            return `-${behindSeconds}s`;
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'inline-block',
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        color: 'white',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                        border: isLiveMode ? '1px solid rgba(244, 67, 54, 0.8)' : '1px solid rgba(33, 150, 243, 0.8)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {(() => {
+                        if (isLiveMode) {
+                          // Live mode: show LIVE or seconds behind
+                          if (isAtLiveEdge) {
+                            return 'LIVE';
                           } else {
-                            const minutes = Math.floor(behindSeconds / 60);
-                            const seconds = behindSeconds % 60;
-                            return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                            // Use ACTUAL buffer size from video element
+                            const video = videoRef.current;
+                            let totalBufferSeconds = 0; // Default to 0 when no buffer
+                            
+                            if (video && video.buffered.length > 0) {
+                              const buffered = video.buffered;
+                              const bufferStart = buffered.start(0);
+                              const bufferEnd = buffered.end(buffered.length - 1);
+                              totalBufferSeconds = bufferEnd - bufferStart;
+                            }
+                            
+                            const behindSeconds = Math.round((1 - userBufferPosition) * totalBufferSeconds);
+                            if (behindSeconds < 60) {
+                              return `-${behindSeconds}s`;
+                            } else {
+                              const minutes = Math.floor(behindSeconds / 60);
+                              const seconds = behindSeconds % 60;
+                              return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                            }
                           }
+                        } else {
+                          // Archive mode: show HHhMM format
+                          const timeSeconds = isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
+                          const hours = Math.floor(timeSeconds / 3600);
+                          const minutes = Math.floor((timeSeconds % 3600) / 60);
+                          return `${hours}h${minutes.toString().padStart(2, '0')}`;
                         }
-                      } else {
-                        // Archive mode: show HHhMM format
-                        const timeSeconds = isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime);
-                        const hours = Math.floor(timeSeconds / 3600);
-                        const minutes = Math.floor((timeSeconds % 3600) / 60);
-                        return `${hours}h${minutes.toString().padStart(2, '0')}`;
-                      }
-                    })()}
-                  </Typography>
-                </Box>
+                      })()}
+                    </Typography>
+                  </Box>
+                )}
 
                 {/* Timeline Slider */}
                 <Slider
