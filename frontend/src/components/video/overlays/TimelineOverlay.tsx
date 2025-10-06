@@ -76,7 +76,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     <Box
         sx={{
           position: 'absolute',
-          bottom: -45,
+          bottom: -65,
           left: 0,
           right: 0,
           background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
