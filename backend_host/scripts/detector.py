@@ -9,10 +9,20 @@ import subprocess
 import time
 import logging
 from datetime import datetime
+from contextlib import contextmanager
 
 from shared.src.lib.utils.storage_path_utils import is_ram_mode
 
 logger = logging.getLogger('capture_monitor')
+
+# Performance profiling
+@contextmanager
+def measure_time(task_name):
+    """Context manager to measure execution time of a task"""
+    start = time.perf_counter()
+    yield
+    elapsed = (time.perf_counter() - start) * 1000  # Convert to milliseconds
+    return elapsed
 from shared.src.lib.utils.image_utils import (
     load_and_downscale_image,
     analyze_blackscreen,
@@ -167,6 +177,10 @@ def detect_issues(image_path, fps=5):
         image_path: Path to capture image
         fps: Frames per second (5 for v4l2, 2 for x11grab/VNC) - used for freeze detection
     """
+    # Performance timing storage
+    timings = {}
+    total_start = time.perf_counter()
+    
     capture_dir = os.path.dirname(os.path.dirname(image_path))  # Go up from /captures/
     
     # Get thumbnails directory (handles both RAM and SD modes)
@@ -179,23 +193,31 @@ def detect_issues(image_path, fps=5):
         capture_parent = os.path.dirname(captures_dir)
         thumbnails_dir = os.path.join(capture_parent, 'thumbnails')
     
-    # Load and downscale image ONCE for blackscreen detection (320x180)
-    # Saves: 1280x720 → 320x180 = 16× less pixels to process
+    # TIMING: Load and downscale image
+    start = time.perf_counter()
     downscaled_img = load_and_downscale_image(image_path, target_size=(320, 180))
+    timings['image_load'] = (time.perf_counter() - start) * 1000
     
-    # Video Analysis
+    # TIMING: Blackscreen detection
+    start = time.perf_counter()
     blackscreen, blackscreen_percentage = analyze_blackscreen(image_path, downscaled_img=downscaled_img)
+    timings['blackscreen'] = (time.perf_counter() - start) * 1000
     
-    # Freeze detection using thumbnails (5fps for v4l2, 2fps for VNC)
+    # TIMING: Freeze detection
+    start = time.perf_counter()
     frozen, freeze_details = analyze_freeze(image_path, thumbnails_dir, fps)
+    timings['freeze'] = (time.perf_counter() - start) * 1000
     
-    # Skip macroblock analysis if freeze or blackscreen detected (performance optimization)
+    # TIMING: Macroblock analysis (skip if freeze or blackscreen detected)
+    start = time.perf_counter()
     if blackscreen or frozen:
         macroblocks, quality_score = False, 0.0
+        timings['macroblocks'] = 0.0  # Skipped
     else:
         macroblocks, quality_score = analyze_macroblocks(image_path)
+        timings['macroblocks'] = (time.perf_counter() - start) * 1000
     
-    # Audio Analysis - Sample every 5 seconds to reduce FFmpeg calls (80% reduction)
+    # TIMING: Audio Analysis - Sample every 5 seconds to reduce FFmpeg calls (80% reduction)
     # Extract frame number from filename (capture_000001234.jpg)
     try:
         filename = os.path.basename(image_path)
@@ -209,11 +231,14 @@ def detect_issues(image_path, fps=5):
     
     global _audio_result_cache
     
+    start = time.perf_counter()
     if should_check_audio:
         # Actually check audio (calls FFmpeg)
         has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
         # Cache the result for use by other frames
         _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+        timings['audio'] = (time.perf_counter() - start) * 1000
+        timings['audio_cached'] = False
     else:
         # Use cached result from last audio check (no FFmpeg call)
         if capture_dir in _audio_result_cache:
@@ -222,9 +247,13 @@ def detect_issues(image_path, fps=5):
             # First frame or no cache yet - do one check to initialize
             has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
             _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+        timings['audio'] = (time.perf_counter() - start) * 1000
+        timings['audio_cached'] = True
     
-    # Subtitle Analysis (every 1 second only)
+    # TIMING: Subtitle Analysis (every 1 second only)
+    start = time.perf_counter()
     subtitle_result = analyze_subtitles(image_path, fps)
+    timings['subtitles'] = (time.perf_counter() - start) * 1000 if subtitle_result else 0.0
     
     # Get frame paths for R2 upload - freeze_details now contains thumbnail filenames
     freeze_diffs = []
@@ -250,6 +279,9 @@ def detect_issues(image_path, fps=5):
             thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
             last_3_thumbnails.append(thumbnail_full_path)
     
+    # Calculate total time
+    timings['total'] = (time.perf_counter() - total_start) * 1000
+    
     result = {
         'timestamp': datetime.fromtimestamp(os.path.getmtime(image_path)).isoformat(),
         'filename': os.path.basename(image_path),
@@ -263,7 +295,8 @@ def detect_issues(image_path, fps=5):
         'quality_score': round(quality_score, 1),
         'audio': has_audio,
         'volume_percentage': volume_percentage,
-        'mean_volume_db': mean_volume_db
+        'mean_volume_db': mean_volume_db,
+        'performance_ms': {k: round(v, 2) for k, v in timings.items()}  # Timing data
     }
     
     if subtitle_result:
