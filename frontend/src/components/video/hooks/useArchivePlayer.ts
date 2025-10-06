@@ -33,164 +33,68 @@ export const useArchivePlayer = ({
   const [availableHours, setAvailableHours] = useState<number[]>([]);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
-  const getCacheKey = useCallback(() => {
-    return `available-hours-${host?.host_name || 'unknown'}-${deviceId}`;
-  }, [host?.host_name, deviceId]);
-
-  const checkHourAvailability = useCallback(async (hour: number, baseUrl: string): Promise<boolean> => {
+  const loadArchiveManifest = useCallback(async (baseUrl: string): Promise<ArchiveMetadata | null> => {
+    setIsCheckingAvailability(true);
+    
     try {
-      const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${hour}/chunk_10min_0.mp4`);
-      const response = await fetch(testUrl, { method: 'HEAD' });
-      return response.ok;
+      const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, '/segments/archive_manifest.json');
+      const response = await fetch(manifestUrl);
+      
+      if (!response.ok) {
+        console.warn('[@EnhancedHLSPlayer] No archive manifest found');
+        return null;
+      }
+      
+      const manifest = await response.json();
+      console.log(`[@EnhancedHLSPlayer] Loaded manifest: ${manifest.total_chunks} chunks across ${manifest.available_hours.length} hours`);
+      
+      setAvailableHours(manifest.available_hours);
+      
+      const metadata: ArchiveMetadata = {
+        total_segments: manifest.total_chunks,
+        total_duration_seconds: manifest.total_chunks * 600,
+        window_hours: 1,
+        segments_per_window: 6,
+        manifests: manifest.chunks.map((chunk: any, index: number) => ({
+          name: `${chunk.hour}/chunk_10min_${chunk.chunk_index}.mp4`,
+          window_index: chunk.hour,
+          chunk_index: chunk.chunk_index,
+          start_segment: index,
+          end_segment: index,
+          start_time_seconds: chunk.hour * 3600 + chunk.chunk_index * 600,
+          end_time_seconds: chunk.hour * 3600 + (chunk.chunk_index + 1) * 600,
+          duration_seconds: 600
+        }))
+      };
+      
+      return metadata;
     } catch (error) {
-      console.log(`[@EnhancedHLSPlayer] Hour ${hour} not available:`, error);
-      return false;
+      console.error('[@EnhancedHLSPlayer] Failed to load archive manifest:', error);
+      return null;
+    } finally {
+      setIsCheckingAvailability(false);
     }
   }, []);
-
-  const checkAvailableHours = useCallback(async (baseUrl: string): Promise<number[]> => {
-    const cacheKey = getCacheKey();
-    
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const cachedHours = JSON.parse(cached);
-        const cacheTime = localStorage.getItem(`${cacheKey}-time`);
-        const isRecent = cacheTime && (Date.now() - parseInt(cacheTime)) < 5 * 60 * 1000;
-        
-        if (isRecent && Array.isArray(cachedHours) && cachedHours.length > 0) {
-          console.log(`[@EnhancedHLSPlayer] Using cached available hours:`, cachedHours);
-          return cachedHours;
-        }
-      } catch (e) {
-        console.warn('[@EnhancedHLSPlayer] Failed to parse cached hours:', e);
-      }
-    }
-
-    setIsCheckingAvailability(true);
-    console.log('[@EnhancedHLSPlayer] Checking available hours (all 24 hours)...');
-    
-    const available: number[] = [];
-    const currentHour = new Date().getHours();
-    
-    const hoursToCheck = [];
-    for (let i = 0; i < 24; i++) {
-      const hourToCheck = (currentHour - i + 24) % 24;
-      hoursToCheck.push(hourToCheck);
-    }
-    
-    const checks = hoursToCheck.map(hour => 
-      checkHourAvailability(hour, baseUrl).then(isAvailable => ({ hour, isAvailable }))
-    );
-    
-    const results = await Promise.all(checks);
-    
-    for (const { hour, isAvailable } of results) {
-      if (isAvailable) {
-        available.push(hour);
-      }
-    }
-    
-    available.sort((a, b) => a - b);
-    
-    console.log(`[@EnhancedHLSPlayer] Available hours found (24h rolling):`, available);
-    
-    if (available.length > 0) {
-      localStorage.setItem(cacheKey, JSON.stringify(available));
-      localStorage.setItem(`${cacheKey}-time`, Date.now().toString());
-    }
-    
-    setIsCheckingAvailability(false);
-    return available;
-  }, [getCacheKey, checkHourAvailability]);
 
   useEffect(() => {
     if (!isLiveMode && !archiveMetadata && !isTransitioning && !isCheckingAvailability) {
       const initializeArchiveMode = async () => {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+        const metadata = await loadArchiveManifest(baseUrl);
         
-        const available = await checkAvailableHours(baseUrl);
-        setAvailableHours(available);
-        
-        if (available.length === 0) {
-          console.warn('[@EnhancedHLSPlayer] No archive hours available');
-          setIsCheckingAvailability(false);
+        if (!metadata || metadata.manifests.length === 0) {
+          console.warn('[@EnhancedHLSPlayer] No archive data available');
           return;
         }
         
-        console.log('[@EnhancedHLSPlayer] Checking chunk-level availability...');
-        const chunkChecks: Promise<{ path: string; exists: boolean }>[] = [];
-        
-        for (const hour of available) {
-          for (let chunk = 0; chunk < 6; chunk++) {
-            const chunkPath = `${hour}/chunk_10min_${chunk}.mp4`;
-            const testUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${chunkPath}`);
-            
-            chunkChecks.push(
-              fetch(testUrl, { method: 'HEAD' })
-                .then(res => ({ path: chunkPath, exists: res.ok }))
-                .catch(() => ({ path: chunkPath, exists: false }))
-            );
-          }
-        }
-        
-        const chunkResults = await Promise.all(chunkChecks);
-        const availableChunkSet = new Set<string>();
-        
-        for (const { path, exists } of chunkResults) {
-          if (exists) {
-            availableChunkSet.add(path);
-          }
-        }
-        
-        console.log(`[@EnhancedHLSPlayer] Available chunks: ${availableChunkSet.size}/${chunkChecks.length}`, Array.from(availableChunkSet));
-        
-        const metadata: ArchiveMetadata = {
-          total_segments: availableChunkSet.size,
-          total_duration_seconds: availableChunkSet.size * 600,
-          window_hours: 1,
-          segments_per_window: 6,
-          manifests: []
-        };
-        
-        let globalIndex = 0;
-        for (const hour of available) {
-          for (let chunk = 0; chunk < 6; chunk++) {
-            const chunkPath = `${hour}/chunk_10min_${chunk}.mp4`;
-            
-            if (availableChunkSet.has(chunkPath)) {
-              metadata.manifests.push({
-                name: chunkPath,
-                window_index: hour,
-                chunk_index: chunk,
-                start_segment: globalIndex,
-                end_segment: globalIndex,
-                start_time_seconds: hour * 3600 + chunk * 600,
-                end_time_seconds: hour * 3600 + (chunk + 1) * 600,
-                duration_seconds: 600
-              });
-              globalIndex++;
-            }
-          }
-        }
-        
-        console.log('[@EnhancedHLSPlayer] Generated MP4 archive metadata (available chunks only):', {
-          available_hours: available,
-          available_chunks: metadata.manifests.length,
-          first_chunk: metadata.manifests[0]?.name,
-          last_chunk: metadata.manifests[metadata.manifests.length - 1]?.name
-        });
+        console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks, starting at ${metadata.manifests[0].name}`);
         setArchiveMetadata(metadata);
-        
-        if (metadata.manifests.length > 0) {
-          console.log(`[@EnhancedHLSPlayer] Starting at first available chunk: ${metadata.manifests[0].name}`);
-          setCurrentManifestIndex(0);
-        }
+        setCurrentManifestIndex(0);
       };
       
       initializeArchiveMode();
     }
-  }, [isLiveMode, archiveMetadata, isTransitioning, isCheckingAvailability, providedStreamUrl, hookStreamUrl, deviceId, checkAvailableHours, host]);
+  }, [isLiveMode, archiveMetadata, isTransitioning, isCheckingAvailability, providedStreamUrl, hookStreamUrl, deviceId, host, loadArchiveManifest]);
 
   const hourMarks = useMemo(() => {
     if (!archiveMetadata) return [];

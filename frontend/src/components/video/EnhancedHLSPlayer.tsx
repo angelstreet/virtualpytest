@@ -117,11 +117,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       if (isLiveMode) {
         archive.clearArchiveData();
         transcript.clearTranscriptData();
+        setTimeout(() => setIsTransitioning(false), 100);
+      } else {
+        setTimeout(() => setIsTransitioning(false), 500);
       }
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 100);
       
       prevIsLiveMode.current = isLiveMode;
     }
@@ -308,9 +307,20 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         setLiveSliderPosition(150);
         seekToLive();
       } else {
-        if (videoRef.current && videoRef.current.duration) {
-          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning`);
-          videoRef.current.currentTime = 0;
+        const video = videoRef.current;
+        if (!video) return;
+        
+        const seekToStart = () => {
+          if (video.readyState >= 1 && video.duration && !isNaN(video.duration)) {
+            console.log('[@EnhancedHLSPlayer] Archive mode ready, seeking to start');
+            video.currentTime = 0;
+          }
+        };
+        
+        if (video.readyState >= 1) {
+          seekToStart();
+        } else {
+          video.addEventListener('loadedmetadata', seekToStart, { once: true });
         }
       }
     }, 500);
@@ -333,7 +343,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       <Box sx={{ position: 'relative', height }}>
         {!isTransitioning && (!archive.isCheckingAvailability && (isLiveMode || archive.availableHours.length > 0)) ? (
           <HLSVideoPlayer
-            key={`${isLiveMode ? 'live' : 'archive'}`}
             streamUrl={streamUrl}
             isStreamActive={true}
             videoElementRef={videoRef}

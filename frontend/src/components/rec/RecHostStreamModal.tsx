@@ -442,15 +442,16 @@ const RecHostStreamModalContent: React.FC<{
     await switchQuality(newQuality, true, false); // showLoadingOverlay=true, isInitialLoad=false
   }, [currentQuality, switchQuality]);
 
-  // Handle player ready after quality switch
+  const lastReadyTimeRef = useRef(0);
+  
   const handlePlayerReady = useCallback(() => {
-    console.log(`[@component:RecHostStreamModal] ===== PLAYER READY CALLBACK =====`);
-    console.log(`[@component:RecHostStreamModal] isQualitySwitching=${isQualitySwitching}`);
+    const now = Date.now();
+    if (now - lastReadyTimeRef.current < 1000) return;
+    lastReadyTimeRef.current = now;
+    
+    console.log(`[@component:RecHostStreamModal] Player ready (isQualitySwitching=${isQualitySwitching})`);
     if (isQualitySwitching) {
-      console.log('[@component:RecHostStreamModal] Player reloaded successfully - hiding overlay');
       setIsQualitySwitching(false);
-    } else {
-      console.log('[@component:RecHostStreamModal] Player ready but not during quality switch - ignoring');
     }
   }, [isQualitySwitching]);
 

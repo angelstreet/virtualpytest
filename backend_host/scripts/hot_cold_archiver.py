@@ -516,6 +516,58 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
         return False
 
 
+def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_path: str):
+    import json
+    
+    manifest_path = os.path.join(capture_dir, 'segments', 'archive_manifest.json')
+    
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        except:
+            manifest = {"chunks": [], "last_updated": None}
+    else:
+        manifest = {"chunks": [], "last_updated": None}
+    
+    mp4_stat = Path(mp4_path).stat()
+    metadata_path = os.path.join(capture_dir, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
+    
+    chunk_info = {
+        "hour": hour,
+        "chunk_index": chunk_index,
+        "name": f"chunk_10min_{chunk_index}.mp4",
+        "size": mp4_stat.st_size,
+        "created": mp4_stat.st_mtime,
+        "has_metadata": os.path.exists(metadata_path)
+    }
+    
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path) as f:
+                meta = json.load(f)
+            chunk_info.update({
+                "start_time": meta.get("start_time"),
+                "end_time": meta.get("end_time"),
+                "frames_count": meta.get("frames_count")
+            })
+        except:
+            pass
+    
+    manifest["chunks"] = [c for c in manifest["chunks"] if not (c["hour"] == hour and c["chunk_index"] == chunk_index)]
+    manifest["chunks"].append(chunk_info)
+    manifest["chunks"].sort(key=lambda x: (x["hour"], x["chunk_index"]))
+    manifest["last_updated"] = time.time()
+    manifest["available_hours"] = sorted(list(set(c["hour"] for c in manifest["chunks"])))
+    manifest["total_chunks"] = len(manifest["chunks"])
+    
+    with open(manifest_path + '.tmp', 'w') as f:
+        json.dump(manifest, f, indent=2)
+    os.rename(manifest_path + '.tmp', manifest_path)
+    
+    logger.info(f"Updated archive manifest: {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
+
+
 def process_capture_directory(capture_dir: str):
     """
     Process single capture directory:
@@ -585,8 +637,8 @@ def process_capture_directory(capture_dir: str):
     if mp4_10min:
         logger.info(f"Created 10min chunk: {hour}/chunk_10min_{chunk_index}.mp4")
         
-        # Extract audio from 10-min MP4 to HOT audio storage (aligned with transcripts)
-        # Audio will be archived to /audio/{hour}/ by archive_hot_files()
+        update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
+        
         if ram_mode:
             hot_audio_dir = os.path.join(capture_dir, 'hot', 'audio')
         else:
