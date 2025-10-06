@@ -57,25 +57,22 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     if not unified_graph:
         raise UnifiedCacheError(f"No unified graph cached for root tree {root_tree_id}. Unified pathfinding is required - no fallback available.")
     
-    # Check if target is an action node
-    target_node_data = unified_graph.nodes.get(target_node_id, {})
-    if target_node_data.get('node_type') == 'action':
-        print(f"[@navigation:pathfinding:find_shortest_path_unified] Cannot navigate to action node {target_node_id}")
-        raise PathfindingError(f"Cannot navigate to action node {target_node_id}")
+    # Note: Action nodes ARE allowed - pathfinding finds the node containing the action
+    # The navigation executor will handle action execution without updating device position
     
-    # Resolve target_node_id if it's a label instead of UUID
+    # Resolve target_node_id if it's a label instead of UUID (including action nodes)
     actual_target_node = target_node_id
     target_resolved_by_label = False
     if target_node_id not in unified_graph.nodes:
         for node_id, node_data in unified_graph.nodes(data=True):
-            if node_data.get('label', '') == target_node_id and node_data.get('node_type') != 'action':
+            if node_data.get('label', '') == target_node_id:
                 actual_target_node = node_id
                 target_resolved_by_label = True
                 break
         else:
             # Try case-insensitive search
             for node_id, node_data in unified_graph.nodes(data=True):
-                if node_data.get('label', '').lower() == target_node_id.lower() and node_data.get('node_type') != 'action':
+                if node_data.get('label', '').lower() == target_node_id.lower():
                     actual_target_node = node_id
                     target_resolved_by_label = True
                     break

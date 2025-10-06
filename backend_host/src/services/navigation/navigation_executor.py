@@ -639,9 +639,20 @@ class NavigationExecutor:
             else:
                 print(f"[@navigation_executor] No KPI to queue (no actions were executed or actions failed)")
             
-            # Update position if navigation succeeded
+            # Update position if navigation succeeded (but NOT for action nodes)
             if navigation_path:
-                self.update_current_position(final_node_id, tree_id, target_node_label)
+                # Check if final node is an action node - actions don't update device position
+                from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+                unified_graph = get_cached_unified_graph(tree_id, team_id)
+                if unified_graph:
+                    final_node_data = unified_graph.nodes.get(final_node_id, {})
+                    if final_node_data.get('node_type') == 'action':
+                        print(f"[@navigation_executor] Action executed - device position remains at: {nav_context.get('current_node_label', 'unknown')}")
+                    else:
+                        self.update_current_position(final_node_id, tree_id, target_node_label)
+                else:
+                    # Fallback: update position if no graph available
+                    self.update_current_position(final_node_id, tree_id, target_node_label)
             
             # Store verification timestamp
             nav_context['last_verified_timestamp'] = time.time()
