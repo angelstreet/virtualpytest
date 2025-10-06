@@ -516,6 +516,77 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
         return False
 
 
+def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
+    """
+    Scan all hour directories and rebuild manifest from existing chunk files.
+    This ensures old chunks aren't lost when manifest is recreated.
+    
+    Returns: Complete manifest dict with all discovered chunks
+    """
+    import json
+    
+    segments_dir = os.path.join(capture_dir, 'segments')
+    chunks = []
+    
+    if not os.path.isdir(segments_dir):
+        return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
+    
+    # Scan all hour directories (0-23)
+    for hour in range(24):
+        hour_dir = os.path.join(segments_dir, str(hour))
+        if not os.path.isdir(hour_dir):
+            continue
+        
+        # Find all chunk MP4 files
+        for mp4_file in Path(hour_dir).glob('chunk_10min_*.mp4'):
+            try:
+                # Extract chunk index from filename
+                chunk_index = int(mp4_file.stem.replace('chunk_10min_', ''))
+                mp4_stat = mp4_file.stat()
+                
+                # Check for corresponding metadata
+                metadata_path = os.path.join(capture_dir, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
+                has_metadata = os.path.exists(metadata_path)
+                
+                chunk_info = {
+                    "hour": hour,
+                    "chunk_index": chunk_index,
+                    "name": mp4_file.name,
+                    "size": mp4_stat.st_size,
+                    "created": mp4_stat.st_mtime,
+                    "has_metadata": has_metadata
+                }
+                
+                # Add metadata details if available
+                if has_metadata:
+                    try:
+                        with open(metadata_path) as f:
+                            meta = json.load(f)
+                        chunk_info.update({
+                            "start_time": meta.get("start_time"),
+                            "end_time": meta.get("end_time"),
+                            "frames_count": meta.get("frames_count")
+                        })
+                    except:
+                        pass
+                
+                chunks.append(chunk_info)
+                
+            except Exception as e:
+                logger.warning(f"Error processing chunk file {mp4_file}: {e}")
+    
+    # Build complete manifest
+    chunks.sort(key=lambda x: (x["hour"], x["chunk_index"]))
+    manifest = {
+        "chunks": chunks,
+        "last_updated": time.time(),
+        "available_hours": sorted(list(set(c["hour"] for c in chunks))),
+        "total_chunks": len(chunks)
+    }
+    
+    return manifest
+
+
 def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_path: str):
     import json
     
@@ -717,6 +788,28 @@ def main_loop():
     logger.info(f"Hot limits: {HOT_LIMITS}")
     logger.info("Strategy: Safety cleanup (ALL types) + Progressive grouping (MP4/Metadata) + Audio archival")
     logger.info("Safety: Enforces limits FIRST to prevent RAM exhaustion from pipeline failures")
+    logger.info("=" * 60)
+    
+    # STARTUP ONLY: Rebuild all manifests from disk to discover existing chunks
+    logger.info("")
+    logger.info("=" * 60)
+    logger.info("STARTUP: Rebuilding archive manifests from disk...")
+    logger.info("=" * 60)
+    for capture_dir in capture_dirs:
+        try:
+            import json
+            manifest = rebuild_archive_manifest_from_disk(capture_dir)
+            manifest_path = os.path.join(capture_dir, 'segments', 'archive_manifest.json')
+            
+            # Save rebuilt manifest
+            os.makedirs(os.path.dirname(manifest_path), exist_ok=True)
+            with open(manifest_path + '.tmp', 'w') as f:
+                json.dump(manifest, f, indent=2)
+            os.rename(manifest_path + '.tmp', manifest_path)
+            
+            logger.info(f"✓ {os.path.basename(capture_dir)}: Rebuilt manifest with {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
+        except Exception as e:
+            logger.error(f"Error rebuilding manifest for {capture_dir}: {e}")
     logger.info("=" * 60)
     
     while True:
