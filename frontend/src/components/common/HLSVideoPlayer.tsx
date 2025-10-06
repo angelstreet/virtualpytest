@@ -397,10 +397,10 @@ export function HLSVideoPlayer({
         lowLatencyMode: false,         // Disable low latency mode to prevent auto-seeking to live
         liveSyncDuration: 1,           // Target sync position
         liveMaxLatencyDuration: 180,   // Allow full buffer scrubbing (150s + margin) without forcing back to live
-        maxBufferLength: 5,            // Minimal buffering
-        maxMaxBufferLength: 10,        // Prevent over-buffering
+        maxBufferLength: 150,          // Load ALL 150s ahead immediately (full manifest)
+        maxMaxBufferLength: 150,       // Allow up to full 150s buffer (matches FFmpeg hls_list_size)
         backBufferLength: 150,         // Keep 2.5min for scrubbing
-        maxBufferSize: 5 * 1000 * 1000, // Increased for back buffer
+        maxBufferSize: 15 * 1000 * 1000, // Increased for full 150s buffer (15MB)
         maxBufferHole: 0.1,            // Fill gaps faster
         fragLoadingTimeOut: 5000,      // Fail faster
         manifestLoadingTimeOut: 3000,  // Fail faster

@@ -348,7 +348,7 @@ start_grabber() {
       -b:v $stream_bitrate -maxrate $stream_maxrate -bufsize $stream_bufsize \
       -pix_fmt yuv420p -profile:v baseline -level 3.0 \
       -x264opts keyint=8:min-keyint=8:no-scenecut:bframes=0:ref=1:me=dia:subme=0 \
-      -f hls -hls_time 4 -hls_list_size 150 -hls_flags delete_segments+omit_endlist \
+      -f hls -hls_time 4 -hls_list_size 40 -hls_flags delete_segments+omit_endlist \
       -hls_segment_filename $output_segments/segment_%09d.ts \
       $output_segments/output.m3u8 \
       -map \"[captureout]\" -fps_mode passthrough -c:v mjpeg -q:v 10 -f image2 -atomic_writing 1 \
