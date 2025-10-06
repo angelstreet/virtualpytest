@@ -88,9 +88,21 @@ class ScriptExecutionContext:
         return self.step_counter
 
     def add_screenshot(self, screenshot_path: str):
-        """Add a screenshot to the collection"""
+        """Add a screenshot to the collection and copy to cold storage for later upload"""
         if screenshot_path:
-            self.screenshot_paths.append(screenshot_path)
+            # If screenshot is in hot storage, copy to cold immediately (for script upload)
+            if '/hot/captures/' in screenshot_path:
+                import shutil
+                cold_path = screenshot_path.replace('/hot/captures/', '/captures/')
+                try:
+                    os.makedirs(os.path.dirname(cold_path), exist_ok=True)
+                    shutil.copy2(screenshot_path, cold_path)
+                    self.screenshot_paths.append(cold_path)  # Store cold path for upload
+                except Exception as e:
+                    print(f"⚠️ Failed to copy screenshot to cold storage: {e}")
+                    self.screenshot_paths.append(screenshot_path)  # Fallback to hot path
+            else:
+                self.screenshot_paths.append(screenshot_path)
     
     def start_stdout_capture(self):
         """Start capturing stdout for log upload"""

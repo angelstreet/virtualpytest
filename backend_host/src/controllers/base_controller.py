@@ -366,7 +366,7 @@ class FFmpegCaptureController(AVControllerInterface):
                             try:
                                 mtime = os.path.getmtime(path)
                                 age = now - mtime
-                                print(f"[{self.capture_source}]: File {filename} age: {age:.2f}s (cutoff: 3s)")
+                                #print(f"[{self.capture_source}]: File {filename} age: {age:.2f}s (cutoff: 3s)")
                                 if mtime >= cutoff_time:
                                     recent_files.append((age, path))
                             except OSError as e:
