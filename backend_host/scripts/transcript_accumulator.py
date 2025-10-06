@@ -69,9 +69,9 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         start_time = time.time()
         
         # Use audio_transcription_utils to transcribe MP3
-        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio_file
+        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
-        result = transcribe_audio_file(mp3_path, model_name='tiny', device_id=capture_folder)
+        result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
         
         transcript = result.get('transcript', '').strip()
         language = result.get('language', 'unknown')

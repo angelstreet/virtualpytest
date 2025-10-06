@@ -69,18 +69,16 @@ export const useMonitoring = ({
   lastProcessedSequenceRef.current = lastProcessedSequence;
 
   // Helper: Load JSON analysis from capture URL
-  const loadJsonAnalysis = useCallback(async (jsonUrl: string): Promise<MonitoringAnalysis | null> => {
+  const loadJsonAnalysis = useCallback(async (jsonUrl: string): Promise<{
+    analysis: MonitoringAnalysis | null;
+    subtitleAnalysis: SubtitleAnalysis | null;
+  }> => {
     try {
       const response = await fetch(jsonUrl);
       if (response.ok) {
         const data = await response.json();
-        console.log('[useMonitoring] Raw JSON data:', { 
-          freeze: data.freeze, 
-          audio: data.audio, 
-          blackscreen: data.blackscreen 
-        });
         
-        const parsed = {
+        const parsed: MonitoringAnalysis = {
           timestamp: data.timestamp || '',
           filename: data.filename || '',
           thumbnail: data.thumbnail || '',
@@ -98,20 +96,27 @@ export const useMonitoring = ({
           has_incidents: data.has_incidents ?? false,
         };
         
-        console.log('[useMonitoring] Parsed data:', { 
-          freeze: parsed.freeze, 
-          audio: parsed.audio, 
-          blackscreen: parsed.blackscreen 
-        });
+        // Extract subtitle data from metadata (from detector.py)
+        let subtitleAnalysis: SubtitleAnalysis | null = null;
+        if (data.subtitle_analysis?.has_subtitles) {
+          const sub = data.subtitle_analysis;
+          subtitleAnalysis = {
+            subtitles_detected: sub.has_subtitles,
+            combined_extracted_text: sub.extracted_text || '',
+            detected_language: sub.detected_language !== 'unknown' ? sub.detected_language : undefined,
+            confidence: sub.confidence || 0.9,
+            detection_message: sub.extracted_text ? `Detected: ${sub.extracted_text}` : 'Subtitles detected',
+          };
+        }
         
-        return parsed;
+        return { analysis: parsed, subtitleAnalysis };
       } else if (response.status === 404) {
         console.log('[useMonitoring] JSON not found (404) - capture not yet available');
       }
     } catch (error) {
       console.warn('[useMonitoring] Failed to load JSON:', error);
     }
-    return null;
+    return { analysis: null, subtitleAnalysis: null };
   }, []);
 
   // Background AI analysis (runs separately, non-blocking)
@@ -239,13 +244,6 @@ export const useMonitoring = ({
         if (result.success && result.json_data) {
           const data = result.json_data;
           
-          console.log('[useMonitoring] Archive raw JSON:', { 
-            freeze: data.freeze, 
-            audio: data.audio, 
-            blackscreen: data.blackscreen 
-          });
-          
-          // Parse with proper boolean handling
           const parsedAnalysis: MonitoringAnalysis = {
             timestamp: data.timestamp || new Date().toISOString(),
             filename: data.filename || '',
@@ -264,16 +262,23 @@ export const useMonitoring = ({
             has_incidents: data.has_incidents ?? false,
           };
           
-          console.log('[useMonitoring] Archive parsed:', { 
-            freeze: parsedAnalysis.freeze, 
-            audio: parsedAnalysis.audio, 
-            blackscreen: parsedAnalysis.blackscreen 
-          });
+          // Extract subtitle data from archive metadata
+          let subtitleAnalysis: SubtitleAnalysis | null = null;
+          if (data.subtitle_analysis?.has_subtitles) {
+            const sub = data.subtitle_analysis;
+            subtitleAnalysis = {
+              subtitles_detected: sub.has_subtitles,
+              combined_extracted_text: sub.extracted_text || '',
+              detected_language: sub.detected_language !== 'unknown' ? sub.detected_language : undefined,
+              confidence: sub.confidence || 0.9,
+              detection_message: sub.extracted_text ? `Detected: ${sub.extracted_text}` : 'Subtitles detected',
+            };
+          }
           
           const snapshot: AnalysisSnapshot = {
             timestamp: parsedAnalysis.timestamp,
             analysis: parsedAnalysis,
-            subtitleAnalysis: null,
+            subtitleAnalysis,
             languageMenuAnalysis: null,
             aiDescription: null,
           };
@@ -329,13 +334,13 @@ export const useMonitoring = ({
         if (!isMounted || !latestData) return;
         if (latestData.sequence === lastProcessedSequenceRef.current) return;
 
-        const analysis = await loadJsonAnalysis(latestData.jsonUrl);
+        const { analysis, subtitleAnalysis } = await loadJsonAnalysis(latestData.jsonUrl);
         if (!analysis) return;
 
         const snapshot: AnalysisSnapshot = {
           timestamp: latestData.timestamp,
           analysis,
-          subtitleAnalysis: null,
+          subtitleAnalysis,
           languageMenuAnalysis: null,
           aiDescription: null,
         };
@@ -349,7 +354,12 @@ export const useMonitoring = ({
           setAnalysisHistory(prev => 
             prev.map(s => 
               s.timestamp === latestData.timestamp 
-                ? { ...s, ...aiResults }
+                ? { 
+                    ...s, 
+                    subtitleAnalysis: aiResults.subtitleAnalysis || s.subtitleAnalysis,
+                    languageMenuAnalysis: aiResults.languageMenuAnalysis,
+                    aiDescription: aiResults.aiDescription,
+                  }
                 : s
             )
           );

@@ -3,6 +3,22 @@ import React from 'react';
 
 import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 
+// Language code to name mapping
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English',
+  fr: 'French',
+  de: 'German',
+  it: 'Italian',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  nl: 'Dutch',
+  ru: 'Russian',
+  ja: 'Japanese',
+  zh: 'Chinese',
+  ko: 'Korean',
+  ar: 'Arabic',
+};
+
 interface ConsecutiveErrorCounts {
   blackscreenConsecutive: number;
   freezeConsecutive: number;
@@ -192,36 +208,33 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           </Typography>
         </Box>
 
-        {/* Subtitles - only shown when explicitly requested */}
-        {showSubtitles && (
+        {/* Subtitles - only shown when detected */}
+        {showSubtitles && subtitles?.subtitles_detected && subtitles?.combined_extracted_text && (
           <Box sx={{ mb: 0.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ color: '#ffffff', mr: 1 }}>
-                Subtitles:
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: subtitles?.subtitles_detected ? '#00ff00' : '#ffffff',
-                  fontWeight: subtitles?.subtitles_detected ? 'bold' : 'normal',
-                }}
-              >
-                {subtitles?.subtitles_detected ? 'Yes' : 'No'}
-                {subtitles?.subtitles_detected && subtitles?.detected_language && (
-                  <Typography component="span" variant="body2" sx={{ color: '#cccccc', ml: 1 }}>
-                    ({subtitles.detected_language})
-                  </Typography>
-                )}
-              </Typography>
-            </Box>
-            {subtitles?.subtitles_detected && subtitles?.combined_extracted_text && (
-              <Typography variant="body2" sx={{ color: '#ffffff', ml: 0, mt: 0.5 }}>
-                Text:{' '}
-                <Typography component="span" sx={{ color: '#cccccc' }}>
-                  {subtitles.combined_extracted_text}
-                </Typography>
-              </Typography>
-            )}
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: '#00ff00', 
+                fontWeight: 'bold',
+                mb: 0.3 
+              }}
+            >
+              {subtitles.detected_language 
+                ? LANGUAGE_NAMES[subtitles.detected_language] || subtitles.detected_language.toUpperCase()
+                : 'Subtitles'}
+              {subtitles.confidence && ` (${Math.round(subtitles.confidence * 100)}%)`}:
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: '#cccccc', 
+                ml: 1,
+                fontSize: '0.85rem',
+                fontStyle: 'italic'
+              }}
+            >
+              {subtitles.combined_extracted_text}
+            </Typography>
           </Box>
         )}
 
