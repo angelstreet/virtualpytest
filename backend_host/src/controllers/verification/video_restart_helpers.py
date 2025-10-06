@@ -45,8 +45,14 @@ class VideoRestartHelpers:
         # Translation cache: {video_id: {language: {frame_data: {...}}}}
         self._translation_cache = {}
         
-        # Status cache directory
-        self._status_dir = os.path.join(self.video_capture_path, "status")
+        # Status cache directory (use hot storage for temporary status files)
+        from shared.src.lib.utils.storage_path_utils import is_ram_mode
+        if is_ram_mode(self.video_capture_path):
+            # RAM mode: status files in /hot/ subdirectory
+            self._status_dir = os.path.join(self.video_capture_path, 'hot', 'status')
+        else:
+            # SD mode: status files in root directory
+            self._status_dir = os.path.join(self.video_capture_path, 'status')
         os.makedirs(self._status_dir, exist_ok=True)
     
     def _get_restart_video_path(self, filename: str = "restart_original_video.mp4") -> str:
@@ -169,8 +175,11 @@ class VideoRestartHelpers:
             if segment_files is None:
                 print(f"RestartHelpers[{self.device_name}]: No segment files provided, scanning directory")
                 try:
-                    # NEW: Segments are in segments/ subfolder
-                    segments_folder = os.path.join(self.video_capture_path, 'segments')
+                    # Use centralized storage path utilities for hot/cold architecture
+                    from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+                    
+                    # Get segments folder using centralized path resolution (handles hot/cold storage)
+                    segments_folder = get_capture_storage_path(self.video_capture_path, 'segments')
                     all_segment_paths = get_files_by_pattern(segments_folder, r'^segment_.*\.ts$')
                     all_segment_paths.sort(key=lambda path: os.path.getmtime(path))
                 except Exception as e:
@@ -472,8 +481,11 @@ class VideoRestartHelpers:
     def _get_recent_segments(self, duration_seconds: float) -> List[Tuple[str, str]]:
         """Get recent HLS segments for the specified duration"""
         try:
-            # NEW: Segments are in segments/ subfolder (hot/cold architecture)
-            segments_folder = os.path.join(self.video_capture_path, 'segments')
+            # Use centralized storage path utilities for hot/cold architecture
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            
+            # Get segments folder using centralized path resolution (handles hot/cold storage)
+            segments_folder = get_capture_storage_path(self.video_capture_path, 'segments')
             
             # Get segments using fast os.scandir (no subprocess overhead)
             all_segment_paths = get_files_by_pattern(segments_folder, r'^segment_.*\.ts$')
@@ -630,11 +642,27 @@ class VideoRestartHelpers:
                 for screenshot_path in aligned_screenshots:
                     screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
                     screenshot_urls.append(screenshot_url)
-            except Exception:
-                # Fallback to relative paths
+            except Exception as e:
+                # Fallback: Build storage-aware relative paths
+                print(f"RestartHelpers[{self.device_name}]: buildHostImageUrl failed ({e}), using fallback URL construction")
                 for screenshot_path in aligned_screenshots:
-                    filename = os.path.basename(screenshot_path)
-                    screenshot_url = f"{self.video_stream_path}/captures/{filename}"
+                    # Extract relative path from full filesystem path to handle hot/cold storage
+                    # Hot: /var/www/html/stream/capture1/hot/captures/file.jpg -> hot/captures/file.jpg
+                    # Cold: /var/www/html/stream/capture1/captures/file.jpg -> captures/file.jpg
+                    if '/stream/' in screenshot_path:
+                        # Get everything after the device folder (e.g., capture1)
+                        parts = screenshot_path.split('/stream/')[-1].split('/', 1)
+                        if len(parts) > 1:
+                            relative_path = parts[1]  # e.g., "hot/captures/file.jpg" or "captures/file.jpg"
+                            screenshot_url = f"{self.video_stream_path}/{relative_path}"
+                        else:
+                            # Last resort: just use filename with captures folder
+                            filename = os.path.basename(screenshot_path)
+                            screenshot_url = f"{self.video_stream_path}/captures/{filename}"
+                    else:
+                        # Path doesn't contain expected structure, use filename only
+                        filename = os.path.basename(screenshot_path)
+                        screenshot_url = f"{self.video_stream_path}/captures/{filename}"
                     screenshot_urls.append(screenshot_url)
             
             print(f"RestartHelpers[{self.device_name}]: Found {len(screenshot_urls)} aligned screenshots: {[os.path.basename(url.split('/')[-1]) for url in screenshot_urls]}")

@@ -34,6 +34,7 @@ export const useArchivePlayer = ({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [continuousStartTime, setContinuousStartTime] = useState<number>(0);
   const [continuousEndTime, setContinuousEndTime] = useState<number>(0);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   const loadArchiveManifest = useCallback(async (baseUrl: string): Promise<ArchiveMetadata | null> => {
     setIsCheckingAvailability(true);
@@ -88,10 +89,12 @@ export const useArchivePlayer = ({
   }, []);
 
   useEffect(() => {
-    if (!isLiveMode && !archiveMetadata && !isTransitioning && !isCheckingAvailability) {
+    if (!isLiveMode && !archiveMetadata && !isTransitioning && !isCheckingAvailability && !hasAttemptedLoad) {
       const initializeArchiveMode = async () => {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         const metadata = await loadArchiveManifest(baseUrl);
+        
+        setHasAttemptedLoad(true);
         
         if (!metadata || metadata.manifests.length === 0) {
           console.warn('[@EnhancedHLSPlayer] No archive data available');
@@ -105,7 +108,7 @@ export const useArchivePlayer = ({
       
       initializeArchiveMode();
     }
-  }, [isLiveMode, archiveMetadata, isTransitioning, isCheckingAvailability, providedStreamUrl, hookStreamUrl, deviceId, host, loadArchiveManifest]);
+  }, [isLiveMode, archiveMetadata, isTransitioning, isCheckingAvailability, hasAttemptedLoad, providedStreamUrl, hookStreamUrl, deviceId, host, loadArchiveManifest]);
 
   const hourMarks = useMemo(() => {
     if (!archiveMetadata) return [];
@@ -282,6 +285,7 @@ export const useArchivePlayer = ({
     setIsCheckingAvailability(false);
     setContinuousStartTime(0);
     setContinuousEndTime(0);
+    setHasAttemptedLoad(false);
   }, []);
 
   return useMemo(() => ({
