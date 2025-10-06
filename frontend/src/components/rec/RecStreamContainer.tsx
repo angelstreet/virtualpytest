@@ -198,37 +198,31 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
               </Box>
             );
           })()
-        ) : sharedVideoRef?.current ? (
-          <Box sx={{ 
-            width: '100%', 
-            height: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            position: 'relative'
-          }}>
-            {/* Reuse preview's video element - don't create new player */}
-            <Box 
-              ref={(el) => {
-                if (el && sharedVideoRef.current && !el.contains(sharedVideoRef.current)) {
-                  el.appendChild(sharedVideoRef.current);
-                }
-              }}
-              sx={{ 
-                width: '100%', 
-                height: '100%',
-                '& video': {
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain'
-                }
-              }}
-            />
-          </Box>
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <CircularProgress />
-          </Box>
+          <EnhancedHLSPlayer
+            deviceId={device?.device_id || 'device1'}
+            hostName={host.host_name}
+            host={host}
+            streamUrl={streamUrl}
+            width="100%"
+            height={isMobileModel ? 600 : 400}
+            muted={isMuted}
+            isLiveMode={isLiveMode}
+            quality={currentQuality}
+            shouldPause={shouldPausePlayer}
+            videoElementRef={sharedVideoRef}
+            onPlayerReady={onPlayerReady}
+            onVideoTimeUpdate={onVideoTimeUpdate}
+            onVideoPause={onVideoPause}
+            monitoringMode={monitoringMode}
+            monitoringAnalysis={monitoringAnalysis}
+            subtitleAnalysis={subtitleAnalysis}
+            languageMenuAnalysis={languageMenuAnalysis}
+            aiDescription={aiDescription}
+            errorTrendData={errorTrendData}
+            analysisTimestamp={analysisTimestamp}
+            isAIAnalyzing={isAIAnalyzing}
+          />
         )
       ) : (
         <Box

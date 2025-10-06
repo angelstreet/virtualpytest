@@ -64,6 +64,8 @@ export interface EnhancedHLSPlayerProps {
   onVideoTimeUpdate?: (time: number) => void;
   onVideoPause?: () => void;
   
+  showTimeline?: boolean; // Control timeline visibility
+  showMonitoringOverlay?: boolean; // Control monitoring overlay visibility
   monitoringMode?: boolean;
   monitoringAnalysis?: MonitoringAnalysis | null;
   subtitleAnalysis?: SubtitleAnalysis | null;

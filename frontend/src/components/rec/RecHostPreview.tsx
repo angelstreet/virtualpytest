@@ -1,26 +1,13 @@
 import { Error as ErrorIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress, Checkbox } from '@mui/material';
-import React, { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { useStream } from '../../hooks/controller';
 import { useToast } from '../../hooks/useToast';
 import { Host, Device } from '../../types/common/Host_Types';
 import { calculateVncScaling } from '../../utils/vncUtils';
-import { HLSVideoPlayer } from '../common/HLSVideoPlayer';
-
-// Memoized HLS player declared outside the component to retain identity across renders
-const MemoizedHLSPlayer = memo(HLSVideoPlayer, (prevProps, nextProps) => {
-  // Only re-render if stream URL or essential props change
-  return (
-    prevProps.streamUrl === nextProps.streamUrl &&
-    prevProps.isStreamActive === nextProps.isStreamActive &&
-    prevProps.isCapturing === nextProps.isCapturing &&
-    prevProps.model === nextProps.model &&
-    prevProps.muted === nextProps.muted &&
-    JSON.stringify(prevProps.layoutConfig) === JSON.stringify(nextProps.layoutConfig)
-  );
-});
+import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
 
 interface RecHostPreviewProps {
   host: Host;
@@ -35,6 +22,14 @@ interface RecHostPreviewProps {
   isSelectedForModal?: boolean;
   onStreamActiveChange?: (isActive: boolean) => void;
   sharedVideoRef?: React.RefObject<HTMLVideoElement>;
+  showFullFeatures?: boolean; // Show timeline and all overlays when modal is open
+  
+  // Modal control props - passed when modal is open
+  modalIsLiveMode?: boolean;
+  modalQuality?: 'low' | 'sd' | 'hd';
+  modalMuted?: boolean;
+  onPlayerReady?: () => void;
+  onVideoTimeUpdate?: (time: number) => void;
 }
 
 // Simple mobile detection function to match MonitoringPlayer logic
@@ -57,6 +52,12 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   isSelectedForModal,
   onStreamActiveChange,
   sharedVideoRef,
+  showFullFeatures = false,
+  modalIsLiveMode = true,
+  modalQuality = 'low',
+  modalMuted = false,
+  onPlayerReady,
+  onVideoTimeUpdate,
 }) => {
   useEffect(() => {
     console.log('[@RecHostPreview] mounted', {
@@ -182,26 +183,30 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   return (
     <Card
       sx={{
-        height: 180,
+        height: showFullFeatures ? '100vh' : 180,
+        width: showFullFeatures ? '100vw' : '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',
+        position: showFullFeatures ? 'fixed' : 'relative',
+        top: showFullFeatures ? 0 : 'auto',
+        left: showFullFeatures ? 0 : 'auto',
+        zIndex: showFullFeatures ? 1200 : 'auto', // Below modal controls (1300)
         p: 0,
-        backgroundColor: 'transparent',
+        backgroundColor: showFullFeatures ? 'black' : 'transparent',
         backgroundImage: 'none',
         boxShadow: 'none',
-        border: isSelected ? '2px solid #1976d2' : '1px solid rgba(255, 255, 255, 0.1)',
+        border: showFullFeatures ? 'none' : (isSelected ? '2px solid #1976d2' : '1px solid rgba(255, 255, 255, 0.1)'),
         '&:hover': {
-          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.3)',
-          border: isSelected ? '2px solid #1976d2' : '1px solid rgba(255, 255, 255, 0.2)',
+          boxShadow: showFullFeatures ? 'none' : '0px 4px 20px rgba(0, 0, 0, 0.3)',
+          border: showFullFeatures ? 'none' : (isSelected ? '2px solid #1976d2' : '1px solid rgba(255, 255, 255, 0.2)'),
         },
         '& .MuiCard-root': {
           padding: 0,
         },
       }}
     >
-      {/* Header */}
-      {!hideHeader && (
+      {/* Header - hidden in fullscreen mode (modal has its own) */}
+      {!hideHeader && !showFullFeatures && (
         <Box
           sx={{
             px: 1,
@@ -343,17 +348,24 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                <MemoizedHLSPlayer
+                <EnhancedHLSPlayer
+                  deviceId={device?.device_id || 'device1'}
+                  hostName={host.host_name}
+                  host={host}
                   streamUrl={streamUrl}
-                  isStreamActive={isStreamActive}
-                  isCapturing={false}
-                  model={device?.device_model || 'unknown'}
-                  layoutConfig={layoutConfig}
-                  isExpanded={false}
-                  muted={true}
+                  width="100%"
+                  height={isMobile ? 600 : 400}
+                  muted={showFullFeatures ? modalMuted : true}
+                  isLiveMode={showFullFeatures ? modalIsLiveMode : true}
+                  quality={showFullFeatures ? modalQuality : 'low'}
+                  shouldPause={!isStreamActive}
                   videoElementRef={sharedVideoRef}
+                  onPlayerReady={showFullFeatures ? onPlayerReady : undefined}
+                  onVideoTimeUpdate={showFullFeatures ? onVideoTimeUpdate : undefined}
+                  showTimeline={showFullFeatures}
+                  showMonitoringOverlay={false}
                 />
-                {isPausingForModal && (
+                {!showFullFeatures && isPausingForModal && (
                   <Box
                     sx={{
                       position: 'absolute',
@@ -373,22 +385,24 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                     </Typography>
                   </Box>
                 )}
-                <Box
-                  onClick={handleOpenStreamModal}
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    cursor: 'pointer',
-                    backgroundColor: 'transparent',
-                    zIndex: 1,
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                    },
-                  }}
-                />
+                {!showFullFeatures && (
+                  <Box
+                    onClick={handleOpenStreamModal}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      cursor: 'pointer',
+                      backgroundColor: 'transparent',
+                      zIndex: 1,
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                      },
+                    }}
+                  />
+                )}
               </Box>
             )
           ) : error ? (

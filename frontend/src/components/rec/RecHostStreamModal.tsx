@@ -24,6 +24,13 @@ interface RecHostStreamModalProps {
   onClose: () => void;
   showRemoteByDefault?: boolean;
   sharedVideoRef?: React.RefObject<HTMLVideoElement>;
+  // Modal state controlled by parent (Rec.tsx)
+  modalIsLiveMode: boolean;
+  onIsLiveModeChange: (isLive: boolean) => void;
+  modalQuality: 'low' | 'sd' | 'hd';
+  onQualityChange: (quality: 'low' | 'sd' | 'hd') => void;
+  modalMuted: boolean;
+  onMutedChange: (muted: boolean) => void;
 }
 
 export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
@@ -33,6 +40,12 @@ export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
   onClose,
   showRemoteByDefault = false,
   sharedVideoRef,
+  modalIsLiveMode,
+  onIsLiveModeChange,
+  modalQuality,
+  onQualityChange,
+  modalMuted,
+  onMutedChange,
 }) => {
   if (!isOpen || !host) return null;
 
@@ -44,6 +57,12 @@ export const RecHostStreamModal: React.FC<RecHostStreamModalProps> = ({
         onClose={onClose}
         showRemoteByDefault={showRemoteByDefault}
         sharedVideoRef={sharedVideoRef}
+        modalIsLiveMode={modalIsLiveMode}
+        onIsLiveModeChange={onIsLiveModeChange}
+        modalQuality={modalQuality}
+        onQualityChange={onQualityChange}
+        modalMuted={modalMuted}
+        onMutedChange={onMutedChange}
       />
     </VNCStateProvider>
   );
@@ -55,22 +74,49 @@ const RecHostStreamModalContent: React.FC<{
   onClose: () => void;
   showRemoteByDefault: boolean;
   sharedVideoRef?: React.RefObject<HTMLVideoElement>;
-}> = ({ host, device, onClose, showRemoteByDefault, sharedVideoRef }) => {
-  // Local state
+  modalIsLiveMode: boolean;
+  onIsLiveModeChange: (isLive: boolean) => void;
+  modalQuality: 'low' | 'sd' | 'hd';
+  onQualityChange: (quality: 'low' | 'sd' | 'hd') => void;
+  modalMuted: boolean;
+  onMutedChange: (muted: boolean) => void;
+}> = ({ 
+  host, 
+  device, 
+  onClose, 
+  showRemoteByDefault, 
+  sharedVideoRef,
+  modalIsLiveMode,
+  onIsLiveModeChange,
+  modalQuality,
+  onQualityChange,
+  modalMuted,
+  onMutedChange,
+}) => {
+  // Local state (UI-only, not passed to player)
   const [showRemote, setShowRemote] = useState<boolean>(showRemoteByDefault);
   const [showWeb, setShowWeb] = useState<boolean>(false);
   const [monitoringMode, setMonitoringMode] = useState<boolean>(false);
   const [aiAgentMode, setAiAgentMode] = useState<boolean>(false);
   const [restartMode, setRestartMode] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(true); // Start muted by default
-  const [, setIsStreamActive] = useState<boolean>(true); // Stream lifecycle management
-  const [isLiveMode, setIsLiveMode] = useState<boolean>(true); // Start in live mode
-  const [currentQuality, setCurrentQuality] = useState<'low' | 'sd' | 'hd'>('low'); // Start with LOW quality
-  const currentQualityRef = useRef<'low' | 'sd' | 'hd'>('low'); // Ref to track quality for cleanup
-  const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false); // Track quality transition state
-  const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false); // Pause player during transition
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0); // Track video currentTime for archive monitoring
+  
+  // Use parent-controlled state instead of local state
+  const isLiveMode = modalIsLiveMode;
+  const setIsLiveMode = onIsLiveModeChange;
+  const currentQuality = modalQuality;
+  const setCurrentQuality = onQualityChange;
+  const isMuted = modalMuted;
+  const setIsMuted = onMutedChange;
+  const currentQualityRef = useRef<'low' | 'sd' | 'hd'>(modalQuality);
+  const [isQualitySwitching, setIsQualitySwitching] = useState<boolean>(false);
+  const [shouldPausePlayer, setShouldPausePlayer] = useState<boolean>(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | (() => void) | null>(null);
+  
+  // Sync ref when quality changes
+  useEffect(() => {
+    currentQualityRef.current = modalQuality;
+  }, [modalQuality]);
   // Throttle frequent video time updates to avoid excessive re-renders
   const lastVideoTimeUpdateRef = useRef<number>(0);
   const lastVideoTimeValueRef = useRef<number>(-1);
@@ -293,12 +339,10 @@ const RecHostStreamModalContent: React.FC<{
 
   // Handle live/24h mode toggle
   const handleToggleLiveMode = useCallback(() => {
-    setIsLiveMode((prev) => {
-      const newMode = !prev;
-      console.log(`[@component:RecHostStreamModal] Live mode toggled: ${newMode ? 'Live' : 'Last 24h'}`);
-      return newMode;
-    });
-  }, []);
+    const newMode = !isLiveMode;
+    console.log(`[@component:RecHostStreamModal] Live mode toggled: ${newMode ? 'Live' : 'Last 24h'}`);
+    setIsLiveMode(newMode);
+  }, [isLiveMode, setIsLiveMode]);
 
   // Poll for new stream availability using hook function
   const pollForNewStream = useCallback((deviceId: string) => {
@@ -407,7 +451,7 @@ const RecHostStreamModalContent: React.FC<{
     return () => {
       const finalQuality = currentQualityRef.current; // Read from ref to get LATEST value
       console.log(`[@component:RecHostStreamModal] Component unmounting, current quality: ${finalQuality}`);
-      setIsStreamActive(false);
+      // Stream lifecycle is managed by preview player now
       
       // Only restart if we're NOT already at LOW quality
       if (finalQuality !== 'low') {
@@ -541,8 +585,7 @@ const RecHostStreamModalContent: React.FC<{
       pollingIntervalRef.current = null;
     }
 
-    // Stop stream before closing
-    setIsStreamActive(false);
+    // Stream lifecycle is managed by preview player now
 
     // Reset state (useDeviceControl handles cleanup automatically)
     setShowRemote(false);
@@ -620,21 +663,12 @@ const RecHostStreamModalContent: React.FC<{
           inset: 0,
           zIndex: getZIndex('MODAL_CONTENT'),
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        }}
-      >
-      <Box
-        sx={{
-          width: '95vw',
-          height: '90vh',
-          backgroundColor: 'background.paper',
-          borderRadius: 2,
-          boxShadow: 24,
-          display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          backgroundColor: 'transparent', // Transparent - preview is fullscreen below
+          pointerEvents: 'none', // Let clicks pass through except on controls
+          '& > *': {
+            pointerEvents: 'auto', // Re-enable for header and panels
+          },
         }}
       >
         {/* Header */}
@@ -657,7 +691,7 @@ const RecHostStreamModalContent: React.FC<{
           onScreenshot={handleScreenshot}
           onToggleLiveMode={handleToggleLiveMode}
           onQualityChange={handleQualityChange}
-          onToggleMute={() => setIsMuted((prev) => !prev)}
+          onToggleMute={() => setIsMuted(!isMuted)}
           onToggleControl={handleToggleControl}
           onToggleMonitoring={handleToggleMonitoring}
           onToggleRestart={handleToggleRestart}
@@ -667,47 +701,21 @@ const RecHostStreamModalContent: React.FC<{
           onClose={handleClose}
         />
 
-        {/* Main Content */}
+        {/* Main Content - Video player is rendered by fullscreen preview */}
         <Box
           sx={{
             flex: 1,
             display: 'flex',
             overflow: 'hidden',
-            backgroundColor: 'black',
+            backgroundColor: 'transparent', // Transparent to show fullscreen preview below
             position: 'relative',
+            pointerEvents: 'none', // Allow clicks to pass through to player below
+            '& > *': {
+              pointerEvents: 'auto', // Re-enable for panels
+            },
           }}
         >
-          <RecStreamContainer
-            host={host}
-            device={device}
-            streamUrl={streamUrl || undefined}
-            isLoadingUrl={isLoadingUrl}
-            urlError={urlError}
-            monitoringMode={monitoringMode}
-            restartMode={restartMode}
-            isLiveMode={isLiveMode}
-            isControlActive={isControlActive}
-            currentQuality={currentQuality}
-            isQualitySwitching={isQualitySwitching}
-            shouldPausePlayer={shouldPausePlayer}
-            isMuted={isMuted}
-            isMobileModel={isMobileModel}
-            showRemote={showRemote}
-            showWeb={showWeb}
-            finalStreamContainerDimensions={finalStreamContainerDimensions}
-            calculateVncScaling={calculateVncScaling}
-            onPlayerReady={handlePlayerReady}
-            onVideoTimeUpdate={handleVideoTimeUpdate}
-            onVideoPause={handleVideoPause}
-            sharedVideoRef={sharedVideoRef}
-            monitoringAnalysis={monitoringData.latestAnalysis || undefined}
-            subtitleAnalysis={monitoringData.latestSubtitleAnalysis || undefined}
-            languageMenuAnalysis={monitoringData.latestLanguageMenuAnalysis || undefined}
-            aiDescription={monitoringData.latestAIDescription || undefined}
-            errorTrendData={monitoringData.errorTrendData || undefined}
-            analysisTimestamp={monitoringData.analysisTimestamp || undefined}
-            isAIAnalyzing={monitoringData.isAIAnalyzing}
-          />
+          {/* RecStreamContainer removed - video is in fullscreen preview */}
 
           {/* Panel Manager */}
           <RecPanelManager
@@ -730,7 +738,6 @@ const RecHostStreamModalContent: React.FC<{
             onDisambiguationDataChange={handleDisambiguationDataChange}
           />
         </Box>
-      </Box>
 
       {/* AI Disambiguation Modal - Rendered at top level with proper z-index */}
       {disambiguationData && disambiguationResolve && disambiguationCancel && (

@@ -28,6 +28,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   onVideoTimeUpdate,
   onVideoPause,
   
+  showTimeline = true,
+  showMonitoringOverlay = true,
   monitoringMode = false,
   monitoringAnalysis,
   subtitleAnalysis,
@@ -459,27 +461,29 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           show={!isLiveMode}
         />
 
-        <TimelineOverlay
-          isLiveMode={isLiveMode}
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          isAtLiveEdge={isAtLiveEdge}
-          liveBufferSeconds={liveBufferSeconds}
-          liveSliderPosition={liveSliderPosition}
-          globalCurrentTime={archive.globalCurrentTime}
-          isDraggingSlider={archive.isDraggingSlider}
-          dragSliderValue={archive.dragSliderValue}
-          archiveMetadata={archive.archiveMetadata}
-          availableHours={archive.availableHours}
-          hourMarks={archive.hourMarks}
-          videoRef={videoRef}
-          onTogglePlayPause={togglePlayPause}
-          onSliderChange={isLiveMode ? handleLiveSliderChange : archive.handleSliderChange}
-          onSeek={isLiveMode ? handleLiveSeek : archive.handleSeek}
-          show={!isTransitioning}
-          currentManifestIndex={archive.currentManifestIndex}
-        />
+        {showTimeline && (
+          <TimelineOverlay
+            isLiveMode={isLiveMode}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            isAtLiveEdge={isAtLiveEdge}
+            liveBufferSeconds={liveBufferSeconds}
+            liveSliderPosition={liveSliderPosition}
+            globalCurrentTime={archive.globalCurrentTime}
+            isDraggingSlider={archive.isDraggingSlider}
+            dragSliderValue={archive.dragSliderValue}
+            archiveMetadata={archive.archiveMetadata}
+            availableHours={archive.availableHours}
+            hourMarks={archive.hourMarks}
+            videoRef={videoRef}
+            onTogglePlayPause={togglePlayPause}
+            onSliderChange={isLiveMode ? handleLiveSliderChange : archive.handleSliderChange}
+            onSeek={isLiveMode ? handleLiveSeek : archive.handleSeek}
+            show={!isTransitioning}
+            currentManifestIndex={archive.currentManifestIndex}
+          />
+        )}
       </Box>
     </Box>
   );
