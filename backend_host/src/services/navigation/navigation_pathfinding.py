@@ -123,11 +123,6 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
         available_nodes = list(unified_graph.nodes())
         raise PathfindingError(f"Target node {actual_target_node} not found in unified graph. Available nodes: {available_nodes}")
     
-    # Final check: ensure target is not an action node
-    final_target_data = unified_graph.nodes.get(actual_target_node, {})
-    if final_target_data.get('node_type') == 'action':
-        raise PathfindingError(f"Cannot navigate to action node {actual_target_node}")
-    
     # Check if we're already at the target
     if actual_start_node == actual_target_node:
         print(f"[@navigation:pathfinding:find_shortest_path_unified] Already at target node {actual_target_node}")
