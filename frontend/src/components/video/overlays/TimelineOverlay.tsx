@@ -73,30 +73,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const displayMax = isLiveMode ? max : (24 * 3600);
 
   return (
-    <>
-      {isLiveMode && liveBufferSeconds > 0 && liveBufferSeconds < 150 && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 16,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            color: 'white',
-            px: 2,
-            py: 1,
-            borderRadius: 1,
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            zIndex: 20,
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
-            Buffer: {Math.floor(liveBufferSeconds)}s
-          </Typography>
-        </Box>
-      )}
-      
-      <Box
+    <Box
         sx={{
           position: 'absolute',
           bottom: -45,
@@ -238,18 +215,23 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               -2:30
             </Typography>
             
-            <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
-              {(() => {
-                const isBuffering = videoRef.current && videoRef.current.readyState < 3;
-                if (liveBufferSeconds < 10 || isBuffering) return `Buffering... ${Math.floor(liveBufferSeconds)}s`;
-                const behindSeconds = Math.round(150 - liveSliderPosition);
-                if (behindSeconds === 0) return 'LIVE';
-                if (behindSeconds < 60) return `-${behindSeconds}s`;
-                const minutes = Math.floor(behindSeconds / 60);
-                const seconds = behindSeconds % 60;
-                return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-              })()}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {liveBufferSeconds > 0 && liveBufferSeconds < 150 && (
+                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.7rem' }}>
+                  Buffer: {Math.floor(liveBufferSeconds)}s
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
+                {(() => {
+                  const behindSeconds = Math.round(150 - liveSliderPosition);
+                  if (behindSeconds === 0) return 'LIVE';
+                  if (behindSeconds < 60) return `-${behindSeconds}s`;
+                  const minutes = Math.floor(behindSeconds / 60);
+                  const seconds = behindSeconds % 60;
+                  return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                })()}
+              </Typography>
+            </Box>
             
             <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
               Now
@@ -292,7 +274,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           </>
         )}
       </Box>
-      </Box>
-    </>
+    </Box>
   );
 };
