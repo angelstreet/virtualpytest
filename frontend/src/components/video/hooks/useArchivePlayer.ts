@@ -32,6 +32,8 @@ export const useArchivePlayer = ({
   const [dragSliderValue, setDragSliderValue] = useState(0);
   const [availableHours, setAvailableHours] = useState<number[]>([]);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [continuousStartTime, setContinuousStartTime] = useState<number>(0);
+  const [continuousEndTime, setContinuousEndTime] = useState<number>(0);
 
   const loadArchiveManifest = useCallback(async (baseUrl: string): Promise<ArchiveMetadata | null> => {
     setIsCheckingAvailability(true);
@@ -47,6 +49,7 @@ export const useArchivePlayer = ({
       
       const manifest = await response.json();
       console.log(`[@EnhancedHLSPlayer] Loaded manifest: ${manifest.total_chunks} chunks across ${manifest.available_hours.length} hours`);
+      console.log(`[@EnhancedHLSPlayer] Continuous range: ${manifest.continuous_from ? `hour ${manifest.continuous_from.hour}` : 'unknown'} to ${manifest.continuous_to ? `hour ${manifest.continuous_to.hour}` : 'unknown'}`);
       
       setAvailableHours(manifest.available_hours);
       
@@ -66,6 +69,14 @@ export const useArchivePlayer = ({
           duration_seconds: 600
         }))
       };
+      
+      // Calculate continuous time range
+      if (metadata.manifests.length > 0) {
+        const firstChunk = metadata.manifests[0];
+        const lastChunk = metadata.manifests[metadata.manifests.length - 1];
+        setContinuousStartTime(firstChunk.start_time_seconds);
+        setContinuousEndTime(lastChunk.end_time_seconds);
+      }
       
       return metadata;
     } catch (error) {
@@ -146,17 +157,17 @@ export const useArchivePlayer = ({
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
     
-    if (availableHours.length > 0) {
-      const seekHour = Math.floor(seekTime / 3600);
-      if (!availableHours.includes(seekHour)) {
-        console.log(`[@EnhancedHLSPlayer] Cannot drag to hour ${seekHour} - not available`);
+    // Restrict to continuous time range
+    if (continuousStartTime > 0 && continuousEndTime > 0) {
+      if (seekTime < continuousStartTime || seekTime > continuousEndTime) {
+        console.log(`[@EnhancedHLSPlayer] Cannot drag to ${seekTime}s - outside continuous range (${continuousStartTime}s - ${continuousEndTime}s)`);
         return;
       }
     }
     
     setIsDraggingSlider(true);
     setDragSliderValue(seekTime);
-  }, [availableHours]);
+  }, [continuousStartTime, continuousEndTime]);
 
   const handleSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (!videoRef.current) return;
@@ -166,10 +177,10 @@ export const useArchivePlayer = ({
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
     
-    if (availableHours.length > 0) {
-      const seekHour = Math.floor(seekTime / 3600);
-      if (!availableHours.includes(seekHour)) {
-        console.warn(`[@EnhancedHLSPlayer] Cannot seek to hour ${seekHour} - not available. Available hours: ${availableHours.join(',')}`);
+    // Restrict to continuous time range
+    if (continuousStartTime > 0 && continuousEndTime > 0) {
+      if (seekTime < continuousStartTime || seekTime > continuousEndTime) {
+        console.warn(`[@EnhancedHLSPlayer] Cannot seek to ${seekTime}s - outside continuous range (${continuousStartTime}s - ${continuousEndTime}s)`);
         return;
       }
     }
@@ -227,7 +238,7 @@ export const useArchivePlayer = ({
     } else {
       video.currentTime = seekTime;
     }
-  }, [archiveMetadata, currentManifestIndex, availableHours, videoRef]);
+  }, [archiveMetadata, currentManifestIndex, continuousStartTime, continuousEndTime, videoRef]);
 
   const updateTimeTracking = useCallback((video: HTMLVideoElement) => {
     if (archiveMetadata && archiveMetadata.manifests.length > 0) {
@@ -269,6 +280,8 @@ export const useArchivePlayer = ({
     setCurrentManifestIndex(0);
     setAvailableHours([]);
     setIsCheckingAvailability(false);
+    setContinuousStartTime(0);
+    setContinuousEndTime(0);
   }, []);
 
   return useMemo(() => ({
@@ -280,6 +293,8 @@ export const useArchivePlayer = ({
     dragSliderValue,
     availableHours,
     isCheckingAvailability,
+    continuousStartTime,
+    continuousEndTime,
     hourMarks,
     handleVideoError,
     handleSliderChange,
@@ -297,6 +312,8 @@ export const useArchivePlayer = ({
     dragSliderValue,
     availableHours,
     isCheckingAvailability,
+    continuousStartTime,
+    continuousEndTime,
     hourMarks,
     handleVideoError,
     handleSliderChange,

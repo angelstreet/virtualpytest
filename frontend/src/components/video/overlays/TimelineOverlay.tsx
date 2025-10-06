@@ -16,6 +16,8 @@ interface TimelineOverlayProps {
   dragSliderValue: number;
   archiveMetadata: ArchiveMetadata | null;
   availableHours: number[];
+  continuousStartTime: number;
+  continuousEndTime: number;
   hourMarks: Array<{ value: number; label: string; style?: React.CSSProperties }>;
   videoRef: React.RefObject<HTMLVideoElement>;
   onTogglePlayPause: () => void;
@@ -48,6 +50,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   dragSliderValue,
   archiveMetadata,
   availableHours,
+  continuousStartTime,
+  continuousEndTime,
   hourMarks,
   videoRef,
   onTogglePlayPause,
@@ -59,6 +63,14 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   if (!show || duration <= 0) {
     return null;
   }
+
+  // Calculate timeline range
+  const min = isLiveMode ? 0 : (continuousStartTime || 0);
+  const max = isLiveMode ? 150 : (continuousEndTime || duration);
+  
+  // For archive mode, we want to show full 24h range but restrict interaction
+  const displayMin = isLiveMode ? min : 0;
+  const displayMax = isLiveMode ? max : (24 * 3600);
 
   return (
     <Box
@@ -150,8 +162,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
 
           <Slider
             value={isLiveMode ? (isDraggingSlider ? dragSliderValue : liveSliderPosition) : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime))}
-            min={isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0)}
-            max={isLiveMode ? 150 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration)}
+            min={min}
+            max={max}
             step={isLiveMode ? 1 : undefined}
             disabled={isLiveMode && liveBufferSeconds < 10}
             onChange={onSliderChange}
@@ -175,8 +187,18 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 6,
               },
               '& .MuiSlider-rail': {
-                backgroundColor: 'rgba(255,255,255,0.05)',
+                backgroundColor: 'rgba(255,255,255,0.15)',
                 height: 6,
+                background: !isLiveMode && continuousStartTime > 0 && continuousEndTime > 0 
+                  ? `linear-gradient(to right,
+                      rgba(100,100,100,0.3) 0%,
+                      rgba(100,100,100,0.3) ${(continuousStartTime / max) * 100}%,
+                      rgba(255,255,255,0.15) ${(continuousStartTime / max) * 100}%,
+                      rgba(255,255,255,0.15) ${(continuousEndTime / max) * 100}%,
+                      rgba(100,100,100,0.3) ${(continuousEndTime / max) * 100}%,
+                      rgba(100,100,100,0.3) 100%
+                    )`
+                  : undefined,
               },
               '& .MuiSlider-markLabel': {
                 fontSize: '0.7rem',
