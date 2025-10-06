@@ -5,15 +5,18 @@ Watches for new frames and processes them immediately (zero CPU when idle)
 Uses FFmpeg atomic_writing feature to detect completed files
 
 Per-device queue processing:
-- Each device has dedicated queue and worker thread
+- Each device has dedicated LIFO queue (stack) and worker thread
+- LIFO = Process newest frames first (prevents stale analysis when backlog exists)
 - Sequential processing within device prevents CPU spikes
 - Parallel processing across devices maintains performance
+- Queue size logging: Tracks backlog to detect performance issues
 """
 import os
 import sys
 import json
 import logging
 import queue
+from queue import LifoQueue
 import threading
 from datetime import datetime
 import inotify.adapters
@@ -68,7 +71,8 @@ class InotifyFrameMonitor:
             else:
                 logger.warning(f"Directory not found: {capture_dir}")
             
-            work_queue = queue.Queue(maxsize=1000)
+            # LIFO queue (stack) - process newest frames first to avoid stale analysis
+            work_queue = LifoQueue(maxsize=1000)
             self.device_queues[capture_folder] = work_queue
             
             worker = threading.Thread(
@@ -84,9 +88,20 @@ class InotifyFrameMonitor:
         self.process_existing_frames(capture_dirs)
     
     def _device_worker(self, capture_folder, work_queue):
-        """Worker thread for sequential frame processing per device"""
+        """Worker thread for sequential frame processing per device (LIFO - newest first)"""
+        frame_count = 0
         while True:
             path, filename = work_queue.get()
+            frame_count += 1
+            
+            # Log queue status every 25 frames (5 seconds at 5fps)
+            if frame_count % 25 == 0:
+                queue_size = work_queue.qsize()
+                if queue_size > 50:
+                    logger.warning(f"[{capture_folder}] ⚠️  Queue backlog: {queue_size} frames pending")
+                elif queue_size > 0:
+                    logger.info(f"[{capture_folder}] 📊 Queue size: {queue_size} frames")
+            
             try:
                 self.process_frame(path, filename)
             except Exception as e:
@@ -289,9 +304,18 @@ class InotifyFrameMonitor:
                         logger.debug(f"[{capture_folder}] inotify event: {filename}")
                         
                         try:
-                            self.device_queues[capture_folder].put_nowait((path, filename))
+                            work_queue = self.device_queues[capture_folder]
+                            work_queue.put_nowait((path, filename))
+                            
+                            # Log if queue is building up (potential performance issue)
+                            queue_size = work_queue.qsize()
+                            if queue_size > 100:
+                                logger.warning(f"[{capture_folder}] 🔴 Queue backlog growing: {queue_size}/1000 frames (processing too slow!)")
+                            elif queue_size > 50 and queue_size % 25 == 0:
+                                logger.warning(f"[{capture_folder}] 🟡 Queue backlog: {queue_size}/1000 frames")
+                                
                         except queue.Full:
-                            logger.warning(f"[{capture_folder}] Queue full, dropping frame: {filename}")
+                            logger.error(f"[{capture_folder}] 🚨 Queue FULL (1000 frames), dropping: {filename}")
                         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
@@ -309,6 +333,7 @@ def main():
     logger.info("Starting inotify-based incident monitor")
     logger.info("Performance: Zero CPU when idle, event-driven processing")
     logger.info("No directory scanning = 95% CPU reduction vs polling")
+    logger.info("Queue Strategy: LIFO (newest frames first) - ensures real-time analysis")
     logger.info("=" * 80)
     
     host_name = os.getenv('USER', 'unknown')
