@@ -74,10 +74,12 @@ _device_mapping_cache = {}
 try:
     from dotenv import load_dotenv
     
-    # Get script paths
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    backend_host_dir = os.path.dirname(current_dir)
-    project_root = os.path.dirname(backend_host_dir)
+    # Get script paths (storage_path_utils.py is in shared/src/lib/utils/)
+    current_dir = os.path.dirname(os.path.abspath(__file__))  # shared/src/lib/utils/
+    shared_lib_dir = os.path.dirname(current_dir)  # shared/src/lib/
+    shared_src_dir = os.path.dirname(shared_lib_dir)  # shared/src/
+    shared_dir = os.path.dirname(shared_src_dir)  # shared/
+    project_root = os.path.dirname(shared_dir)  # project root
     
     # Load project root .env first
     project_env_path = os.path.join(project_root, '.env')
@@ -85,11 +87,17 @@ try:
         load_dotenv(project_env_path)
         logger.debug(f"Loaded project environment from {project_env_path}")
     
-    # Load backend_host .env second
-    backend_env_path = os.path.join(backend_host_dir, 'src', '.env')
+    # Load backend_host .env second (correct path from project root)
+    backend_env_path = os.path.join(project_root, 'backend_host', 'src', '.env')
     if os.path.exists(backend_env_path):
         load_dotenv(backend_env_path)
         logger.debug(f"Loaded backend_host environment from {backend_env_path}")
+        
+        # Log critical variables for debugging
+        host_capture = os.getenv('HOST_VIDEO_CAPTURE_PATH')
+        logger.debug(f"HOST_VIDEO_CAPTURE_PATH={host_capture}")
+    else:
+        logger.warning(f"backend_host .env not found at {backend_env_path}")
         
 except ImportError:
     logger.warning("python-dotenv not available, relying on system environment")
