@@ -197,10 +197,11 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
             beam_size=1,
             vad_filter=True,  # Voice Activity Detection - skip silence automatically
             vad_parameters=dict(min_silence_duration_ms=500),
-            language=None  # Auto-detect
+            language=None,  # Auto-detect
+            word_timestamps=True  # Enable word-level timestamps for subtitle-style display
         )
         
-        # Collect all segments and build transcript
+        # Collect all segments and build transcript with timing info
         segments = list(segments_list)
         transcript = " ".join([segment.text for segment in segments]).strip()
         language = info.language
@@ -216,11 +217,23 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
         # Use language probability as confidence
         confidence = info.language_probability if hasattr(info, 'language_probability') else 0.5
         
+        # Build timed segments (group words into 2-line segments for subtitle display)
+        timed_segments = []
+        if segments:
+            for seg in segments:
+                # Each segment from Whisper has start/end time and words
+                timed_segments.append({
+                    'start': seg.start,
+                    'end': seg.end,
+                    'text': seg.text.strip()
+                })
+        
         return {
             'success': True,
             'transcript': transcript,
             'language': language_name,
-            'confidence': confidence
+            'confidence': confidence,
+            'segments': timed_segments  # Add timed segments for subtitle display
         }
         
     except Exception as e:

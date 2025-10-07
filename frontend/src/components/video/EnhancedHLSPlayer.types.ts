@@ -18,6 +18,13 @@ export interface ArchiveMetadata {
   }>;
 }
 
+// Timed segment from Whisper (word-level timestamps)
+export interface TimedSegment {
+  start: number;  // Start time in seconds (relative to chunk start)
+  end: number;    // End time in seconds (relative to chunk start)
+  text: string;   // Text for this segment
+}
+
 export interface TranscriptSegment {
   segment_num: number;
   relative_seconds: number;
@@ -39,7 +46,7 @@ export interface TranscriptDataLegacy {
   total_samples: number;
 }
 
-// NEW format (10-minute single transcript per chunk)
+// NEW format (10-minute single transcript per chunk with timed segments)
 export interface TranscriptData10Min {
   capture_folder: string;
   hour: number;
@@ -52,6 +59,7 @@ export interface TranscriptData10Min {
   timestamp: string;
   mp3_file: string;
   translations?: Record<string, string>;
+  segments?: TimedSegment[];  // Timed segments for subtitle-style display
 }
 
 // Union type for backward compatibility

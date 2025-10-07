@@ -87,23 +87,21 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     const stops: { pos: number; color: string }[] = [];
     const totalSeconds = 86400;
     
-    const allChunks: { [key: string]: { has_metadata: boolean } } = {};
+    const allChunks: { [key: string]: boolean } = {};
     archiveMetadata.manifests.forEach(manifest => {
       const key = `${manifest.window_index}-${manifest.chunk_index}`;
-      allChunks[key] = { has_metadata: manifest.has_metadata ?? false };
+      allChunks[key] = true;
     });
     
     for (let hour = 0; hour < 24; hour++) {
       for (let chunk = 0; chunk < 6; chunk++) {
         const key = `${hour}-${chunk}`;
-        const chunkData = allChunks[key];
-        const hasChunk = !!chunkData;
+        const hasChunk = allChunks[key];
         
-        const color = !hasChunk 
-          ? 'rgba(30, 30, 30, 0.8)'  // Darker, more intense grey for missing chunks (higher opacity for contrast)
-          : chunkData.has_metadata 
-            ? 'rgba(0, 188, 212, 1)'  // More intense cyan-blue (full opacity, brighter/saturated)
-            : 'rgba(180, 180, 180, 0.85)';  // Lighter grey for chunks without metadata (slightly higher opacity)
+        // Only 2 colors: available (bright cyan) or missing (dark grey)
+        const color = hasChunk
+          ? 'rgba(0, 230, 255, 1)'  // Bright electric cyan for available chunks (very visible)
+          : 'rgba(70, 70, 70, 1)';  // Medium-dark grey for missing chunks (clear contrast)
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
@@ -311,8 +309,10 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 display: 'none',
               },
               '& .MuiSlider-rail': {
-                height: 6,
+                height: 8,
                 zIndex: 1,  // Explicitly set lower than thumb to ensure layering
+                borderRadius: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
                 background: isLiveMode 
                   ? `linear-gradient(to right, 
                       rgba(255,255,255,0.15) 0%, 

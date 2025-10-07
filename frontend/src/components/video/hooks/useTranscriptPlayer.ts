@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { TranscriptData, TranscriptDataLegacy, TranscriptData10Min, TranscriptSegment, ArchiveMetadata } from '../EnhancedHLSPlayer.types';
+import { TranscriptData, TranscriptDataLegacy, TranscriptData10Min, TranscriptSegment, ArchiveMetadata, TimedSegment } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
 import { buildStreamUrl } from '../../../utils/buildUrlUtils';
 
@@ -63,7 +63,9 @@ export const useTranscriptPlayer = ({
   hostName,
 }: UseTranscriptPlayerProps) => {
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
+  const [rawTranscriptData, setRawTranscriptData] = useState<TranscriptData10Min | null>(null);  // Keep raw 10-min data
   const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
+  const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);  // Track current timed segment
   const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
   const [isTranslating, setIsTranslating] = useState(false);
 
@@ -117,12 +119,21 @@ export const useTranscriptPlayer = ({
                 if (!transcript) {
                   console.log(`[@useTranscriptPlayer] No transcript data for chunk ${chunkIndex}`);
                   setTranscriptData(null);
+                  setRawTranscriptData(null);
                   return;
                 }
                 
                 // Detect format and normalize
                 const is10Min = isTranscriptData10Min(transcript);
                 console.log(`[@useTranscriptPlayer] Transcript format: ${is10Min ? '10-minute (NEW)' : '6-second segments (LEGACY)'}`);
+                
+                // Store raw 10-min data for timed segment access
+                if (is10Min) {
+                  setRawTranscriptData(transcript as TranscriptData10Min);
+                  console.log(`[@useTranscriptPlayer] 10-min transcript with ${(transcript as TranscriptData10Min).segments?.length || 0} timed segments`);
+                } else {
+                  setRawTranscriptData(null);
+                }
                 
                 const normalizedData = normalizeTranscriptData(transcript);
                 
@@ -143,6 +154,7 @@ export const useTranscriptPlayer = ({
           .catch((error) => {
             console.log(`[@useTranscriptPlayer] Error loading transcript:`, error.message);
             setTranscriptData(null);
+            setRawTranscriptData(null);
           });
       }
     }
@@ -187,6 +199,41 @@ export const useTranscriptPlayer = ({
       setCurrentTranscript(null);
     }
   }, [transcriptData, globalCurrentTime]);
+  
+  // NEW: Find current timed segment based on video playback time (for subtitle-style display)
+  useEffect(() => {
+    if (!rawTranscriptData || !rawTranscriptData.segments || rawTranscriptData.segments.length === 0) {
+      setCurrentTimedSegment(null);
+      return;
+    }
+    
+    // Calculate local time within the chunk (video.currentTime)
+    if (!archiveMetadata || archiveMetadata.manifests.length === 0) {
+      setCurrentTimedSegment(null);
+      return;
+    }
+    
+    const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+    if (!currentManifest) {
+      setCurrentTimedSegment(null);
+      return;
+    }
+    
+    // Local time within the 10-minute chunk (0-600 seconds)
+    const localTime = globalCurrentTime - currentManifest.start_time_seconds;
+    
+    // Find the timed segment that contains this local time
+    const activeSegment = rawTranscriptData.segments.find(
+      seg => localTime >= seg.start && localTime < seg.end
+    );
+    
+    if (activeSegment) {
+      setCurrentTimedSegment(activeSegment);
+      console.log(`[@useTranscriptPlayer] Current timed segment: ${localTime.toFixed(1)}s -> "${activeSegment.text.substring(0, 50)}..."`);
+    } else {
+      setCurrentTimedSegment(null);
+    }
+  }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
 
   const handleLanguageChange = useCallback(async (language: string) => {
     setSelectedLanguage(language);
@@ -242,6 +289,12 @@ export const useTranscriptPlayer = ({
   }, [transcriptData, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, hostName, host]);
 
   const getCurrentTranscriptText = useCallback(() => {
+    // Prioritize timed segment for subtitle-style display (NEW format)
+    if (currentTimedSegment) {
+      return currentTimedSegment.text;
+    }
+    
+    // Fallback to full transcript segment (OLD format or no timed segments)
     if (!currentTranscript) return '';
     
     if (selectedLanguage === 'original') {
@@ -250,7 +303,7 @@ export const useTranscriptPlayer = ({
     
     const translation = currentTranscript.translations?.[selectedLanguage];
     return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
-  }, [currentTranscript, selectedLanguage]);
+  }, [currentTranscript, currentTimedSegment, selectedLanguage]);
 
   const clearTranscriptData = useCallback(() => {
     setTranscriptData(null);

@@ -70,7 +70,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         chunk_index: Chunk within hour (0-5)
     
     Returns:
-        dict: Transcript data with segments
+        dict: Transcript data with timed segments
     """
     try:
         logger.info(f"[{capture_folder}] 🎬 Transcribing chunk_10min_{chunk_index}.mp3 (hour {hour})")
@@ -84,6 +84,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         transcript = result.get('transcript', '').strip()
         language = result.get('language', 'unknown')
         confidence = result.get('confidence', 0.0)
+        timed_segments = result.get('segments', [])  # Get timed segments from Whisper
         elapsed = time.time() - start_time
         
         logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {elapsed:.1f}s")
@@ -91,6 +92,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
             # Show first 200 chars of transcript
             preview = transcript[:200] + ('...' if len(transcript) > 200 else '')
             logger.info(f"[{capture_folder}] 💬 '{preview}'")
+            logger.info(f"[{capture_folder}] ⏱️  Generated {len(timed_segments)} timed segments for subtitle display")
         else:
             logger.info(f"[{capture_folder}] 🔇 No speech detected in chunk")
         
@@ -105,7 +107,8 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
             'confidence': confidence,
             'transcription_time_seconds': elapsed,
             'timestamp': datetime.now().isoformat(),
-            'mp3_file': os.path.basename(mp3_path)
+            'mp3_file': os.path.basename(mp3_path),
+            'segments': timed_segments  # Add timed segments for subtitle-style display
         }
         
         return transcript_data
