@@ -91,8 +91,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     // Position in "hours ago" coordinate system (0 = oldest, 82800 = newest)
     const positionSeconds = (23 - hoursAgo) * 3600 + (globalCurrentTime % 3600);
     
-    console.log(`[@TimelineOverlay] Clock time: ${timeHour}h${timeMinute.toString().padStart(2, '0')}m, Current: ${currentHour}h${currentMinute.toString().padStart(2, '0')}m, HoursAgo: ${hoursAgo}, Position: ${positionSeconds}s`);
-    
     return positionSeconds;
   }, [isLiveMode, archiveMetadata, globalCurrentTime]);
 
@@ -243,7 +241,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const maxValue = isLiveMode ? 150 : 82800;  // Match the slider max
                 
                 const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
-                console.log(`[@TimelineOverlay] Tooltip: value=${currentValue.toFixed(0)}s, percentage=${percentage.toFixed(2)}%`); // Debug log
                 return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width for centering
               })(),
               transform: 'translateX(0)',
@@ -282,7 +279,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 (() => {
                   // Subtract 1 hour (3600 seconds) to fix offset
                   const tooltipTime = Math.max(0, globalCurrentTime - 3600);
-                  console.log(`[@TimelineOverlay] Tooltip clock time: ${formatTime(tooltipTime)} (${tooltipTime.toFixed(0)}s)`);
                   return formatTime(tooltipTime);
                 })()
               )}
