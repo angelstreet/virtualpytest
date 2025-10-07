@@ -24,7 +24,14 @@ import inotify.adapters
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder
+from shared.src.lib.utils.storage_path_utils import (
+    get_capture_base_directories, 
+    get_capture_storage_path, 
+    get_capture_folder, 
+    get_device_info_from_capture_folder,
+    get_metadata_path,
+    get_captures_path
+)
 from detector import detect_issues
 from incident_manager import IncidentManager
 
@@ -53,11 +60,14 @@ class InotifyFrameMonitor:
             # Use centralized path utilities (handles both hot and cold storage)
             capture_folder = get_capture_folder(capture_dir)
             
+            # Get parent directory (device base path)
             if '/hot/' in capture_dir:
-                # Hot storage: parent is /var/www/html/stream/capture1
+                # Hot storage: /var/www/html/stream/capture1/hot/captures
+                # Parent is /var/www/html/stream/capture1
                 parent_dir = '/'.join(capture_dir.split('/')[:-2])
             else:
-                # Cold storage: parent is /var/www/html/stream/capture1
+                # Cold storage: /var/www/html/stream/capture1/captures
+                # Parent is /var/www/html/stream/capture1
                 parent_dir = os.path.dirname(capture_dir)
             
             self.dir_to_info[capture_dir] = {
@@ -136,8 +146,8 @@ class InotifyFrameMonitor:
         info = self.dir_to_info[captures_path]
         capture_folder = info['capture_folder']
         
-        # Get metadata path using centralized storage resolution (handles hot/cold automatically)
-        metadata_path = get_capture_storage_path(capture_folder, 'metadata')
+        # Use convenience function - no manual path building!
+        metadata_path = get_metadata_path(capture_folder)
         
         # Ensure metadata directory exists with correct permissions (mode=0o777 for full access)
         # This ensures the archiver (running as different user) can move files
@@ -223,7 +233,7 @@ class InotifyFrameMonitor:
                         last_3_thumbnails = []
                         for capture_path in last_3_captures:
                             if os.path.exists(capture_path):
-                                # Thumbnails are in /thumbnails/ not /captures/
+                                # Use convenience function to get thumbnails path
                                 # /var/www/html/stream/capture1/hot/captures/capture_000014342.jpg
                                 # -> /var/www/html/stream/capture1/hot/thumbnails/capture_000014342_thumbnail.jpg
                                 thumbnail_path = capture_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
@@ -359,8 +369,8 @@ def main():
     for base_dir in base_dirs:
         # Extract device folder name (e.g., 'capture1' from '/var/www/html/stream/capture1')
         device_folder = os.path.basename(base_dir)
-        # Use centralized path resolution (handles hot/cold automatically)
-        capture_path = get_capture_storage_path(device_folder, 'captures')
+        # Use convenience function - no manual path building!
+        capture_path = get_captures_path(device_folder)
         capture_dirs.append(capture_path)
     
     logger.info(f"Found {len(capture_dirs)} capture directories")

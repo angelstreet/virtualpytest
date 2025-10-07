@@ -11,7 +11,11 @@ import logging
 from datetime import datetime
 from contextlib import contextmanager
 
-from shared.src.lib.utils.storage_path_utils import is_ram_mode
+from shared.src.lib.utils.storage_path_utils import (
+    is_ram_mode,
+    get_segments_path,
+    get_capture_folder
+)
 
 logger = logging.getLogger('capture_monitor')
 
@@ -45,13 +49,9 @@ def analyze_audio(capture_dir):
     latest = None
     latest_mtime = 0
     
-    # Use centralized hot/cold detection - check RAM mode
-    if is_ram_mode(capture_dir):
-        # RAM mode: segments in /hot/segments/ (tmpfs)
-        segments_dir = os.path.join(capture_dir, 'hot', 'segments')
-    else:
-        # SD mode: segments in /segments/ root
-        segments_dir = os.path.join(capture_dir, 'segments')
+    # Use convenience function - automatically resolves hot/cold and RAM mode
+    capture_folder = get_capture_folder(capture_dir)
+    segments_dir = get_segments_path(capture_folder)
     
     # CRITICAL FIX: Check cache first - only rescan directory every 5 seconds
     if capture_dir in _latest_segment_cache:
