@@ -594,11 +594,20 @@ class ZapExecutor:
                 'message': verification_result.get('message', '')
             }
             
-            # Add analyzed_screenshot for main branch compatibility
-            if hasattr(context, 'screenshot_paths') and context.screenshot_paths:
-                analyzed_screenshot = context.screenshot_paths[-1]  # Use latest screenshot
-                result.subtitle_details['analyzed_screenshot'] = analyzed_screenshot
+            # Add analyzed_screenshot with proper hot/cold handling
+            analyzed_screenshot = None
+            if subtitle_details.get('image_path'):
+                # Verification returned the analyzed image filename
+                from shared.src.lib.utils.device_utils import add_existing_image_to_context
+                filename = subtitle_details['image_path']
+                analyzed_screenshot = add_existing_image_to_context(self.device, filename, context)
+                if analyzed_screenshot:
+                    print(f"🔍 [ZapExecutor] Subtitle analyzed screenshot found: {filename}")
+                else:
+                    print(f"⚠️ [ZapExecutor] Subtitle analyzed screenshot missing: {filename}")
             
+            if analyzed_screenshot:
+                result.subtitle_details['analyzed_screenshot'] = analyzed_screenshot
             
         elif analysis_type == 'audio_speech':
             # Extract from details (where AI results are nested) same as subtitles
@@ -625,19 +634,28 @@ class ZapExecutor:
         elif analysis_type == 'zapping':
             # Zapping results are in details, but also check direct fields for compatibility
             zapping_details = verification_result.get('details', {})
-            result.zapping_detected = verification_result.get('success', False) and (
-                zapping_details.get('zapping_detected', False) or verification_result.get('zapping_detected', False)
-            )
-            # Extract duration from details or direct field - check multiple possible field names
+            
+            # Extract duration first - check multiple possible field names
             # Note: freeze detection returns 'freeze_duration', blackscreen returns 'blackscreen_duration'
-            result.blackscreen_duration = (
-                zapping_details.get('blackscreen_duration') or 
-                verification_result.get('blackscreen_duration') or
-                zapping_details.get('freeze_duration') or 
-                verification_result.get('freeze_duration') or
-                zapping_details.get('duration') or 
-                verification_result.get('duration') or 
-                0.0
+            # Use 'is not None' to properly handle 0.0 values
+            duration = None
+            for key in ['blackscreen_duration', 'freeze_duration', 'duration']:
+                if duration is None and zapping_details.get(key) is not None:
+                    duration = zapping_details.get(key)
+                    break
+            if duration is None:
+                for key in ['blackscreen_duration', 'freeze_duration', 'duration']:
+                    if verification_result.get(key) is not None:
+                        duration = verification_result.get(key)
+                        break
+            
+            result.blackscreen_duration = duration if duration is not None else 0.0
+            
+            # Zapping is only detected if success=True AND duration > 0
+            # This ensures coherence: detected = True only when we have actual duration
+            result.zapping_detected = (
+                verification_result.get('success', False) and 
+                result.blackscreen_duration > 0.0
             )
             # Extract channel info from details - channel info is nested under 'channel_info' key
             channel_info = zapping_details.get('channel_info', {}) if zapping_details else {}
