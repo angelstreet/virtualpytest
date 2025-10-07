@@ -44,7 +44,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   isPlaying,
   currentTime,
   duration,
-  isAtLiveEdge,
+  isAtLiveEdge: _isAtLiveEdge, // Unused but kept for future use
   liveBufferSeconds,
   liveSliderPosition,
   globalCurrentTime,
@@ -55,7 +55,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   continuousStartTime,
   continuousEndTime,
   hourMarks,
-  videoRef,
+  videoRef: _videoRef, // Unused but kept for future use
   onTogglePlayPause,
   onSliderChange,
   onSeek,
@@ -206,10 +206,10 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               '& .MuiSlider-track': {
                 backgroundColor: isLiveMode ? undefined : 'primary.main',
                 background: isLiveMode ? `linear-gradient(to right, 
-                  rgba(255,255,255,0.15) 0%, 
-                  rgba(255,255,255,0.15) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%, 
-                  rgba(244,67,54,0.8) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
-                  rgba(244,67,54,0.8) 100%
+                  rgba(244,67,54,0.8) 0%, 
+                  rgba(244,67,54,0.8) ${Math.max(0, (liveBufferSeconds / 150) * 100)}%, 
+                  rgba(255,255,255,0.15) ${Math.max(0, (liveBufferSeconds / 150) * 100)}%,
+                  rgba(255,255,255,0.15) 100%
                 )` : undefined,
                 height: 6,
               },
