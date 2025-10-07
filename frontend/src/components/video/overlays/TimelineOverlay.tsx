@@ -71,6 +71,13 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const min = isLiveMode ? 0 : 0;           // Always start at 0 (midnight)
   const max = isLiveMode ? 150 : 86400;     // 24h = 86400 seconds
   
+  // INVERTED TIMELINE: Convert globalCurrentTime (0-86400) to inverted slider value
+  // globalCurrentTime=0 (hour 0/midnight) -> slider=86400 (right side)
+  // globalCurrentTime=86400 (24h later) -> slider=0 (left side)
+  const invertedSliderValue = !isLiveMode && archiveMetadata 
+    ? 86400 - globalCurrentTime 
+    : globalCurrentTime;
+  
   // Build rail gradient with grey gaps for archive mode (INVERTED: now on right, past on left)
   const buildArchiveRailGradient = () => {
     if (isLiveMode || !archiveMetadata || archiveMetadata.manifests.length === 0) {
@@ -216,27 +223,36 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                     return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                   })()
                 ) : (
-                  formatTime(dragSliderValue)
+                  // Show actual time (convert from inverted slider value)
+                  formatTime(86400 - dragSliderValue)
                 )}
               </Typography>
             </Box>
           )}
 
           <Slider
-            value={isLiveMode ? (isDraggingSlider ? dragSliderValue : liveSliderPosition) : (isDraggingSlider ? dragSliderValue : (archiveMetadata ? globalCurrentTime : currentTime))}
+            value={isLiveMode 
+              ? (isDraggingSlider ? dragSliderValue : liveSliderPosition) 
+              : (isDraggingSlider ? dragSliderValue : invertedSliderValue)
+            }
             min={min}
             max={max}
             step={isLiveMode ? 1 : undefined}
             disabled={isLiveMode && liveBufferSeconds < 10}
             onChange={onSliderChange}
             onChangeCommitted={(event, value) => {
-              // Prevent seeking to unavailable chunks
+              // Prevent seeking to unavailable chunks and convert inverted value back
               if (!isLiveMode) {
-                const seekTime = Array.isArray(value) ? value[0] : value;
+                const sliderValue = Array.isArray(value) ? value[0] : value;
+                // Convert inverted slider value back to actual time
+                const seekTime = 86400 - sliderValue;
                 if (!isTimeAvailable(seekTime)) {
                   console.log(`[@TimelineOverlay] Prevented seek to unavailable time: ${seekTime}s`);
                   return; // Don't allow seeking to greyed-out areas
                 }
+                // Pass the actual time (not inverted) to the seek handler
+                onSeek(event, seekTime);
+                return;
               }
               onSeek(event, value);
             }}

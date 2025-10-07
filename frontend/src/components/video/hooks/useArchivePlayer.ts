@@ -185,12 +185,12 @@ export const useArchivePlayer = ({
   }, [isLiveMode, archiveMetadata, currentManifestIndex, videoRef]);
 
   const handleSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
-    const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
-    if (!isFinite(seekTime) || seekTime < 0) return;
+    const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
+    if (!isFinite(sliderValue) || sliderValue < 0) return;
     
-    // Allow dragging anywhere in 24h timeline (gaps will be greyed out)
+    // Store the inverted slider value for display (timeline shows inverted positions)
     setIsDraggingSlider(true);
-    setDragSliderValue(seekTime);
+    setDragSliderValue(sliderValue);
   }, []);
 
   const handleSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
@@ -198,6 +198,7 @@ export const useArchivePlayer = ({
     
     setIsDraggingSlider(false);
     const video = videoRef.current;
+    // newValue is already the actual time (converted from inverted in TimelineOverlay)
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
     

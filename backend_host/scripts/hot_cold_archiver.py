@@ -335,13 +335,34 @@ def cleanup_hot_files(capture_dir: str, file_type: str, pattern: str) -> int:
         # Calculate how many to delete
         to_delete = file_count - hot_limit
         
-        # Sort by modification time (oldest first) - CRITICAL for keeping newest files
-        files.sort(key=lambda f: f.stat().st_mtime)
+        logger.info(f"{file_type}: Found {file_count} files, need to delete {to_delete} (limit: {hot_limit})")
+        
+        # Sort by modification time (oldest first) - WITH DIAGNOSTIC LOGGING
+        logger.debug(f"{file_type}: Starting sort of {file_count} files...")
+        sort_start = time.time()
+        
+        missing_during_sort = 0
+        files_with_mtime = []
+        
+        for i, filepath in enumerate(files):
+            try:
+                mtime = filepath.stat().st_mtime
+                files_with_mtime.append((filepath, mtime))
+            except (FileNotFoundError, OSError) as e:
+                missing_during_sort += 1
+                logger.warning(f"{file_type}: File disappeared during sort: {filepath.name} (error: {e})")
+        
+        sort_elapsed = time.time() - sort_start
+        logger.info(f"{file_type}: Sort completed in {sort_elapsed*1000:.1f}ms ({missing_during_sort} files disappeared)")
+        
+        # Sort by cached mtime (no more stat calls)
+        files_with_mtime.sort(key=lambda x: x[1])
+        files = [f for f, _ in files_with_mtime[:to_delete]]
         
         # Delete oldest files
         deleted_count = 0
         deleted_files = []
-        for filepath in files[:to_delete]:
+        for filepath in files:  # Already filtered to [:to_delete] above
             try:
                 os.remove(str(filepath))
                 deleted_files.append(filepath.name)
@@ -912,7 +933,8 @@ def process_capture_directory(capture_dir: str):
     start_time = time.time()
     
     # SAFETY CLEANUP: Keep only newest N files for ALL types (prevent RAM exhaustion)
-    deleted_segments = cleanup_hot_files(capture_dir, 'segments', 'segment_*.ts')
+    # Segments: Let FFmpeg handle cleanup (hls_list_size + delete_segments flag)
+    deleted_segments = 0
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
