@@ -1,23 +1,34 @@
 #!/usr/bin/env python3
 """
-10-Minute Transcript Accumulator
-Watches for 10min MP3 chunks created by hot_cold_archiver, transcribes them with Whisper
+inotify-based Transcript Accumulator - Dual Pipeline (MP4→MP3→JSON)
+Event-driven processing: Zero CPU when idle, immediate response to new files
+
+Pipeline 1: MP4 → MP3 (audio extraction)
+  - Watches /video/{hour}/ directories for chunk_10min_X.mp4
+  - Extracts audio → chunk_10min_X.mp3
+  
+Pipeline 2: MP3 → JSON (transcription)
+  - Watches /audio/{hour}/ directories for chunk_10min_X.mp3
+  - Transcribes → chunk_10min_X.json
+
 Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json
-Zero duplicate work - audio already extracted by archiver
 """
 import os
 import sys
 import json
-import time
 import subprocess
 import logging
+import queue
+from queue import LifoQueue
+import threading
 from datetime import datetime
-
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_host_dir)
 sys.path.insert(0, project_root)
+
+import inotify.adapters
 
 from shared.src.lib.utils.storage_path_utils import (
     get_capture_base_directories, 
@@ -26,18 +37,14 @@ from shared.src.lib.utils.storage_path_utils import (
     get_device_base_path,
     get_audio_path,
     get_transcript_path,
-    get_capture_storage_path
+    get_capture_storage_path,
+    get_segments_path
 )
-from shared.src.lib.utils.ai_utils import call_text_ai
-from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
-# Logging will be configured in main() after cleanup_logs_on_startup()
 logger = logging.getLogger(__name__)
 
 # Configuration
-CHUNK_DURATION_MINUTES = 10  # Process 10-minute audio chunks
-CHECK_INTERVAL = 10  # Check for new MP3 chunks every 10 seconds
-AI_ENHANCEMENT_ENABLED = False  # Disable AI enhancement to reduce CPU load
+CHUNK_DURATION_MINUTES = 10
 
 def cleanup_logs_on_startup():
     """Clean up log file on service restart for fresh debugging"""
@@ -47,7 +54,6 @@ def cleanup_logs_on_startup():
         print(f"[@transcript_accumulator] Cleaning log on service restart...")
         
         if os.path.exists(log_file):
-            # Truncate the file instead of deleting to avoid permission issues
             with open(log_file, 'w') as f:
                 f.write(f"=== LOG CLEANED ON SERVICE RESTART: {datetime.now().isoformat()} ===\n")
             print(f"[@transcript_accumulator] ✓ Cleaned: {log_file}")
@@ -58,6 +64,64 @@ def cleanup_logs_on_startup():
                 
     except Exception as e:
         print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
+
+def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> bool:
+    """
+    Extract audio from MP4 chunk using FFmpeg
+    
+    Args:
+        mp4_path: Path to MP4 file (chunk_10min_X.mp4)
+        mp3_path: Output path for MP3 file (chunk_10min_X.mp3)
+        capture_folder: Device identifier
+        hour: Hour (0-23)
+        chunk_index: Chunk within hour (0-5)
+    
+    Returns:
+        bool: True if extraction succeeded
+    """
+    try:
+        logger.info(f"[{capture_folder}] 🎵 Extracting audio: {hour}/chunk_10min_{chunk_index}.mp4 → .mp3")
+        
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(mp3_path), exist_ok=True)
+        
+        # Extract audio with FFmpeg (atomic write with .tmp)
+        mp3_tmp_path = mp3_path + '.tmp'
+        
+        cmd = [
+            'ffmpeg',
+            '-i', mp4_path,
+            '-vn',  # No video
+            '-acodec', 'libmp3lame',
+            '-q:a', '2',  # Good quality
+            '-y',  # Overwrite
+            mp3_tmp_path
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            logger.error(f"[{capture_folder}] ❌ FFmpeg failed: {result.stderr}")
+            return False
+        
+        # Atomic rename
+        os.rename(mp3_tmp_path, mp3_path)
+        
+        # Get file size for logging
+        mp3_size_mb = os.path.getsize(mp3_path) / (1024 * 1024)
+        logger.info(f"[{capture_folder}] ✅ Audio extracted: {mp3_size_mb:.1f}MB")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"[{capture_folder}] ❌ Error extracting audio: {e}")
+        # Clean up temp file if exists
+        if os.path.exists(mp3_tmp_path):
+            try:
+                os.remove(mp3_tmp_path)
+            except:
+                pass
+        return False
 
 def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> dict:
     """
@@ -74,29 +138,27 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
     """
     try:
         logger.info(f"[{capture_folder}] 🎬 Transcribing chunk_10min_{chunk_index}.mp3 (hour {hour})")
-        start_time = time.time()
         
-        # Use audio_transcription_utils to transcribe MP3
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
+        import time
         
+        start_time = time.time()
         result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
         
         transcript = result.get('transcript', '').strip()
         language = result.get('language', 'unknown')
         confidence = result.get('confidence', 0.0)
-        timed_segments = result.get('segments', [])  # Get timed segments from Whisper
+        timed_segments = result.get('segments', [])
         elapsed = time.time() - start_time
         
         logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {elapsed:.1f}s")
         if transcript:
-            # Show first 200 chars of transcript
             preview = transcript[:200] + ('...' if len(transcript) > 200 else '')
             logger.info(f"[{capture_folder}] 💬 '{preview}'")
             logger.info(f"[{capture_folder}] ⏱️  Generated {len(timed_segments)} timed segments for subtitle display")
         else:
             logger.info(f"[{capture_folder}] 🔇 No speech detected in chunk")
         
-        # Build transcript data structure
         transcript_data = {
             'capture_folder': capture_folder,
             'hour': hour,
@@ -108,7 +170,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
             'transcription_time_seconds': elapsed,
             'timestamp': datetime.now().isoformat(),
             'mp3_file': os.path.basename(mp3_path),
-            'segments': timed_segments  # Add timed segments for subtitle-style display
+            'segments': timed_segments
         }
         
         return transcript_data
@@ -116,188 +178,6 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
     except Exception as e:
         logger.error(f"[{capture_folder}] ❌ Error transcribing MP3 chunk: {e}")
         return None
-
-def enhance_transcripts_with_ai_old(segments: list, capture_folder: str) -> dict:
-    """
-    Enhance Whisper transcripts using AI for better accuracy.
-    Takes a batch of segments and returns enhanced transcripts.
-    
-    Args:
-        segments: List of segment dicts with 'transcript', 'language', etc.
-        capture_folder: Device identifier for logging
-    
-    Returns:
-        dict: Map of segment_num -> enhanced_transcript
-    """
-    try:
-        if not segments:
-            return {}
-        
-        # Build transcript list with language specified per line
-        transcripts_text = []
-        segment_info = []  # Keep track for JSON template
-        
-        for seg in segments:
-            seg_num = seg.get('segment_num', 0)
-            transcript = seg.get('transcript', '').strip()
-            language = seg.get('language', 'unknown')
-            
-            if transcript:
-                transcripts_text.append(f"- {language}: {transcript}")
-                segment_info.append({'seg_num': seg_num, 'language': language})
-        
-        if not transcripts_text:
-            logger.info(f"[{capture_folder}] No transcripts to enhance (all silent)")
-            return {}
-        
-        combined = "\n".join(transcripts_text)
-        
-        # Build segment list for JSON template (show first 2 as examples)
-        segment_examples = []
-        for info in segment_info[:2]:
-            segment_examples.append(f'{{"segment_num":{info["seg_num"]},"enhanced_text":"improved text here"}}')
-        
-        # AI enhancement prompt - focused on accuracy improvement with strict JSON format
-        prompt = f"""CONTEXT: You are improving audio-to-text transcriptions from Whisper AI.
-
-IMPORTANT: These are {len(segment_info)} consecutive 6-second audio segments (total ~{len(segment_info)*6} seconds of continuous audio).
-They are part of the same conversation or program on TV. Read ALL segments first to understand the full context, then improve each one.
-
-HOW TO PROCESS:
-1. Read all {len(segment_info)} segments below to understand the complete context
-2. Use context from previous and next segments to improve each transcript
-3. Look for patterns across segments to fix errors more accurately
-4. Maintain conversation flow and coherence across all segments
-
-Transcripts to improve (consecutive 10s segments, language specified per line):
-{combined}
-
-ENHANCEMENT RULES:
-1. Fix speech-to-text errors using context from ALL segments
-2. Improve grammar and coherence while considering the full conversation
-3. KEEP THE ORIGINAL LANGUAGE - DO NOT TRANSLATE (French stays French, English stays English)
-4. Use surrounding segments to disambiguate unclear words
-5. If text is repetitive or garbled, infer meaning from context
-6. Keep responses concise and natural
-7. Only improve when needed - if text is already good, keep it similar
-
-Return ONLY valid JSON with ALL {len(segment_info)} segments (no markdown, no explanations):
-{{"enhanced":[{segment_examples[0]},{segment_examples[1] if len(segment_examples) > 1 else '...'},...all {len(segment_info)} segments]}}
-
-CRITICAL: Use full context. Return valid JSON only. Respect each segment's language. Escape special characters."""
-        
-        logger.info(f"[{capture_folder}] 🤖 Enhancing {len(segments)} transcripts with AI...")
-        # logger.info(f"[{capture_folder}] 📋 AI Enhancement Prompt:")
-        # logger.info("-" * 80)
-        # logger.info(prompt)
-        # logger.info("-" * 80)
-        
-        # Call AI with higher token limit to avoid truncation
-        result = call_text_ai(prompt, max_tokens=1500, temperature=0.1)
-        
-        # logger.info(f"[{capture_folder}] 📨 AI Response (success={result.get('success')}):")
-        # if result.get('success'):
-        #     logger.info(f"[{capture_folder}] Response length: {len(result.get('content', ''))} chars")
-        # else:
-        #     logger.info(f"[{capture_folder}] Error: {result.get('error', 'Unknown')}")
-        
-        if not result['success']:
-            logger.warning(f"[{capture_folder}] AI enhancement failed: {result.get('error', 'Unknown error')}")
-            return {}
-        
-        # Parse AI response with robust error handling
-        content = result['content'].strip()
-        
-        # Clean up content for logging (remove excessive empty lines)
-        import re
-        content_for_logging = re.sub(r'\n{3,}', '\n\n', content)  # Replace 3+ newlines with just 2
-        
-        # logger.info(f"[{capture_folder}] 📄 Full AI Response ({len(content)} chars, cleaned for display):")
-        # logger.info("-" * 80)
-        # logger.info(content_for_logging)
-        # logger.info("-" * 80)
-        
-        # Remove markdown code blocks and extra text
-        if '```json' in content:
-            # Extract JSON from markdown block
-            json_start = content.find('```json') + 7
-            json_end = content.find('```', json_start)
-            if json_end > json_start:
-                content = content[json_start:json_end].strip()
-        elif '```' in content:
-            json_start = content.find('```') + 3
-            json_end = content.find('```', json_start)
-            if json_end > json_start:
-                content = content[json_start:json_end].strip()
-        
-        # Find JSON object boundaries if there's extra text
-        if not content.startswith('{'):
-            json_start = content.find('{')
-            if json_start >= 0:
-                content = content[json_start:]
-        
-        if not content.endswith('}'):
-            json_end = content.rfind('}')
-            if json_end >= 0:
-                content = content[:json_end + 1]
-        
-        # Sanitize content: replace invalid control characters
-        # Common issues: unescaped newlines, tabs, and control chars in text
-        import re
-        # Replace literal newlines/tabs/control chars with spaces in text values
-        # But keep the JSON structure intact
-        def sanitize_text_value(match):
-            text = match.group(0)
-            # Replace control characters with spaces
-            sanitized = re.sub(r'[\x00-\x1f\x7f]', ' ', text)
-            return sanitized
-        
-        # Apply sanitization only to text inside quotes (preserve JSON structure)
-        try:
-            # Simple approach: replace control chars everywhere except valid JSON escapes
-            content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]', ' ', content)
-        except Exception as sanitize_error:
-            logger.warning(f"[{capture_folder}] Sanitization error: {sanitize_error}")
-        
-        try:
-            ai_result = json.loads(content)
-            enhanced_map = {}
-            
-            for item in ai_result.get('enhanced', []):
-                seg_num = item.get('segment_num')
-                enhanced_text = item.get('enhanced_text', '').strip()
-                
-                if seg_num is not None and enhanced_text:
-                    # Skip obviously truncated or repetitive text (likely AI token limit hit)
-                    if len(enhanced_text) > 500 or enhanced_text.count(',') > 50:
-                        logger.warning(f"[{capture_folder}] ⚠️ Skipping seg#{seg_num} - enhanced text appears truncated/repetitive")
-                        continue
-                    enhanced_map[seg_num] = enhanced_text
-            
-            if enhanced_map:
-                logger.info(f"[{capture_folder}] ✅ AI enhanced {len(enhanced_map)}/{len(segments)} transcripts")
-            else:
-                logger.warning(f"[{capture_folder}] ⚠️ No valid enhancements (all skipped or empty)")
-            return enhanced_map
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"[{capture_folder}] ❌ JSON parsing failed: {e}")
-            # logger.error(f"[{capture_folder}] Error position: {e.lineno if hasattr(e, 'lineno') else 'unknown'}:{e.colno if hasattr(e, 'colno') else 'unknown'}")
-            # logger.error(f"[{capture_folder}] Problematic content around error:")
-            # # Show 200 chars before and after the error position
-            # if hasattr(e, 'pos') and e.pos:
-            #     start = max(0, e.pos - 200)
-            #     end = min(len(content), e.pos + 200)
-            #     logger.error(f"[{capture_folder}] ...{content[start:end]}...")
-            # logger.warning(f"[{capture_folder}] 💡 Possible causes:")
-            # logger.warning(f"[{capture_folder}]    1. AI token limit truncation (try reducing batch size)")
-            # logger.warning(f"[{capture_folder}]    2. Unescaped special characters in response")
-            # logger.warning(f"[{capture_folder}]    3. AI didn't follow JSON format")
-            return {}
-    
-    except Exception as e:
-        logger.error(f"[{capture_folder}] AI enhancement error: {e}")
-        return {}
 
 def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_data: dict, has_mp3: bool = True):
     """
@@ -331,159 +211,263 @@ def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, tran
     except Exception as e:
         logger.warning(f"Failed to update transcript manifest: {e}")
 
-def should_transcribe(mp3_path: str, transcript_path: str) -> bool:
+class InotifyTranscriptMonitor:
     """
-    Check if MP3 needs transcription by comparing file times
+    Dual-pipeline inotify monitor with per-device queue processing
     
-    Returns True if:
-    - Transcript doesn't exist, OR
-    - MP3 is newer than transcript (re-transcribe needed)
+    Pipeline 1: MP4 → MP3 (audio extraction)
+    Pipeline 2: MP3 → JSON (transcription)
     """
-    if not os.path.exists(transcript_path):
-        return True
     
-    mp3_mtime = os.path.getmtime(mp3_path)
-    transcript_mtime = os.path.getmtime(transcript_path)
-    
-    if mp3_mtime > transcript_mtime:
-        return True
-    
-    return False
-
-
-def reconcile_orphaned_transcripts(capture_folder: str, mp3_set: set):
-    """
-    Mark transcripts as unavailable when MP3s are deleted
-    
-    Args:
-        capture_folder: Device folder name
-        mp3_set: Set of existing MP3 keys (e.g., {"13/chunk_10min_0.mp3"})
-    """
-    transcript_base = get_transcript_path(capture_folder)
-    
-    # Find all transcript JSONs
-    for hour in range(24):
-        hour_dir = os.path.join(transcript_base, str(hour))
-        if not os.path.exists(hour_dir):
-            continue
+    def __init__(self, monitored_devices):
+        """
+        Initialize inotify monitor with dual pipelines
         
-        transcript_files = get_files_by_pattern(hour_dir, r'^chunk_10min_\d+\.json$')
+        Args:
+            monitored_devices: List of dicts with device info
+                [{'device_folder': 'capture1', 'segments_base': '/path/to/segments', 'audio_base': '/path/to/audio'}]
+        """
+        self.monitored_devices = monitored_devices
+        self.inotify = inotify.adapters.Inotify()
         
-        for transcript_path in transcript_files:
-            transcript_filename = os.path.basename(transcript_path)
-            chunk_index = int(transcript_filename.replace('chunk_10min_', '').replace('.json', ''))
+        # Path mappings for event routing
+        self.segments_path_to_device = {}  # segments path → device_folder
+        self.audio_path_to_device = {}  # audio path → device_folder
+        
+        # Per-device queues (LIFO = newest first)
+        self.mp4_queues = {}  # device_folder → LIFO queue for MP4→MP3
+        self.mp3_queues = {}  # device_folder → LIFO queue for MP3→JSON
+        
+        # Worker threads
+        self.mp4_workers = {}
+        self.mp3_workers = {}
+        
+        self._setup_watches()
+        self._start_workers()
+    
+    def _setup_watches(self):
+        """Setup inotify watches for all segments and audio directories"""
+        logger.info("=" * 80)
+        logger.info("Setting up inotify watches (dual pipeline):")
+        logger.info("=" * 80)
+        
+        for device_info in self.monitored_devices:
+            device_folder = device_info['device_folder']
+            segments_base = device_info['segments_base']
+            audio_base = device_info['audio_base']
             
-            # Build corresponding MP3 key
-            mp3_key = f"{hour}/chunk_10min_{chunk_index}.mp3"
+            logger.info(f"[{device_folder}] Setting up watches...")
             
-            # If MP3 doesn't exist, mark transcript as unavailable
-            if mp3_key not in mp3_set:
-                logger.info(f"[{capture_folder}] ⚠️ Orphaned transcript: {hour}/chunk_10min_{chunk_index}.json (MP3 deleted)")
+            # Watch all 24 hour directories for segments (MP4 chunks)
+            segments_watch_count = 0
+            for hour in range(24):
+                segments_hour_dir = os.path.join(segments_base, str(hour))
+                if os.path.exists(segments_hour_dir):
+                    self.inotify.add_watch(segments_hour_dir)
+                    self.segments_path_to_device[segments_hour_dir] = device_folder
+                    segments_watch_count += 1
+                else:
+                    # Create directory so inotify can watch it
+                    os.makedirs(segments_hour_dir, exist_ok=True)
+                    self.inotify.add_watch(segments_hour_dir)
+                    self.segments_path_to_device[segments_hour_dir] = device_folder
+                    segments_watch_count += 1
+            
+            # Watch all 24 hour directories for audio (MP3 chunks)
+            audio_watch_count = 0
+            for hour in range(24):
+                audio_hour_dir = os.path.join(audio_base, str(hour))
+                if os.path.exists(audio_hour_dir):
+                    self.inotify.add_watch(audio_hour_dir)
+                    self.audio_path_to_device[audio_hour_dir] = device_folder
+                    audio_watch_count += 1
+                else:
+                    # Create directory so inotify can watch it
+                    os.makedirs(audio_hour_dir, exist_ok=True)
+                    self.inotify.add_watch(audio_hour_dir)
+                    self.audio_path_to_device[audio_hour_dir] = device_folder
+                    audio_watch_count += 1
+            
+            logger.info(f"[{device_folder}] ✓ Segments watches: {segments_watch_count}/24 hour dirs")
+            logger.info(f"[{device_folder}] ✓ Audio watches: {audio_watch_count}/24 hour dirs")
+        
+        logger.info("=" * 80)
+        logger.info(f"Total: {len(self.segments_path_to_device)} segments + {len(self.audio_path_to_device)} audio watches")
+        logger.info("=" * 80)
+    
+    def _start_workers(self):
+        """Start worker threads for each device (2 workers per device)"""
+        logger.info("Starting worker threads (2 per device):")
+        
+        for device_info in self.monitored_devices:
+            device_folder = device_info['device_folder']
+            
+            # Create LIFO queues (newest first)
+            self.mp4_queues[device_folder] = LifoQueue(maxsize=100)
+            self.mp3_queues[device_folder] = LifoQueue(maxsize=100)
+            
+            # Worker 1: MP4 → MP3 (audio extraction - fast)
+            mp4_worker = threading.Thread(
+                target=self._mp4_worker,
+                args=(device_folder,),
+                daemon=True,
+                name=f"mp4-worker-{device_folder}"
+            )
+            mp4_worker.start()
+            self.mp4_workers[device_folder] = mp4_worker
+            
+            # Worker 2: MP3 → JSON (transcription - slow)
+            mp3_worker = threading.Thread(
+                target=self._mp3_worker,
+                args=(device_folder,),
+                daemon=True,
+                name=f"mp3-worker-{device_folder}"
+            )
+            mp3_worker.start()
+            self.mp3_workers[device_folder] = mp3_worker
+            
+            logger.info(f"[{device_folder}] ✓ Started MP4→MP3 worker (audio extraction)")
+            logger.info(f"[{device_folder}] ✓ Started MP3→JSON worker (transcription)")
+    
+    def _mp4_worker(self, device_folder):
+        """Worker thread for MP4 → MP3 audio extraction (fast, ~3s per chunk)"""
+        work_queue = self.mp4_queues[device_folder]
+        
+        logger.info(f"[{device_folder}] MP4 worker ready (audio extraction pipeline)")
+        
+        while True:
+            path, filename = work_queue.get()
+            
+            try:
+                # Log queue size occasionally
+                queue_size = work_queue.qsize()
+                if queue_size > 10:
+                    logger.warning(f"[{device_folder}] MP4 queue backlog: {queue_size} chunks")
                 
-                device_base_path = get_device_base_path(capture_folder)
+                # Parse hour and chunk_index from path and filename
+                hour = int(os.path.basename(path))
+                chunk_index = int(filename.replace('chunk_10min_', '').replace('.mp4', ''))
+                
+                mp4_path = os.path.join(path, filename)
+                
+                # Build MP3 output path (same structure under /audio/)
+                device_base_path = get_device_base_path(device_folder)
+                audio_base = get_audio_path(device_folder)
+                mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
+                
+                # Skip if MP3 already exists
+                if os.path.exists(mp3_path):
+                    logger.debug(f"[{device_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp4 (MP3 exists)")
+                    continue
+                
+                # Extract audio
+                logger.info("=" * 80)
+                success = extract_audio_from_mp4(mp4_path, mp3_path, device_folder, hour, chunk_index)
+                if success:
+                    logger.info(f"[{device_folder}] ✅ Audio extraction complete for hour {hour}, chunk {chunk_index}")
+                else:
+                    logger.warning(f"[{device_folder}] ⚠️ Audio extraction failed for {hour}/chunk_10min_{chunk_index}.mp4")
+                logger.info("=" * 80)
+                
+            except Exception as e:
+                logger.error(f"[{device_folder}] MP4 worker error: {e}")
+            finally:
+                work_queue.task_done()
+    
+    def _mp3_worker(self, device_folder):
+        """Worker thread for MP3 → JSON transcription (slow, ~2min per chunk)"""
+        work_queue = self.mp3_queues[device_folder]
+        
+        logger.info(f"[{device_folder}] MP3 worker ready (transcription pipeline)")
+        
+        while True:
+            path, filename = work_queue.get()
+            
+            try:
+                # Log queue size occasionally
+                queue_size = work_queue.qsize()
+                if queue_size > 5:
+                    logger.warning(f"[{device_folder}] MP3 queue backlog: {queue_size} chunks (transcription is slow)")
+                
+                # Parse hour and chunk_index from path and filename
+                hour = int(os.path.basename(path))
+                chunk_index = int(filename.replace('chunk_10min_', '').replace('.mp3', ''))
+                
+                mp3_path = os.path.join(path, filename)
+                
+                # Build transcript output path
+                transcript_base = get_transcript_path(device_folder)
+                transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+                
+                # Skip if transcript already exists
+                if os.path.exists(transcript_path):
+                    logger.debug(f"[{device_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp3 (transcript exists)")
+                    continue
+                
+                # Transcribe
+                logger.info("=" * 80)
+                transcript_data = transcribe_mp3_chunk(mp3_path, device_folder, hour, chunk_index)
+                
+                if transcript_data:
+                    save_transcript_chunk(device_folder, hour, chunk_index, transcript_data, has_mp3=True)
+                    logger.info(f"[{device_folder}] ✅ Transcription complete for hour {hour}, chunk {chunk_index}")
+                else:
+                    logger.warning(f"[{device_folder}] ⚠️ Transcription failed for {hour}/chunk_10min_{chunk_index}.mp3")
+                logger.info("=" * 80)
+                
+            except Exception as e:
+                logger.error(f"[{device_folder}] MP3 worker error: {e}")
+            finally:
+                work_queue.task_done()
+    
+    def run(self):
+        """Main event loop - enqueue files for worker threads (dual pipeline)"""
+        logger.info("=" * 80)
+        logger.info("Starting inotify event loop (dual pipeline)")
+        logger.info("Zero CPU when idle - event-driven processing")
+        logger.info("Pipeline 1: MP4 → MP3 (audio extraction)")
+        logger.info("Pipeline 2: MP3 → JSON (transcription)")
+        logger.info("=" * 80)
+        
+        try:
+            for event in self.inotify.event_gen(yield_nones=False):
+                (_, type_names, path, filename) = event
+                
+                # Only process files moved into watched directories (atomic writes)
+                if 'IN_MOVED_TO' not in type_names:
+                    continue
+                
+                # Pipeline 1: MP4 chunk created → Extract audio
+                if filename.endswith('.mp4') and 'chunk_10min_' in filename:
+                    device_folder = self.segments_path_to_device.get(path)
+                    if device_folder:
+                        logger.info(f"[{device_folder}] 🎬 New MP4 detected: {filename}")
+                        try:
+                            work_queue = self.mp4_queues[device_folder]
+                            work_queue.put_nowait((path, filename))
+                        except queue.Full:
+                            logger.error(f"[{device_folder}] 🚨 MP4 queue FULL, dropping: {filename}")
+                
+                # Pipeline 2: MP3 chunk created → Transcribe
+                elif filename.endswith('.mp3') and 'chunk_10min_' in filename:
+                    device_folder = self.audio_path_to_device.get(path)
+                    if device_folder:
+                        logger.info(f"[{device_folder}] 🎵 New MP3 detected: {filename}")
+                        try:
+                            work_queue = self.mp3_queues[device_folder]
+                            work_queue.put_nowait((path, filename))
+                        except queue.Full:
+                            logger.error(f"[{device_folder}] 🚨 MP3 queue FULL, dropping: {filename}")
+        
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+        finally:
+            # Clean up inotify watches
+            for path in list(self.segments_path_to_device.keys()) + list(self.audio_path_to_device.keys()):
                 try:
-                    from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
-                    update_transcript_manifest(device_base_path, hour, chunk_index, transcript_path, has_mp3=False)
-                except Exception as e:
-                    logger.warning(f"Failed to update manifest for orphaned transcript: {e}")
-
-
-def process_mp3_chunks(capture_dir):
-    """
-    Process MP3 chunks: ONLY transcribe the last 3 chunks (skip historical backlog)
-    
-    Args:
-        capture_dir: Path to captures directory
-    
-    Returns:
-        bool: True if chunks were processed, False if nothing to process
-    """
-    try:
-        capture_folder = get_capture_folder(capture_dir)
-        device_base_path = get_device_base_path(capture_folder)
-        audio_base_dir = get_audio_path(capture_folder)
-        transcript_base = get_transcript_path(capture_folder)
-        
-        if not os.path.exists(audio_base_dir):
-            logger.debug(f"[{capture_folder}] Audio base directory does not exist: {audio_base_dir}")
-            return False
-        
-        # Find all MP3 chunks with modification times
-        mp3_files_with_mtime = []
-        mp3_set = set()
-        for hour in range(24):
-            hour_dir = os.path.join(audio_base_dir, str(hour))
-            if os.path.exists(hour_dir):
-                hour_files = get_files_by_pattern(hour_dir, r'^chunk_10min_\d+\.mp3$')
-                for mp3_path in hour_files:
-                    mp3_filename = os.path.basename(mp3_path)
-                    mp3_set.add(f"{hour}/{mp3_filename}")
-                    # Get modification time for sorting
-                    mtime = os.path.getmtime(mp3_path)
-                    mp3_files_with_mtime.append((mp3_path, mtime))
-        
-        if not mp3_files_with_mtime:
-            logger.debug(f"[{capture_folder}] No MP3 chunks found yet in hour folders")
-            return False
-        
-        # Sort by modification time (newest first) and take only last 3
-        mp3_files_with_mtime.sort(key=lambda x: x[1], reverse=True)
-        recent_mp3_files = [path for path, mtime in mp3_files_with_mtime[:3]]
-        
-        logger.debug(f"[{capture_folder}] Found {len(mp3_files_with_mtime)} total MP3s, processing only last 3")
-        
-        # Process only the 3 most recent MP3s: transcribe if needed
-        new_chunks_processed = 0
-        
-        for mp3_path in recent_mp3_files:
-            mp3_filename = os.path.basename(mp3_path)
-            hour_folder = os.path.basename(os.path.dirname(mp3_path))
-            
-            try:
-                hour = int(hour_folder)
-            except ValueError:
-                logger.warning(f"[{capture_folder}] Invalid hour folder: {hour_folder}")
-                continue
-            
-            try:
-                chunk_index = int(mp3_filename.replace('chunk_10min_', '').replace('.mp3', ''))
-            except ValueError:
-                logger.warning(f"[{capture_folder}] Invalid MP3 filename: {mp3_filename}")
-                continue
-            
-            # Check if transcription needed
-            transcript_file = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
-            
-            if not should_transcribe(mp3_path, transcript_file):
-                logger.debug(f"[{capture_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp3 (already transcribed)")
-                continue
-            
-            logger.info("=" * 80)
-            logger.info(f"[{capture_folder}] 🎵 Transcribing: {hour}/chunk_10min_{chunk_index}.mp3")
-            
-            transcript_data = transcribe_mp3_chunk(mp3_path, capture_folder, hour, chunk_index)
-            
-            if transcript_data:
-                save_transcript_chunk(capture_folder, hour, chunk_index, transcript_data, has_mp3=True)
-                new_chunks_processed += 1
-                logger.info(f"[{capture_folder}] ✅ Transcription complete for hour {hour}, chunk {chunk_index}")
-            else:
-                logger.warning(f"[{capture_folder}] ⚠️ Transcription failed for {hour}/chunk_10min_{chunk_index}.mp3")
-            
-            logger.info("=" * 80)
-        
-        # Reconcile orphaned transcripts (MP3 deleted)
-        reconcile_orphaned_transcripts(capture_folder, mp3_set)
-        
-        if new_chunks_processed > 0:
-            logger.info(f"[{capture_folder}] 💾 Processed {new_chunks_processed} new chunk(s)")
-            return True
-        
-        return False
-        
-    except Exception as e:
-        logger.error(f"[{capture_folder}] ❌ Error processing MP3 chunks: {e}")
-        return False
+                    self.inotify.remove_watch(path)
+                except:
+                    pass
 
 def main():
     # Clean log file first
@@ -491,79 +475,79 @@ def main():
     
     # Kill any existing transcript_accumulator instances before starting
     from shared.src.lib.utils.system_utils import kill_existing_script_instances
+    import time
+    
     killed = kill_existing_script_instances('transcript_accumulator.py')
     if killed:
         print(f"[@transcript_accumulator] Killed existing instances: {killed}")
         time.sleep(1)
     
-    # Configure logging (systemd handles file output via StandardOutput directive)
+    # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(message)s',
         handlers=[logging.StreamHandler()],
-        force=True  # Override any existing configuration
+        force=True
     )
     
-    logger.info("Starting 10-Minute Transcript Accumulator")
-    logger.info("Logging to: /tmp/transcript_accumulator.log (via systemd) and journalctl")
-    logger.info("Watches for MP3 chunks created by hot_cold_archiver (zero duplicate merging)")
+    logger.info("=" * 80)
+    logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")
+    logger.info("=" * 80)
+    logger.info("Architecture: Event-driven (zero CPU when idle)")
+    logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s per chunk)")
+    logger.info("Pipeline 2: MP3 → JSON (transcription, ~2min per chunk)")
     logger.info("Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json")
+    logger.info("=" * 80)
     
     try:
-        # Get base directories and resolve hot/cold paths automatically
+        # Get base directories and resolve paths
         base_dirs = get_capture_base_directories()
         logger.info(f"Found {len(base_dirs)} capture base directories")
         
-        # Filter out host device from monitored directories (no audio capture)
-        # Uses lightweight device mapping without loading incidents from DB
+        # Build monitored devices list (exclude host)
         monitored_devices = []
         for base_dir in base_dirs:
-            # Extract device folder name (e.g., 'capture1' from '/var/www/html/stream/capture1')
             device_folder = os.path.basename(base_dir)
-            # Use centralized path resolution (handles hot/cold automatically)
-            capture_dir = get_capture_storage_path(device_folder, 'captures')
             
             device_info = get_device_info_from_capture_folder(device_folder)
             device_id = device_info.get('device_id', device_folder)
             is_host = (device_id == 'host')
             
-            storage_type = "HOT (RAM)" if '/hot/' in capture_dir else "COLD (SD)"
-            logger.info(f"  [{device_folder}] device_id={device_id}, is_host={is_host}, storage={storage_type}")
-            
             if is_host:
-                logger.info(f"  ⊗ Skipping: {capture_dir} -> {device_folder} (host has no audio)")
-            else:
-                logger.info(f"  ✓ Monitoring [{storage_type}]: {capture_dir} -> {device_folder}")
-                monitored_devices.append(capture_dir)
+                logger.info(f"[{device_folder}] ⊗ Skipping (host has no audio)")
+                continue
+            
+            # Get segments path (where MP4 chunks are stored)
+            segments_base = get_segments_path(device_folder)
+            
+            # Get audio path (ALWAYS cold storage)
+            audio_base = get_audio_path(device_folder)
+            
+            storage_type = "HOT (RAM)" if '/hot/' in segments_base else "COLD (SD)"
+            logger.info(f"[{device_folder}] ✓ Monitoring [{storage_type}]")
+            logger.info(f"  Segments: {segments_base}")
+            logger.info(f"  Audio: {audio_base}")
+            
+            monitored_devices.append({
+                'device_folder': device_folder,
+                'segments_base': segments_base,
+                'audio_base': audio_base
+            })
         
-        # Whisper model will be loaded on first use and cached globally
-        logger.info("✓ Whisper model will be loaded on first transcription (global singleton cache)")
+        if not monitored_devices:
+            logger.error("No devices to monitor!")
+            return
         
-        logger.info(f"Monitoring {len(monitored_devices)} devices for MP3 chunks (excluding host)")
-        logger.info(f"Check interval: {CHECK_INTERVAL}s (waiting for hot_cold_archiver to create MP3 chunks)")
+        logger.info(f"Monitoring {len(monitored_devices)} devices (excluding host)")
+        logger.info("Whisper model will be loaded on first transcription (global singleton)")
         
-        while True:
-            any_processed = False
-            
-            for i, capture_dir in enumerate(monitored_devices, 1):
-                capture_folder = get_capture_folder(capture_dir)
-                logger.debug(f"[{capture_folder}] Checking for new MP3 chunks... ({i}/{len(monitored_devices)})")
-                
-                # Process new MP3 chunks
-                was_processed = process_mp3_chunks(capture_dir)
-                if was_processed:
-                    any_processed = True
-            
-            # If no device had new chunks, sleep until next check
-            if not any_processed:
-                logger.debug(f"⏸️  No new MP3 chunks, sleeping {CHECK_INTERVAL}s...")
-            
-            time.sleep(CHECK_INTERVAL)
-            
+        # Start monitoring (blocks forever, zero CPU when idle!)
+        monitor = InotifyTranscriptMonitor(monitored_devices)
+        monitor.run()
+        
     except Exception as e:
         logger.error(f"Fatal error in main loop: {e}")
         raise
 
 if __name__ == '__main__':
     main()
-
