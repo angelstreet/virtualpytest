@@ -113,37 +113,59 @@ class ScriptExecutionContext:
             uploader = get_cloudflare_utils()
             device_id = self.selected_device.device_id if hasattr(self, 'selected_device') else 'unknown'
             
-            updated_paths = []
-            uploaded = 0
+            # Separate already-uploaded URLs and local files
+            already_uploaded = []
+            file_mappings = []
+            path_to_index = {}  # Track original index for each file
             
-            for path in self.screenshot_paths:
+            for idx, path in enumerate(self.screenshot_paths):
                 # Already R2 URL - keep as-is
                 if path.startswith('https://'):
-                    updated_paths.append(path)
+                    already_uploaded.append((idx, path))
                     continue
                 
-                # Local path - upload to R2
+                # Local path - check if exists
                 if not os.path.exists(path):
                     print(f"⚠️ [Context] Screenshot not found: {path}")
-                    updated_paths.append(path)
+                    already_uploaded.append((idx, path))  # Keep original path
                     continue
                 
-                try:
-                    filename = os.path.basename(path)
-                    remote_path = f"script-screenshots/{device_id}/{filename}"
-                    r2_url = uploader.upload_file(path, remote_path)
-                    
-                    if r2_url:
-                        updated_paths.append(r2_url)
-                        uploaded += 1
-                    else:
-                        updated_paths.append(path)
-                except Exception as e:
-                    print(f"⚠️ [Context] Upload failed for {filename}: {e}")
-                    updated_paths.append(path)
+                # Add to batch upload
+                filename = os.path.basename(path)
+                remote_path = f"script-screenshots/{device_id}/{filename}"
+                file_mappings.append({
+                    'local_path': path,
+                    'remote_path': remote_path
+                })
+                path_to_index[path] = idx
             
-            self.screenshot_paths = updated_paths
-            print(f"✅ [Context] Uploaded {uploaded}/{len(self.screenshot_paths)} screenshots to R2")
+            # Upload all files at once
+            if file_mappings:
+                upload_result = uploader.upload_files(file_mappings)
+                
+                # Build updated paths list maintaining original order
+                updated_paths = [None] * len(self.screenshot_paths)
+                
+                # Place already uploaded URLs back
+                for idx, url in already_uploaded:
+                    updated_paths[idx] = url
+                
+                # Place successfully uploaded files
+                for uploaded_file in upload_result['uploaded_files']:
+                    original_idx = path_to_index[uploaded_file['local_path']]
+                    updated_paths[original_idx] = uploaded_file['url']
+                
+                # Place failed uploads (keep original path)
+                for failed_file in upload_result['failed_uploads']:
+                    original_idx = path_to_index[failed_file['local_path']]
+                    filename = os.path.basename(failed_file['local_path'])
+                    print(f"⚠️ [Context] Upload failed for {filename}: {failed_file['error']}")
+                    updated_paths[original_idx] = failed_file['local_path']
+                
+                self.screenshot_paths = updated_paths
+                print(f"✅ [Context] Uploaded {upload_result['uploaded_count']}/{len(file_mappings)} screenshots to R2")
+            else:
+                print(f"✅ [Context] All {len(already_uploaded)} screenshots already uploaded")
             
         except Exception as e:
             print(f"❌ [Context] Batch upload error: {e}")
