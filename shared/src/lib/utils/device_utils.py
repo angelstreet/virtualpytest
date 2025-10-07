@@ -143,7 +143,11 @@ def add_existing_image_to_context(device, filename: str, context) -> Optional[st
             # Image missing - fail fast, don't add broken paths
             print(f"❌ Motion image not found: {filename}")
     """
-    from shared.src.lib.utils.storage_path_utils import get_captures_path, get_capture_folder
+    from shared.src.lib.utils.storage_path_utils import (
+        get_captures_path, 
+        get_capture_folder,
+        get_cold_storage_path
+    )
     
     try:
         av_controller = device._get_controller('av')
@@ -154,6 +158,7 @@ def add_existing_image_to_context(device, filename: str, context) -> Optional[st
         device_folder = get_capture_folder(av_controller.video_capture_path)
         
         # 1. Check HOT first (where FFmpeg actively generates files)
+        # get_captures_path() automatically returns HOT or COLD based on RAM mode
         hot_captures_path = get_captures_path(device_folder)
         hot_image_path = os.path.join(hot_captures_path, filename)
         
@@ -163,7 +168,8 @@ def add_existing_image_to_context(device, filename: str, context) -> Optional[st
             return hot_image_path
         
         # 2. Check COLD (may have been archived already by hot_cold_archiver)
-        cold_captures_path = os.path.join(av_controller.video_capture_path, 'captures')
+        # Use centralized cold path resolution
+        cold_captures_path = get_cold_storage_path(device_folder, 'captures')
         cold_image_path = os.path.join(cold_captures_path, filename)
         
         if os.path.exists(cold_image_path):
@@ -193,20 +199,25 @@ def get_av_controller(device):
     return device._get_controller('av')
 
 
-def get_capture_folder(device) -> Optional[str]:
+def get_device_capture_path(device) -> Optional[str]:
     """
-    Get the capture folder path from a device's AV controller.
+    Get the capture base path from a device's AV controller.
+    
+    RENAMED from get_capture_folder() to avoid conflict with storage_path_utils.get_capture_folder()
     
     Args:
         device: Device instance
         
     Returns:
-        Capture folder path or None
+        Capture base path or None (e.g., '/var/www/html/stream/capture4')
         
     Example:
-        capture_folder = get_capture_folder(device)
-        if capture_folder:
-            captures_path = f"{capture_folder}/captures"
+        capture_path = get_device_capture_path(device)
+        if capture_path:
+            # Use storage_path_utils functions to get specific paths
+            from shared.src.lib.utils.storage_path_utils import get_captures_path, get_capture_folder
+            device_folder = get_capture_folder(capture_path)
+            captures_path = get_captures_path(device_folder)
     """
     av_controller = device._get_controller('av')
     if av_controller and hasattr(av_controller, 'video_capture_path'):

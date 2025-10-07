@@ -982,6 +982,10 @@ class VideoContentHelpers:
             
             print(f"VideoContent[{self.device_name}]: Found {len(image_data)} images to analyze")
             
+            # Log analysis configuration
+            img_type = "thumbnails" if image_data and '_thumbnail' in image_data[0]['path'] else "full-resolution"
+            print(f"VideoContent[{self.device_name}]: Using {img_type} images for blackscreen detection")
+            
             # Step 2: Batch blackscreen detection using proven algorithm with device-specific threshold
             blackscreen_results = self._detect_blackscreen_batch(image_data, analysis_rectangle, device_model)
             
@@ -1270,12 +1274,16 @@ class VideoContentHelpers:
                 }
                 results.append(result)
                 
+                # Log each analysis result
+                status_emoji = "⬛" if is_blackscreen else "📺"
+                print(f"VideoContent[{self.device_name}]: {status_emoji} {img_data['filename']}: {blackscreen_percentage:.1f}% dark (blackscreen={is_blackscreen})")
+                
                 if is_blackscreen and not blackscreen_detected:
                     blackscreen_detected = True
-                    print(f"VideoContent[{self.device_name}]: ⚡ Blackscreen START at {img_data['filename']}")
+                    print(f"VideoContent[{self.device_name}]: ⚡ Blackscreen START at {img_data['filename']} - continuing to find END...")
                 
                 elif blackscreen_detected and not is_blackscreen:
-                    print(f"VideoContent[{self.device_name}]: ✅ Blackscreen END at {img_data['filename']}")
+                    print(f"VideoContent[{self.device_name}]: ✅ Blackscreen END at {img_data['filename']} - STOPPING EARLY!")
                     break
                 
             except Exception as e:
@@ -1288,6 +1296,7 @@ class VideoContentHelpers:
                     'success': False,
                     'error': str(e)
                 })
+                print(f"VideoContent[{self.device_name}]: ❌ {img_data['filename']}: Analysis error - {e}")
         
         print(f"VideoContent[{self.device_name}]: Blackscreen analysis complete - {len(results)} images analyzed, early_stopped={blackscreen_detected}")
         return results
@@ -1295,11 +1304,11 @@ class VideoContentHelpers:
     def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 5, device_model: str = None) -> Tuple[bool, float]:
         """
         Smart blackscreen detection that works at any image resolution.
-        Uses percentage-based regions for thumbnails and full-resolution images.
+        Analysis rectangle is ignored for thumbnails - we analyze the top portion to exclude banner.
         
         Args:
-            image_path: Path to image file
-            analysis_rectangle: Optional rectangle to analyze (will be converted to percentage-based)
+            image_path: Path to image file (full-res or thumbnail)
+            analysis_rectangle: Optional rectangle (only used for full-resolution images)
             threshold: Pixel intensity threshold (0-255, default: 5 for real blackscreen detection)
             
         Returns:
@@ -1312,27 +1321,37 @@ class VideoContentHelpers:
             
             img_height, img_width = img.shape
             
-            # Smart region calculation: analyze center 60% of image (excludes banner at bottom)
-            # This works for thumbnails, full-res, any aspect ratio
-            if analysis_rectangle:
-                # If absolute coordinates provided, convert to percentage-based for current image size
-                # Assume input rectangle was designed for 1920x1080, scale it to current image
-                x_percent = analysis_rectangle.get('x', 0) / 1920.0  # Original design width
-                y_percent = analysis_rectangle.get('y', 0) / 1080.0  # Original design height
-                width_percent = analysis_rectangle.get('width', 1920) / 1920.0
-                height_percent = analysis_rectangle.get('height', 1080) / 1080.0
-                
-                # Apply percentages to actual image size
-                x = int(x_percent * img_width)
-                y = int(y_percent * img_height)
-                width = int(width_percent * img_width)
-                height = int(height_percent * img_height)
-            else:
-                # Default: analyze top 60% of image (center horizontally, exclude banner at bottom)
+            # Smart detection: Is this a thumbnail or full-resolution image?
+            is_thumbnail = '_thumbnail' in image_path or img_width < 1000
+            
+            if is_thumbnail:
+                # Thumbnail: Analyze top 70% (exclude banner at bottom ~30%)
+                # Blackscreen happens in the center during zapping, not in banner area
                 x = 0
                 y = 0
                 width = img_width
-                height = int(img_height * 0.6)  # Top 60% excludes banner
+                height = int(img_height * 0.7)  # Top 70%
+            else:
+                # Full-resolution: Use provided rectangle or default
+                if analysis_rectangle:
+                    x = analysis_rectangle.get('x', 0)
+                    y = analysis_rectangle.get('y', 0)
+                    width = analysis_rectangle.get('width', img_width)
+                    height = analysis_rectangle.get('height', img_height)
+                    
+                    # Clamp to image bounds (same as old auto-correction logic)
+                    x = max(0, x)
+                    y = max(0, y)
+                    if x + width > img_width:
+                        width = img_width - x
+                    if y + height > img_height:
+                        height = img_height - y
+                else:
+                    # Default: top 70% of image
+                    x = 0
+                    y = 0
+                    width = img_width
+                    height = int(img_height * 0.7)
             
             # Crop to analysis region
             img = img[y:y+height, x:x+width]
