@@ -232,7 +232,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           <Box
             sx={{
               position: 'absolute',
-              top: -40,  // Position above the slider/thumb
+              top: -20,  // Position above the slider/thumb
               left: (() => {
                 const currentValue = isLiveMode 
                   ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)

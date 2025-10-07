@@ -64,7 +64,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
       <Box
         sx={{
           position: 'fixed',
-          bottom: 80,  // Much closer to timeline (timeline takes ~80px from bottom)
+          bottom: 70,  // Much closer to timeline (timeline takes ~80px from bottom)
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
