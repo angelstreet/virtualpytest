@@ -77,38 +77,71 @@ export const useTranscriptPlayer = ({
         
         const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
         
-        console.log(`[@useTranscriptPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
+        // Check transcript manifest first to avoid 404s
+        const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
         
-        fetch(transcriptUrl)
-          .then(res => res.json())
-          .then((transcript: TranscriptData) => {
-            if (!transcript) {
-              console.log(`[@useTranscriptPlayer] No transcript data for chunk ${chunkIndex}`);
+        console.log(`[@useTranscriptPlayer] Checking transcript availability from manifest...`);
+        
+        fetch(manifestUrl)
+          .then(res => {
+            if (!res.ok) {
+              console.log(`[@useTranscriptPlayer] No transcript manifest available`);
+              setTranscriptData(null);
+              return null;
+            }
+            return res.json();
+          })
+          .then((manifest) => {
+            if (!manifest || !manifest.chunks) {
               setTranscriptData(null);
               return;
             }
             
-            // Detect format and normalize
-            const is10Min = isTranscriptData10Min(transcript);
-            console.log(`[@useTranscriptPlayer] Transcript format: ${is10Min ? '10-minute (NEW)' : '6-second segments (LEGACY)'}`);
+            // Check if transcript exists for this hour/chunk
+            const transcriptExists = manifest.chunks.some(
+              (chunk: any) => chunk.hour === hour && chunk.chunk_index === chunkIndex && chunk.has_transcript
+            );
             
-            const normalizedData = normalizeTranscriptData(transcript);
-            
-            if (is10Min) {
-              console.log(`[@useTranscriptPlayer] 10-min transcript loaded:`, {
-                language: (transcript as TranscriptData10Min).language,
-                confidence: (transcript as TranscriptData10Min).confidence,
-                textLength: (transcript as TranscriptData10Min).transcript.length,
-                preview: (transcript as TranscriptData10Min).transcript.substring(0, 100)
-              });
-            } else {
-              console.log(`[@useTranscriptPlayer] Transcript chunk loaded: ${normalizedData.segments.length} segments`);
+            if (!transcriptExists) {
+              console.log(`[@useTranscriptPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex} (checked manifest)`);
+              setTranscriptData(null);
+              return;
             }
             
-            setTranscriptData(normalizedData);
+            console.log(`[@useTranscriptPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
+            
+            // Transcript exists in manifest, fetch it
+            return fetch(transcriptUrl)
+              .then(res => res.json())
+              .then((transcript: TranscriptData) => {
+                if (!transcript) {
+                  console.log(`[@useTranscriptPlayer] No transcript data for chunk ${chunkIndex}`);
+                  setTranscriptData(null);
+                  return;
+                }
+                
+                // Detect format and normalize
+                const is10Min = isTranscriptData10Min(transcript);
+                console.log(`[@useTranscriptPlayer] Transcript format: ${is10Min ? '10-minute (NEW)' : '6-second segments (LEGACY)'}`);
+                
+                const normalizedData = normalizeTranscriptData(transcript);
+                
+                if (is10Min) {
+                  console.log(`[@useTranscriptPlayer] 10-min transcript loaded:`, {
+                    language: (transcript as TranscriptData10Min).language,
+                    confidence: (transcript as TranscriptData10Min).confidence,
+                    textLength: (transcript as TranscriptData10Min).transcript.length,
+                    preview: (transcript as TranscriptData10Min).transcript.substring(0, 100)
+                  });
+                } else {
+                  console.log(`[@useTranscriptPlayer] Transcript chunk loaded: ${normalizedData.segments.length} segments`);
+                }
+                
+                setTranscriptData(normalizedData);
+              });
           })
           .catch((error) => {
-            console.log(`[@useTranscriptPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex}:`, error.message);
+            console.log(`[@useTranscriptPlayer] Error loading transcript:`, error.message);
             setTranscriptData(null);
           });
       }

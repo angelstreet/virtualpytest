@@ -318,6 +318,17 @@ def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, tran
     os.rename(transcript_path + '.tmp', transcript_path)
     
     logger.info(f"✅ Saved: /transcript/{hour}/chunk_10min_{chunk_index}.json")
+    
+    # Update transcript manifest (import function from hot_cold_archiver)
+    try:
+        device_base_path = get_device_base_path(capture_folder)
+        
+        # Import the shared manifest function
+        from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
+        update_transcript_manifest(device_base_path, hour, chunk_index, transcript_path)
+        
+    except Exception as e:
+        logger.warning(f"Failed to update transcript manifest: {e}")
 
 def process_mp3_chunks(capture_dir):
     """

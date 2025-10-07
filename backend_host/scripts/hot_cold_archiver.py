@@ -648,11 +648,125 @@ def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
     return manifest
 
 
-def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_path: str):
+def rebuild_manifest_from_disk(capture_dir: str, manifest_type: str) -> dict:
+    """
+    Generic manifest builder for both archive and transcript chunks.
+    
+    Args:
+        capture_dir: Base capture directory
+        manifest_type: 'archive' or 'transcript'
+    
+    Returns: Manifest dict with all chunks found on disk
+    """
     import json
     
-    manifest_path = os.path.join(capture_dir, 'segments', 'archive_manifest.json')
+    if manifest_type == 'archive':
+        base_dir = os.path.join(capture_dir, 'segments')
+        file_pattern = 'chunk_10min_*.mp4'
+        metadata_dir = os.path.join(capture_dir, 'metadata')
+    else:  # transcript
+        base_dir = os.path.join(capture_dir, 'transcript')
+        file_pattern = 'chunk_10min_*.json'
+        metadata_dir = None
     
+    if not os.path.isdir(base_dir):
+        return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
+    
+    all_chunks = []
+    
+    for hour in range(24):
+        hour_dir = os.path.join(base_dir, str(hour))
+        if not os.path.isdir(hour_dir):
+            continue
+        
+        for chunk_file in Path(hour_dir).glob(file_pattern):
+            try:
+                chunk_index = int(chunk_file.stem.replace('chunk_10min_', ''))
+                file_stat = chunk_file.stat()
+                
+                chunk_info = {
+                    "hour": hour,
+                    "chunk_index": chunk_index,
+                    "name": chunk_file.name,
+                    "size": file_stat.st_size,
+                    "created": file_stat.st_mtime,
+                }
+                
+                # Add type-specific metadata
+                if manifest_type == 'archive' and metadata_dir:
+                    metadata_path = os.path.join(metadata_dir, str(hour), f'chunk_10min_{chunk_index}.json')
+                    chunk_info["has_metadata"] = os.path.exists(metadata_path)
+                    if os.path.exists(metadata_path):
+                        try:
+                            with open(metadata_path) as f:
+                                meta = json.load(f)
+                            chunk_info.update({
+                                "start_time": meta.get("start_time"),
+                                "end_time": meta.get("end_time"),
+                                "frames_count": meta.get("frames_count")
+                            })
+                        except:
+                            pass
+                elif manifest_type == 'transcript':
+                    try:
+                        with open(chunk_file) as f:
+                            data = json.load(f)
+                        chunk_info.update({
+                            "language": data.get("language", "unknown"),
+                            "confidence": data.get("confidence", 0.0),
+                            "has_transcript": bool(data.get("transcript", "").strip()),
+                            "timestamp": data.get("timestamp")
+                        })
+                    except:
+                        pass
+                
+                all_chunks.append(chunk_info)
+                
+            except Exception as e:
+                logger.warning(f"Error processing {manifest_type} file {chunk_file}: {e}")
+    
+    if not all_chunks:
+        return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
+    
+    all_chunks.sort(key=lambda x: (x["hour"], x["chunk_index"]))
+    
+    return {
+        "chunks": all_chunks,
+        "last_updated": time.time(),
+        "available_hours": sorted(list(set(c["hour"] for c in all_chunks))),
+        "total_chunks": len(all_chunks)
+    }
+
+
+def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
+    """Rebuild archive manifest - wrapper for generic function"""
+    return rebuild_manifest_from_disk(capture_dir, 'archive')
+
+
+def rebuild_transcript_manifest_from_disk(capture_dir: str) -> dict:
+    """Rebuild transcript manifest - wrapper for generic function"""
+    return rebuild_manifest_from_disk(capture_dir, 'transcript')
+
+
+def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: str, manifest_type: str):
+    """
+    Generic manifest updater for both archive and transcript chunks.
+    
+    Args:
+        capture_dir: Base capture directory
+        hour: Hour (0-23)
+        chunk_index: Chunk index (0-5)
+        chunk_path: Path to chunk file
+        manifest_type: 'archive' or 'transcript'
+    """
+    import json
+    
+    if manifest_type == 'archive':
+        manifest_path = os.path.join(capture_dir, 'segments', 'archive_manifest.json')
+    else:  # transcript
+        manifest_path = os.path.join(capture_dir, 'transcript', 'transcript_manifest.json')
+    
+    # Load existing manifest
     if os.path.exists(manifest_path):
         try:
             with open(manifest_path) as f:
@@ -662,30 +776,44 @@ def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_p
     else:
         manifest = {"chunks": [], "last_updated": None}
     
-    mp4_stat = Path(mp4_path).stat()
-    metadata_path = os.path.join(capture_dir, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
-    
+    file_stat = Path(chunk_path).stat()
     chunk_info = {
         "hour": hour,
         "chunk_index": chunk_index,
-        "name": f"chunk_10min_{chunk_index}.mp4",
-        "size": mp4_stat.st_size,
-        "created": mp4_stat.st_mtime,
-        "has_metadata": os.path.exists(metadata_path)
+        "name": os.path.basename(chunk_path),
+        "size": file_stat.st_size,
+        "created": file_stat.st_mtime,
     }
     
-    if os.path.exists(metadata_path):
+    # Add type-specific metadata
+    if manifest_type == 'archive':
+        metadata_path = os.path.join(capture_dir, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
+        chunk_info["has_metadata"] = os.path.exists(metadata_path)
+        if os.path.exists(metadata_path):
+            try:
+                with open(metadata_path) as f:
+                    meta = json.load(f)
+                chunk_info.update({
+                    "start_time": meta.get("start_time"),
+                    "end_time": meta.get("end_time"),
+                    "frames_count": meta.get("frames_count")
+                })
+            except:
+                pass
+    elif manifest_type == 'transcript':
         try:
-            with open(metadata_path) as f:
-                meta = json.load(f)
+            with open(chunk_path) as f:
+                data = json.load(f)
             chunk_info.update({
-                "start_time": meta.get("start_time"),
-                "end_time": meta.get("end_time"),
-                "frames_count": meta.get("frames_count")
+                "language": data.get("language", "unknown"),
+                "confidence": data.get("confidence", 0.0),
+                "has_transcript": bool(data.get("transcript", "").strip()),
+                "timestamp": data.get("timestamp")
             })
         except:
             pass
     
+    # Update manifest
     manifest["chunks"] = [c for c in manifest["chunks"] if not (c["hour"] == hour and c["chunk_index"] == chunk_index)]
     manifest["chunks"].append(chunk_info)
     manifest["chunks"].sort(key=lambda x: (x["hour"], x["chunk_index"]))
@@ -693,11 +821,23 @@ def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_p
     manifest["available_hours"] = sorted(list(set(c["hour"] for c in manifest["chunks"])))
     manifest["total_chunks"] = len(manifest["chunks"])
     
+    # Save atomically
+    os.makedirs(os.path.dirname(manifest_path), exist_ok=True)
     with open(manifest_path + '.tmp', 'w') as f:
         json.dump(manifest, f, indent=2)
     os.rename(manifest_path + '.tmp', manifest_path)
     
-    logger.info(f"Updated archive manifest: {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
+    logger.info(f"Updated {manifest_type} manifest: {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
+
+
+def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_path: str):
+    """Update archive manifest - wrapper for generic function"""
+    update_manifest(capture_dir, hour, chunk_index, mp4_path, 'archive')
+
+
+def update_transcript_manifest(capture_dir: str, hour: int, chunk_index: int, transcript_path: str):
+    """Update transcript manifest - wrapper for generic function"""
+    update_manifest(capture_dir, hour, chunk_index, transcript_path, 'transcript')
 
 
 def cleanup_temp_files(capture_dir: str) -> Tuple[int, int]:
@@ -937,11 +1077,13 @@ def main_loop():
     # STARTUP ONLY: Rebuild all manifests from disk to discover existing chunks
     logger.info("")
     logger.info("=" * 60)
-    logger.info("STARTUP: Rebuilding archive manifests from disk...")
+    logger.info("STARTUP: Rebuilding archive and transcript manifests from disk...")
     logger.info("=" * 60)
     for capture_dir in capture_dirs:
         try:
             import json
+            
+            # Rebuild video archive manifest
             manifest = rebuild_archive_manifest_from_disk(capture_dir)
             manifest_path = os.path.join(capture_dir, 'segments', 'archive_manifest.json')
             
@@ -951,9 +1093,22 @@ def main_loop():
                 json.dump(manifest, f, indent=2)
             os.rename(manifest_path + '.tmp', manifest_path)
             
-            logger.info(f"✓ {os.path.basename(capture_dir)}: Rebuilt manifest with {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
+            logger.info(f"✓ {os.path.basename(capture_dir)}: Rebuilt archive manifest with {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
+            
+            # Rebuild transcript manifest
+            transcript_manifest = rebuild_transcript_manifest_from_disk(capture_dir)
+            transcript_manifest_path = os.path.join(capture_dir, 'transcript', 'transcript_manifest.json')
+            
+            # Save rebuilt transcript manifest
+            os.makedirs(os.path.dirname(transcript_manifest_path), exist_ok=True)
+            with open(transcript_manifest_path + '.tmp', 'w') as f:
+                json.dump(transcript_manifest, f, indent=2)
+            os.rename(transcript_manifest_path + '.tmp', transcript_manifest_path)
+            
+            logger.info(f"✓ {os.path.basename(capture_dir)}: Rebuilt transcript manifest with {transcript_manifest['total_chunks']} chunks across {len(transcript_manifest['available_hours'])} hours")
+            
         except Exception as e:
-            logger.error(f"Error rebuilding manifest for {capture_dir}: {e}")
+            logger.error(f"Error rebuilding manifests for {capture_dir}: {e}")
     logger.info("=" * 60)
     
     while True:

@@ -396,8 +396,33 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
   }, [host, device, toast, hasCompleteAnalysisData]);
   
   const startPolling = useCallback((videoId: string, currentVideoUrl: string) => {
+    const POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
+    const TIMEOUT_MS = 60000; // 60 second timeout (analysis should complete in ~10s)
+    const startTime = Date.now();
+    
+    console.log(`[@hook:useRestart] 🔄 Starting polling for ${videoId} (${TIMEOUT_MS/1000}s timeout)`);
+    
     const pollInterval = setInterval(async () => {
       try {
+        // Check timeout
+        const elapsedMs = Date.now() - startTime;
+        if (elapsedMs > TIMEOUT_MS) {
+          console.error(`[@hook:useRestart] ⏰ TIMEOUT: Analysis exceeded ${TIMEOUT_MS/1000}s - stopping polling`);
+          clearInterval(pollInterval);
+          
+          // Mark stuck analyses as error
+          setAnalysisProgress(prev => ({
+            ...prev,
+            audio: prev.audio === 'loading' ? 'error' : prev.audio,
+            subtitles: prev.subtitles === 'loading' ? 'error' : prev.subtitles,
+            summary: prev.summary === 'loading' ? 'error' : prev.summary
+          }));
+          
+          // Notify user
+          toast.showError('⏰ Analysis timed out. Video is ready but analysis incomplete.', { duration: 8000 });
+          return;
+        }
+        
         const response = await fetch(buildServerUrl(`/server/restart/analysisStatus/${videoId}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -487,12 +512,9 @@ export const useRestart = ({ host, device, includeAudioAnalysis }: UseRestartPar
           }
         }
       } catch (error) {
-        console.error('Polling error:', error);
+        console.error('[@hook:useRestart] Polling error:', error);
       }
-    }, 2000);
-    
-    // Cleanup after 2 minutes
-    setTimeout(() => clearInterval(pollInterval), 120000);
+    }, POLL_INTERVAL_MS);
   }, [host, device, toast, generateReportWithVideoUrl, hasCompleteAnalysisData]);
 
   // =====================================================
