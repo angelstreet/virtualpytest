@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Box, Slider, Typography, IconButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
@@ -76,7 +76,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     : globalCurrentTime;
   
   // Build rail gradient with grey gaps for archive mode (INVERTED: now on right, past on left)
-  const buildArchiveRailGradient = () => {
+  // Memoized to prevent infinite render loop
+  const archiveRailGradient = useMemo(() => {
     if (isLiveMode || !archiveMetadata || archiveMetadata.manifests.length === 0) {
       return 'rgba(255,255,255,0.15)';
     }
@@ -134,7 +135,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     }
     
     return `linear-gradient(to right, ${gradientParts.join(', ')})`;
-  };
+  }, [isLiveMode, archiveMetadata]);
 
   // Check if a given time (in seconds from midnight) has an available chunk
   const isTimeAvailable = (timeSeconds: number): boolean => {
@@ -336,7 +337,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                         rgba(244,67,54,1) 100%
                       )`;
                     })()
-                  : buildArchiveRailGradient(),
+                  : archiveRailGradient,
               },
               '& .MuiSlider-markLabel': {
                 fontSize: '0.7rem',
