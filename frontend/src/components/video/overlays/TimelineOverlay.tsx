@@ -100,10 +100,10 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         const hasChunk = !!chunkData;
         
         const color = !hasChunk 
-          ? 'rgba(50, 50, 50, 0.6)'  // Dark grey for missing
+          ? 'rgba(30, 30, 30, 0.8)'  // Darker, more intense grey for missing chunks (higher opacity for contrast)
           : chunkData.has_metadata 
-            ? 'rgba(100, 181, 246, 0.85)'  // Blue for with metadata
-            : 'rgba(150, 150, 150, 0.7)';  // Light grey for without metadata
+            ? 'rgba(0, 188, 212, 1)'  // More intense cyan-blue (full opacity, brighter/saturated)
+            : 'rgba(180, 180, 180, 0.85)';  // Lighter grey for chunks without metadata (slightly higher opacity)
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
@@ -188,7 +188,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             <Box
               sx={{
                 position: 'absolute',
-                bottom: 25,
+                top: -40,  // Position above the slider/thumb (adjust to -50 or higher if you want more space)
                 left: (() => {
                   const currentValue = isLiveMode 
                     ? dragSliderValue
@@ -197,11 +197,14 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   const maxValue = isLiveMode ? 150 : 86400;
                   
                   const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
-                  return `calc(${percentage}% - 25px)`;
+                  return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width (adjust based on your Typography width, e.g., -40px for centering)
                 })(),
-                transform: 'translateX(0)',
+                transform: 'translateX(0)',  // No change needed, but you could add 'translateX(-50%)' for perfect horizontal centering if subtracting half-width
                 pointerEvents: 'none',
-                zIndex: 10,
+                zIndex: 10,  // High z-index to ensure it's above everything (higher than thumb's z-index)
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
               }}
             >
               <Typography
@@ -231,6 +234,17 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   formatTime(86400 - dragSliderValue)
                 )}
               </Typography>
+              {/* Optional: Add a downward arrow to point at the thumb */}
+              <Box
+                sx={{
+                  width: 0,
+                  height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid rgba(0, 0, 0, 0.9)',  // Matches tooltip background
+                  mt: -1,  // Pull it up to connect seamlessly
+                }}
+              />
             </Box>
           )}
 
@@ -246,17 +260,37 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             track={isLiveMode ? false : false}  // No progress track - only rail with availability gradient
             onChange={onSliderChange}
             onChangeCommitted={(event, value) => {
-              // Prevent seeking to unavailable chunks and convert inverted value back
               if (!isLiveMode) {
                 const sliderValue = Array.isArray(value) ? value[0] : value;
                 // Convert inverted slider value back to actual time
                 const seekTime = 86400 - sliderValue;
-                if (!isTimeAvailable(seekTime)) {
-                  console.log(`[@TimelineOverlay] Prevented seek to unavailable time: ${seekTime}s`);
-                  return; // Don't allow seeking to greyed-out areas
+
+                if (isTimeAvailable(seekTime)) {
+                  // If available, seek normally
+                  onSeek(event, seekTime);
+                  return;
                 }
-                // Pass the actual time (not inverted) to the seek handler
-                onSeek(event, seekTime);
+
+                // If unavailable, find nearest available chunk
+                let nearestTime = null;
+                let minDiff = Infinity;
+
+                archiveMetadata.manifests.forEach(manifest => {
+                  const chunkStartTime = manifest.window_index * 3600 + manifest.chunk_index * 600;
+                  const diff = Math.abs(chunkStartTime - seekTime);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    nearestTime = chunkStartTime;
+                  }
+                });
+
+                if (nearestTime !== null) {
+                  console.log(`[@TimelineOverlay] Snapping to nearest available: ${nearestTime}s`);
+                  onSeek(event, nearestTime);
+                } else {
+                  console.warn('[@TimelineOverlay] No available chunks to snap to');
+                  // Optional: Reset to current position or earliest available
+                }
                 return;
               }
               onSeek(event, value);
@@ -268,7 +302,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               '& .MuiSlider-thumb': {
                 width: 16,
                 height: 16,
-                zIndex: 2,
+                zIndex: 3,  // Increase from 2 to 3 (or higher if still obscured)
+                boxShadow: '0 0 4px rgba(0,0,0,0.5)',  // Add subtle shadow for visibility
+                border: '1px solid white',  // Optional: Add a border to make it stand out more
               },
               '& .MuiSlider-track': {
                 // Hide track completely - we only want the rail to show availability
@@ -276,6 +312,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               },
               '& .MuiSlider-rail': {
                 height: 6,
+                zIndex: 1,  // Explicitly set lower than thumb to ensure layering
                 background: isLiveMode 
                   ? `linear-gradient(to right, 
                       rgba(255,255,255,0.15) 0%, 
