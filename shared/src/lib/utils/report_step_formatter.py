@@ -939,35 +939,8 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         start_formatted_display = format_screenshot_display_name(start_screenshot_path)
         screenshots_for_step.append((f'{start_formatted_display}_step_start', start_screenshot_path, None, None))
     
-    # Main action screenshot (always include if available, especially for failed actions)
-    # Get the actual action command for labeling (like zap controller does)
-    action_label = "Main Action"  # Default fallback
-    
-    # Try to get action name from step data (like zap controller)
-    if step.get('action_name'):
-        action_label = step.get('action_name')
-        print(f"[@report_step_formatter:format_step_screenshots] Using action_name: {action_label}")
-    elif step.get('actions') and len(step.get('actions', [])) > 0:
-        # Get the first action command
-        first_action = step.get('actions')[0]
-        if isinstance(first_action, dict) and first_action.get('command'):
-            action_label = first_action.get('command')
-            print(f"[@report_step_formatter:format_step_screenshots] Extracted action command: {action_label}")
-    
-    print(f"[@report_step_formatter:format_step_screenshots] Final action label: {action_label}")
-    
-    if step.get('screenshot_url'):
-        # Use enhanced formatting for main action screenshot
-        main_screenshot_path = step.get('screenshot_url')
-        main_formatted_display = format_screenshot_display_name(main_screenshot_path)
-        screenshots_for_step.append((f'{main_formatted_display}_{action_label}', main_screenshot_path, None, None))
-    elif step.get('screenshot_path'):
-        # Use enhanced formatting for main action screenshot
-        main_screenshot_path = step.get('screenshot_path')
-        main_formatted_display = format_screenshot_display_name(main_screenshot_path)
-        screenshots_for_step.append((f'{main_formatted_display}_{action_label}', main_screenshot_path, None, None))
-    
     # Action screenshots - use action_results to get correct command and category
+    # Actions provide their own screenshots, no need for separate "main action screenshot"
     action_screenshots = step.get('action_screenshots', [])
     action_results = step.get('action_results', [])
     

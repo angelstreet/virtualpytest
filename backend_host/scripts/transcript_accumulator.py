@@ -243,6 +243,7 @@ class InotifyTranscriptMonitor:
         
         self._setup_watches()
         self._start_workers()
+        self._scan_existing_files()
     
     def _setup_watches(self):
         """Setup inotify watches for all segments and audio directories"""
@@ -327,6 +328,100 @@ class InotifyTranscriptMonitor:
             
             logger.info(f"[{device_folder}] ✓ Started MP4→MP3 worker (audio extraction)")
             logger.info(f"[{device_folder}] ✓ Started MP3→JSON worker (transcription)")
+    
+    def _scan_existing_files(self):
+        """Scan for existing MP4/MP3 files on startup and enqueue the 3 most recent for processing"""
+        from pathlib import Path
+        
+        logger.info("=" * 80)
+        logger.info("Scanning for existing files (initial catch-up):")
+        logger.info("=" * 80)
+        
+        all_pending_mp4s = []  # List of (mtime, device_folder, hour_dir, filename)
+        all_pending_mp3s = []  # List of (mtime, device_folder, hour_dir, filename)
+        
+        for device_info in self.monitored_devices:
+            device_folder = device_info['device_folder']
+            segments_base = device_info['segments_base']
+            audio_base = device_info['audio_base']
+            
+            # Scan MP4 chunks (segments)
+            mp4_count = 0
+            for hour in range(24):
+                hour_dir = os.path.join(segments_base, str(hour))
+                if not os.path.exists(hour_dir):
+                    continue
+                
+                for mp4_file in Path(hour_dir).glob('chunk_10min_*.mp4'):
+                    chunk_index = int(mp4_file.stem.replace('chunk_10min_', ''))
+                    
+                    # Check if MP3 already exists
+                    mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
+                    if not os.path.exists(mp3_path):
+                        mtime = mp4_file.stat().st_mtime
+                        all_pending_mp4s.append((mtime, device_folder, hour_dir, mp4_file.name))
+                        mp4_count += 1
+            
+            if mp4_count > 0:
+                logger.info(f"[{device_folder}] Found {mp4_count} MP4 chunks without MP3")
+            
+            # Scan MP3 chunks (audio)
+            mp3_count = 0
+            for hour in range(24):
+                hour_dir = os.path.join(audio_base, str(hour))
+                if not os.path.exists(hour_dir):
+                    continue
+                
+                for mp3_file in Path(hour_dir).glob('chunk_10min_*.mp3'):
+                    chunk_index = int(mp3_file.stem.replace('chunk_10min_', ''))
+                    
+                    # Check if transcript already exists
+                    transcript_base = get_transcript_path(device_folder)
+                    transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+                    if not os.path.exists(transcript_path):
+                        mtime = mp3_file.stat().st_mtime
+                        all_pending_mp3s.append((mtime, device_folder, hour_dir, mp3_file.name))
+                        mp3_count += 1
+            
+            if mp3_count > 0:
+                logger.info(f"[{device_folder}] Found {mp3_count} MP3 chunks without transcript")
+        
+        # Sort by mtime (newest first) and take the 3 most recent
+        all_pending_mp4s.sort(reverse=True, key=lambda x: x[0])
+        all_pending_mp3s.sort(reverse=True, key=lambda x: x[0])
+        
+        recent_mp4s = all_pending_mp4s[:3]
+        recent_mp3s = all_pending_mp3s[:3]
+        
+        # Enqueue the 3 most recent MP4s for processing
+        if recent_mp4s:
+            logger.info(f"Enqueuing {len(recent_mp4s)} most recent MP4 chunks for audio extraction:")
+            for mtime, device_folder, hour_dir, filename in recent_mp4s:
+                from datetime import datetime
+                mtime_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                logger.info(f"  [{device_folder}] {filename} (modified: {mtime_str})")
+                try:
+                    self.mp4_queues[device_folder].put_nowait((hour_dir, filename))
+                except queue.Full:
+                    logger.warning(f"  [{device_folder}] Queue full, skipping {filename}")
+        else:
+            logger.info("No MP4 chunks need processing (all have MP3)")
+        
+        # Enqueue the 3 most recent MP3s for transcription
+        if recent_mp3s:
+            logger.info(f"Enqueuing {len(recent_mp3s)} most recent MP3 chunks for transcription:")
+            for mtime, device_folder, hour_dir, filename in recent_mp3s:
+                from datetime import datetime
+                mtime_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                logger.info(f"  [{device_folder}] {filename} (modified: {mtime_str})")
+                try:
+                    self.mp3_queues[device_folder].put_nowait((hour_dir, filename))
+                except queue.Full:
+                    logger.warning(f"  [{device_folder}] Queue full, skipping {filename}")
+        else:
+            logger.info("No MP3 chunks need processing (all have transcripts)")
+        
+        logger.info("=" * 80)
     
     def _mp4_worker(self, device_folder):
         """Worker thread for MP4 → MP3 audio extraction (fast, ~3s per chunk)"""
