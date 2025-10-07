@@ -70,6 +70,45 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   // Calculate timeline range
   const min = isLiveMode ? 0 : (continuousStartTime || 0);
   const max = isLiveMode ? 150 : (continuousEndTime || duration);
+  
+  // Build rail gradient with grey gaps for archive mode
+  const buildArchiveRailGradient = () => {
+    if (isLiveMode || !archiveMetadata || archiveMetadata.manifests.length === 0) {
+      return 'rgba(255,255,255,0.15)';
+    }
+    
+    // Calculate ALL 144 possible 10-minute chunks in 24h
+    const allChunkPositions: { [key: string]: boolean } = {};
+    archiveMetadata.manifests.forEach(manifest => {
+      const key = `${manifest.window_index}-${manifest.chunk_index}`;
+      allChunkPositions[key] = true;
+    });
+    
+    // Build gradient with available (white) and gap (grey) segments
+    const gradientParts: string[] = [];
+    const totalSeconds = 24 * 3600; // 24 hours
+    
+    for (let hour = 0; hour < 24; hour++) {
+      for (let chunk = 0; chunk < 6; chunk++) {
+        const key = `${hour}-${chunk}`;
+        const hasChunk = allChunkPositions[key];
+        
+        const startSeconds = hour * 3600 + chunk * 600;
+        const endSeconds = startSeconds + 600;
+        const startPercent = (startSeconds / totalSeconds) * 100;
+        const endPercent = (endSeconds / totalSeconds) * 100;
+        
+        const color = hasChunk 
+          ? 'rgba(255,255,255,0.15)'  // Available chunk (normal)
+          : 'rgba(100,100,100,0.3)';   // Gap (greyed out)
+        
+        gradientParts.push(`${color} ${startPercent}%`);
+        gradientParts.push(`${color} ${endPercent}%`);
+      }
+    }
+    
+    return `linear-gradient(to right, ${gradientParts.join(', ')})`;
+  };
 
   // Timeline positioned at bottom of viewport, completely independent of container
   const timelineStyle = {
@@ -194,16 +233,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                       rgba(244,67,54,0.8) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
                       rgba(244,67,54,0.8) 100%
                     )`
-                  : (continuousStartTime > 0 && continuousEndTime > 0 
-                    ? `linear-gradient(to right,
-                        rgba(100,100,100,0.3) 0%,
-                        rgba(100,100,100,0.3) ${(continuousStartTime / max) * 100}%,
-                        rgba(255,255,255,0.15) ${(continuousStartTime / max) * 100}%,
-                        rgba(255,255,255,0.15) ${(continuousEndTime / max) * 100}%,
-                        rgba(100,100,100,0.3) ${(continuousEndTime / max) * 100}%,
-                        rgba(100,100,100,0.3) 100%
-                      )`
-                    : undefined),
+                  : buildArchiveRailGradient(),
               },
               '& .MuiSlider-markLabel': {
                 fontSize: '0.7rem',

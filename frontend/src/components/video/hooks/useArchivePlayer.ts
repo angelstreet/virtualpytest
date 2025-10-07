@@ -160,17 +160,10 @@ export const useArchivePlayer = ({
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
     
-    // Restrict to continuous time range
-    if (continuousStartTime > 0 && continuousEndTime > 0) {
-      if (seekTime < continuousStartTime || seekTime > continuousEndTime) {
-        console.log(`[@EnhancedHLSPlayer] Cannot drag to ${seekTime}s - outside continuous range (${continuousStartTime}s - ${continuousEndTime}s)`);
-        return;
-      }
-    }
-    
+    // Allow dragging anywhere in 24h timeline (gaps will be greyed out)
     setIsDraggingSlider(true);
     setDragSliderValue(seekTime);
-  }, [continuousStartTime, continuousEndTime]);
+  }, []);
 
   const handleSeek = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (!videoRef.current) return;
@@ -180,20 +173,13 @@ export const useArchivePlayer = ({
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
     
-    // Restrict to continuous time range
-    if (continuousStartTime > 0 && continuousEndTime > 0) {
-      if (seekTime < continuousStartTime || seekTime > continuousEndTime) {
-        console.warn(`[@EnhancedHLSPlayer] Cannot seek to ${seekTime}s - outside continuous range (${continuousStartTime}s - ${continuousEndTime}s)`);
-        return;
-      }
-    }
-    
     const wasPlaying = !video.paused;
     
     if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       let targetManifestIndex = -1;
       let targetLocalTime = 0;
       
+      // Find the manifest that contains this seek time
       for (let i = 0; i < archiveMetadata.manifests.length; i++) {
         const manifest = archiveMetadata.manifests[i];
         const isAtEnd = seekTime >= manifest.end_time_seconds && i === archiveMetadata.manifests.length - 1;
@@ -212,8 +198,30 @@ export const useArchivePlayer = ({
       }
       
       if (targetManifestIndex === -1) {
-        console.warn(`[@EnhancedHLSPlayer] Seek time ${seekTime}s not found in any manifest`);
-        return;
+        console.warn(`[@EnhancedHLSPlayer] Seek time ${seekTime}s is in a gap (no chunk available) - finding nearest available chunk`);
+        
+        // Find nearest available chunk (forward first, then backward)
+        let nearestIndex = -1;
+        let minDistance = Infinity;
+        
+        for (let i = 0; i < archiveMetadata.manifests.length; i++) {
+          const manifest = archiveMetadata.manifests[i];
+          const distance = Math.abs(seekTime - manifest.start_time_seconds);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestIndex = i;
+          }
+        }
+        
+        if (nearestIndex !== -1) {
+          targetManifestIndex = nearestIndex;
+          const nearestManifest = archiveMetadata.manifests[nearestIndex];
+          targetLocalTime = 0; // Start of nearest chunk
+          console.log(`[@EnhancedHLSPlayer] Jumping to nearest chunk: manifest ${nearestManifest.window_index}`);
+        } else {
+          console.error('[@EnhancedHLSPlayer] No available chunks found');
+          return;
+        }
       }
       
       if (targetManifestIndex !== currentManifestIndex) {
@@ -241,7 +249,7 @@ export const useArchivePlayer = ({
     } else {
       video.currentTime = seekTime;
     }
-  }, [archiveMetadata, currentManifestIndex, continuousStartTime, continuousEndTime, videoRef]);
+  }, [archiveMetadata, currentManifestIndex, videoRef]);
 
   const updateTimeTracking = useCallback((video: HTMLVideoElement) => {
     if (archiveMetadata && archiveMetadata.manifests.length > 0) {
