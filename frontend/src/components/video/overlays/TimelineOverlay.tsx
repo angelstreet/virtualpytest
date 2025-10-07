@@ -90,10 +90,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   // Calculate timeline range
   const min = isLiveMode ? 0 : (continuousStartTime || 0);
   const max = isLiveMode ? 150 : (continuousEndTime || duration);
-  
-  // For archive mode, we want to show full 24h range but restrict interaction
-  const displayMin = isLiveMode ? min : 0;
-  const displayMax = isLiveMode ? max : (24 * 3600);
 
   // Calculate timeline position using fixed positioning based on container
   const timelineStyle = {
