@@ -426,57 +426,42 @@ update_active_captures() {
   local temp_file="/tmp/active_captures.conf.tmp.$$"
   local conf_file="/tmp/active_captures.conf"
   
-  # Use flock for atomic updates
-  (
-    # Acquire exclusive lock
-    flock -x 200
-    
-    # Create temp file (umask 0000 ensures 777 permissions)
-    > "$temp_file"
-    
-    if [ -f "$conf_file" ]; then
-      # Remove old entry for this capture_dir
-      grep -v "^${capture_dir}," "$conf_file" > "$temp_file" 2>/dev/null || true
-    fi
-    
-    # Add new entry
-    echo "${capture_dir},${pid},${quality}" >> "$temp_file"
-    
-    # Atomic move with explicit permissions
-    mv "$temp_file" "$conf_file"
-    chmod 777 "$conf_file"
-    
-    echo "🔍 DEBUG: Updated active_captures.conf:"
-    cat "$conf_file"
-    
-  ) 200>"${conf_file}.lock"
+  # Simple atomic update - no locking needed
+  # Create temp file (umask 0000 ensures 777 permissions)
+  > "$temp_file"
+  
+  if [ -f "$conf_file" ]; then
+    # Remove old entry for this capture_dir
+    grep -v "^${capture_dir}," "$conf_file" > "$temp_file" 2>/dev/null || true
+  fi
+  
+  # Add new entry
+  echo "${capture_dir},${pid},${quality}" >> "$temp_file"
+  
+  # Atomic move with explicit permissions
+  mv "$temp_file" "$conf_file"
+  chmod 777 "$conf_file"
+  
+  echo "🔍 DEBUG: Updated active_captures.conf:"
+  cat "$conf_file"
 }
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
   # Remove old file completely to avoid permission conflicts
   rm -f "/tmp/active_captures.conf" 2>/dev/null || true
-  rm -f "/tmp/active_captures.conf.lock" 2>/dev/null || true
   
   # Create fresh file with explicit 777 permissions (world read/write for all services)
   > "/tmp/active_captures.conf"
   chmod 777 "/tmp/active_captures.conf"
   
-  # Create lock file with 666 permissions (world read/write for flock)
-  > "/tmp/active_captures.conf.lock"
-  chmod 666 "/tmp/active_captures.conf.lock"
-  
-  echo "✅ Created fresh active_captures.conf and lock file with proper permissions"
+  echo "✅ Created fresh active_captures.conf with 777 permissions"
   echo "Starting ${#GRABBERS[@]} devices"
 else
-  # Single device mode: ensure files exist with correct permissions
+  # Single device mode: ensure file exists with correct permissions
   if [ ! -f "/tmp/active_captures.conf" ]; then
     > "/tmp/active_captures.conf"
     chmod 777 "/tmp/active_captures.conf"
-  fi
-  if [ ! -f "/tmp/active_captures.conf.lock" ]; then
-    > "/tmp/active_captures.conf.lock"
-    chmod 666 "/tmp/active_captures.conf.lock"
   fi
 fi
 

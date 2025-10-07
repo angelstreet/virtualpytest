@@ -29,46 +29,43 @@ class HDMIStreamController(FFmpegCaptureController):
         """Update quality in config - stream.service will detect and restart."""
         try:
             import os
-            import fcntl
+            import tempfile
             device_id = self.device_id
             capture_dir = self.video_capture_path
             config_file = '/tmp/active_captures.conf'
-            lock_file = f'{config_file}.lock'
             
             print(f"[HDMI] Updating quality for {device_id} to {quality}")
             
-            # Ensure lock file exists with world-writable permissions
-            if not os.path.exists(lock_file):
-                open(lock_file, 'w').close()
-                os.chmod(lock_file, 0o666)
+            # Simple atomic update using temp file + rename (no locking needed)
+            # Read existing entries
+            entries = []
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    entries = [line.strip() for line in f if line.strip()]
             
-            # Atomic update with file lock
-            with open(lock_file, 'a') as lock:  # Open for append to avoid permission errors
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-                
-                # Read existing entries
-                entries = []
-                if os.path.exists(config_file):
-                    with open(config_file, 'r') as f:
-                        entries = [line.strip() for line in f if line.strip()]
-                
-                # Update quality for this device
-                found = False
-                for i, entry in enumerate(entries):
-                    parts = entry.split(',')
-                    if len(parts) == 3 and parts[0] == capture_dir:
-                        entries[i] = f"{parts[0]},{parts[1]},{quality}"
-                        found = True
-                        break
-                
-                if not found:
-                    print(f"[HDMI] Device {device_id} not running yet")
-                    return False
-                
-                # Write back
-                with open(config_file, 'w') as f:
+            # Update quality for this device
+            found = False
+            for i, entry in enumerate(entries):
+                parts = entry.split(',')
+                if len(parts) == 3 and parts[0] == capture_dir:
+                    entries[i] = f"{parts[0]},{parts[1]},{quality}"
+                    found = True
+                    break
+            
+            if not found:
+                print(f"[HDMI] Device {device_id} not running yet")
+                return False
+            
+            # Write to temp file and atomically rename
+            fd, temp_path = tempfile.mkstemp(dir='/tmp', prefix='active_captures_', suffix='.tmp')
+            try:
+                with os.fdopen(fd, 'w') as f:
                     f.write('\n'.join(entries) + '\n')
-                os.chmod(config_file, 0o777)
+                os.chmod(temp_path, 0o777)
+                os.rename(temp_path, config_file)  # Atomic on Unix
+            except:
+                os.unlink(temp_path)  # Clean up temp file on error
+                raise
             
             print(f"[HDMI] Quality updated: {device_id} → {quality}")
             return True
