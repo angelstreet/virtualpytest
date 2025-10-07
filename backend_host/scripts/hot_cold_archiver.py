@@ -7,7 +7,7 @@ Responsibilities:
 1. SAFETY CLEANUP: Enforce hot storage limits on ALL file types (prevent RAM exhaustion)
 2. Progressive MP4 merging: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
 3. Progressive metadata grouping: HOT JSONs → 1min → 10min chunks saved to COLD /metadata/{hour}/
-4. Audio extraction & archival: 10min MP4 → HOT audio → COLD /audio/{hour}/
+4. Audio extraction: 10min MP4 → MP3 saved directly to COLD /audio/{hour}/
 5. 98% disk write reduction through progressive grouping
 
 Safety cleanup runs FIRST and independently to guarantee hot storage never exceeds
@@ -62,7 +62,7 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Thumbnails: HOT only → deleted (local freeze detection only)
 # - Metadata: HOT individual JSONs → grouped & saved to COLD /metadata/{hour}/
 # - Transcripts: Saved directly to COLD /transcript/{hour}/ (by transcript_accumulator.py)
-# - Audio: Saved to HOT /audio/{hour}/ (natural 24h rolling via hour folders, no cleanup needed)
+# - Audio: Extracted directly to COLD /audio/{hour}/ (from 10min MP4 chunks)
 #
 # RAM Usage (HIGH QUALITY CAPTURES - Video content worst case):
 # - Segments: 150 × 38KB = 6MB (FFmpeg auto-deletes, 200 limit = safety net)
@@ -70,8 +70,8 @@ SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 # - Thumbnails: 100 × 28KB = 3MB (freeze detection → deleted)
 # - Metadata: 750 × 1KB = 0.75MB (150s buffer → grouped to cold)
 # - Transcripts: N/A (saved directly to cold by transcript_accumulator)
-# - Audio: ~144 × 1MB = 144MB (24h × 6 chunks/hour in /audio/{hour}/ folders)
-# Total: ~231MB per device (116% of 200MB budget - acceptable since audio accessible via hour folders)
+# - Audio: N/A (extracted directly to COLD /audio/{hour}/)
+# Total: ~84MB per device (42% of 200MB budget - safe margin for RAM)
 #
 HOT_LIMITS = {
     'segments': 200,      # Safety limit > FFmpeg's 150 (only cleanup if FFmpeg fails)
@@ -93,11 +93,11 @@ HOT_LIMITS = {
 # File patterns for archive_hot_files() function (moves files from hot to cold hour folders)
 # Note: Metadata uses merge_metadata_batch() instead (groups then saves to cold)
 # Note: Transcripts saved directly to cold by transcript_accumulator.py
-# Note: Audio extracted to hot /audio/{hour}/ and stays there (rolling 24h cleanup)
+# Note: Audio extracted directly to cold /audio/{hour}/ (no hot storage needed)
 FILE_PATTERNS = {
     'segments': 'segment_*.ts',     # Archived to cold (will be grouped as MP4)
 }
-# NOT archived (HOT-only with deletion): captures, thumbnails, audio (stays in hot hour folders)
+# NOT archived (HOT-only with deletion): captures, thumbnails
 
 def get_file_hour(filepath: str) -> int:
     """Get hour (0-23) from file modification time"""
@@ -735,10 +735,9 @@ def process_capture_directory(capture_dir: str):
        - Captures: Keep 300 newest (deleted, uploaded to R2 when needed)
        - Thumbnails: Keep 100 newest (deleted, local freeze detection only)
        - Metadata: Keep 750 newest (individual JSONs deleted after grouping to cold)
-       - Audio: Keep 6 newest (archived to cold)
     2. Progressive metadata grouping: HOT individual JSONs → 1min → 10min chunks in COLD /metadata/{hour}/
     3. Progressive MP4 merging: HOT TS → 1min → 10min MP4 chunks in COLD /segments/{hour}/
-    4. Archive audio: HOT 10min chunks → COLD /audio/{hour}/
+    4. Audio extraction: COLD 10min MP4 → direct to COLD /audio/{hour}/
     
     Safety cleanup runs FIRST to guarantee RAM limits regardless of pipeline status.
     Note: Segment limit (200) > FFmpeg's hls_list_size (150) to avoid race conditions.
@@ -753,8 +752,8 @@ def process_capture_directory(capture_dir: str):
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
     deleted_cold_captures = cleanup_cold_captures(capture_dir)      # 1 hour retention (for scripts)
-    deleted_cold_thumbnails = cleanup_cold_thumbnails(capture_dir)  # 5 min retention (real-time only)
-    # Note: Audio files now in hour folders (/audio/{hour}/) - no cleanup needed (24h rolling)
+    deleted_cold_thumbnails = cleanup_cold_thumbnails(capture_dir)  # 1 hour retention (matches captures)
+    # Note: Audio extracted directly to COLD - no hot cleanup needed
     
     ram_mode = is_ram_mode(capture_dir)
     
@@ -818,18 +817,15 @@ def process_capture_directory(capture_dir: str):
         
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
         
-        # Extract audio with hour folder structure (aligned with video and transcript)
-        if ram_mode:
-            hot_audio_hour_dir = os.path.join(capture_dir, 'hot', 'audio', str(hour))
-        else:
-            hot_audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
-        
-        os.makedirs(hot_audio_hour_dir, exist_ok=True)
-        audio_path = os.path.join(hot_audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
+        # Extract audio directly to COLD storage (source MP4 already in COLD)
+        # Audio extraction is fast (~2-3s) and doesn't need hot storage buffer
+        audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
+        os.makedirs(audio_hour_dir, exist_ok=True)
+        audio_path = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
         
         try:
             import subprocess
-            # Extract audio using FFmpeg: MP4 → MP3
+            # Extract audio using FFmpeg: MP4 → MP3 (direct to COLD)
             subprocess.run(
                 ['ffmpeg', '-i', mp4_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', audio_path, '-y'],
                 stdout=subprocess.DEVNULL,
@@ -837,7 +833,7 @@ def process_capture_directory(capture_dir: str):
                 check=True,
                 timeout=30
             )
-            logger.info(f"Extracted audio to HOT: /audio/{hour}/chunk_10min_{chunk_index}.mp3")
+            logger.info(f"Extracted audio to COLD: /audio/{hour}/chunk_10min_{chunk_index}.mp3")
         except Exception as e:
             logger.warning(f"Failed to extract audio from chunk {chunk_index}: {e}")
     
@@ -872,12 +868,12 @@ def process_capture_directory(capture_dir: str):
 
 def main_loop():
     """
-    Main service loop - Safety Cleanup + Progressive Grouping + Audio Archival
+    Main service loop - Safety Cleanup + Progressive Grouping + Audio Extraction
     Processes every 1min:
     - SAFETY CLEANUP: Enforce limits on ALL hot storage types (prevent RAM exhaustion)
     - Metadata: HOT individual JSONs → 1min → 10min chunks saved to COLD /metadata/{hour}/
     - Segments: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
-    - Audio: Extract from 10min MP4 → HOT → archive to COLD /audio/{hour}/
+    - Audio: Extract from COLD 10min MP4 → directly to COLD /audio/{hour}/
     
     Safety cleanup runs FIRST and independently from merging/archiving to guarantee
     hot storage never exceeds limits even when pipeline processes fail.
@@ -895,7 +891,7 @@ def main_loop():
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Strategy: Safety cleanup (ALL types) + Progressive grouping (MP4/Metadata) + Audio archival")
+    logger.info("Strategy: Safety cleanup (ALL types) + Progressive grouping (MP4/Metadata) + Audio extraction (direct to COLD)")
     logger.info("Safety: Enforces limits FIRST to prevent RAM exhaustion from pipeline failures")
     logger.info("=" * 60)
     

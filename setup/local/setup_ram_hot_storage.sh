@@ -113,11 +113,11 @@ for DEVICE in "${DEVICES[@]}"; do
   fi
   
   # Create subdirectories in RAM (instant, no SD card I/O)
+  # Note: Audio extracted directly to COLD storage - no hot/audio needed
   sudo mkdir -p "$HOT_PATH/captures"
   sudo mkdir -p "$HOT_PATH/thumbnails"
   sudo mkdir -p "$HOT_PATH/segments"
   sudo mkdir -p "$HOT_PATH/metadata"
-  sudo mkdir -p "$HOT_PATH/audio"
   
   # Fix ownership and permissions (www-data:www-data, group writable)
   sudo chown -R www-data:www-data "$HOT_PATH"
@@ -125,14 +125,14 @@ for DEVICE in "${DEVICES[@]}"; do
   sudo chmod 777 "$HOT_PATH/captures"
   sudo chmod 777 "$HOT_PATH/thumbnails"
   sudo chmod 777 "$HOT_PATH/segments"
-  sudo chmod 777 "$HOT_PATH/audio"
   
   # CRITICAL: metadata directory needs 777 for archiver to move files (different user)
   sudo chmod 777 "$HOT_PATH/metadata"
   
-  echo "✓ $DEVICE hot storage ready (www-data:www-data, group writable)"
+  echo "✓ $DEVICE hot storage ready (captures, thumbnails, segments, metadata)"
   
   # Create ALL cold storage directories with 777 permissions
+  # Audio stored directly in COLD (extracted from MP4 chunks)
   for subdir in captures segments metadata audio; do
     COLD_DIR="$BASE_PATH/$DEVICE/$subdir"
     if [ ! -d "$COLD_DIR" ]; then
@@ -142,16 +142,19 @@ for DEVICE in "${DEVICES[@]}"; do
     sudo chmod 777 "$COLD_DIR"
   done
   
-  # Create hour folders and temp directory
+  # Create hour folders (0-23) for rolling 24h storage
   for hour in {0..23}; do
-    HOUR_DIR="$BASE_PATH/$DEVICE/segments/$hour"
-    if [ ! -d "$HOUR_DIR" ]; then
-      sudo mkdir -p "$HOUR_DIR"
-      sudo chown www-data:www-data "$HOUR_DIR"
-    fi
-    sudo chmod 777 "$HOUR_DIR"
+    for subdir in segments metadata audio; do
+      HOUR_DIR="$BASE_PATH/$DEVICE/$subdir/$hour"
+      if [ ! -d "$HOUR_DIR" ]; then
+        sudo mkdir -p "$HOUR_DIR"
+        sudo chown www-data:www-data "$HOUR_DIR"
+      fi
+      sudo chmod 777 "$HOUR_DIR"
+    done
   done
   
+  # Create temp directory for progressive MP4 merging
   TEMP_DIR="$BASE_PATH/$DEVICE/segments/temp"
   if [ ! -d "$TEMP_DIR" ]; then
     sudo mkdir -p "$TEMP_DIR"
@@ -159,7 +162,15 @@ for DEVICE in "${DEVICES[@]}"; do
   fi
   sudo chmod 777 "$TEMP_DIR"
   
-  echo "✓ Cold storage ready (all dirs 777)"
+  # Create temp directory for metadata merging
+  METADATA_TEMP_DIR="$BASE_PATH/$DEVICE/metadata/temp"
+  if [ ! -d "$METADATA_TEMP_DIR" ]; then
+    sudo mkdir -p "$METADATA_TEMP_DIR"
+    sudo chown www-data:www-data "$METADATA_TEMP_DIR"
+  fi
+  sudo chmod 777 "$METADATA_TEMP_DIR"
+  
+  echo "✓ Cold storage ready (hour folders 0-23, temp dirs, all 777)"
   echo ""
 done
 
@@ -258,6 +269,9 @@ fi
 echo "✅ RAM hot storage setup complete!"
 echo "   • Devices configured: ${#DEVICES[@]} (${DEVICES[*]})"
 echo "   • Each device mounted in RAM ($MOUNT_SIZE)"
+echo "   • HOT directories: captures, thumbnails, segments, metadata"
+echo "   • COLD directories: captures, segments, metadata, audio (with hour folders 0-23)"
+echo "   • COLD temp directories: segments/temp, metadata/temp"
 echo "   • Owner: www-data:www-data"
 echo "   • All directories: 777 (full cross-service access)"
 echo "   • Auto-mount configured in /etc/fstab"
