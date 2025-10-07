@@ -536,20 +536,23 @@ class ZapExecutor:
                 
                 if details and isinstance(details, list):
                     print(f"🔍 [ZapExecutor] DEBUG: Processing {len(details)} motion details for thumbnails")
-                    # Get actual capture path from device's AV controller
-                    av_controller = self.device._get_controller('av')
-                    if av_controller and hasattr(av_controller, 'video_capture_path'):
-                        capture_folder = f"{av_controller.video_capture_path}/captures"
-                        print(f"🔍 [ZapExecutor] DEBUG: Using capture folder: {capture_folder}")
-                        motion_images = []
-                        # Reverse details to show chronologically (oldest first) in report
-                        chronological_details = list(reversed(details[:3]))  # Take first 3, then reverse
-                        for i, detail in enumerate(chronological_details):
-                            print(f"🔍 [ZapExecutor] DEBUG: Processing detail[{i}] (chronological): {detail}")
-                            if isinstance(detail, dict):
-                                filename = detail.get('filename', '')
-                                image_path = f"{capture_folder}/{filename}"
-                                print(f"🔍 [ZapExecutor] DEBUG: Creating motion_image: {filename} -> {image_path}")
+                    from shared.src.lib.utils.device_utils import add_existing_image_to_context
+                    
+                    motion_images = []
+                    # Reverse details to show chronologically (oldest first) in report
+                    chronological_details = list(reversed(details[:3]))  # Take first 3, then reverse
+                    
+                    for i, detail in enumerate(chronological_details):
+                        print(f"🔍 [ZapExecutor] DEBUG: Processing detail[{i}] (chronological): {detail}")
+                        if isinstance(detail, dict):
+                            filename = detail.get('filename', '')
+                            
+                            # Use centralized function - handles hot/cold, fails fast if missing
+                            image_path = add_existing_image_to_context(self.device, filename, context)
+                            
+                            if image_path:
+                                # Image found and added to context - create motion image entry
+                                print(f"🔍 [ZapExecutor] DEBUG: Motion image found: {filename} -> {image_path}")
                                 motion_images.append({
                                     'path': image_path,
                                     'filename': filename,
@@ -560,21 +563,16 @@ class ZapExecutor:
                                         'audio': detail.get('audio', True)
                                     }
                                 })
-                        print(f"🔍 [ZapExecutor] DEBUG: Created {len(motion_images)} motion_analysis_images")
-                        if motion_images:
-                            result.motion_details['motion_analysis_images'] = motion_images
-                            print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
-                            
-                            # Add motion analysis images to context.screenshot_paths for batch upload
-                            for motion_img in motion_images:
-                                image_path = motion_img['path']
-                                if image_path not in context.screenshot_paths:
-                                    context.add_screenshot(image_path)  # Auto-copies to cold
-                                    print(f"🔍 [ZapExecutor] DEBUG: Added motion image: {motion_img['filename']}")
-                        else:
-                            print(f"🔍 [ZapExecutor] DEBUG: No motion_images created - motion_analysis_images not added")
+                            else:
+                                # Image not found - fail fast, skip this image
+                                print(f"⚠️ [ZapExecutor] Motion image missing, skipping: {filename}")
+                    
+                    print(f"🔍 [ZapExecutor] DEBUG: Created {len(motion_images)} motion_analysis_images (from {len(chronological_details)} analyzed)")
+                    if motion_images:
+                        result.motion_details['motion_analysis_images'] = motion_images
+                        print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
                     else:
-                        print(f"🔍 [ZapExecutor] DEBUG: No AV controller or video_capture_path available")
+                        print(f"⚠️ [ZapExecutor] No motion images found - motion_analysis_images not added")
                 else:
                     print(f"🔍 [ZapExecutor] DEBUG: No valid details array for motion thumbnails")
             

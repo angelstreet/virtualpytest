@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
-import { AutoAwesome } from '@mui/icons-material';
+import { Box, Typography, IconButton } from '@mui/material';
+import { AutoAwesome, Headphones } from '@mui/icons-material';
 import { TranscriptSegment } from '../EnhancedHLSPlayer.types';
 
 interface TranscriptOverlayProps {
@@ -8,6 +8,8 @@ interface TranscriptOverlayProps {
   transcriptText: string;
   selectedLanguage: string;
   show: boolean;
+  hasMp3?: boolean;
+  mp3Url?: string | null;
 }
 
 export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
@@ -15,13 +17,39 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
   transcriptText,
   selectedLanguage,
   show,
+  hasMp3,
+  mp3Url,
 }) => {
   if (!show || !currentTranscript || !transcriptText) {
     return null;
   }
 
+  const handleAudioClick = () => {
+    if (mp3Url) {
+      window.open(mp3Url, '_blank');
+    }
+  };
+
   return (
     <>
+      {/* Audio button - top right */}
+      {hasMp3 && mp3Url && (
+        <IconButton
+          onClick={handleAudioClick}
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            zIndex: 1250,
+            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+          }}
+        >
+          <Headphones />
+        </IconButton>
+      )}
+
       {/* Language and confidence info - positioned above transcript box */}
       <Box
         sx={{

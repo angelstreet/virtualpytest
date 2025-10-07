@@ -118,6 +118,68 @@ def capture_screenshot(device, context=None, log_prefix: str = "") -> Optional[s
         return None
 
 
+def add_existing_image_to_context(device, filename: str, context) -> Optional[str]:
+    """
+    Find existing capture image and add to context for upload.
+    
+    This is for EXISTING images (like motion analysis frames), not new screenshots.
+    Handles hot→cold copy automatically, checks both locations, fails fast if missing.
+    
+    Args:
+        device: Device instance with AV controller
+        filename: Image filename (e.g., 'capture_000237967.jpg')
+        context: ScriptExecutionContext
+        
+    Returns:
+        Full path if found and added, None if missing (fail-fast)
+        
+    Example:
+        # Motion analysis - find existing frame from FFmpeg
+        path = add_existing_image_to_context(device, 'capture_000237967.jpg', context)
+        if path:
+            # Image found, copied to cold, added to context for upload
+            motion_images.append({'path': path, 'filename': filename})
+        else:
+            # Image missing - fail fast, don't add broken paths
+            print(f"❌ Motion image not found: {filename}")
+    """
+    from shared.src.lib.utils.storage_path_utils import get_captures_path, get_capture_folder
+    
+    try:
+        av_controller = device._get_controller('av')
+        if not av_controller or not hasattr(av_controller, 'video_capture_path'):
+            return None
+        
+        # Get device folder (e.g., 'capture4' from '/var/www/html/stream/capture4')
+        device_folder = get_capture_folder(av_controller.video_capture_path)
+        
+        # 1. Check HOT first (where FFmpeg actively generates files)
+        hot_captures_path = get_captures_path(device_folder)
+        hot_image_path = os.path.join(hot_captures_path, filename)
+        
+        if os.path.exists(hot_image_path):
+            # Found in hot - add_screenshot will auto-copy to cold
+            context.add_screenshot(hot_image_path)
+            return hot_image_path
+        
+        # 2. Check COLD (may have been archived already by hot_cold_archiver)
+        cold_captures_path = os.path.join(av_controller.video_capture_path, 'captures')
+        cold_image_path = os.path.join(cold_captures_path, filename)
+        
+        if os.path.exists(cold_image_path):
+            # Found in cold - already persisted
+            context.add_screenshot(cold_image_path)
+            return cold_image_path
+        
+        # 3. FAIL FAST - image not found in either location
+        print(f"❌ [device_utils] Motion image not found: {filename} (checked hot: {hot_captures_path}, cold: {cold_captures_path})")
+        return None
+        
+    except Exception as e:
+        print(f"❌ [device_utils] Error adding existing image {filename}: {e}")
+        return None
+
+
 def get_av_controller(device):
     """
     Get the AV controller from a device.

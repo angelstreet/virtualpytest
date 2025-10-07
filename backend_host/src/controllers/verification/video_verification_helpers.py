@@ -267,12 +267,57 @@ class VideoVerificationHelpers:
                         thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
                         source_image_url = f"/host/stream/capture1/captures/{thumbnail_filename}"
             
+            # Create motion_analysis_images array for report display (matching ZapExecutor behavior)
+            motion_analysis_images = []
+            details = result.get('details', [])
+            if details and isinstance(details, list):
+                print(f"🔍 [VideoVerificationHelpers] DEBUG: Processing {len(details)} motion details for thumbnails")
+                from shared.src.lib.utils.device_utils import add_existing_image_to_context
+                
+                # Get context from controller's device (if available)
+                context = getattr(self.controller, '_current_context', None)
+                if context:
+                    # Reverse details to show chronologically (oldest first) in report
+                    chronological_details = list(reversed(details[:3]))  # Take first 3, then reverse
+                    
+                    for i, detail in enumerate(chronological_details):
+                        print(f"🔍 [VideoVerificationHelpers] DEBUG: Processing detail[{i}] (chronological): {detail}")
+                        if isinstance(detail, dict):
+                            filename = detail.get('filename', '')
+                            
+                            # Use centralized function - handles hot/cold, fails fast if missing
+                            device = getattr(self.controller, 'device', None)
+                            if device:
+                                image_path = add_existing_image_to_context(device, filename, context)
+                                
+                                if image_path:
+                                    # Image found and added to context
+                                    print(f"🔍 [VideoVerificationHelpers] DEBUG: Motion image found: {filename} -> {image_path}")
+                                    motion_analysis_images.append({
+                                        'path': image_path,
+                                        'filename': filename,
+                                        'timestamp': detail.get('timestamp', ''),
+                                        'analysis_data': {
+                                            'freeze': detail.get('freeze', False),
+                                            'blackscreen': detail.get('blackscreen', False),
+                                            'audio': detail.get('audio', True)
+                                        }
+                                    })
+                                else:
+                                    # Image not found - fail fast, skip
+                                    print(f"⚠️ [VideoVerificationHelpers] Motion image missing, skipping: {filename}")
+                    
+                    print(f"🔍 [VideoVerificationHelpers] DEBUG: Created {len(motion_analysis_images)} motion_analysis_images (from {len(chronological_details)} analyzed)")
+                else:
+                    print(f"⚠️ [VideoVerificationHelpers] No context available for motion image collection")
+            
             return {
                 'success': success,
                 'message': message,
                 'confidence': result.get('confidence', 1.0 if success else 0.0),
                 'sourceImageUrl': source_image_url,  # Add thumbnail URL for frontend
-                'details': result
+                'details': result,
+                'motion_analysis_images': motion_analysis_images  # Add images array for report display
             }
             
         except Exception as e:

@@ -68,6 +68,8 @@ export const useTranscriptPlayer = ({
   const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);  // Track current timed segment
   const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [hasMp3, setHasMp3] = useState(false);
+  const [mp3Url, setMp3Url] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
@@ -100,14 +102,26 @@ export const useTranscriptPlayer = ({
             }
             
             // Check if transcript exists for this hour/chunk
-            const transcriptExists = manifest.chunks.some(
-              (chunk: any) => chunk.hour === hour && chunk.chunk_index === chunkIndex && chunk.has_transcript
+            const chunkInfo = manifest.chunks.find(
+              (chunk: any) => chunk.hour === hour && chunk.chunk_index === chunkIndex
             );
             
-            if (!transcriptExists) {
+            if (!chunkInfo || !chunkInfo.has_transcript) {
               console.log(`[@useTranscriptPlayer] No transcript available for hour ${hour}, chunk ${chunkIndex} (checked manifest)`);
               setTranscriptData(null);
+              setHasMp3(false);
+              setMp3Url(null);
               return;
+            }
+            
+            // Extract has_mp3 and build mp3Url if available
+            const hasMp3Flag = chunkInfo.has_mp3 === true;
+            setHasMp3(hasMp3Flag);
+            if (hasMp3Flag) {
+              const mp3Path = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/${hour}/chunk_10min_${chunkIndex}.mp3`);
+              setMp3Url(mp3Path);
+            } else {
+              setMp3Url(null);
             }
             
             console.log(`[@useTranscriptPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
@@ -336,6 +350,8 @@ export const useTranscriptPlayer = ({
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
+    hasMp3,
+    mp3Url,
   }), [
     transcriptData,
     currentTranscript,
@@ -344,5 +360,7 @@ export const useTranscriptPlayer = ({
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
+    hasMp3,
+    mp3Url,
   ]);
 };

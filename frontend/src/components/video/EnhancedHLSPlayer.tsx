@@ -460,6 +460,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           transcriptText={transcript.getCurrentTranscriptText()}
           selectedLanguage={transcript.selectedLanguage}
           show={!isLiveMode}
+          hasMp3={transcript.hasMp3}
+          mp3Url={transcript.mp3Url}
         />
 
         <TimelineOverlay
