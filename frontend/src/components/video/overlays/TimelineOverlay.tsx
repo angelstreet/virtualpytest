@@ -208,7 +208,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         </Box>
       </Box>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2 }}>  
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2, mt: -1 }}>  
         {isLiveMode ? (
           <>
             <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
