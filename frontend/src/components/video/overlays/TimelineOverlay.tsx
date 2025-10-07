@@ -63,27 +63,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   currentManifestIndex,
   containerRef,
 }) => {
-  const [containerRect, setContainerRect] = React.useState<DOMRect | null>(null);
-
-  // Update container position on mount and window resize
-  React.useEffect(() => {
-    const updatePosition = () => {
-      if (containerRef.current) {
-        setContainerRect(containerRef.current.getBoundingClientRect());
-      }
-    };
-
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition);
-
-    return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition);
-    };
-  }, [containerRef, show]);
-
-  if (!show || duration <= 0 || !containerRect) {
+  if (!show || duration <= 0) {
     return null;
   }
 
@@ -91,12 +71,13 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const min = isLiveMode ? 0 : (continuousStartTime || 0);
   const max = isLiveMode ? 150 : (continuousEndTime || duration);
 
-  // Calculate timeline position using fixed positioning based on container
+  // Timeline positioned at bottom of viewport, completely independent of container
   const timelineStyle = {
     position: 'fixed' as const,
-    left: `${containerRect.left}px`,
-    bottom: '80px', // Fixed distance from bottom of viewport (consistent for mobile and desktop)
-    width: `${containerRect.width}px`,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
     background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
     padding: '16px',
     zIndex: 1300, // High z-index to be above everything
