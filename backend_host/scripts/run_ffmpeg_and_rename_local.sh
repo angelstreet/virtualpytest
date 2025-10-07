@@ -92,7 +92,7 @@ done
 
 # Clean up any stale temp files from previous runs
 echo "🔍 DEBUG: Cleaning stale temp files..."
-rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
+rm -f /var/www/html/stream/active_captures.conf.tmp* 2>/dev/null || true
 
 # Single device restart: kill only the specific device's process
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
@@ -126,13 +126,14 @@ reset_log_if_large() {
 get_device_info() {
   local capture_dir="$1"
   local field="$2"  # 'pid' or 'quality'
+  local conf_file="/var/www/html/stream/active_captures.conf"
   
-  if [ ! -f "/tmp/active_captures.conf" ]; then
+  if [ ! -f "$conf_file" ]; then
     echo ""
     return
   fi
   
-  local line=$(grep "^${capture_dir}," /tmp/active_captures.conf)
+  local line=$(grep "^${capture_dir}," "$conf_file")
   if [ -n "$line" ]; then
     IFS=',' read -r _ pid quality <<< "$line"
     if [ "$field" = "pid" ]; then
@@ -233,7 +234,8 @@ cleanup() {
 
 # Check if any device needs quality change (called from main loop)
 check_quality_changes() {
-  [ -f "/tmp/active_captures.conf" ] || return
+  local conf_file="/var/www/html/stream/active_captures.conf"
+  [ -f "$conf_file" ] || return
   
   # Read config and compare with what's actually running
   while IFS=',' read -r capture_dir pid config_quality; do
@@ -259,7 +261,7 @@ check_quality_changes() {
       IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$device_id]}"
       start_grabber "$source" "$audio_device" "$capture_dir" "$device_id" "$input_fps" "$config_quality"
     fi
-  done < "/tmp/active_captures.conf"
+  done < "$conf_file"
 }
 
 start_grabber() {
@@ -423,11 +425,11 @@ update_active_captures() {
   echo "  pid: $pid"
   echo "  quality: $quality"
   
-  local temp_file="/tmp/active_captures.conf.tmp.$$"
-  local conf_file="/tmp/active_captures.conf"
+  local conf_file="/var/www/html/stream/active_captures.conf"
+  local temp_file="${conf_file}.tmp.$$"
   
   # Simple atomic update - no locking needed
-  # Create temp file (umask 0000 ensures 777 permissions)
+  # Create temp file (umask 0000 ensures 666 permissions)
   > "$temp_file"
   
   if [ -f "$conf_file" ]; then
@@ -440,28 +442,30 @@ update_active_captures() {
   
   # Atomic move with explicit permissions
   mv "$temp_file" "$conf_file"
-  chmod 777 "$conf_file"
+  chmod 666 "$conf_file"
   
   echo "🔍 DEBUG: Updated active_captures.conf:"
   cat "$conf_file"
 }
 
 # Initialize active captures file - ALWAYS clean start for proper permissions
+ACTIVE_CAPTURES_CONF="/var/www/html/stream/active_captures.conf"
+
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
   # Remove old file completely to avoid permission conflicts
-  rm -f "/tmp/active_captures.conf" 2>/dev/null || true
+  rm -f "$ACTIVE_CAPTURES_CONF" 2>/dev/null || true
   
-  # Create fresh file with explicit 777 permissions (world read/write for all services)
-  > "/tmp/active_captures.conf"
-  chmod 777 "/tmp/active_captures.conf"
+  # Create fresh file with explicit 666 permissions (world read/write for all services)
+  > "$ACTIVE_CAPTURES_CONF"
+  chmod 666 "$ACTIVE_CAPTURES_CONF"
   
-  echo "✅ Created fresh active_captures.conf with 777 permissions"
+  echo "✅ Created fresh active_captures.conf at $ACTIVE_CAPTURES_CONF with 666 permissions"
   echo "Starting ${#GRABBERS[@]} devices"
 else
   # Single device mode: ensure file exists with correct permissions
-  if [ ! -f "/tmp/active_captures.conf" ]; then
-    > "/tmp/active_captures.conf"
-    chmod 777 "/tmp/active_captures.conf"
+  if [ ! -f "$ACTIVE_CAPTURES_CONF" ]; then
+    > "$ACTIVE_CAPTURES_CONF"
+    chmod 666 "$ACTIVE_CAPTURES_CONF"
   fi
 fi
 
@@ -487,7 +491,7 @@ cleanup_all() {
   echo "🛑 Received shutdown signal - cleaning up..."
   pkill -9 -f '/usr/bin/ffmpeg' 2>/dev/null || true
   # Clean up temp files (no sudo needed with umask 0000)
-  rm -f /tmp/active_captures.conf.tmp* 2>/dev/null || true
+  rm -f /var/www/html/stream/active_captures.conf.tmp* 2>/dev/null || true
   echo "✅ Cleanup complete - exiting"
   exit 0
 }

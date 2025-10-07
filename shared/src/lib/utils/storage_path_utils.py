@@ -41,6 +41,19 @@ def get_stream_base_path():
     """
     return _STREAM_BASE_PATH
 
+def get_active_captures_conf_path():
+    """
+    Get the path to active_captures.conf file.
+    CENTRALIZED - Single source of truth for capture config location!
+    
+    This file tracks FFmpeg processes and their quality settings.
+    CSV Format: /var/www/html/stream/capture1,PID,quality
+    
+    Returns:
+        Full path to active_captures.conf (e.g., '/var/www/html/stream/active_captures.conf')
+    """
+    return os.path.join(get_stream_base_path(), 'active_captures.conf')
+
 def get_device_base_path(device_folder):
     """
     Get device base directory path.
@@ -134,13 +147,13 @@ def get_device_info_from_capture_folder(capture_folder):
 
 def parse_active_captures_conf():
     """
-    Parse /tmp/active_captures.conf and return structured data.
+    Parse active_captures.conf and return structured data.
     CSV Format: /var/www/html/stream/capture1,PID,quality
     
     Returns:
         List of dicts with 'directory', 'pid', 'quality'
     """
-    active_captures_file = '/tmp/active_captures.conf'
+    active_captures_file = get_active_captures_conf_path()
     captures = []
     
     if os.path.exists(active_captures_file):
