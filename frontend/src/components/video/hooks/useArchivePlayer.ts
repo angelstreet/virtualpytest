@@ -104,6 +104,11 @@ export const useArchivePlayer = ({
         console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks, starting at ${metadata.manifests[0].name}`);
         setArchiveMetadata(metadata);
         setCurrentManifestIndex(0);
+        
+        // Set initial globalCurrentTime to the first chunk's start time
+        const firstChunk = metadata.manifests[0];
+        setGlobalCurrentTime(firstChunk.start_time_seconds);
+        console.log(`[@EnhancedHLSPlayer] Initial position set to ${firstChunk.start_time_seconds}s (hour ${firstChunk.window_index})`);
       };
       
       initializeArchiveMode();

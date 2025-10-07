@@ -315,9 +315,14 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         maxBufferSecondsRef.current = 0; // Reset buffer tracking for new live session
         seekToLive();
       } else {
-        if (videoRef.current && videoRef.current.duration) {
-          console.log(`[@EnhancedHLSPlayer] Mode change to archive, seeking to beginning`);
-          videoRef.current.currentTime = 0;
+        if (videoRef.current) {
+          const video = videoRef.current;
+          console.log(`[@EnhancedHLSPlayer] Mode change to archive, starting playback from first chunk`);
+          video.currentTime = 0;
+          // Auto-play when entering archive mode
+          video.play().catch(err => {
+            console.warn('[@EnhancedHLSPlayer] Failed to auto-play in archive mode:', err);
+          });
         }
       }
     }, 500);

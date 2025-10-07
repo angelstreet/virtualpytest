@@ -84,8 +84,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       allChunkPositions[key] = true;
     });
     
-    // Build gradient with available (white) and gap (grey) segments
-    // INVERTED: hour 0 at right (100%), hour 23 at left (0%)
+    // Build gradient with available (blue) and gap (grey) segments
+    // INVERTED: hour 0 (midnight) at right (100%), hour 23 at left (0%)
+    // Slider value: 0s = far left (24h ago), 86400s = far right (now/midnight)
     const gradientParts: string[] = [];
     const totalSeconds = 24 * 3600; // 24 hours
     
@@ -96,7 +97,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
-        // INVERT: 0s = 100%, 86400s = 0%
+        
+        // INVERT the visual position: hour 0 appears at right (100%), hour 23 at left (0%)
+        // endPercent < startPercent because we're inverting
         const startPercent = 100 - ((startSeconds / totalSeconds) * 100);
         const endPercent = 100 - ((endSeconds / totalSeconds) * 100);
         
@@ -104,6 +107,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           ? 'rgba(100, 181, 246, 0.85)'  // Available chunk (light blue, MORE VISIBLE - 85% opacity)
           : 'rgba(50, 50, 50, 0.6)';     // Gap (dark grey, 60% opacity)
         
+        // Gradient stops must be in ascending order of percentage
         gradientParts.push(`${color} ${endPercent}%`);
         gradientParts.push(`${color} ${startPercent}%`);
       }
@@ -268,41 +272,27 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         </Box>
       </Box>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2, mt: -2 }}>  
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: -2 }}>  
         {isLiveMode ? (
-          <>
-            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
-              -2:30
-            </Typography>
-            
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {liveBufferSeconds > 0 && liveBufferSeconds < 150 && (
-                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.7rem' }}>
-                  Buffer: {Math.floor(liveBufferSeconds)}s
-                </Typography>
-              )}
-              <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
-                {(() => {
-                  const behindSeconds = Math.round(150 - liveSliderPosition);
-                  if (behindSeconds === 0) return 'LIVE';
-                  if (behindSeconds < 60) return `-${behindSeconds}s`;
-                  const minutes = Math.floor(behindSeconds / 60);
-                  const seconds = behindSeconds % 60;
-                  return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                })()}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {liveBufferSeconds > 0 && liveBufferSeconds < 150 && (
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.7rem' }}>
+                Buffer: {Math.floor(liveBufferSeconds)}s
               </Typography>
-            </Box>
-            
-            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
-              Now
+            )}
+            <Typography variant="caption" sx={{ color: 'white', fontWeight: 600, fontSize: '0.75rem' }}>
+              {(() => {
+                const behindSeconds = Math.round(150 - liveSliderPosition);
+                if (behindSeconds === 0) return 'LIVE';
+                if (behindSeconds < 60) return `-${behindSeconds}s`;
+                const minutes = Math.floor(behindSeconds / 60);
+                const seconds = behindSeconds % 60;
+                return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+              })()}
             </Typography>
-          </>
+          </Box>
         ) : (
           <>
-            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
-              24h ago
-            </Typography>
-            
             {archiveMetadata && (
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
                 {(() => {
@@ -317,10 +307,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 })()} • Chunk {currentManifestIndex + 1}/{archiveMetadata.manifests.length}
               </Typography>
             )}
-            
-            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
-              Now
-            </Typography>
           </>
         )}
       </Box>
