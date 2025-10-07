@@ -34,7 +34,6 @@ class HDMIStreamController(FFmpegCaptureController):
             device_id = self.device_id
             capture_dir = self.video_capture_path
             config_file = get_active_captures_conf_path()
-            temp_file = f"{config_file}.tmp.{os.getpid()}"
             
             print(f"[HDMI] Updating quality for {device_id} to {quality}")
             
@@ -57,27 +56,15 @@ class HDMIStreamController(FFmpegCaptureController):
                 print(f"[HDMI] Device {device_id} not running yet")
                 return False
             
-            # Atomic write using temp file (safe now - no sticky bit in /var/www/html/stream)
-            with open(temp_file, 'w') as f:
+            # Simple direct write (file is 666, already exists, world-writable)
+            with open(config_file, 'w') as f:
                 f.write('\n'.join(entries) + '\n')
-            
-            # Set permissions before moving
-            os.chmod(temp_file, 0o666)
-            
-            # Atomic move (works now - same owner/group www-data)
-            os.rename(temp_file, config_file)
             
             print(f"[HDMI] Quality updated: {device_id} → {quality}")
             return True
             
         except Exception as e:
             print(f"[HDMI] Error updating quality: {e}")
-            # Clean up temp file if it exists
-            try:
-                if 'temp_file' in locals() and os.path.exists(temp_file):
-                    os.remove(temp_file)
-            except:
-                pass
             return False
 
 
