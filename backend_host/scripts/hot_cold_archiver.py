@@ -50,8 +50,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-# Note: ACTIVE_CAPTURES_FILE managed by run_ffmpeg_and_rename_local.sh (not used here)
-ACTIVE_CAPTURES_FILE = '/tmp/active_captures.conf'
+# Note: This script doesn't use active_captures.conf - it discovers devices via get_capture_base_directories()
+# which reads the file from the centralized location (/var/www/html/stream/active_captures.conf)
 RAM_RUN_INTERVAL = 60   # 1min for RAM mode (faster cleanup for video content)
 SD_RUN_INTERVAL = 60    # 1min (same for consistency)
 

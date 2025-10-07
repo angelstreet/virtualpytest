@@ -70,12 +70,13 @@ echo "✅ Fixed $FIXED_COUNT directories"
 echo "============================================"
 echo ""
 
-# Fix /tmp/active_captures.conf permissions (needed by all services)
-if [ -f "/tmp/active_captures.conf" ]; then
-    sudo chmod 777 "/tmp/active_captures.conf"
-    echo "✓ Fixed /tmp/active_captures.conf → 777"
+# Fix active_captures.conf permissions in new location (needed by all services)
+ACTIVE_CAPTURES_CONF="/var/www/html/stream/active_captures.conf"
+if [ -f "$ACTIVE_CAPTURES_CONF" ]; then
+    sudo chmod 666 "$ACTIVE_CAPTURES_CONF"
+    echo "✓ Fixed $ACTIVE_CAPTURES_CONF → 666"
 else
-    echo "ℹ️  /tmp/active_captures.conf not found (will be created by FFmpeg script)"
+    echo "ℹ️  $ACTIVE_CAPTURES_CONF not found (will be created by stream.service)"
 fi
 echo ""
 

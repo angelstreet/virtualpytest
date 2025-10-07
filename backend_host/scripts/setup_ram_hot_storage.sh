@@ -248,10 +248,11 @@ df -h | grep -E "hot|Filesystem"
 echo "================================"
 
 echo ""
-# Ensure /tmp/active_captures.conf has correct permissions
-if [ -f "/tmp/active_captures.conf" ]; then
-  sudo chmod 777 "/tmp/active_captures.conf"
-  echo "✓ Fixed /tmp/active_captures.conf permissions (777)"
+# Ensure active_captures.conf has correct permissions in new location
+ACTIVE_CAPTURES_CONF="/var/www/html/stream/active_captures.conf"
+if [ -f "$ACTIVE_CAPTURES_CONF" ]; then
+  sudo chmod 666 "$ACTIVE_CAPTURES_CONF"
+  echo "✓ Fixed $ACTIVE_CAPTURES_CONF permissions (666)"
 fi
 
 echo "✅ RAM hot storage setup complete!"

@@ -35,7 +35,7 @@ DEVICE1_VIDEO_FPS=10                    # Input FPS
 
 1. **Master Config:** Edit only `backend_host/src/.env` file
 2. **FFmpeg Script:** `run_ffmpeg_and_rename_local.sh` reads `.env` and builds GRABBERS dynamically
-3. **Export:** Writes active capture directories to `/tmp/active_captures.conf`
+3. **Export:** Writes active capture directories to `/var/www/html/stream/active_captures.conf`
 4. **Consumers:** All scripts (capture_monitor.py, clean_captures.sh, backend API, heatmap_processor.py) use same config
 
 ## Files That Read Configuration
@@ -44,8 +44,8 @@ DEVICE1_VIDEO_FPS=10                    # Input FPS
 |------|---------|---------------------|
 | `backend_host/src/.env` | **MASTER CONFIG** | Edit here only |
 | `run_ffmpeg_and_rename_local.sh` | FFmpeg capture processes | Reads `.env` → builds GRABBERS |
-| `capture_monitor.py` | Incident monitoring | `/tmp/active_captures.conf` |
-| `clean_captures.sh` | Cleanup old files | `/tmp/active_captures.conf` |
+| `capture_monitor.py` | Incident monitoring | `/var/www/html/stream/active_captures.conf` |
+| `clean_captures.sh` | Cleanup old files | `/var/www/html/stream/active_captures.conf` |
 | Backend API | Device management | Reads `.env` directly |
 | `heatmap_processor.py` | Heatmap generation | Via API (reads `.env`) |
 
@@ -102,7 +102,7 @@ xDEVICE3_VIDEO_FPS=10
 
 ## Fallback Behavior
 
-If `/tmp/active_captures.conf` doesn't exist (e.g., FFmpeg service not running), monitoring scripts fall back to default directories:
+If `/var/www/html/stream/active_captures.conf` doesn't exist (e.g., FFmpeg service not running), monitoring scripts fall back to default directories:
 - `capture1`
 - `capture2`
 
@@ -125,12 +125,12 @@ DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2  # Required
 DEVICE1_VIDEO_FPS=10                    # Required: Input FPS
 ```
 
-### /tmp/active_captures.conf Format (AUTO-GENERATED)
-Contains one capture directory per line:
+### /var/www/html/stream/active_captures.conf Format (AUTO-GENERATED)
+CSV Format with capture directory, PID, and quality:
 ```
-/var/www/html/stream/capture1
-/var/www/html/stream/capture2
-/var/www/html/stream/capture3
+/var/www/html/stream/capture1,PID,quality
+/var/www/html/stream/capture2,PID,quality
+/var/www/html/stream/capture3,PID,quality
 ```
 
 **Note:** The base directory is stored (without `/captures` suffix). Consumer scripts add `/captures` as needed.
