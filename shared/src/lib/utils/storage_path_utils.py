@@ -419,6 +419,24 @@ def get_metadata_path(device_folder):
     return get_capture_storage_path(device_folder, 'metadata')
 
 
+def get_transcript_chunk_path(device_folder, hour, chunk_index):
+    """
+    Get path to specific transcript chunk JSON file.
+    CENTRALIZED - Use this instead of building paths manually!
+    
+    Args:
+        device_folder: Device folder name (e.g., 'capture1')
+        hour: Hour (0-23)
+        chunk_index: Chunk index within hour (0-5 for 10-min chunks)
+        
+    Returns:
+        Full path to transcript JSON file
+        (e.g., '/var/www/html/stream/capture1/transcript/1/chunk_10min_0.json')
+    """
+    transcript_base = get_transcript_path(device_folder)
+    return os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+
+
 def get_capture_folder(capture_dir):
     """
     Extract capture folder name from path (handles both HOT and COLD storage)

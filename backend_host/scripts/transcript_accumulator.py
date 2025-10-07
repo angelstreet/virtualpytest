@@ -65,6 +65,36 @@ def cleanup_logs_on_startup():
     except Exception as e:
         print(f"[@transcript_accumulator] Warning: Could not clean log file: {e}")
 
+def has_audio_stream(mp4_path: str) -> bool:
+    """
+    Check if MP4 file has an audio stream using ffprobe
+    
+    Args:
+        mp4_path: Path to MP4 file
+    
+    Returns:
+        bool: True if audio stream exists
+    """
+    try:
+        cmd = [
+            'ffprobe',
+            '-v', 'error',
+            '-select_streams', 'a:0',
+            '-show_entries', 'stream=codec_type',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            mp4_path
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        
+        # If audio stream exists, output will be "audio"
+        return result.stdout.strip() == 'audio'
+        
+    except Exception as e:
+        logger.warning(f"Failed to probe audio stream: {e}")
+        # On error, assume audio exists and let FFmpeg handle it
+        return True
+
 def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> bool:
     """
     Extract audio from MP4 chunk using FFmpeg
@@ -81,6 +111,11 @@ def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, ho
     """
     mp3_tmp_path = None
     try:
+        # Pre-check: Does MP4 have audio stream?
+        if not has_audio_stream(mp4_path):
+            logger.info(f"[{capture_folder}] 🔇 No audio stream: {hour}/chunk_10min_{chunk_index}.mp4 (video-only)")
+            return False
+        
         logger.info(f"[{capture_folder}] 🎵 Extracting audio: {hour}/chunk_10min_{chunk_index}.mp4 → .mp3")
         
         # Ensure output directory exists

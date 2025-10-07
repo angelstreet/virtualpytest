@@ -124,6 +124,74 @@ def detect_text_language():
             'error': f'Language detection error: {str(e)}'
         }), 500
 
+@host_translation_bp.route('/host/<capture_folder>/translate-segments', methods=['POST'])
+def translate_segments(capture_folder):
+    """
+    Translate transcript segments on-demand (Simple & Clean)
+    Translates what's already displayed, caches in JSON for reuse
+    """
+    try:
+        data = request.get_json()
+        
+        hour = data.get('hour')
+        chunk_index = data.get('chunk_index')
+        segments = data.get('segments', [])  # Texts already displayed
+        target_language = data.get('target_language')
+        source_language = data.get('source_language', 'en')
+        
+        if hour is None or chunk_index is None or not target_language:
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+        
+        print(f"[HOST_TRANSLATION] 🌐 Translating {len(segments)} segments to {target_language}")
+        
+        # Use centralized path utility
+        from shared.src.lib.utils.storage_path_utils import get_transcript_chunk_path
+        transcript_file = get_transcript_chunk_path(capture_folder, hour, chunk_index)
+        
+        if not os.path.exists(transcript_file):
+            return jsonify({'success': False, 'error': 'Transcript not found'}), 404
+        
+        # Load transcript JSON
+        with open(transcript_file, 'r', encoding='utf-8') as f:
+            transcript_data = json.load(f)
+        
+        # Translate segments (reuse displayed text)
+        translated_segments = []
+        for text in segments:
+            if text.strip():
+                result = translate_text(text, source_language, target_language, 'google')
+                translated_segments.append(result.get('translated_text', text))
+            else:
+                translated_segments.append('')
+        
+        # Cache translations in JSON
+        if 'segments' in transcript_data:
+            for i, translation in enumerate(translated_segments):
+                if i < len(transcript_data['segments']):
+                    if 'translations' not in transcript_data['segments'][i]:
+                        transcript_data['segments'][i]['translations'] = {}
+                    transcript_data['segments'][i]['translations'][target_language] = translation
+        
+        # Save atomically
+        temp_file = transcript_file + '.tmp'
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(transcript_data, f, indent=2, ensure_ascii=False)
+        os.replace(temp_file, transcript_file)
+        
+        print(f"[HOST_TRANSLATION] ✅ Translated and cached {len(translated_segments)} segments")
+        
+        return jsonify({
+            'success': True,
+            'translated_segments': translated_segments,
+            'cached': True
+        })
+        
+    except Exception as e:
+        print(f"[HOST_TRANSLATION] ❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @host_translation_bp.route('/host/<capture_folder>/translate-transcripts', methods=['POST'])
 def translate_transcripts(capture_folder):
     """

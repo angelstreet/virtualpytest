@@ -13,7 +13,6 @@ interface UseTranscriptPlayerProps {
   host?: Host;
   deviceId: string;
   hostName: string;
-  externalTranslations?: Record<string, string[]>;  // Optional: from parent (e.g., useRestart)
 }
 
 // Type guard to check if transcript is new 10-minute format
@@ -62,7 +61,6 @@ export const useTranscriptPlayer = ({
   host,
   deviceId,
   hostName,
-  externalTranslations,  // NEW: External translations from parent
 }: UseTranscriptPlayerProps) => {
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
   const [rawTranscriptData, setRawTranscriptData] = useState<TranscriptData10Min | null>(null);  // Keep raw 10-min data
@@ -240,79 +238,81 @@ export const useTranscriptPlayer = ({
     setSelectedLanguage(language);
     
     if (language === 'original') {
-      console.log('[@EnhancedHLSPlayer] Switched to original language');
+      console.log('[@useTranscriptPlayer] Switched to original language');
       return;
     }
 
-    const hasTranslations = transcriptData?.segments.some(
+    // Check if translations already cached
+    const hasTranslations = rawTranscriptData?.segments?.some(
       seg => seg.translations && seg.translations[language]
     );
     
     if (hasTranslations) {
-      console.log(`[@EnhancedHLSPlayer] Using cached translations for ${language}`);
+      console.log(`[@useTranscriptPlayer] Using cached translations for ${language}`);
+      return;
+    }
+
+    // Need to translate - use what's already loaded
+    if (!rawTranscriptData?.segments) {
+      console.log('[@useTranscriptPlayer] No segments to translate');
       return;
     }
 
     setIsTranslating(true);
-    console.log(`[@EnhancedHLSPlayer] Translating transcripts to ${language}...`);
+    console.log(`[@useTranscriptPlayer] Translating ${rawTranscriptData.segments.length} segments to ${language}...`);
     
     try {
       const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
       const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
-      const captureFolder = captureMatch ? captureMatch[1] : transcriptData?.capture_folder;
+      const captureFolder = captureMatch ? captureMatch[1] : 'capture1';
       
-      const currentManifest = archiveMetadata?.manifests[currentManifestIndex];
-      const hourWindow = currentManifest?.window_index || 1;
+      // Extract texts from loaded segments (what's already displayed)
+      const segmentTexts = rawTranscriptData.segments.map(seg => seg.text);
       
-      const response = await fetch(`/host/${captureFolder}/translate-transcripts`, {
+      // Call backend to translate and cache
+      const response = await fetch(`/host/${captureFolder}/translate-segments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          hour: rawTranscriptData.hour,
+          chunk_index: rawTranscriptData.chunk_index,
+          segments: segmentTexts,
           target_language: language,
-          hour_window: hourWindow
+          source_language: rawTranscriptData.language
         })
       });
 
       const data = await response.json();
       
       if (data.success) {
-        console.log(`[@EnhancedHLSPlayer] Translation complete: ${data.translated_count} segments translated`);
+        console.log(`[@useTranscriptPlayer] ✅ Translation complete and cached`);
         
-        const transcriptUrl = baseUrl.replace(/\/(output|archive.*?)\.m3u8$/, `/transcript_hour${hourWindow}.json`);
-        const updatedData = await fetch(transcriptUrl).then(res => res.json());
-        setTranscriptData(updatedData);
+        // Reload transcript to get updated data with cached translations
+        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${rawTranscriptData.hour}/chunk_10min_${rawTranscriptData.chunk_index}.json`);
+        const updatedTranscript = await fetch(transcriptUrl).then(res => res.json());
+        setRawTranscriptData(updatedTranscript);
+        setTranscriptData(normalizeTranscriptData(updatedTranscript));
       }
     } catch (error) {
-      console.error('[@EnhancedHLSPlayer] Translation failed:', error);
+      console.error('[@useTranscriptPlayer] Translation failed:', error);
     } finally {
       setIsTranslating(false);
     }
-  }, [transcriptData, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, hostName, host]);
+  }, [rawTranscriptData, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, host]);
 
   const getCurrentTranscriptText = useCallback(() => {
-    // Prioritize timed segment for subtitle-style display (NEW format)
-    if (currentTimedSegment) {
-      // Check for translation in the segment itself (from JSON cache)
+    // For new 10-min format with timed segments, ONLY use timed segments (no fallback)
+    if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0) {
+      if (!currentTimedSegment) return '';  // Show nothing between segments - no fallback to full transcript
+      
+      // Check for translation in timed segment
       if (selectedLanguage !== 'original' && currentTimedSegment.translations?.[selectedLanguage]) {
         return currentTimedSegment.translations[selectedLanguage];
       }
-      
-      // Fallback: Check external translations from parent (e.g., useRestart)
-      if (selectedLanguage !== 'original' && externalTranslations?.[selectedLanguage]) {
-        // Find segment index in raw data
-        const segmentIndex = rawTranscriptData?.segments?.findIndex(
-          seg => seg.start === currentTimedSegment.start && seg.end === currentTimedSegment.end
-        ) ?? -1;
-        
-        if (segmentIndex >= 0 && externalTranslations[selectedLanguage][segmentIndex]) {
-          return externalTranslations[selectedLanguage][segmentIndex];
-        }
-      }
-      
-      return currentTimedSegment.text;  // Original text
+      return currentTimedSegment.text;
     }
     
-    // Fallback to full transcript segment (OLD format or no timed segments)
+    // Legacy format (6-second segments) - use currentTranscript
     if (!currentTranscript) return '';
     
     if (selectedLanguage === 'original') {
@@ -321,7 +321,7 @@ export const useTranscriptPlayer = ({
     
     const translation = currentTranscript.translations?.[selectedLanguage];
     return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
-  }, [currentTranscript, currentTimedSegment, selectedLanguage, externalTranslations, rawTranscriptData]);
+  }, [rawTranscriptData, currentTranscript, currentTimedSegment, selectedLanguage]);
 
   const clearTranscriptData = useCallback(() => {
     setTranscriptData(null);
