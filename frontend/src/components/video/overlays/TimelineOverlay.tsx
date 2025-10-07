@@ -100,8 +100,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         
         // Only 2 colors: available (bright cyan) or missing (dark grey)
         const color = hasChunk
-          ? 'rgba(0, 230, 255, 1)'  // Bright electric cyan for available chunks (very visible)
-          : 'rgba(70, 70, 70, 1)';  // Medium-dark grey for missing chunks (clear contrast)
+          ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks (very visible)
+          : 'rgba(180, 180, 180, 1)';  // Medium-dark grey for missing chunks (clear contrast)
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
