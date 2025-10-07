@@ -278,10 +278,10 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                 })()
               ) : (
-                // Show actual clock time (not position value)
+                // Show actual clock time minus 1 hour to match timeline
                 (() => {
-                  // globalCurrentTime is always the clock time, not the position
-                  const tooltipTime = globalCurrentTime;
+                  // Subtract 1 hour (3600 seconds) to fix offset
+                  const tooltipTime = Math.max(0, globalCurrentTime - 3600);
                   console.log(`[@TimelineOverlay] Tooltip clock time: ${formatTime(tooltipTime)} (${tooltipTime.toFixed(0)}s)`);
                   return formatTime(tooltipTime);
                 })()
@@ -315,7 +315,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               if (!isLiveMode) {
                 const positionValue = Array.isArray(value) ? value[0] : value;
                 
-                // Convert position back to clock time
+                // Convert position back to clock time and add 1 hour offset
                 const now = new Date();
                 const currentHour = now.getHours();
                 
@@ -324,7 +324,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const hoursAgo = 23 - hourPosition;
                 const clockHour = (currentHour - hoursAgo + 24) % 24;
                 const secondsIntoHour = positionValue % 3600;
-                const seekTime = clockHour * 3600 + secondsIntoHour;
+                // Add 1 hour (3600s) to match the tooltip offset
+                const seekTime = clockHour * 3600 + secondsIntoHour + 3600;
 
                 console.log(`[@TimelineOverlay] Position: ${positionValue}s -> Clock time: ${seekTime}s (${Math.floor(seekTime/3600)}h)`);
 

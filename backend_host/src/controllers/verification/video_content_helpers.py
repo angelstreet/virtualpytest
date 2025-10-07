@@ -761,12 +761,8 @@ class VideoContentHelpers:
             capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
             print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
             
-            # Use thumbnails for performance (320x180) - scale analysis rectangle accordingly
+            # Use thumbnails for performance - auto-correction will fit rectangle to thumbnail size
             image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images, use_thumbnails=True)
-            
-            # Scale analysis rectangle from full capture (1920x1080) to thumbnail (320x180)
-            if analysis_rectangle:
-                analysis_rectangle = self._scale_rectangle_for_thumbnail(analysis_rectangle)
             
             if not image_data:
                 return {
@@ -971,12 +967,8 @@ class VideoContentHelpers:
             capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
             print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
             
-            # Use thumbnails for performance (320x180) - scale analysis rectangle accordingly
+            # Use thumbnails for performance - auto-correction will fit rectangle to thumbnail size
             image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images, use_thumbnails=True)
-            
-            # Scale analysis rectangle from full capture (1920x1080) to thumbnail (320x180)
-            if analysis_rectangle:
-                analysis_rectangle = self._scale_rectangle_for_thumbnail(analysis_rectangle)
             
             if not image_data:
                 return {
