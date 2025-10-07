@@ -5,8 +5,48 @@ Centralized system command utilities for VirtualPyTest.
 Handles systemctl, reboot, and other system-level operations.
 """
 
+import os
+import signal
 import subprocess
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+
+
+def kill_existing_script_instances(script_name: str) -> List[int]:
+    """
+    Kill any existing instances of a Python script before starting.
+    Ensures only ONE instance runs at a time.
+    
+    Args:
+        script_name: Name of the script file (e.g., 'hot_cold_archiver.py')
+        
+    Returns:
+        List of PIDs that were killed
+    """
+    current_pid = os.getpid()
+    killed_pids = []
+    
+    try:
+        # Find all processes running this script
+        output = subprocess.check_output(['pgrep', '-f', script_name], text=True).strip()
+        pids = [int(pid) for pid in output.split('\n') if pid]
+        
+        # Kill all except current process
+        for pid in pids:
+            if pid != current_pid:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                    killed_pids.append(pid)
+                except ProcessLookupError:
+                    pass  # Already dead
+        
+        return killed_pids
+        
+    except subprocess.CalledProcessError:
+        # No other processes found - this is good
+        return []
+    except Exception as e:
+        print(f"Warning: Error checking for existing {script_name} processes: {e}")
+        return []
 
 
 def restart_systemd_service(service_name: str, timeout: int = 30) -> Dict[str, Any]:

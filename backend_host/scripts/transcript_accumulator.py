@@ -25,7 +25,8 @@ from shared.src.lib.utils.storage_path_utils import (
     get_device_info_from_capture_folder, 
     get_device_base_path,
     get_audio_path,
-    get_transcript_path
+    get_transcript_path,
+    get_capture_storage_path
 )
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
@@ -450,6 +451,13 @@ def process_mp3_chunks(capture_dir):
 def main():
     # Clean log file first
     cleanup_logs_on_startup()
+    
+    # Kill any existing transcript_accumulator instances before starting
+    from shared.src.lib.utils.system_utils import kill_existing_script_instances
+    killed = kill_existing_script_instances('transcript_accumulator.py')
+    if killed:
+        print(f"[@transcript_accumulator] Killed existing instances: {killed}")
+        time.sleep(1)
     
     # Configure logging (systemd handles file output via StandardOutput directive)
     logging.basicConfig(

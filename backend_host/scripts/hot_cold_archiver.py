@@ -577,9 +577,21 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
             })
         
         # Atomic write
-        with open(output_path + '.tmp', 'w') as f:
-            json.dump(output_data, f, indent=2)
-        os.rename(output_path + '.tmp', output_path)
+        try:
+            # Ensure parent directory exists (critical for temp files)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            with open(output_path + '.tmp', 'w') as f:
+                json.dump(output_data, f, indent=2)
+            os.rename(output_path + '.tmp', output_path)
+        except Exception as e:
+            logger.error(f"Metadata merge write/rename failed: {e}")
+            # Clean up temp file if it exists
+            try:
+                os.remove(output_path + '.tmp')
+            except:
+                pass
+            return False
         
         # Delete source files (including empty/corrupted ones)
         for file_path in batch_files:
@@ -1079,6 +1091,13 @@ def main_loop():
     Safety cleanup runs FIRST and independently from merging/archiving to guarantee
     hot storage never exceeds limits even when pipeline processes fail.
     """
+    # Kill any existing archiver instances before starting
+    from shared.src.lib.utils.system_utils import kill_existing_script_instances
+    killed = kill_existing_script_instances('hot_cold_archiver.py')
+    if killed:
+        logger.info(f"Killed existing archiver instances: {killed}")
+        time.sleep(1)
+    
     logger.info("=" * 60)
     logger.info("HOT/COLD ARCHIVER - SAFETY CLEANUP + PROGRESSIVE GROUPING")
     logger.info("=" * 60)

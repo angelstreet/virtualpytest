@@ -353,6 +353,13 @@ class InotifyFrameMonitor:
 def main():
     """Main entry point"""
     
+    # Kill any existing capture_monitor instances before starting
+    from shared.src.lib.utils.system_utils import kill_existing_script_instances
+    killed = kill_existing_script_instances('capture_monitor.py')
+    if killed:
+        logger.info(f"Killed existing capture_monitor instances: {killed}")
+        time.sleep(1)
+    
     logger.info("=" * 80)
     logger.info("Starting inotify-based incident monitor")
     logger.info("Performance: Zero CPU when idle, event-driven processing")
