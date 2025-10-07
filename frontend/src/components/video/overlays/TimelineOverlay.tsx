@@ -67,89 +67,85 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   // Calculate timeline range - always full 24h for archive mode
   const min = isLiveMode ? 0 : 0;           // Always start at 0 (midnight)
   const max = isLiveMode ? 150 : 86400;     // 24h = 86400 seconds
-  
-  // INVERTED TIMELINE: Convert globalCurrentTime (0-86400) to inverted slider value
-  // globalCurrentTime=0 (hour 0/midnight) -> slider=86400 (right side)
-  // globalCurrentTime=86400 (24h later) -> slider=0 (left side)
-  const invertedSliderValue = !isLiveMode && archiveMetadata 
-    ? 86400 - globalCurrentTime 
+
+  // STANDARD TIMELINE: Slider value = globalCurrentTime (0 on left = past, 86400 on right = now)
+  const sliderValue = !isLiveMode && archiveMetadata
+    ? globalCurrentTime
     : globalCurrentTime;
-  
-  // Build rail gradient with grey gaps for archive mode (INVERTED: now on right, past on left)
+
+  // Build rail gradient with grey gaps for archive mode (STANDARD: past on left, now on right)
   // Memoized to prevent infinite render loop
   const archiveRailGradient = useMemo(() => {
     if (isLiveMode || !archiveMetadata || archiveMetadata.manifests.length === 0) {
       return 'rgba(255,255,255,0.15)';
     }
-    
+
     const totalSeconds = 86400;
     const now = new Date();
     const currentHour = now.getHours();
-    
+
     const allChunks: { [key: string]: boolean } = {};
     archiveMetadata.manifests.forEach(manifest => {
       const key = `${manifest.window_index}-${manifest.chunk_index}`;
       allChunks[key] = true;
     });
-    
+
     console.log(`[@TimelineOverlay] Building gradient with ${Object.keys(allChunks).length} chunks:`, Object.keys(allChunks));
     console.log(`[@TimelineOverlay] Current hour: ${currentHour}`);
-    
+
     // Collect color stops as array of {percent: number, color: string}
     const colorStops: { percent: number; color: string }[] = [];
-    
-    // Iterate over the last 24 hours, matching the hour marks logic
+
+    // Iterate from oldest to newest (past to now, left to right)
     for (let hoursAgo = 23; hoursAgo >= 0; hoursAgo--) {
-      // Calculate the actual hour for this position (matching hour marks logic)
       const actualHour = (currentHour - hoursAgo + 24) % 24;
-      
-      // Position in seconds: hoursAgo=0 (now) starts at 82800s (last hour), hoursAgo=23 starts at 0s (first hour)
-      const hourStartSeconds = (23 - hoursAgo) * 3600;
-      
+      const hourStartSeconds = (23 - hoursAgo) * 3600;  // 0 for oldest, increases to 82800 for newest
+
       for (let chunk = 0; chunk < 6; chunk++) {
         const key = `${actualHour}-${chunk}`;
         const hasChunk = allChunks[key];
-        
-        // Debug logging for the current hour and hour 15
+
         if (actualHour === currentHour || actualHour === 15) {
           console.log(`[@TimelineOverlay] Hour ${actualHour} (${hoursAgo}h ago), chunk ${chunk}: ${hasChunk ? 'AVAILABLE (blue)' : 'missing (grey)'}, key=${key}`);
         }
-        
-        // Only 2 colors: available (bright cyan) or missing (light grey) - both fully opaque
+
         const color = hasChunk
-          ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks - fully opaque
-          : 'rgb(207, 207, 207)';    // Light grey for missing chunks - fully opaque, no transparency
-        
+          ? 'rgb(104, 177, 255)'  // Bright electric cyan for available
+          : 'rgb(207, 207, 207)'; // Light grey for missing
+
         const startSeconds = hourStartSeconds + chunk * 600;
         const endSeconds = startSeconds + 600;
-        
-        // Calculate percentages (inverted: past on left=high %, now on right=low %)
-        const startPercent = (100 - (startSeconds / totalSeconds) * 100);
-        const endPercent = (100 - (endSeconds / totalSeconds) * 100);
-        
-        // Add both stops - we'll sort later
-        colorStops.push({ percent: endPercent, color });
+
+        // Standard percentages: low on left (past), high on right (now)
+        const startPercent = (startSeconds / totalSeconds) * 100;
+        const endPercent = (endSeconds / totalSeconds) * 100;
+
+        // For sharp transitions: add color at start, and same at end (solid block)
         colorStops.push({ percent: startPercent, color });
+        colorStops.push({ percent: endPercent, color });
       }
     }
-    
-    // Sort stops by percentage ascending (low to high, left to right)
+
+    // Sort by percentage ascending (should already be mostly sorted, but ensure)
     colorStops.sort((a, b) => a.percent - b.percent);
-    
-    // Build gradient string from sorted stops
+
+    // To ensure sharp transitions between different colors, duplicate stops at boundaries isn't needed since same color merges
     const gradientParts = colorStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
-    
-    return `linear-gradient(to right, ${gradientParts.join(', ')})`;
+
+    const gradientString = `linear-gradient(to right, ${gradientParts.join(', ')})`;
+    console.log(`[@TimelineOverlay] Final gradient: ${gradientString}`);
+
+    return gradientString;
   }, [isLiveMode, archiveMetadata]);
 
   // Check if a given time (in seconds from midnight) has an available chunk
   const isTimeAvailable = (timeSeconds: number): boolean => {
     if (!archiveMetadata || archiveMetadata.manifests.length === 0) return false;
-    
+
     const hour = Math.floor(timeSeconds / 3600);
     const chunk = Math.floor((timeSeconds % 3600) / 600);
     const key = `${hour}-${chunk}`;
-    
+
     return archiveMetadata.manifests.some(
       manifest => `${manifest.window_index}-${manifest.chunk_index}` === key
     );
@@ -192,7 +188,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             {isPlaying ? <Pause /> : <PlayArrow />}
           </IconButton>
         )}
-        
+
         <Box
           sx={{
             position: 'relative',
@@ -205,12 +201,12 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               position: 'absolute',
               top: -40,  // Position above the slider/thumb
               left: (() => {
-                const currentValue = isLiveMode 
+                const currentValue = isLiveMode
                   ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)
-                  : (isDraggingSlider ? dragSliderValue : invertedSliderValue);
+                  : (isDraggingSlider ? dragSliderValue : sliderValue);
                 const minValue = isLiveMode ? 0 : 0;
                 const maxValue = isLiveMode ? 150 : 86400;
-                
+
                 const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
                 return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width for centering
               })(),
@@ -245,8 +241,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                 })()
               ) : (
-                // Show actual time (convert from inverted slider value)
-                formatTime(86400 - (isDraggingSlider ? dragSliderValue : invertedSliderValue))
+                // Show actual time directly
+                formatTime(isDraggingSlider ? dragSliderValue : sliderValue)
               )}
             </Typography>
             {/* Downward arrow to point at the thumb */}
@@ -263,9 +259,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           </Box>
 
           <Slider
-            value={isLiveMode 
-              ? (isDraggingSlider ? dragSliderValue : liveSliderPosition) 
-              : (isDraggingSlider ? dragSliderValue : invertedSliderValue)
+            value={isLiveMode
+              ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)
+              : (isDraggingSlider ? dragSliderValue : sliderValue)
             }
             min={min}
             max={max}
@@ -276,8 +272,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             onChangeCommitted={(event, value) => {
               if (!isLiveMode) {
                 const sliderValue = Array.isArray(value) ? value[0] : value;
-                // Convert inverted slider value back to actual time
-                const seekTime = 86400 - sliderValue;
+                // No inversion needed - sliderValue is now actual time
+                const seekTime = sliderValue;
 
                 if (isTimeAvailable(seekTime)) {
                   // If available, seek normally
@@ -312,7 +308,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               onSeek(event, value);
             }}
             marks={!isLiveMode ? hourMarks : []}
-            sx={{ 
+            sx={{
               color: isLiveMode ? 'error.main' : 'primary.main',
               flex: 1,
               '& .MuiSlider-thumb': {
@@ -332,12 +328,12 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 borderRadius: '4px',
                 border: '1px solid rgba(255, 255, 255, 0.3)',  // Slightly more visible border
                 opacity: 1,  // Force full opacity
-                background: isLiveMode 
+                background: isLiveMode
                   ? (() => {
                       const bufferPercent = Math.max(0, ((150 - liveBufferSeconds) / 150) * 100);
-                      return `linear-gradient(to right, 
-                        rgba(255,255,255,0.15) 0%, 
-                        rgba(255,255,255,0.15) ${bufferPercent}%, 
+                      return `linear-gradient(to right,
+                        rgba(255,255,255,0.15) 0%,
+                        rgba(255,255,255,0.15) ${bufferPercent}%,
                         rgba(244,67,54,1) ${bufferPercent}%,
                         rgba(244,67,54,1) 100%
                       )`;
@@ -352,8 +348,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           />
         </Box>
       </Box>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: -2 }}>  
+
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: -2 }}>
         {isLiveMode ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {liveBufferSeconds > 0 && liveBufferSeconds < 150 && (
