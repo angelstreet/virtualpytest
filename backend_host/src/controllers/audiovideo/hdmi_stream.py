@@ -29,14 +29,13 @@ class HDMIStreamController(FFmpegCaptureController):
         """Update quality in config - stream.service will detect and restart."""
         try:
             import os
-            import tempfile
             device_id = self.device_id
             capture_dir = self.video_capture_path
             config_file = '/tmp/active_captures.conf'
             
             print(f"[HDMI] Updating quality for {device_id} to {quality}")
             
-            # Simple atomic update using temp file + rename (no locking needed)
+            # Direct file update (file is 777, so any user can write)
             # Read existing entries
             entries = []
             if os.path.exists(config_file):
@@ -56,16 +55,9 @@ class HDMIStreamController(FFmpegCaptureController):
                 print(f"[HDMI] Device {device_id} not running yet")
                 return False
             
-            # Write to temp file and atomically rename
-            fd, temp_path = tempfile.mkstemp(dir='/tmp', prefix='active_captures_', suffix='.tmp')
-            try:
-                with os.fdopen(fd, 'w') as f:
-                    f.write('\n'.join(entries) + '\n')
-                os.chmod(temp_path, 0o777)
-                os.rename(temp_path, config_file)  # Atomic on Unix
-            except:
-                os.unlink(temp_path)  # Clean up temp file on error
-                raise
+            # Write directly to file (no temp/rename needed since file is 777)
+            with open(config_file, 'w') as f:
+                f.write('\n'.join(entries) + '\n')
             
             print(f"[HDMI] Quality updated: {device_id} → {quality}")
             return True
