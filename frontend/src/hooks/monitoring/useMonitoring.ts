@@ -56,7 +56,8 @@ export const useMonitoring = ({
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
-  const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
+  // AI analysis disabled
+  // const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -107,74 +108,49 @@ export const useMonitoring = ({
     return { analysis: parsed, subtitleAnalysis };
   }, []);
 
-  // Background AI analysis (runs separately, non-blocking)
-  const analyzeFrameAIAsync = useCallback(async (imageUrl: string, sequence: string): Promise<{
-    subtitleAnalysis: SubtitleAnalysis | null;
-    languageMenuAnalysis: LanguageMenuAnalysis | null;
-    aiDescription: string | null;
-  }> => {
-    console.log('[useMonitoring] 🤖 Background AI analysis for sequence:', sequence);
+  // AI analysis disabled - all AI functionality commented out
+  // const analyzeFrameAIAsync = useCallback(async (imageUrl: string, sequence: string): Promise<{
+  //   subtitleAnalysis: SubtitleAnalysis | null;
+  //   languageMenuAnalysis: LanguageMenuAnalysis | null;
+  //   aiDescription: string | null;
+  // }> => {
+  //   console.log('[useMonitoring] 🤖 Background AI analysis for sequence:', sequence);
+  //   const combinedResult = await fetch(buildServerUrl('/server/verification/video/analyzeImageComplete'), {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json' },
+  //     body: JSON.stringify({
+  //       host_name: host.host_name,
+  //       device_id: device?.device_id,
+  //       image_source_url: imageUrl,
+  //       extract_text: true,
+  //       include_description: true,
+  //     }),
+  //   }).then(r => r.ok ? r.json() : null).catch(() => null);
+  //   let subtitleAnalysis: SubtitleAnalysis | null = null;
+  //   let languageMenuAnalysis: LanguageMenuAnalysis | null = null;
+  //   let aiDescription: string | null = null;
+  //   if (combinedResult?.success && combinedResult.subtitle_analysis) {
+  //     const data = combinedResult.subtitle_analysis;
+  //     subtitleAnalysis = {
+  //       subtitles_detected: data.subtitles_detected || false,
+  //       combined_extracted_text: data.combined_extracted_text || '',
+  //       detected_language: data.detected_language !== 'unknown' ? data.detected_language : undefined,
+  //       confidence: data.confidence || (data.subtitles_detected ? 0.9 : 0.1),
+  //       detection_message: data.detection_message || '',
+  //     };
+  //   }
+  //   if (combinedResult?.success && combinedResult.description_analysis?.success) {
+  //     aiDescription = combinedResult.description_analysis.response;
+  //   }
+  //   console.log(`[useMonitoring] ✅ Background AI completed for sequence:`, sequence);
+  //   return { subtitleAnalysis, languageMenuAnalysis, aiDescription };
+  // }, [host, device?.device_id]);
 
-    // Combined AI analysis in background (single call for both subtitle + description)
-    const combinedResult = await fetch(buildServerUrl('/server/verification/video/analyzeImageComplete'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        host_name: host.host_name,
-        device_id: device?.device_id,
-        image_source_url: imageUrl,
-        extract_text: true,
-        include_description: true,
-      }),
-    }).then(r => r.ok ? r.json() : null).catch(() => null);
-
-    // Process combined AI results
-    let subtitleAnalysis: SubtitleAnalysis | null = null;
-    let languageMenuAnalysis: LanguageMenuAnalysis | null = null;
-    let aiDescription: string | null = null;
-    
-    if (combinedResult?.success && combinedResult.subtitle_analysis) {
-      const data = combinedResult.subtitle_analysis;
-      subtitleAnalysis = {
-        subtitles_detected: data.subtitles_detected || false,
-        combined_extracted_text: data.combined_extracted_text || '',
-        detected_language: data.detected_language !== 'unknown' ? data.detected_language : undefined,
-        confidence: data.confidence || (data.subtitles_detected ? 0.9 : 0.1),
-        detection_message: data.detection_message || '',
-      };
-    }
-
-    if (combinedResult?.success && combinedResult.description_analysis?.success) {
-      aiDescription = combinedResult.description_analysis.response;
-    }
-
-    console.log(`[useMonitoring] ✅ Background AI completed for sequence:`, sequence);
-
-    return { subtitleAnalysis, languageMenuAnalysis, aiDescription };
-  }, [host, device?.device_id]);
-
-  // Non-blocking AI analysis trigger (fire-and-forget pattern like polling loop)
-  const requestAIAnalysisForFrame = useCallback((imageUrl: string, sequence: string) => {
-    console.log('[useMonitoring] 🤖 Manual AI analysis triggered (non-blocking):', sequence);
-    
-    // Show indicator but don't block UI
-    setIsAIAnalyzing(true);
-    
-    // Fire-and-forget - same pattern as automatic polling (line 328)
-    analyzeFrameAIAsync(imageUrl, sequence).then(aiResults => {
-      setAnalysisHistory(prev => 
-        prev.map(s => 
-          s.analysis?.filename?.includes(sequence)
-            ? { ...s, ...aiResults }
-            : s
-        )
-      );
-      setIsAIAnalyzing(false);
-    }).catch(error => {
-      console.warn('[useMonitoring] Manual AI analysis failed:', error);
-      setIsAIAnalyzing(false);
-    });
-  }, [analyzeFrameAIAsync]);
+  // AI analysis disabled - no-op function
+  const requestAIAnalysisForFrame = useCallback((_imageUrl: string, _sequence: string) => {
+    console.log('[useMonitoring] AI analysis is disabled');
+    // No-op
+  }, []);
 
   // Fetch latest JSON content directly (no second HTTP request!)
   const fetchLatestMonitoringData = useCallback(async (): Promise<{
@@ -338,23 +314,24 @@ export const useMonitoring = ({
         setLastProcessedSequence(latestData.sequence);
         if (isLoadingRef.current) setIsLoading(false);
 
-        analyzeFrameAIAsync(latestData.imageUrl, latestData.sequence).then(aiResults => {
-          if (!isMounted) return;
-          setAnalysisHistory(prev => 
-            prev.map(s => 
-              s.timestamp === latestData.timestamp 
-                ? { 
-                    ...s, 
-                    subtitleAnalysis: aiResults.subtitleAnalysis || s.subtitleAnalysis,
-                    languageMenuAnalysis: aiResults.languageMenuAnalysis,
-                    aiDescription: aiResults.aiDescription,
-                  }
-                : s
-            )
-          );
-        }).catch(error => {
-          console.warn('[useMonitoring] Background AI failed:', error);
-        });
+        // AI analysis disabled - no background AI calls
+        // analyzeFrameAIAsync(latestData.imageUrl, latestData.sequence).then(aiResults => {
+        //   if (!isMounted) return;
+        //   setAnalysisHistory(prev => 
+        //     prev.map(s => 
+        //       s.timestamp === latestData.timestamp 
+        //         ? { 
+        //             ...s, 
+        //             subtitleAnalysis: aiResults.subtitleAnalysis || s.subtitleAnalysis,
+        //             languageMenuAnalysis: aiResults.languageMenuAnalysis,
+        //             aiDescription: aiResults.aiDescription,
+        //           }
+        //         : s
+        //     )
+        //   );
+        // }).catch(error => {
+        //   console.warn('[useMonitoring] Background AI failed:', error);
+        // });
       } catch (error) {
         console.error('[useMonitoring] Polling error:', error);
       }
@@ -370,7 +347,7 @@ export const useMonitoring = ({
         pollingIntervalRef.current = null;
       }
     };
-  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, parseJsonData, analyzeFrameAIAsync, fetchArchiveData]);
+  }, [enabled, archiveMode, currentVideoTime, fetchLatestMonitoringData, parseJsonData, fetchArchiveData]);
 
   // Compute error trend data from analysis history
   const computeErrorTrends = useCallback((): ErrorTrendData | null => {
@@ -445,6 +422,6 @@ export const useMonitoring = ({
     isLoading,
     analysisTimestamp: latestSnapshot?.timestamp || null,
     requestAIAnalysisForFrame,
-    isAIAnalyzing,
+    isAIAnalyzing: false, // AI disabled
   };
 };
