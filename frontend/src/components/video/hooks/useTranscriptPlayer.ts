@@ -156,6 +156,7 @@ export const useTranscriptPlayer = ({
       
       if (isLongChunk && transcriptData.segments.length === 1) {
         // NEW format: Show transcript for entire 10-minute chunk
+        // Since we're playing a single 10-min chunk, transcript is always visible during playback
         const segment = transcriptData.segments[0];
         const chunkStartTime = segment.relative_seconds;
         const chunkEndTime = chunkStartTime + 600; // 10 minutes
@@ -165,6 +166,7 @@ export const useTranscriptPlayer = ({
           console.log(`[@useTranscriptPlayer] Showing 10-min transcript (time ${globalCurrentTime.toFixed(1)}s within chunk ${chunkStartTime}-${chunkEndTime})`);
           setCurrentTranscript(segment);
         } else {
+          console.log(`[@useTranscriptPlayer] Time mismatch: globalCurrentTime=${globalCurrentTime.toFixed(1)}s, chunk range=${chunkStartTime}-${chunkEndTime}`);
           setCurrentTranscript(null);
         }
       } else {
