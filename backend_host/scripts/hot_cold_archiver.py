@@ -1095,6 +1095,17 @@ def main_loop():
             
             logger.info(f"✓ {os.path.basename(capture_dir)}: Rebuilt archive manifest with {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
             
+            # Log detailed manifest info
+            if manifest['total_chunks'] > 0:
+                logger.info(f"   📹 Archive: Available hours: {manifest['available_hours']}")
+                # Show first and last chunk as examples
+                first_chunk = manifest['chunks'][0]
+                last_chunk = manifest['chunks'][-1]
+                logger.info(f"   📹 Archive: First chunk: hour {first_chunk['hour']}, chunk {first_chunk['chunk_index']}, size {first_chunk['size']/1024/1024:.1f}MB")
+                logger.info(f"   📹 Archive: Last chunk: hour {last_chunk['hour']}, chunk {last_chunk['chunk_index']}, size {last_chunk['size']/1024/1024:.1f}MB")
+            else:
+                logger.info(f"   📹 Archive: No chunks found")
+            
             # Rebuild transcript manifest
             transcript_manifest = rebuild_transcript_manifest_from_disk(capture_dir)
             transcript_manifest_path = os.path.join(capture_dir, 'transcript', 'transcript_manifest.json')
@@ -1106,6 +1117,17 @@ def main_loop():
             os.rename(transcript_manifest_path + '.tmp', transcript_manifest_path)
             
             logger.info(f"✓ {os.path.basename(capture_dir)}: Rebuilt transcript manifest with {transcript_manifest['total_chunks']} chunks across {len(transcript_manifest['available_hours'])} hours")
+            
+            # Log detailed transcript manifest info
+            if transcript_manifest['total_chunks'] > 0:
+                logger.info(f"   📝 Transcript: Available hours: {transcript_manifest['available_hours']}")
+                # Show first and last transcript chunk
+                first_trans = transcript_manifest['chunks'][0]
+                last_trans = transcript_manifest['chunks'][-1]
+                logger.info(f"   📝 Transcript: First chunk: hour {first_trans['hour']}, chunk {first_trans['chunk_index']}, lang={first_trans.get('language', 'unknown')}, has_text={first_trans.get('has_transcript', False)}")
+                logger.info(f"   📝 Transcript: Last chunk: hour {last_trans['hour']}, chunk {last_trans['chunk_index']}, lang={last_trans.get('language', 'unknown')}, has_text={last_trans.get('has_transcript', False)}")
+            else:
+                logger.info(f"   📝 Transcript: No chunks found")
             
         except Exception as e:
             logger.error(f"Error rebuilding manifests for {capture_dir}: {e}")
