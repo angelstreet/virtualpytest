@@ -200,28 +200,29 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 16,
               },
               '& .MuiSlider-track': {
-                backgroundColor: isLiveMode ? undefined : 'primary.main',
-                background: isLiveMode ? `linear-gradient(to right, 
-                  rgba(244,67,54,0.8) 0%, 
-                  rgba(244,67,54,0.8) ${Math.max(0, (liveBufferSeconds / 150) * 100)}%, 
-                  rgba(255,255,255,0.15) ${Math.max(0, (liveBufferSeconds / 150) * 100)}%,
-                  rgba(255,255,255,0.15) 100%
-                )` : undefined,
+                backgroundColor: isLiveMode ? 'transparent' : 'primary.main',
                 height: 6,
               },
               '& .MuiSlider-rail': {
                 backgroundColor: 'rgba(255,255,255,0.15)',
                 height: 6,
-                background: !isLiveMode && continuousStartTime > 0 && continuousEndTime > 0 
-                  ? `linear-gradient(to right,
-                      rgba(100,100,100,0.3) 0%,
-                      rgba(100,100,100,0.3) ${(continuousStartTime / max) * 100}%,
-                      rgba(255,255,255,0.15) ${(continuousStartTime / max) * 100}%,
-                      rgba(255,255,255,0.15) ${(continuousEndTime / max) * 100}%,
-                      rgba(100,100,100,0.3) ${(continuousEndTime / max) * 100}%,
-                      rgba(100,100,100,0.3) 100%
+                background: isLiveMode 
+                  ? `linear-gradient(to right, 
+                      rgba(255,255,255,0.15) 0%, 
+                      rgba(255,255,255,0.15) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%, 
+                      rgba(244,67,54,0.8) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
+                      rgba(244,67,54,0.8) 100%
                     )`
-                  : undefined,
+                  : (continuousStartTime > 0 && continuousEndTime > 0 
+                    ? `linear-gradient(to right,
+                        rgba(100,100,100,0.3) 0%,
+                        rgba(100,100,100,0.3) ${(continuousStartTime / max) * 100}%,
+                        rgba(255,255,255,0.15) ${(continuousStartTime / max) * 100}%,
+                        rgba(255,255,255,0.15) ${(continuousEndTime / max) * 100}%,
+                        rgba(100,100,100,0.3) ${(continuousEndTime / max) * 100}%,
+                        rgba(100,100,100,0.3) 100%
+                      )`
+                    : undefined),
               },
               '& .MuiSlider-markLabel': {
                 fontSize: '0.7rem',
