@@ -84,41 +84,45 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       return 'rgba(255,255,255,0.15)';
     }
     
-    // Calculate ALL 144 possible 10-minute chunks in 24h
-    const allChunkPositions: { [key: string]: boolean } = {};
+    const stops: { pos: number; color: string }[] = [];
+    const totalSeconds = 86400;
+    
+    const allChunks: { [key: string]: { has_metadata: boolean } } = {};
     archiveMetadata.manifests.forEach(manifest => {
       const key = `${manifest.window_index}-${manifest.chunk_index}`;
-      allChunkPositions[key] = true;
+      allChunks[key] = { has_metadata: manifest.has_metadata ?? false };
     });
-    
-    // Build gradient with available (blue) and gap (grey) segments
-    // INVERTED: hour 0 (midnight) at right (100%), hour 23 at left (0%)
-    // Slider value: 0s = far left (24h ago), 86400s = far right (now/midnight)
-    const gradientParts: string[] = [];
-    const totalSeconds = 24 * 3600; // 24 hours
     
     for (let hour = 0; hour < 24; hour++) {
       for (let chunk = 0; chunk < 6; chunk++) {
         const key = `${hour}-${chunk}`;
-        const hasChunk = allChunkPositions[key];
+        const chunkData = allChunks[key];
+        const hasChunk = !!chunkData;
+        
+        const color = !hasChunk 
+          ? 'rgba(50, 50, 50, 0.6)'  // Dark grey for missing
+          : chunkData.has_metadata 
+            ? 'rgba(100, 181, 246, 0.85)'  // Blue for with metadata
+            : 'rgba(150, 150, 150, 0.7)';  // Light grey for without metadata
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
         
-        // INVERT the visual position: hour 0 appears at right (100%), hour 23 at left (0%)
-        // endPercent < startPercent because we're inverting
-        const startPercent = 100 - ((startSeconds / totalSeconds) * 100);
-        const endPercent = 100 - ((endSeconds / totalSeconds) * 100);
+        // Calculate percentages (inverted)
+        const startPercent = 100 - (startSeconds / totalSeconds) * 100;
+        const endPercent = 100 - (endSeconds / totalSeconds) * 100;
         
-        const color = hasChunk 
-          ? 'rgba(100, 181, 246, 0.85)'  // Available chunk (light blue, MORE VISIBLE - 85% opacity)
-          : 'rgba(50, 50, 50, 0.6)';     // Gap (dark grey, 60% opacity)
-        
-        // Gradient stops must be in ascending order of percentage
-        gradientParts.push(`${color} ${endPercent}%`);
-        gradientParts.push(`${color} ${startPercent}%`);
+        // Push stops (endPercent < startPercent)
+        stops.push({ pos: endPercent, color });
+        stops.push({ pos: startPercent, color });
       }
     }
+    
+    // Sort stops by position ascending
+    stops.sort((a, b) => a.pos - b.pos);
+    
+    // Build gradient string
+    const gradientParts = stops.map(stop => `${stop.color} ${stop.pos}%`);
     
     return `linear-gradient(to right, ${gradientParts.join(', ')})`;
   };
@@ -264,6 +268,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               '& .MuiSlider-thumb': {
                 width: 16,
                 height: 16,
+                zIndex: 2,
               },
               '& .MuiSlider-track': {
                 // Hide track completely - we only want the rail to show availability
