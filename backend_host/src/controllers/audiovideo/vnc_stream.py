@@ -44,7 +44,6 @@ class VNCStreamController(FFmpegCaptureController):
             
             print(f"VNC[{device_id}]: Updating quality to {quality}")
             
-            # Direct file update (file is 777, so any user can write)
             # Read existing entries
             entries = []
             if os.path.exists(config_file):
@@ -64,7 +63,7 @@ class VNCStreamController(FFmpegCaptureController):
                 print(f"VNC[{device_id}]: Device not running yet")
                 return False
             
-            # Write directly to file (no temp/rename needed since file is 777)
+            # Direct write (file is 777, no atomic rename needed)
             with open(config_file, 'w') as f:
                 f.write('\n'.join(entries) + '\n')
             

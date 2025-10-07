@@ -35,7 +35,6 @@ class HDMIStreamController(FFmpegCaptureController):
             
             print(f"[HDMI] Updating quality for {device_id} to {quality}")
             
-            # Direct file update (file is 777, so any user can write)
             # Read existing entries
             entries = []
             if os.path.exists(config_file):
@@ -55,7 +54,7 @@ class HDMIStreamController(FFmpegCaptureController):
                 print(f"[HDMI] Device {device_id} not running yet")
                 return False
             
-            # Write directly to file (no temp/rename needed since file is 777)
+            # Direct write (file is 777, no atomic rename needed)
             with open(config_file, 'w') as f:
                 f.write('\n'.join(entries) + '\n')
             
