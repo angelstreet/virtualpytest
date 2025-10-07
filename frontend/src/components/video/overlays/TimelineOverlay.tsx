@@ -95,8 +95,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     console.log(`[@TimelineOverlay] Building gradient with ${Object.keys(allChunks).length} chunks:`, Object.keys(allChunks));
     console.log(`[@TimelineOverlay] Current hour: ${currentHour}`);
     
-    // Build gradient with hard edges (no smooth transitions)
-    const gradientParts: string[] = [];
+    // Collect color stops as array of {percent: number, color: string}
+    const colorStops: { percent: number; color: string }[] = [];
     
     // Iterate over the last 24 hours, matching the hour marks logic
     for (let hoursAgo = 23; hoursAgo >= 0; hoursAgo--) {
@@ -123,16 +123,21 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         const startSeconds = hourStartSeconds + chunk * 600;
         const endSeconds = startSeconds + 600;
         
-        // Calculate percentages (inverted: past on left, now on right)
-        const startPercent = (100 - (startSeconds / totalSeconds) * 100).toFixed(2);
-        const endPercent = (100 - (endSeconds / totalSeconds) * 100).toFixed(2);
+        // Calculate percentages (inverted: past on left=high %, now on right=low %)
+        const startPercent = (100 - (startSeconds / totalSeconds) * 100);
+        const endPercent = (100 - (endSeconds / totalSeconds) * 100);
         
-        // Create HARD EDGES by putting both color stops at same position
-        // Format: "color start%, color end%"
-        gradientParts.push(`${color} ${endPercent}%`);
-        gradientParts.push(`${color} ${startPercent}%`);
+        // Add both stops - we'll sort later
+        colorStops.push({ percent: endPercent, color });
+        colorStops.push({ percent: startPercent, color });
       }
     }
+    
+    // Sort stops by percentage ascending (low to high, left to right)
+    colorStops.sort((a, b) => a.percent - b.percent);
+    
+    // Build gradient string from sorted stops
+    const gradientParts = colorStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
     
     return `linear-gradient(to right, ${gradientParts.join(', ')})`;
   }, [isLiveMode, archiveMetadata]);
