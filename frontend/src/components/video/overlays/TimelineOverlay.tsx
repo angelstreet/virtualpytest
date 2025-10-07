@@ -99,8 +99,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         const endPercent = (endSeconds / totalSeconds) * 100;
         
         const color = hasChunk 
-          ? 'rgba(255,255,255,0.15)'  // Available chunk (normal)
-          : 'rgba(100,100,100,0.3)';   // Gap (greyed out)
+          ? 'rgba(100, 181, 246, 0.5)'  // Available chunk (light blue, 50% opacity)
+          : 'rgba(50, 50, 50, 0.6)';     // Gap (dark grey, 60% opacity)
         
         gradientParts.push(`${color} ${startPercent}%`);
         gradientParts.push(`${color} ${endPercent}%`);
@@ -224,7 +224,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 6,
               },
               '& .MuiSlider-rail': {
-                backgroundColor: 'rgba(255,255,255,0.15)',
                 height: 6,
                 background: isLiveMode 
                   ? `linear-gradient(to right, 

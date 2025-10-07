@@ -232,14 +232,17 @@ class VideoRestartHelpers:
             FileNotFoundError: If screenshot files don't exist
             Exception: If analysis fails
         """
+        print(f"[HOST] RestartHelpers[{self.device_name}]: 📊 analyze_restart_complete CALLED for {video_id}")
+        print(f"[HOST] RestartHelpers[{self.device_name}]:   - Screenshot URLs: {len(screenshot_urls)}")
+        
         try:
             # Validate inputs
             if not screenshot_urls:
                 error_msg = f"No screenshot URLs provided for visual analysis (video_id: {video_id})"
-                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: {error_msg}")
+                print(f"[HOST] RestartHelpers[{self.device_name}]: ❌ ERROR: {error_msg}")
                 raise ValueError(error_msg)
             
-            print(f"RestartHelpers[{self.device_name}]: Starting visual analysis with {len(screenshot_urls)} screenshots")
+            print(f"[HOST] RestartHelpers[{self.device_name}]: Starting visual analysis with {len(screenshot_urls)} screenshots")
             
             from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
             from backend_host.src.controllers.verification.video import VideoVerificationController
@@ -1149,11 +1152,29 @@ class VideoRestartHelpers:
     
     def _bg_process(self, video_id: str, segment_files: List[tuple], screenshot_urls: List[str], duration_seconds: float) -> None:
         """Start 3 parallel threads"""
+        print(f"[HOST] RestartHelpers[{self.device_name}]: 🚀 BACKGROUND PROCESS STARTING for {video_id}")
+        print(f"[HOST] RestartHelpers[{self.device_name}]:   - Segment files: {len(segment_files) if segment_files else 0}")
+        print(f"[HOST] RestartHelpers[{self.device_name}]:   - Screenshot URLs: {len(screenshot_urls) if screenshot_urls else 0}")
+        print(f"[HOST] RestartHelpers[{self.device_name}]:   - Duration: {duration_seconds}s")
+        
+        if screenshot_urls:
+            print(f"[HOST] RestartHelpers[{self.device_name}]:   - First screenshot URL: {screenshot_urls[0]}")
+            print(f"[HOST] RestartHelpers[{self.device_name}]:   - Last screenshot URL: {screenshot_urls[-1]}")
+        else:
+            print(f"[HOST] RestartHelpers[{self.device_name}]:   - ❌ WARNING: No screenshot URLs provided!")
+        
         self._save_status(video_id, {'audio': 'loading', 'visual': 'loading', 'heavy': 'loading'})
         
+        print(f"[HOST] RestartHelpers[{self.device_name}]: 🧵 Starting audio thread...")
         threading.Thread(target=self._t1_audio, args=(video_id, segment_files, duration_seconds), daemon=True).start()
+        
+        print(f"[HOST] RestartHelpers[{self.device_name}]: 🧵 Starting visual thread...")
         threading.Thread(target=self._t2_visual, args=(video_id, screenshot_urls), daemon=True).start()
+        
+        print(f"[HOST] RestartHelpers[{self.device_name}]: 🧵 Starting heavy thread...")
         threading.Thread(target=self._t3_heavy, args=(video_id,), daemon=True).start()
+        
+        print(f"[HOST] RestartHelpers[{self.device_name}]: ✅ All background threads launched for {video_id}")
     
     def _t1_audio(self, video_id: str, segment_files: List[tuple], duration_seconds: float) -> None:
         """Thread 1: Audio analysis"""
@@ -1169,9 +1190,13 @@ class VideoRestartHelpers:
         
         Catches exceptions and saves error status for polling to detect
         """
+        print(f"[HOST] RestartHelpers[{self.device_name}]: 🎬 _t2_visual THREAD STARTED for {video_id}")
+        print(f"[HOST] RestartHelpers[{self.device_name}]:   - Thread is running")
+        print(f"[HOST] RestartHelpers[{self.device_name}]:   - Screenshot URLs received: {len(screenshot_urls) if screenshot_urls else 0}")
+        
         try:
-            print(f"RestartHelpers[{self.device_name}]: 🎬 Starting visual analysis for {video_id}")
-            print(f"RestartHelpers[{self.device_name}]:   - Screenshot URLs: {len(screenshot_urls)}")
+            print(f"[HOST] RestartHelpers[{self.device_name}]: 🎬 Starting visual analysis for {video_id}")
+            print(f"[HOST] RestartHelpers[{self.device_name}]:   - Screenshot URLs: {len(screenshot_urls)}")
             
             # Validate inputs before starting
             if not screenshot_urls:
