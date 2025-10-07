@@ -103,8 +103,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       // Calculate the actual hour for this position (matching hour marks logic)
       const actualHour = (currentHour - hoursAgo + 24) % 24;
       
-      // Position in seconds: hoursAgo=0 (now) = 86400s, hoursAgo=23 = 3600s
-      const hourStartSeconds = (24 - hoursAgo) * 3600;
+      // Position in seconds: hoursAgo=0 (now) starts at 82800s (last hour), hoursAgo=23 starts at 0s (first hour)
+      const hourStartSeconds = (23 - hoursAgo) * 3600;
       
       for (let chunk = 0; chunk < 6; chunk++) {
         const key = `${actualHour}-${chunk}`;
