@@ -682,7 +682,15 @@ class ScriptExecutor:
             import sys
             sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
             
-            # Batch upload all screenshots to R2 BEFORE report generation
+            # Capture final screenshot BEFORE batch upload so it gets included
+            if context.host and context.selected_device:
+                print(f"📸 [{self.script_name}] Capturing final state screenshot...")
+                from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                screenshot_id = capture_screenshot_for_script(context.selected_device, context, "final_state")
+                if screenshot_id:
+                    print(f"✅ [{self.script_name}] Final screenshot captured: {screenshot_id}")
+            
+            # Batch upload all screenshots to R2 BEFORE report generation (now includes final screenshot)
             url_mapping = context.upload_screenshots_to_r2()
             context.screenshot_url_mapping = url_mapping  # Store for report generation
             
@@ -766,12 +774,7 @@ class ScriptExecutor:
             # Store in context for use in cleanup_and_exit
             context.baseline_execution_time_ms = actual_execution_time_ms
             
-            # Capture final screenshot for report
-            print(f"📸 [{self.script_name}] Capturing final state screenshot...")
-            from shared.src.lib.utils.device_utils import capture_screenshot_for_script
-            screenshot_id = capture_screenshot_for_script(context.selected_device, context, "final_state")
-            if screenshot_id:
-                print(f"✅ [{self.script_name}] Final screenshot captured: {screenshot_id}")
+            # Final screenshot already captured in cleanup_and_exit before batch upload
             
             # Capture test execution video using device AV controller
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
