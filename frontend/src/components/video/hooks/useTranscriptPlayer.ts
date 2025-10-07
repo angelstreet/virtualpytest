@@ -13,6 +13,7 @@ interface UseTranscriptPlayerProps {
   host?: Host;
   deviceId: string;
   hostName: string;
+  externalTranslations?: Record<string, string[]>;  // Optional: from parent (e.g., useRestart)
 }
 
 // Type guard to check if transcript is new 10-minute format
@@ -61,6 +62,7 @@ export const useTranscriptPlayer = ({
   host,
   deviceId,
   hostName,
+  externalTranslations,  // NEW: External translations from parent
 }: UseTranscriptPlayerProps) => {
   const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
   const [rawTranscriptData, setRawTranscriptData] = useState<TranscriptData10Min | null>(null);  // Keep raw 10-min data
@@ -290,7 +292,24 @@ export const useTranscriptPlayer = ({
   const getCurrentTranscriptText = useCallback(() => {
     // Prioritize timed segment for subtitle-style display (NEW format)
     if (currentTimedSegment) {
-      return currentTimedSegment.text;
+      // Check for translation in the segment itself (from JSON cache)
+      if (selectedLanguage !== 'original' && currentTimedSegment.translations?.[selectedLanguage]) {
+        return currentTimedSegment.translations[selectedLanguage];
+      }
+      
+      // Fallback: Check external translations from parent (e.g., useRestart)
+      if (selectedLanguage !== 'original' && externalTranslations?.[selectedLanguage]) {
+        // Find segment index in raw data
+        const segmentIndex = rawTranscriptData?.segments?.findIndex(
+          seg => seg.start === currentTimedSegment.start && seg.end === currentTimedSegment.end
+        ) ?? -1;
+        
+        if (segmentIndex >= 0 && externalTranslations[selectedLanguage][segmentIndex]) {
+          return externalTranslations[selectedLanguage][segmentIndex];
+        }
+      }
+      
+      return currentTimedSegment.text;  // Original text
     }
     
     // Fallback to full transcript segment (OLD format or no timed segments)
@@ -302,7 +321,7 @@ export const useTranscriptPlayer = ({
     
     const translation = currentTranscript.translations?.[selectedLanguage];
     return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
-  }, [currentTranscript, currentTimedSegment, selectedLanguage]);
+  }, [currentTranscript, currentTimedSegment, selectedLanguage, externalTranslations, rawTranscriptData]);
 
   const clearTranscriptData = useCallback(() => {
     setTranscriptData(null);

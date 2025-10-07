@@ -99,6 +99,7 @@ interface TranslationResults {
   summary: string;
   frameDescriptions: string[];
   frameSubtitles: string[];
+  transcriptSegments?: string[];  // Per-segment translations for timed segments
 }
 
 interface UseRestartReturn {
