@@ -105,7 +105,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         // Only 2 colors: available (bright cyan) or missing (dark grey) - both fully opaque
         const color = hasChunk
           ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks - fully opaque
-          : 'rgb(80, 80, 80)';    // Dark grey for missing chunks - fully opaque, no transparency
+          : 'rgb(207, 207, 207)';    // Dark grey for missing chunks - fully opaque, no transparency
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
@@ -149,7 +149,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     right: 0,
     bottom: 0,
     width: '100%',
-    background: 'rgba(0,0,0,0.95)', // Solid dark background, no gradient
+    background: 'rgba(0,0,0,1)', // Solid dark background, no gradient
     padding: '8px 16px 8px 16px', // Reduced vertical padding
     zIndex: 1300, // High z-index to be above everything
     pointerEvents: 'auto' as const,
