@@ -639,18 +639,9 @@ class ScriptExecutor:
                     print(f"📝 [{self.script_name}] Script context populated in device navigation_context")
             
             # 5. Capture initial screenshot (stored in cold, uploaded at script end)
+            from shared.src.lib.utils.device_utils import capture_screenshot
             print(f"📸 [{self.script_name}] Capturing initial state screenshot...")
-            try:
-                av_controller = context.selected_device._get_controller('av')
-                if av_controller:
-                    screenshot_path = av_controller.take_screenshot()
-                    if screenshot_path:
-                        context.add_screenshot(screenshot_path)
-                        print(f"✅ [{self.script_name}] Initial screenshot captured: {os.path.basename(screenshot_path)}")
-                else:
-                    print(f"⚠️ [{self.script_name}] No AV controller found, skipping screenshot")
-            except Exception as e:
-                print(f"⚠️ [{self.script_name}] Screenshot failed: {e}, continuing...")
+            capture_screenshot(context.selected_device, context, f"[{self.script_name}]")
             
             print(f"✅ [{self.script_name}] Execution context setup completed")
             

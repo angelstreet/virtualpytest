@@ -423,14 +423,8 @@ class VerificationExecutor:
             verification_result = controller.execute_verification(verification_config)
             
             # Capture screenshot (no upload)
-            screenshot_path = ""
-            try:
-                if self.av_controller:
-                    screenshot_path = self.av_controller.take_screenshot()
-                    if screenshot_path and context:
-                        context.add_screenshot(screenshot_path)
-            except Exception as e:
-                print(f"[@verification_executor] Screenshot failed: {e}")
+            from shared.src.lib.utils.device_utils import capture_screenshot
+            screenshot_path = capture_screenshot(self.device, context) or ""
             
             flattened_result = {
                 'success': verification_result.get('success', False),
@@ -474,14 +468,8 @@ class VerificationExecutor:
             import traceback
             traceback.print_exc()
             
-            screenshot_path = ""
-            try:
-                if self.av_controller:
-                    screenshot_path = self.av_controller.take_screenshot()
-                    if screenshot_path and context:
-                        context.add_screenshot(screenshot_path)
-            except Exception as screenshot_e:
-                print(f"[@verification_executor] Screenshot failed: {screenshot_e}")
+            from shared.src.lib.utils.device_utils import capture_screenshot
+            screenshot_path = capture_screenshot(self.device, context) or ""
             
             return {
                 'success': False,

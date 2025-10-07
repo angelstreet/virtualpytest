@@ -615,14 +615,8 @@ class ActionExecutor:
             result_message += f" ({successful_iterations}/{iterator_count} iterations)"
         
         # Capture screenshot (no upload)
-        screenshot_path = ""
-        try:
-            if self.av_controller:
-                screenshot_path = self.av_controller.take_screenshot()
-                if screenshot_path and context:
-                    context.add_screenshot(screenshot_path)
-        except Exception as e:
-            print(f"[@action_executor] Screenshot failed: {e}")
+        from shared.src.lib.utils.device_utils import capture_screenshot
+        screenshot_path = capture_screenshot(self.device, context) or ""
         
         return {
             'success': all_iterations_successful,
