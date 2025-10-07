@@ -95,7 +95,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const timelineStyle = {
     position: 'fixed' as const,
     left: `${containerRect.left}px`,
-    top: `${containerRect.bottom + 20}px`, // 20px below the container
+    bottom: '80px', // Fixed distance from bottom of viewport (consistent for mobile and desktop)
     width: `${containerRect.width}px`,
     background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
     padding: '16px',
