@@ -57,6 +57,7 @@ set +a
 echo "✅ .env loaded successfully"
 
 declare -A GRABBERS=()
+declare -A RUNNING_QUALITY=()  # Track what quality each device is actually running
 
 # Build GRABBERS array (filtered by target device if in single mode)
 if [ -n "$HOST_VIDEO_SOURCE" ] && { [ "$SINGLE_DEVICE_MODE" = false ] || [ "$TARGET_DEVICE" = "host" ]; }; then
@@ -230,9 +231,43 @@ cleanup() {
   echo "Note: hot_cold_archiver.service handles cleanup independently"
 }
 
+# Check if any device needs quality change (called from main loop)
+check_quality_changes() {
+  [ -f "/tmp/active_captures.conf" ] || return
+  
+  # Read config and compare with what's actually running
+  while IFS=',' read -r capture_dir pid config_quality; do
+    [ -z "$capture_dir" ] && continue
+    
+    # Find device_id
+    local device_id=""
+    for index in "${!GRABBERS[@]}"; do
+      IFS='|' read -r _ _ dev_capture_dir _ <<< "${GRABBERS[$index]}"
+      [ "$dev_capture_dir" = "$capture_dir" ] && device_id="$index" && break
+    done
+    [ -z "$device_id" ] && continue
+    
+    # Compare config quality vs running quality
+    local running_quality="${RUNNING_QUALITY[$device_id]}"
+    
+    if [ "$config_quality" != "$running_quality" ]; then
+      echo "🔄 Quality change: $device_id ($running_quality → $config_quality)"
+      kill -9 "$pid" 2>/dev/null || true
+      sleep 1
+      
+      # Restart with new quality
+      IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$device_id]}"
+      start_grabber "$source" "$audio_device" "$capture_dir" "$device_id" "$input_fps" "$config_quality"
+    fi
+  done < "/tmp/active_captures.conf"
+}
+
 start_grabber() {
   local source=$1 audio_device=$2 capture_dir=$3 index=$4 input_fps=$5
-  local quality=$(get_device_quality "$capture_dir")
+  local target_quality=$6  # Optional: if provided, use this quality instead of get_device_quality
+  
+  # Use target_quality if provided, otherwise fallback to get_device_quality
+  local quality=${target_quality:-$(get_device_quality "$capture_dir")}
   local source_type=$(detect_source_type "$source")
   
   if [ "$source_type" = "unknown" ]; then
@@ -364,13 +399,14 @@ start_grabber() {
   > "$FFMPEG_LOG"
   reset_log_if_large "$FFMPEG_LOG"
   
-  # Use setsid with bash -c to create a new session - ensures FFmpeg survives parent process restarts
-  # This makes FFmpeg completely independent of backend_host/subprocess lifecycle
-  setsid bash -c "$FFMPEG_CMD" > "$FFMPEG_LOG" 2>&1 &
+  eval $FFMPEG_CMD > "$FFMPEG_LOG" 2>&1 &
   local FFMPEG_PID=$!
   
   # Update active_captures.conf with CSV format
   update_active_captures "$capture_dir" "$FFMPEG_PID" "$quality"
+  
+  # Track running quality in memory
+  RUNNING_QUALITY[$index]="$quality"
   
   echo "✅ Started $index PID:$FFMPEG_PID quality:$quality"
   
@@ -469,6 +505,8 @@ echo "🔍 DEBUG: Keeping service alive (systemd Type=simple)"
 echo "Press Ctrl+C or send SIGTERM to stop gracefully"
 
 while true; do
-  sleep 3600 &
-  wait $!  # Wait for sleep in background, allows signal interruption
+  # Check if any device quality changed or died
+  check_quality_changes
+  
+  sleep 1  # Check every second
 done

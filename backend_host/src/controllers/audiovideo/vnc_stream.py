@@ -35,34 +35,50 @@ class VNCStreamController(FFmpegCaptureController):
 
         
     def restart_stream(self, quality: str = 'sd') -> bool:
-        """Restart VNC streaming with quality parameter."""
+        """Update quality in config - stream.service will detect and restart."""
         try:
             import os
+            import fcntl
             device_id = self.device_id
-            print(f"VNC[{device_id}]: Restarting with quality: {quality}")
+            capture_dir = self.video_capture_path
+            config_file = '/tmp/active_captures.conf'
+            lock_file = f'{config_file}.lock'
             
-            # Get script path relative to this file
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-            script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
+            print(f"VNC[{device_id}]: Updating quality to {quality}")
             
-            # Run as www-data to match stream.service user (ensures consistent file permissions)
-            result = subprocess.run(
-                ['sudo', '-u', 'www-data', script_path, device_id, quality],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            if result.returncode == 0:
-                print(f"VNC[{device_id}]: Restarted successfully")
-                return True
-            else:
-                print(f"VNC[{device_id}]: Failed: {result.stderr}")
-                return False
+            # Atomic update with file lock
+            with open(lock_file, 'w') as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
                 
+                # Read existing entries
+                entries = []
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        entries = [line.strip() for line in f if line.strip()]
+                
+                # Update quality for this device
+                found = False
+                for i, entry in enumerate(entries):
+                    parts = entry.split(',')
+                    if len(parts) == 3 and parts[0] == capture_dir:
+                        entries[i] = f"{parts[0]},{parts[1]},{quality}"
+                        found = True
+                        break
+                
+                if not found:
+                    print(f"VNC[{device_id}]: Device not running yet")
+                    return False
+                
+                # Write back
+                with open(config_file, 'w') as f:
+                    f.write('\n'.join(entries) + '\n')
+                os.chmod(config_file, 0o777)
+            
+            print(f"VNC[{device_id}]: Quality updated → {quality}")
+            return True
+            
         except Exception as e:
-            print(f"VNC[{self.capture_source}]: Error: {e}")
+            print(f"VNC[{device_id}]: Error updating quality: {e}")
             return False
 
 

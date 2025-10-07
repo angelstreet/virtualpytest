@@ -26,38 +26,50 @@ class HDMIStreamController(FFmpegCaptureController):
 
         
     def restart_stream(self, quality: str = 'sd') -> bool:
-        """Restart HDMI streaming with quality parameter."""
+        """Update quality in config - stream.service will detect and restart."""
         try:
             import os
+            import fcntl
             device_id = self.device_id
-            print(f"[HDMI_CONTROLLER] restart_stream called with quality={quality} (type: {type(quality).__name__})")
-            print(f"[HDMI_CONTROLLER] device_id={device_id}")
+            capture_dir = self.video_capture_path
+            config_file = '/tmp/active_captures.conf'
+            lock_file = f'{config_file}.lock'
             
-            # Get script path relative to this file
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            backend_host_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-            script_path = os.path.join(backend_host_dir, 'scripts', 'run_ffmpeg_and_rename_local.sh')
+            print(f"[HDMI] Updating quality for {device_id} to {quality}")
             
-            # Run as www-data to match stream.service user (ensures consistent file permissions)
-            cmd = ['sudo', '-u', 'www-data', script_path, device_id, quality]
-            print(f"[HDMI_CONTROLLER] Running command: {' '.join(cmd)}")
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            if result.returncode == 0:
-                print(f"HDMI[{device_id}]: Restarted successfully")
-                return True
-            else:
-                print(f"HDMI[{device_id}]: Failed: {result.stderr}")
-                return False
+            # Atomic update with file lock
+            with open(lock_file, 'w') as lock:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
                 
+                # Read existing entries
+                entries = []
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        entries = [line.strip() for line in f if line.strip()]
+                
+                # Update quality for this device
+                found = False
+                for i, entry in enumerate(entries):
+                    parts = entry.split(',')
+                    if len(parts) == 3 and parts[0] == capture_dir:
+                        entries[i] = f"{parts[0]},{parts[1]},{quality}"
+                        found = True
+                        break
+                
+                if not found:
+                    print(f"[HDMI] Device {device_id} not running yet")
+                    return False
+                
+                # Write back
+                with open(config_file, 'w') as f:
+                    f.write('\n'.join(entries) + '\n')
+                os.chmod(config_file, 0o777)
+            
+            print(f"[HDMI] Quality updated: {device_id} → {quality}")
+            return True
+            
         except Exception as e:
-            print(f"HDMI[{self.capture_source}]: Error: {e}")
+            print(f"[HDMI] Error updating quality: {e}")
             return False
 
 
