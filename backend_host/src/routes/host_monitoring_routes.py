@@ -92,7 +92,8 @@ def get_json_by_time():
     """
     import os
     import json
-    from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder, is_ram_mode
+    from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, is_ram_mode
+    from  backend_host.src.lib.utils.host_utils import get_device_by_id
     
     try:
         data = request.get_json() or {}
@@ -106,9 +107,18 @@ def get_json_by_time():
         # Calculate sequence
         sequence = int(timestamp_seconds * fps)
         
-        # Get capture folder path
-        capture_folder = get_capture_folder(None, device_id)
-        base_path = f"/var/www/html/stream/{capture_folder}"
+        # Get device capture path
+        device = get_device_by_id(device_id)
+        if not device:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        capture_dir = device.get_capture_dir('captures')
+        if not capture_dir:
+            return jsonify({'success': False, 'error': f'No capture directory configured for device {device_id}'}), 404
+        
+        # Extract device folder name (e.g., 'capture1' from '/var/www/html/stream/capture1/...')
+        device_folder = os.path.basename(os.path.dirname(capture_dir)) if '/captures' in capture_dir else os.path.basename(capture_dir)
+        base_path = f"/var/www/html/stream/{device_folder}"
         
         # STEP 1: Try HOT storage first (live monitoring, last 150s)
         ram_mode = is_ram_mode(base_path)
