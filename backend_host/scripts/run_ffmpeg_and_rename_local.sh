@@ -456,16 +456,27 @@ update_active_captures() {
 if [ "$SINGLE_DEVICE_MODE" = false ]; then
   # Remove old file completely to avoid permission conflicts
   rm -f "/tmp/active_captures.conf" 2>/dev/null || true
+  rm -f "/tmp/active_captures.conf.lock" 2>/dev/null || true
+  
   # Create fresh file with explicit 777 permissions (world read/write for all services)
   > "/tmp/active_captures.conf"
   chmod 777 "/tmp/active_captures.conf"
-  echo "✅ Created fresh active_captures.conf with 777 permissions"
+  
+  # Create lock file with 666 permissions (world read/write for flock)
+  > "/tmp/active_captures.conf.lock"
+  chmod 666 "/tmp/active_captures.conf.lock"
+  
+  echo "✅ Created fresh active_captures.conf and lock file with proper permissions"
   echo "Starting ${#GRABBERS[@]} devices"
 else
-  # Single device mode: ensure file exists with correct permissions
+  # Single device mode: ensure files exist with correct permissions
   if [ ! -f "/tmp/active_captures.conf" ]; then
     > "/tmp/active_captures.conf"
     chmod 777 "/tmp/active_captures.conf"
+  fi
+  if [ ! -f "/tmp/active_captures.conf.lock" ]; then
+    > "/tmp/active_captures.conf.lock"
+    chmod 666 "/tmp/active_captures.conf.lock"
   fi
 fi
 

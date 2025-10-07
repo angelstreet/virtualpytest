@@ -37,8 +37,13 @@ class HDMIStreamController(FFmpegCaptureController):
             
             print(f"[HDMI] Updating quality for {device_id} to {quality}")
             
+            # Ensure lock file exists with world-writable permissions
+            if not os.path.exists(lock_file):
+                open(lock_file, 'w').close()
+                os.chmod(lock_file, 0o666)
+            
             # Atomic update with file lock
-            with open(lock_file, 'w') as lock:
+            with open(lock_file, 'a') as lock:  # Open for append to avoid permission errors
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
                 
                 # Read existing entries
