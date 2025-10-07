@@ -377,7 +377,7 @@ def _get_av_params(implementation: str, device_config: dict) -> dict:
         return {
             **base_params,
             'video_stream_path': device_config.get('video_stream_path', '/host/camera/stream'),
-            'video_capture_path': device_config.get('video_capture_path', get_device_base_path('camera/captures'))
+            'video_capture_path': device_config.get('video_capture_path', get_device_base_path('camera'))
         }
     elif implementation == 'vnc_stream':
         return {
