@@ -95,7 +95,7 @@ def has_audio_stream(mp4_path: str) -> bool:
         # On error, assume audio exists and let FFmpeg handle it
         return True
 
-def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> bool:
+def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, hour: int, chunk_index: int):
     """
     Extract audio from MP4 chunk using FFmpeg
     
@@ -107,14 +107,16 @@ def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, ho
         chunk_index: Chunk within hour (0-5)
     
     Returns:
-        bool: True if extraction succeeded
+        True if extraction succeeded
+        False if extraction failed (error)
+        None if no audio stream (skip)
     """
     mp3_tmp_path = None
     try:
         # Pre-check: Does MP4 have audio stream?
         if not has_audio_stream(mp4_path):
-            logger.info(f"[{capture_folder}] 🔇 No audio stream: {hour}/chunk_10min_{chunk_index}.mp4 (video-only)")
-            return False
+            logger.info(f"[{capture_folder}] ⏭️  Skipped: {hour}/chunk_10min_{chunk_index}.mp4 (no audio stream)")
+            return None
         
         logger.info(f"[{capture_folder}] 🎵 Extracting audio: {hour}/chunk_10min_{chunk_index}.mp4 → .mp3")
         
@@ -549,11 +551,12 @@ class InotifyTranscriptMonitor:
                 
                 # Extract audio
                 logger.info("=" * 80)
-                success = extract_audio_from_mp4(mp4_path, mp3_path, device_folder, hour, chunk_index)
-                if success:
+                result = extract_audio_from_mp4(mp4_path, mp3_path, device_folder, hour, chunk_index)
+                if result is True:
                     logger.info(f"[{device_folder}] ✅ Audio extraction complete for hour {hour}, chunk {chunk_index}")
-                else:
+                elif result is False:
                     logger.warning(f"[{device_folder}] ⚠️ Audio extraction failed for {hour}/chunk_10min_{chunk_index}.mp4")
+                # elif result is None: already logged "Skipped" in extract_audio_from_mp4
                 logger.info("=" * 80)
                 
             except Exception as e:
