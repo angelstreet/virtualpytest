@@ -64,14 +64,37 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     return null;
   }
 
-  // Calculate timeline range - always full 24h for archive mode
-  const min = isLiveMode ? 0 : 0;           // Always start at 0 (midnight)
-  const max = isLiveMode ? 150 : 86400;     // 24h = 86400 seconds
+  // Calculate timeline range
+  // Archive mode: 0 to 82800 (23 hours in "hours ago" coordinates, not full 24h)
+  const min = isLiveMode ? 0 : 0;
+  const max = isLiveMode ? 150 : 82800;     // 23 hours * 3600 seconds
 
-  // STANDARD TIMELINE: Slider value = globalCurrentTime (0 on left = past, 86400 on right = now)
-  const sliderValue = !isLiveMode && archiveMetadata
-    ? globalCurrentTime
-    : globalCurrentTime;
+  // Convert globalCurrentTime (clock time) to "hours ago" position to match gradient
+  const sliderValue = useMemo(() => {
+    if (isLiveMode || !archiveMetadata) {
+      return globalCurrentTime;
+    }
+
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentSecond = now.getSeconds();
+    
+    // Extract hour, minute, second from globalCurrentTime (clock time)
+    const timeHour = Math.floor(globalCurrentTime / 3600);
+    const timeMinute = Math.floor((globalCurrentTime % 3600) / 60);
+    const timeSecond = globalCurrentTime % 60;
+    
+    // Calculate how many hours ago this time was
+    const hoursAgo = (currentHour - timeHour + 24) % 24;
+    
+    // Position in "hours ago" coordinate system (0 = oldest, 82800 = newest)
+    const positionSeconds = (23 - hoursAgo) * 3600 + (globalCurrentTime % 3600);
+    
+    console.log(`[@TimelineOverlay] Clock time: ${timeHour}h${timeMinute.toString().padStart(2, '0')}m, Current: ${currentHour}h${currentMinute.toString().padStart(2, '0')}m, HoursAgo: ${hoursAgo}, Position: ${positionSeconds}s`);
+    
+    return positionSeconds;
+  }, [isLiveMode, archiveMetadata, globalCurrentTime]);
 
   // Build rail gradient with grey gaps for archive mode (STANDARD: past on left, now on right)
   // Memoized to prevent infinite render loop
@@ -217,7 +240,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)
                   : (isDraggingSlider ? dragSliderValue : sliderValue);
                 const minValue = isLiveMode ? 0 : 0;
-                const maxValue = isLiveMode ? 150 : 86400;
+                const maxValue = isLiveMode ? 150 : 82800;  // Match the slider max
                 
                 const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
                 console.log(`[@TimelineOverlay] Tooltip: value=${currentValue.toFixed(0)}s, percentage=${percentage.toFixed(2)}%`); // Debug log
@@ -255,11 +278,12 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                 })()
               ) : (
-                // Show actual time directly
+                // Show actual clock time (not position value)
                 (() => {
-                  const tooltipTime = isDraggingSlider ? dragSliderValue : sliderValue;
-                  console.log(`[@TimelineOverlay] Tooltip time: ${formatTime(tooltipTime)} (${tooltipTime.toFixed(0)}s)`); // Debug
-                  return formatTime(tooltipTime)
+                  // globalCurrentTime is always the clock time, not the position
+                  const tooltipTime = globalCurrentTime;
+                  console.log(`[@TimelineOverlay] Tooltip clock time: ${formatTime(tooltipTime)} (${tooltipTime.toFixed(0)}s)`);
+                  return formatTime(tooltipTime);
                 })()
               )}
             </Typography>
@@ -289,9 +313,20 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             onChange={onSliderChange}
             onChangeCommitted={(event, value) => {
               if (!isLiveMode) {
-                const sliderValue = Array.isArray(value) ? value[0] : value;
-                // No inversion needed - sliderValue is now actual time
-                const seekTime = sliderValue;
+                const positionValue = Array.isArray(value) ? value[0] : value;
+                
+                // Convert position back to clock time
+                const now = new Date();
+                const currentHour = now.getHours();
+                
+                // positionValue is in "hours ago" coordinates (0 = oldest, 82800 = newest)
+                const hourPosition = Math.floor(positionValue / 3600);
+                const hoursAgo = 23 - hourPosition;
+                const clockHour = (currentHour - hoursAgo + 24) % 24;
+                const secondsIntoHour = positionValue % 3600;
+                const seekTime = clockHour * 3600 + secondsIntoHour;
+
+                console.log(`[@TimelineOverlay] Position: ${positionValue}s -> Clock time: ${seekTime}s (${Math.floor(seekTime/3600)}h)`);
 
                 if (isTimeAvailable(seekTime)) {
                   // If available, seek normally

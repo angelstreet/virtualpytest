@@ -701,7 +701,8 @@ def upload_validation_screenshots(screenshot_paths: list, device_model: str, scr
     file_mappings = []
     
     for local_path in screenshot_paths:
-        if not os.path.exists(local_path):
+        # Skip None or missing paths
+        if not local_path or not os.path.exists(local_path):
             continue
         
         # Add main screenshot

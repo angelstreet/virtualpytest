@@ -761,7 +761,12 @@ class VideoContentHelpers:
             capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
             print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
             
+            # Use thumbnails for performance (320x180) - scale analysis rectangle accordingly
             image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images, use_thumbnails=True)
+            
+            # Scale analysis rectangle from full capture (1920x1080) to thumbnail (320x180)
+            if analysis_rectangle:
+                analysis_rectangle = self._scale_rectangle_for_thumbnail(analysis_rectangle)
             
             if not image_data:
                 return {
@@ -966,7 +971,12 @@ class VideoContentHelpers:
             capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
             print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
             
+            # Use thumbnails for performance (320x180) - scale analysis rectangle accordingly
             image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images, use_thumbnails=True)
+            
+            # Scale analysis rectangle from full capture (1920x1080) to thumbnail (320x180)
+            if analysis_rectangle:
+                analysis_rectangle = self._scale_rectangle_for_thumbnail(analysis_rectangle)
             
             if not image_data:
                 return {
@@ -1144,59 +1154,83 @@ class VideoContentHelpers:
             }
 
     def _get_images_after_timestamp(self, folder_path: str, start_timestamp: float, max_count: int = 10, use_thumbnails: bool = False) -> List[Dict]:
-        """Get images after timestamp for detection analysis."""
+        """Get images after timestamp for detection analysis - searches both HOT and COLD storage."""
         try:
-            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_cold_storage_path, is_ram_mode
             
-            if use_thumbnails:
-                images_folder = get_capture_storage_path(folder_path, 'thumbnails')
-                image_pattern = 'capture_*_thumbnail.jpg'
+            # Check if device is in RAM mode - if so, search BOTH hot and cold folders
+            # (images may have been archived from hot to cold during zap execution)
+            search_folders = []
+            
+            if is_ram_mode(folder_path):
+                # RAM mode: search both hot (active) and cold (recently archived)
+                if use_thumbnails:
+                    search_folders.append(get_capture_storage_path(folder_path, 'thumbnails'))  # Hot thumbnails
+                    search_folders.append(get_cold_storage_path(folder_path, 'thumbnails'))    # Cold thumbnails (if archived)
+                else:
+                    search_folders.append(get_capture_storage_path(folder_path, 'captures'))   # Hot captures
+                    search_folders.append(get_cold_storage_path(folder_path, 'captures'))      # Cold captures (archived)
             else:
-                images_folder = get_capture_storage_path(folder_path, 'captures')
-                image_pattern = 'capture_*.jpg'
+                # SD mode: only one location
+                if use_thumbnails:
+                    search_folders.append(get_capture_storage_path(folder_path, 'thumbnails'))
+                else:
+                    search_folders.append(get_capture_storage_path(folder_path, 'captures'))
             
-            if not os.path.exists(images_folder):
-                return []
-            
+            image_pattern = 'capture_*_thumbnail.jpg' if use_thumbnails else 'capture_*.jpg'
             MAX_TOTAL_IMAGES = max_count if max_count > 0 else 40
             
             import re
+            capture_files = []
             
-            try:
-                if use_thumbnails:
-                    result = subprocess.run([
-                        'find', images_folder, '-name', image_pattern, '-type', 'f'
-                    ], capture_output=True, text=True, timeout=30)
-                else:
-                    result = subprocess.run([
-                        'find', images_folder, '-name', 'capture_*.jpg', '!', '-name', '*_thumbnail.jpg', '-type', 'f'
-                    ], capture_output=True, text=True, timeout=30)
+            # Search all folders (hot + cold in RAM mode, single folder in SD mode)
+            for images_folder in search_folders:
+                if not os.path.exists(images_folder):
+                    continue
                 
-                if result.returncode != 0:
-                    return []
-                
-                capture_files = []
-                for file_path in result.stdout.strip().split('\n'):
-                    if not file_path:
+                try:
+                    if use_thumbnails:
+                        result = subprocess.run([
+                            'find', images_folder, '-name', image_pattern, '-type', 'f'
+                        ], capture_output=True, text=True, timeout=30)
+                    else:
+                        result = subprocess.run([
+                            'find', images_folder, '-name', 'capture_*.jpg', '!', '-name', '*_thumbnail.jpg', '-type', 'f'
+                        ], capture_output=True, text=True, timeout=30)
+                    
+                    if result.returncode != 0:
                         continue
                     
-                    filename = os.path.basename(file_path)
-                    pattern = r'capture_(\d+)_thumbnail\.jpg' if use_thumbnails else r'capture_(\d+)\.jpg'
-                    match = re.match(pattern, filename)
-                    
-                    if match:
-                        try:
-                            file_mtime = os.path.getmtime(file_path)
-                            if file_mtime >= start_timestamp:
-                                capture_files.append((int(match.group(1)), file_path))
-                        except OSError:
+                    for file_path in result.stdout.strip().split('\n'):
+                        if not file_path:
                             continue
-                
-                capture_files.sort(key=lambda x: x[0])
-                valid_files = [f[1] for f in capture_files][:max_count] if max_count > 0 else [f[1] for f in capture_files]
-                
-            except (subprocess.TimeoutExpired, Exception):
-                return []
+                        
+                        filename = os.path.basename(file_path)
+                        pattern = r'capture_(\d+)_thumbnail\.jpg' if use_thumbnails else r'capture_(\d+)\.jpg'
+                        match = re.match(pattern, filename)
+                        
+                        if match:
+                            try:
+                                file_mtime = os.path.getmtime(file_path)
+                                if file_mtime >= start_timestamp:
+                                    capture_number = int(match.group(1))
+                                    # Avoid duplicates (same file in hot and cold) - keep newest
+                                    existing = next((f for f in capture_files if f[0] == capture_number), None)
+                                    if existing:
+                                        if file_mtime > os.path.getmtime(existing[1]):
+                                            capture_files.remove(existing)
+                                            capture_files.append((capture_number, file_path))
+                                    else:
+                                        capture_files.append((capture_number, file_path))
+                            except OSError:
+                                continue
+                    
+                except (subprocess.TimeoutExpired, Exception):
+                    continue
+            
+            # Sort by capture number and limit results
+            capture_files.sort(key=lambda x: x[0])
+            valid_files = [f[1] for f in capture_files][:max_count] if max_count > 0 else [f[1] for f in capture_files]
             
             images = []
             for file_path in valid_files[:MAX_TOTAL_IMAGES]:
@@ -1209,7 +1243,8 @@ class VideoContentHelpers:
             
             return sorted(images, key=lambda x: x['timestamp'])
             
-        except Exception:
+        except Exception as e:
+            print(f"VideoContent[{self.device_name}]: Error getting images after timestamp: {e}")
             return []
 
     def _convert_unix_to_capture_format(self, unix_timestamp: float) -> str:
@@ -1262,7 +1297,7 @@ class VideoContentHelpers:
                     'error': str(e)
                 })
         
-        print(f"VideoContent[{self.device_name}]: Blackscreen analysis complete - {len(results)} images analyzed, early_stopped={blackscreen_ended}")
+        print(f"VideoContent[{self.device_name}]: Blackscreen analysis complete - {len(results)} images analyzed, early_stopped={blackscreen_detected}")
         return results
 
     def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 5, device_model: str = None) -> Tuple[bool, float]:
