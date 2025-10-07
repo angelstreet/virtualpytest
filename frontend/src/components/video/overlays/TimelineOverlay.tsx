@@ -82,6 +82,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     }
     
     const totalSeconds = 86400;
+    const now = new Date();
+    const currentHour = now.getHours();
     
     const allChunks: { [key: string]: boolean } = {};
     archiveMetadata.manifests.forEach(manifest => {
@@ -90,18 +92,26 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     });
     
     console.log(`[@TimelineOverlay] Building gradient with ${Object.keys(allChunks).length} chunks:`, Object.keys(allChunks));
+    console.log(`[@TimelineOverlay] Current hour: ${currentHour}`);
     
     // Build gradient with hard edges (no smooth transitions)
     const gradientParts: string[] = [];
     
-    for (let hour = 0; hour < 24; hour++) {
+    // Iterate over the last 24 hours, matching the hour marks logic
+    for (let hoursAgo = 23; hoursAgo >= 0; hoursAgo--) {
+      // Calculate the actual hour for this position (matching hour marks logic)
+      const actualHour = (currentHour - hoursAgo + 24) % 24;
+      
+      // Position in seconds: hoursAgo=0 (now) = 86400s, hoursAgo=23 = 3600s
+      const hourStartSeconds = (24 - hoursAgo) * 3600;
+      
       for (let chunk = 0; chunk < 6; chunk++) {
-        const key = `${hour}-${chunk}`;
+        const key = `${actualHour}-${chunk}`;
         const hasChunk = allChunks[key];
         
-        // Debug logging for hour 16
-        if (hour === 16) {
-          console.log(`[@TimelineOverlay] Hour 16, chunk ${chunk}: ${hasChunk ? 'AVAILABLE (blue)' : 'missing (grey)'}, key=${key}`);
+        // Debug logging for the current hour and hour 15
+        if (actualHour === currentHour || actualHour === 15) {
+          console.log(`[@TimelineOverlay] Hour ${actualHour} (${hoursAgo}h ago), chunk ${chunk}: ${hasChunk ? 'AVAILABLE (blue)' : 'missing (grey)'}, key=${key}`);
         }
         
         // Only 2 colors: available (bright cyan) or missing (light grey) - both fully opaque
@@ -109,7 +119,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks - fully opaque
           : 'rgb(207, 207, 207)';    // Light grey for missing chunks - fully opaque, no transparency
         
-        const startSeconds = hour * 3600 + chunk * 600;
+        const startSeconds = hourStartSeconds + chunk * 600;
         const endSeconds = startSeconds + 600;
         
         // Calculate percentages (inverted: past on left, now on right)
@@ -273,14 +283,16 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 let nearestTime = null;
                 let minDiff = Infinity;
 
-                archiveMetadata.manifests.forEach(manifest => {
-                  const chunkStartTime = manifest.window_index * 3600 + manifest.chunk_index * 600;
-                  const diff = Math.abs(chunkStartTime - seekTime);
-                  if (diff < minDiff) {
-                    minDiff = diff;
-                    nearestTime = chunkStartTime;
-                  }
-                });
+                if (archiveMetadata && archiveMetadata.manifests) {
+                  archiveMetadata.manifests.forEach(manifest => {
+                    const chunkStartTime = manifest.window_index * 3600 + manifest.chunk_index * 600;
+                    const diff = Math.abs(chunkStartTime - seekTime);
+                    if (diff < minDiff) {
+                      minDiff = diff;
+                      nearestTime = chunkStartTime;
+                    }
+                  });
+                }
 
                 if (nearestTime !== null) {
                   console.log(`[@TimelineOverlay] Snapping to nearest available: ${nearestTime}s`);
