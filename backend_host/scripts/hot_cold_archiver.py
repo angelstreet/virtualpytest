@@ -781,7 +781,7 @@ def rebuild_transcript_manifest_from_disk(capture_dir: str) -> dict:
     return rebuild_manifest_from_disk(capture_dir, 'transcript')
 
 
-def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: str, manifest_type: str):
+def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: str, manifest_type: str, has_mp3: bool = True):
     """
     Generic manifest updater for both archive and transcript chunks.
     
@@ -791,6 +791,7 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
         chunk_index: Chunk index (0-5)
         chunk_path: Path to chunk file
         manifest_type: 'archive' or 'transcript'
+        has_mp3: Whether corresponding MP3 exists (transcript only)
     """
     import json
     
@@ -834,6 +835,10 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
             except:
                 pass
     elif manifest_type == 'transcript':
+        chunk_info["has_mp3"] = has_mp3
+        if not has_mp3:
+            chunk_info["unavailable_since"] = datetime.now().isoformat()
+        
         try:
             with open(chunk_path) as f:
                 data = json.load(f)
@@ -868,9 +873,9 @@ def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_p
     update_manifest(capture_dir, hour, chunk_index, mp4_path, 'archive')
 
 
-def update_transcript_manifest(capture_dir: str, hour: int, chunk_index: int, transcript_path: str):
+def update_transcript_manifest(capture_dir: str, hour: int, chunk_index: int, transcript_path: str, has_mp3: bool = True):
     """Update transcript manifest - wrapper for generic function"""
-    update_manifest(capture_dir, hour, chunk_index, transcript_path, 'transcript')
+    update_manifest(capture_dir, hour, chunk_index, transcript_path, 'transcript', has_mp3=has_mp3)
 
 
 def cleanup_temp_files(capture_dir: str) -> Tuple[int, int]:

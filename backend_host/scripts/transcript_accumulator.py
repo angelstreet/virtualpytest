@@ -296,7 +296,7 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
         logger.error(f"[{capture_folder}] AI enhancement error: {e}")
         return {}
 
-def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_data: dict):
+def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_data: dict, has_mp3: bool = True):
     """
     Save transcript JSON file aligned with MP4/MP3 chunks
     
@@ -305,8 +305,8 @@ def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, tran
         hour: Hour (0-23)
         chunk_index: Chunk index (0-5)
         transcript_data: Transcript data to save
+        has_mp3: Whether corresponding MP3 exists
     """
-    # Use centralized convenience function - no manual path building!
     transcript_base = get_transcript_path(capture_folder)
     transcript_dir = os.path.join(transcript_base, str(hour))
     os.makedirs(transcript_dir, exist_ok=True)
@@ -320,20 +320,74 @@ def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, tran
     
     logger.info(f"✅ Saved: /transcript/{hour}/chunk_10min_{chunk_index}.json")
     
-    # Update transcript manifest (import function from hot_cold_archiver)
+    # Update transcript manifest
     try:
         device_base_path = get_device_base_path(capture_folder)
-        
-        # Import the shared manifest function
         from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
-        update_transcript_manifest(device_base_path, hour, chunk_index, transcript_path)
-        
+        update_transcript_manifest(device_base_path, hour, chunk_index, transcript_path, has_mp3=has_mp3)
     except Exception as e:
         logger.warning(f"Failed to update transcript manifest: {e}")
 
+def should_transcribe(mp3_path: str, transcript_path: str) -> bool:
+    """
+    Check if MP3 needs transcription by comparing file times
+    
+    Returns True if:
+    - Transcript doesn't exist, OR
+    - MP3 is newer than transcript (re-transcribe needed)
+    """
+    if not os.path.exists(transcript_path):
+        return True
+    
+    mp3_mtime = os.path.getmtime(mp3_path)
+    transcript_mtime = os.path.getmtime(transcript_path)
+    
+    if mp3_mtime > transcript_mtime:
+        return True
+    
+    return False
+
+
+def reconcile_orphaned_transcripts(capture_folder: str, mp3_set: set):
+    """
+    Mark transcripts as unavailable when MP3s are deleted
+    
+    Args:
+        capture_folder: Device folder name
+        mp3_set: Set of existing MP3 keys (e.g., {"13/chunk_10min_0.mp3"})
+    """
+    transcript_base = get_transcript_path(capture_folder)
+    
+    # Find all transcript JSONs
+    for hour in range(24):
+        hour_dir = os.path.join(transcript_base, str(hour))
+        if not os.path.exists(hour_dir):
+            continue
+        
+        transcript_files = get_files_by_pattern(hour_dir, r'^chunk_10min_\d+\.json$')
+        
+        for transcript_path in transcript_files:
+            transcript_filename = os.path.basename(transcript_path)
+            chunk_index = int(transcript_filename.replace('chunk_10min_', '').replace('.json', ''))
+            
+            # Build corresponding MP3 key
+            mp3_key = f"{hour}/chunk_10min_{chunk_index}.mp3"
+            
+            # If MP3 doesn't exist, mark transcript as unavailable
+            if mp3_key not in mp3_set:
+                logger.info(f"[{capture_folder}] ⚠️ Orphaned transcript: {hour}/chunk_10min_{chunk_index}.json (MP3 deleted)")
+                
+                device_base_path = get_device_base_path(capture_folder)
+                try:
+                    from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
+                    update_transcript_manifest(device_base_path, hour, chunk_index, transcript_path, has_mp3=False)
+                except Exception as e:
+                    logger.warning(f"Failed to update manifest for orphaned transcript: {e}")
+
+
 def process_mp3_chunks(capture_dir):
     """
-    Watch for new 10-minute MP3 chunks and transcribe them
+    Process MP3 chunks: transcribe new/updated, reconcile orphaned transcripts
     
     Args:
         capture_dir: Path to captures directory
@@ -342,103 +396,74 @@ def process_mp3_chunks(capture_dir):
         bool: True if chunks were processed, False if nothing to process
     """
     try:
-        # Use centralized path utilities
         capture_folder = get_capture_folder(capture_dir)
         device_base_path = get_device_base_path(capture_folder)
-        
-        # Use convenience functions - no manual path building!
-        # Audio MP3 chunks are ALWAYS in cold storage (extracted directly by hot_cold_archiver)
         audio_base_dir = get_audio_path(capture_folder)
-        state_path = os.path.join(device_base_path, 'transcript_state.json')
+        transcript_base = get_transcript_path(capture_folder)
         
         if not os.path.exists(audio_base_dir):
             logger.debug(f"[{capture_folder}] Audio base directory does not exist: {audio_base_dir}")
             return False
         
-        # Load state (track which chunks have been transcribed)
-        if os.path.exists(state_path):
-            with open(state_path, 'r') as f:
-                state = json.load(f)
-        else:
-            state = {'processed_chunks': {}}
-            logger.info(f"[{capture_folder}] 🆕 First run - watching for MP3 chunks in hour folders: {audio_base_dir}/0-23/")
-        
-        processed_chunks = state.get('processed_chunks', {})
-        
-        # Find all MP3 chunks in all hour folders (0-23)
+        # Find all MP3 chunks
         mp3_files = []
+        mp3_set = set()
         for hour in range(24):
             hour_dir = os.path.join(audio_base_dir, str(hour))
             if os.path.exists(hour_dir):
                 hour_files = get_files_by_pattern(hour_dir, r'^chunk_10min_\d+\.mp3$')
                 mp3_files.extend(hour_files)
+                for mp3_path in hour_files:
+                    mp3_filename = os.path.basename(mp3_path)
+                    mp3_set.add(f"{hour}/{mp3_filename}")
         
         if not mp3_files:
             logger.debug(f"[{capture_folder}] No MP3 chunks found yet in hour folders")
             return False
         
-        # Process new chunks
+        # Process MP3s: transcribe if needed
         new_chunks_processed = 0
         
         for mp3_path in mp3_files:
             mp3_filename = os.path.basename(mp3_path)
-            
-            # Extract hour from path (/audio/{hour}/chunk_10min_X.mp3)
             hour_folder = os.path.basename(os.path.dirname(mp3_path))
+            
             try:
                 hour = int(hour_folder)
             except ValueError:
                 logger.warning(f"[{capture_folder}] Invalid hour folder: {hour_folder}")
                 continue
             
-            # Create unique key with hour for tracking (since chunk_index resets per hour)
-            mp3_key = f"{hour}/{mp3_filename}"
-            
-            # Skip if already processed
-            if mp3_key in processed_chunks:
-                continue
-            
-            # Extract chunk index from filename (chunk_10min_0.mp3 → 0)
             try:
                 chunk_index = int(mp3_filename.replace('chunk_10min_', '').replace('.mp3', ''))
             except ValueError:
                 logger.warning(f"[{capture_folder}] Invalid MP3 filename: {mp3_filename}")
                 continue
             
-            logger.info("=" * 80)
-            logger.info(f"[{capture_folder}] 🎵 New MP3 chunk detected: {mp3_filename}")
+            # Check if transcription needed
+            transcript_file = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
             
-            # Transcribe MP3 chunk
+            if not should_transcribe(mp3_path, transcript_file):
+                continue
+            
+            logger.info("=" * 80)
+            logger.info(f"[{capture_folder}] 🎵 Transcribing: {hour}/chunk_10min_{chunk_index}.mp3")
+            
             transcript_data = transcribe_mp3_chunk(mp3_path, capture_folder, hour, chunk_index)
             
             if transcript_data:
-                # Save transcript JSON
-                save_transcript_chunk(device_base_path, hour, chunk_index, transcript_data)
-                
-                # Mark as processed (using hour/filename key)
-                processed_chunks[mp3_key] = {
-                    'timestamp': datetime.now().isoformat(),
-                    'hour': hour,
-                    'chunk_index': chunk_index,
-                    'mp3_path': mp3_path
-                }
+                save_transcript_chunk(capture_folder, hour, chunk_index, transcript_data, has_mp3=True)
                 new_chunks_processed += 1
-                
                 logger.info(f"[{capture_folder}] ✅ Transcription complete for hour {hour}, chunk {chunk_index}")
             else:
-                logger.warning(f"[{capture_folder}] ⚠️ Transcription failed for {mp3_key}")
+                logger.warning(f"[{capture_folder}] ⚠️ Transcription failed for {hour}/chunk_10min_{chunk_index}.mp3")
             
             logger.info("=" * 80)
         
-        # Save state
+        # Reconcile orphaned transcripts (MP3 deleted)
+        reconcile_orphaned_transcripts(capture_folder, mp3_set)
+        
         if new_chunks_processed > 0:
-            state['processed_chunks'] = processed_chunks
-            state['last_update'] = datetime.now().isoformat()
-            
-            with open(state_path + '.tmp', 'w') as f:
-                json.dump(state, f, indent=2)
-            os.rename(state_path + '.tmp', state_path)
-            
             logger.info(f"[{capture_folder}] 💾 Processed {new_chunks_processed} new chunk(s)")
             return True
         
