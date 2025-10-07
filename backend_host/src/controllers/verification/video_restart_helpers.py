@@ -698,7 +698,10 @@ class VideoRestartHelpers:
             return screenshot_urls
             
         except Exception as e:
-            print(f"RestartHelpers[{self.device_name}]: Screenshot collection error: {e}")
+            print(f"RestartHelpers[{self.device_name}]: ❌ Screenshot collection EXCEPTION: {e}")
+            import traceback
+            print(f"RestartHelpers[{self.device_name}]: 🔍 Full traceback:")
+            print(traceback.format_exc())
             return []
     
     def _get_audio_transcript_locally(self, segment_files: List[Tuple[str, str]], duration_seconds: float) -> Dict[str, Any]:
