@@ -54,8 +54,9 @@ langdetect>=1.0.9
 #sudo apt-get install tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-ita
 
 # Audio transcription and speech-to-text
-openai-whisper>=20231117
-#python3 -c "import whisper; whisper.load_model('tiny')"
+# openai-whisper>=20231117  # Replaced with faster-whisper (4-5x faster)
+faster-whisper>=1.0.0  # Optimized C++ implementation of Whisper
+#python3 -c "from faster_whisper import WhisperModel; WhisperModel('tiny')"
 
 # Audio dubbing dependencies
 demucs>=4.0.0  # Modern audio separation (replaces Spleeter)

@@ -13,20 +13,27 @@ from shared.src.lib.utils.video_utils import merge_video_files
 
 # Global Whisper model cache (singleton pattern)
 _whisper_model = None
+_whisper_model_name = None
 
 
 def get_whisper_model(model_name: str = "tiny"):
-    """Get cached Whisper model (singleton pattern for performance)"""
-    global _whisper_model
+    """Get cached faster-whisper model (singleton pattern for performance)"""
+    global _whisper_model, _whisper_model_name
     
-    if _whisper_model is None:
+    # Reload if model name changed
+    if _whisper_model is None or _whisper_model_name != model_name:
         try:
-            import whisper
-            print(f"[AudioTranscriptionUtils] Loading Whisper model '{model_name}' (one-time load)...")
-            _whisper_model = whisper.load_model(model_name)
-            print(f"[AudioTranscriptionUtils] ✓ Whisper model '{model_name}' loaded and cached")
+            from faster_whisper import WhisperModel
+            print(f"[AudioTranscriptionUtils] Loading faster-whisper model '{model_name}' (one-time load)...")
+            # Use CPU with 4 threads for Raspberry Pi 4 optimization
+            _whisper_model = WhisperModel(model_name, device="cpu", compute_type="int8", num_workers=4)
+            _whisper_model_name = model_name
+            print(f"[AudioTranscriptionUtils] ✓ faster-whisper model '{model_name}' loaded and cached (4-5x faster than openai-whisper)")
         except ImportError:
-            print(f"[AudioTranscriptionUtils] ❌ Whisper not installed - run 'pip install openai-whisper'")
+            print(f"[AudioTranscriptionUtils] ❌ faster-whisper not installed - run 'pip install faster-whisper'")
+            return None
+        except Exception as e:
+            print(f"[AudioTranscriptionUtils] ❌ Error loading faster-whisper: {e}")
             return None
     
     return _whisper_model
@@ -183,32 +190,20 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
                 'error': 'Whisper model not available'
             }
         
-        # Transcribe with optimized settings for speed
-        # Suppress all Whisper output (detected language, progress bar, etc.)
-        import sys
-        import io
-        old_stdout = sys.stdout
-        sys.stdout = io.StringIO()
+        # Transcribe with faster-whisper (4-5x faster than openai-whisper)
+        # faster-whisper uses a different API that returns segments as a generator
+        segments_list, info = model.transcribe(
+            audio_file_path,
+            beam_size=1,
+            vad_filter=True,  # Voice Activity Detection - skip silence automatically
+            vad_parameters=dict(min_silence_duration_ms=500),
+            language=None  # Auto-detect
+        )
         
-        try:
-            result = model.transcribe(
-                audio_file_path,
-                fp16=False,
-                verbose=False,
-                beam_size=1,
-                best_of=1,
-                temperature=0,
-                no_speech_threshold=0.6  # Strict threshold to avoid false positives on silence
-            )
-        finally:
-            sys.stdout = old_stdout
-        
-        transcript = result.get('text', '').strip()
-        language = result.get('language', 'en')
-        
-        # Get all segments for debugging
-        segments = result.get('segments', [])
-        segment_count = len(segments)
+        # Collect all segments and build transcript
+        segments = list(segments_list)
+        transcript = " ".join([segment.text for segment in segments]).strip()
+        language = info.language
         
         # Convert language code to name
         lang_map = {
@@ -218,8 +213,8 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
         }
         language_name = lang_map.get(language, language)
         
-        # Estimate confidence based on transcript length (simple heuristic)
-        confidence = min(0.95, 0.5 + (len(transcript) / 100)) if transcript else 0.0
+        # Use language probability as confidence
+        confidence = info.language_probability if hasattr(info, 'language_probability') else 0.5
         
         return {
             'success': True,

@@ -387,7 +387,7 @@ def reconcile_orphaned_transcripts(capture_folder: str, mp3_set: set):
 
 def process_mp3_chunks(capture_dir):
     """
-    Process MP3 chunks: transcribe new/updated, reconcile orphaned transcripts
+    Process MP3 chunks: ONLY transcribe the last 3 chunks (skip historical backlog)
     
     Args:
         capture_dir: Path to captures directory
@@ -405,26 +405,34 @@ def process_mp3_chunks(capture_dir):
             logger.debug(f"[{capture_folder}] Audio base directory does not exist: {audio_base_dir}")
             return False
         
-        # Find all MP3 chunks
-        mp3_files = []
+        # Find all MP3 chunks with modification times
+        mp3_files_with_mtime = []
         mp3_set = set()
         for hour in range(24):
             hour_dir = os.path.join(audio_base_dir, str(hour))
             if os.path.exists(hour_dir):
                 hour_files = get_files_by_pattern(hour_dir, r'^chunk_10min_\d+\.mp3$')
-                mp3_files.extend(hour_files)
                 for mp3_path in hour_files:
                     mp3_filename = os.path.basename(mp3_path)
                     mp3_set.add(f"{hour}/{mp3_filename}")
+                    # Get modification time for sorting
+                    mtime = os.path.getmtime(mp3_path)
+                    mp3_files_with_mtime.append((mp3_path, mtime))
         
-        if not mp3_files:
+        if not mp3_files_with_mtime:
             logger.debug(f"[{capture_folder}] No MP3 chunks found yet in hour folders")
             return False
         
-        # Process MP3s: transcribe if needed
+        # Sort by modification time (newest first) and take only last 3
+        mp3_files_with_mtime.sort(key=lambda x: x[1], reverse=True)
+        recent_mp3_files = [path for path, mtime in mp3_files_with_mtime[:3]]
+        
+        logger.debug(f"[{capture_folder}] Found {len(mp3_files_with_mtime)} total MP3s, processing only last 3")
+        
+        # Process only the 3 most recent MP3s: transcribe if needed
         new_chunks_processed = 0
         
-        for mp3_path in mp3_files:
+        for mp3_path in recent_mp3_files:
             mp3_filename = os.path.basename(mp3_path)
             hour_folder = os.path.basename(os.path.dirname(mp3_path))
             
@@ -444,6 +452,7 @@ def process_mp3_chunks(capture_dir):
             transcript_file = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
             
             if not should_transcribe(mp3_path, transcript_file):
+                logger.debug(f"[{capture_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp3 (already transcribed)")
                 continue
             
             logger.info("=" * 80)
