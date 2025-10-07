@@ -429,6 +429,10 @@ class InotifyTranscriptMonitor:
                     logger.warning(f"[{device_folder}] ⚠️ Audio extraction failed for {hour}/chunk_10min_{chunk_index}.mp4")
                 logger.info("=" * 80)
                 
+                # Throttle: sleep 2s between chunks to prevent CPU overload
+                import time
+                time.sleep(2)
+                
             except Exception as e:
                 logger.error(f"[{device_folder}] MP4 worker error: {e}")
             finally:
