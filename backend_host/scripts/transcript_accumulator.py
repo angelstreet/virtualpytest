@@ -244,7 +244,6 @@ class InotifyTranscriptMonitor:
         
         self._setup_watches()
         self._start_workers()
-        self._scan_existing_files()
     
     def _setup_watches(self):
         """Setup inotify watches for all segments and audio directories"""
@@ -330,65 +329,6 @@ class InotifyTranscriptMonitor:
             logger.info(f"[{device_folder}] ✓ Started MP4→MP3 worker (audio extraction)")
             logger.info(f"[{device_folder}] ✓ Started MP3→JSON worker (transcription)")
     
-    def _scan_existing_files(self):
-        """Scan for existing MP4s and MP3s needing processing (startup backlog)"""
-        logger.info("Scanning for existing backlog...")
-        
-        for device_info in self.monitored_devices:
-            device_folder = device_info['device_folder']
-            segments_base = device_info['segments_base']
-            audio_base = device_info['audio_base']
-            transcript_base = get_transcript_path(device_folder)
-            
-            mp4_pending = []
-            mp3_pending = []
-            
-            for hour in range(24):
-                segments_hour_dir = os.path.join(segments_base, str(hour))
-                audio_hour_dir = os.path.join(audio_base, str(hour))
-                
-                # Find MP4s without MP3s
-                if os.path.exists(segments_hour_dir):
-                    for filename in os.listdir(segments_hour_dir):
-                        if filename.endswith('.mp4') and 'chunk_10min_' in filename:
-                            chunk_index = int(filename.replace('chunk_10min_', '').replace('.mp4', ''))
-                            mp3_path = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
-                            if not os.path.exists(mp3_path):
-                                mp4_path = os.path.join(segments_hour_dir, filename)
-                                mp4_pending.append((os.path.getmtime(mp4_path), segments_hour_dir, filename))
-                
-                # Find MP3s without transcripts
-                if os.path.exists(audio_hour_dir):
-                    for filename in os.listdir(audio_hour_dir):
-                        if filename.endswith('.mp3') and 'chunk_10min_' in filename:
-                            chunk_index = int(filename.replace('chunk_10min_', '').replace('.mp3', ''))
-                            transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
-                            if not os.path.exists(transcript_path):
-                                mp3_path = os.path.join(audio_hour_dir, filename)
-                                mp3_pending.append((os.path.getmtime(mp3_path), audio_hour_dir, filename))
-            
-            # Sort oldest first, enqueue all (LIFO queue processes newest first)
-            mp4_pending.sort(key=lambda x: x[0])
-            mp3_pending.sort(key=lambda x: x[0])
-            
-            # Enqueue all pending work
-            for mtime, path, filename in mp4_pending:
-                try:
-                    self.mp4_queues[device_folder].put_nowait((path, filename))
-                except queue.Full:
-                    break
-            
-            for mtime, path, filename in mp3_pending:
-                try:
-                    self.mp3_queues[device_folder].put_nowait((path, filename))
-                except queue.Full:
-                    break
-            
-            if mp4_pending or mp3_pending:
-                logger.info(f"[{device_folder}] Enqueued {len(mp4_pending)} MP4s, {len(mp3_pending)} MP3s")
-        
-        logger.info("Backlog scan complete - workers processing (newest first)")
-    
     def _mp4_worker(self, device_folder):
         """Worker thread for MP4 → MP3 audio extraction (fast, ~3s per chunk)"""
         work_queue = self.mp4_queues[device_folder]
@@ -428,10 +368,6 @@ class InotifyTranscriptMonitor:
                 else:
                     logger.warning(f"[{device_folder}] ⚠️ Audio extraction failed for {hour}/chunk_10min_{chunk_index}.mp4")
                 logger.info("=" * 80)
-                
-                # Throttle: sleep 2s between chunks to prevent CPU overload
-                import time
-                time.sleep(2)
                 
             except Exception as e:
                 logger.error(f"[{device_folder}] MP4 worker error: {e}")
