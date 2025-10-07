@@ -114,23 +114,46 @@ export const useArchivePlayer = ({
     if (!archiveMetadata) return [];
     
     const marks = [];
-    const allHoursSet = new Set(availableHours);
+    const now = new Date();
+    const currentHour = now.getHours();
     
-    if (availableHours.length > 0) {
-      const minHour = Math.min(...availableHours);
-      const maxHour = Math.max(...availableHours);
+    // Generate marks for the last 24 hours in INVERTED order (now at right)
+    // Timeline goes from 24h ago (left, 0 seconds) to now (right, 86400 seconds)
+    for (let hoursAgo = 0; hoursAgo <= 24; hoursAgo++) {
+      // Calculate the actual hour for this position
+      const actualHour = (currentHour - hoursAgo + 24) % 24;
       
-      for (let hour = minHour; hour <= maxHour; hour++) {
-        const isAvailable = allHoursSet.has(hour);
-        marks.push({
-          value: hour * 3600,
-          label: `${hour}h`,
-          style: isAvailable ? {} : {
-            color: 'rgba(255, 255, 255, 0.3)',
-            opacity: 0.5
-          }
-        });
+      // Position in seconds: hoursAgo=0 (now) = 86400s, hoursAgo=24 = 0s
+      const timeValue = (24 - hoursAgo) * 3600;
+      
+      // Check if this hour is available
+      const isAvailable = availableHours.includes(actualHour);
+      
+      // Generate label
+      let label = '';
+      if (hoursAgo === 0) {
+        label = 'Now';
+      } else if (hoursAgo === 24) {
+        label = '24h ago';
+      } else {
+        // Show hour with indicator if it's yesterday
+        const hourLabel = `${actualHour}h`;
+        if (hoursAgo > currentHour) {
+          // This is yesterday
+          label = `${hourLabel}`;
+        } else {
+          label = hourLabel;
+        }
       }
+      
+      marks.push({
+        value: timeValue,
+        label: label,
+        style: isAvailable ? {} : {
+          color: 'rgba(255, 255, 255, 0.3)',
+          opacity: 0.5
+        }
+      });
     }
     
     return marks;

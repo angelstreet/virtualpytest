@@ -71,7 +71,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const min = isLiveMode ? 0 : 0;           // Always start at 0 (midnight)
   const max = isLiveMode ? 150 : 86400;     // 24h = 86400 seconds
   
-  // Build rail gradient with grey gaps for archive mode
+  // Build rail gradient with grey gaps for archive mode (INVERTED: now on right, past on left)
   const buildArchiveRailGradient = () => {
     if (isLiveMode || !archiveMetadata || archiveMetadata.manifests.length === 0) {
       return 'rgba(255,255,255,0.15)';
@@ -85,6 +85,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     });
     
     // Build gradient with available (white) and gap (grey) segments
+    // INVERTED: hour 0 at right (100%), hour 23 at left (0%)
     const gradientParts: string[] = [];
     const totalSeconds = 24 * 3600; // 24 hours
     
@@ -95,19 +96,33 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
-        const startPercent = (startSeconds / totalSeconds) * 100;
-        const endPercent = (endSeconds / totalSeconds) * 100;
+        // INVERT: 0s = 100%, 86400s = 0%
+        const startPercent = 100 - ((startSeconds / totalSeconds) * 100);
+        const endPercent = 100 - ((endSeconds / totalSeconds) * 100);
         
         const color = hasChunk 
-          ? 'rgba(100, 181, 246, 0.5)'  // Available chunk (light blue, 50% opacity)
+          ? 'rgba(100, 181, 246, 0.85)'  // Available chunk (light blue, MORE VISIBLE - 85% opacity)
           : 'rgba(50, 50, 50, 0.6)';     // Gap (dark grey, 60% opacity)
         
-        gradientParts.push(`${color} ${startPercent}%`);
         gradientParts.push(`${color} ${endPercent}%`);
+        gradientParts.push(`${color} ${startPercent}%`);
       }
     }
     
     return `linear-gradient(to right, ${gradientParts.join(', ')})`;
+  };
+
+  // Check if a given time (in seconds from midnight) has an available chunk
+  const isTimeAvailable = (timeSeconds: number): boolean => {
+    if (!archiveMetadata || archiveMetadata.manifests.length === 0) return false;
+    
+    const hour = Math.floor(timeSeconds / 3600);
+    const chunk = Math.floor((timeSeconds % 3600) / 600);
+    const key = `${hour}-${chunk}`;
+    
+    return archiveMetadata.manifests.some(
+      manifest => `${manifest.window_index}-${manifest.chunk_index}` === key
+    );
   };
 
   // Timeline positioned at bottom of viewport, completely independent of container
@@ -210,7 +225,17 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             step={isLiveMode ? 1 : undefined}
             disabled={isLiveMode && liveBufferSeconds < 10}
             onChange={onSliderChange}
-            onChangeCommitted={onSeek}
+            onChangeCommitted={(event, value) => {
+              // Prevent seeking to unavailable chunks
+              if (!isLiveMode) {
+                const seekTime = Array.isArray(value) ? value[0] : value;
+                if (!isTimeAvailable(seekTime)) {
+                  console.log(`[@TimelineOverlay] Prevented seek to unavailable time: ${seekTime}s`);
+                  return; // Don't allow seeking to greyed-out areas
+                }
+              }
+              onSeek(event, value);
+            }}
             marks={!isLiveMode ? hourMarks : []}
             sx={{ 
               color: isLiveMode ? 'error.main' : 'primary.main',
@@ -275,7 +300,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         ) : (
           <>
             <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
-              0:00
+              24h ago
             </Typography>
             
             {archiveMetadata && (
@@ -294,7 +319,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             )}
             
             <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
-              24:00
+              Now
             </Typography>
           </>
         )}
