@@ -618,6 +618,10 @@ class ActionExecutor:
         from shared.src.lib.utils.device_utils import capture_screenshot
         screenshot_path = capture_screenshot(self.device, context) or ""
         
+        # Add screenshot to collection for report
+        if screenshot_path:
+            self.action_screenshots.append(screenshot_path)
+        
         return {
             'success': all_iterations_successful,
             'message': result_message,

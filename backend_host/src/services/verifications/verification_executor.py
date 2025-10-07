@@ -426,6 +426,10 @@ class VerificationExecutor:
             from shared.src.lib.utils.device_utils import capture_screenshot
             screenshot_path = capture_screenshot(self.device, context) or ""
             
+            # Add screenshot to collection for report
+            if screenshot_path:
+                self.verification_screenshots.append(screenshot_path)
+            
             flattened_result = {
                 'success': verification_result.get('success', False),
                 'message': verification_result.get('message'),
@@ -470,6 +474,10 @@ class VerificationExecutor:
             
             from shared.src.lib.utils.device_utils import capture_screenshot
             screenshot_path = capture_screenshot(self.device, context) or ""
+            
+            # Add screenshot to collection for report
+            if screenshot_path:
+                self.verification_screenshots.append(screenshot_path)
             
             return {
                 'success': False,

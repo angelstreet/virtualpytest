@@ -129,19 +129,20 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     // Sort by percentage ascending (should already be mostly sorted, but ensure)
     colorStops.sort((a, b) => a.percent - b.percent);
 
-    // Merge adjacent same-color stops for true solid blocks
-    const mergedStops: { percent: number; color: string }[] = [];
-    colorStops.forEach(stop => {
-      const last = mergedStops[mergedStops.length - 1];
-      if (!last || last.color !== stop.color) {
-        mergedStops.push(stop);
-      } else {
-        // Merge: keep the last one's percent updated to this stop's
-        last.percent = stop.percent;
-      }
-    });
+    // Remove the entire merging block
+    // const mergedStops: { percent: number; color: string }[] = [];
+    // colorStops.forEach(stop => {
+    //   const last = mergedStops[mergedStops.length - 1];
+    //   if (!last || last.color !== stop.color) {
+    //     mergedStops.push(stop);
+    //   } else {
+    //     last.percent = stop.percent;
+    //   }
+    // });
+    // const gradientParts = mergedStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
 
-    const gradientParts = mergedStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
+    // Restore simple mapping
+    const gradientParts = colorStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
 
     const gradientString = `linear-gradient(to right, ${gradientParts.join(', ')})`;
     console.log(`[@TimelineOverlay] Final gradient: ${gradientString}`);
