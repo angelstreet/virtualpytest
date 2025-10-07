@@ -961,8 +961,10 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
                 }.get(action_category, '')
                 
                 # Use enhanced formatting for action screenshots
+                # Don't include action_cmd in label - JavaScript will add it with ": cmd"
                 action_formatted_display = format_screenshot_display_name(screenshot_path)
-                screenshots_for_step.append((f'{action_formatted_display}_{category_label}{action_cmd}', screenshot_path, action_cmd, action_params))
+                label_suffix = f'{category_label}action' if category_label else ''
+                screenshots_for_step.append((f'{action_formatted_display}_{label_suffix}' if label_suffix else action_formatted_display, screenshot_path, action_cmd, action_params))
             else:
                 # Fallback if screenshot has no matching result
                 action_formatted_display = format_screenshot_display_name(screenshot_path)

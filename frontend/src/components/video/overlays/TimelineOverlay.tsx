@@ -31,9 +31,25 @@ interface TimelineOverlayProps {
 
 const formatTime = (seconds: number) => {
   if (!seconds || !isFinite(seconds)) return '0h00';
-  const hours = Math.floor(seconds / 3600);
+  const hours = Math.floor(seconds / 3600) % 24;
   const minutes = Math.floor((seconds % 3600) / 60);
   return `${hours}h${minutes.toString().padStart(2, '0')}`;
+};
+
+const getRoundedNow = () => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const roundedMinute = Math.floor(currentMinute / 10) * 10;
+  return currentHour * 3600 + roundedMinute * 60;
+};
+
+const positionToClockTime = (position: number, roundedNow: number) => {
+  return ((roundedNow - 86400) + position + 86400) % 86400;
+};
+
+const clockTimeToPosition = (clockTime: number, roundedNow: number) => {
+  return (clockTime - (roundedNow - 86400) + 86400) % 86400;
 };
 
 export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
@@ -64,121 +80,57 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     return null;
   }
 
-  // Calculate timeline range
-  // Archive mode: 0 to 82800 (23 hours in "hours ago" coordinates, not full 24h)
   const min = isLiveMode ? 0 : 0;
-  const max = isLiveMode ? 150 : 82800;     // 23 hours * 3600 seconds
+  const max = isLiveMode ? 150 : 86400;
 
-  // Convert globalCurrentTime (clock time) to "hours ago" position to match gradient
   const sliderValue = useMemo(() => {
     if (isLiveMode || !archiveMetadata) {
       return globalCurrentTime;
     }
-
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentSecond = now.getSeconds();
-    
-    // Extract hour, minute, second from globalCurrentTime (clock time)
-    const timeHour = Math.floor(globalCurrentTime / 3600);
-    const timeMinute = Math.floor((globalCurrentTime % 3600) / 60);
-    const timeSecond = globalCurrentTime % 60;
-    
-    // Calculate how many hours ago this time was
-    const hoursAgo = (currentHour - timeHour + 24) % 24;
-    
-    // Position in "hours ago" coordinate system (0 = oldest, 82800 = newest)
-    const positionSeconds = (23 - hoursAgo) * 3600 + (globalCurrentTime % 3600);
-    
-    return positionSeconds;
+    const roundedNow = getRoundedNow();
+    return clockTimeToPosition(globalCurrentTime, roundedNow);
   }, [isLiveMode, archiveMetadata, globalCurrentTime]);
 
-  // Build rail gradient with grey gaps for archive mode (STANDARD: past on left, now on right)
-  // Memoized to prevent infinite render loop
   const archiveRailGradient = useMemo(() => {
     if (isLiveMode || !archiveMetadata || archiveMetadata.manifests.length === 0) {
       return 'rgba(255,255,255,0.15)';
     }
 
-    const totalSeconds = 86400;
-    const now = new Date();
-    const currentHour = now.getHours();
-
+    const roundedNow = getRoundedNow();
     const allChunks: { [key: string]: boolean } = {};
     archiveMetadata.manifests.forEach(manifest => {
       const key = `${manifest.window_index}-${manifest.chunk_index}`;
       allChunks[key] = true;
     });
 
-    console.log(`[@TimelineOverlay] Building gradient with ${Object.keys(allChunks).length} chunks:`, Object.keys(allChunks));
-    console.log(`[@TimelineOverlay] Current hour: ${currentHour}`);
-
-    // Collect color stops as array of {percent: number, color: string}
     const colorStops: { percent: number; color: string }[] = [];
 
-    // Iterate from oldest to newest (past to now, left to right)
-    for (let hoursAgo = 23; hoursAgo >= 0; hoursAgo--) {
-      const actualHour = (currentHour - hoursAgo + 24) % 24;
-      const hourStartSeconds = (23 - hoursAgo) * 3600;  // 0 for oldest, increases to 82800 for newest
-
-      for (let chunk = 0; chunk < 6; chunk++) {
-        const key = `${actualHour}-${chunk}`;
-        const hasChunk = allChunks[key];
-
-        if (actualHour === currentHour || actualHour === 15) {
-          console.log(`[@TimelineOverlay] Hour ${actualHour} (${hoursAgo}h ago), chunk ${chunk}: ${hasChunk ? 'AVAILABLE (blue)' : 'missing (grey)'}, key=${key}`);
-        }
-
-        const color = hasChunk
-          ? 'rgb(104, 177, 255)'  // Bright electric cyan for available
-          : 'rgb(207, 207, 207)'; // Light grey for missing
-
-        const startSeconds = hourStartSeconds + chunk * 600;
-        const endSeconds = startSeconds + 600;
-
-        // Standard percentages: low on left (past), high on right (now)
-        const startPercent = (startSeconds / totalSeconds) * 100;
-        const endPercent = (endSeconds / totalSeconds) * 100;
-
-        // For sharp transitions: add color at start, and same at end (solid block)
-        colorStops.push({ percent: startPercent, color });
-        colorStops.push({ percent: endPercent, color });
-      }
+    for (let i = 0; i < 144; i++) {
+      const chunkStartPosition = i * 600;
+      const chunkEndPosition = (i + 1) * 600;
+      
+      const chunkClockTime = positionToClockTime(chunkStartPosition, roundedNow);
+      const hour = Math.floor(chunkClockTime / 3600);
+      const chunk = Math.floor((chunkClockTime % 3600) / 600);
+      const key = `${hour}-${chunk}`;
+      
+      const color = allChunks[key] ? 'rgb(104, 177, 255)' : 'rgb(207, 207, 207)';
+      const startPercent = (chunkStartPosition / 86400) * 100;
+      const endPercent = (chunkEndPosition / 86400) * 100;
+      
+      colorStops.push({ percent: startPercent, color });
+      colorStops.push({ percent: endPercent, color });
     }
 
-    // Sort by percentage ascending (should already be mostly sorted, but ensure)
-    colorStops.sort((a, b) => a.percent - b.percent);
-
-    // Remove the entire merging block
-    // const mergedStops: { percent: number; color: string }[] = [];
-    // colorStops.forEach(stop => {
-    //   const last = mergedStops[mergedStops.length - 1];
-    //   if (!last || last.color !== stop.color) {
-    //     mergedStops.push(stop);
-    //   } else {
-    //     last.percent = stop.percent;
-    //   }
-    // });
-    // const gradientParts = mergedStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
-
-    // Restore simple mapping
     const gradientParts = colorStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
-
-    const gradientString = `linear-gradient(to right, ${gradientParts.join(', ')})`;
-    console.log(`[@TimelineOverlay] Final gradient: ${gradientString}`);
-
-    return gradientString;
+    return `linear-gradient(to right, ${gradientParts.join(', ')})`;
   }, [isLiveMode, archiveMetadata]);
 
-  // Check if a given time (in seconds from midnight) has an available chunk
   const isTimeAvailable = (timeSeconds: number): boolean => {
     if (!archiveMetadata || archiveMetadata.manifests.length === 0) return false;
-
     const hour = Math.floor(timeSeconds / 3600);
     const chunk = Math.floor((timeSeconds % 3600) / 600);
     const key = `${hour}-${chunk}`;
-
     return archiveMetadata.manifests.some(
       manifest => `${manifest.window_index}-${manifest.chunk_index}` === key
     );
@@ -275,28 +227,11 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                 })()
               ) : (
-                // Show actual clock time during scrub or playback
                 (() => {
-                  // Use dragSliderValue when dragging, otherwise use globalCurrentTime
-                  let displayTime: number;
-                  
-                  if (isDraggingSlider) {
-                    // Convert position back to clock time
-                    const now = new Date();
-                    const currentHour = now.getHours();
-                    const positionValue = dragSliderValue;
-                    
-                    // positionValue is in "hours ago" coordinates (0 = oldest, 82800 = newest)
-                    const hourPosition = Math.floor(positionValue / 3600);
-                    const hoursAgo = 23 - hourPosition;
-                    const clockHour = (currentHour - hoursAgo + 24) % 24;
-                    const secondsIntoHour = positionValue % 3600;
-                    displayTime = clockHour * 3600 + secondsIntoHour + 3600; // Add 1h offset
-                  } else {
-                    // Regular playback - just use globalCurrentTime
-                    displayTime = globalCurrentTime;
-                  }
-                  
+                  const roundedNow = getRoundedNow();
+                  const displayTime = isDraggingSlider 
+                    ? positionToClockTime(dragSliderValue, roundedNow)
+                    : globalCurrentTime;
                   return formatTime(displayTime);
                 })()
               )}
@@ -328,28 +263,14 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             onChangeCommitted={(event, value) => {
               if (!isLiveMode) {
                 const positionValue = Array.isArray(value) ? value[0] : value;
-                
-                // Convert position back to clock time and add 1 hour offset
-                const now = new Date();
-                const currentHour = now.getHours();
-                
-                // positionValue is in "hours ago" coordinates (0 = oldest, 82800 = newest)
-                const hourPosition = Math.floor(positionValue / 3600);
-                const hoursAgo = 23 - hourPosition;
-                const clockHour = (currentHour - hoursAgo + 24) % 24;
-                const secondsIntoHour = positionValue % 3600;
-                // Add 1 hour (3600s) to match the tooltip offset
-                const seekTime = clockHour * 3600 + secondsIntoHour + 3600;
-
-                console.log(`[@TimelineOverlay] Position: ${positionValue}s -> Clock time: ${seekTime}s (${Math.floor(seekTime/3600)}h)`);
+                const roundedNow = getRoundedNow();
+                const seekTime = positionToClockTime(positionValue, roundedNow);
 
                 if (isTimeAvailable(seekTime)) {
-                  // If available, seek normally
                   onSeek(event, seekTime);
                   return;
                 }
 
-                // If unavailable, find nearest available chunk
                 let nearestTime = null;
                 let minDiff = Infinity;
 
@@ -365,11 +286,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 }
 
                 if (nearestTime !== null) {
-                  console.log(`[@TimelineOverlay] Snapping to nearest available: ${nearestTime}s`);
                   onSeek(event, nearestTime);
-                } else {
-                  console.warn('[@TimelineOverlay] No available chunks to snap to');
-                  // Optional: Reset to current position or earliest available
                 }
                 return;
               }
