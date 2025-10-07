@@ -364,9 +364,9 @@ start_grabber() {
   > "$FFMPEG_LOG"
   reset_log_if_large "$FFMPEG_LOG"
   
-  # Use setsid to create a new session - ensures FFmpeg survives parent process restarts
+  # Use setsid with bash -c to create a new session - ensures FFmpeg survives parent process restarts
   # This makes FFmpeg completely independent of backend_host/subprocess lifecycle
-  setsid eval $FFMPEG_CMD > "$FFMPEG_LOG" 2>&1 &
+  setsid bash -c "$FFMPEG_CMD" > "$FFMPEG_LOG" 2>&1 &
   local FFMPEG_PID=$!
   
   # Update active_captures.conf with CSV format
