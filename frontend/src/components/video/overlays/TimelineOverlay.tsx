@@ -81,7 +81,6 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       return 'rgba(255,255,255,0.15)';
     }
     
-    const stops: { pos: number; color: string }[] = [];
     const totalSeconds = 86400;
     
     const allChunks: { [key: string]: boolean } = {};
@@ -91,6 +90,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     });
     
     console.log(`[@TimelineOverlay] Building gradient with ${Object.keys(allChunks).length} chunks:`, Object.keys(allChunks));
+    
+    // Build gradient with hard edges (no smooth transitions)
+    const gradientParts: string[] = [];
     
     for (let hour = 0; hour < 24; hour++) {
       for (let chunk = 0; chunk < 6; chunk++) {
@@ -102,29 +104,24 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           console.log(`[@TimelineOverlay] Hour 16, chunk ${chunk}: ${hasChunk ? 'AVAILABLE (blue)' : 'missing (grey)'}, key=${key}`);
         }
         
-        // Only 2 colors: available (bright cyan) or missing (dark grey) - both fully opaque
+        // Only 2 colors: available (bright cyan) or missing (light grey) - both fully opaque
         const color = hasChunk
           ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks - fully opaque
-          : 'rgb(207, 207, 207)';    // Dark grey for missing chunks - fully opaque, no transparency
+          : 'rgb(207, 207, 207)';    // Light grey for missing chunks - fully opaque, no transparency
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
         
-        // Calculate percentages (inverted)
-        const startPercent = 100 - (startSeconds / totalSeconds) * 100;
-        const endPercent = 100 - (endSeconds / totalSeconds) * 100;
+        // Calculate percentages (inverted: past on left, now on right)
+        const startPercent = (100 - (startSeconds / totalSeconds) * 100).toFixed(2);
+        const endPercent = (100 - (endSeconds / totalSeconds) * 100).toFixed(2);
         
-        // Push stops (endPercent < startPercent)
-        stops.push({ pos: endPercent, color });
-        stops.push({ pos: startPercent, color });
+        // Create HARD EDGES by putting both color stops at same position
+        // Format: "color start%, color end%"
+        gradientParts.push(`${color} ${endPercent}%`);
+        gradientParts.push(`${color} ${startPercent}%`);
       }
     }
-    
-    // Sort stops by position ascending
-    stops.sort((a, b) => a.pos - b.pos);
-    
-    // Build gradient string
-    const gradientParts = stops.map(stop => `${stop.color} ${stop.pos}%`);
     
     return `linear-gradient(to right, ${gradientParts.join(', ')})`;
   };
