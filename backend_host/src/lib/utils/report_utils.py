@@ -3,88 +3,15 @@ Report Generation Utilities for Host Side
 
 This module provides report generation functionality for the host side.
 Moved from backend_server since host executes scripts and generates reports.
+
+NOTE: For screenshot capture in scripts, use capture_screenshot_for_script() 
+from shared.src.lib.utils.device_utils instead!
 """
 
 import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from shared.src.lib.utils.cloudflare_utils import upload_script_report, upload_validation_screenshots, upload_script_logs
-
-
-def capture_and_upload_screenshot(device, step_name: str, script_context: str = "action") -> Dict[str, Any]:
-    """
-    Unified screenshot capture and upload function for reporting.
-    Used by all controllers for consistent screenshot handling in reports.
-    Host-side version that directly uses device controllers.
-    
-    Args:
-        device: Device instance  
-        step_name: Name for the screenshot (e.g., "zap_iteration_1", "navigation_step_2")
-        script_context: Context for organizing screenshots (e.g., "zap", "navigation", "validation")
-        
-    Returns:
-        Dict with screenshot_path, screenshot_url, and success status
-    """
-    result = {
-        'screenshot_path': '',
-        'screenshot_url': None,
-        'success': False,
-        'error': None
-    }
-    
-    try:
-        # 1. Capture screenshot locally using device's AV controller
-        screenshot_path = ""
-        try:
-            av_controller = device._get_controller('av')
-            if av_controller:
-                screenshot_path = av_controller.take_screenshot()
-            else:
-                result['error'] = "No AV controller available"
-                return result
-        except Exception as e:
-            print(f"[@report_utils] Screenshot failed: {e}")
-            result['error'] = f"Screenshot capture failed: {str(e)}"
-            return result
-            
-        result['screenshot_path'] = screenshot_path
-        
-        if screenshot_path:
-            # 2. Upload to Cloudflare R2 for report display
-            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
-            uploader = get_cloudflare_utils()
-            remote_path = f"{script_context}-screenshots/{device.device_id}/{step_name}.png"
-            file_mappings = [{'local_path': screenshot_path, 'remote_path': remote_path}]
-            upload_result = uploader.upload_files(file_mappings)
-            
-            # Convert to single file result format
-            if upload_result['uploaded_files']:
-                upload_result = {
-                    'success': True,
-                    'url': upload_result['uploaded_files'][0]['url']
-                }
-            else:
-                upload_result = {
-                    'success': False,
-                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
-                }
-            
-            if upload_result.get('success'):
-                result['screenshot_url'] = upload_result.get('url')
-                result['success'] = True
-                print(f"[@report_utils:capture_and_upload_screenshot] Screenshot uploaded: {result['screenshot_url']}")
-            else:
-                result['error'] = f"Upload failed: {upload_result.get('error', 'Unknown error')}"
-                print(f"[@report_utils:capture_and_upload_screenshot] Upload failed: {result['error']}")
-        else:
-            result['error'] = "Screenshot capture failed"
-            print(f"[@report_utils:capture_and_upload_screenshot] Capture failed: {result['error']}")
-            
-    except Exception as e:
-        result['error'] = f"Screenshot handling error: {str(e)}"
-        print(f"[@report_utils:capture_and_upload_screenshot] Error: {result['error']}")
-        
-    return result
 
 
 def generate_and_upload_script_report(

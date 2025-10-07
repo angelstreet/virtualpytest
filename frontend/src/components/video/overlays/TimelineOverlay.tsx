@@ -129,8 +129,19 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     // Sort by percentage ascending (should already be mostly sorted, but ensure)
     colorStops.sort((a, b) => a.percent - b.percent);
 
-    // To ensure sharp transitions between different colors, duplicate stops at boundaries isn't needed since same color merges
-    const gradientParts = colorStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
+    // Merge adjacent same-color stops for true solid blocks
+    const mergedStops: { percent: number; color: string }[] = [];
+    colorStops.forEach(stop => {
+      const last = mergedStops[mergedStops.length - 1];
+      if (!last || last.color !== stop.color) {
+        mergedStops.push(stop);
+      } else {
+        // Merge: keep the last one's percent updated to this stop's
+        last.percent = stop.percent;
+      }
+    });
+
+    const gradientParts = mergedStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
 
     const gradientString = `linear-gradient(to right, ${gradientParts.join(', ')})`;
     console.log(`[@TimelineOverlay] Final gradient: ${gradientString}`);
@@ -201,13 +212,14 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
               position: 'absolute',
               top: -40,  // Position above the slider/thumb
               left: (() => {
-                const currentValue = isLiveMode
+                const currentValue = isLiveMode 
                   ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)
                   : (isDraggingSlider ? dragSliderValue : sliderValue);
                 const minValue = isLiveMode ? 0 : 0;
                 const maxValue = isLiveMode ? 150 : 86400;
-
+                
                 const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
+                console.log(`[@TimelineOverlay] Tooltip: value=${currentValue.toFixed(0)}s, percentage=${percentage.toFixed(2)}%`); // Debug log
                 return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width for centering
               })(),
               transform: 'translateX(0)',
@@ -235,6 +247,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 (() => {
                   if (liveBufferSeconds === 0) return 'Buffering...';
                   const behindSeconds = Math.round(150 - (isDraggingSlider ? dragSliderValue : liveSliderPosition));
+                  if (behindSeconds === 0) return 'Live';
                   if (behindSeconds < 60) return `-${behindSeconds}s`;
                   const minutes = Math.floor(behindSeconds / 60);
                   const seconds = behindSeconds % 60;
@@ -242,7 +255,11 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 })()
               ) : (
                 // Show actual time directly
-                formatTime(isDraggingSlider ? dragSliderValue : sliderValue)
+                (() => {
+                  const tooltipTime = isDraggingSlider ? dragSliderValue : sliderValue;
+                  console.log(`[@TimelineOverlay] Tooltip time: ${formatTime(tooltipTime)} (${tooltipTime.toFixed(0)}s)`); // Debug
+                  return formatTime(tooltipTime)
+                })()
               )}
             </Typography>
             {/* Downward arrow to point at the thumb */}

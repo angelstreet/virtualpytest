@@ -13,7 +13,6 @@ import time
 import json
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
 from shared.src.lib.utils.zap_statistics import ZapStatistics
 from shared.src.lib.utils.zap_utils import (
     create_blackscreen_analysis_log,

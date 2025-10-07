@@ -542,159 +542,97 @@ class VideoRestartHelpers:
             return self.video_stream_path + "/" + video_filename
     
     def _get_aligned_screenshots(self, segment_files: List[Tuple[str, str]]) -> List[str]:
-        """Get screenshots aligned with video segments"""
+        """
+        Get screenshots aligned with video segments using simple timestamp-based approach.
+        
+        Logic:
+        1. Get start/end time from first/last segment
+        2. Filter screenshots by timestamp (only those in time window)
+        3. Sort by timestamp (chronological order)
+        4. Pick every Nth frame (1 per second) based on FPS
+        """
         try:
             from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
-            # Use centralized path resolution (handles hot/cold storage automatically)
-            capture_folder = get_capture_storage_path(self.video_capture_path, 'captures')
             
-            print(f"RestartHelpers[{self.device_name}]: 🔍 _get_aligned_screenshots CALLED")
-            print(f"RestartHelpers[{self.device_name}]:   - Segment files: {len(segment_files) if segment_files else 0}")
-            print(f"RestartHelpers[{self.device_name}]:   - Capture folder: {capture_folder}")
-            print(f"RestartHelpers[{self.device_name}]:   - Folder exists: {os.path.exists(capture_folder)}")
-            
-            # Find screenshot closest to first segment timestamp
             if not segment_files:
                 print(f"RestartHelpers[{self.device_name}]: ❌ No segment files provided")
                 return []
             
-            first_segment_path = segment_files[0][1]
-            first_segment_mtime = os.path.getmtime(first_segment_path)
+            # Get time window from segments
+            video_start_time = os.path.getmtime(segment_files[0][1])
+            video_end_time = os.path.getmtime(segment_files[-1][1])
+            video_duration = video_end_time - video_start_time
             
-            # Find all available screenshots in hot storage (fast os.scandir - no subprocess overhead)
-            # With 60s archiver safety buffer, hot storage always has last 100 files
-            print(f"RestartHelpers[{self.device_name}]: 🔍 Scanning for screenshots in: {capture_folder}")
-            try:
-                all_screenshots = get_files_by_pattern(capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
-                print(f"RestartHelpers[{self.device_name}]: ✅ Found {len(all_screenshots)} screenshots in hot storage")
-                if all_screenshots:
-                    print(f"RestartHelpers[{self.device_name}]:   - First screenshot: {os.path.basename(all_screenshots[0])}")
-                    print(f"RestartHelpers[{self.device_name}]:   - Last screenshot: {os.path.basename(all_screenshots[-1])}")
-            except Exception as e:
-                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: Failed to scan screenshots folder: {e}")
-                import traceback
-                print(f"RestartHelpers[{self.device_name}]: 🔍 Traceback: {traceback.format_exc()}")
-                all_screenshots = []
+            print(f"RestartHelpers[{self.device_name}]: 🔍 Getting screenshots for {len(segment_files)}s video")
+            print(f"RestartHelpers[{self.device_name}]:   - Start: {datetime.fromtimestamp(video_start_time).strftime('%H:%M:%S')}")
+            print(f"RestartHelpers[{self.device_name}]:   - End: {datetime.fromtimestamp(video_end_time).strftime('%H:%M:%S')}")
+            print(f"RestartHelpers[{self.device_name}]:   - Duration: {video_duration:.1f}s")
+            
+            # Get captures folder using centralized path resolution
+            capture_folder = get_capture_storage_path(self.video_capture_path, 'captures')
+            print(f"RestartHelpers[{self.device_name}]:   - Scanning: {capture_folder}")
+            
+            # Get all screenshots in hot storage
+            all_screenshots = get_files_by_pattern(capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
             
             if not all_screenshots:
-                error_msg = "No screenshots found in hot storage"
-                print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: {error_msg}")
-                print(f"RestartHelpers[{self.device_name}]:   - Searched: {capture_folder}")
-                print(f"RestartHelpers[{self.device_name}]:   - Segment time: {datetime.fromtimestamp(first_segment_mtime).strftime('%H:%M:%S')}")
-                print(f"RestartHelpers[{self.device_name}]:   - This should never happen with 60s archiver safety buffer!")
-                
-                # Check if screenshots exist in cold storage instead
-                from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
-                device_folder = get_capture_folder(capture_folder)
-                cold_capture_folder = get_cold_storage_path(device_folder, 'captures')
-                print(f"RestartHelpers[{self.device_name}]:   - Checking cold storage: {cold_capture_folder}")
-                if os.path.exists(cold_capture_folder):
-                    try:
-                        cold_screenshots = get_files_by_pattern(cold_capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
-                        print(f"RestartHelpers[{self.device_name}]:   - Found {len(cold_screenshots)} screenshots in COLD storage")
-                        print(f"RestartHelpers[{self.device_name}]:   - ⚠️  Screenshots may have been archived too early!")
-                    except Exception as e:
-                        print(f"RestartHelpers[{self.device_name}]:   - Cold storage scan failed: {e}")
-                
+                print(f"RestartHelpers[{self.device_name}]: ❌ No screenshots found in hot storage")
                 return []
             
-            # Find screenshot closest to first segment timestamp
-            closest_screenshot = None
-            min_time_diff = float('inf')
+            print(f"RestartHelpers[{self.device_name}]: 📸 Found {len(all_screenshots)} total screenshots in hot storage")
+            
+            # Filter: Only screenshots within video time window
+            screenshots_in_window = []
             for screenshot_path in all_screenshots:
-                screenshot_mtime = os.path.getmtime(screenshot_path)
-                time_diff = abs(screenshot_mtime - first_segment_mtime)
-                if time_diff < min_time_diff:
-                    min_time_diff = time_diff
-                    closest_screenshot = screenshot_path
+                screenshot_time = os.path.getmtime(screenshot_path)
+                if video_start_time <= screenshot_time <= video_end_time:
+                    screenshots_in_window.append(screenshot_path)
             
-            if not closest_screenshot:
+            if not screenshots_in_window:
+                print(f"RestartHelpers[{self.device_name}]: ❌ No screenshots found in time window")
+                print(f"RestartHelpers[{self.device_name}]:   - This shouldn't happen - screenshots may have been archived")
                 return []
             
-            # Extract number from closest screenshot filename
-            closest_filename = os.path.basename(closest_screenshot)
-            match = re.search(r'capture_(\d+)', closest_filename)
-            if not match:
-                return []
+            # Sort by timestamp (chronological order)
+            screenshots_in_window.sort(key=lambda p: os.path.getmtime(p))
             
-            start_number = int(match.group(1))
+            print(f"RestartHelpers[{self.device_name}]: ✅ Found {len(screenshots_in_window)} screenshots in time window")
+            print(f"RestartHelpers[{self.device_name}]:   - First: {os.path.basename(screenshots_in_window[0])}")
+            print(f"RestartHelpers[{self.device_name}]:   - Last: {os.path.basename(screenshots_in_window[-1])}")
             
-            # Get FPS from controller
+            # Sample: 1 screenshot per second (every FPS frames)
             fps = getattr(self.av_controller, 'screenshot_fps', 5)
-            screenshots_per_segment = int(self.HLS_SEGMENT_DURATION * fps)
+            selected_screenshots = screenshots_in_window[::fps]  # Every 5th frame
             
-            # Apply offset to account for segment/screenshot timing differences
-            segment_offset = 3  # Hardcoded offset - go back 3 screenshots
-            adjusted_start = start_number - segment_offset
-            
-            print(f"RestartHelpers[{self.device_name}]: Screenshot alignment - FPS:{fps}, PerSegment:{screenshots_per_segment}, Start:{start_number}, Offset:{segment_offset}, Adjusted:{adjusted_start}")
-            
-            # Get sequential screenshots aligned with segments
-            aligned_screenshots = []
+            # Ensure we don't exceed the number of segments
             screenshots_needed = len(segment_files)
-            missing_screenshots = []
+            if len(selected_screenshots) > screenshots_needed:
+                selected_screenshots = selected_screenshots[:screenshots_needed]
             
-            for i in range(screenshots_needed):
-                screenshot_number = adjusted_start + (i * screenshots_per_segment)
-                screenshot_patterns = [
-                    f"capture_{screenshot_number}.jpg",
-                    f"capture_{screenshot_number}_thumbnail.jpg"
-                ]
-                
-                found_screenshot = None
-                for pattern_name in screenshot_patterns:
-                    screenshot_path = os.path.join(capture_folder, pattern_name)
-                    if os.path.exists(screenshot_path):
-                        found_screenshot = screenshot_path
-                        break
-                
-                if found_screenshot:
-                    aligned_screenshots.append(found_screenshot)
-                else:
-                    missing_screenshots.append(screenshot_number)
+            print(f"RestartHelpers[{self.device_name}]: 🎯 Selected {len(selected_screenshots)} screenshots (1 per second, FPS={fps})")
             
-            # Log alignment results
-            if missing_screenshots:
-                print(f"RestartHelpers[{self.device_name}]: ⚠️  Missing {len(missing_screenshots)}/{screenshots_needed} screenshots: {missing_screenshots[:5]}")
-            else:
-                print(f"RestartHelpers[{self.device_name}]: ✅ Found all {screenshots_needed} aligned screenshots")
+            if len(selected_screenshots) < screenshots_needed:
+                print(f"RestartHelpers[{self.device_name}]: ⚠️  Only {len(selected_screenshots)}/{screenshots_needed} screenshots available")
             
-            # Convert to proper host URLs
+            # Convert to URLs
             from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-            from  backend_host.src.lib.utils.host_utils import get_host_instance
+            from backend_host.src.lib.utils.host_utils import get_host_instance
             
             screenshot_urls = []
             try:
                 host = get_host_instance()
                 host_dict = host.to_dict()
                 
-                for screenshot_path in aligned_screenshots:
+                for screenshot_path in selected_screenshots:
                     screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
                     screenshot_urls.append(screenshot_url)
+                    
+                print(f"RestartHelpers[{self.device_name}]: ✅ Generated {len(screenshot_urls)} screenshot URLs")
+                
             except Exception as e:
-                # Fallback: Build storage-aware relative paths
-                print(f"RestartHelpers[{self.device_name}]: buildHostImageUrl failed ({e}), using fallback URL construction")
-                for screenshot_path in aligned_screenshots:
-                    # Extract relative path from full filesystem path to handle hot/cold storage
-                    # Hot: /var/www/html/stream/capture1/hot/captures/file.jpg -> hot/captures/file.jpg
-                    # Cold: /var/www/html/stream/capture1/captures/file.jpg -> captures/file.jpg
-                    if '/stream/' in screenshot_path:
-                        # Get everything after the device folder (e.g., capture1)
-                        parts = screenshot_path.split('/stream/')[-1].split('/', 1)
-                        if len(parts) > 1:
-                            relative_path = parts[1]  # e.g., "hot/captures/file.jpg" or "captures/file.jpg"
-                            screenshot_url = f"{self.video_stream_path}/{relative_path}"
-                        else:
-                            # Last resort: just use filename with captures folder
-                            filename = os.path.basename(screenshot_path)
-                            screenshot_url = f"{self.video_stream_path}/captures/{filename}"
-                    else:
-                        # Path doesn't contain expected structure, use filename only
-                        filename = os.path.basename(screenshot_path)
-                        screenshot_url = f"{self.video_stream_path}/captures/{filename}"
-                    screenshot_urls.append(screenshot_url)
+                print(f"RestartHelpers[{self.device_name}]: ❌ URL generation failed: {e}")
+                return []
             
-            print(f"RestartHelpers[{self.device_name}]: Found {len(screenshot_urls)} aligned screenshots: {[os.path.basename(url.split('/')[-1]) for url in screenshot_urls]}")
             return screenshot_urls
             
         except Exception as e:

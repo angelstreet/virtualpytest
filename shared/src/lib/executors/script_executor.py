@@ -743,19 +743,12 @@ class ScriptExecutor:
             # Store in context for use in cleanup_and_exit
             context.baseline_execution_time_ms = actual_execution_time_ms
             
-            # Capture final screenshot and upload immediately
+            # Capture final screenshot for report
             print(f"📸 [{self.script_name}] Capturing final state screenshot...")
-            try:
-                from backend_host.src.lib.utils.report_utils import capture_and_upload_screenshot
-                result = capture_and_upload_screenshot(context.selected_device, "final_state", "script")
-                if result['success'] and result['screenshot_url']:
-                    context.add_screenshot(result['screenshot_url'])  # Store R2 URL
-                    print(f"✅ [{self.script_name}] Final screenshot uploaded: {result['screenshot_url']}")
-                elif result['screenshot_path']:
-                    context.add_screenshot(result['screenshot_path'])  # Fallback to local path
-                    print(f"✅ [{self.script_name}] Final screenshot captured (upload failed)")
-            except Exception as e:
-                print(f"⚠️ [{self.script_name}] Screenshot failed: {e}")
+            from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+            screenshot_id = capture_screenshot_for_script(context.selected_device, context, "final_state")
+            if screenshot_id:
+                print(f"✅ [{self.script_name}] Final screenshot captured: {screenshot_id}")
             
             # Capture test execution video using device AV controller
             print(f"🎥 [{self.script_name}] Capturing test execution video...")
