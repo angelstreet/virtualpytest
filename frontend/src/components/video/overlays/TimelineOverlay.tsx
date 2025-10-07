@@ -78,8 +78,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     right: 0,
     bottom: 0,
     width: '100%',
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-    padding: '16px',
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+    padding: '8px 16px 8px 16px', // Reduced vertical padding
     zIndex: 1300, // High z-index to be above everything
     pointerEvents: 'auto' as const,
   };
@@ -88,7 +88,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     <Box
         sx={timelineStyle}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0 }}>
         {!isLiveMode && (
           <IconButton
             onClick={onTogglePlayPause}
@@ -214,7 +214,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
         </Box>
       </Box>
       
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2, mt: -2.5 }}>  
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: !isLiveMode ? 7 : 0, pr: 2, mt: -2 }}>  
         {isLiveMode ? (
           <>
             <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
