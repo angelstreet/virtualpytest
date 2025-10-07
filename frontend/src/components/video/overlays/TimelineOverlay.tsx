@@ -30,13 +30,10 @@ interface TimelineOverlayProps {
 }
 
 const formatTime = (seconds: number) => {
-  if (!seconds || !isFinite(seconds)) return '0:00';
+  if (!seconds || !isFinite(seconds)) return '0h00';
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  return hours > 0 
-    ? `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    : `${minutes}:${secs.toString().padStart(2, '0')}`;
+  return `${hours}h${minutes.toString().padStart(2, '0')}`;
 };
 
 export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
@@ -93,15 +90,22 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       allChunks[key] = true;
     });
     
+    console.log(`[@TimelineOverlay] Building gradient with ${Object.keys(allChunks).length} chunks:`, Object.keys(allChunks));
+    
     for (let hour = 0; hour < 24; hour++) {
       for (let chunk = 0; chunk < 6; chunk++) {
         const key = `${hour}-${chunk}`;
         const hasChunk = allChunks[key];
         
-        // Only 2 colors: available (bright cyan) or missing (dark grey)
+        // Debug logging for hour 16
+        if (hour === 16) {
+          console.log(`[@TimelineOverlay] Hour 16, chunk ${chunk}: ${hasChunk ? 'AVAILABLE (blue)' : 'missing (grey)'}, key=${key}`);
+        }
+        
+        // Only 2 colors: available (bright cyan) or missing (dark grey) - both fully opaque
         const color = hasChunk
-          ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks (very visible)
-          : 'rgba(180, 180, 180, 1)';  // Medium-dark grey for missing chunks (clear contrast)
+          ? 'rgb(104, 177, 255)'  // Bright electric cyan for available chunks - fully opaque
+          : 'rgb(80, 80, 80)';    // Dark grey for missing chunks - fully opaque, no transparency
         
         const startSeconds = hour * 3600 + chunk * 600;
         const endSeconds = startSeconds + 600;
@@ -145,7 +149,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     right: 0,
     bottom: 0,
     width: '100%',
-    background: 'linear-gradient(transparent, rgba(0,0,0,1))',
+    background: 'rgba(0,0,0,0.95)', // Solid dark background, no gradient
     padding: '8px 16px 8px 16px', // Reduced vertical padding
     zIndex: 1300, // High z-index to be above everything
     pointerEvents: 'auto' as const,
@@ -311,7 +315,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 8,
                 zIndex: 1,  // Explicitly set lower than thumb to ensure layering
                 borderRadius: '4px',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',  // Slightly more visible border
+                opacity: 1,  // Force full opacity
                 background: isLiveMode 
                   ? (() => {
                       const bufferPercent = Math.max(0, ((150 - liveBufferSeconds) / 150) * 100);
