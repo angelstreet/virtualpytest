@@ -727,6 +727,58 @@ def update_archive_manifest(capture_dir: str, hour: int, chunk_index: int, mp4_p
     logger.info(f"Updated archive manifest: {manifest['total_chunks']} chunks across {len(manifest['available_hours'])} hours")
 
 
+def cleanup_temp_files(capture_dir: str) -> Tuple[int, int]:
+    """
+    Safety cleanup for temp/ directories - delete orphaned 1min files older than 2 hours.
+    
+    Why this is needed:
+    - If 10min merging fails repeatedly, 1min files accumulate forever
+    - Prevents disk exhaustion from orphaned temp files
+    - 2 hour buffer ensures we don't delete files being actively processed
+    
+    Returns: (segments_deleted, metadata_deleted)
+    """
+    import time
+    
+    segments_deleted = 0
+    metadata_deleted = 0
+    now = time.time()
+    max_age_seconds = 7200  # 2 hours
+    
+    # Cleanup segments temp directory
+    segments_temp = os.path.join(capture_dir, 'segments', 'temp')
+    if os.path.isdir(segments_temp):
+        try:
+            for f in Path(segments_temp).glob('1min_*.mp4'):
+                if f.is_file() and now - f.stat().st_mtime > max_age_seconds:
+                    try:
+                        os.remove(str(f))
+                        segments_deleted += 1
+                    except Exception as e:
+                        logger.error(f"Error deleting old temp segment {f}: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning segments temp directory: {e}")
+    
+    # Cleanup metadata temp directory
+    metadata_temp = os.path.join(capture_dir, 'metadata', 'temp')
+    if os.path.isdir(metadata_temp):
+        try:
+            for f in Path(metadata_temp).glob('1min_*.json'):
+                if f.is_file() and now - f.stat().st_mtime > max_age_seconds:
+                    try:
+                        os.remove(str(f))
+                        metadata_deleted += 1
+                    except Exception as e:
+                        logger.error(f"Error deleting old temp metadata {f}: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning metadata temp directory: {e}")
+    
+    if segments_deleted > 0 or metadata_deleted > 0:
+        logger.info(f"Temp cleanup: Deleted {segments_deleted} old segment files, {metadata_deleted} old metadata files (>2h old)")
+    
+    return segments_deleted, metadata_deleted
+
+
 def process_capture_directory(capture_dir: str):
     """
     Process single capture directory:
@@ -804,11 +856,20 @@ def process_capture_directory(capture_dir: str):
             os.makedirs(hour_dir, exist_ok=True)
             mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
             
-            # Only create if chunk doesn't exist (prevent duplicates within same 10min window)
-            if not os.path.exists(mp4_path):
+            # Check if chunk exists and if it's old (>12h = previous day's data)
+            should_create = True
+            if os.path.exists(mp4_path):
+                chunk_age = time.time() - os.path.getmtime(mp4_path)
+                if chunk_age < 43200:  # 12 hours - still within same day
+                    logger.debug(f"Chunk already exists and is recent ({chunk_age/3600:.1f}h old): {hour}/chunk_10min_{chunk_index}.mp4 (skipping duplicate)")
+                    should_create = False
+                else:
+                    logger.info(f"Overwriting old chunk ({chunk_age/3600:.1f}h old): {hour}/chunk_10min_{chunk_index}.mp4 (24h rollover)")
+            
+            if should_create:
                 mp4_10min = merge_progressive_batch(temp_dir, '1min_*.mp4', mp4_path, 10, True, 20)
             else:
-                logger.debug(f"Chunk already exists: {hour}/chunk_10min_{chunk_index}.mp4 (skipping duplicate)")
+                mp4_10min = None
         except (ValueError, OSError) as e:
             logger.error(f"Error calculating chunk time from {oldest_file}: {e}")
     
@@ -836,6 +897,11 @@ def process_capture_directory(capture_dir: str):
             logger.info(f"Extracted audio to COLD: /audio/{hour}/chunk_10min_{chunk_index}.mp3")
         except Exception as e:
             logger.warning(f"Failed to extract audio from chunk {chunk_index}: {e}")
+    
+    # SAFETY CLEANUP: Delete orphaned 1min files older than 2 hours from temp/
+    # These are files that failed to merge into 10min chunks (e.g., due to errors)
+    # Keep 2h buffer to avoid deleting files currently being processed
+    cleanup_temp_files(capture_dir)
     
     elapsed = time.time() - start_time
     
