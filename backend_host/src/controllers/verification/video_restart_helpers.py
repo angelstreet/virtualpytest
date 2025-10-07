@@ -548,8 +548,14 @@ class VideoRestartHelpers:
             # Use centralized path resolution (handles hot/cold storage automatically)
             capture_folder = get_capture_storage_path(self.video_capture_path, 'captures')
             
+            print(f"RestartHelpers[{self.device_name}]: 🔍 _get_aligned_screenshots CALLED")
+            print(f"RestartHelpers[{self.device_name}]:   - Segment files: {len(segment_files) if segment_files else 0}")
+            print(f"RestartHelpers[{self.device_name}]:   - Capture folder: {capture_folder}")
+            print(f"RestartHelpers[{self.device_name}]:   - Folder exists: {os.path.exists(capture_folder)}")
+            
             # Find screenshot closest to first segment timestamp
             if not segment_files:
+                print(f"RestartHelpers[{self.device_name}]: ❌ No segment files provided")
                 return []
             
             first_segment_path = segment_files[0][1]
@@ -557,11 +563,17 @@ class VideoRestartHelpers:
             
             # Find all available screenshots in hot storage (fast os.scandir - no subprocess overhead)
             # With 60s archiver safety buffer, hot storage always has last 100 files
+            print(f"RestartHelpers[{self.device_name}]: 🔍 Scanning for screenshots in: {capture_folder}")
             try:
                 all_screenshots = get_files_by_pattern(capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
-                print(f"RestartHelpers[{self.device_name}]: Found {len(all_screenshots)} screenshots in hot storage")
+                print(f"RestartHelpers[{self.device_name}]: ✅ Found {len(all_screenshots)} screenshots in hot storage")
+                if all_screenshots:
+                    print(f"RestartHelpers[{self.device_name}]:   - First screenshot: {os.path.basename(all_screenshots[0])}")
+                    print(f"RestartHelpers[{self.device_name}]:   - Last screenshot: {os.path.basename(all_screenshots[-1])}")
             except Exception as e:
                 print(f"RestartHelpers[{self.device_name}]: ❌ ERROR: Failed to scan screenshots folder: {e}")
+                import traceback
+                print(f"RestartHelpers[{self.device_name}]: 🔍 Traceback: {traceback.format_exc()}")
                 all_screenshots = []
             
             if not all_screenshots:
@@ -570,6 +582,20 @@ class VideoRestartHelpers:
                 print(f"RestartHelpers[{self.device_name}]:   - Searched: {capture_folder}")
                 print(f"RestartHelpers[{self.device_name}]:   - Segment time: {datetime.fromtimestamp(first_segment_mtime).strftime('%H:%M:%S')}")
                 print(f"RestartHelpers[{self.device_name}]:   - This should never happen with 60s archiver safety buffer!")
+                
+                # Check if screenshots exist in cold storage instead
+                from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
+                device_folder = get_capture_folder(capture_folder)
+                cold_capture_folder = get_cold_storage_path(device_folder, 'captures')
+                print(f"RestartHelpers[{self.device_name}]:   - Checking cold storage: {cold_capture_folder}")
+                if os.path.exists(cold_capture_folder):
+                    try:
+                        cold_screenshots = get_files_by_pattern(cold_capture_folder, r'^capture_.*\.jpg$', exclude_pattern=r'_thumbnail\.jpg$')
+                        print(f"RestartHelpers[{self.device_name}]:   - Found {len(cold_screenshots)} screenshots in COLD storage")
+                        print(f"RestartHelpers[{self.device_name}]:   - ⚠️  Screenshots may have been archived too early!")
+                    except Exception as e:
+                        print(f"RestartHelpers[{self.device_name}]:   - Cold storage scan failed: {e}")
+                
                 return []
             
             # Find screenshot closest to first segment timestamp
