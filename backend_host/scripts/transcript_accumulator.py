@@ -732,31 +732,37 @@ def main():
     try:
         # Get base directories and resolve paths
         base_dirs = get_capture_base_directories()
-        logger.info(f"Found {len(base_dirs)} capture base directories")
+        logger.info(f"Found {len(base_dirs)} capture base directories from active_captures.conf")
         
-        # Build monitored devices list (exclude host)
+        # Build monitored devices list (exclude host - host has no audio)
         monitored_devices = []
+        skipped_count = 0
+        
         for base_dir in base_dirs:
             device_folder = os.path.basename(base_dir)
             
+            # Map capture folder to device_id via .env
             device_info = get_device_info_from_capture_folder(device_folder)
             device_id = device_info.get('device_id', device_folder)
             is_host = (device_id == 'host')
             
+            # Log device mapping
+            logger.info(f"  [{device_folder}] device_id={device_id}, is_host={is_host}")
+            
             if is_host:
-                logger.info(f"[{device_folder}] ⊗ Skipping (host has no audio)")
+                logger.info(f"  ⊗ Skipping: {device_folder} (host has no audio)")
+                skipped_count += 1
                 continue
             
-            # Get segments path (where MP4 chunks are stored - ALWAYS COLD)
+            # Get segments path (where MP4 chunks are stored)
             segments_base = get_cold_segments_path(device_folder)
             
             # Get audio path (ALWAYS cold storage)
             audio_base = get_audio_path(device_folder)
             
-            storage_type = "HOT (RAM)" if '/hot/' in segments_base else "COLD (SD)"
-            logger.info(f"[{device_folder}] ✓ Monitoring [{storage_type}]")
-            logger.info(f"  Segments: {segments_base}")
-            logger.info(f"  Audio: {audio_base}")
+            logger.info(f"  ✓ Monitoring: {device_folder}")
+            logger.info(f"    Segments: {segments_base}")
+            logger.info(f"    Audio: {audio_base}")
             
             monitored_devices.append({
                 'device_folder': device_folder,
@@ -768,7 +774,7 @@ def main():
             logger.error("No devices to monitor!")
             return
         
-        logger.info(f"Monitoring {len(monitored_devices)} devices (excluding host)")
+        logger.info(f"Monitoring {len(monitored_devices)} devices ({skipped_count} skipped)")
         logger.info("Whisper model will be loaded on first transcription (global singleton)")
         
         # Start monitoring (blocks forever, zero CPU when idle!)
