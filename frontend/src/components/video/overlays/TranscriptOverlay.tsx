@@ -23,8 +23,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
   return (
     <Box
       sx={{
-        position: 'absolute',
-        bottom: 60,  // Position above timeline (timeline is typically 50-60px from bottom)
+        position: 'fixed',  // Changed to fixed to position relative to viewport
+        bottom: 90,  // Position just above timeline (timeline takes ~80px from bottom)
         left: '50%',
         transform: 'translateX(-50%)',
         backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -41,7 +41,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         boxShadow: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
           ? '0 4px 12px rgba(33, 150, 243, 0.4)'
           : '0 4px 12px rgba(0,0,0,0.5)',
-        zIndex: 25,  // Above video but below timeline overlay (which is typically 30+)
+        zIndex: 1250,  // Below timeline (which is 1300) but above video
       }}
     >
       {currentTranscript.enhanced_transcript && selectedLanguage === 'original' && (

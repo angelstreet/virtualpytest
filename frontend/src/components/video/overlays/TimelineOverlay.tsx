@@ -145,7 +145,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     right: 0,
     bottom: 0,
     width: '100%',
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+    background: 'linear-gradient(transparent, rgba(0,0,0,1))',
     padding: '8px 16px 8px 16px', // Reduced vertical padding
     zIndex: 1300, // High z-index to be above everything
     pointerEvents: 'auto' as const,
@@ -182,69 +182,68 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             flex: 1,
           }}
         >
-          {isDraggingSlider && (
-            <Box
+          {/* Always show tooltip on top of thumb */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -40,  // Position above the slider/thumb
+              left: (() => {
+                const currentValue = isLiveMode 
+                  ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)
+                  : (isDraggingSlider ? dragSliderValue : invertedSliderValue);
+                const minValue = isLiveMode ? 0 : 0;
+                const maxValue = isLiveMode ? 150 : 86400;
+                
+                const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
+                return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width for centering
+              })(),
+              transform: 'translateX(0)',
+              pointerEvents: 'none',
+              zIndex: 10,  // High z-index to ensure it's above everything
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <Typography
+              variant="caption"
               sx={{
-                position: 'absolute',
-                top: -40,  // Position above the slider/thumb (adjust to -50 or higher if you want more space)
-                left: (() => {
-                  const currentValue = isLiveMode 
-                    ? dragSliderValue
-                    : dragSliderValue;
-                  const minValue = isLiveMode ? 0 : 0;
-                  const maxValue = isLiveMode ? 150 : 86400;
-                  
-                  const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
-                  return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width (adjust based on your Typography width, e.g., -40px for centering)
-                })(),
-                transform: 'translateX(0)',  // No change needed, but you could add 'translateX(-50%)' for perfect horizontal centering if subtracting half-width
-                pointerEvents: 'none',
-                zIndex: 10,  // High z-index to ensure it's above everything (higher than thumb's z-index)
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                color: 'white',
+                px: 1,
+                py: 0.5,
+                borderRadius: 1,
+                fontWeight: 600,
+                fontSize: '0.7rem',
+                whiteSpace: 'nowrap',
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                  color: 'white',
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 1,
-                  fontWeight: 600,
-                  fontSize: '0.7rem',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {isLiveMode ? (
-                  (() => {
-                    if (liveBufferSeconds === 0) return 'Buffering...';
-                    const behindSeconds = Math.round(150 - dragSliderValue);
-                    if (behindSeconds < 60) return `-${behindSeconds}s`;
-                    const minutes = Math.floor(behindSeconds / 60);
-                    const seconds = behindSeconds % 60;
-                    return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
-                  })()
-                ) : (
-                  // Show actual time (convert from inverted slider value)
-                  formatTime(86400 - dragSliderValue)
-                )}
-              </Typography>
-              {/* Optional: Add a downward arrow to point at the thumb */}
-              <Box
-                sx={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderTop: '6px solid rgba(0, 0, 0, 0.9)',  // Matches tooltip background
-                  mt: -1,  // Pull it up to connect seamlessly
-                }}
-              />
-            </Box>
-          )}
+              {isLiveMode ? (
+                (() => {
+                  if (liveBufferSeconds === 0) return 'Buffering...';
+                  const behindSeconds = Math.round(150 - (isDraggingSlider ? dragSliderValue : liveSliderPosition));
+                  if (behindSeconds < 60) return `-${behindSeconds}s`;
+                  const minutes = Math.floor(behindSeconds / 60);
+                  const seconds = behindSeconds % 60;
+                  return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
+                })()
+              ) : (
+                // Show actual time (convert from inverted slider value)
+                formatTime(86400 - (isDraggingSlider ? dragSliderValue : invertedSliderValue))
+              )}
+            </Typography>
+            {/* Downward arrow to point at the thumb */}
+            <Box
+              sx={{
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '6px solid rgba(0, 0, 0, 0.9)',  // Matches tooltip background
+                mt: -1,  // Pull it up to connect seamlessly
+              }}
+            />
+          </Box>
 
           <Slider
             value={isLiveMode 
@@ -314,12 +313,15 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 borderRadius: '4px',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 background: isLiveMode 
-                  ? `linear-gradient(to right, 
-                      rgba(255,255,255,0.15) 0%, 
-                      rgba(255,255,255,0.15) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%, 
-                      rgba(244,67,54,0.8) ${Math.max(0, ((150 - liveBufferSeconds) / 150) * 100)}%,
-                      rgba(244,67,54,0.8) 100%
-                    )`
+                  ? (() => {
+                      const bufferPercent = Math.max(0, ((150 - liveBufferSeconds) / 150) * 100);
+                      return `linear-gradient(to right, 
+                        rgba(255,255,255,0.15) 0%, 
+                        rgba(255,255,255,0.15) ${bufferPercent}%, 
+                        rgba(244,67,54,1) ${bufferPercent}%,
+                        rgba(244,67,54,1) 100%
+                      )`;
+                    })()
                   : buildArchiveRailGradient(),
               },
               '& .MuiSlider-markLabel': {
