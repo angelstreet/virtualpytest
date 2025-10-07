@@ -67,9 +67,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     return null;
   }
 
-  // Calculate timeline range
-  const min = isLiveMode ? 0 : (continuousStartTime || 0);
-  const max = isLiveMode ? 150 : (continuousEndTime || duration);
+  // Calculate timeline range - always full 24h for archive mode
+  const min = isLiveMode ? 0 : 0;           // Always start at 0 (midnight)
+  const max = isLiveMode ? 150 : 86400;     // 24h = 86400 seconds
   
   // Build rail gradient with grey gaps for archive mode
   const buildArchiveRailGradient = () => {
@@ -162,9 +162,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 left: (() => {
                   const currentValue = isLiveMode 
                     ? dragSliderValue
-                    : (archiveMetadata ? globalCurrentTime : currentTime);
-                  const minValue = isLiveMode ? 0 : (archiveMetadata && availableHours.length > 0 ? availableHours[0] * 3600 : 0);
-                  const maxValue = isLiveMode ? 150 : (archiveMetadata && availableHours.length > 0 ? (availableHours[availableHours.length - 1] + 1) * 3600 : duration);
+                    : dragSliderValue;
+                  const minValue = isLiveMode ? 0 : 0;
+                  const maxValue = isLiveMode ? 150 : 86400;
                   
                   const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
                   return `calc(${percentage}% - 25px)`;
@@ -275,7 +275,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
           </>
         ) : (
           <>
-            <Box sx={{ minWidth: '60px' }} />
+            <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', fontSize: '0.7rem' }}>
+              0:00
+            </Typography>
             
             {archiveMetadata && (
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
@@ -293,19 +295,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             )}
             
             <Typography variant="caption" sx={{ color: 'white', minWidth: '60px', textAlign: 'right' }}>
-              {(() => {
-                if (archiveMetadata && availableHours.length > 0) {
-                  const lastManifest = archiveMetadata.manifests[archiveMetadata.manifests.length - 1];
-                  if (lastManifest) {
-                    const hour = lastManifest.window_index;
-                    const chunk = lastManifest.chunk_index;
-                    // Calculate END time of the last chunk (chunk_index + 1) * 10
-                    const minutes = (chunk + 1) * 10;
-                    return `${hour}h${minutes.toString().padStart(2, '0')}`;
-                  }
-                }
-                return formatTime(duration);
-              })()}
+              24:00
             </Typography>
           </>
         )}

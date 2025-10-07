@@ -344,7 +344,7 @@ def process_mp3_chunks(capture_dir):
                 state = json.load(f)
         else:
             state = {'processed_chunks': {}}
-            logger.info(f"[{capture_folder}] 🆕 First run - watching for MP3 chunks in: {audio_base_dir}/{hour}/")
+            logger.info(f"[{capture_folder}] 🆕 First run - watching for MP3 chunks in hour folders: {audio_base_dir}/0-23/")
         
         processed_chunks = state.get('processed_chunks', {})
         
