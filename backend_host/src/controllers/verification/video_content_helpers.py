@@ -967,7 +967,7 @@ class VideoContentHelpers:
             capture_format_timestamp = self._convert_unix_to_capture_format(key_release_timestamp)
             print(f"VideoContent[{self.device_name}]: Key release timestamp: {capture_format_timestamp} (Unix: {key_release_timestamp})")
             
-            # Use thumbnails for performance - auto-correction will fit rectangle to thumbnail size
+            # Use thumbnails for performance - percentage-based analysis works at any resolution
             image_data = self._get_images_after_timestamp(folder_path, key_release_timestamp, max_images, use_thumbnails=True)
             
             if not image_data:
@@ -1294,11 +1294,12 @@ class VideoContentHelpers:
 
     def _analyze_blackscreen_simple(self, image_path: str, analysis_rectangle: Dict[str, int] = None, threshold: int = 5, device_model: str = None) -> Tuple[bool, float]:
         """
-        Simple blackscreen detection optimized for mobile TV interfaces
+        Smart blackscreen detection that works at any image resolution.
+        Uses percentage-based regions for thumbnails and full-resolution images.
         
         Args:
             image_path: Path to image file
-            analysis_rectangle: Optional rectangle to analyze
+            analysis_rectangle: Optional rectangle to analyze (will be converted to percentage-based)
             threshold: Pixel intensity threshold (0-255, default: 5 for real blackscreen detection)
             
         Returns:
@@ -1311,54 +1312,32 @@ class VideoContentHelpers:
             
             img_height, img_width = img.shape
             
-            # Auto-calculate analysis rectangle if not provided (exclude banner areas)
-            if analysis_rectangle is None:
-                # Use fixed 1920x480 rectangle (top 2/3 of 720p) to exclude banner area
-                analysis_height = int(720 * 2 / 3)  # 480px
-                analysis_rectangle = {
-                    'x': 0,
-                    'y': 0,
-                    'width': 1920,
-                    'height': analysis_height
-                }
-            
-            # Apply analysis rectangle (to exclude banner area)
+            # Smart region calculation: analyze center 60% of image (excludes banner at bottom)
+            # This works for thumbnails, full-res, any aspect ratio
             if analysis_rectangle:
-                # Crop to analysis rectangle (to exclude banner area)
-                x = analysis_rectangle.get('x', 0)
-                y = analysis_rectangle.get('y', 0)
-                width = analysis_rectangle.get('width', img.shape[1])
-                height = analysis_rectangle.get('height', img.shape[0])
+                # If absolute coordinates provided, convert to percentage-based for current image size
+                # Assume input rectangle was designed for 1920x1080, scale it to current image
+                x_percent = analysis_rectangle.get('x', 0) / 1920.0  # Original design width
+                y_percent = analysis_rectangle.get('y', 0) / 1080.0  # Original design height
+                width_percent = analysis_rectangle.get('width', 1920) / 1920.0
+                height_percent = analysis_rectangle.get('height', 1080) / 1080.0
                 
-                # Validate and auto-correct rectangle bounds
-                bounds_valid = True
-                original_rect = (x, y, width, height)
-                
-                # Auto-correct bounds if slightly out of range
-                if x < 0:
-                    width += x  # Reduce width by the negative x offset
-                    x = 0
-                    bounds_valid = False
-                if y < 0:
-                    height += y  # Reduce height by the negative y offset
-                    y = 0
-                    bounds_valid = False
-                if x + width > img_width:
-                    width = img_width - x
-                    bounds_valid = False
-                if y + height > img_height:
-                    height = img_height - y
-                    bounds_valid = False
-                
-                # Check if corrected rectangle is still valid
-                if width <= 0 or height <= 0:
-                    print(f"VideoContent[{self.device_name}]: Analysis rectangle invalid after correction - Original: x={original_rect[0]}, y={original_rect[1]}, w={original_rect[2]}, h={original_rect[3]} | Corrected: x={x}, y={y}, w={width}, h={height} - using full image")
-                else:
-                    if not bounds_valid:
-                        print(f"VideoContent[{self.device_name}]: Analysis rectangle auto-corrected from {original_rect} to ({x},{y},{width},{height})")
-                    img = img[y:y+height, x:x+width]
+                # Apply percentages to actual image size
+                x = int(x_percent * img_width)
+                y = int(y_percent * img_height)
+                width = int(width_percent * img_width)
+                height = int(height_percent * img_height)
+            else:
+                # Default: analyze top 60% of image (center horizontally, exclude banner at bottom)
+                x = 0
+                y = 0
+                width = img_width
+                height = int(img_height * 0.6)  # Top 60% excludes banner
             
-            # Count all pixels in the smaller rectangle (no sampling for accuracy)
+            # Crop to analysis region
+            img = img[y:y+height, x:x+width]
+            
+            # Count dark pixels
             very_dark_pixels = np.sum(img <= threshold)
             total_pixels = img.shape[0] * img.shape[1]
             dark_percentage = (very_dark_pixels / total_pixels) * 100
