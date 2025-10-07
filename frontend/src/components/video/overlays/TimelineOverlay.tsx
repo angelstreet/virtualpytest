@@ -239,6 +239,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
             max={max}
             step={isLiveMode ? 1 : undefined}
             disabled={isLiveMode && liveBufferSeconds < 10}
+            track={isLiveMode ? false : false}  // No progress track - only rail with availability gradient
             onChange={onSliderChange}
             onChangeCommitted={(event, value) => {
               // Prevent seeking to unavailable chunks and convert inverted value back
@@ -265,8 +266,8 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 height: 16,
               },
               '& .MuiSlider-track': {
-                backgroundColor: isLiveMode ? 'transparent' : 'primary.main',
-                height: 6,
+                // Hide track completely - we only want the rail to show availability
+                display: 'none',
               },
               '& .MuiSlider-rail': {
                 height: 6,

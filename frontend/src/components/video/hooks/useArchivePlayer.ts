@@ -54,12 +54,19 @@ export const useArchivePlayer = ({
       
       setAvailableHours(manifest.available_hours);
       
+      // Sort chunks by time (oldest first) for proper playback order
+      const sortedChunks = [...manifest.chunks].sort((a: any, b: any) => {
+        const aTime = a.hour * 3600 + a.chunk_index * 600;
+        const bTime = b.hour * 3600 + b.chunk_index * 600;
+        return aTime - bTime;
+      });
+      
       const metadata: ArchiveMetadata = {
         total_segments: manifest.total_chunks,
         total_duration_seconds: manifest.total_chunks * 600,
         window_hours: 1,
         segments_per_window: 6,
-        manifests: manifest.chunks.map((chunk: any, index: number) => ({
+        manifests: sortedChunks.map((chunk: any, index: number) => ({
           name: `${chunk.hour}/chunk_10min_${chunk.chunk_index}.mp4`,
           window_index: chunk.hour,
           chunk_index: chunk.chunk_index,
@@ -101,14 +108,15 @@ export const useArchivePlayer = ({
           return;
         }
         
-        console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks, starting at ${metadata.manifests[0].name}`);
+        // Start from the OLDEST available chunk (first in sorted array)
+        // With inverted timeline, this will be positioned on the LEFT
+        const firstChunk = metadata.manifests[0];
+        console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks`);
+        console.log(`[@EnhancedHLSPlayer] Starting from OLDEST chunk: hour ${firstChunk.window_index}, chunk ${firstChunk.chunk_index} (${firstChunk.start_time_seconds}s)`);
+        
         setArchiveMetadata(metadata);
         setCurrentManifestIndex(0);
-        
-        // Set initial globalCurrentTime to the first chunk's start time
-        const firstChunk = metadata.manifests[0];
         setGlobalCurrentTime(firstChunk.start_time_seconds);
-        console.log(`[@EnhancedHLSPlayer] Initial position set to ${firstChunk.start_time_seconds}s (hour ${firstChunk.window_index})`);
       };
       
       initializeArchiveMode();
