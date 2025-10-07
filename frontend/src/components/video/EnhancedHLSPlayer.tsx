@@ -336,7 +336,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         `}
       </style>
       
-      <Box sx={{ position: 'relative', height }}>
+      <Box sx={{ position: 'relative', height, overflow: 'visible' }}>
         {!isTransitioning && (!archive.isCheckingAvailability && (isLiveMode || archive.availableHours.length > 0)) ? (
           <HLSVideoPlayer
             key={`${isLiveMode ? 'live' : 'archive'}`}
