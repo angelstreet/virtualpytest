@@ -350,6 +350,22 @@ def get_segments_path(device_folder):
     return get_capture_storage_path(device_folder, 'segments')
 
 
+def get_cold_segments_path(device_folder):
+    """
+    Get COLD segments storage path (ALWAYS COLD, never hot).
+    
+    Used for final 10-minute MP4 chunks that are archived by hot_cold_archiver.
+    These chunks are always written to cold storage in hour folders.
+    
+    Args:
+        device_folder: Device folder name (e.g., 'capture1')
+        
+    Returns:
+        Path to cold segments directory (e.g., '/var/www/html/stream/capture1/segments')
+    """
+    return get_cold_storage_path(device_folder, 'segments')
+
+
 def get_captures_path(device_folder):
     """
     Get captures storage path (HOT or COLD depending on mode).

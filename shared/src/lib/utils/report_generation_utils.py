@@ -128,6 +128,7 @@ def generate_and_upload_script_report(
     success: bool,
     step_results: List[Dict] = None,
     screenshot_paths: List[str] = None,
+    screenshot_url_mapping: Dict[str, str] = None,  # NEW: Pre-built mapping from upload
     error_message: str = "",
     userinterface_name: str = "",
     stdout: str = "",
@@ -193,9 +194,12 @@ def generate_and_upload_script_report(
         )
         failed_verifications = total_verifications - passed_verifications
         
-        # Upload screenshots FIRST to get R2 URLs
-        url_mapping = {}  # Map local paths to R2 URLs
-        if screenshot_paths:
+        # Upload screenshots FIRST to get R2 URLs (or use provided mapping)
+        url_mapping = screenshot_url_mapping or {}  # Use provided mapping if available
+        
+        if not url_mapping and screenshot_paths:
+            # No mapping provided - need to upload screenshots
+            print(f"[@utils:report_utils:generate_and_upload_script_report] No mapping provided - uploading screenshots...")
             screenshot_result = upload_validation_screenshots(
                 screenshot_paths=screenshot_paths,
                 device_model=device_info.get('device_model', 'unknown'),
@@ -221,6 +225,8 @@ def generate_and_upload_script_report(
                         
             else:
                 print(f"[@utils:report_utils:generate_and_upload_script_report] Screenshot upload failed: {screenshot_result.get('error', 'Unknown error')}")
+        elif url_mapping:
+            print(f"[@utils:report_utils:generate_and_upload_script_report] Using provided mapping with {len(url_mapping)} local->R2 URL pairs")
         else:
             print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: No screenshots to upload")
         

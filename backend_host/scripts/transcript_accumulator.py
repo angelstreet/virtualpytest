@@ -37,8 +37,7 @@ from shared.src.lib.utils.storage_path_utils import (
     get_device_base_path,
     get_audio_path,
     get_transcript_path,
-    get_capture_storage_path,
-    get_segments_path
+    get_cold_segments_path
 )
 
 logger = logging.getLogger(__name__)
@@ -517,8 +516,8 @@ def main():
                 logger.info(f"[{device_folder}] ⊗ Skipping (host has no audio)")
                 continue
             
-            # Get segments path (where MP4 chunks are stored)
-            segments_base = get_segments_path(device_folder)
+            # Get segments path (where MP4 chunks are stored - ALWAYS COLD)
+            segments_base = get_cold_segments_path(device_folder)
             
             # Get audio path (ALWAYS cold storage)
             audio_base = get_audio_path(device_folder)

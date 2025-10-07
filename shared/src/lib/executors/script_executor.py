@@ -101,10 +101,17 @@ class ScriptExecutionContext:
             
             self.screenshot_paths.append(screenshot_path)
     
-    def upload_screenshots_to_r2(self) -> None:
-        """Batch upload all local screenshots to R2 at script end"""
+    def upload_screenshots_to_r2(self) -> Dict[str, str]:
+        """
+        Batch upload all local screenshots to R2 at script end.
+        
+        Returns:
+            Dict mapping local paths to R2 URLs for report generation
+        """
+        url_mapping = {}  # Map local_path -> r2_url
+        
         if not self.screenshot_paths:
-            return
+            return url_mapping
         
         print(f"📤 [Context] Batch uploading {len(self.screenshot_paths)} screenshots to R2...")
         
@@ -112,6 +119,9 @@ class ScriptExecutionContext:
             from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             device_id = self.selected_device.device_id if hasattr(self, 'selected_device') else 'unknown'
+            
+            # Store original paths for mapping
+            original_paths = self.screenshot_paths.copy()
             
             # Separate already-uploaded URLs and local files
             already_uploaded = []
@@ -160,6 +170,8 @@ class ScriptExecutionContext:
                 for uploaded_file in upload_result['uploaded_files']:
                     original_idx = path_to_index[uploaded_file['local_path']]
                     updated_paths[original_idx] = uploaded_file['url']
+                    # Build mapping: local -> R2 URL
+                    url_mapping[uploaded_file['local_path']] = uploaded_file['url']
                 
                 # Place failed uploads (keep original path)
                 for failed_file in upload_result['failed_uploads']:
@@ -170,13 +182,17 @@ class ScriptExecutionContext:
                 
                 self.screenshot_paths = updated_paths
                 print(f"✅ [Context] Uploaded {upload_result['uploaded_count']}/{len(file_mappings)} screenshots to R2")
+                print(f"📋 [Context] Built mapping with {len(url_mapping)} local->R2 URL pairs")
             else:
                 print(f"✅ [Context] All {len(already_uploaded)} screenshots already uploaded")
+            
+            return url_mapping
             
         except Exception as e:
             print(f"❌ [Context] Batch upload error: {e}")
             import traceback
             traceback.print_exc()
+            return url_mapping  # Return empty mapping on error
     
     def start_stdout_capture(self):
         """Start capturing stdout for log upload"""
@@ -667,7 +683,8 @@ class ScriptExecutor:
             sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
             
             # Batch upload all screenshots to R2 BEFORE report generation
-            context.upload_screenshots_to_r2()
+            url_mapping = context.upload_screenshots_to_r2()
+            context.screenshot_url_mapping = url_mapping  # Store for report generation
             
             # Generate report AFTER outputting success marker
             report_result = None
@@ -795,6 +812,7 @@ class ScriptExecutor:
                 success=context.overall_success,
                 step_results=context.step_results,
                 screenshot_paths=context.screenshot_paths,
+                screenshot_url_mapping=getattr(context, 'screenshot_url_mapping', {}),  # NEW: Pass mapping
                 error_message=context.error_message,
                 userinterface_name=userinterface_name,
                 execution_summary=getattr(context, 'execution_summary', ''),

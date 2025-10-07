@@ -175,7 +175,6 @@ export const useTranscriptPlayer = ({
         
         // Check if current time is within this chunk
         if (globalCurrentTime >= chunkStartTime && globalCurrentTime < chunkEndTime) {
-          console.log(`[@useTranscriptPlayer] Showing 10-min transcript (time ${globalCurrentTime.toFixed(1)}s within chunk ${chunkStartTime}-${chunkEndTime})`);
           setCurrentTranscript(segment);
         } else {
           console.log(`[@useTranscriptPlayer] Time mismatch: globalCurrentTime=${globalCurrentTime.toFixed(1)}s, chunk range=${chunkStartTime}-${chunkEndTime}`);

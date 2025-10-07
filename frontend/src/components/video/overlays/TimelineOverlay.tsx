@@ -275,11 +275,29 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   return `-${minutes}:${seconds.toString().padStart(2, '0')}`;
                 })()
               ) : (
-                // Show actual clock time minus 1 hour to match timeline
+                // Show actual clock time during scrub or playback
                 (() => {
-                  // Subtract 1 hour (3600 seconds) to fix offset
-                  const tooltipTime = Math.max(0, globalCurrentTime - 3600);
-                  return formatTime(tooltipTime);
+                  // Use dragSliderValue when dragging, otherwise use globalCurrentTime
+                  let displayTime: number;
+                  
+                  if (isDraggingSlider) {
+                    // Convert position back to clock time
+                    const now = new Date();
+                    const currentHour = now.getHours();
+                    const positionValue = dragSliderValue;
+                    
+                    // positionValue is in "hours ago" coordinates (0 = oldest, 82800 = newest)
+                    const hourPosition = Math.floor(positionValue / 3600);
+                    const hoursAgo = 23 - hourPosition;
+                    const clockHour = (currentHour - hoursAgo + 24) % 24;
+                    const secondsIntoHour = positionValue % 3600;
+                    displayTime = clockHour * 3600 + secondsIntoHour + 3600; // Add 1h offset
+                  } else {
+                    // Regular playback - just use globalCurrentTime
+                    displayTime = globalCurrentTime;
+                  }
+                  
+                  return formatTime(displayTime);
                 })()
               )}
             </Typography>
