@@ -576,12 +576,12 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
 
 def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
     """
-    Scan hour directories and rebuild manifest with CONTINUOUS chunks only.
-    Works backwards from current time - stops at first missing chunk.
+    Scan hour directories and rebuild manifest with ALL available chunks from last 24h.
     
-    This ensures users get continuous playback experience without gaps.
+    Returns all chunks regardless of gaps - frontend will grey out missing chunks.
+    This allows users to access any archived content even with recording gaps.
     
-    Returns: Manifest dict with only continuous chunks from now backwards
+    Returns: Manifest dict with all chunks found on disk
     """
     import json
     
@@ -590,8 +590,8 @@ def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
     if not os.path.isdir(segments_dir):
         return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
     
-    # Build lookup map of all existing chunks: (hour, chunk_index) -> file_info
-    existing_chunks = {}
+    # Build list of all existing chunks from all hour directories
+    all_chunks = []
     
     for hour in range(24):
         hour_dir = os.path.join(segments_dir, str(hour))
@@ -627,49 +627,22 @@ def rebuild_archive_manifest_from_disk(capture_dir: str) -> dict:
                     except:
                         pass
                 
-                existing_chunks[(hour, chunk_index)] = chunk_info
+                all_chunks.append(chunk_info)
                 
             except Exception as e:
                 logger.warning(f"Error processing chunk file {mp4_file}: {e}")
     
-    if not existing_chunks:
+    if not all_chunks:
         return {"chunks": [], "last_updated": None, "available_hours": [], "total_chunks": 0}
     
-    # Find continuous chunks working backwards from NOW
-    now = datetime.now()
-    current_hour = now.hour
-    # Estimate current chunk index based on minutes (0-5 for each 10min chunk)
-    current_chunk_index = now.minute // 10
-    
-    continuous_chunks = []
-    
-    # Convert to absolute position in 24h cycle (0-143)
-    current_position = current_hour * 6 + current_chunk_index
-    
-    # Work backwards checking each chunk in sequence
-    for step in range(144):  # 24 hours × 6 chunks = 144 total positions
-        # Calculate position going backwards, wrapping around 24h
-        position = (current_position - step) % 144
-        hour = position // 6
-        chunk_index = position % 6
-        
-        # Check if this chunk exists
-        if (hour, chunk_index) in existing_chunks:
-            continuous_chunks.append(existing_chunks[(hour, chunk_index)])
-        else:
-            # First gap found - stop here for continuous playback
-            logger.info(f"Continuous chunks stop at gap: hour={hour}, chunk_index={chunk_index} (found {len(continuous_chunks)} continuous chunks)")
-            break
-    
-    # Sort chunks chronologically (oldest first)
-    continuous_chunks.sort(key=lambda x: (x["hour"], x["chunk_index"]))
+    # Sort chunks chronologically (by hour, then chunk_index)
+    all_chunks.sort(key=lambda x: (x["hour"], x["chunk_index"]))
     
     manifest = {
-        "chunks": continuous_chunks,
+        "chunks": all_chunks,
         "last_updated": time.time(),
-        "available_hours": sorted(list(set(c["hour"] for c in continuous_chunks))),
-        "total_chunks": len(continuous_chunks),
-        "continuous_from": continuous_chunks[0] if continuous_chunks else None
+        "available_hours": sorted(list(set(c["hour"] for c in all_chunks))),
+        "total_chunks": len(all_chunks)
     }
     
     return manifest
