@@ -19,7 +19,14 @@ backend_host_dir = os.path.dirname(script_dir)
 project_root = os.path.dirname(backend_host_dir)
 sys.path.insert(0, project_root)
 
-from shared.src.lib.utils.storage_path_utils import get_capture_base_directories, get_capture_storage_path, get_capture_folder, get_device_info_from_capture_folder, is_ram_mode, get_device_base_path
+from shared.src.lib.utils.storage_path_utils import (
+    get_capture_base_directories, 
+    get_capture_folder, 
+    get_device_info_from_capture_folder, 
+    get_device_base_path,
+    get_audio_path,
+    get_transcript_path
+)
 from shared.src.lib.utils.ai_utils import call_text_ai
 from backend_host.src.lib.utils.system_info_utils import get_files_by_pattern
 
@@ -288,18 +295,19 @@ CRITICAL: Use full context. Return valid JSON only. Respect each segment's langu
         logger.error(f"[{capture_folder}] AI enhancement error: {e}")
         return {}
 
-def save_transcript_chunk(device_base_path: str, hour: int, chunk_index: int, transcript_data: dict):
+def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_data: dict):
     """
     Save transcript JSON file aligned with MP4/MP3 chunks
     
     Args:
-        device_base_path: Device base path (/var/www/html/stream/capture1)
+        capture_folder: Device folder name (e.g., 'capture1')
         hour: Hour (0-23)
         chunk_index: Chunk index (0-5)
         transcript_data: Transcript data to save
     """
-    # Save to cold storage (transcripts don't need hot RAM storage)
-    transcript_dir = os.path.join(device_base_path, 'transcript', str(hour))
+    # Use centralized convenience function - no manual path building!
+    transcript_base = get_transcript_path(capture_folder)
+    transcript_dir = os.path.join(transcript_base, str(hour))
     os.makedirs(transcript_dir, exist_ok=True)
     
     transcript_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}.json')
@@ -326,13 +334,10 @@ def process_mp3_chunks(capture_dir):
         capture_folder = get_capture_folder(capture_dir)
         device_base_path = get_device_base_path(capture_folder)
         
-        # Determine where MP3 chunks are located (in hour folders)
-        if is_ram_mode(device_base_path):
-            audio_base_dir = os.path.join(device_base_path, 'hot', 'audio')
-            state_path = os.path.join(device_base_path, 'hot', 'transcript_state.json')
-        else:
-            audio_base_dir = os.path.join(device_base_path, 'audio')
-            state_path = os.path.join(device_base_path, 'transcript_state.json')
+        # Use convenience functions - no manual path building!
+        # Audio MP3 chunks are ALWAYS in cold storage (extracted directly by hot_cold_archiver)
+        audio_base_dir = get_audio_path(capture_folder)
+        state_path = os.path.join(device_base_path, 'transcript_state.json')
         
         if not os.path.exists(audio_base_dir):
             logger.debug(f"[{capture_folder}] Audio base directory does not exist: {audio_base_dir}")
