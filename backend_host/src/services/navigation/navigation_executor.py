@@ -411,11 +411,15 @@ class NavigationExecutor:
                 print(f"[@navigation_executor:execute_navigation] Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
                 
                 # Step start screenshot - capture BEFORE action execution (like old goto_node)
+                step_start_screenshot_path = ""
                 if context:
                     from shared.src.lib.utils.device_utils import capture_screenshot_for_script
                     step_name = f"step_{step_num}_{from_node}_{to_node}"
                     screenshot_id = capture_screenshot_for_script(self.device, context, f"{step_name}_start")
                     if screenshot_id:
+                        # Get the actual path from context - it's the last added screenshot
+                        if context.screenshot_paths:
+                            step_start_screenshot_path = context.screenshot_paths[-1]
                         print(f"📸 [@navigation_executor:execute_navigation] Step-start screenshot captured: {screenshot_id}")
                 
                 step_start_time = time.time()
@@ -462,9 +466,13 @@ class NavigationExecutor:
                 # No need for redundant main action screenshot here
                 
                 # Step end screenshot - capture AFTER action execution (like old goto_node)
+                step_end_screenshot_path = ""
                 if context:
                     screenshot_id = capture_screenshot_for_script(self.device, context, f"{step_name}_end")
                     if screenshot_id:
+                        # Get the actual path from context - it's the last added screenshot
+                        if context.screenshot_paths:
+                            step_end_screenshot_path = context.screenshot_paths[-1]
                         print(f"📸 [@navigation_executor:execute_navigation] Step-end screenshot captured: {screenshot_id}")
                 
                 # If context is provided, record the step result (like old goto_node)

@@ -119,6 +119,12 @@ class ScriptExecutionContext:
             path_to_index = {}  # Track original index for each file
             
             for idx, path in enumerate(self.screenshot_paths):
+                # Skip None paths - keep as None in final result
+                if not path:
+                    print(f"⚠️ [Context] Skipping None screenshot at index {idx}")
+                    already_uploaded.append((idx, None))  # Track the None
+                    continue
+                
                 # Already R2 URL - keep as-is
                 if path.startswith('https://'):
                     already_uploaded.append((idx, path))
@@ -127,7 +133,7 @@ class ScriptExecutionContext:
                 # Local path - check if exists
                 if not os.path.exists(path):
                     print(f"⚠️ [Context] Screenshot not found: {path}")
-                    already_uploaded.append((idx, path))  # Keep original path
+                    already_uploaded.append((idx, path))  # Keep original path (even if missing)
                     continue
                 
                 # Add to batch upload
