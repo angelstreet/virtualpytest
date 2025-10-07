@@ -55,26 +55,26 @@ const clockTimeToPosition = (clockTime: number, roundedNow: number) => {
 export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   isLiveMode,
   isPlaying,
-  currentTime,
+  currentTime: _currentTime,
   duration,
-  isAtLiveEdge: _isAtLiveEdge, // Unused but kept for future use
+  isAtLiveEdge: _isAtLiveEdge,
   liveBufferSeconds,
   liveSliderPosition,
   globalCurrentTime,
   isDraggingSlider,
   dragSliderValue,
   archiveMetadata,
-  availableHours,
-  continuousStartTime,
-  continuousEndTime,
+  availableHours: _availableHours,
+  continuousStartTime: _continuousStartTime,
+  continuousEndTime: _continuousEndTime,
   hourMarks,
-  videoRef: _videoRef, // Unused but kept for future use
+  videoRef: _videoRef,
   onTogglePlayPause,
   onSliderChange,
   onSeek,
   show,
   currentManifestIndex,
-  containerRef,
+  containerRef: _containerRef,
 }) => {
   if (!show || duration <= 0) {
     return null;
