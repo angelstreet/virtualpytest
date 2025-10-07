@@ -37,6 +37,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isAIAnalyzing = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null); // Container ref for timeline positioning
   const [internalIsLiveMode] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -336,7 +337,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         `}
       </style>
       
-      <Box sx={{ position: 'relative', height, overflow: 'visible' }}>
+      <Box ref={videoContainerRef} sx={{ position: 'relative', height, overflow: 'visible' }}>
         {!isTransitioning && (!archive.isCheckingAvailability && (isLiveMode || archive.availableHours.length > 0)) ? (
           <HLSVideoPlayer
             key={`${isLiveMode ? 'live' : 'archive'}`}
@@ -478,6 +479,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           onSeek={isLiveMode ? handleLiveSeek : archive.handleSeek}
           show={!isTransitioning}
           currentManifestIndex={archive.currentManifestIndex}
+          containerRef={videoContainerRef}
         />
       </Box>
     </Box>

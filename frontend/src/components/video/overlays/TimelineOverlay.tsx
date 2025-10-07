@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Box, Slider, Typography, IconButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { ArchiveMetadata } from '../EnhancedHLSPlayer.types';
@@ -25,6 +26,7 @@ interface TimelineOverlayProps {
   onSeek: (_event: Event | React.SyntheticEvent, newValue: number | number[]) => void;
   show: boolean;
   currentManifestIndex: number;
+  containerRef: React.RefObject<HTMLDivElement>; // Reference to the video container for positioning
 }
 
 const formatTime = (seconds: number) => {
@@ -59,8 +61,29 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   onSeek,
   show,
   currentManifestIndex,
+  containerRef,
 }) => {
-  if (!show || duration <= 0) {
+  const [containerRect, setContainerRect] = React.useState<DOMRect | null>(null);
+
+  // Update container position on mount and window resize
+  React.useEffect(() => {
+    const updatePosition = () => {
+      if (containerRef.current) {
+        setContainerRect(containerRef.current.getBoundingClientRect());
+      }
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition);
+    };
+  }, [containerRef, show]);
+
+  if (!show || duration <= 0 || !containerRect) {
     return null;
   }
 
@@ -72,16 +95,21 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   const displayMin = isLiveMode ? min : 0;
   const displayMax = isLiveMode ? max : (24 * 3600);
 
-  return (
+  // Calculate timeline position using fixed positioning based on container
+  const timelineStyle = {
+    position: 'fixed' as const,
+    left: `${containerRect.left}px`,
+    top: `${containerRect.bottom + 20}px`, // 20px below the container
+    width: `${containerRect.width}px`,
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+    padding: '16px',
+    zIndex: 1300, // High z-index to be above everything
+    pointerEvents: 'auto' as const,
+  };
+
+  const timelineContent = (
     <Box
-        sx={{
-          position: 'absolute',
-          bottom: -65,
-          left: 0,
-          right: 0,
-          background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-          p: 2,
-        }}
+        sx={timelineStyle}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.5 }}>
         {!isLiveMode && (
@@ -276,4 +304,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       </Box>
     </Box>
   );
+
+  // Render timeline via portal to avoid parent overflow clipping
+  return createPortal(timelineContent, document.body);
 };
