@@ -280,8 +280,16 @@ def get_segment_capture():
         elif not os.path.exists(cold_path):
             return jsonify({
                 'success': False,
-                'error': f'Capture {filename} not found in hot or cold storage'
-            }), 404
+                'error': f'Capture {filename} not found in hot or cold storage',
+                'debug': {
+                    'segment_number': segment_number,
+                    'fps': fps,
+                    'capture_number': capture_number,
+                    'filename': filename,
+                    'hot_path': hot_path,
+                    'cold_path': cold_path
+                }
+            }), 500
         
         # Build URL for cold path
         from shared.src.lib.utils.build_url_utils import buildCaptureUrlFromPath
