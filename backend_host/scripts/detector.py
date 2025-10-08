@@ -225,7 +225,7 @@ def clear_zap_state(capture_dir):
             logger.warning(f"Failed to remove zap state file: {e}")
 
 def load_audio_volume_cache(capture_dir):
-    """Load audio volume cache from JSON file (30-second cache)"""
+    """Load audio volume cache from JSON file - returns cache regardless of age, caller decides validity"""
     cache_file = get_audio_volume_cache_file(capture_dir)
     
     if not os.path.exists(cache_file):
@@ -235,18 +235,7 @@ def load_audio_volume_cache(capture_dir):
         with open(cache_file, 'r') as f:
             cache_data = json.load(f)
         
-        # Check if cache is still valid (within 30 seconds)
-        timestamp = cache_data.get('timestamp', 0)
-        current_time = time.time()
-        
-        if current_time - timestamp > 30.0:
-            # Cache expired - remove file
-            try:
-                os.remove(cache_file)
-            except:
-                pass
-            return None
-        
+        # Return cache data regardless of age - caller will check timestamp
         return cache_data
     except Exception as e:
         logger.warning(f"Failed to load audio volume cache: {e}")
@@ -348,20 +337,29 @@ def analyze_audio(capture_dir):
         if cached_mtime == latest_mtime:
             return has_audio, volume, db, method, time_ms
     
-    # Check JSON cache first (30-second cached volume data)
+    # Load JSON cache (will be used for both quick return and volume data lookup)
     cached_volume = load_audio_volume_cache(capture_dir)
+    
+    # Quick return if JSON cache is VERY recent (< 5 seconds)
+    # This shares data between frames in same 5s window
     if cached_volume:
-        # Use cached volume data from JSON (valid for 30 seconds)
-        has_audio = cached_volume['has_audio']
-        volume_percentage = cached_volume['volume_percentage']
-        mean_volume_db = cached_volume['mean_volume_db']
-        check_method = cached_volume.get('check_method', 'cached')
-        check_time_ms = cached_volume.get('check_time_ms', 0)
+        cache_age = current_time - cached_volume['timestamp']
         
-        # Also update in-memory cache
-        _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
-        
-        return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
+        # Only quick-return if less than 5 seconds old (same check window)
+        if cache_age < 5.0:
+            # Very recent check - reuse data (within same 5s window)
+            has_audio = cached_volume['has_audio']
+            volume_percentage = cached_volume['volume_percentage']
+            mean_volume_db = cached_volume['mean_volume_db']
+            check_method = cached_volume.get('check_method', 'cached') + '_json_cache'
+            check_time_ms = cached_volume.get('check_time_ms', 0)
+            
+            # Also update in-memory cache
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
+            
+            return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
+        # If cache is 5-30 seconds old, proceed to ffmpeg/ffprobe check below
+        # (but we'll still use cached volume data if available)
     
     try:
         # No valid cache - check if we should do a full volume check (every 30 seconds)
@@ -471,28 +469,44 @@ def analyze_audio(capture_dir):
                     _audio_cache = dict(list(_audio_cache.items())[-20:])
                 return False, 0, -100.0, check_method, check_time_ms
             
-            # Audio stream exists - check if we have previous volume data from a recent full check
-            # Look in memory cache for precise volume from last full check
+            # Audio stream exists - get volume data from in-memory cache or JSON cache
+            # This allows us to use ffmpeg's precise measurements for up to 30s
             previous_volume_data = None
+            
+            # First check in-memory cache (same segment file)
             if latest in _audio_cache:
                 cached_mtime, cached_audio, cached_vol, cached_db, cached_method, cached_time = _audio_cache[latest]
                 if cached_db > -100:
                     # We have precise volume data from a previous full check
                     previous_volume_data = (cached_audio, cached_vol, cached_db)
             
+            # If no in-memory data, check JSON cache for volume from last 30s
+            if not previous_volume_data and cached_volume:
+                cache_age = current_time - cached_volume['timestamp']
+                # Use volume data if within 30s (even though we run ffprobe to verify stream)
+                if cache_age < 30.0:
+                    cached_db = cached_volume.get('mean_volume_db', -100.0)
+                    if cached_db > -100:
+                        previous_volume_data = (
+                            cached_volume['has_audio'],
+                            cached_volume['volume_percentage'],
+                            cached_db
+                        )
+            
             # Determine what volume values to use
             if previous_volume_data:
-                # Use precise volume from previous full check
+                # Use precise volume from previous ffmpeg check (within last 30s)
                 has_audio, volume_percentage, mean_volume = previous_volume_data
                 check_method = 'ffprobe_with_cached_volume'
             else:
-                # No previous data - use estimated defaults
+                # No previous data - use estimated defaults (first check or segment changed)
                 has_audio = True
                 volume_percentage = 50  # Default assumption if stream exists
                 mean_volume = -20.0  # Default assumption (moderate volume)
                 check_method = 'ffprobe_estimated'
             
-            # Save to JSON cache so all metadata JSONs get filled with consistent data
+            # Save to JSON cache so all metadata JSONs in next 5s get consistent data
+            # This keeps the cache "fresh" - extends timestamp for 30s total from first ffmpeg
             save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
             # Cache the result in memory
