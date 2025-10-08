@@ -131,6 +131,7 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     return frozen, {
         'frame_differences': [round(d, 2) for d in pixel_diffs],
         'frames_compared': frames_compared,
+        'frames_checked': frames_checked,  # Which files we tried to find
         'frames_found': len(frames_compared),
         'frames_needed': 2,
         'detection_method': 'pixel_diff'
@@ -1057,6 +1058,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         freeze_debug_info = {
             'frames_found': freeze_details.get('frames_found', 0),
             'frames_needed': freeze_details.get('frames_needed', 2),
+            'frames_checked': freeze_details.get('frames_checked', []),
             'detection_method': freeze_details.get('detection_method', 'unknown'),
             'thumbnails_dir': thumbnails_dir
         }
