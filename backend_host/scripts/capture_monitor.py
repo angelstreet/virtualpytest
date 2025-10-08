@@ -179,13 +179,16 @@ class InotifyFrameMonitor:
                 frame_num = int(filename.split('_')[1].split('.')[0]) if '_' in filename else 0
                 if frame_num % 5 == 0:  # Log every 1 second (every 5 frames)
                     perf = detection_result['performance_ms']
+                    sub_total = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
                     logger.info(f"[{capture_folder}] ⏱️  Performance: "
                                f"img={perf.get('image_load', 0):.0f}ms "
+                               f"edge={perf.get('edge_detection', 0):.0f}ms "
                                f"black={perf.get('blackscreen', 0):.0f}ms "
+                               f"zap={perf.get('zap', 0):.0f}ms "
                                f"freeze={perf.get('freeze', 0):.0f}ms "
                                f"macro={perf.get('macroblocks', 0):.0f}ms "
                                f"audio={perf.get('audio', 0):.0f}ms{'(cache)' if perf.get('audio_cached') else ''} "
-                               f"sub={perf.get('subtitles', 0):.0f}ms "
+                               f"sub={sub_total:.0f}ms "
                                f"→ TOTAL={perf.get('total', 0):.0f}ms")
             
             # Get device info to check if this is the host

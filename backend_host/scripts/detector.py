@@ -652,7 +652,8 @@ def detect_issues(image_path, fps=5):
         edges_subtitle = edges[subtitle_y:img_height, :]
         
         subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-        has_subtitle_area = bool(2 < subtitle_edge_density < 25)
+        # Stricter threshold: 3-15% (avoid noise/garbage)
+        has_subtitle_area = bool(3 < subtitle_edge_density < 15)
         timings['subtitle_area_check'] = (time.perf_counter() - start) * 1000
         
         # OCR only if subtitle edges detected
@@ -745,6 +746,15 @@ def detect_issues(image_path, fps=5):
                 # Detect language if text found
                 detected_language = None
                 confidence = 0.0
+                
+                # Quick garbage filter: if text is mostly nonsense, skip language detection
+                if subtitle_text and len(subtitle_text.strip()) > 0:
+                    # Check if text has reasonable characters (letters, spaces, punctuation)
+                    clean_text = subtitle_text.strip()
+                    alpha_count = sum(c.isalpha() or c.isspace() for c in clean_text)
+                    if len(clean_text) > 0 and alpha_count / len(clean_text) < 0.5:
+                        # More than 50% garbage characters - likely noise
+                        subtitle_text = None
                 
                 if subtitle_text and len(subtitle_text.strip()) > 0:
                     try:
