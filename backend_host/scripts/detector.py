@@ -46,13 +46,14 @@ from concurrent.futures import ThreadPoolExecutor
 OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
 
 # OCR Enable/Disable: Set to False to completely disable OCR processing
-OCR_ENABLED = True  # Set to True to enable OCR operations
+OCR_ENABLED = False  # Set to True to enable OCR operations
 
 # OCR Parallel Processing: Set to True to run OCR in a separate thread
-OCR_PARALLEL = True  # Run OCR asynchronously every 2 seconds
+OCR_PARALLEL = True  # Run OCR asynchronously
 
 # OCR Sampling Interval: How often to run OCR (in seconds)
-OCR_INTERVAL = 2.0  # Process OCR every 2 seconds
+# OPTIMIZED: Set to 5 seconds to reduce CPU load (balance between freshness and performance)
+OCR_INTERVAL = 5.0  # Process OCR every 5 seconds
 
 # Add scripts directory to path for crop_subtitles import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -218,7 +219,7 @@ _language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_l
 _ocr_thread_pool = None  # ThreadPoolExecutor for OCR processing
 _ocr_results = {}  # {capture_dir: {'result': subtitle_result, 'timestamp': time.time()}}
 _ocr_last_run = {}  # {capture_dir: timestamp} - Track when OCR was last run for each device
-_ocr_queue = queue.Queue(maxsize=10)  # Queue for OCR tasks (max 10 pending tasks)
+_ocr_queue = queue.Queue(maxsize=3)  # Queue for OCR tasks (max 3 pending tasks to reduce backlog)
 _ocr_thread = None  # Background thread for OCR processing
 _ocr_thread_running = False  # Flag to control OCR thread
 
@@ -243,8 +244,8 @@ def init_parallel_ocr():
     logger.info("Parallel OCR processing initialized")
 
 def ocr_worker_thread():
-    """Background thread to process OCR tasks from queue"""
-    global _ocr_thread_running, _ocr_results
+    """Background thread to process OCR tasks from queue - SMART FILTERING"""
+    global _ocr_thread_running, _ocr_results, _audio_result_cache, _audio_volume_check_cache
     
     logger.info("OCR worker thread started")
     
@@ -257,10 +258,50 @@ def ocr_worker_thread():
                 continue
             
             # Process OCR task
-            capture_dir, image_path = task
+            capture_dir, image_path, skip_checks = task
             
-            # Skip if device is zapping
+            # CRITICAL: Check all skip conditions before running expensive OCR
+            should_skip = False
+            skip_reason = None
+            
+            # 1. Skip if device is zapping
             if capture_dir in _zap_state_cache and _zap_state_cache[capture_dir].get('zapping', False):
+                should_skip = True
+                skip_reason = 'device_zapping'
+            
+            # 2. Skip if no audio (no content playing)
+            elif capture_dir in _audio_result_cache and not should_skip:
+                has_audio, _, _, _, _ = _audio_result_cache[capture_dir]
+                if not has_audio:
+                    should_skip = True
+                    skip_reason = 'no_audio'
+            
+            # 3. Skip if ffmpeg volume check is currently running (avoid concurrent load)
+            elif capture_dir in _audio_volume_check_cache and not should_skip:
+                current_time = time.time()
+                last_volume_check = _audio_volume_check_cache.get(capture_dir, 0)
+                # If volume check happened in last 500ms, skip OCR (ffmpeg is likely still running)
+                if current_time - last_volume_check < 0.5:
+                    should_skip = True
+                    skip_reason = 'ffmpeg_running'
+            
+            # 4. Check if image still exists (might have been deleted)
+            elif not os.path.exists(image_path):
+                should_skip = True
+                skip_reason = 'image_deleted'
+            
+            # 5. Check blackscreen from skip_checks (passed from main thread)
+            elif skip_checks and skip_checks.get('blackscreen', False):
+                should_skip = True
+                skip_reason = 'blackscreen'
+            
+            # 6. Check freeze from skip_checks
+            elif skip_checks and skip_checks.get('frozen', False):
+                should_skip = True
+                skip_reason = 'frozen'
+            
+            if should_skip:
+                logger.debug(f"OCR skipped: {skip_reason} for {os.path.basename(image_path)}")
                 _ocr_queue.task_done()
                 continue
             
@@ -694,15 +735,16 @@ def analyze_subtitles(image_path, fps=5):
     except Exception as e:
         return {'has_subtitles': False, 'error': str(e)}
 
-def queue_ocr_task(capture_dir, image_path, fps=5):
+def queue_ocr_task(capture_dir, image_path, fps=5, skip_checks=None):
     """
-    Queue an OCR task for parallel processing.
+    Queue an OCR task for parallel processing - INTELLIGENT QUEUING.
     Returns immediately, OCR will be processed asynchronously.
     
     Args:
         capture_dir: Device capture directory
         image_path: Path to image file
         fps: Frames per second
+        skip_checks: Dict with blackscreen/frozen/audio status for pre-filtering
     """
     global _ocr_queue, _ocr_last_run
     
@@ -715,15 +757,25 @@ def queue_ocr_task(capture_dir, image_path, fps=5):
     if current_time - last_run < OCR_INTERVAL:
         return False
     
+    # PRE-FILTER: Don't queue if skip conditions are met (save queue space)
+    if skip_checks:
+        if skip_checks.get('blackscreen', False):
+            return False  # Don't queue during blackscreen
+        if skip_checks.get('frozen', False):
+            return False  # Don't queue during freeze
+        if skip_checks.get('zap', False):
+            return False  # Don't queue during zap
+    
     # Update last run time
     _ocr_last_run[capture_dir] = current_time
     
     # Queue task for processing (non-blocking)
     try:
-        _ocr_queue.put_nowait((capture_dir, image_path))
+        _ocr_queue.put_nowait((capture_dir, image_path, skip_checks))
         return True
     except queue.Full:
         # Queue is full, skip this frame
+        logger.warning(f"OCR queue full, skipping frame for {os.path.basename(capture_dir)}")
         return False
 
 def get_latest_ocr_result(capture_dir):
@@ -1089,7 +1141,13 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 has_subtitle_area = bool(1.5 < subtitle_edge_density < 8)
                 
                 if has_subtitle_area:
-                    queue_ocr_task(capture_dir, image_path, fps)
+                    # Pass current state for worker thread validation
+                    skip_checks = {
+                        'blackscreen': blackscreen,
+                        'frozen': frozen,
+                        'zap': zap
+                    }
+                    queue_ocr_task(capture_dir, image_path, fps, skip_checks)
         else:
             # No fresh result available - queue OCR task for next time
             if should_check_subtitles and not zap and not frozen and not blackscreen:
@@ -1100,7 +1158,13 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 has_subtitle_area = bool(1.5 < subtitle_edge_density < 8)
                 
                 if has_subtitle_area:
-                    was_queued = queue_ocr_task(capture_dir, image_path, fps)
+                    # Pass current state for worker thread validation
+                    skip_checks = {
+                        'blackscreen': blackscreen,
+                        'frozen': frozen,
+                        'zap': zap
+                    }
+                    was_queued = queue_ocr_task(capture_dir, image_path, fps, skip_checks)
                     
                     # Use empty result with status info
                     subtitle_result = {
