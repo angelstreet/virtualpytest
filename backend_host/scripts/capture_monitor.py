@@ -177,36 +177,34 @@ class InotifyFrameMonitor:
             # Analyze frame (blackscreen, freeze, audio) with performance timing
             detection_result = detect_issues(frame_path, queue_size=queue_size)
             
-            # Log performance metrics (every 5 frames = 1 second at 5fps)
+            # Log performance metrics for EVERY frame to see what was done
             if detection_result and 'performance_ms' in detection_result:
-                frame_num = int(filename.split('_')[1].split('.')[0]) if '_' in filename else 0
-                if frame_num % 5 == 0:  # Log every 1 second (every 5 frames)
-                    perf = detection_result['performance_ms']
-                    sub_total = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
-                    
-                    # Build subtitle info with skip reason or edge density
-                    sub_info = f"sub={sub_total:.0f}ms"
-                    if sub_total == 0 and detection_result.get('subtitle_analysis'):
-                        subtitle_data = detection_result['subtitle_analysis']
-                        skip_reason = subtitle_data.get('skip_reason')
-                        if skip_reason:
-                            # Show skip reason (e.g., no_edges, queue_overload_50, freeze, zap)
-                            sub_info = f"sub=0ms({skip_reason})"
-                        elif subtitle_data.get('skipped'):
-                            # Skipped but no reason - show edge density if available
-                            edge_density = subtitle_data.get('subtitle_edge_density', 0)
-                            sub_info = f"sub=0ms(edges={edge_density:.1f}%)"
-                    
-                    logger.info(f"[{capture_folder}] ⏱️  Performance: "
-                               f"img={perf.get('image_load', 0):.0f}ms "
-                               f"edge={perf.get('edge_detection', 0):.0f}ms "
-                               f"black={perf.get('blackscreen', 0):.0f}ms "
-                               f"zap={perf.get('zap', 0):.0f}ms "
-                               f"freeze={perf.get('freeze', 0):.0f}ms "
-                               f"macro={perf.get('macroblocks', 0):.0f}ms "
-                               f"audio={perf.get('audio', 0):.0f}ms{'(cache)' if perf.get('audio_cached') else ''} "
-                               f"{sub_info} "
-                               f"→ TOTAL={perf.get('total', 0):.0f}ms")
+                perf = detection_result['performance_ms']
+                sub_total = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
+                
+                # Build subtitle info with skip reason or edge density
+                sub_info = f"sub={sub_total:.0f}ms"
+                if sub_total == 0 and detection_result.get('subtitle_analysis'):
+                    subtitle_data = detection_result['subtitle_analysis']
+                    skip_reason = subtitle_data.get('skip_reason')
+                    if skip_reason:
+                        # Show skip reason (e.g., no_edges, queue_overload_50, freeze, zap)
+                        sub_info = f"sub=0ms({skip_reason})"
+                    elif subtitle_data.get('skipped'):
+                        # Skipped but no reason - show edge density if available
+                        edge_density = subtitle_data.get('subtitle_edge_density', 0)
+                        sub_info = f"sub=0ms(edges={edge_density:.1f}%)"
+                
+                logger.info(f"[{capture_folder}] ⏱️  Performance: "
+                           f"img={perf.get('image_load', 0):.0f}ms "
+                           f"edge={perf.get('edge_detection', 0):.0f}ms "
+                           f"black={perf.get('blackscreen', 0):.0f}ms "
+                           f"zap={perf.get('zap', 0):.0f}ms "
+                           f"freeze={perf.get('freeze', 0):.0f}ms "
+                           f"macro={perf.get('macroblocks', 0):.0f}ms "
+                           f"audio={perf.get('audio', 0):.0f}ms{'(cache)' if perf.get('audio_cached') else ''} "
+                           f"{sub_info} "
+                           f"→ TOTAL={perf.get('total', 0):.0f}ms")
             
             # Get device info to check if this is the host
             device_info = get_device_info_from_capture_folder(capture_folder)
@@ -225,18 +223,41 @@ class InotifyFrameMonitor:
             if detection_result and detection_result.get('subtitle_analysis'):
                 subtitle_data = detection_result['subtitle_analysis']
                 
-                # Log OCR execution details (success or slow performance)
+                # Log OCR execution details (full details if >300ms)
                 if not subtitle_data.get('skipped'):
                     ocr_time = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
-                    crop_info = subtitle_data.get('box', {})
-                    crop_size = f"{crop_info.get('width', 0)}x{crop_info.get('height', 0)}" if crop_info else "unknown"
                     
-                    if ocr_time > 1000:
-                        # Slow OCR - already logged in detector.py as WARNING
-                        pass
+                    if ocr_time > 300:
+                        # SLOW OCR (>300ms) - log FULL details for diagnosis
+                        crop_info = subtitle_data.get('box', {})
+                        crop_size = f"{crop_info.get('width', 0)}x{crop_info.get('height', 0)}" if crop_info else "unknown"
+                        crop_pixels = crop_info.get('width', 0) * crop_info.get('height', 0) if crop_info else 0
+                        text = subtitle_data.get('extracted_text', '')
+                        method = subtitle_data.get('ocr_method', 'unknown')
+                        lang = subtitle_data.get('detected_language', 'unknown')
+                        has_text = subtitle_data.get('has_subtitles', False)
+                        
+                        # Get detailed timings from debug section if available
+                        debug_info = subtitle_data.get('debug', {})
+                        step_timings = debug_info.get('step_timings', {})
+                        
+                        logger.warning(
+                            f"[{capture_folder}] 🐌 SLOW OCR: {ocr_time:.0f}ms\n"
+                            f"  └─ Method: {method}\n"
+                            f"  └─ Crop: {crop_size} ({crop_pixels:,} pixels)\n"
+                            f"  └─ Has text: {has_text}\n"
+                            f"  └─ Language: {lang}\n"
+                            f"  └─ Text: '{text[:80]}'\n"
+                            f"  └─ Timings: crop={step_timings.get('1_crop_calc_ms', 0):.1f}ms, "
+                            f"extract={step_timings.get('2_crop_extract_ms', 0):.1f}ms, "
+                            f"tesseract={step_timings.get('4_tesseract_ocr_ms', 0):.1f}ms, "
+                            f"language={step_timings.get('6_language_detection_ms', 0):.1f}ms"
+                        )
                     elif ocr_time > 0:
                         # Fast OCR - log success at debug level
                         text = subtitle_data.get('extracted_text', '')
+                        crop_info = subtitle_data.get('box', {})
+                        crop_size = f"{crop_info.get('width', 0)}x{crop_info.get('height', 0)}" if crop_info else "unknown"
                         logger.debug(f"[{capture_folder}] ✓ OCR executed in {ocr_time:.0f}ms (crop={crop_size}, text='{text[:30]}...')")
                 
                 if subtitle_data.get('has_subtitles'):
