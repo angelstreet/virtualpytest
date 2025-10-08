@@ -153,10 +153,10 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     }
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls
-_audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
+_audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db, method, time_ms, cache_timestamp)}
 _latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_time)}
 _subtitle_cache = {}  # {image_path: (mtime, subtitle_result)}
-_audio_result_cache = {}  # {capture_dir: (has_audio, volume, db)} - Last known audio state per device
+_audio_result_cache = {}  # {capture_dir: (has_audio, volume, db, method, time_ms)} - Last known audio state per device
 _audio_volume_check_cache = {}  # {capture_dir: last_volume_check_timestamp} - Track when we last did full volume check
 
 # Zap state tracking for CPU optimization
@@ -331,11 +331,16 @@ def analyze_audio(capture_dir):
     if age_seconds > 300:  # 5 minutes
         return False, 0, -100.0, 'segment_too_old', 0
     
-    # PERFORMANCE: Check cache first - avoid redundant FFmpeg calls (90% reduction)
+    # PERFORMANCE: Check in-memory cache - but only if recent (< 5 seconds)
+    # This prevents redundant checks within the same 5s window for the same segment
     if latest in _audio_cache:
-        cached_mtime, has_audio, volume, db, method, time_ms = _audio_cache[latest]
-        if cached_mtime == latest_mtime:
-            return has_audio, volume, db, method, time_ms
+        cached_mtime, has_audio, volume, db, method, time_ms, cache_timestamp = _audio_cache[latest]
+        cache_age = current_time - cache_timestamp
+        
+        # Only use in-memory cache if segment unchanged AND cache is recent (< 5s)
+        if cached_mtime == latest_mtime and cache_age < 5.0:
+            return has_audio, volume, db, method + '_mem_cache', time_ms
+        # Cache too old or segment changed - proceed to fresh check below
     
     # Load JSON cache (will be used for both quick return and volume data lookup)
     cached_volume = load_audio_volume_cache(capture_dir)
@@ -354,8 +359,8 @@ def analyze_audio(capture_dir):
             check_method = cached_volume.get('check_method', 'cached') + '_json_cache'
             check_time_ms = cached_volume.get('check_time_ms', 0)
             
-            # Also update in-memory cache
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
+            # Also update in-memory cache with timestamp
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms, current_time)
             
             return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
         # If cache is 5-30 seconds old, proceed to ffmpeg/ffprobe check below
@@ -421,8 +426,8 @@ def analyze_audio(capture_dir):
             # Save to JSON cache (30-second persistence)
             save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
-            # Cache the result in memory
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
+            # Cache the result in memory with timestamp
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms, current_time)
             
             if len(_audio_cache) > 50:
                 _audio_cache = dict(list(_audio_cache.items())[-20:])
@@ -464,7 +469,7 @@ def analyze_audio(capture_dir):
                 # No audio stream detected - save to JSON cache
                 save_audio_volume_cache(capture_dir, False, 0, -100.0, check_method, check_time_ms)
                 
-                _audio_cache[latest] = (latest_mtime, False, 0, -100.0, check_method, check_time_ms)
+                _audio_cache[latest] = (latest_mtime, False, 0, -100.0, check_method, check_time_ms, current_time)
                 if len(_audio_cache) > 50:
                     _audio_cache = dict(list(_audio_cache.items())[-20:])
                 return False, 0, -100.0, check_method, check_time_ms
@@ -475,7 +480,7 @@ def analyze_audio(capture_dir):
             
             # First check in-memory cache (same segment file)
             if latest in _audio_cache:
-                cached_mtime, cached_audio, cached_vol, cached_db, cached_method, cached_time = _audio_cache[latest]
+                cached_mtime, cached_audio, cached_vol, cached_db, cached_method, cached_time, cached_timestamp = _audio_cache[latest]
                 if cached_db > -100:
                     # We have precise volume data from a previous full check
                     previous_volume_data = (cached_audio, cached_vol, cached_db)
@@ -509,8 +514,8 @@ def analyze_audio(capture_dir):
             # This keeps the cache "fresh" - extends timestamp for 30s total from first ffmpeg
             save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
-            # Cache the result in memory
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
+            # Cache the result in memory with timestamp
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms, current_time)
             
             # Clean old cache entries to prevent memory growth
             if len(_audio_cache) > 50:
@@ -565,7 +570,7 @@ def analyze_audio(capture_dir):
             # Save to JSON cache (fallback case)
             save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms, current_time)
             
             if len(_audio_cache) > 50:
                 _audio_cache = dict(list(_audio_cache.items())[-20:])
