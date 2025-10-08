@@ -259,7 +259,7 @@ def get_segment_capture():
         
         # Calculate capture number from segment
         capture_number = get_capture_number_from_segment(segment_number, fps)
-        filename = f'capture_{str(capture_number).zfill(10)}.jpg'
+        filename = f'capture_{str(capture_number).zfill(9)}.jpg'
         
         # Get device folder
         device_folder = get_capture_folder(av_controller.video_capture_path)
