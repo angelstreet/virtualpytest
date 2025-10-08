@@ -268,35 +268,9 @@ class NavigationExecutor:
             print(f"[@navigation_executor:execute_navigation] Current position: {current_position}, Target: {target_node_id}")
             
             if current_position and current_position == target_node_id:
-                print(f"[@navigation_executor:execute_navigation] 🔍 Position matches target - checking if verification needed")
+                print(f"[@navigation_executor:execute_navigation] 🔍 Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
                 
-                # Check if we recently verified this position (< 30 seconds ago)
-                last_verified_time = nav_context.get('last_verified_timestamp', 0)
-                time_since_verification = time.time() - last_verified_time
-                
-                if time_since_verification < 30:
-                    print(f"[@navigation_executor:execute_navigation] ✅ Already at target '{target_node_label or target_node_id}' (verified {time_since_verification:.1f}s ago) - skipping verification")
-                    # Mark navigation as successful
-                    nav_context['current_node_navigation_success'] = True
-                    
-                    return self._build_result(
-                        True,
-                        f"Already at target '{target_node_label or target_node_id}' (verified {time_since_verification:.1f}s ago)",
-                        tree_id, target_node_id, current_node_id, start_time,
-                        transitions_executed=0,
-                        total_transitions=0,
-                        actions_executed=0,
-                        total_actions=0,
-                        path_length=0,
-                        already_at_target=True,
-                        verification_cached=True,
-                        unified_pathfinding_used=True,
-                        navigation_path=[]
-                    )
-                
-                print(f"[@navigation_executor:execute_navigation] Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
-                
-                # Verify we're actually at this node (context may be corrupted)
+                # Always verify we're actually at this node (context may be stale or corrupted)
                 verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
                 
                 # Only trust verification if verifications are defined AND passed
