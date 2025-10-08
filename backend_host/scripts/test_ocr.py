@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
-OCR Comparison Test - Tesseract vs PaddleOCR
+Simple OCR Comparison: Tesseract vs PaddleOCR
+
+Compares 2 crop methods (safe + smart) × 2 OCR engines (Tesseract + PaddleOCR)
 
 Usage:
     python test_ocr.py subtitles.jpg
-    python test_ocr.py subtitles.jpg --paddle-only  # Test only PaddleOCR
-    python test_ocr.py subtitles.jpg --tesseract-only  # Test only Tesseract
-    python test_ocr.py subtitles.jpg --debug  # Extra debug output
-
-Tests both OCR engines with smart and safe cropping methods.
 """
 
 import cv2
@@ -16,59 +13,34 @@ import numpy as np
 import os
 import sys
 import time
-import traceback
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Dict, Any
 import re
 
-# Add project root to Python path for shared module
+# Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# === CONFIGURATION ===
-# OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
-OCR_CROP_METHOD = 'safe'  # Default to safe area for reliability
-
-# OCR Engines to test: 'tesseract', 'paddle', or 'both'
-OCR_ENGINES = 'both'  # Will be overridden by command line args
-
-# Import the smart cropping algorithm
+# Try to import smart crop
 try:
     from crop_subtitles import find_subtitle_bbox
     SMART_CROP_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     SMART_CROP_AVAILABLE = False
-    print(f"⚠️  Warning: Smart crop not available: {e}")
 
-def clean_ocr_noise(text: str) -> str:
-    """
-    Remove OCR noise: consecutive 1-2 char patterns separated by spaces.
-    Examples: ", . . -" or "i ~ t" or "rr ae *. as"
-    """
+def clean_text(text: str) -> str:
+    """Remove OCR noise"""
     if not text:
         return text
-    
-    # Split into lines
-    lines = text.split('\n')
-    cleaned_lines = []
-    
-    for line in lines:
-        # Pattern: match sequences of 1-2 chars separated by spaces/punctuation
-        # Remove lines or parts that are mostly garbage (< 3 consecutive letters)
-        
-        # Check if line has at least one word with 3+ letters
+    lines = []
+    for line in text.split('\n'):
         words = line.split()
         real_words = [w for w in words if len(re.sub(r'[^a-zA-Z]', '', w)) >= 3]
-        
         if real_words:
-            # Keep line, but clean trailing noise
-            # Remove trailing patterns like ", . . -" or "i : |"
             cleaned = re.sub(r'[\s,\.;:\-\|~\*]+$', '', line)
-            # Remove leading noise
             cleaned = re.sub(r'^[\s,\.;:\-\|~\*]+', '', cleaned)
-            cleaned_lines.append(cleaned)
-    
-    return '\n'.join(cleaned_lines).strip()
+            lines.append(cleaned)
+    return '\n'.join(lines).strip()
 
 
 def diagnose_environment():
@@ -234,28 +206,70 @@ def test_paddle_ocr(crop_img: np.ndarray, use_angle_cls: bool = True, lang: str 
             'traceback': traceback.format_exc(),
         }
 
-def test_ocr_on_image(image_path, save_crops=True):
+def test_smart_crop_with_diagnostics(img_gray: np.ndarray) -> Tuple[Optional[Dict], str]:
     """
-    Run OCR testing with configurable cropping (smart or safe area).
+    Test smart crop with detailed diagnostics about why it might fail.
+    Returns: (crop_info_dict, diagnostic_message)
+    """
+    if not SMART_CROP_AVAILABLE:
+        return None, "Smart crop module not imported"
+    
+    try:
+        # Test the environment first
+        if not hasattr(img_gray, 'shape'):
+            return None, "Invalid image array - no shape attribute"
+        
+        if len(img_gray.shape) != 2:
+            return None, f"Image must be grayscale (2D), got shape: {img_gray.shape}"
+        
+        height, width = img_gray.shape
+        if height < 100 or width < 100:
+            return None, f"Image too small for smart crop: {width}x{height}"
+        
+        # Try smart crop
+        bbox = find_subtitle_bbox(img_gray)
+        
+        crop_info = {
+            'x': bbox.x,
+            'y': bbox.y,
+            'w': bbox.w,
+            'h': bbox.h,
+            'method': 'smart_dark_mask',
+        }
+        
+        return crop_info, "Success"
+        
+    except ValueError as e:
+        # Expected failure from find_subtitle_bbox
+        return None, f"Subtitle detection failed: {str(e)}"
+    
+    except AttributeError as e:
+        # Missing cv2 or numpy functions
+        return None, f"Missing dependency function: {str(e)}"
+    
+    except Exception as e:
+        # Unexpected error
+        tb = traceback.format_exc()
+        return None, f"Unexpected error: {str(e)}\nTraceback:\n{tb}"
+
+
+def test_ocr_on_image(image_path, save_crops=True, test_engines='both'):
+    """
+    Run OCR comparison testing with Tesseract and PaddleOCR.
     
     Flow:
     1. Load image in grayscale
-    2. Edge detection
-    3. Find subtitle region
-    4. Crop (smart edge-based or safe area)
-    5. Run OCR: Grayscale + PSM 6 (uniform block - best for subtitles)
-    6. Clean noise with regex (remove consecutive 1-2 char patterns)
-    7. Detect language
+    2. Test both crop methods (smart + safe)
+    3. Run both OCR engines on each crop
+    4. Compare results and timings
     
-    Tesseract config:
-    - PSM 6 (uniform block of text)
-    - OEM 3 (default LSTM mode)
-    - Languages: English, French, Italian, German, Spanish
-    
-    Saves cropped image for visual inspection.
+    Args:
+        image_path: Path to image file
+        save_crops: Save cropped images for visual inspection
+        test_engines: 'both', 'tesseract', or 'paddle'
     """
     print(f"\n{'='*70}")
-    print(f"🔍 OCR TEST: {os.path.basename(image_path)}")
+    print(f"🔍 OCR COMPARISON TEST: {os.path.basename(image_path)}")
     print(f"{'='*70}\n")
     
     # Load image in grayscale
@@ -268,129 +282,230 @@ def test_ocr_on_image(image_path, save_crops=True):
     img_height, img_width = img_gray.shape[:2]
     print(f"   Image size: {img_width}x{img_height}")
     
-    # Cropping (matches detector.py logic)
-    print(f"\n2. Cropping ({OCR_CROP_METHOD} mode)...")
-    start = time.perf_counter()
+    # Test all crop methods
+    print(f"\n2. Testing crop methods...")
+    crops_to_test = []
     
-    # Calculate crop based on method
-    if OCR_CROP_METHOD == 'smart':
-        # SMART CROP: Dark mask-based (proven implementation from crop_subtitles.py)
-        try:
-            bbox = find_subtitle_bbox(img_gray)
-            x, y, w, h = bbox.x, bbox.y, bbox.w, bbox.h
-            crop_method = "smart_dark_mask"
-        except (ValueError, Exception) as e:
-            # Fall back to safe area if smart crop fails
-            x = int(img_width * 0.10)
-            y = int(img_height * 0.60)
-            w = int(img_width * 0.80)
-            h = int(img_height * 0.35)
-            crop_method = f"smart_fallback_safe ({str(e)[:30]})"
-            print(f"   ⚠️  Smart crop failed: {str(e)[:50]}")
+    # SMART CROP
+    if SMART_CROP_AVAILABLE:
+        print(f"   Testing smart crop...")
+        start = time.perf_counter()
+        crop_info, diagnostic = test_smart_crop_with_diagnostics(img_gray)
+        crop_time = (time.perf_counter() - start) * 1000
+        
+        if crop_info:
+            x, y, w, h = crop_info['x'], crop_info['y'], crop_info['w'], crop_info['h']
+            crop_img = img_gray[y:y+h, x:x+w]
+            crops_to_test.append({
+                'name': 'smart',
+                'image': crop_img,
+                'bbox': crop_info,
+                'time_ms': crop_time,
+                'diagnostic': diagnostic
+            })
+            print(f"   ✓ Smart crop: {w}x{h} at ({x},{y}) in {crop_time:.2f}ms")
+        else:
+            print(f"   ✗ Smart crop failed: {diagnostic}")
     else:
-        # SAFE AREA: Fixed region (60-95% height, 10-90% width)
-        x = int(img_width * 0.10)
-        y = int(img_height * 0.60)
-        w = int(img_width * 0.80)
-        h = int(img_height * 0.35)
-        crop_method = "safe_area_fixed"
+        print(f"   ⊘ Smart crop not available")
     
+    # SAFE AREA CROP
+    print(f"   Testing safe area crop...")
+    start = time.perf_counter()
+    x = int(img_width * 0.10)
+    y = int(img_height * 0.60)
+    w = int(img_width * 0.80)
+    h = int(img_height * 0.35)
     crop_img = img_gray[y:y+h, x:x+w]
     crop_time = (time.perf_counter() - start) * 1000
-    print(f"   ✓ Crop: {w}x{h} at ({x},{y}) in {crop_time:.2f}ms [{crop_method}]")
     
-    # Save crop for visual inspection
+    crops_to_test.append({
+        'name': 'safe',
+        'image': crop_img,
+        'bbox': {'x': x, 'y': y, 'w': w, 'h': h, 'method': 'safe_area_fixed'},
+        'time_ms': crop_time,
+        'diagnostic': 'Success'
+    })
+    print(f"   ✓ Safe crop: {w}x{h} at ({x},{y}) in {crop_time:.2f}ms")
+    
+    # Save crops for visual inspection
     if save_crops:
         base_name = Path(image_path).stem
         save_dir = Path(image_path).parent
-        crop_path = save_dir / f"{base_name}_{OCR_CROP_METHOD}_crop.jpg"
-        cv2.imwrite(str(crop_path), crop_img)
-        print(f"   💾 Saved: {crop_path.name}")
+        for crop_data in crops_to_test:
+            crop_path = save_dir / f"{base_name}_{crop_data['name']}_crop.jpg"
+            cv2.imwrite(str(crop_path), crop_data['image'])
+            print(f"   💾 Saved: {crop_path.name}")
     
-    # STEP 3: Run OCR (Grayscale + PSM 6 - production method)
-    print("\n3. Running OCR (Grayscale + PSM 6)...")
+    # Run OCR on all crops with all engines
+    print(f"\n3. Running OCR engines...")
+    all_results = []
     
-    try:
-        import pytesseract
+    for crop_data in crops_to_test:
+        print(f"\n   Testing crop: {crop_data['name'].upper()}")
+        crop_results = {'crop_method': crop_data['name'], 'crop_bbox': crop_data['bbox']}
         
-        # Grayscale + PSM 6 (uniform block) - production method
-        start = time.perf_counter()
-        config = '--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
-        text_raw = pytesseract.image_to_string(crop_img, config=config).strip()
-        ocr_time = (time.perf_counter() - start) * 1000
-        text_clean = clean_ocr_noise(text_raw)
+        # Tesseract
+        if test_engines in ['both', 'tesseract']:
+            print(f"     • Tesseract...")
+            tess_result = test_tesseract_ocr(crop_data['image'])
+            crop_results['tesseract'] = tess_result
+            if tess_result['success']:
+                print(f"       Time: {tess_result['time_ms']:.0f}ms | Text: {len(tess_result['text_clean'])} chars")
+            else:
+                print(f"       ✗ Failed: {tess_result.get('error', 'Unknown error')}")
         
-        print(f"   Time: {ocr_time:.0f}ms | Raw: {len(text_raw)} chars → Cleaned: {len(text_clean)} chars")
-        print(f"   Raw text:     {text_raw if text_raw else '(no text)'}")
-        if text_clean != text_raw:
-            print(f"   Cleaned text: {text_clean if text_clean else '(no text)'}")
+        # PaddleOCR
+        if test_engines in ['both', 'paddle']:
+            print(f"     • PaddleOCR...")
+            paddle_result = test_paddle_ocr(crop_data['image'])
+            crop_results['paddle'] = paddle_result
+            if paddle_result['success']:
+                print(f"       Time: {paddle_result['time_ms']:.0f}ms (init: {paddle_result['init_time_ms']:.0f}ms) | Text: {len(paddle_result['text_clean'])} chars | Confidence: {paddle_result['confidence']:.2f}")
+            else:
+                print(f"       ✗ Failed: {paddle_result.get('error', 'Unknown error')}")
+                if 'install_hint' in paddle_result:
+                    print(f"       💡 {paddle_result['install_hint']}")
         
-        subtitle_text = text_clean
-        
-    except ImportError:
-        print(f"   ❌ Error: pytesseract not available")
-        return None
-    except Exception as e:
-        print(f"   ❌ Error: OCR failed: {e}")
-        return None
+        all_results.append(crop_results)
     
-    # Language detection
-    print("\n4. Detecting language...")
+    # Language detection (use best OCR result)
+    print(f"\n4. Detecting language...")
+    best_text = None
+    for result in all_results:
+        for engine in ['tesseract', 'paddle']:
+            if engine in result and result[engine].get('success') and result[engine].get('text_clean'):
+                if not best_text or len(result[engine]['text_clean']) > len(best_text):
+                    best_text = result[engine]['text_clean']
+    
     detected_language = None
-    if subtitle_text and len(subtitle_text.strip()) > 0:
+    if best_text:
         try:
             from shared.src.lib.utils.image_utils import detect_language
             start = time.perf_counter()
-            detected_language = detect_language(subtitle_text)
+            detected_language = detect_language(best_text)
             lang_time = (time.perf_counter() - start) * 1000
             print(f"   ✓ Language detected in {lang_time:.0f}ms: {detected_language}")
-        except:
+        except Exception as e:
             detected_language = 'unknown'
-            print(f"   ⚠️  Language detection failed, marked as 'unknown'")
+            print(f"   ⚠️  Language detection failed: {e}")
     else:
         print(f"   ⚠️  No text to detect language")
     
-    # Results summary
+    # Print comparison summary
     print(f"\n{'='*70}")
-    print(f"📊 FINAL RESULT")
+    print(f"📊 COMPARISON RESULTS")
     print(f"{'='*70}")
-    print(f"Crop: {w}x{h} at ({x},{y}) in {crop_time:.2f}ms [{crop_method}]")
-    print(f"OCR: Grayscale + PSM 6 in {ocr_time:.0f}ms")
-    print(f"Text extracted: {'YES' if subtitle_text else 'NO'}")
-    if subtitle_text:
-        print(f"Text length: {len(subtitle_text)} characters")
-        print(f"Language: {detected_language}")
-        print(f"\nFull extracted text:")
-        print(f"┌{'─' * 68}┐")
-        for line in subtitle_text.split('\n'):
-            print(f"│ {line:<66} │")
-        print(f"└{'─' * 68}┘")
+    
+    for result in all_results:
+        crop_name = result['crop_method'].upper()
+        bbox = result['crop_bbox']
+        print(f"\nCrop Method: {crop_name}")
+        print(f"  Region: {bbox['w']}x{bbox['h']} at ({bbox['x']},{bbox['y']})")
+        
+        for engine in ['tesseract', 'paddle']:
+            if engine in result:
+                engine_result = result[engine]
+                print(f"\n  {engine.capitalize()}:")
+                if engine_result['success']:
+                    print(f"    Time: {engine_result['time_ms']:.0f}ms")
+                    if 'confidence' in engine_result:
+                        print(f"    Confidence: {engine_result['confidence']:.2%}")
+                    text = engine_result['text_clean']
+                    if text:
+                        print(f"    Text ({len(text)} chars):")
+                        for line in text.split('\n')[:3]:  # First 3 lines
+                            print(f"      \"{line[:60]}{'...' if len(line) > 60 else ''}\"")
+                        if len(text.split('\n')) > 3:
+                            print(f"      ... ({len(text.split('\n')) - 3} more lines)")
+                    else:
+                        print(f"    Text: (empty)")
+                else:
+                    print(f"    ✗ Error: {engine_result.get('error', 'Unknown')}")
+    
+    # Final recommendation
+    print(f"\n{'='*70}")
+    print(f"🎯 RECOMMENDATION")
+    print(f"{'='*70}")
+    
+    best_combo = None
+    best_score = -1
+    
+    for result in all_results:
+        for engine in ['tesseract', 'paddle']:
+            if engine in result and result[engine].get('success'):
+                text_len = len(result[engine].get('text_clean', ''))
+                confidence = result[engine].get('confidence', 0.8)  # Tesseract gets default 0.8
+                score = text_len * confidence
+                
+                if score > best_score:
+                    best_score = score
+                    best_combo = {
+                        'crop': result['crop_method'],
+                        'engine': engine,
+                        'text': result[engine]['text_clean'],
+                        'time_ms': result[engine]['time_ms'],
+                        'confidence': confidence,
+                    }
+    
+    if best_combo:
+        print(f"Best combination: {best_combo['crop'].upper()} crop + {best_combo['engine'].capitalize()}")
+        print(f"  Score: {best_score:.1f} (text_length × confidence)")
+        print(f"  Time: {best_combo['time_ms']:.0f}ms")
+        print(f"  Confidence: {best_combo['confidence']:.2%}")
     else:
-        print(f"⚠️  No text extracted")
+        print(f"⚠️  No successful OCR results")
     
     return {
-        'text': subtitle_text,
+        'results': all_results,
         'language': detected_language,
-        'bbox': {'x': x, 'y': y, 'width': w, 'height': h},
-        'method': crop_method,
-        'filter': 'grayscale',
-        'psm': 6
+        'best_combination': best_combo,
     }
 
 
 def main():
     """Main entry point"""
     
+    # Parse command-line arguments
+    test_engines = 'both'
+    debug_mode = False
+    show_diagnostics = False
+    image_path = None
+    
+    for arg in sys.argv[1:]:
+        if arg == '--paddle-only':
+            test_engines = 'paddle'
+        elif arg == '--tesseract-only':
+            test_engines = 'tesseract'
+        elif arg == '--debug':
+            debug_mode = True
+        elif arg == '--diagnose':
+            show_diagnostics = True
+        elif arg in ['--help', '-h']:
+            print(__doc__)
+            print("\nOptions:")
+            print("  --paddle-only      Test only PaddleOCR")
+            print("  --tesseract-only   Test only Tesseract")
+            print("  --debug            Extra debug output")
+            print("  --diagnose         Show environment diagnostics only")
+            return 0
+        elif not arg.startswith('--') and image_path is None:
+            image_path = arg
+    
+    # Show diagnostics if requested
+    if show_diagnostics or debug_mode:
+        diagnostics = diagnose_environment()
+        if show_diagnostics and image_path is None:
+            return 0
+    
     # Single image mode
-    if len(sys.argv) >= 2:
-        image_path = sys.argv[1]
-        
+    if image_path:
         if not os.path.exists(image_path):
             print(f"❌ Error: Image not found: {image_path}")
             return 1
         
         # Always save crops for debugging
-        result = test_ocr_on_image(image_path, save_crops=True)
+        result = test_ocr_on_image(image_path, save_crops=True, test_engines=test_engines)
         
         if result is None:
             return 1
@@ -403,34 +518,33 @@ def main():
     
     if not subt_dir.exists():
         print(f"❌ Error: Directory not found: {subt_dir}")
-        print("Usage: python test_ocr.py [image_path]")
+        print("Usage: python test_ocr.py [image_path] [options]")
         print("Example: python test_ocr.py img/subt/subtitles.jpg")
+        print("         python test_ocr.py img/subt/subtitles.jpg --paddle-only")
+        print("         python test_ocr.py --diagnose")
         return 1
     
     # Find all images directly in subt/ (not in subdirectories)
     image_files = sorted(subt_dir.glob('*.jpg'))
-    # Filter out crop images and any that contain "_crop_" in name
-    image_files = [f for f in image_files if not any(x in f.stem for x in ['_crop'])]
+    # Filter out crop images and any that contain "_crop" in name
+    image_files = [f for f in image_files if '_crop' not in f.stem]
     
     if not image_files:
         print(f"❌ Error: No .jpg images found in {subt_dir}")
         return 1
     
     print("\n" + "="*70)
-    print("🧪 OCR TEST - BATCH MODE")
+    print("🧪 OCR COMPARISON TEST - BATCH MODE")
     print("="*70)
     print(f"Testing {len(image_files)} images from {subt_dir}")
-    print("\nConfiguration:")
-    print(f"  Crop method: {OCR_CROP_METHOD.upper()} ({'dark mask-based' if OCR_CROP_METHOD == 'smart' else 'fixed region'})")
-    print("  OCR: Grayscale + PSM 6 (uniform block)")
-    print("  Languages: English, French, Italian, German, Spanish")
-    print("  Noise cleaning: Regex filter for consecutive 1-2 char patterns")
+    print(f"\nEngines: {test_engines.upper()}")
+    print(f"Crop methods: Smart (if available) + Safe area")
     print("="*70)
     
     # Test each image
     results = []
     for img_path in image_files:
-        result = test_ocr_on_image(str(img_path), save_crops=True)
+        result = test_ocr_on_image(str(img_path), save_crops=True, test_engines=test_engines)
         if result:
             results.append({
                 'name': img_path.name,
@@ -439,28 +553,48 @@ def main():
     
     # Summary
     print("\n" + "="*70)
-    print("📊 SUMMARY")
+    print("📊 BATCH SUMMARY")
     print("="*70)
     
     total_images = len(results)
-    images_with_text = sum(1 for r in results if r['result']['text'])
+    successful_tests = len([r for r in results if r['result'].get('best_combination')])
     
     print(f"\nTotal images tested: {total_images}")
-    print(f"Images with text found: {images_with_text}")
-    print(f"Images without text: {total_images - images_with_text}")
+    print(f"Successful extractions: {successful_tests}")
+    print(f"Failed extractions: {total_images - successful_tests}")
     
-    print(f"\n📝 Extracted texts:")
+    # Best combinations per image
+    print(f"\n🏆 Best Results Per Image:")
     for r in results:
-        text = r['result']['text']
-        lang = r['result']['language']
-        if text:
-            # Show first line only
-            first_line = text.split('\n')[0]
-            if len(first_line) > 50:
-                first_line = first_line[:50] + "..."
-            print(f"  • {r['name']:<30} [{lang}] \"{first_line}\"")
+        best = r['result'].get('best_combination')
+        if best:
+            text_preview = best['text'].split('\n')[0][:40]
+            print(f"  • {r['name']:<30} {best['crop'].upper():>5} + {best['engine'].capitalize():<10} ({best['time_ms']:.0f}ms)")
+            print(f"    \"{text_preview}{'...' if len(best['text']) > 40 else ''}\"")
         else:
-            print(f"  • {r['name']:<30} [no text]")
+            print(f"  • {r['name']:<30} NO TEXT EXTRACTED")
+    
+    # Engine comparison
+    if test_engines == 'both':
+        print(f"\n📈 Engine Comparison:")
+        tess_wins = 0
+        paddle_wins = 0
+        
+        for r in results:
+            best = r['result'].get('best_combination')
+            if best:
+                if best['engine'] == 'tesseract':
+                    tess_wins += 1
+                elif best['engine'] == 'paddle':
+                    paddle_wins += 1
+        
+        print(f"  Tesseract best: {tess_wins} images")
+        print(f"  PaddleOCR best: {paddle_wins} images")
+        
+        if tess_wins + paddle_wins > 0:
+            tess_pct = tess_wins / (tess_wins + paddle_wins) * 100
+            paddle_pct = paddle_wins / (tess_wins + paddle_wins) * 100
+            print(f"  Winner: {'Tesseract' if tess_wins > paddle_wins else 'PaddleOCR' if paddle_wins > tess_wins else 'TIE'}")
     
     print(f"\n🔍 Debug crops saved in: {subt_dir}/")
     print(f"✅ Test complete!")
