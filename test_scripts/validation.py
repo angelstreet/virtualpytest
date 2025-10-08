@@ -73,12 +73,16 @@ def _get_validation_plan(context):
 
 
 def capture_validation_summary(context, userinterface_name: str, max_iteration: int = None) -> str:
-    """Capture validation summary as text for report - adapted from original comprehensive version"""
+    """Capture validation summary as text for report - uses actual recorded steps"""
     
-    # Get basic stats from context
-    total_steps = getattr(context, 'validation_total_steps', 0)
-    successful_steps = getattr(context, 'validation_successful_steps', 0)
-    failed_steps = total_steps - successful_steps if total_steps > 0 else 0
+    # Get actual step counts from context.step_results (not validation counters)
+    # This ensures consistency between summary and detailed step list
+    total_steps = len(context.step_results)
+    successful_steps = sum(1 for step in context.step_results if step.get('success', False))
+    failed_steps = total_steps - successful_steps
+    
+    # Get validation sequence stats for reference
+    validation_iterations = getattr(context, 'validation_total_steps', 0)
     
     lines = []
     lines.append("-"*60)
@@ -99,16 +103,18 @@ def capture_validation_summary(context, userinterface_name: str, max_iteration: 
     lines.append(f"📋 Interface: {userinterface_name}")
     lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     
-    # Add max_iteration info if it was used
+    # Show validation iterations and actual navigation steps executed
     if max_iteration is not None:
-        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (executed {total_steps} steps)")
+        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (validated {validation_iterations} transitions, executed {total_steps} navigation steps)")
+    else:
+        lines.append(f"🔢 Validated {validation_iterations} transitions (executed {total_steps} navigation steps)")
     
     lines.append(f"📊 Steps: {successful_steps}/{total_steps} steps successful")
     lines.append(f"✅ Successful: {successful_steps}")
     lines.append(f"❌ Failed: {failed_steps}")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     
-    # Calculate coverage safely to avoid division by zero
+    # Calculate coverage based on actual steps
     if total_steps > 0:
         coverage = (successful_steps / total_steps * 100)
         lines.append(f"🎯 Coverage: {coverage:.1f}%")
