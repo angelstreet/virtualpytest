@@ -425,7 +425,7 @@ def detect_issues(image_path, fps=5, queue_size=0):
         frame_number = 0
     
     # Global cache access
-    global _audio_result_cache
+    global _audio_result_cache, _language_detection_cache
     
     # === CHECK: Is device currently zapping? ===
     zap_state = load_zap_state(capture_dir)
@@ -465,7 +465,6 @@ def detect_issues(image_path, fps=5, queue_size=0):
                 audio_check_interval = fps * 5
                 should_check_audio = (frame_number % audio_check_interval == 0)
                 
-                global _audio_result_cache
                 if should_check_audio:
                     has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
                     _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
@@ -661,7 +660,6 @@ def detect_issues(image_path, fps=5, queue_size=0):
     
     # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
     # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
-    global _audio_result_cache
     if capture_dir in _audio_result_cache:
         last_has_audio, _, _ = _audio_result_cache[capture_dir]
         audio_check_interval = fps * 5 if last_has_audio else fps * 10
