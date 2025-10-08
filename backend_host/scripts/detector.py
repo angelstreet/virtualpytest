@@ -66,13 +66,14 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     except:
         return False, {}
     
-    # Need at least 3 previous frames
+    # Need at least 3 previous frames for comparison
     if frame_number < 3:
         return False, {}
     
-    # Calculate frame numbers to compare
+    # Calculate frame numbers to compare - last 3 consecutive frames
+    # CRITICAL: Must check consecutive frames for fast zap detection (<200ms)
     frames_to_check = []
-    for i in range(1, 4):  # Previous 3 frames
+    for i in range(1, 4):  # Previous 3 frames (N-1, N-2, N-3)
         prev_frame_num = frame_number - i
         if prev_frame_num >= 0:
             frames_to_check.append(prev_frame_num)
@@ -83,6 +84,7 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     # Compare with previous frames using pixel difference
     pixel_diffs = []
     frames_compared = []
+    frames_checked = []  # Track which frames we tried to check
     
     # Build filename pattern (e.g., "capture" from "capture_000123.jpg")
     frame_prefix = filename.rsplit('_', 1)[0]
@@ -92,6 +94,7 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         # Build thumbnail filename
         prev_filename = f"{frame_prefix}_{str(prev_num).zfill(frame_digits)}_thumbnail.jpg"
         prev_path = os.path.join(thumbnails_dir, prev_filename)
+        frames_checked.append(prev_filename)
         
         if not os.path.exists(prev_path):
             continue
