@@ -713,8 +713,8 @@ def detect_issues(image_path, fps=5, queue_size=0):
         edges_subtitle = edges[subtitle_y:img_height, :]
         
         subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-        # Stricter threshold: 3-8% (avoid UI/menus, focus on real subtitles)
-        has_subtitle_area = bool(3 < subtitle_edge_density < 8)
+        # Threshold: 1.5-8% (catch subtitles with black backgrounds, avoid UI/menus)
+        has_subtitle_area = bool(1.5 < subtitle_edge_density < 8)
         timings['subtitle_area_check'] = (time.perf_counter() - start) * 1000
         
         # OCR only if subtitle edges detected
