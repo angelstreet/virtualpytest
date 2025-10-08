@@ -101,6 +101,7 @@ const RecHostStreamModalContent: React.FC<{
   // AI Image Query state
   const [isImageQueryVisible, setIsImageQueryVisible] = useState(false);
   const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
+  const [currentSegmentUrl, setCurrentSegmentUrl] = useState<string | null>(null);
 
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
@@ -541,25 +542,25 @@ const RecHostStreamModalContent: React.FC<{
 
   // Handle screenshot - calculate from current segment and open in new tab
   const handleScreenshot = useCallback(() => {
-    if (!streamUrl) {
-      showError('No stream available');
+    if (!currentSegmentUrl) {
+      showError('No segment available - video may still be loading');
       return;
     }
 
-    const captureUrl = getCaptureUrlFromStream(streamUrl, device);
+    const captureUrl = getCaptureUrlFromStream(currentSegmentUrl, device);
     if (captureUrl) {
       window.open(captureUrl, '_blank');
       console.log(`[@component:RecHostStreamModal] Opening screenshot: ${captureUrl}`);
     } else {
       showError('Could not determine current frame');
     }
-  }, [streamUrl, device, getCaptureUrlFromStream, showError]);
+  }, [currentSegmentUrl, device, getCaptureUrlFromStream, showError]);
 
   // Handle AI Image Query - calculate capture URL from current segment (live mode only, not restart)
   const handleAIImageQuery = useCallback(() => {
-    if (!isLiveMode || restartMode || !streamUrl) return;
+    if (!isLiveMode || restartMode || !currentSegmentUrl) return;
     
-    const captureUrl = getCaptureUrlFromStream(streamUrl, device);
+    const captureUrl = getCaptureUrlFromStream(currentSegmentUrl, device);
     if (captureUrl) {
       console.log(`[@RecHostStreamModal] AI Image Query capture URL: ${captureUrl}`);
       setCapturedImageUrl(captureUrl);
@@ -567,7 +568,7 @@ const RecHostStreamModalContent: React.FC<{
     } else {
       showError('Could not determine current frame');
     }
-  }, [streamUrl, device, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
+  }, [currentSegmentUrl, device, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
 
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {

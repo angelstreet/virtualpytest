@@ -58,6 +58,7 @@ interface RecStreamContainerProps {
   onPlayerReady: () => void;
   onVideoTimeUpdate: (time: number) => void;
   onVideoPause?: () => void;
+  onCurrentSegmentChange?: (segmentUrl: string) => void;
   
   // Monitoring data props (for overlay on live video)
   monitoringAnalysis?: MonitoringAnalysis;

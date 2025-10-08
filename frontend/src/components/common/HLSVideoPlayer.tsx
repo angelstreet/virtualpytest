@@ -18,6 +18,7 @@ interface HLSVideoPlayerProps {
   shouldPause?: boolean; // Pause player to show last frame (during quality transition)
   onRestartRequest?: () => void; // Callback to expose restart functionality
   onPlayerReady?: () => void; // Callback when player loads successfully
+  onCurrentSegmentChange?: (segmentUrl: string) => void; // Callback when current segment changes
 }
 
 /**
@@ -48,6 +49,7 @@ export function HLSVideoPlayer({
   shouldPause = false, // Default to not paused
   onRestartRequest, // New prop for external restart trigger
   onPlayerReady, // Callback when player loads successfully
+  onCurrentSegmentChange, // Callback when current segment changes
 }: HLSVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
@@ -425,7 +427,7 @@ export function HLSVideoPlayer({
       });
 
       // Reset segment failure count on successful fragment loads
-      hls.on(HLS.Events.FRAG_LOADED, () => {
+      hls.on(HLS.Events.FRAG_LOADED, (_event, data) => {
         setSegmentFailureCount(0);
         // Clear any existing error messages when fragments load successfully (indicates recovery)
         setStreamError((prev) => {
@@ -435,6 +437,11 @@ export function HLSVideoPlayer({
           }
           return prev;
         });
+        
+        // Notify parent of current segment URL for screenshot/capture alignment
+        if (data.frag?.url && onCurrentSegmentChange) {
+          onCurrentSegmentChange(data.frag.url);
+        }
       });
 
       // Latency correction removed - allow users to scrub back without auto-correction

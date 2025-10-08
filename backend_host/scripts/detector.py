@@ -135,8 +135,8 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         if diff_percentage > 5.0:
             break
     
-    # Frozen if ALL checked frames have < 2% difference (STRICT - reduced from 5% to avoid false positives)
-    FREEZE_THRESHOLD = 0.5  # 2% pixel difference = frozen (was 5%, too permissive)
+    # Frozen if ALL checked frames have < 0.5% difference (VERY STRICT - reduced from 5% to avoid false positives)
+    FREEZE_THRESHOLD = 0.5  # 0.5% pixel difference = frozen (was 5%, too permissive)
     frozen = len(pixel_diffs) >= 2 and all(diff < FREEZE_THRESHOLD for diff in pixel_diffs)
     
     return frozen, {
@@ -1028,9 +1028,22 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             }
             timings['subtitle_ocr'] = 0.0
     else:
-        # Not sampled this frame
+        # Not sampled this frame (checked every 1 second)
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
+        subtitle_result = {
+            'has_subtitles': False,
+            'extracted_text': '',
+            'detected_language': None,
+            'confidence': 0.0,
+            'box': None,
+            'ocr_method': None,
+            'downscaled_to_height': None,
+            'psm_mode': None,
+            'subtitle_edge_density': 0.0,
+            'skipped': True,
+            'skip_reason': f'not_sampled_frame (checks every {sample_interval} frames = 1s)'
+        }
     
     # === STEP 6: Macroblock Analysis (skip if freeze or blackscreen) ===
     start = time.perf_counter()
