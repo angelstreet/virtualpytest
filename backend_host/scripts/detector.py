@@ -140,6 +140,9 @@ _audio_result_cache = {}  # {capture_dir: (has_audio, volume, db)} - Last known 
 # Zap state tracking for CPU optimization
 _zap_state_cache = {}  # In-memory cache for fast access
 
+# Language detection throttling (per device)
+_language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_language)}
+
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
     return os.path.join(capture_dir, '.zap_state.json')
@@ -817,20 +820,52 @@ def detect_issues(image_path, fps=5, queue_size=0):
                         # More than 50% garbage characters - likely noise
                         subtitle_text = None
                 
+                # OPTIMIZATION: Only detect language if we have 3+ real words AND it's been 30+ seconds
                 if subtitle_text and len(subtitle_text.strip()) > 0:
-                    try:
-                        from shared.src.lib.utils.image_utils import detect_language
-                        detected_language = detect_language(subtitle_text)
-                        
-                        # If language detected successfully, trust the OCR
-                        if detected_language and detected_language != 'unknown':
-                            confidence = 1.0
-                        else:
-                            # Language unknown but text extracted - medium confidence
+                    # Count real words (2+ characters, alpha only)
+                    words = [w for w in subtitle_text.split() if len(w) >= 2 and any(c.isalpha() for c in w)]
+                    
+                    # Check throttling: only detect language every 30 seconds per device
+                    global _language_detection_cache
+                    current_time = time.time()
+                    
+                    # Get cached data (timestamp and language)
+                    cached_data = _language_detection_cache.get(capture_dir)
+                    if cached_data:
+                        last_detection_time, cached_language = cached_data
+                        time_since_last = current_time - last_detection_time
+                    else:
+                        last_detection_time = 0
+                        cached_language = None
+                        time_since_last = float('inf')
+                    
+                    # Only detect if: 3+ words AND 30+ seconds since last detection
+                    if len(words) >= 3 and time_since_last >= 30.0:
+                        try:
+                            from shared.src.lib.utils.image_utils import detect_language
+                            detected_language = detect_language(subtitle_text)
+                            
+                            # Update throttle cache with both timestamp and language
+                            _language_detection_cache[capture_dir] = (current_time, detected_language)
+                            
+                            # If language detected successfully, trust the OCR
+                            if detected_language and detected_language != 'unknown':
+                                confidence = 1.0
+                            else:
+                                # Language unknown but text extracted - medium confidence
+                                confidence = 0.75
+                        except:
+                            detected_language = 'unknown'
                             confidence = 0.75
-                    except:
-                        detected_language = 'unknown'
-                        confidence = 0.75
+                    else:
+                        # Throttled - use cached language if available
+                        if cached_language:
+                            detected_language = cached_language
+                            confidence = 0.8  # Slightly lower confidence for cached
+                        else:
+                            # No cached language yet (< 3 words or first detection)
+                            detected_language = 'skipped'
+                            confidence = 0.5
                 
                 subtitle_result = {
                     'has_subtitles': bool(subtitle_text and len(subtitle_text.strip()) > 0),
