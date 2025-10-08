@@ -24,7 +24,7 @@ sys.path.insert(0, str(project_root))
 
 # === CONFIGURATION ===
 # OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
-OCR_CROP_METHOD = 'smart'  # Change to 'safe' to use fixed safe area
+OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
 
 # Import the smart cropping algorithm
 from crop_subtitles import find_subtitle_bbox

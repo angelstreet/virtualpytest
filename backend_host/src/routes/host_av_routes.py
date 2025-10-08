@@ -219,6 +219,94 @@ def get_stream_url():
             'error': str(e)
         }), 500
 
+@host_av_bp.route('/getSegmentCapture', methods=['POST'])
+def get_segment_capture():
+    """Get capture image for a specific segment (with hot-to-cold copy)"""
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        segment_number = data.get('segment_number')
+        fps = data.get('fps', 5)
+        
+        if segment_number is None:
+            return jsonify({
+                'success': False,
+                'error': 'segment_number is required'
+            }), 400
+        
+        # Get device to find capture path
+        device = get_device_by_id(device_id)
+        if not device:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found'
+            }), 404
+        
+        # Get capture path from device
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller or not hasattr(av_controller, 'video_capture_path'):
+            return jsonify({
+                'success': False,
+                'error': f'No video capture path for device {device_id}'
+            }), 404
+        
+        from shared.src.lib.utils.storage_path_utils import (
+            get_capture_folder, 
+            get_captures_path,
+            get_cold_storage_path,
+            get_capture_number_from_segment
+        )
+        
+        # Calculate capture number from segment
+        capture_number = get_capture_number_from_segment(segment_number, fps)
+        filename = f'capture_{str(capture_number).zfill(10)}.jpg'
+        
+        # Get device folder
+        device_folder = get_capture_folder(av_controller.video_capture_path)
+        
+        # Check hot storage first
+        hot_captures_path = get_captures_path(device_folder)
+        hot_path = os.path.join(hot_captures_path, filename)
+        
+        # Build cold path
+        cold_captures_path = get_cold_storage_path(device_folder, 'captures')
+        cold_path = os.path.join(cold_captures_path, filename)
+        
+        # Copy from hot to cold if exists in hot
+        if os.path.exists(hot_path):
+            os.makedirs(cold_captures_path, exist_ok=True)
+            shutil.copy2(hot_path, cold_path)
+            print(f"[@route:host_av:getSegmentCapture] Copied from HOT to COLD: {filename}")
+        elif not os.path.exists(cold_path):
+            return jsonify({
+                'success': False,
+                'error': f'Capture {filename} not found in hot or cold storage'
+            }), 404
+        
+        # Build URL for cold path
+        from shared.src.lib.utils.build_url_utils import buildCaptureUrlFromPath
+        from  backend_host.src.lib.utils.host_utils import get_host_instance as get_host
+        
+        host = get_host()
+        capture_url = buildCaptureUrlFromPath(host.to_dict(), cold_path, device_id)
+        
+        return jsonify({
+            'success': True,
+            'capture_url': capture_url,
+            'capture_path': cold_path,
+            'segment_number': segment_number,
+            'capture_number': capture_number
+        })
+        
+    except Exception as e:
+        print(f"[@route:host_av:getSegmentCapture] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @host_av_bp.route('/takeScreenshot', methods=['POST'])
 def take_screenshot():
     """Take temporary screenshot to nginx folder using new architecture"""

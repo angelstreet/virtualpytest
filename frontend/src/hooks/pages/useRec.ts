@@ -4,7 +4,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
 import { calculateVncScaling } from '../../utils/vncUtils';
 
-import { buildServerUrl, buildStreamUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildStreamUrl } from '../../utils/buildUrlUtils';
 // Removed global state - no longer needed for simple monitoring patterns
 
 interface UseRecReturn {
@@ -22,7 +22,7 @@ interface UseRecReturn {
     width: string;
     height: string;
   };
-  getCaptureUrlFromStream: (streamUrl: string, device?: Device, host?: Host) => string | null; // Calculate capture URL from segment URL
+  getCaptureUrlFromStream: (streamUrl: string, device?: Device, host?: Host) => Promise<string | null>; // Get capture URL from segment (with hot→cold copy)
   pollForFreshStream: (host: Host, deviceId: string, onReady: () => void, onTimeout: (error: string) => void) => () => void; // Returns cleanup function
 }
 
@@ -209,18 +209,15 @@ export const useRec = (): UseRecReturn => {
     }
   }, []); // No dependencies - use refs instead to keep callback stable
 
-  // Calculate capture URL from stream segment URL using FPS
-  // Uses existing buildCaptureUrl utility - no manual URL building!
-  const getCaptureUrlFromStream = useCallback((streamUrl: string, device?: Device, host?: Host): string | null => {
+  // Get capture URL from stream segment (calls backend to copy hot->cold)
+  // Backend handles: segment→capture calculation, hot→cold copy, URL building
+  const getCaptureUrlFromStream = useCallback(async (streamUrl: string, device?: Device, host?: Host): Promise<string | null> => {
     if (!streamUrl || !device || !host) {
       console.warn('[@hook:useRec] Missing required parameters:', { streamUrl: !!streamUrl, device: !!device, host: !!host });
       return null;
     }
     
     try {
-      // Get FPS from device (default: 5 for HDMI, 2 for VNC)
-      const fps = device.video_fps || 5;
-      
       // Extract segment number from stream URL (e.g., segment_000078741.ts)
       const segmentMatch = streamUrl.match(/segment_(\d+)\.ts/);
       if (!segmentMatch) {
@@ -229,18 +226,37 @@ export const useRec = (): UseRecReturn => {
       }
       
       const segmentNumber = parseInt(segmentMatch[1], 10);
-      const captureNumber = segmentNumber * fps; // segment * fps = capture
+      const fps = device.video_fps || 5;
       
-      // Format as padded string (buildCaptureUrl expects timestamp format)
-      const captureSequence = String(captureNumber).padStart(10, '0');
+      console.log(`[@hook:useRec] Requesting capture: segment=${segmentNumber}, fps=${fps}`);
       
-      // Use existing buildCaptureUrl utility (handles cold storage path automatically)
-      const captureUrl = buildCaptureUrl(host, captureSequence, device.device_id);
+      // Call backend to get capture (handles hot→cold copy)
+      const response = await fetch(buildServerUrl('/server/av/getSegmentCapture'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device.device_id,
+          segment_number: segmentNumber,
+          fps: fps
+        })
+      });
       
-      console.log(`[@hook:useRec] Calculated capture: segment=${segmentNumber}, fps=${fps}, capture=${captureNumber}`);
-      return captureUrl;
+      if (!response.ok) {
+        console.error('[@hook:useRec] Backend request failed:', response.status);
+        return null;
+      }
+      
+      const result = await response.json();
+      if (result.success && result.capture_url) {
+        console.log(`[@hook:useRec] Got capture URL (COLD): ${result.capture_url}`);
+        return result.capture_url;
+      }
+      
+      console.error('[@hook:useRec] Backend returned error:', result.error);
+      return null;
     } catch (error) {
-      console.error('[@hook:useRec] Failed to calculate capture URL:', error);
+      console.error('[@hook:useRec] Failed to get capture URL:', error);
       return null;
     }
   }, []);

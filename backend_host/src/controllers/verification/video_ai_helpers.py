@@ -268,18 +268,19 @@ class VideoAIHelpers:
             # Combine all extracted text and find the most confident language detection
             all_extracted_text = " ".join([r.get('extracted_text', '') for r in successful_analyses if r.get('extracted_text')])
             
-            # Get the language and image from the result with highest confidence and subtitles detected
+            # Get the language and image from analyzed results
             detected_language = 'unknown'
             analyzed_image_path = None
+            
+            # Always store first analyzed image (for debugging when subtitles not found)
+            if successful_analyses:
+                analyzed_image_path = successful_analyses[0].get('image_path')
+            
+            # Find best language detection from results with subtitles
             for result in successful_analyses:
-                if result.get('has_subtitles'):
-                    # Store image path for any subtitle detection
-                    if not analyzed_image_path:
-                        analyzed_image_path = result.get('image_path')
-                    # Update language if detected
-                    if result.get('detected_language') != 'unknown':
-                        detected_language = result.get('detected_language')
-                        break
+                if result.get('has_subtitles') and result.get('detected_language') != 'unknown':
+                    detected_language = result.get('detected_language')
+                    break
             
             # Add clear detection status message
             detection_message = "No subtitles detected in any analyzed images"

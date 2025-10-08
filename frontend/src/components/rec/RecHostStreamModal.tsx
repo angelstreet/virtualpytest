@@ -541,7 +541,7 @@ const RecHostStreamModalContent: React.FC<{
   }, [isLiveMode, monitoringMode, monitoringData, host, device]);
 
   // Handle screenshot - calculate from current segment and open in new tab (live mode only)
-  const handleScreenshot = useCallback(() => {
+  const handleScreenshot = useCallback(async () => {
     if (!isLiveMode || restartMode) {
       showError('Screenshot is only available in Live mode');
       return;
@@ -552,7 +552,7 @@ const RecHostStreamModalContent: React.FC<{
       return;
     }
 
-    const captureUrl = getCaptureUrlFromStream(currentSegmentUrl, device, host);
+    const captureUrl = await getCaptureUrlFromStream(currentSegmentUrl, device, host);
     if (captureUrl) {
       window.open(captureUrl, '_blank');
       console.log(`[@component:RecHostStreamModal] Opening screenshot: ${captureUrl}`);
@@ -562,10 +562,10 @@ const RecHostStreamModalContent: React.FC<{
   }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
 
   // Handle AI Image Query - calculate capture URL from current segment (live mode only, not restart)
-  const handleAIImageQuery = useCallback(() => {
+  const handleAIImageQuery = useCallback(async () => {
     if (!isLiveMode || restartMode || !currentSegmentUrl) return;
     
-    const captureUrl = getCaptureUrlFromStream(currentSegmentUrl, device, host);
+    const captureUrl = await getCaptureUrlFromStream(currentSegmentUrl, device, host);
     if (captureUrl) {
       console.log(`[@RecHostStreamModal] AI Image Query capture URL: ${captureUrl}`);
       setCapturedImageUrl(captureUrl);
