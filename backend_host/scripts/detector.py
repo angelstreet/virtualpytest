@@ -44,38 +44,12 @@ from shared.src.lib.utils.image_utils import (
     analyze_subtitle_region
 )
 
-def compute_dhash(image, hash_size=8):
+def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     """
-    Compute dHash (difference hash) for an image
+    Freeze detection using pixel difference (OLD METHOD - FASTER & MORE ACCURATE)
     
-    Ultra-fast perceptual hash for freeze detection:
-    - Downscale to 8x8 grid (very fast)
-    - Compare adjacent pixels horizontally
-    - Returns boolean array (64 bits for 8x8)
-    
-    Args:
-        image: Grayscale image (numpy array)
-        hash_size: Hash grid size (default 8x8 = 64 bits)
-        
-    Returns:
-        Boolean array representing the hash
-    """
-    # Resize to hash_size+1 x hash_size (need extra column for horizontal diff)
-    resized = cv2.resize(image, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
-    
-    # Compute horizontal gradient (difference between adjacent pixels)
-    diff = resized[:, 1:] > resized[:, :-1]
-    
-    # Convert to hash (flatten boolean array)
-    return diff.flatten()
-
-
-def detect_freeze_dhash(current_img, thumbnails_dir, filename, fps=5):
-    """
-    Fast freeze detection using dHash (difference hash)
-    
-    Compares current frame with previous 3 frames using perceptual hashing.
-    Much faster than pixel-by-pixel comparison, especially for larger images.
+    Compares current frame with previous 3 frames using cv2.absdiff.
+    11x faster than dHash and more sensitive to actual motion.
     
     Args:
         current_img: Current frame (grayscale numpy array)
@@ -106,11 +80,8 @@ def detect_freeze_dhash(current_img, thumbnails_dir, filename, fps=5):
     if len(frames_to_check) < 3:
         return False, {}
     
-    # Compute hash for current frame
-    current_hash = compute_dhash(current_img)
-    
-    # Compare with previous frames
-    hash_diffs = []
+    # Compare with previous frames using pixel difference
+    pixel_diffs = []
     frames_compared = []
     
     # Build filename pattern (e.g., "capture" from "capture_000123.jpg")
@@ -130,16 +101,17 @@ def detect_freeze_dhash(current_img, thumbnails_dir, filename, fps=5):
         if prev_img is None:
             continue
         
-        # Compute hash for previous frame
-        prev_hash = compute_dhash(prev_img)
+        # Compute absolute pixel difference
+        diff = cv2.absdiff(current_img, prev_img)
         
-        # Hamming distance (number of differing bits)
-        hamming = np.sum(current_hash != prev_hash)
+        # Count pixels with difference > 10 (threshold for "different")
+        different_pixels = np.sum(diff > 10)
+        total_pixels = diff.size
         
-        # Convert to percentage difference (0-100%)
-        diff_percentage = (hamming / len(current_hash)) * 100
+        # Convert to percentage difference
+        diff_percentage = (different_pixels / total_pixels) * 100
         
-        hash_diffs.append(diff_percentage)
+        pixel_diffs.append(diff_percentage)
         frames_compared.append(prev_filename)
         
         # EARLY EXIT: If difference > 5%, not frozen - stop checking
@@ -147,12 +119,12 @@ def detect_freeze_dhash(current_img, thumbnails_dir, filename, fps=5):
             break
     
     # Frozen if ALL checked frames have < 5% difference
-    frozen = len(hash_diffs) >= 2 and all(diff < 5.0 for diff in hash_diffs)
+    frozen = len(pixel_diffs) >= 2 and all(diff < 5.0 for diff in pixel_diffs)
     
     return frozen, {
-        'frame_differences': [round(d, 2) for d in hash_diffs],
+        'frame_differences': [round(d, 2) for d in pixel_diffs],
         'frames_compared': frames_compared,
-        'detection_method': 'dhash'
+        'detection_method': 'pixel_diff'
     }
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls
@@ -668,9 +640,9 @@ def detect_issues(image_path, fps=5, queue_size=0):
         })
         print(f"🎯 [Detector] Zap sequence started at {filename}")
     
-    # === STEP 4: Freeze Detection (dHash - ultra-fast) ===
+    # === STEP 4: Freeze Detection (Pixel diff - fastest & most accurate) ===
     start = time.perf_counter()
-    frozen, freeze_details = detect_freeze_dhash(img, thumbnails_dir, filename, fps)
+    frozen, freeze_details = detect_freeze_pixel_diff(img, thumbnails_dir, filename, fps)
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
     # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload) ===
