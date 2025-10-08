@@ -223,7 +223,7 @@ def main():
 # Define script-specific arguments
 main._script_args = [
     '--max-iteration:int:10',
-    '--edges:str:None'  # Comma-separated list of edge IDs (from_node-to_node)
+    '--edges:str:'  # Comma-separated list of edge IDs (from_node-to_node), default: empty (validate all)
 ]
 
 if __name__ == "__main__":
