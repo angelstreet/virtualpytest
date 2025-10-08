@@ -157,6 +157,7 @@ _audio_cache = {}  # {segment_path: (mtime, has_audio, volume, db)}
 _latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_time)}
 _subtitle_cache = {}  # {image_path: (mtime, subtitle_result)}
 _audio_result_cache = {}  # {capture_dir: (has_audio, volume, db)} - Last known audio state per device
+_audio_volume_check_cache = {}  # {capture_dir: last_volume_check_timestamp} - Track when we last did full volume check
 
 # Zap state tracking for CPU optimization
 _zap_state_cache = {}  # In-memory cache for fast access
@@ -167,6 +168,10 @@ _language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_l
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
     return os.path.join(capture_dir, '.zap_state.json')
+
+def get_audio_volume_cache_file(capture_dir):
+    """Get path to audio volume cache file for device"""
+    return os.path.join(capture_dir, '.audio_volume_cache.json')
 
 def load_zap_state(capture_dir):
     """Load zap state from file or cache"""
@@ -219,6 +224,51 @@ def clear_zap_state(capture_dir):
         except Exception as e:
             logger.warning(f"Failed to remove zap state file: {e}")
 
+def load_audio_volume_cache(capture_dir):
+    """Load audio volume cache from JSON file (30-second cache)"""
+    cache_file = get_audio_volume_cache_file(capture_dir)
+    
+    if not os.path.exists(cache_file):
+        return None
+    
+    try:
+        with open(cache_file, 'r') as f:
+            cache_data = json.load(f)
+        
+        # Check if cache is still valid (within 30 seconds)
+        timestamp = cache_data.get('timestamp', 0)
+        current_time = time.time()
+        
+        if current_time - timestamp > 30.0:
+            # Cache expired - remove file
+            try:
+                os.remove(cache_file)
+            except:
+                pass
+            return None
+        
+        return cache_data
+    except Exception as e:
+        logger.warning(f"Failed to load audio volume cache: {e}")
+        return None
+
+def save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume_db):
+    """Save audio volume cache to JSON file (30-second cache)"""
+    cache_file = get_audio_volume_cache_file(capture_dir)
+    
+    cache_data = {
+        'timestamp': time.time(),
+        'has_audio': has_audio,
+        'volume_percentage': volume_percentage,
+        'mean_volume_db': mean_volume_db
+    }
+    
+    try:
+        with open(cache_file, 'w') as f:
+            json.dump(cache_data, f)
+    except Exception as e:
+        logger.warning(f"Failed to save audio volume cache: {e}")
+
 def quick_blackscreen_check(img, threshold=10):
     """Fast blackscreen check for zap monitoring (no edge detection needed)"""
     img_height, img_width = img.shape
@@ -235,7 +285,7 @@ def quick_blackscreen_check(img, threshold=10):
 
 def analyze_audio(capture_dir):
     """Check if audio is present in latest segment - OPTIMIZED with caching"""
-    global _audio_cache, _latest_segment_cache
+    global _audio_cache, _latest_segment_cache, _audio_volume_check_cache
     
     current_time = time.time()
     latest = None
@@ -293,63 +343,191 @@ def analyze_audio(capture_dir):
         if cached_mtime == latest_mtime:
             return has_audio, volume, db
     
+    # Check JSON cache first (30-second cached volume data)
+    cached_volume = load_audio_volume_cache(capture_dir)
+    if cached_volume:
+        # Use cached volume data from JSON (valid for 30 seconds)
+        has_audio = cached_volume['has_audio']
+        volume_percentage = cached_volume['volume_percentage']
+        mean_volume_db = cached_volume['mean_volume_db']
+        
+        # Also update in-memory cache
+        _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db)
+        
+        return has_audio, volume_percentage, mean_volume_db
+    
     try:
-        # OPTIMIZED: Fast sample method - analyze only first 0.1 seconds (ultra-fast!)
-        # FFmpeg command: analyze only first 0.1s of audio, skip video decoding
-        cmd = [
-            'ffmpeg',
-            '-hide_banner',
-            '-loglevel', 'info',
-            '-i', latest,
-            '-t', '0.1',  # Only first 0.1 seconds (ultra-fast!)
-            '-vn',  # Skip video decoding
-            '-af', 'volumedetect',  # Audio volume detection filter
-            '-f', 'null',
-            '-'
-        ]
+        # No valid cache - check if we should do a full volume check (every 30 seconds)
+        last_volume_check = _audio_volume_check_cache.get(capture_dir, 0)
+        time_since_volume_check = current_time - last_volume_check
+        should_check_volume = time_since_volume_check >= 30.0
         
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=1  # 1s timeout (should complete in ~50ms)
-        )
-        
-        # Parse FFmpeg output for mean_volume
-        # Example: [Parsed_volumedetect_0 @ 0x...] mean_volume: -25.3 dB
-        output = result.stderr
-        
-        has_audio = False
-        mean_volume = -100.0
-        
-        for line in output.split('\n'):
-            if 'mean_volume:' in line:
-                try:
-                    mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
-                    has_audio = mean_volume > -50.0  # Threshold: -50dB indicates audio
-                    break
-                except:
-                    pass
-        
-        # Convert dB to percentage (approximate)
-        # -50dB = 0%, -10dB = 50%, 0dB = 100%
-        if mean_volume > -100:
-            volume_percentage = max(0, min(100, (mean_volume + 50) * 2.5))
+        if should_check_volume:
+            # FULL CHECK: Use ffmpeg volumedetect for precise volume levels (every 30s)
+            cmd = [
+                'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'info',
+                '-i', latest,
+                '-t', '0.1',
+                '-vn',
+                '-af', 'volumedetect',
+                '-f', 'null',
+                '-'
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=1
+            )
+            
+            output = result.stderr
+            has_audio = False
+            mean_volume = -100.0
+            
+            for line in output.split('\n'):
+                if 'mean_volume:' in line:
+                    try:
+                        mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                        has_audio = mean_volume > -50.0
+                        break
+                    except:
+                        pass
+            
+            if mean_volume > -100:
+                volume_percentage = max(0, min(100, (mean_volume + 50) * 2.5))
+            else:
+                volume_percentage = 0
+            
+            # Update volume check timestamp
+            _audio_volume_check_cache[capture_dir] = current_time
+            
+            # Save to JSON cache (30-second persistence)
+            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume)
+            
+            # Cache the result in memory
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
+            
+            if len(_audio_cache) > 50:
+                _audio_cache = dict(list(_audio_cache.items())[-20:])
+            
+            return has_audio, volume_percentage, mean_volume
         else:
-            volume_percentage = 0
-        
-        # Cache the result
-        _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
-        
-        # Clean old cache entries to prevent memory growth
-        if len(_audio_cache) > 50:
-            _audio_cache = dict(list(_audio_cache.items())[-20:])
-        
-        return has_audio, volume_percentage, mean_volume
+            # FAST CHECK: Use ffprobe to check stream info (no decoding needed!)
+            # This is 10-20x faster than ffmpeg (5-20ms vs 200ms)
+            cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-select_streams', 'a:0',  # Select first audio stream
+                '-show_entries', 'stream=codec_type,codec_name',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                latest
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=0.5  # Should complete in 5-20ms
+            )
+            
+            # If ffprobe finds audio stream, output will contain "audio" and codec name
+            output = result.stdout.strip()
+            has_audio_stream = 'audio' in output.lower()
+            
+            if not has_audio_stream:
+                # No audio stream detected - save to JSON cache
+                save_audio_volume_cache(capture_dir, False, 0, -100.0)
+                
+                _audio_cache[latest] = (latest_mtime, False, 0, -100.0)
+                if len(_audio_cache) > 50:
+                    _audio_cache = dict(list(_audio_cache.items())[-20:])
+                return False, 0, -100.0
+            
+            # Audio stream exists - check if we have previous volume data from a recent full check
+            # Look in memory cache for precise volume from last full check
+            previous_volume_data = None
+            if latest in _audio_cache:
+                cached_mtime, cached_audio, cached_vol, cached_db = _audio_cache[latest]
+                if cached_db > -100:
+                    # We have precise volume data from a previous full check
+                    previous_volume_data = (cached_audio, cached_vol, cached_db)
+            
+            # Determine what volume values to use
+            if previous_volume_data:
+                # Use precise volume from previous full check
+                has_audio, volume_percentage, mean_volume = previous_volume_data
+            else:
+                # No previous data - use estimated defaults
+                has_audio = True
+                volume_percentage = 50  # Default assumption if stream exists
+                mean_volume = -20.0  # Default assumption (moderate volume)
+            
+            # Save to JSON cache so all metadata JSONs get filled with consistent data
+            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume)
+            
+            # Cache the result in memory
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
+            
+            # Clean old cache entries to prevent memory growth
+            if len(_audio_cache) > 50:
+                _audio_cache = dict(list(_audio_cache.items())[-20:])
+            
+            return has_audio, volume_percentage, mean_volume
     except Exception as e:
-        # Fallback if FFmpeg fails
-        logger.warning(f"Fast audio detection failed: {e}")
-        return False, 0, -100.0
+        # Fallback: Try the old ffmpeg method as last resort
+        try:
+            cmd = [
+                'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'info',
+                '-i', latest,
+                '-t', '0.1',
+                '-vn',
+                '-af', 'volumedetect',
+                '-f', 'null',
+                '-'
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=1
+            )
+            
+            output = result.stderr
+            has_audio = False
+            mean_volume = -100.0
+            
+            for line in output.split('\n'):
+                if 'mean_volume:' in line:
+                    try:
+                        mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                        has_audio = mean_volume > -50.0
+                        break
+                    except:
+                        pass
+            
+            if mean_volume > -100:
+                volume_percentage = max(0, min(100, (mean_volume + 50) * 2.5))
+            else:
+                volume_percentage = 0
+            
+            # Save to JSON cache (fallback case)
+            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume)
+            
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
+            
+            if len(_audio_cache) > 50:
+                _audio_cache = dict(list(_audio_cache.items())[-20:])
+            
+            return has_audio, volume_percentage, mean_volume
+        except:
+            logger.warning(f"Audio detection failed: {e}")
+            return False, 0, -100.0
 
 def analyze_subtitles(image_path, fps=5):
     """
