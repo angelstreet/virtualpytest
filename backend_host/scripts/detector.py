@@ -1083,12 +1083,14 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         # Use cached result from last audio check (no FFmpeg call)
         if capture_dir in _audio_result_cache:
             has_audio, volume_percentage, mean_volume_db = _audio_result_cache[capture_dir]
+            timings['audio'] = (time.perf_counter() - start) * 1000
+            timings['audio_cached'] = True
         else:
             # First frame or no cache yet - do one check to initialize
             has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
             _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
-        timings['audio'] = (time.perf_counter() - start) * 1000
-        timings['audio_cached'] = True
+            timings['audio'] = (time.perf_counter() - start) * 1000
+            timings['audio_cached'] = False  # NOT cached - we just called FFmpeg!
     
     # Build freeze comparison list showing current vs previous frames
     freeze_comparisons = []
