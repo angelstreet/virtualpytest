@@ -660,7 +660,15 @@ def detect_issues(image_path, fps=5, queue_size=0):
     should_check_subtitles = (frame_number % sample_interval == 0)
     
     # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
-    audio_check_interval = fps * 5  # 5 seconds worth of frames
+    # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
+    global _audio_result_cache
+    if capture_dir in _audio_result_cache:
+        last_has_audio, _, _ = _audio_result_cache[capture_dir]
+        audio_check_interval = fps * 5 if last_has_audio else fps * 10
+    else:
+        # First check - use 5s interval
+        audio_check_interval = fps * 5
+    
     is_audio_frame = (frame_number % audio_check_interval == 0)
     
     if is_audio_frame:
