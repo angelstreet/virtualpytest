@@ -361,7 +361,7 @@ def analyze_subtitles(image_path, fps=5):
     except Exception as e:
         return {'has_subtitles': False, 'error': str(e)}
 
-def detect_issues(image_path, fps=5):
+def detect_issues(image_path, fps=5, queue_size=0):
     """
     Main detection function - OPTIMIZED WORKFLOW with zap state tracking
     
@@ -372,7 +372,7 @@ def detect_issues(image_path, fps=5):
     2. Load image
     3. Edge detection (CORE - reused)
     4. Blackscreen + Zap detection (fast sampling)
-    5. Subtitle detection (conditional - skip if zap)
+    5. Subtitle detection (conditional - skip if zap/freeze/queue overload)
     6. Freeze detection
     7. Macroblocks (skip if freeze or blackscreen)
     8. Audio analysis (cached every 5 seconds)
@@ -382,9 +382,14 @@ def detect_issues(image_path, fps=5):
     - During zap: Skip expensive ops (~2ms vs 300ms)
     - When blackscreen ends: Mark end frame, clear state
     
+    QUEUE OVERLOAD PROTECTION:
+    - When queue > 50 frames: Disable OCR to drain queue faster
+    - Auto-re-enables when queue clears
+    
     Args:
         image_path: Path to capture image
         fps: Frames per second (5 for v4l2, 2 for x11grab/VNC) - used for freeze detection
+        queue_size: Current queue backlog (0 = no backlog, >50 = disable OCR)
     """
     # Performance timing storage
     timings = {}
@@ -622,14 +627,36 @@ def detect_issues(image_path, fps=5):
         })
         print(f"🎯 [Detector] Zap sequence started at {filename}")
     
-    # === STEP 4: Subtitle Detection (SKIP if zap) ===
+    # === STEP 4: Freeze Detection (dHash - ultra-fast) ===
+    start = time.perf_counter()
+    frozen, freeze_details = detect_freeze_dhash(img, thumbnails_dir, filename, fps)
+    timings['freeze'] = (time.perf_counter() - start) * 1000
+    
+    # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload) ===
     subtitle_result = None
     start = time.perf_counter()
     
     sample_interval = fps if fps >= 2 else 2
     should_check_subtitles = (frame_number % sample_interval == 0)
     
-    if zap:
+    if queue_size > 50:
+        # Queue overload - disable OCR to drain queue faster
+        timings['subtitle_area_check'] = 0.0
+        timings['subtitle_ocr'] = 0.0
+        subtitle_result = {
+            'has_subtitles': False,
+            'extracted_text': '',
+            'detected_language': None,
+            'confidence': 0.0,
+            'box': None,
+            'ocr_method': None,
+            'downscaled_to_height': None,
+            'psm_mode': None,
+            'subtitle_edge_density': 0.0,
+            'skipped': True,
+            'skip_reason': f'queue_overload_{queue_size}'
+        }
+    elif zap:
         # Zapping = blackscreen with bottom content (not subtitles) - skip OCR
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
@@ -646,14 +673,31 @@ def detect_issues(image_path, fps=5):
             'skipped': True,
             'skip_reason': 'zap'
         }
+    elif frozen or blackscreen:
+        # Skip OCR during freeze or blackscreen - saves CPU
+        timings['subtitle_area_check'] = 0.0
+        timings['subtitle_ocr'] = 0.0
+        subtitle_result = {
+            'has_subtitles': False,
+            'extracted_text': '',
+            'detected_language': None,
+            'confidence': 0.0,
+            'box': None,
+            'ocr_method': None,
+            'downscaled_to_height': None,
+            'psm_mode': None,
+            'subtitle_edge_density': 0.0,
+            'skipped': True,
+            'skip_reason': 'freeze' if frozen else 'blackscreen'
+        }
     elif should_check_subtitles:
         # Check subtitle area (bottom 15%)
         subtitle_y = int(img_height * 0.85)
         edges_subtitle = edges[subtitle_y:img_height, :]
         
         subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-        # Stricter threshold: 3-15% (avoid noise/garbage)
-        has_subtitle_area = bool(3 < subtitle_edge_density < 15)
+        # Stricter threshold: 3-8% (avoid UI/menus, focus on real subtitles)
+        has_subtitle_area = bool(3 < subtitle_edge_density < 8)
         timings['subtitle_area_check'] = (time.perf_counter() - start) * 1000
         
         # OCR only if subtitle edges detected
@@ -819,11 +863,6 @@ def detect_issues(image_path, fps=5):
         # Not sampled this frame
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
-    
-    # === STEP 5: Freeze Detection (dHash - ultra-fast) ===
-    start = time.perf_counter()
-    frozen, freeze_details = detect_freeze_dhash(img, thumbnails_dir, filename, fps)
-    timings['freeze'] = (time.perf_counter() - start) * 1000
     
     # === STEP 6: Macroblock Analysis (skip if freeze or blackscreen) ===
     start = time.perf_counter()

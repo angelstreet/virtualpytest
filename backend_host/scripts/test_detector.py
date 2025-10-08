@@ -133,7 +133,8 @@ class OptimizedDetector:
             edges_subtitle = edges[subtitle_y:img_height, :]
             
             subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-            has_subtitle_area = 2 < subtitle_edge_density < 25
+            # Stricter threshold: 3-8% (avoid UI/menus, focus on real subtitles)
+            has_subtitle_area = 3 < subtitle_edge_density < 8
             timings['subtitle_area_detection'] = (time.perf_counter() - start) * 1000
         
         # === STEP 6: Freeze Detection (SMART SKIP) ===

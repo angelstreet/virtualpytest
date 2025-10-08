@@ -99,23 +99,31 @@ class InotifyFrameMonitor:
     def _device_worker(self, capture_folder, work_queue):
         """Worker thread for sequential frame processing per device (LIFO - newest first)"""
         frame_count = 0
+        prev_queue_size = 0
         while True:
             path, filename = work_queue.get()
             frame_count += 1
+            queue_size = work_queue.qsize()
             
             # Log queue status every 25 frames (5 seconds at 5fps)
             if frame_count % 25 == 0:
-                queue_size = work_queue.qsize()
                 if queue_size > 50:
                     logger.warning(f"[{capture_folder}] ⚠️  Queue backlog: {queue_size} frames pending")
                 elif queue_size > 0:
                     logger.info(f"[{capture_folder}] 📊 Queue size: {queue_size} frames")
             
+            # Log OCR state changes
+            if prev_queue_size <= 50 and queue_size > 50:
+                logger.warning(f"[{capture_folder}] 🚫 OCR DISABLED (queue overload: {queue_size} frames)")
+            elif prev_queue_size > 50 and queue_size <= 50:
+                logger.info(f"[{capture_folder}] ✅ OCR RE-ENABLED (queue cleared: {queue_size} frames)")
+            
             try:
-                self.process_frame(path, filename)
+                self.process_frame(path, filename, queue_size)
             except Exception as e:
                 logger.error(f"[{capture_folder}] Worker error: {e}")
             finally:
+                prev_queue_size = queue_size
                 work_queue.task_done()
     
     def process_existing_frames(self, capture_dirs):
@@ -123,7 +131,7 @@ class InotifyFrameMonitor:
         logger.info("Skipping startup scan (inotify will catch new frames immediately)")
         return
     
-    def process_frame(self, captures_path, filename):
+    def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""
         
         # Filter out temporary files and thumbnails
@@ -164,7 +172,7 @@ class InotifyFrameMonitor:
         
         try:
             # Analyze frame (blackscreen, freeze, audio) with performance timing
-            detection_result = detect_issues(frame_path)
+            detection_result = detect_issues(frame_path, queue_size=queue_size)
             
             # Log performance metrics (every 5 frames = 1 second at 5fps)
             if detection_result and 'performance_ms' in detection_result:
