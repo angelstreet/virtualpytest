@@ -46,15 +46,15 @@ from shared.src.lib.utils.image_utils import (
 
 def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     """
-    Freeze detection using pixel difference (OLD METHOD - FASTER & MORE ACCURATE)
+    Freeze detection using pixel difference - compares thumbnails for accuracy
     
-    Compares current frame with previous 3 frames using cv2.absdiff.
-    11x faster than dHash and more sensitive to actual motion.
+    Compares current thumbnail with previous 3 thumbnails using cv2.absdiff.
+    Uses thumbnails to avoid upscaling artifacts that cause false differences.
     
     Args:
-        current_img: Current frame (grayscale numpy array)
+        current_img: Current thumbnail (grayscale numpy array, 320x180)
         thumbnails_dir: Directory containing thumbnails
-        filename: Current frame filename
+        filename: Current frame filename (e.g., capture_000001.jpg)
         fps: Frames per second
         
     Returns:
@@ -99,14 +99,15 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         if not os.path.exists(prev_path):
             continue
         
-        # Load previous frame
+        # Load previous frame thumbnail
         prev_img = cv2.imread(prev_path, cv2.IMREAD_GRAYSCALE)
         if prev_img is None:
             continue
         
-        # Ensure images have same size (resize if needed)
+        # Thumbnails should already be same size (no resize needed)
+        # If sizes mismatch, skip this comparison (corrupted thumbnail)
         if prev_img.shape != current_img.shape:
-            prev_img = cv2.resize(prev_img, (current_img.shape[1], current_img.shape[0]), interpolation=cv2.INTER_AREA)
+            continue
         
         # Compute absolute pixel difference
         diff = cv2.absdiff(current_img, prev_img)
@@ -120,6 +121,11 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         
         pixel_diffs.append(diff_percentage)
         frames_compared.append(prev_filename)
+        
+        # EARLY EXIT: If difference > 5%, NOT frozen - stop checking more frames
+        # Only continue to N-2, N-3 if N-1 shows potential freeze
+        if diff_percentage > 5.0:
+            break
     
     # Frozen if ALL checked frames have < 5% difference
     frozen = len(pixel_diffs) >= 2 and all(diff < 5.0 for diff in pixel_diffs)
@@ -646,7 +652,20 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     
     # === STEP 4: Freeze Detection (Pixel diff - fastest & most accurate) ===
     start = time.perf_counter()
-    frozen, freeze_details = detect_freeze_pixel_diff(img, thumbnails_dir, filename, fps)
+    
+    # Load current frame thumbnail for freeze detection (compare thumbnails with thumbnails)
+    current_thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
+    current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
+    
+    if os.path.exists(current_thumbnail_path):
+        current_thumbnail = cv2.imread(current_thumbnail_path, cv2.IMREAD_GRAYSCALE)
+        if current_thumbnail is not None:
+            frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps)
+        else:
+            frozen, freeze_details = False, {}
+    else:
+        frozen, freeze_details = False, {}
+    
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
     # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload/audio frame) ===
