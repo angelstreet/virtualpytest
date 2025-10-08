@@ -252,7 +252,7 @@ def load_audio_volume_cache(capture_dir):
         logger.warning(f"Failed to load audio volume cache: {e}")
         return None
 
-def save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume_db):
+def save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume_db, check_method='unknown', check_time_ms=0):
     """Save audio volume cache to JSON file (30-second cache)"""
     cache_file = get_audio_volume_cache_file(capture_dir)
     
@@ -260,7 +260,9 @@ def save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volu
         'timestamp': time.time(),
         'has_audio': has_audio,
         'volume_percentage': volume_percentage,
-        'mean_volume_db': mean_volume_db
+        'mean_volume_db': mean_volume_db,
+        'check_method': check_method,  # 'ffmpeg_volumedetect', 'ffprobe', 'cached', etc.
+        'check_time_ms': round(check_time_ms, 2)
     }
     
     try:
@@ -284,7 +286,10 @@ def quick_blackscreen_check(img, threshold=10):
     return bool(dark_percentage > 85), dark_percentage
 
 def analyze_audio(capture_dir):
-    """Check if audio is present in latest segment - OPTIMIZED with caching"""
+    """
+    Check if audio is present in latest segment - OPTIMIZED with caching
+    Returns: (has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
+    """
     global _audio_cache, _latest_segment_cache, _audio_volume_check_cache
     
     current_time = time.time()
@@ -329,19 +334,19 @@ def analyze_audio(capture_dir):
             _latest_segment_cache[capture_dir] = (latest, latest_mtime, current_time)
     
     if not latest:
-        return True, 0, -100.0
+        return True, 0, -100.0, 'no_segment', 0
     
     # Check if recent (within last 5 minutes)
     current_time = time.time()
     age_seconds = current_time - latest_mtime
     if age_seconds > 300:  # 5 minutes
-        return False, 0, -100.0
+        return False, 0, -100.0, 'segment_too_old', 0
     
     # PERFORMANCE: Check cache first - avoid redundant FFmpeg calls (90% reduction)
     if latest in _audio_cache:
-        cached_mtime, has_audio, volume, db = _audio_cache[latest]
+        cached_mtime, has_audio, volume, db, method, time_ms = _audio_cache[latest]
         if cached_mtime == latest_mtime:
-            return has_audio, volume, db
+            return has_audio, volume, db, method, time_ms
     
     # Check JSON cache first (30-second cached volume data)
     cached_volume = load_audio_volume_cache(capture_dir)
@@ -350,11 +355,13 @@ def analyze_audio(capture_dir):
         has_audio = cached_volume['has_audio']
         volume_percentage = cached_volume['volume_percentage']
         mean_volume_db = cached_volume['mean_volume_db']
+        check_method = cached_volume.get('check_method', 'cached')
+        check_time_ms = cached_volume.get('check_time_ms', 0)
         
         # Also update in-memory cache
-        _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db)
+        _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
         
-        return has_audio, volume_percentage, mean_volume_db
+        return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
     
     try:
         # No valid cache - check if we should do a full volume check (every 30 seconds)
@@ -364,6 +371,8 @@ def analyze_audio(capture_dir):
         
         if should_check_volume:
             # FULL CHECK: Use ffmpeg volumedetect for precise volume levels (every 30s)
+            check_start = time.perf_counter()
+            
             cmd = [
                 'ffmpeg',
                 '-hide_banner',
@@ -382,6 +391,9 @@ def analyze_audio(capture_dir):
                 text=True,
                 timeout=1
             )
+            
+            check_time_ms = (time.perf_counter() - check_start) * 1000
+            check_method = 'ffmpeg_volumedetect'
             
             output = result.stderr
             has_audio = False
@@ -404,19 +416,25 @@ def analyze_audio(capture_dir):
             # Update volume check timestamp
             _audio_volume_check_cache[capture_dir] = current_time
             
+            # Log if slow
+            if check_time_ms > 300:
+                logger.warning(f"⚠️  FFmpeg audio check took {check_time_ms:.0f}ms (expected ~200ms)")
+            
             # Save to JSON cache (30-second persistence)
-            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume)
+            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
             # Cache the result in memory
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
             if len(_audio_cache) > 50:
                 _audio_cache = dict(list(_audio_cache.items())[-20:])
             
-            return has_audio, volume_percentage, mean_volume
+            return has_audio, volume_percentage, mean_volume, check_method, check_time_ms
         else:
             # FAST CHECK: Use ffprobe to check stream info (no decoding needed!)
             # This is 10-20x faster than ffmpeg (5-20ms vs 200ms)
+            check_start = time.perf_counter()
+            
             cmd = [
                 'ffprobe',
                 '-v', 'error',
@@ -433,24 +451,31 @@ def analyze_audio(capture_dir):
                 timeout=0.5  # Should complete in 5-20ms
             )
             
+            check_time_ms = (time.perf_counter() - check_start) * 1000
+            check_method = 'ffprobe'
+            
             # If ffprobe finds audio stream, output will contain "audio" and codec name
             output = result.stdout.strip()
             has_audio_stream = 'audio' in output.lower()
             
+            # Log if unexpectedly slow
+            if check_time_ms > 50:
+                logger.warning(f"⚠️  FFprobe audio check took {check_time_ms:.0f}ms (expected 5-20ms)")
+            
             if not has_audio_stream:
                 # No audio stream detected - save to JSON cache
-                save_audio_volume_cache(capture_dir, False, 0, -100.0)
+                save_audio_volume_cache(capture_dir, False, 0, -100.0, check_method, check_time_ms)
                 
-                _audio_cache[latest] = (latest_mtime, False, 0, -100.0)
+                _audio_cache[latest] = (latest_mtime, False, 0, -100.0, check_method, check_time_ms)
                 if len(_audio_cache) > 50:
                     _audio_cache = dict(list(_audio_cache.items())[-20:])
-                return False, 0, -100.0
+                return False, 0, -100.0, check_method, check_time_ms
             
             # Audio stream exists - check if we have previous volume data from a recent full check
             # Look in memory cache for precise volume from last full check
             previous_volume_data = None
             if latest in _audio_cache:
-                cached_mtime, cached_audio, cached_vol, cached_db = _audio_cache[latest]
+                cached_mtime, cached_audio, cached_vol, cached_db, cached_method, cached_time = _audio_cache[latest]
                 if cached_db > -100:
                     # We have precise volume data from a previous full check
                     previous_volume_data = (cached_audio, cached_vol, cached_db)
@@ -459,26 +484,30 @@ def analyze_audio(capture_dir):
             if previous_volume_data:
                 # Use precise volume from previous full check
                 has_audio, volume_percentage, mean_volume = previous_volume_data
+                check_method = 'ffprobe_with_cached_volume'
             else:
                 # No previous data - use estimated defaults
                 has_audio = True
                 volume_percentage = 50  # Default assumption if stream exists
                 mean_volume = -20.0  # Default assumption (moderate volume)
+                check_method = 'ffprobe_estimated'
             
             # Save to JSON cache so all metadata JSONs get filled with consistent data
-            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume)
+            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
             # Cache the result in memory
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
             # Clean old cache entries to prevent memory growth
             if len(_audio_cache) > 50:
                 _audio_cache = dict(list(_audio_cache.items())[-20:])
             
-            return has_audio, volume_percentage, mean_volume
+            return has_audio, volume_percentage, mean_volume, check_method, check_time_ms
     except Exception as e:
         # Fallback: Try the old ffmpeg method as last resort
         try:
+            check_start = time.perf_counter()
+            
             cmd = [
                 'ffmpeg',
                 '-hide_banner',
@@ -497,6 +526,9 @@ def analyze_audio(capture_dir):
                 text=True,
                 timeout=1
             )
+            
+            check_time_ms = (time.perf_counter() - check_start) * 1000
+            check_method = 'ffmpeg_fallback'
             
             output = result.stderr
             has_audio = False
@@ -517,17 +549,17 @@ def analyze_audio(capture_dir):
                 volume_percentage = 0
             
             # Save to JSON cache (fallback case)
-            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume)
+            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
-            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume)
+            _audio_cache[latest] = (latest_mtime, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
             
             if len(_audio_cache) > 50:
                 _audio_cache = dict(list(_audio_cache.items())[-20:])
             
-            return has_audio, volume_percentage, mean_volume
+            return has_audio, volume_percentage, mean_volume, check_method, check_time_ms
         except:
             logger.warning(f"Audio detection failed: {e}")
-            return False, 0, -100.0
+            return False, 0, -100.0, 'error', 0
 
 def analyze_subtitles(image_path, fps=5):
     """
@@ -665,14 +697,14 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 should_check_audio = (frame_number % audio_check_interval == 0)
                 
                 if should_check_audio:
-                    has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
-                    _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+                    has_audio, volume_percentage, mean_volume_db, audio_method, audio_time_ms = analyze_audio(capture_dir)
+                    _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db, audio_method, audio_time_ms)
                 else:
                     if capture_dir in _audio_result_cache:
-                        has_audio, volume_percentage, mean_volume_db = _audio_result_cache[capture_dir]
+                        has_audio, volume_percentage, mean_volume_db, audio_method, audio_time_ms = _audio_result_cache[capture_dir]
                     else:
-                        has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
-                        _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+                        has_audio, volume_percentage, mean_volume_db, audio_method, audio_time_ms = analyze_audio(capture_dir)
+                        _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db, audio_method, audio_time_ms)
                 
                 timings['total'] = (time.perf_counter() - total_start) * 1000
                 
@@ -703,6 +735,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                     'audio': has_audio,
                     'volume_percentage': volume_percentage,
                     'mean_volume_db': mean_volume_db,
+                    'audio_check_method': audio_method,
+                    'audio_check_time_ms': round(audio_time_ms, 2),
                     'subtitle_analysis': {
                         'has_subtitles': False,
                         'extracted_text': '',
@@ -1270,23 +1304,25 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     should_check_audio = is_audio_frame  # Reuse the check from subtitle section
     
     start = time.perf_counter()
+    audio_check_method = 'unknown'
+    audio_check_time_ms = 0
     if should_check_audio:
-        # Actually check audio (calls FFmpeg)
-        has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
+        # Actually check audio (calls FFmpeg or ffprobe)
+        has_audio, volume_percentage, mean_volume_db, audio_check_method, audio_check_time_ms = analyze_audio(capture_dir)
         # Cache the result for use by other frames
-        _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+        _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db, audio_check_method, audio_check_time_ms)
         timings['audio'] = (time.perf_counter() - start) * 1000
         timings['audio_cached'] = False
     else:
         # Use cached result from last audio check (no FFmpeg call)
         if capture_dir in _audio_result_cache:
-            has_audio, volume_percentage, mean_volume_db = _audio_result_cache[capture_dir]
+            has_audio, volume_percentage, mean_volume_db, audio_check_method, audio_check_time_ms = _audio_result_cache[capture_dir]
             timings['audio'] = (time.perf_counter() - start) * 1000
             timings['audio_cached'] = True
         else:
             # First frame or no cache yet - do one check to initialize
-            has_audio, volume_percentage, mean_volume_db = analyze_audio(capture_dir)
-            _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db)
+            has_audio, volume_percentage, mean_volume_db, audio_check_method, audio_check_time_ms = analyze_audio(capture_dir)
+            _audio_result_cache[capture_dir] = (has_audio, volume_percentage, mean_volume_db, audio_check_method, audio_check_time_ms)
             timings['audio'] = (time.perf_counter() - start) * 1000
             timings['audio_cached'] = False  # NOT cached - we just called FFmpeg!
     
@@ -1365,10 +1401,12 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         'macroblocks': bool(macroblocks),
         'quality_score': round(quality_score, 1),
         
-        # Audio (unchanged)
+        # Audio (enhanced with check method and timing)
         'audio': has_audio,
         'volume_percentage': volume_percentage,
         'mean_volume_db': mean_volume_db,
+        'audio_check_method': audio_check_method,
+        'audio_check_time_ms': round(audio_check_time_ms, 2),
         
         # Performance (enhanced)
         'performance_ms': {k: round(v, 2) for k, v in timings.items()}
