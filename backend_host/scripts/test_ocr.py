@@ -61,17 +61,15 @@ def test_ocr_on_image(image_path, save_crops=True):
     
     Flow:
     1. Load image in grayscale
-    2. Smart crop on original image
-    3. Test 2 combinations:
-       - Otsu + PSM 4 (single column)
-       - Grayscale + PSM 6 (uniform block - best for subtitles)
-    4. Compare speed and accuracy
-    5. Clean noise with regex
-    6. Detect language
+    2. Smart crop on original image (using crop_subtitles.py algorithm)
+    3. Run OCR: Grayscale + PSM 6 (uniform block - best for subtitles)
+    4. Clean noise with regex (remove consecutive 1-2 char patterns)
+    5. Detect language
     
     Tesseract config:
-    - Languages: English, French, Italian, German, Spanish
+    - PSM 6 (uniform block of text)
     - OEM 3 (default LSTM mode)
+    - Languages: English, French, Italian, German, Spanish
     
     Saves smart cropped image for visual inspection.
     """
@@ -109,64 +107,25 @@ def test_ocr_on_image(image_path, save_crops=True):
         cv2.imwrite(str(crop_path), crop_img)
         print(f"   💾 Saved: {crop_path.name}")
     
-    # STEP 3: Test 2 specific combinations
-    print("\n3. Testing OCR (2 combinations)...")
+    # STEP 3: Run OCR (Grayscale + PSM 6 - production method)
+    print("\n3. Running OCR (Grayscale + PSM 6)...")
     
     try:
         import pytesseract
         
-        ocr_results = []
-        
-        # Test 1: Otsu + PSM 4 (single column)
-        print(f"\n   Test 1: Otsu + PSM 4")
-        _, otsu_img = cv2.threshold(crop_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # Grayscale + PSM 6 (uniform block) - production method
         start = time.perf_counter()
-        config_otsu = '--psm 4 --oem 3 -l eng+fra+ita+deu+spa'
-        text_otsu_raw = pytesseract.image_to_string(otsu_img, config=config_otsu).strip()
-        time_otsu = (time.perf_counter() - start) * 1000
-        text_otsu_clean = clean_ocr_noise(text_otsu_raw)
-        ocr_results.append({
-            'filter': 'otsu',
-            'psm': 4,
-            'text': text_otsu_clean,
-            'time': time_otsu,
-            'length': len(text_otsu_clean)
-        })
-        print(f"      Time: {time_otsu:.0f}ms | Raw: {len(text_otsu_raw)} chars → Cleaned: {len(text_otsu_clean)} chars")
-        print(f"      Raw:     {text_otsu_raw if text_otsu_raw else '(no text)'}")
-        print(f"      Cleaned: {text_otsu_clean if text_otsu_clean else '(no text)'}")
+        config = '--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
+        text_raw = pytesseract.image_to_string(crop_img, config=config).strip()
+        ocr_time = (time.perf_counter() - start) * 1000
+        text_clean = clean_ocr_noise(text_raw)
         
-        # Test 2: Grayscale + PSM 6 (uniform block)
-        print(f"\n   Test 2: Grayscale + PSM 6")
-        start = time.perf_counter()
-        config_gray = '--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
-        text_gray_raw = pytesseract.image_to_string(crop_img, config=config_gray).strip()
-        time_gray = (time.perf_counter() - start) * 1000
-        text_gray_clean = clean_ocr_noise(text_gray_raw)
-        ocr_results.append({
-            'filter': 'grayscale',
-            'psm': 6,
-            'text': text_gray_clean,
-            'time': time_gray,
-            'length': len(text_gray_clean)
-        })
-        print(f"      Time: {time_gray:.0f}ms | Raw: {len(text_gray_raw)} chars → Cleaned: {len(text_gray_clean)} chars")
-        print(f"      Raw:     {text_gray_raw if text_gray_raw else '(no text)'}")
-        print(f"      Cleaned: {text_gray_clean if text_gray_clean else '(no text)'}")
+        print(f"   Time: {ocr_time:.0f}ms | Raw: {len(text_raw)} chars → Cleaned: {len(text_clean)} chars")
+        print(f"   Raw text:     {text_raw if text_raw else '(no text)'}")
+        if text_clean != text_raw:
+            print(f"   Cleaned text: {text_clean if text_clean else '(no text)'}")
         
-        # Find best result (by length)
-        best_result = max(ocr_results, key=lambda x: x['length'])
-        subtitle_text = best_result['text']
-        ocr_time = best_result['time']
-        
-        print(f"\n   ✅ BEST: {best_result['filter']} + PSM {best_result['psm']} = {len(subtitle_text)} chars (cleaned)")
-        
-        # Speed comparison
-        speed_diff = abs(time_otsu - time_gray)
-        if time_otsu < time_gray:
-            print(f"   ⚡ Otsu+PSM4 is {speed_diff:.0f}ms faster ({(speed_diff/time_gray*100):.0f}%)")
-        else:
-            print(f"   ⚡ Grayscale+PSM6 is {speed_diff:.0f}ms faster ({(speed_diff/time_otsu*100):.0f}%)")
+        subtitle_text = text_clean
         
     except ImportError:
         print(f"   ❌ Error: pytesseract not available")
@@ -196,7 +155,7 @@ def test_ocr_on_image(image_path, save_crops=True):
     print(f"📊 FINAL RESULT")
     print(f"{'='*70}")
     print(f"Smart crop: {bbox.w}x{bbox.h} at ({bbox.x},{bbox.y}) in {crop_time:.2f}ms")
-    print(f"Best OCR: {best_result['filter']} + PSM {best_result['psm']} in {ocr_time:.0f}ms")
+    print(f"OCR: Grayscale + PSM 6 in {ocr_time:.0f}ms")
     print(f"Text extracted: {'YES' if subtitle_text else 'NO'}")
     if subtitle_text:
         print(f"Text length: {len(subtitle_text)} characters")
@@ -214,8 +173,8 @@ def test_ocr_on_image(image_path, save_crops=True):
         'language': detected_language,
         'bbox': {'x': bbox.x, 'y': bbox.y, 'width': bbox.w, 'height': bbox.h},
         'method': 'smart_crop_original',
-        'best_filter': best_result['filter'],
-        'best_psm': best_result['psm']
+        'filter': 'grayscale',
+        'psm': 6
     }
 
 
@@ -263,11 +222,9 @@ def main():
     print(f"Testing {len(image_files)} images from {subt_dir}")
     print("\nTesting:")
     print("  Crop: Smart crop on original image")
-    print("  OCR tests: 2 combinations")
-    print("    - Otsu + PSM 4 (single column)")
-    print("    - Grayscale + PSM 6 (uniform block)")
+    print("  OCR: Grayscale + PSM 6 (uniform block)")
     print("  Languages: English, French, Italian, German, Spanish")
-    print("  Speed comparison")
+    print("  Noise cleaning: Regex filter for consecutive 1-2 char patterns")
     print("="*70)
     
     # Test each image

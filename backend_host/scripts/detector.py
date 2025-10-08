@@ -761,10 +761,12 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 # Extract safe area (already grayscale)
                 subtitle_box_region = img[y:y+h, x:x+w]
                 
-                # Save debug crop if debug mode enabled
+                # Save debug crop if debug mode enabled (always same name, in /tmp RAM)
                 if debug:
-                    debug_filename = os.path.basename(image_path).replace('.jpg', '_crop.jpg')
-                    debug_path = os.path.join(os.path.dirname(image_path), debug_filename)
+                    # Fixed filename per device to avoid disk space issues
+                    device_name = os.path.basename(capture_dir)
+                    debug_filename = f"subtitle_crop_debug_{device_name}.jpg"
+                    debug_path = os.path.join('/tmp', debug_filename)
                     cv2.imwrite(debug_path, subtitle_box_region)
                     print(f"   🔍 Saved subtitle crop: {debug_path}")
                 
