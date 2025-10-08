@@ -255,11 +255,11 @@ def print_results(test_results):
 
 
 def main():
-    """Test freeze detection on images in img/ folder"""
+    """Test freeze detection on images in img/freeze/ folder"""
     
     # Get script directory
     script_dir = Path(__file__).parent
-    img_dir = script_dir / 'img'
+    img_dir = script_dir / 'img' / 'freeze'
     
     if not img_dir.exists():
         print(f"❌ Error: Image directory not found: {img_dir}")
@@ -278,12 +278,12 @@ def main():
     print("\n⚠️  For accurate results, use thumbnail-sized images (320x180)")
     print("    Production uses thumbnails, not full-resolution images!")
     
-    # Find all freeze*.jpg images
-    freeze_images = sorted(img_dir.glob('freeze*.jpg'))
+    # Find all *.jpg images in freeze folder
+    freeze_images = sorted(img_dir.glob('*.jpg'))
     
     if not freeze_images:
-        print(f"\n❌ Error: No freeze*.jpg images found in {img_dir}")
-        print("   Expected: freeze1.jpg, freeze2.jpg, etc.")
+        print(f"\n❌ Error: No .jpg images found in {img_dir}")
+        print("   Expected: almost_freeze1.jpg, almost_freeze2.jpg, etc.")
         return 1
     
     print(f"\nFound {len(freeze_images)} freeze images:")

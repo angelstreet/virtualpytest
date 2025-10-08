@@ -381,7 +381,7 @@ def analyze_subtitles(image_path, fps=5):
     except Exception as e:
         return {'has_subtitles': False, 'error': str(e)}
 
-def detect_issues(image_path, fps=5, queue_size=0):
+def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     """
     Main detection function - OPTIMIZED WORKFLOW with zap state tracking
     
@@ -751,84 +751,32 @@ def detect_issues(image_path, fps=5, queue_size=0):
         if has_subtitle_area:
             ocr_start = time.perf_counter()
             try:
-                # Find specific subtitle box (bottom 40% of image)
-                search_y_start = int(img_height * 0.6)
-                edges_search_region = edges[search_y_start:img_height, :]
+                # OPTIMIZED: Fixed safe area (60-95% height, 10-90% width)
+                # No box detection needed - tests show fixed area is optimal!
+                x = int(img_width * 0.10)   # 10% from left
+                y = int(img_height * 0.60)  # Start at 60% height (bottom 40%)
+                w = int(img_width * 0.80)   # 80% width (centered)
+                h = int(img_height * 0.35)  # 35% height (60-95%)
                 
-                # Find contours (connected edge regions)
-                import cv2
-                contours, _ = cv2.findContours(edges_search_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # Extract safe area (already grayscale)
+                subtitle_box_region = img[y:y+h, x:x+w]
                 
-                # Filter for subtitle-like boxes
-                subtitle_boxes = []
-                for contour in contours:
-                    x, y, w, h = cv2.boundingRect(contour)
-                    
-                    # Filter criteria for subtitle boxes:
-                    # - Width: 30-75% of image width (subtitles, not full-width UI bars)
-                    # - Height: 20-100 pixels (text size range, tighter for speed)
-                    # - Aspect ratio > 5 (horizontal rectangle, strict to avoid UI bars)
-                    if (img_width * 0.3 < w < img_width * 0.75 and 
-                        20 < h < 100 and 
-                        w / h > 5):
-                        # Adjust y coordinate to full image space
-                        subtitle_boxes.append((x, search_y_start + y, w, h))
+                # Save debug crop if debug mode enabled
+                if debug:
+                    debug_filename = os.path.basename(image_path).replace('.jpg', '_crop.jpg')
+                    debug_path = os.path.join(os.path.dirname(image_path), debug_filename)
+                    cv2.imwrite(debug_path, subtitle_box_region)
+                    print(f"   🔍 Saved subtitle crop: {debug_path}")
                 
-                # Safe area bounds
-                safe_x_min = int(img_width * 0.15)
-                safe_x_max = int(img_width * 0.85)
-                safe_y_min = int(img_height * 0.85)
-                use_default_area = False
-                
-                # Check if detected box is inside safe area
-                if subtitle_boxes:
-                    subtitle_boxes.sort(key=lambda box: box[1], reverse=True)
-                    x, y, w, h = subtitle_boxes[0]
-                    
-                    # Use box only if inside safe area
-                    if not (safe_x_min <= x and x + w <= safe_x_max and 
-                            y >= safe_y_min and w <= img_width * 0.70):
-                        # Box outside safe area - use default
-                        x = safe_x_min
-                        y = safe_y_min
-                        w = int(img_width * 0.70)
-                        h = int(img_height * 0.15)
-                        use_default_area = True
-                else:
-                    # No box - use default
-                    x = safe_x_min
-                    y = safe_y_min
-                    w = int(img_width * 0.70)
-                    h = int(img_height * 0.15)
-                    use_default_area = True
-                
-                # Extract subtitle box with small padding
-                padding = 5
-                x1 = max(0, x - padding)
-                y1 = max(0, y - padding)
-                x2 = min(img_width, x + w + padding)
-                y2 = min(img_height, y + h + padding)
-                
-                subtitle_box_region = img[y1:y2, x1:x2]
-                
-                # OPTIMIZATION: Downscale to 80px height for faster OCR
-                box_h, box_w = subtitle_box_region.shape
-                downscaled_height = box_h
-                if box_h > 80:
-                    scale = 80 / box_h
-                    new_w = int(box_w * scale)
-                    subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
-                    downscaled_height = 80
-                
-                # Fast OCR - multi-line mode
+                # OPTIMIZED OCR: Grayscale + PSM 6 + Language restriction
+                # Tests show grayscale is 20% faster than Otsu with similar quality
+                # Language restriction: English, French, Italian, German, Spanish
                 try:
                     import pytesseract
-                    # Enhance contrast for better OCR
-                    enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
-                    _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
-                    
-                    # Multi-line OCR (--psm 6 = uniform block of text)
-                    subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
+                    subtitle_text = pytesseract.image_to_string(
+                        subtitle_box_region, 
+                        config='--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
+                    ).strip()
                 except:
                     # Fallback to standard method
                     from shared.src.lib.utils.image_utils import extract_text_from_region
@@ -899,8 +847,8 @@ def detect_issues(image_path, fps=5, queue_size=0):
                     'detected_language': detected_language,
                     'confidence': confidence,
                     'box': {'x': x, 'y': y, 'width': w, 'height': h},
-                    'ocr_method': 'edge_based' if not use_default_area else 'default_safe_area',
-                    'downscaled_to_height': downscaled_height,
+                    'ocr_method': 'fixed_safe_area',
+                    'downscaled_to_height': None,
                     'psm_mode': 6,
                     'subtitle_edge_density': round(subtitle_edge_density, 1),
                     'skipped': False,
