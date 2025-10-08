@@ -239,6 +239,67 @@ def test_ffmpeg_method_4_fast_sample(ts_file):
         }
 
 
+def test_ffmpeg_method_5_ultra_fast_sample(ts_file):
+    """
+    Ultra-optimized method - Analyze only first 0.1 seconds for maximum speed
+    Minimal sample to detect audio presence
+    """
+    start = time.perf_counter()
+    
+    try:
+        # FFmpeg command: analyze only first 0.1 seconds
+        cmd = [
+            'ffmpeg',
+            '-hide_banner',
+            '-loglevel', 'info',
+            '-i', ts_file,
+            '-t', '0.1',  # Only first 0.1 seconds!
+            '-vn',  # Skip video
+            '-af', 'volumedetect',
+            '-f', 'null',
+            '-'
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=1
+        )
+        
+        # Parse output
+        output = result.stderr
+        
+        has_audio = False
+        mean_volume = -100.0
+        
+        for line in output.split('\n'):
+            if 'mean_volume:' in line:
+                try:
+                    mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                    has_audio = mean_volume > -50.0
+                except:
+                    pass
+        
+        elapsed = (time.perf_counter() - start) * 1000
+        
+        return {
+            'success': True,
+            'has_audio': has_audio,
+            'mean_volume_db': mean_volume,
+            'time_ms': elapsed,
+            'method': 'Ultra-fast sample (0.1s only)'
+        }
+    except Exception as e:
+        elapsed = (time.perf_counter() - start) * 1000
+        return {
+            'success': False,
+            'error': str(e),
+            'time_ms': elapsed,
+            'method': 'Ultra-fast sample (0.1s only)'
+        }
+
+
 def print_result(filename, results):
     """Print test results in clean format"""
     print(f"\n{'='*70}")
@@ -305,6 +366,7 @@ def main():
     print("  2. FFmpeg volumedetect (skip video)")
     print("  3. FFmpeg astats (detailed stats)")
     print("  4. Fast sample (0.5s only)")
+    print("  5. Ultra-fast sample (0.1s only)")
     
     # Test each file with all methods
     all_results = {}
@@ -316,7 +378,8 @@ def main():
             test_ffmpeg_method_1_current(str(test_file)),
             test_ffmpeg_method_2_volumedetect(str(test_file)),
             test_ffmpeg_method_3_astats(str(test_file)),
-            test_ffmpeg_method_4_fast_sample(str(test_file))
+            test_ffmpeg_method_4_fast_sample(str(test_file)),
+            test_ffmpeg_method_5_ultra_fast_sample(str(test_file))
         ]
         
         all_results[filename] = results

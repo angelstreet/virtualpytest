@@ -273,14 +273,14 @@ def analyze_audio(capture_dir):
             return has_audio, volume, db
     
     try:
-        # OPTIMIZED: Fast sample method - analyze only first 0.5 seconds (15x faster!)
-        # FFmpeg command: analyze only first 0.5s of audio, skip video decoding
+        # OPTIMIZED: Fast sample method - analyze only first 0.1 seconds (ultra-fast!)
+        # FFmpeg command: analyze only first 0.1s of audio, skip video decoding
         cmd = [
             'ffmpeg',
             '-hide_banner',
             '-loglevel', 'info',
             '-i', latest,
-            '-t', '0.5',  # Only first 0.5 seconds (huge speedup!)
+            '-t', '0.1',  # Only first 0.1 seconds (ultra-fast!)
             '-vn',  # Skip video decoding
             '-af', 'volumedetect',  # Audio volume detection filter
             '-f', 'null',
@@ -291,7 +291,7 @@ def analyze_audio(capture_dir):
             cmd,
             capture_output=True,
             text=True,
-            timeout=2  # 2s timeout (should complete in ~10-50ms)
+            timeout=1  # 1s timeout (should complete in ~50ms)
         )
         
         # Parse FFmpeg output for mean_volume
