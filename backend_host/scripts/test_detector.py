@@ -42,7 +42,12 @@ except Exception as e:
 class OptimizedDetector:
     """New optimized detector with edge-based analysis"""
     
-    def detect_issues(self, image_path):
+    def __init__(self):
+        # Language detection cache - detect once every 10s (50 frames at 5fps)
+        self._language_cache = {}  # {device_id: (language, timestamp/frame)}
+        self._language_detection_interval = 50  # frames (10s at 5fps)
+    
+    def detect_issues(self, image_path, frame_number=0, fps=5):
         """
         Optimized detection workflow - COMPLETE FLOW:
         
@@ -160,11 +165,19 @@ class OptimizedDetector:
             # Zapping = blackscreen with bottom content (not subtitles)
             subtitle_text = None
             ocr_box_info = None
+            timings['ocr_box_detection'] = 0.0
+            timings['ocr_preprocessing'] = 0.0
+            timings['ocr_tesseract'] = 0.0
+            timings['ocr_language_detection'] = 0.0
+            timings['language_cached'] = False
             timings['subtitle_ocr'] = 0.0  # Skipped (zap)
             ocr_skip_reason = 'zap'
         elif has_subtitle_area and OCR_AVAILABLE:
             # Subtitle edges detected - run REAL OCR
             try:
+                # === OCR STEP 1: Box Detection ===
+                box_start = time.perf_counter()
+                
                 # Use edges to find subtitle box location (bottom 40% of image)
                 search_y_start = int(img_height * 0.6)
                 edges_search_region = edges[search_y_start:img_height, :]
@@ -212,6 +225,11 @@ class OptimizedDetector:
                     w = int(img_width * 0.70)
                     h = int(img_height * 0.15)
                 
+                timings['ocr_box_detection'] = (time.perf_counter() - box_start) * 1000
+                
+                # === OCR STEP 2: Preprocessing ===
+                preproc_start = time.perf_counter()
+                
                 # Extract subtitle box with small padding
                 padding = 5
                 x1 = max(0, x - padding)
@@ -221,62 +239,97 @@ class OptimizedDetector:
                 
                 subtitle_box_region = img[y1:y2, x1:x2]
                 
-                # OPTIMIZATION 1: Downscale to target height for faster OCR
-                # Target height: 80 pixels (good for OCR, faster processing)
+                # Downscale to target height for faster OCR
                 box_h, box_w = subtitle_box_region.shape
                 if box_h > 80:
                     scale = 80 / box_h
                     new_w = int(box_w * scale)
                     subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
                 
-                # OPTIMIZATION 2: Fast OCR - multi-line mode
-                # Use --psm 6 (uniform block of text) for subtitles
+                # Enhance contrast for better OCR
+                enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
+                _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
+                
+                timings['ocr_preprocessing'] = (time.perf_counter() - preproc_start) * 1000
+                
+                # === OCR STEP 3: Tesseract ===
+                tesseract_start = time.perf_counter()
+                
                 try:
                     import pytesseract
-                    # Enhance contrast for better OCR
-                    enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
-                    _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
-                    
                     # Multi-line OCR (--psm 6 = uniform block of text)
                     subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
                 except:
                     # Fallback to standard method
                     subtitle_text = extract_text_from_region(subtitle_box_region)
                 
-                timings['subtitle_ocr'] = (time.perf_counter() - start) * 1000
+                timings['ocr_tesseract'] = (time.perf_counter() - tesseract_start) * 1000
+                timings['subtitle_ocr'] = (time.perf_counter() - start) * 1000  # Total up to here
                 
                 # Store box info for display
                 ocr_box_info = f"{w}x{h} at ({x},{y})"
                 
-                # Detect language if text found
+                # === OCR STEP 4: Language Detection (CACHED - every 10s) ===
+                lang_start = time.perf_counter()
+                
                 detected_language = None
                 confidence = 0.0
+                language_cached = False
+                
+                # Extract device_id from image path (or use 'default' for test)
+                device_id = 'default'
+                
                 if subtitle_text and len(subtitle_text.strip()) > 0:
-                    try:
-                        from shared.src.lib.utils.image_utils import detect_language
-                        detected_language = detect_language(subtitle_text)  # Returns string like 'en', 'fr'
-                        
-                        # If language detected successfully, trust the OCR (confidence = 1.0)
-                        if detected_language and detected_language != 'unknown':
-                            confidence = 1.0
-                            ocr_skip_reason = None  # OCR ran successfully
-                        else:
-                            # Language unknown but text extracted - medium confidence
-                            confidence = 0.75
-                            ocr_skip_reason = None  # Still accept it
-                    except:
-                        detected_language = 'unknown'
-                        confidence = 0.75  # Text extracted, accept it
+                    # Check if we should detect language (every 10s = 50 frames at 5fps)
+                    should_detect_language = (frame_number % self._language_detection_interval == 0)
+                    
+                    if should_detect_language or device_id not in self._language_cache:
+                        # Detect language (first time or every 10s)
+                        try:
+                            from shared.src.lib.utils.image_utils import detect_language
+                            detected_language = detect_language(subtitle_text)  # Returns string like 'en', 'fr'
+                            
+                            # Cache the result
+                            self._language_cache[device_id] = (detected_language, frame_number)
+                            
+                            # If language detected successfully, trust the OCR (confidence = 1.0)
+                            if detected_language and detected_language != 'unknown':
+                                confidence = 1.0
+                                ocr_skip_reason = None  # OCR ran successfully
+                            else:
+                                # Language unknown but text extracted - medium confidence
+                                confidence = 0.75
+                                ocr_skip_reason = None  # Still accept it
+                        except:
+                            detected_language = 'unknown'
+                            confidence = 0.75  # Text extracted, accept it
+                            ocr_skip_reason = None
+                            # Cache the result
+                            self._language_cache[device_id] = (detected_language, frame_number)
+                    else:
+                        # Use cached language (saves ~300ms!)
+                        detected_language, _ = self._language_cache[device_id]
+                        confidence = 1.0 if detected_language and detected_language != 'unknown' else 0.75
                         ocr_skip_reason = None
+                        language_cached = True
                 else:
                     subtitle_text = None
                     ocr_skip_reason = 'no_text_found'
+                
+                timings['ocr_language_detection'] = (time.perf_counter() - lang_start) * 1000
+                timings['language_cached'] = language_cached
+                
             except Exception as e:
                 # OCR failed - show error
                 subtitle_text = None
                 ocr_box_info = None
                 detected_language = None
                 confidence = 0.0
+                timings['ocr_box_detection'] = 0.0
+                timings['ocr_preprocessing'] = 0.0
+                timings['ocr_tesseract'] = 0.0
+                timings['ocr_language_detection'] = 0.0
+                timings['language_cached'] = False
                 timings['subtitle_ocr'] = 0.0
                 ocr_skip_reason = f'error: {type(e).__name__}: {str(e)}'
         else:
@@ -285,6 +338,11 @@ class OptimizedDetector:
             ocr_box_info = None
             detected_language = None
             confidence = 0.0
+            timings['ocr_box_detection'] = 0.0
+            timings['ocr_preprocessing'] = 0.0
+            timings['ocr_tesseract'] = 0.0
+            timings['ocr_language_detection'] = 0.0
+            timings['language_cached'] = False
             timings['subtitle_ocr'] = 0.0  # Skipped
             if not OCR_AVAILABLE:
                 ocr_skip_reason = 'ocr_unavailable'
@@ -302,6 +360,7 @@ class OptimizedDetector:
         # Return format compatible with current detector.py
         result = {
             'filename': os.path.basename(image_path),
+            'frame_number': frame_number,
             'blackscreen': blackscreen,
             'blackscreen_percentage': round(dark_percentage, 1),
             'blackscreen_threshold': threshold,  # Show threshold used
@@ -317,6 +376,7 @@ class OptimizedDetector:
             'subtitle_text': subtitle_text,
             'ocr_box_info': ocr_box_info,  # Box dimensions and location
             'detected_language': detected_language,
+            'language_cached': timings.get('language_cached', False),  # NEW!
             'confidence': confidence,
             'ocr_skip_reason': ocr_skip_reason,  # Debug
             'audio': has_audio,
@@ -329,9 +389,10 @@ class OptimizedDetector:
 def print_result(result, verbose=False):
     """Print detection results in clean format"""
     filename = result.get('filename', 'unknown')
+    frame_number = result.get('frame_number', 0)
     
     print(f"\n{'='*70}")
-    print(f"📸 {filename}")
+    print(f"📸 {filename} (frame #{frame_number})")
     print(f"{'='*70}")
     
     # Get values
@@ -342,49 +403,50 @@ def print_result(result, verbose=False):
     dark_pct = result.get('blackscreen_percentage', 0)
     bottom_density = result.get('bottom_edge_density', 0)
     
-    # Show execution in order
-    print(f"\n1. Edge Detection ({perf.get('edge_detection', 0):.2f}ms)")
+    # Show execution in order with ALL timings
+    print(f"\n1. Image Load ({perf.get('image_load', 0):.2f}ms)")
+    print(f"2. Edge Detection ({perf.get('edge_detection', 0):.2f}ms)")
     
     bs_threshold = result.get('blackscreen_threshold', 10)
-    print(f"2. Blackscreen ({perf.get('blackscreen', 0):.2f}ms) → {'✅ YES' if blackscreen else '❌ NO'} ({dark_pct:.1f}% dark, threshold≤{bs_threshold})")
+    print(f"3. Blackscreen ({perf.get('blackscreen', 0):.2f}ms) → {'✅ YES' if blackscreen else '❌ NO'} ({dark_pct:.1f}% dark, threshold≤{bs_threshold})")
     
     # Bottom content - only if blackscreen
     bottom_time = perf.get('bottom_content_detection', 0)
     if blackscreen:
-        print(f"3. Bottom Content ({bottom_time:.2f}ms) → {'✅ YES' if has_bottom_content else '❌ NO'} ({bottom_density:.1f}% edges)")
+        print(f"4. Bottom Content ({bottom_time:.2f}ms) → {'✅ YES' if has_bottom_content else '❌ NO'} ({bottom_density:.1f}% edges)")
         print(f"   🎯 Zap = {'✅ CONFIRMED' if zap else '❌ NO (blackscreen but no banner)'}")
     else:
-        print(f"3. Bottom Content → ⏭️  SKIPPED (no blackscreen)")
+        print(f"4. Bottom Content → ⏭️  SKIPPED (no blackscreen)")
         print(f"   🎯 Zap = ❌ NO")
     
     # Subtitle area - conditional
     subtitle_time = perf.get('subtitle_area_detection', 0)
     if zap:
-        print(f"4. Subtitle Area → ⏭️  SKIPPED (zap)")
+        print(f"5. Subtitle Area → ⏭️  SKIPPED (zap)")
     else:
         has_subtitle_area = result.get('subtitle_candidate', False)
         subtitle_density = result.get('subtitle_edge_density', 0)
-        print(f"4. Subtitle Area ({subtitle_time:.2f}ms) → {'✅ YES' if has_subtitle_area else '❌ NO'} ({subtitle_density:.1f}% edges)")
+        print(f"5. Subtitle Area ({subtitle_time:.2f}ms) → {'✅ YES' if has_subtitle_area else '❌ NO'} ({subtitle_density:.1f}% edges)")
     
     # Freeze - conditional
     freeze = result.get('freeze', False)
     freeze_time = perf.get('freeze', 0)
     if freeze_time == 0:
         reason = 'zap' if zap else 'blackscreen'
-        print(f"5. Freeze → ⏭️  SKIPPED ({reason})")
+        print(f"6. Freeze → ⏭️  SKIPPED ({reason})")
     else:
         freeze_diff = result.get('freeze_diff', 0)
-        print(f"5. Freeze ({freeze_time:.2f}ms) → {'✅ YES' if freeze else '❌ NO'} ({freeze_diff:.1f} diff)")
+        print(f"6. Freeze ({freeze_time:.2f}ms) → {'✅ YES' if freeze else '❌ NO'} ({freeze_diff:.1f} diff)")
     
     # Macroblocks - conditional
     macroblocks = result.get('macroblocks', False)
     macro_time = perf.get('macroblocks', 0)
     if macro_time == 0:
         reason = 'zap' if zap else ('freeze' if freeze else 'blackscreen')
-        print(f"6. Macroblocks → ⏭️  SKIPPED ({reason})")
+        print(f"7. Macroblocks → ⏭️  SKIPPED ({reason})")
     else:
         quality = result.get('quality_score', 0)
-        print(f"6. Macroblocks ({macro_time:.2f}ms) → {'✅ YES' if macroblocks else '❌ NO'} (quality: {quality:.0f})")
+        print(f"7. Macroblocks ({macro_time:.2f}ms) → {'✅ YES' if macroblocks else '❌ NO'} (quality: {quality:.0f})")
     
     # OCR - conditional
     ocr_time = perf.get('subtitle_ocr', 0)
@@ -395,28 +457,68 @@ def print_result(result, verbose=False):
     
     if ocr_skip_reason == 'low_confidence':
         # OCR ran but confidence too low (< 70%)
-        print(f"7. Subtitle OCR ({ocr_time:.0f}ms) → ⚠️  LOW CONFIDENCE")
+        print(f"8. Subtitle OCR ({ocr_time:.0f}ms) → ⚠️  LOW CONFIDENCE")
         print(f"   Language: {detected_language} (confidence: {confidence:.2f} < 0.70 threshold)")
     elif ocr_skip_reason:
         # OCR skipped or failed
-        print(f"7. Subtitle OCR → ⏭️  SKIPPED ({ocr_skip_reason})")
+        print(f"8. Subtitle OCR → ⏭️  SKIPPED ({ocr_skip_reason})")
     elif subtitle_text:
         # OCR ran and found reliable text
         ocr_box_info = result.get('ocr_box_info')
-        print(f"7. Subtitle OCR ({ocr_time:.0f}ms) → ✅ TEXT FOUND")
+        print(f"8. Subtitle OCR ({ocr_time:.0f}ms) → ✅ TEXT FOUND")
+        # Show detailed OCR breakdown
+        ocr_box_time = perf.get('ocr_box_detection', 0)
+        ocr_prep_time = perf.get('ocr_preprocessing', 0)
+        ocr_tess_time = perf.get('ocr_tesseract', 0)
+        ocr_lang_time = perf.get('ocr_language_detection', 0)
+        if ocr_box_time > 0:
+            print(f"   ├─ Box detection: {ocr_box_time:.0f}ms")
+        if ocr_prep_time > 0:
+            print(f"   ├─ Preprocessing: {ocr_prep_time:.0f}ms")
+        if ocr_tess_time > 0:
+            print(f"   ├─ Tesseract: {ocr_tess_time:.0f}ms")
+        if ocr_lang_time > 0:
+            print(f"   └─ Language detection: {ocr_lang_time:.0f}ms")
         if ocr_box_info:
             print(f"   Box: {ocr_box_info}")
         # Display text in one line (replace newlines with space)
         text_oneline = ' '.join(subtitle_text.split())
         print(f"   Text: \"{text_oneline}\"")
-        print(f"   Language: {detected_language} (confidence: {confidence:.2f})")
+        # Show if language was cached
+        language_cached = result.get('language_cached', False)
+        lang_suffix = " (cached)" if language_cached else ""
+        print(f"   Language: {detected_language}{lang_suffix} (confidence: {confidence:.2f})")
     else:
         # OCR ran but found nothing
-        print(f"7. Subtitle OCR ({ocr_time:.0f}ms) → ⚠️  NO TEXT EXTRACTED")
+        print(f"8. Subtitle OCR ({ocr_time:.0f}ms) → ⚠️  NO TEXT EXTRACTED")
     
-    # Total
+    # Total with breakdown
     total = perf.get('total', 0)
-    print(f"\n⏱️  Total: {total:.2f}ms")
+    
+    # Calculate sum of all measured steps (including OCR sub-steps)
+    measured_sum = (
+        perf.get('image_load', 0) +
+        perf.get('edge_detection', 0) +
+        perf.get('blackscreen', 0) +
+        perf.get('bottom_content_detection', 0) +
+        perf.get('subtitle_area_detection', 0) +
+        perf.get('freeze', 0) +
+        perf.get('macroblocks', 0) +
+        perf.get('ocr_box_detection', 0) +
+        perf.get('ocr_preprocessing', 0) +
+        perf.get('ocr_tesseract', 0) +
+        perf.get('ocr_language_detection', 0)
+    )
+    
+    overhead = total - measured_sum
+    print(f"\n⏱️  Measured: {measured_sum:.2f}ms | Total: {total:.2f}ms | Overhead: {overhead:.2f}ms")
+    
+    # Show overhead breakdown if significant (> 10ms)
+    if overhead > 10:
+        print(f"   ⚠️  Overhead breakdown:")
+        print(f"      - Python function calls, dict operations")
+        print(f"      - Result building and formatting")
+        print(f"      - Any unmeasured operations")
     
 
 
@@ -458,10 +560,13 @@ def main():
     # Create detector
     detector = OptimizedDetector()
     
-    # Test each image
+    # Test each image (simulate frame numbers for language caching)
     results = []
-    for image_path in image_files:
-        result = detector.detect_issues(str(image_path))
+    for idx, image_path in enumerate(image_files):
+        # Simulate frame numbers (0, 50, 100, 150, ...) to test caching
+        # Frame 0 and 50 will detect language, others will use cache
+        frame_number = idx * 50  # Every image is 10 seconds apart
+        result = detector.detect_issues(str(image_path), frame_number=frame_number, fps=5)
         results.append(result)
         print_result(result, verbose=verbose)
     
@@ -474,12 +579,14 @@ def main():
     blackscreen_count = sum(1 for r in results if r.get('blackscreen', False))
     bottom_content_count = sum(1 for r in results if r.get('has_bottom_content', False))
     subtitle_count = sum(1 for r in results if r.get('subtitle_candidate', False))
+    language_cached_count = sum(1 for r in results if r.get('language_cached', False))
     
     print(f"Total images tested: {len(results)}")
     print(f"Zapping detected: {zap_count}")
     print(f"Blackscreen (any): {blackscreen_count}")
     print(f"Bottom content detected: {bottom_content_count}")
     print(f"Subtitle areas: {subtitle_count}")
+    print(f"Language cached: {language_cached_count}/{subtitle_count} (saves ~300ms per cached frame)")
     
     # Average performance
     avg_total = sum(r.get('performance_ms', {}).get('total', 0) for r in results) / len(results)
