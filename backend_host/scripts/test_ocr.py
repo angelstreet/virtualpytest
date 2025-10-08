@@ -16,14 +16,18 @@ import sys
 import time
 from pathlib import Path
 from typing import Optional, Tuple
+import re
 
 # Add project root to Python path for shared module
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# === CONFIGURATION ===
+# OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
+OCR_CROP_METHOD = 'smart'  # Change to 'safe' to use fixed safe area
+
 # Import the smart cropping algorithm
 from crop_subtitles import find_subtitle_bbox
-import re
 
 def clean_ocr_noise(text: str) -> str:
     """
@@ -57,21 +61,23 @@ def clean_ocr_noise(text: str) -> str:
 
 def test_ocr_on_image(image_path, save_crops=True):
     """
-    Run OCR testing with smart cropping on original image.
+    Run OCR testing with configurable cropping (smart or safe area).
     
     Flow:
     1. Load image in grayscale
-    2. Smart crop on original image (using crop_subtitles.py algorithm)
-    3. Run OCR: Grayscale + PSM 6 (uniform block - best for subtitles)
-    4. Clean noise with regex (remove consecutive 1-2 char patterns)
-    5. Detect language
+    2. Edge detection
+    3. Find subtitle region
+    4. Crop (smart edge-based or safe area)
+    5. Run OCR: Grayscale + PSM 6 (uniform block - best for subtitles)
+    6. Clean noise with regex (remove consecutive 1-2 char patterns)
+    7. Detect language
     
     Tesseract config:
     - PSM 6 (uniform block of text)
     - OEM 3 (default LSTM mode)
     - Languages: English, French, Italian, German, Spanish
     
-    Saves smart cropped image for visual inspection.
+    Saves cropped image for visual inspection.
     """
     print(f"\n{'='*70}")
     print(f"🔍 OCR TEST: {os.path.basename(image_path)}")
@@ -87,23 +93,41 @@ def test_ocr_on_image(image_path, save_crops=True):
     img_height, img_width = img_gray.shape[:2]
     print(f"   Image size: {img_width}x{img_height}")
     
-    # Smart crop on ORIGINAL image
-    print("\n2. Smart cropping original image...")
-    try:
-        start = time.perf_counter()
-        bbox = find_subtitle_bbox(img_gray)
-        crop_time = (time.perf_counter() - start) * 1000
-        crop_img = img_gray[bbox.y:bbox.y+bbox.h, bbox.x:bbox.x+bbox.w]
-        print(f"   ✓ Smart crop: {bbox.w}x{bbox.h} ({crop_time:.2f}ms)")
-    except Exception as e:
-        print(f"   ❌ Smart crop FAILED: {e}")
-        return None
+    # Cropping (matches detector.py logic)
+    print(f"\n2. Cropping ({OCR_CROP_METHOD} mode)...")
+    start = time.perf_counter()
     
-    # Save smart crop for visual inspection
+    # Calculate crop based on method
+    if OCR_CROP_METHOD == 'smart':
+        # SMART CROP: Dark mask-based (proven implementation from crop_subtitles.py)
+        try:
+            bbox = find_subtitle_bbox(img_gray)
+            x, y, w, h = bbox.x, bbox.y, bbox.w, bbox.h
+            crop_method = "smart_dark_mask"
+        except (ValueError, Exception) as e:
+            # Fall back to safe area if smart crop fails
+            x = int(img_width * 0.10)
+            y = int(img_height * 0.60)
+            w = int(img_width * 0.80)
+            h = int(img_height * 0.35)
+            crop_method = f"smart_fallback_safe ({str(e)[:30]})"
+    else:
+        # SAFE AREA: Fixed region
+        x = int(img_width * 0.10)
+        y = int(img_height * 0.60)
+        w = int(img_width * 0.80)
+        h = int(img_height * 0.35)
+        crop_method = "safe_area_fixed"
+    
+    crop_img = img_gray[y:y+h, x:x+w]
+    crop_time = (time.perf_counter() - start) * 1000
+    print(f"   ✓ Crop: {w}x{h} at ({x},{y}) in {crop_time:.2f}ms [{crop_method}]")
+    
+    # Save crop for visual inspection
     if save_crops:
         base_name = Path(image_path).stem
         save_dir = Path(image_path).parent
-        crop_path = save_dir / f"{base_name}_smart_crop.jpg"
+        crop_path = save_dir / f"{base_name}_{OCR_CROP_METHOD}_crop.jpg"
         cv2.imwrite(str(crop_path), crop_img)
         print(f"   💾 Saved: {crop_path.name}")
     
@@ -154,7 +178,7 @@ def test_ocr_on_image(image_path, save_crops=True):
     print(f"\n{'='*70}")
     print(f"📊 FINAL RESULT")
     print(f"{'='*70}")
-    print(f"Smart crop: {bbox.w}x{bbox.h} at ({bbox.x},{bbox.y}) in {crop_time:.2f}ms")
+    print(f"Crop: {w}x{h} at ({x},{y}) in {crop_time:.2f}ms [{crop_method}]")
     print(f"OCR: Grayscale + PSM 6 in {ocr_time:.0f}ms")
     print(f"Text extracted: {'YES' if subtitle_text else 'NO'}")
     if subtitle_text:
@@ -171,8 +195,8 @@ def test_ocr_on_image(image_path, save_crops=True):
     return {
         'text': subtitle_text,
         'language': detected_language,
-        'bbox': {'x': bbox.x, 'y': bbox.y, 'width': bbox.w, 'height': bbox.h},
-        'method': 'smart_crop_original',
+        'bbox': {'x': x, 'y': y, 'width': w, 'height': h},
+        'method': crop_method,
         'filter': 'grayscale',
         'psm': 6
     }
@@ -220,8 +244,8 @@ def main():
     print("🧪 OCR TEST - BATCH MODE")
     print("="*70)
     print(f"Testing {len(image_files)} images from {subt_dir}")
-    print("\nTesting:")
-    print("  Crop: Smart crop on original image")
+    print("\nConfiguration:")
+    print(f"  Crop method: {OCR_CROP_METHOD.upper()} ({'dark mask-based' if OCR_CROP_METHOD == 'smart' else 'fixed region'})")
     print("  OCR: Grayscale + PSM 6 (uniform block)")
     print("  Languages: English, French, Italian, German, Spanish")
     print("  Noise cleaning: Regex filter for consecutive 1-2 char patterns")

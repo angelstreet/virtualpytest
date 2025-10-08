@@ -20,6 +20,14 @@ import json
 from datetime import datetime
 from contextlib import contextmanager
 
+# === CONFIGURATION ===
+# OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
+OCR_CROP_METHOD = 'smart'  # Change to 'safe' to use fixed safe area
+
+# Add scripts directory to path for crop_subtitles import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from crop_subtitles import find_subtitle_bbox
+
 from shared.src.lib.utils.storage_path_utils import (
     is_ram_mode,
     get_segments_path,
@@ -792,20 +800,35 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             ocr_timings = {}  # Detailed timing for each OCR step
             
             try:
-                # STEP 1: Calculate crop boundaries
+                # STEP 1: Calculate crop boundaries (smart or safe area)
                 step_start = time.perf_counter()
-                # SAFE AREA: Fixed region (60-95% height, 10-90% width)
-                # Simple and fast - no smart cropping to avoid RPi performance issues
-                x = int(img_width * 0.10)   # 10% from left
-                y = int(img_height * 0.60)  # Start at 60% height (bottom 40%)
-                w = int(img_width * 0.80)   # 80% width (centered)
-                h = int(img_height * 0.35)  # 35% height (60-95%)
+                
+                if OCR_CROP_METHOD == 'smart':
+                    # SMART CROP: Dark mask-based (proven implementation from crop_subtitles.py)
+                    try:
+                        bbox = find_subtitle_bbox(img)
+                        x, y, w, h = bbox.x, bbox.y, bbox.w, bbox.h
+                        crop_method = "smart_dark_mask"
+                    except (ValueError, Exception) as e:
+                        # Fall back to safe area if smart crop fails
+                        x = int(img_width * 0.10)
+                        y = int(img_height * 0.60)
+                        w = int(img_width * 0.80)
+                        h = int(img_height * 0.35)
+                        crop_method = f"smart_fallback_safe ({str(e)[:30]})"
+                else:
+                    # SAFE AREA: Fixed region (60-95% height, 10-90% width)
+                    x = int(img_width * 0.10)   # 10% from left
+                    y = int(img_height * 0.60)  # Start at 60% height (bottom 40%)
+                    w = int(img_width * 0.80)   # 80% width (centered)
+                    h = int(img_height * 0.35)  # 35% height (60-95%)
+                    crop_method = "safe_area_fixed"
+                
                 ocr_timings['crop_calc'] = (time.perf_counter() - step_start) * 1000
                 
-                # STEP 2: Extract safe area (crop operation)
+                # STEP 2: Extract crop region
                 step_start = time.perf_counter()
                 subtitle_box_region = img[y:y+h, x:x+w]
-                crop_method = "safe_area_fixed"
                 ocr_timings['crop_extract'] = (time.perf_counter() - step_start) * 1000
                 
                 # STEP 3: Save debug crop if enabled
