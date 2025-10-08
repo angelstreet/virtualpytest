@@ -652,14 +652,35 @@ def detect_issues(image_path, fps=5, queue_size=0):
     frozen, freeze_details = detect_freeze_pixel_diff(img, thumbnails_dir, filename, fps)
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
-    # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload) ===
+    # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload/audio frame) ===
     subtitle_result = None
     start = time.perf_counter()
     
     sample_interval = fps if fps >= 2 else 2
     should_check_subtitles = (frame_number % sample_interval == 0)
     
-    if queue_size > 50:
+    # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
+    audio_check_interval = fps * 5  # 5 seconds worth of frames
+    is_audio_frame = (frame_number % audio_check_interval == 0)
+    
+    if is_audio_frame:
+        # Audio analysis frame - skip OCR to spread expensive operations
+        timings['subtitle_area_check'] = 0.0
+        timings['subtitle_ocr'] = 0.0
+        subtitle_result = {
+            'has_subtitles': False,
+            'extracted_text': '',
+            'detected_language': None,
+            'confidence': 0.0,
+            'box': None,
+            'ocr_method': None,
+            'downscaled_to_height': None,
+            'psm_mode': None,
+            'subtitle_edge_density': 0.0,
+            'skipped': True,
+            'skip_reason': 'audio_frame'
+        }
+    elif queue_size > 50:
         # Queue overload - disable OCR to drain queue faster
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
@@ -926,8 +947,8 @@ def detect_issues(image_path, fps=5, queue_size=0):
         timings['macroblocks'] = (time.perf_counter() - start) * 1000
     
     # === STEP 7: Audio Analysis - Sample every 5 seconds ===
-    audio_check_interval = fps * 5  # 5 seconds worth of frames
-    should_check_audio = (frame_number % audio_check_interval == 0)
+    # audio_check_interval already defined above (line 663)
+    should_check_audio = is_audio_frame  # Reuse the check from subtitle section
     
     start = time.perf_counter()
     if should_check_audio:
