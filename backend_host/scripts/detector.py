@@ -1051,7 +1051,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 'previous_capture_path': prev_capture_path,
                 'current_thumbnail_path': current_thumbnail_path,
                 'previous_thumbnail_path': prev_thumbnail_path,
-                'frozen': diff_percentage < 5.0 if diff_percentage is not None else None
+                'frozen': bool(diff_percentage < 5.0) if diff_percentage is not None else None
             })
     
     # Capture freeze detection debug info
