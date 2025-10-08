@@ -135,8 +135,9 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         if diff_percentage > 5.0:
             break
     
-    # Frozen if ALL checked frames have < 5% difference
-    frozen = len(pixel_diffs) >= 2 and all(diff < 5.0 for diff in pixel_diffs)
+    # Frozen if ALL checked frames have < 2% difference (STRICT - reduced from 5% to avoid false positives)
+    FREEZE_THRESHOLD = 0.5  # 2% pixel difference = frozen (was 5%, too permissive)
+    frozen = len(pixel_diffs) >= 2 and all(diff < FREEZE_THRESHOLD for diff in pixel_diffs)
     
     return frozen, {
         'frame_differences': [round(d, 2) for d in pixel_diffs],
@@ -144,7 +145,8 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         'frames_checked': frames_checked,  # Which files we tried to find
         'frames_found': len(frames_compared),
         'frames_needed': 2,
-        'detection_method': 'pixel_diff'
+        'detection_method': 'pixel_diff',
+        'threshold': FREEZE_THRESHOLD
     }
 
 # Performance: Cache audio analysis results to avoid redundant FFmpeg calls

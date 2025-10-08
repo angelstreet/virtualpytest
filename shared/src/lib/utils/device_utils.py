@@ -165,7 +165,9 @@ def add_existing_image_to_context(device, filename: str, context) -> Optional[st
         if os.path.exists(hot_image_path):
             # Found in hot - add_screenshot will auto-copy to cold
             context.add_screenshot(hot_image_path)
-            return hot_image_path
+            # Return cold path (same as what add_screenshot stores internally)
+            cold_path = hot_image_path.replace('/hot/', '/')
+            return cold_path
         
         # 2. Check COLD (may have been archived already by hot_cold_archiver)
         # Use centralized cold path resolution

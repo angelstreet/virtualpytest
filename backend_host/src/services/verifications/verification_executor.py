@@ -419,6 +419,10 @@ class VerificationExecutor:
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing image_source_url to controller: {image_source_url}")
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
             
+            # Set context on controller so helpers can access it (for motion image collection)
+            if context:
+                controller._current_context = context
+            
             # Direct controller execution
             verification_result = controller.execute_verification(verification_config)
             
@@ -464,6 +468,10 @@ class VerificationExecutor:
             }
             
             print(f"[@lib:verification_executor:_execute_single_verification] Verification result: success={flattened_result['success']}, type={flattened_result['verification_type']}")
+            
+            # Clean up context reference to avoid memory leaks
+            if hasattr(controller, '_current_context'):
+                delattr(controller, '_current_context')
             
             return flattened_result
             
