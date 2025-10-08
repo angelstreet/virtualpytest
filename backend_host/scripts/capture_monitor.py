@@ -50,7 +50,6 @@ class InotifyFrameMonitor:
         self.host_name = host_name
         self.incident_manager = IncidentManager()
         self.inotify = inotify.adapters.Inotify()
-        self.last_processed_folder = None
         
         self.dir_to_info = {}
         self.device_queues = {}
@@ -160,13 +159,6 @@ class InotifyFrameMonitor:
         # Skip if already analyzed
         if os.path.exists(json_file):
             return
-        
-        # Add visual separator when switching devices
-        if self.last_processed_folder != capture_folder:
-            logger.info("=" * 80)
-            logger.info(f"📹 PROCESSING: {capture_folder.upper()}")
-            logger.info("=" * 80)
-            self.last_processed_folder = capture_folder
         
         logger.info(f"[{capture_folder}] 🔍 Analyzing: {filename}")
         
