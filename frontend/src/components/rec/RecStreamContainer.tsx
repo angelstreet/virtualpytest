@@ -92,6 +92,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   onPlayerReady,
   onVideoTimeUpdate,
   onVideoPause,
+  onCurrentSegmentChange,
   // Monitoring props
   monitoringAnalysis,
   subtitleAnalysis,
@@ -211,6 +212,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             onPlayerReady={onPlayerReady}
             onVideoTimeUpdate={onVideoTimeUpdate}
             onVideoPause={onVideoPause}
+            onCurrentSegmentChange={onCurrentSegmentChange}
             // Monitoring overlay props
             monitoringMode={monitoringMode}
             monitoringAnalysis={monitoringAnalysis}

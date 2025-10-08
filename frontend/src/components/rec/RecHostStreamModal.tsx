@@ -761,6 +761,7 @@ const RecHostStreamModalContent: React.FC<{
             onPlayerReady={handlePlayerReady}
             onVideoTimeUpdate={handleVideoTimeUpdate}
             onVideoPause={handleVideoPause}
+            onCurrentSegmentChange={setCurrentSegmentUrl}
             // Monitoring data props
             monitoringAnalysis={monitoringData.latestAnalysis || undefined}
             subtitleAnalysis={monitoringData.latestSubtitleAnalysis || undefined}

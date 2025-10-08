@@ -26,6 +26,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   onPlayerReady,
   onVideoTimeUpdate,
   onVideoPause,
+  onCurrentSegmentChange,
   
   monitoringMode = false,
   monitoringAnalysis,
@@ -354,6 +355,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             shouldPause={shouldPause}
             sx={{ width: '100%', height: '100%' }}
             onPlayerReady={onPlayerReady}
+            onCurrentSegmentChange={onCurrentSegmentChange}
           />
         ) : (
           <Box
