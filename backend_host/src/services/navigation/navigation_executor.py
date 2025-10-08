@@ -621,7 +621,9 @@ class NavigationExecutor:
             verification_result = self.device.verification_executor.verify_node(final_node_id, team_id, final_tree_id, image_source_url)
             verification_timestamp = time.time()
             
-            if not verification_result.get('success'):
+            # Only fail if verifications exist and they failed
+            # If no verifications are defined (has_verifications=False), don't fail - we just can't verify
+            if not verification_result.get('success') and verification_result.get('has_verifications', True):
                 print(f"[@navigation_executor] ❌ Final verification failed: {verification_result.get('error', 'Unknown error')}")
                 nav_context['current_node_navigation_success'] = False
                 return self._build_result(
@@ -635,7 +637,15 @@ class NavigationExecutor:
                     verification_failed=True
                 )
             
-            print(f"[@navigation_executor] ✅ Final verification passed")
+            # Report verification status
+            if verification_result.get('has_verifications', True):
+                if verification_result.get('success'):
+                    print(f"[@navigation_executor] ✅ Final verification passed")
+                else:
+                    # This shouldn't happen (caught above), but log just in case
+                    print(f"[@navigation_executor] ⚠️ Final verification had issues but continuing")
+            else:
+                print(f"[@navigation_executor] ⚠️ No verifications defined for target node - cannot verify final position, but navigation completed successfully")
             
             # Queue KPI measurement AFTER final verification passes
             # Only if main actions were executed and succeeded
