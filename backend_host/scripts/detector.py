@@ -10,22 +10,10 @@ ZAP STATE OPTIMIZATION:
 - Saves ~99% CPU during zap sequence (2ms vs 300ms per frame)
 
 OCR OPTIMIZATION:
-- Parallel processing: OCR runs in background thread (non-blocking)
 - Downscales cropped subtitle region by 50% (75% fewer pixels) before OCR
 - Reduces OCR time by ~70% (150ms → 50ms typical)
 - Uses INTER_AREA interpolation for best quality downscaling
 - No impact on text extraction accuracy
-- Executes every 2 seconds, results cached for 4 seconds
-
-FREEZE DETECTION OPTIMIZATION:
-- In-memory thumbnail cache: Avoids disk I/O for previous frames
-- Keeps last 3 frames in RAM per device (~500KB total)
-- Reduces freeze detection time by 50-60% (15ms → 6ms)
-
-BLACKSCREEN DETECTION OPTIMIZATION:
-- Optimized sampling: Every 4th pixel (6.25%) instead of every 3rd (11%)
-- Reduces blackscreen detection time by 33% (5ms → 3ms)
-- No impact on accuracy (blackscreen detection is very tolerant)
 """
 import os
 import sys
@@ -35,25 +23,15 @@ import logging
 import cv2
 import numpy as np
 import json
-import threading
-import queue
 from datetime import datetime
 from contextlib import contextmanager
-from concurrent.futures import ThreadPoolExecutor
 
 # === CONFIGURATION ===
 # OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
 OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
 
 # OCR Enable/Disable: Set to False to completely disable OCR processing
-OCR_ENABLED = False  # Set to True to enable OCR operations
-
-# OCR Parallel Processing: Set to True to run OCR in a separate thread
-OCR_PARALLEL = True  # Run OCR asynchronously
-
-# OCR Sampling Interval: How often to run OCR (in seconds)
-# OPTIMIZED: Set to 5 seconds to reduce CPU load (balance between freshness and performance)
-OCR_INTERVAL = 5.0  # Process OCR every 5 seconds
+OCR_ENABLED = False  # Set to False to disable all OCR operations
 
 # Add scripts directory to path for crop_subtitles import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -85,10 +63,10 @@ from shared.src.lib.utils.image_utils import (
 
 def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     """
-    Freeze detection using pixel difference - OPTIMIZED with in-memory cache
+    Freeze detection using pixel difference - compares thumbnails for accuracy
     
     Compares current thumbnail with previous 3 thumbnails using cv2.absdiff.
-    Uses in-memory cache to avoid disk I/O on thumbnail loading (5-10ms savings).
+    Uses thumbnails to avoid upscaling artifacts that cause false differences.
     
     Args:
         current_img: Current thumbnail (grayscale numpy array, 320x180)
@@ -99,70 +77,52 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     Returns:
         (frozen: bool, details: dict)
     """
-    global _freeze_thumbnail_cache
-    
     try:
         # Extract frame number
         frame_number = int(filename.split('_')[1].split('.')[0])
     except:
         return False, {}
     
-    # Get device key for cache (use parent directory of thumbnails)
-    device_key = os.path.dirname(thumbnails_dir)
-    
-    # Initialize cache for this device if needed
-    if device_key not in _freeze_thumbnail_cache:
-        _freeze_thumbnail_cache[device_key] = []
-    
-    cache = _freeze_thumbnail_cache[device_key]
-    
-    # Need at least 2 previous frames for comparison
-    if frame_number < 2:
-        # Add current frame to cache and return
-        cache.append((frame_number, current_img.copy()))
-        if len(cache) > 3:
-            cache.pop(0)
+    # Need at least 3 previous frames for comparison
+    if frame_number < 3:
         return False, {}
     
-    # Compare with cached thumbnails (last 3 frames)
+    # Calculate frame numbers to compare - last 3 consecutive frames
+    # CRITICAL: Must check consecutive frames for fast zap detection (<200ms)
+    frames_to_check = []
+    for i in range(1, 4):  # Previous 3 frames (N-1, N-2, N-3)
+        prev_frame_num = frame_number - i
+        if prev_frame_num >= 0:
+            frames_to_check.append(prev_frame_num)
+    
+    if len(frames_to_check) < 3:
+        return False, {}
+    
+    # Compare with previous frames using pixel difference
     pixel_diffs = []
     frames_compared = []
-    cache_hits = 0
-    disk_loads = 0
+    frames_checked = []  # Track which frames we tried to check
     
-    # Check last 3 frames in reverse order (N-1, N-2, N-3)
-    for i in range(1, 4):
-        prev_frame_num = frame_number - i
-        if prev_frame_num < 0:
-            break
+    # Build filename pattern (e.g., "capture" from "capture_000123.jpg")
+    frame_prefix = filename.rsplit('_', 1)[0]
+    frame_digits = len(filename.split('_')[1].split('.')[0])
+    
+    for prev_num in frames_to_check:
+        # Build thumbnail filename
+        prev_filename = f"{frame_prefix}_{str(prev_num).zfill(frame_digits)}_thumbnail.jpg"
+        prev_path = os.path.join(thumbnails_dir, prev_filename)
+        frames_checked.append(prev_filename)
         
-        # Try to find in cache first
-        prev_img = None
-        for cached_num, cached_img in reversed(cache):
-            if cached_num == prev_frame_num:
-                prev_img = cached_img
-                cache_hits += 1
-                break
+        if not os.path.exists(prev_path):
+            continue
         
-        # If not in cache, load from disk (fallback)
-        if prev_img is None:
-            frame_prefix = filename.rsplit('_', 1)[0]
-            frame_digits = len(filename.split('_')[1].split('.')[0])
-            prev_filename = f"{frame_prefix}_{str(prev_frame_num).zfill(frame_digits)}_thumbnail.jpg"
-            prev_path = os.path.join(thumbnails_dir, prev_filename)
-            
-            if os.path.exists(prev_path):
-                prev_img = cv2.imread(prev_path, cv2.IMREAD_GRAYSCALE)
-                disk_loads += 1
-                
-                # Add to cache for future use
-                if prev_img is not None:
-                    cache.append((prev_frame_num, prev_img.copy()))
-        
+        # Load previous frame thumbnail
+        prev_img = cv2.imread(prev_path, cv2.IMREAD_GRAYSCALE)
         if prev_img is None:
             continue
         
-        # Validate size match
+        # Thumbnails should already be same size (no resize needed)
+        # If sizes mismatch, skip this comparison (corrupted thumbnail)
         if prev_img.shape != current_img.shape:
             continue
         
@@ -177,30 +137,25 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         diff_percentage = (different_pixels / total_pixels) * 100
         
         pixel_diffs.append(diff_percentage)
-        frames_compared.append(f"frame_{prev_frame_num}")
+        frames_compared.append(prev_filename)
         
         # EARLY EXIT: If difference > 5%, NOT frozen - stop checking more frames
+        # Only continue to N-2, N-3 if N-1 shows potential freeze
         if diff_percentage > 5.0:
             break
     
-    # Add current frame to cache (keep last 3 only)
-    cache.append((frame_number, current_img.copy()))
-    if len(cache) > 3:
-        cache.pop(0)
-    
-    # Frozen if ALL checked frames have < 0.5% difference (VERY STRICT)
-    FREEZE_THRESHOLD = 0.5  # 0.5% pixel difference = frozen
+    # Frozen if ALL checked frames have < 0.5% difference (VERY STRICT - reduced from 5% to avoid false positives)
+    FREEZE_THRESHOLD = 0.5  # 0.5% pixel difference = frozen (was 5%, too permissive)
     frozen = len(pixel_diffs) >= 2 and all(diff < FREEZE_THRESHOLD for diff in pixel_diffs)
     
     return frozen, {
         'frame_differences': [round(d, 2) for d in pixel_diffs],
         'frames_compared': frames_compared,
+        'frames_checked': frames_checked,  # Which files we tried to find
         'frames_found': len(frames_compared),
         'frames_needed': 2,
-        'detection_method': 'pixel_diff_cached',
-        'threshold': FREEZE_THRESHOLD,
-        'cache_hits': cache_hits,
-        'disk_loads': disk_loads
+        'detection_method': 'pixel_diff',
+        'threshold': FREEZE_THRESHOLD
     }
 
 # Performance: Cache for optimization
@@ -214,122 +169,6 @@ _zap_state_cache = {}  # In-memory cache for fast access
 
 # Language detection throttling (per device)
 _language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_language)}
-
-# Parallel OCR processing
-_ocr_thread_pool = None  # ThreadPoolExecutor for OCR processing
-_ocr_results = {}  # {capture_dir: {'result': subtitle_result, 'timestamp': time.time()}}
-_ocr_last_run = {}  # {capture_dir: timestamp} - Track when OCR was last run for each device
-_ocr_queue = queue.Queue(maxsize=3)  # Queue for OCR tasks (max 3 pending tasks to reduce backlog)
-_ocr_thread = None  # Background thread for OCR processing
-_ocr_thread_running = False  # Flag to control OCR thread
-
-# Freeze detection optimization - cache thumbnails in memory
-_freeze_thumbnail_cache = {}  # {device_dir: [(frame_number, thumbnail_img), ...]}
-
-def init_parallel_ocr():
-    """Initialize parallel OCR processing if enabled"""
-    global _ocr_thread_pool, _ocr_thread, _ocr_thread_running
-    
-    if not OCR_ENABLED or not OCR_PARALLEL:
-        return
-    
-    # Create thread pool for OCR processing (max 1 worker to avoid overloading)
-    _ocr_thread_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ocr_worker")
-    
-    # Start background thread to process OCR queue
-    _ocr_thread_running = True
-    _ocr_thread = threading.Thread(target=ocr_worker_thread, name="ocr_monitor")
-    _ocr_thread.daemon = True  # Thread will exit when main process exits
-    _ocr_thread.start()
-    logger.info("Parallel OCR processing initialized")
-
-def ocr_worker_thread():
-    """Background thread to process OCR tasks from queue - SMART FILTERING"""
-    global _ocr_thread_running, _ocr_results, _audio_result_cache, _audio_volume_check_cache
-    
-    logger.info("OCR worker thread started")
-    
-    while _ocr_thread_running:
-        try:
-            # Get task from queue with timeout (allows thread to exit cleanly)
-            try:
-                task = _ocr_queue.get(timeout=1.0)
-            except queue.Empty:
-                continue
-            
-            # Process OCR task
-            capture_dir, image_path, skip_checks = task
-            
-            # CRITICAL: Check all skip conditions before running expensive OCR
-            should_skip = False
-            skip_reason = None
-            
-            # 1. Skip if device is zapping
-            if capture_dir in _zap_state_cache and _zap_state_cache[capture_dir].get('zapping', False):
-                should_skip = True
-                skip_reason = 'device_zapping'
-            
-            # 2. Skip if no audio (no content playing)
-            elif capture_dir in _audio_result_cache and not should_skip:
-                has_audio, _, _, _, _ = _audio_result_cache[capture_dir]
-                if not has_audio:
-                    should_skip = True
-                    skip_reason = 'no_audio'
-            
-            # 3. Skip if ffmpeg volume check is currently running (avoid concurrent load)
-            elif capture_dir in _audio_volume_check_cache and not should_skip:
-                current_time = time.time()
-                last_volume_check = _audio_volume_check_cache.get(capture_dir, 0)
-                # If volume check happened in last 500ms, skip OCR (ffmpeg is likely still running)
-                if current_time - last_volume_check < 0.5:
-                    should_skip = True
-                    skip_reason = 'ffmpeg_running'
-            
-            # 4. Check if image still exists (might have been deleted)
-            elif not os.path.exists(image_path):
-                should_skip = True
-                skip_reason = 'image_deleted'
-            
-            # 5. Check blackscreen from skip_checks (passed from main thread)
-            elif skip_checks and skip_checks.get('blackscreen', False):
-                should_skip = True
-                skip_reason = 'blackscreen'
-            
-            # 6. Check freeze from skip_checks
-            elif skip_checks and skip_checks.get('frozen', False):
-                should_skip = True
-                skip_reason = 'frozen'
-            
-            if should_skip:
-                logger.debug(f"OCR skipped: {skip_reason} for {os.path.basename(image_path)}")
-                _ocr_queue.task_done()
-                continue
-            
-            try:
-                # Run OCR in thread pool (non-blocking)
-                future = _ocr_thread_pool.submit(analyze_subtitles, image_path)
-                result = future.result(timeout=5.0)  # Wait up to 5 seconds for OCR to complete
-                
-                if result:
-                    # Store result in cache
-                    _ocr_results[capture_dir] = {
-                        'result': result,
-                        'timestamp': time.time(),
-                        'image_path': image_path
-                    }
-                    logger.debug(f"OCR completed for {os.path.basename(image_path)}")
-            except Exception as e:
-                logger.warning(f"OCR worker error: {e}")
-            finally:
-                _ocr_queue.task_done()
-                
-        except Exception as e:
-            logger.error(f"OCR worker thread error: {e}")
-    
-    logger.info("OCR worker thread stopped")
-
-# Initialize parallel OCR on module import
-init_parallel_ocr()
 
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
@@ -427,14 +266,13 @@ def save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volu
         logger.warning(f"Failed to save audio volume cache: {e}")
 
 def quick_blackscreen_check(img, threshold=10):
-    """Fast blackscreen check for zap monitoring (no edge detection needed) - OPTIMIZED"""
+    """Fast blackscreen check for zap monitoring (no edge detection needed)"""
     img_height, img_width = img.shape
     header_y = int(img_height * 0.05)
     split_y = int(img_height * 0.7)
     
     top_region = img[header_y:split_y, :]
-    # Optimized sampling: every 4th pixel (6.25% sample) instead of every 3rd (11%)
-    sample = top_region[::4, ::4]
+    sample = top_region[::3, ::3]
     sample_dark = np.sum(sample <= threshold)
     sample_total = sample.shape[0] * sample.shape[1]
     dark_percentage = (sample_dark / sample_total) * 100
@@ -688,8 +526,6 @@ def analyze_subtitles(image_path, fps=5):
     """
     Analyze subtitle region on full-res capture (1280x720).
     Runs every 1 second (every 5th frame at 5fps, every 2nd frame at 2fps VNC).
-    
-    When OCR_PARALLEL is enabled, this function is called from the worker thread.
     """
     global _subtitle_cache
     
@@ -699,7 +535,10 @@ def analyze_subtitles(image_path, fps=5):
     except:
         return None
     
-    # Check cache first (regardless of sampling interval)
+    sample_interval = fps if fps >= 2 else 2
+    if frame_number % sample_interval != 0:
+        return None
+    
     if image_path in _subtitle_cache:
         cached_mtime, cached_result = _subtitle_cache[image_path]
         try:
@@ -716,7 +555,6 @@ def analyze_subtitles(image_path, fps=5):
         if img is None:
             return None
         
-        # Downscale for faster processing
         resized = cv2.resize(img, (640, 360), interpolation=cv2.INTER_AREA)
         result = analyze_subtitle_region(resized, extract_text=True)
         
@@ -734,80 +572,6 @@ def analyze_subtitles(image_path, fps=5):
         return None
     except Exception as e:
         return {'has_subtitles': False, 'error': str(e)}
-
-def queue_ocr_task(capture_dir, image_path, fps=5, skip_checks=None):
-    """
-    Queue an OCR task for parallel processing - INTELLIGENT QUEUING.
-    Returns immediately, OCR will be processed asynchronously.
-    
-    Args:
-        capture_dir: Device capture directory
-        image_path: Path to image file
-        fps: Frames per second
-        skip_checks: Dict with blackscreen/frozen/audio status for pre-filtering
-    """
-    global _ocr_queue, _ocr_last_run
-    
-    if not OCR_ENABLED or not OCR_PARALLEL:
-        return False
-    
-    # Check if we should run OCR (every OCR_INTERVAL seconds)
-    current_time = time.time()
-    last_run = _ocr_last_run.get(capture_dir, 0)
-    if current_time - last_run < OCR_INTERVAL:
-        return False
-    
-    # PRE-FILTER: Don't queue if skip conditions are met (save queue space)
-    if skip_checks:
-        if skip_checks.get('blackscreen', False):
-            return False  # Don't queue during blackscreen
-        if skip_checks.get('frozen', False):
-            return False  # Don't queue during freeze
-        if skip_checks.get('zap', False):
-            return False  # Don't queue during zap
-    
-    # Update last run time
-    _ocr_last_run[capture_dir] = current_time
-    
-    # Queue task for processing (non-blocking)
-    try:
-        _ocr_queue.put_nowait((capture_dir, image_path, skip_checks))
-        return True
-    except queue.Full:
-        # Queue is full, skip this frame
-        logger.warning(f"OCR queue full, skipping frame for {os.path.basename(capture_dir)}")
-        return False
-
-def get_latest_ocr_result(capture_dir):
-    """
-    Get the latest OCR result for the device.
-    
-    Args:
-        capture_dir: Device capture directory
-        
-    Returns:
-        Tuple (subtitle_result, age_seconds, is_fresh)
-        - subtitle_result: OCR result or None
-        - age_seconds: Age of result in seconds
-        - is_fresh: True if result is less than OCR_INTERVAL*2 seconds old
-    """
-    global _ocr_results
-    
-    if not OCR_ENABLED or not OCR_PARALLEL:
-        return None, 0, False
-    
-    if capture_dir not in _ocr_results:
-        return None, 0, False
-    
-    result_data = _ocr_results[capture_dir]
-    result = result_data.get('result')
-    timestamp = result_data.get('timestamp', 0)
-    
-    current_time = time.time()
-    age_seconds = current_time - timestamp
-    is_fresh = age_seconds < OCR_INTERVAL * 2  # Consider fresh if less than 2x interval
-    
-    return result, age_seconds, is_fresh
 
 def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     """
@@ -1020,15 +784,15 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     header_y = int(img_height * 0.05)  # Skip top 5% (TV time/header)
     split_y = int(img_height * 0.7)     # Blackscreen region: 5-70%
     
-    # === STEP 2: Blackscreen Detection (optimized sampling) ===
+    # === STEP 2: Blackscreen Detection (fast sampling) ===
     start = time.perf_counter()
     # Analyze 5% to 70% (skip header, skip bottom banner)
     top_region = img[header_y:split_y, :]
     
-    # Sample every 4th pixel (6.25% sample) - OPTIMIZED from every 3rd (11%)
+    # Sample every 3rd pixel (11% sample)
     # Threshold = 10 (matches production - accounts for compression artifacts)
     threshold = 10
-    sample = top_region[::4, ::4]
+    sample = top_region[::3, ::3]
     sample_dark = np.sum(sample <= threshold)
     sample_total = sample.shape[0] * sample.shape[1]
     dark_percentage = (sample_dark / sample_total) * 100
@@ -1090,7 +854,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
-    # === STEP 5: Subtitle Detection (PARALLEL or INLINE) ===
+    # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload/audio frame) ===
     subtitle_result = None
     start = time.perf_counter()
     
@@ -1113,115 +877,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     if capture_dir in _audio_result_cache:
         has_audio_cached, _, _, _, _ = _audio_result_cache[capture_dir]
     
-    # === PARALLEL OCR PROCESSING ===
-    # Check if we have a recent OCR result from parallel worker
-    if OCR_ENABLED and OCR_PARALLEL:
-        # Try to get latest OCR result from cache
-        cached_result, age_seconds, is_fresh = get_latest_ocr_result(capture_dir)
-        
-        if cached_result and is_fresh:
-            # Use cached result from parallel OCR worker
-            subtitle_result = cached_result
-            timings['subtitle_area_check'] = 0.0
-            timings['subtitle_ocr'] = 0.0
-            timings['subtitle_cached'] = True
-            timings['subtitle_cache_age'] = age_seconds
-            
-            # Add additional info about parallel processing
-            if isinstance(subtitle_result, dict):
-                subtitle_result['parallel_processed'] = True
-                subtitle_result['parallel_age_seconds'] = round(age_seconds, 1)
-            
-            # Queue next OCR task if needed (non-blocking)
-            if should_check_subtitles and not zap and not frozen and not blackscreen:
-                # Check if subtitle area has edges (quick check)
-                subtitle_y = int(img_height * 0.85)
-                edges_subtitle = edges[subtitle_y:img_height, :]
-                subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-                has_subtitle_area = bool(1.5 < subtitle_edge_density < 8)
-                
-                if has_subtitle_area:
-                    # Pass current state for worker thread validation
-                    skip_checks = {
-                        'blackscreen': blackscreen,
-                        'frozen': frozen,
-                        'zap': zap
-                    }
-                    queue_ocr_task(capture_dir, image_path, fps, skip_checks)
-        else:
-            # No fresh result available - queue OCR task for next time
-            if should_check_subtitles and not zap and not frozen and not blackscreen:
-                # Check if subtitle area has edges (quick check)
-                subtitle_y = int(img_height * 0.85)
-                edges_subtitle = edges[subtitle_y:img_height, :]
-                subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-                has_subtitle_area = bool(1.5 < subtitle_edge_density < 8)
-                
-                if has_subtitle_area:
-                    # Pass current state for worker thread validation
-                    skip_checks = {
-                        'blackscreen': blackscreen,
-                        'frozen': frozen,
-                        'zap': zap
-                    }
-                    was_queued = queue_ocr_task(capture_dir, image_path, fps, skip_checks)
-                    
-                    # Use empty result with status info
-                    subtitle_result = {
-                        'has_subtitles': False,
-                        'extracted_text': '',
-                        'detected_language': None,
-                        'confidence': 0.0,
-                        'box': None,
-                        'ocr_method': None,
-                        'downscaled_to_height': None,
-                        'psm_mode': None,
-                        'subtitle_edge_density': round(subtitle_edge_density, 1),
-                        'skipped': True,
-                        'skip_reason': f'parallel_queued' if was_queued else 'parallel_throttled',
-                        'parallel_processing': True,
-                        'parallel_queued': was_queued
-                    }
-                    timings['subtitle_area_check'] = (time.perf_counter() - start) * 1000
-                    timings['subtitle_ocr'] = 0.0
-                else:
-                    # No subtitle area detected
-                    subtitle_result = {
-                        'has_subtitles': False,
-                        'extracted_text': '',
-                        'detected_language': None,
-                        'confidence': 0.0,
-                        'box': None,
-                        'ocr_method': None,
-                        'downscaled_to_height': None,
-                        'psm_mode': None,
-                        'subtitle_edge_density': round(subtitle_edge_density, 1),
-                        'skipped': True,
-                        'skip_reason': 'no_edges'
-                    }
-                    timings['subtitle_area_check'] = (time.perf_counter() - start) * 1000
-                    timings['subtitle_ocr'] = 0.0
-            else:
-                # Not a subtitle check frame
-                subtitle_result = {
-                    'has_subtitles': False,
-                    'extracted_text': '',
-                    'detected_language': None,
-                    'confidence': 0.0,
-                    'box': None,
-                    'ocr_method': None,
-                    'downscaled_to_height': None,
-                    'psm_mode': None,
-                    'subtitle_edge_density': 0.0,
-                    'skipped': True,
-                    'skip_reason': 'not_sampled_frame'
-                }
-                timings['subtitle_area_check'] = 0.0
-                timings['subtitle_ocr'] = 0.0
-    
-    # === INLINE OCR PROCESSING (Original method) ===
-    # Only run if parallel processing is disabled and we need to check subtitles
-    elif not OCR_ENABLED:
+    if not OCR_ENABLED:
         # OCR globally disabled - skip all OCR operations
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
