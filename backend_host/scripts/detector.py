@@ -21,6 +21,9 @@ from datetime import datetime
 from contextlib import contextmanager
 
 # === CONFIGURATION ===
+# OCR Enable/Disable - Master switch for all OCR operations
+OCR_ENABLED = False  # Set to True to enable OCR subtitle detection
+
 # OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
 OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
 
@@ -678,31 +681,12 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
-    # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload/audio frame) ===
+    # === STEP 5: Subtitle Detection (SKIP if OCR disabled or zap/freeze/queue overload/audio frame) ===
     subtitle_result = None
     start = time.perf_counter()
     
-    sample_interval = fps if fps >= 2 else 2
-    should_check_subtitles = (frame_number % sample_interval == 0)
-    
-    # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
-    # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
-    if capture_dir in _audio_result_cache:
-        last_has_audio, _, _ = _audio_result_cache[capture_dir]
-        audio_check_interval = fps * 5 if last_has_audio else fps * 10
-    else:
-        # First check - use 5s interval
-        audio_check_interval = fps * 5
-    
-    is_audio_frame = (frame_number % audio_check_interval == 0)
-    
-    # Check if we have audio (from cache or will check this frame)
-    has_audio_cached = False
-    if capture_dir in _audio_result_cache:
-        has_audio_cached, _, _ = _audio_result_cache[capture_dir]
-    
-    if is_audio_frame:
-        # Audio analysis frame - skip OCR to spread expensive operations
+    # MASTER SWITCH: Skip OCR entirely if disabled
+    if not OCR_ENABLED:
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
         subtitle_result = {
@@ -716,9 +700,46 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             'psm_mode': None,
             'subtitle_edge_density': 0.0,
             'skipped': True,
-            'skip_reason': 'audio_frame'
+            'skip_reason': 'ocr_disabled_globally'
         }
-    elif not has_audio_cached and capture_dir in _audio_result_cache:
+    else:
+        sample_interval = fps if fps >= 2 else 2
+        should_check_subtitles = (frame_number % sample_interval == 0)
+        
+        # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
+        # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
+        if capture_dir in _audio_result_cache:
+            last_has_audio, _, _ = _audio_result_cache[capture_dir]
+            audio_check_interval = fps * 5 if last_has_audio else fps * 10
+        else:
+            # First check - use 5s interval
+            audio_check_interval = fps * 5
+        
+        is_audio_frame = (frame_number % audio_check_interval == 0)
+        
+        # Check if we have audio (from cache or will check this frame)
+        has_audio_cached = False
+        if capture_dir in _audio_result_cache:
+            has_audio_cached, _, _ = _audio_result_cache[capture_dir]
+        
+        if is_audio_frame:
+            # Audio analysis frame - skip OCR to spread expensive operations
+            timings['subtitle_area_check'] = 0.0
+            timings['subtitle_ocr'] = 0.0
+            subtitle_result = {
+                'has_subtitles': False,
+                'extracted_text': '',
+                'detected_language': None,
+                'confidence': 0.0,
+                'box': None,
+                'ocr_method': None,
+                'downscaled_to_height': None,
+                'psm_mode': None,
+                'subtitle_edge_density': 0.0,
+                'skipped': True,
+                'skip_reason': 'audio_frame'
+            }
+        elif not has_audio_cached and capture_dir in _audio_result_cache:
         # No audio detected (from cache) - skip OCR since no content playing
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
