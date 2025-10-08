@@ -177,59 +177,75 @@ class OptimizedDetector:
                     x, y, w, h = cv2.boundingRect(contour)
                     
                     # Filter criteria for subtitle boxes:
-                    # - Width > 30% of image width (subtitles span screen)
-                    # - Height between 20-150 pixels (text size range)
-                    # - Aspect ratio > 3 (horizontal rectangle)
-                    if w > img_width * 0.3 and 20 < h < 150 and w / h > 3:
+                    # - Width: 30-75% of image width (subtitles, not full-width UI bars)
+                    # - Height: 20-100 pixels (text size range, tighter for speed)
+                    # - Aspect ratio > 5 (horizontal rectangle, strict to avoid UI bars)
+                    if (img_width * 0.3 < w < img_width * 0.75 and 
+                        20 < h < 100 and 
+                        w / h > 5):
                         # Adjust y coordinate to full image space
                         subtitle_boxes.append((x, search_y_start + y, w, h))
                 
+                # Safe area bounds
+                safe_x_min = int(img_width * 0.15)
+                safe_x_max = int(img_width * 0.85)
+                safe_y_min = int(img_height * 0.85)
+                
+                # Check if detected box is inside safe area
                 if subtitle_boxes:
-                    # Take ONLY the lowest box (highest Y coordinate = bottom-most)
-                    # Subtitles are always at the bottom of the screen
                     subtitle_boxes.sort(key=lambda box: box[1], reverse=True)
-                    x, y, w, h = subtitle_boxes[0]  # Lowest box
+                    x, y, w, h = subtitle_boxes[0]
                     
-                    # Extract subtitle box with small padding
-                    padding = 5
-                    x1 = max(0, x - padding)
-                    y1 = max(0, y - padding)
-                    x2 = min(img_width, x + w + padding)
-                    y2 = min(img_height, y + h + padding)
-                    
-                    subtitle_box_region = img[y1:y2, x1:x2]
-                    
-                    # OPTIMIZATION 1: Downscale to target height for faster OCR
-                    # Target height: 80 pixels (good for OCR, faster processing)
-                    box_h, box_w = subtitle_box_region.shape
-                    if box_h > 80:
-                        scale = 80 / box_h
-                        new_w = int(box_w * scale)
-                        subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
-                    
-                    # OPTIMIZATION 2: Fast OCR - multi-line mode
-                    # Use --psm 6 (uniform block of text) for subtitles
-                    try:
-                        import pytesseract
-                        # Enhance contrast for better OCR
-                        enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
-                        _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
-                        
-                        # Multi-line OCR (--psm 6 = uniform block of text)
-                        subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
-                    except:
-                        # Fallback to standard method
-                        subtitle_text = extract_text_from_region(subtitle_box_region)
-                    
-                    timings['subtitle_ocr'] = (time.perf_counter() - start) * 1000
-                    
-                    # Store box info for display
-                    ocr_box_info = f"{w}x{h} at ({x},{y})"
+                    # Use box only if inside safe area
+                    if not (safe_x_min <= x and x + w <= safe_x_max and 
+                            y >= safe_y_min and w <= img_width * 0.70):
+                        # Box outside safe area - use default
+                        x = safe_x_min
+                        y = safe_y_min
+                        w = int(img_width * 0.70)
+                        h = int(img_height * 0.15)
                 else:
-                    # No subtitle boxes found
-                    subtitle_text = None
-                    ocr_box_info = None
-                    timings['subtitle_ocr'] = (time.perf_counter() - start) * 1000
+                    # No box - use default
+                    x = safe_x_min
+                    y = safe_y_min
+                    w = int(img_width * 0.70)
+                    h = int(img_height * 0.15)
+                
+                # Extract subtitle box with small padding
+                padding = 5
+                x1 = max(0, x - padding)
+                y1 = max(0, y - padding)
+                x2 = min(img_width, x + w + padding)
+                y2 = min(img_height, y + h + padding)
+                
+                subtitle_box_region = img[y1:y2, x1:x2]
+                
+                # OPTIMIZATION 1: Downscale to target height for faster OCR
+                # Target height: 80 pixels (good for OCR, faster processing)
+                box_h, box_w = subtitle_box_region.shape
+                if box_h > 80:
+                    scale = 80 / box_h
+                    new_w = int(box_w * scale)
+                    subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
+                
+                # OPTIMIZATION 2: Fast OCR - multi-line mode
+                # Use --psm 6 (uniform block of text) for subtitles
+                try:
+                    import pytesseract
+                    # Enhance contrast for better OCR
+                    enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
+                    _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
+                    
+                    # Multi-line OCR (--psm 6 = uniform block of text)
+                    subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
+                except:
+                    # Fallback to standard method
+                    subtitle_text = extract_text_from_region(subtitle_box_region)
+                
+                timings['subtitle_ocr'] = (time.perf_counter() - start) * 1000
+                
+                # Store box info for display
+                ocr_box_info = f"{w}x{h} at ({x},{y})"
                 
                 # Detect language if text found
                 detected_language = None

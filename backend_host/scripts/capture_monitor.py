@@ -215,6 +215,7 @@ class InotifyFrameMonitor:
             
             # Upload freeze frames to R2 ONCE per freeze event (not every frame)
             # Freeze is confirmed when detector returns 3 matching images
+            freeze_urls_newly_uploaded = False  # Track if URLs are new or cached
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
@@ -254,6 +255,7 @@ class InotifyFrameMonitor:
                             # Replace last_3_thumbnails with R2 URLs (keep last_3_filenames as-is for reference)
                             detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
                             detection_result['r2_images'] = r2_urls
+                            freeze_urls_newly_uploaded = True
                             logger.info(f"[{capture_folder}] 📤 Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails to R2:")
                             for i, url in enumerate(r2_urls['thumbnail_urls']):
                                 logger.info(f"[{capture_folder}]   Thumbnail {i}: {url}")
@@ -280,8 +282,8 @@ class InotifyFrameMonitor:
                         **detection_result  # Include all detection data (freeze, blackscreen, audio, etc.)
                     }
                     
-                    # Debug: Log what we're saving for freeze
-                    if detection_result.get('freeze'):
+                    # Only log detailed URLs when they're newly uploaded (not cached/reused)
+                    if freeze_urls_newly_uploaded and detection_result.get('freeze'):
                         last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                         if last_3_thumbnails and isinstance(last_3_thumbnails, list) and last_3_thumbnails[0].startswith('http'):
                             logger.info(f"[{capture_folder}] 💾 Saving JSON with freeze R2 thumbnail URLs:")

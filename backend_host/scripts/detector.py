@@ -141,9 +141,13 @@ def detect_freeze_dhash(current_img, thumbnails_dir, filename, fps=5):
         
         hash_diffs.append(diff_percentage)
         frames_compared.append(prev_filename)
+        
+        # EARLY EXIT: If difference > 5%, not frozen - stop checking
+        if diff_percentage > 5.0:
+            break
     
-    # Frozen if ALL frames have < 5% difference
-    frozen = len(hash_diffs) >= 3 and all(diff < 5.0 for diff in hash_diffs)
+    # Frozen if ALL checked frames have < 5% difference
+    frozen = len(hash_diffs) >= 2 and all(diff < 5.0 for diff in hash_diffs)
     
     return frozen, {
         'frame_differences': [round(d, 2) for d in hash_diffs],
@@ -549,7 +553,7 @@ def detect_issues(image_path, fps=5):
         if img is None:
             raise Exception("Failed to load image")
         img_height, img_width = img.shape
-        timings['image_load'] = (time.perf_counter() - start) * 1000
+    timings['image_load'] = (time.perf_counter() - start) * 1000
     except Exception as e:
         return {
             'timestamp': datetime.now().isoformat(),
@@ -669,97 +673,107 @@ def detect_issues(image_path, fps=5):
                     x, y, w, h = cv2.boundingRect(contour)
                     
                     # Filter criteria for subtitle boxes:
-                    # - Width > 30% of image width (subtitles span screen)
-                    # - Height between 20-150 pixels (text size range)
-                    # - Aspect ratio > 3 (horizontal rectangle)
-                    if w > img_width * 0.3 and 20 < h < 150 and w / h > 3:
+                    # - Width: 30-75% of image width (subtitles, not full-width UI bars)
+                    # - Height: 20-100 pixels (text size range, tighter for speed)
+                    # - Aspect ratio > 5 (horizontal rectangle, strict to avoid UI bars)
+                    if (img_width * 0.3 < w < img_width * 0.75 and 
+                        20 < h < 100 and 
+                        w / h > 5):
                         # Adjust y coordinate to full image space
                         subtitle_boxes.append((x, search_y_start + y, w, h))
                 
+                # Safe area bounds
+                safe_x_min = int(img_width * 0.15)
+                safe_x_max = int(img_width * 0.85)
+                safe_y_min = int(img_height * 0.85)
+                use_default_area = False
+                
+                # Check if detected box is inside safe area
                 if subtitle_boxes:
-                    # Take ONLY the lowest box (highest Y coordinate = bottom-most)
                     subtitle_boxes.sort(key=lambda box: box[1], reverse=True)
-                    x, y, w, h = subtitle_boxes[0]  # Lowest box
+                    x, y, w, h = subtitle_boxes[0]
                     
-                    # Extract subtitle box with padding
-                    padding = 5
-                    x1 = max(0, x - padding)
-                    y1 = max(0, y - padding)
-                    x2 = min(img_width, x + w + padding)
-                    y2 = min(img_height, y + h + padding)
-                    
-                    subtitle_box_region = img[y1:y2, x1:x2]
-                    
-                    # OPTIMIZATION: Downscale to 80px height for faster OCR
-                    box_h, box_w = subtitle_box_region.shape
-                    downscaled_height = box_h
-                    if box_h > 80:
-                        scale = 80 / box_h
-                        new_w = int(box_w * scale)
-                        subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
-                        downscaled_height = 80
-                    
-                    # Fast OCR - multi-line mode
-                    try:
-                        import pytesseract
-                        # Enhance contrast for better OCR
-                        enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
-                        _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
-                        
-                        # Multi-line OCR (--psm 6 = uniform block of text)
-                        subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
-                    except:
-                        # Fallback to standard method
-                        from shared.src.lib.utils.image_utils import extract_text_from_region
-                        subtitle_text = extract_text_from_region(subtitle_box_region)
-                    
-                    # Detect language if text found
-                    detected_language = None
-                    confidence = 0.0
-                    
-                    if subtitle_text and len(subtitle_text.strip()) > 0:
-                        try:
-                            from shared.src.lib.utils.image_utils import detect_language
-                            detected_language = detect_language(subtitle_text)
-                            
-                            # If language detected successfully, trust the OCR
-                            if detected_language and detected_language != 'unknown':
-                                confidence = 1.0
-                            else:
-                                # Language unknown but text extracted - medium confidence
-                                confidence = 0.75
-                        except:
-                            detected_language = 'unknown'
-                            confidence = 0.75
-                    
-                    subtitle_result = {
-                        'has_subtitles': bool(subtitle_text and len(subtitle_text.strip()) > 0),
-                        'extracted_text': subtitle_text if subtitle_text else '',
-                        'detected_language': detected_language,
-                        'confidence': confidence,
-                        'box': {'x': x, 'y': y, 'width': w, 'height': h},
-                        'ocr_method': 'edge_based_box_detection',
-                        'downscaled_to_height': downscaled_height,
-                        'psm_mode': 6,
-                        'subtitle_edge_density': round(subtitle_edge_density, 1),
-                        'skipped': False,
-                        'skip_reason': None
-                    }
+                    # Use box only if inside safe area
+                    if not (safe_x_min <= x and x + w <= safe_x_max and 
+                            y >= safe_y_min and w <= img_width * 0.70):
+                        # Box outside safe area - use default
+                        x = safe_x_min
+                        y = safe_y_min
+                        w = int(img_width * 0.70)
+                        h = int(img_height * 0.15)
+                        use_default_area = True
                 else:
-                    # No subtitle boxes found
-                    subtitle_result = {
-                        'has_subtitles': False,
-                        'extracted_text': '',
-                        'detected_language': None,
-                        'confidence': 0.0,
-                        'box': None,
-                        'ocr_method': 'edge_based_box_detection',
-                        'downscaled_to_height': None,
-                        'psm_mode': None,
-                        'subtitle_edge_density': round(subtitle_edge_density, 1),
-                        'skipped': False,
-                        'skip_reason': 'no_boxes_found'
-                    }
+                    # No box - use default
+                    x = safe_x_min
+                    y = safe_y_min
+                    w = int(img_width * 0.70)
+                    h = int(img_height * 0.15)
+                    use_default_area = True
+                
+                # Extract subtitle box with small padding
+                padding = 5
+                x1 = max(0, x - padding)
+                y1 = max(0, y - padding)
+                x2 = min(img_width, x + w + padding)
+                y2 = min(img_height, y + h + padding)
+                
+                subtitle_box_region = img[y1:y2, x1:x2]
+                
+                # OPTIMIZATION: Downscale to 80px height for faster OCR
+                box_h, box_w = subtitle_box_region.shape
+                downscaled_height = box_h
+                if box_h > 80:
+                    scale = 80 / box_h
+                    new_w = int(box_w * scale)
+                    subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
+                    downscaled_height = 80
+                
+                # Fast OCR - multi-line mode
+                try:
+                    import pytesseract
+                    # Enhance contrast for better OCR
+                    enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
+                    _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
+                    
+                    # Multi-line OCR (--psm 6 = uniform block of text)
+                    subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
+                except:
+                    # Fallback to standard method
+                    from shared.src.lib.utils.image_utils import extract_text_from_region
+                    subtitle_text = extract_text_from_region(subtitle_box_region)
+                
+                # Detect language if text found
+                detected_language = None
+                confidence = 0.0
+                
+                if subtitle_text and len(subtitle_text.strip()) > 0:
+                    try:
+                        from shared.src.lib.utils.image_utils import detect_language
+                        detected_language = detect_language(subtitle_text)
+                        
+                        # If language detected successfully, trust the OCR
+                        if detected_language and detected_language != 'unknown':
+                            confidence = 1.0
+                        else:
+                            # Language unknown but text extracted - medium confidence
+                            confidence = 0.75
+                    except:
+                        detected_language = 'unknown'
+                        confidence = 0.75
+                
+                subtitle_result = {
+                    'has_subtitles': bool(subtitle_text and len(subtitle_text.strip()) > 0),
+                    'extracted_text': subtitle_text if subtitle_text else '',
+                    'detected_language': detected_language,
+                    'confidence': confidence,
+                    'box': {'x': x, 'y': y, 'width': w, 'height': h},
+                    'ocr_method': 'edge_based' if not use_default_area else 'default_safe_area',
+                    'downscaled_to_height': downscaled_height,
+                    'psm_mode': 6,
+                    'subtitle_edge_density': round(subtitle_edge_density, 1),
+                    'skipped': False,
+                    'skip_reason': None
+                }
                 
                 timings['subtitle_ocr'] = (time.perf_counter() - ocr_start) * 1000
             except Exception as e:

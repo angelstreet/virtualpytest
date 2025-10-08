@@ -12,6 +12,7 @@ import { getZIndex } from '../../utils/zIndexUtils';
 import { buildServerUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
+import { AIImageQueryModal } from '../monitoring';
 
 import { RecStreamModalHeader } from './RecStreamModalHeader';
 import { RecStreamContainer } from './RecStreamContainer';
@@ -96,6 +97,10 @@ const RecHostStreamModalContent: React.FC<{
     setDisambiguationResolve(() => resolve);
     setDisambiguationCancel(() => cancel);
   }, []);
+
+  // AI Image Query state
+  const [isImageQueryVisible, setIsImageQueryVisible] = useState(false);
+  const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
 
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
@@ -559,6 +564,32 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [host.host_name, device?.device_id, showError]);
 
+  // Handle AI Image Query - capture screenshot and show modal
+  const handleAIImageQuery = useCallback(async () => {
+    if (!monitoringMode) return;
+    
+    try {
+      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          device_id: device?.device_id || 'device1'
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success && result.screenshot_url) {
+        setCapturedImageUrl(result.screenshot_url);
+        setIsImageQueryVisible(true);
+      } else {
+        showError(`Screenshot failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      showError('Failed to capture frame');
+    }
+  }, [host.host_name, device?.device_id, showError, monitoringMode]);
+
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {
     const model = device?.device_model;
@@ -704,6 +735,7 @@ const RecHostStreamModalContent: React.FC<{
           isDesktopDevice={isDesktopDevice}
           hasPowerControl={!!hasPowerControl}
           onScreenshot={handleScreenshot}
+          onAIImageQuery={handleAIImageQuery}
           onToggleLiveMode={handleToggleLiveMode}
           onQualityChange={handleQualityChange}
           onToggleMute={() => setIsMuted((prev) => !prev)}
@@ -804,6 +836,15 @@ const RecHostStreamModalContent: React.FC<{
           }}
         />
       )}
+
+      {/* AI Image Query Modal */}
+      <AIImageQueryModal
+        isVisible={isImageQueryVisible}
+        imageUrl={capturedImageUrl}
+        host={host}
+        device={device!}
+        onClose={() => setIsImageQueryVisible(false)}
+      />
     </Box>
   );
 };

@@ -174,11 +174,12 @@ def analyze_macroblocks(image_path: str) -> Tuple[bool, float]:
     
     Returns:
         Tuple of (macroblocks_detected, quality_score)
+        quality_score: 0-5 scale (5 = excellent, 0 = terrible)
     """
     try:
         img = cv2.imread(image_path)
         if img is None:
-            return False, 0.0
+            return False, 5.0  # No image = assume good quality
         
         # Convert to different color spaces for analysis
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -217,13 +218,38 @@ def analyze_macroblocks(image_path: str) -> Tuple[bool, float]:
         else:
             macroblocks_detected = False
         
-        quality_score = max(artifact_percentage, (200 - laplacian_var) / 2) if macroblocks_detected else 0.0
+        # Calculate quality score on 0-5 scale (5 = best, 0 = worst)
+        if not macroblocks_detected:
+            # No issues detected - excellent quality
+            quality_score = 5.0
+        else:
+            # Calculate badness score (higher = worse quality)
+            badness_from_artifacts = artifact_percentage  # 0-100 range
+            badness_from_blur = max(0, (200 - laplacian_var) / 2)  # 0-100 range
+            badness_score = max(badness_from_artifacts, badness_from_blur)
+            
+            # Convert badness (0-100) to quality score (5-0)
+            # Badness 0-10 → Quality 5-4 (excellent-good)
+            # Badness 10-25 → Quality 4-3 (good-fair)
+            # Badness 25-50 → Quality 3-2 (fair-poor)
+            # Badness 50-75 → Quality 2-1 (poor-bad)
+            # Badness 75-100+ → Quality 1-0 (bad-terrible)
+            if badness_score < 10:
+                quality_score = 5.0 - (badness_score / 10)  # 5.0 to 4.0
+            elif badness_score < 25:
+                quality_score = 4.0 - ((badness_score - 10) / 15)  # 4.0 to 3.0
+            elif badness_score < 50:
+                quality_score = 3.0 - ((badness_score - 25) / 25)  # 3.0 to 2.0
+            elif badness_score < 75:
+                quality_score = 2.0 - ((badness_score - 50) / 25)  # 2.0 to 1.0
+            else:
+                quality_score = max(0.0, 1.0 - ((badness_score - 75) / 25))  # 1.0 to 0.0
         
         return macroblocks_detected, quality_score
         
     except Exception as e:
         print(f"[@image_utils] Error in macroblocks detection: {e}")
-        return False, 0.0
+        return False, 5.0  # Error = assume good quality
 
 
 # =============================================================================

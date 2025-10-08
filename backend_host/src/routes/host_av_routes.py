@@ -12,6 +12,7 @@ These endpoints run on the host and use the host's own stored device object.
 from flask import Blueprint, request, jsonify, current_app, send_file
 from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
 import os
+import shutil
 import time
 
 # Create blueprint
@@ -248,6 +249,25 @@ def take_screenshot():
                 'success': False,
                 'error': 'Failed to take temporary screenshot - controller returned None'
             }), 500
+        
+        # Copy from HOT to COLD storage if needed (for AI access)
+        if '/hot/' in screenshot_path:
+            from shared.src.lib.utils.storage_path_utils import get_capture_folder, get_cold_storage_path
+            
+            # Extract device folder and filename
+            device_folder = get_capture_folder(screenshot_path)
+            filename = os.path.basename(screenshot_path)
+            
+            # Build cold path using centralized utility
+            cold_captures_path = get_cold_storage_path(device_folder, 'captures')
+            cold_path = os.path.join(cold_captures_path, filename)
+            
+            # Copy to cold storage
+            os.makedirs(cold_captures_path, exist_ok=True)
+            if os.path.exists(screenshot_path):
+                shutil.copy2(screenshot_path, cold_path)
+                screenshot_path = cold_path
+                print(f"[@route:host_av:takeScreenshot] Copied screenshot from HOT to COLD: {cold_path}")
         
         time.sleep(0.5)
         

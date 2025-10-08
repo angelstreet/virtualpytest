@@ -39,6 +39,7 @@ interface RecStreamModalHeaderProps {
 
   // Handlers
   onScreenshot: () => void;
+  onAIImageQuery?: () => void;
   onToggleLiveMode: () => void;
   onQualityChange: (event: React.MouseEvent<HTMLElement>, newQuality: 'low' | 'sd' | 'hd' | null) => void;
   onToggleMute: () => void;
@@ -68,6 +69,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
   isDesktopDevice,
   hasPowerControl,
   onScreenshot,
+  onAIImageQuery,
   onToggleLiveMode,
   onQualityChange,
   onToggleMute,
@@ -108,6 +110,21 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             title="Take Screenshot (opens in new tab)"
           >
             <CameraIcon />
+          </IconButton>
+        )}
+
+        {/* AI Image Query Button - only in monitoring mode */}
+        {monitoringMode && onAIImageQuery && (
+          <IconButton
+            onClick={onAIImageQuery}
+            sx={{ 
+              color: 'rgba(0,150,255,0.8)', 
+              '&:hover': { color: 'rgba(0,150,255,1)' } 
+            }}
+            aria-label="Ask AI about frame"
+            title="Ask AI about current frame"
+          >
+            <AIIcon />
           </IconButton>
         )}
 
