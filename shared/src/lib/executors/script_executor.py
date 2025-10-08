@@ -166,12 +166,21 @@ class ScriptExecutionContext:
                 for idx, url in already_uploaded:
                     updated_paths[idx] = url
                 
-                # Place successfully uploaded files
+                # Place successfully uploaded files and delete local copies
                 for uploaded_file in upload_result['uploaded_files']:
                     original_idx = path_to_index[uploaded_file['local_path']]
                     updated_paths[original_idx] = uploaded_file['url']
                     # Build mapping: local -> R2 URL
                     url_mapping[uploaded_file['local_path']] = uploaded_file['url']
+                    
+                    # Delete local file from cold storage after successful upload
+                    local_path = uploaded_file['local_path']
+                    try:
+                        if os.path.exists(local_path):
+                            os.remove(local_path)
+                            print(f"🗑️  [Context] Deleted local file after upload: {os.path.basename(local_path)}")
+                    except Exception as e:
+                        print(f"⚠️ [Context] Failed to delete local file {os.path.basename(local_path)}: {e}")
                 
                 # Place failed uploads (keep original path)
                 for failed_file in upload_result['failed_uploads']:

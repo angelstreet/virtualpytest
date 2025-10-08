@@ -553,7 +553,7 @@ def detect_issues(image_path, fps=5):
         if img is None:
             raise Exception("Failed to load image")
         img_height, img_width = img.shape
-    timings['image_load'] = (time.perf_counter() - start) * 1000
+        timings['image_load'] = (time.perf_counter() - start) * 1000
     except Exception as e:
         return {
             'timestamp': datetime.now().isoformat(),
