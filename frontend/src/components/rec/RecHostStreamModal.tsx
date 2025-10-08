@@ -158,7 +158,7 @@ const RecHostStreamModalContent: React.FC<{
 
     // Use fixed stream area (mobile overlay always shows with remote panel = 20%)
     const streamAreaWidth = modalWidth * 0.80;
-    const streamAreaHeight = modalHeight - actualHeaderHeight + timelineHeight;
+    const streamAreaHeight = modalHeight - actualHeaderHeight;
 
     // Modal position (centered)
     const modalX = (windowWidth - modalWidth) / 2;
