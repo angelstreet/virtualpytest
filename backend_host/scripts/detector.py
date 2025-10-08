@@ -917,7 +917,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
     # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
     if capture_dir in _audio_result_cache:
-        last_has_audio, _, _ = _audio_result_cache[capture_dir]
+        last_has_audio, _, _, _, _ = _audio_result_cache[capture_dir]
         audio_check_interval = fps * 5 if last_has_audio else fps * 10
     else:
         # First check - use 5s interval
@@ -928,7 +928,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # Check if we have audio (from cache or will check this frame)
     has_audio_cached = False
     if capture_dir in _audio_result_cache:
-        has_audio_cached, _, _ = _audio_result_cache[capture_dir]
+        has_audio_cached, _, _, _, _ = _audio_result_cache[capture_dir]
     
     if not OCR_ENABLED:
         # OCR globally disabled - skip all OCR operations
