@@ -299,7 +299,8 @@ class NavigationExecutor:
                 # Verify we're actually at this node (context may be corrupted)
                 verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
                 
-                if verification_result.get('success'):
+                # Only trust verification if verifications are defined AND passed
+                if verification_result.get('success') and verification_result.get('has_verifications', True):
                     print(f"[@navigation_executor:execute_navigation] ✅ Verified at target '{target_node_label or target_node_id}' - no navigation needed")
                     # Store verification timestamp for caching
                     nav_context['last_verified_timestamp'] = time.time()
@@ -321,6 +322,12 @@ class NavigationExecutor:
                         unified_pathfinding_used=True,
                         navigation_path=[]
                     )
+                elif not verification_result.get('has_verifications', True):
+                    print(f"[@navigation_executor:execute_navigation] ⚠️ No verifications defined for target node - cannot verify position, proceeding with navigation from entry")
+                    # Clear position since we can't verify
+                    nav_context['current_node_id'] = None
+                    nav_context['current_node_label'] = None
+                    nav_context['last_verified_timestamp'] = 0
                 else:
                     print(f"[@navigation_executor:execute_navigation] ⚠️ Verification failed - context corrupted, proceeding with navigation")
                     # Clear corrupted position and verification timestamp
@@ -336,7 +343,9 @@ class NavigationExecutor:
                 if is_home_target:
                     print(f"[@navigation_executor:execute_navigation] 🏠 No current position + target is HOME - verifying if already at home to avoid expensive entry flow")
                     verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
-                    if verification_result.get('success'):
+                    
+                    # Only skip entry flow if verifications exist AND passed
+                    if verification_result.get('success') and verification_result.get('has_verifications', True):
                         print(f"[@navigation_executor:execute_navigation] ✅ Already at home '{target_node_label or target_node_id}' - skipping systematic entry flow")
                         nav_context['last_verified_timestamp'] = time.time()
                         self.update_current_position(target_node_id, tree_id, target_node_label)
@@ -355,13 +364,17 @@ class NavigationExecutor:
                             unified_pathfinding_used=True,
                             navigation_path=[]
                         )
+                    elif not verification_result.get('has_verifications', True):
+                        print(f"[@navigation_executor:execute_navigation] No verifications defined for home node - cannot verify, proceeding with systematic entry flow")
                     else:
                         print(f"[@navigation_executor:execute_navigation] Not at home - proceeding with systematic entry flow")
                 else:
                     # Not home target - quick check if already at destination
                     print(f"[@navigation_executor:execute_navigation] No current position - checking if already at target '{target_node_label or target_node_id}'")
                     verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
-                    if verification_result.get('success'):
+                    
+                    # Only skip navigation if verifications exist AND passed
+                    if verification_result.get('success') and verification_result.get('has_verifications', True):
                         print(f"[@navigation_executor:execute_navigation] ✅ Already at target '{target_node_label or target_node_id}' - no navigation needed")
                         nav_context['last_verified_timestamp'] = time.time()
                         self.update_current_position(target_node_id, tree_id, target_node_label)
@@ -379,6 +392,10 @@ class NavigationExecutor:
                             unified_pathfinding_used=True,
                             navigation_path=[]
                         )
+                    elif not verification_result.get('has_verifications', True):
+                        print(f"[@navigation_executor:execute_navigation] ⚠️ No verifications defined for '{target_node_label or target_node_id}' - cannot verify position, proceeding with navigation from entry")
+                    else:
+                        print(f"[@navigation_executor:execute_navigation] Not at target '{target_node_label or target_node_id}' - proceeding with navigation from entry")
             else:
                 # Positions don't match - proceed with navigation
                 print(f"[@navigation_executor:execute_navigation] Current position ({current_position}) != target ({target_node_id}) - proceeding with navigation")

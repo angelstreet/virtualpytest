@@ -341,7 +341,7 @@ class VerificationExecutor:
             
             if not verifications:
                 print(f"[@lib:verification_executor:verify_node] No verifications for node {node_id}")
-                return {'success': True, 'message': 'No verifications to execute', 'results': []}
+                return {'success': False, 'has_verifications': False, 'message': 'No verifications defined - cannot verify position', 'results': []}
             
             print(f"[@lib:verification_executor:verify_node] Executing {len(verifications)} verifications for node {node_id}")
             
