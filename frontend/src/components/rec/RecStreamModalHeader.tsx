@@ -168,7 +168,12 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
               <LiveIcon sx={{ fontSize: 16, mr: 0.5 }} />
               Live
             </ToggleButton>
-            <ToggleButton value="restart" aria-label="Restart mode">
+            <ToggleButton 
+              value="restart" 
+              aria-label="Restart mode"
+              disabled={isControlActive}
+              title={isControlActive ? "Release control to switch to Last 24h mode" : "Last 24h Archive Mode"}
+            >
               <ArchiveIcon sx={{ fontSize: 16, mr: 0.5 }} />
               Last 24h
             </ToggleButton>
@@ -290,7 +295,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           variant={isControlActive ? 'contained' : 'outlined'}
           size="small"
           onClick={onToggleControl}
-          disabled={isControlLoading}
+          disabled={isControlLoading || !isLiveMode}
           startIcon={isControlLoading ? <CircularProgress size={16} /> : <TvIcon />}
           color={isControlActive ? 'success' : 'primary'}
           sx={{
@@ -299,11 +304,13 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             color: isControlActive ? 'white' : 'inherit',
           }}
           title={
-            isControlLoading
-              ? 'Processing...'
-              : isControlActive
-                ? 'Release Control'
-                : 'Take Control'
+            !isLiveMode
+              ? 'Switch to Live mode to take control'
+              : isControlLoading
+                ? 'Processing...'
+                : isControlActive
+                  ? 'Release Control'
+                  : 'Take Control'
           }
         >
           {isControlLoading
@@ -323,7 +330,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           variant={restartMode ? 'contained' : 'outlined'}
           size="small"
           onClick={onToggleRestart}
-          disabled={!isControlActive}
+          disabled={!isControlActive || !isLiveMode}
           startIcon={<RefreshIcon />}
           color={restartMode ? 'secondary' : 'primary'}
           sx={{
@@ -332,11 +339,13 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             color: restartMode ? 'white' : 'inherit',
           }}
           title={
-            !isControlActive
-              ? 'Take control first to enable restart mode'
-              : restartMode
-                ? 'Disable Restart Player'
-                : 'Enable Restart Player'
+            !isLiveMode
+              ? 'Only available in Live mode'
+              : !isControlActive
+                ? 'Take control first to enable restart mode'
+                : restartMode
+                  ? 'Disable Restart Player'
+                  : 'Enable Restart Player'
           }
         >
           {restartMode ? 'Stop Restart' : 'Restart'}
@@ -347,7 +356,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           variant={aiAgentMode ? 'contained' : 'outlined'}
           size="small"
           onClick={onToggleAiAgent}
-          disabled={!isControlActive}
+          disabled={!isControlActive || !isLiveMode}
           startIcon={<AIIcon />}
           color={aiAgentMode ? 'info' : 'primary'}
           sx={{
@@ -356,11 +365,13 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             color: aiAgentMode ? 'white' : 'inherit',
           }}
           title={
-            !isControlActive
-              ? 'Take control first to enable AI agent'
-              : aiAgentMode
-                ? 'Disable AI Agent'
-                : 'Enable AI Agent'
+            !isLiveMode
+              ? 'Only available in Live mode'
+              : !isControlActive
+                ? 'Take control first to enable AI agent'
+                : aiAgentMode
+                  ? 'Disable AI Agent'
+                  : 'Enable AI Agent'
           }
         >
           {aiAgentMode ? 'Stop AI Agent' : 'AI Agent'}
@@ -372,7 +383,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             variant={showWeb ? 'contained' : 'outlined'}
             size="small"
             onClick={onToggleWeb}
-            disabled={!isControlActive}
+            disabled={!isControlActive || !isLiveMode}
             startIcon={<WebIcon />}
             color={showWeb ? 'secondary' : 'primary'}
             sx={{
@@ -381,11 +392,13 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
               color: showWeb ? 'white' : 'inherit',
             }}
             title={
-              !isControlActive
-                ? 'Take control first to use web automation'
-                : showWeb
-                  ? 'Hide Web'
-                  : 'Show Web '
+              !isLiveMode
+                ? 'Only available in Live mode'
+                : !isControlActive
+                  ? 'Take control first to use web automation'
+                  : showWeb
+                    ? 'Hide Web'
+                    : 'Show Web '
             }
           >
             {showWeb ? 'Hide Web' : 'Show Web'}
@@ -397,18 +410,20 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           variant="outlined"
           size="small"
           onClick={onToggleRemote}
-          disabled={!isControlActive}
+          disabled={!isControlActive || !isLiveMode}
           sx={{
             fontSize: '0.75rem',
             minWidth: 100,
             color: 'inherit',
           }}
           title={
-            !isControlActive
-              ? `Take control first to use ${isDesktopDevice ? 'terminal' : 'remote'}`
-              : showRemote
-                ? `Hide ${isDesktopDevice ? 'Terminal' : 'Remote'}`
-                : `Show ${isDesktopDevice ? 'Terminal' : 'Remote'}`
+            !isLiveMode
+              ? 'Only available in Live mode'
+              : !isControlActive
+                ? `Take control first to use ${isDesktopDevice ? 'terminal' : 'remote'}`
+                : showRemote
+                  ? `Hide ${isDesktopDevice ? 'Terminal' : 'Remote'}`
+                  : `Show ${isDesktopDevice ? 'Terminal' : 'Remote'}`
           }
         >
           {showRemote
