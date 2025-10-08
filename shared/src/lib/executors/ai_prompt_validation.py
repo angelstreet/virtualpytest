@@ -101,6 +101,21 @@ def is_valid_potential_node(phrase: str) -> bool:
     return True
 
 
+def get_similarity_score(s1: str, s2: str) -> float:
+    """
+    Get similarity ratio between two strings (0.0-1.0).
+    
+    Args:
+        s1: First string
+        s2: Second string
+    
+    Returns:
+        Similarity ratio (1.0 = identical, 0.0 = completely different)
+    """
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, s1.lower(), s2.lower()).ratio()
+
+
 # =============================================================================
 # FUZZY MATCHING UTILITIES
 # =============================================================================
@@ -269,7 +284,15 @@ def preprocess_prompt(prompt: str, available_nodes: List[str],
         # Find fuzzy matches (THIRD PRIORITY)
         matches = find_fuzzy_matches(phrase, available_nodes, max_results=2, cutoff=0.6)
         
-        if len(matches) == 1:
+        # High confidence (90%+)? Auto-correct even with multiple matches
+        if len(matches) > 0 and get_similarity_score(phrase, matches[0]) >= 0.9:
+            auto_corrections.append({
+                'from': phrase,
+                'to': matches[0],
+                'source': 'fuzzy'
+            })
+            print(f"[@ai_prompt_validation:preprocess] Fuzzy auto-correct (high confidence 90%+): '{phrase}' → '{matches[0]}'")
+        elif len(matches) == 1:
             # Single high-confidence match → auto-correct
             auto_corrections.append({
                 'from': phrase,
@@ -405,7 +428,14 @@ def validate_plan(plan: Dict, available_nodes: List[str],
         # Find fuzzy suggestions (max 2 with higher quality threshold)
         suggestions = find_fuzzy_matches(target, available_nodes, max_results=2, cutoff=0.6)
         
-        if len(suggestions) == 1:
+        # High confidence (90%+)? Auto-fix even with multiple matches
+        if len(suggestions) > 0 and get_similarity_score(target, suggestions[0]) >= 0.9:
+            step['params']['target_node'] = suggestions[0]
+            if 'description' in step:
+                step['description'] = suggestions[0]
+            modified = True
+            print(f"[@ai_prompt_validation:validate] Auto-fixed (fuzzy, high confidence 90%+): '{target}' → '{suggestions[0]}'")
+        elif len(suggestions) == 1:
             # Single match → auto-fix
             step['params']['target_node'] = suggestions[0]
             if 'description' in step:

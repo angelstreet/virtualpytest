@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Simple OCR test script - extracts and tests subtitle OCR
+OCR Comparison Test - Tesseract vs PaddleOCR
 
 Usage:
     python test_ocr.py subtitles.jpg
-    python test_ocr.py subtitles.jpg --debug  # Saves cropped images
+    python test_ocr.py subtitles.jpg --paddle-only  # Test only PaddleOCR
+    python test_ocr.py subtitles.jpg --tesseract-only  # Test only Tesseract
+    python test_ocr.py subtitles.jpg --debug  # Extra debug output
 
-Always saves debug crops to see exactly what OCR is processing.
+Tests both OCR engines with smart and safe cropping methods.
 """
 
 import cv2
@@ -14,8 +16,9 @@ import numpy as np
 import os
 import sys
 import time
+import traceback
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 import re
 
 # Add project root to Python path for shared module
@@ -24,10 +27,18 @@ sys.path.insert(0, str(project_root))
 
 # === CONFIGURATION ===
 # OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
-OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
+OCR_CROP_METHOD = 'safe'  # Default to safe area for reliability
+
+# OCR Engines to test: 'tesseract', 'paddle', or 'both'
+OCR_ENGINES = 'both'  # Will be overridden by command line args
 
 # Import the smart cropping algorithm
-from crop_subtitles import find_subtitle_bbox
+try:
+    from crop_subtitles import find_subtitle_bbox
+    SMART_CROP_AVAILABLE = True
+except ImportError as e:
+    SMART_CROP_AVAILABLE = False
+    print(f"⚠️  Warning: Smart crop not available: {e}")
 
 def clean_ocr_noise(text: str) -> str:
     """
@@ -58,6 +69,170 @@ def clean_ocr_noise(text: str) -> str:
             cleaned_lines.append(cleaned)
     
     return '\n'.join(cleaned_lines).strip()
+
+
+def diagnose_environment():
+    """Diagnose the environment for OCR dependencies"""
+    print(f"\n{'='*70}")
+    print(f"🔧 ENVIRONMENT DIAGNOSTICS")
+    print(f"{'='*70}\n")
+    
+    diagnostics = {
+        'python_version': sys.version,
+        'cv2_available': False,
+        'numpy_available': False,
+        'tesseract_available': False,
+        'paddle_available': False,
+        'crop_subtitles_available': SMART_CROP_AVAILABLE,
+    }
+    
+    # Check OpenCV
+    try:
+        import cv2
+        diagnostics['cv2_available'] = True
+        diagnostics['cv2_version'] = cv2.__version__
+    except ImportError:
+        pass
+    
+    # Check NumPy
+    try:
+        import numpy as np
+        diagnostics['numpy_available'] = True
+        diagnostics['numpy_version'] = np.__version__
+    except ImportError:
+        pass
+    
+    # Check Tesseract
+    try:
+        import pytesseract
+        diagnostics['tesseract_available'] = True
+        version = pytesseract.get_tesseract_version()
+        diagnostics['tesseract_version'] = str(version)
+    except (ImportError, Exception) as e:
+        diagnostics['tesseract_error'] = str(e)
+    
+    # Check PaddleOCR
+    try:
+        from paddleocr import PaddleOCR
+        diagnostics['paddle_available'] = True
+        diagnostics['paddle_note'] = 'Installed (version check requires init)'
+    except ImportError as e:
+        diagnostics['paddle_error'] = str(e)
+    
+    # Print diagnostics
+    print("Python Environment:")
+    print(f"  Version: {sys.version.split()[0]}")
+    print(f"  Executable: {sys.executable}")
+    
+    print("\nDependencies:")
+    for key, value in sorted(diagnostics.items()):
+        if key.endswith('_available'):
+            lib = key.replace('_available', '')
+            status = "✓ Available" if value else "✗ Not available"
+            print(f"  {lib}: {status}")
+            if value and f'{lib}_version' in diagnostics:
+                print(f"    Version: {diagnostics[f'{lib}_version']}")
+            if not value and f'{lib}_error' in diagnostics:
+                print(f"    Error: {diagnostics[f'{lib}_error']}")
+    
+    print("\nSmart Crop:")
+    print(f"  Status: {'✓ Available' if SMART_CROP_AVAILABLE else '✗ Not available'}")
+    if not SMART_CROP_AVAILABLE:
+        print(f"  Reason: crop_subtitles.py import failed")
+        print(f"  Impact: Will use safe area cropping only")
+    
+    return diagnostics
+
+
+def test_tesseract_ocr(crop_img: np.ndarray, config: str = '--psm 6 --oem 3 -l eng+fra+ita+deu+spa') -> Dict[str, Any]:
+    """Test Tesseract OCR on cropped image"""
+    try:
+        import pytesseract
+        
+        start = time.perf_counter()
+        text_raw = pytesseract.image_to_string(crop_img, config=config).strip()
+        ocr_time = (time.perf_counter() - start) * 1000
+        text_clean = clean_ocr_noise(text_raw)
+        
+        return {
+            'success': True,
+            'engine': 'tesseract',
+            'text_raw': text_raw,
+            'text_clean': text_clean,
+            'time_ms': ocr_time,
+            'config': config,
+        }
+    except ImportError:
+        return {
+            'success': False,
+            'engine': 'tesseract',
+            'error': 'pytesseract not installed',
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'engine': 'tesseract',
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+        }
+
+
+def test_paddle_ocr(crop_img: np.ndarray, use_angle_cls: bool = True, lang: str = 'en') -> Dict[str, Any]:
+    """Test PaddleOCR on cropped image"""
+    try:
+        from paddleocr import PaddleOCR
+        
+        # Initialize PaddleOCR (this takes time on first run)
+        init_start = time.perf_counter()
+        ocr = PaddleOCR(use_angle_cls=use_angle_cls, lang=lang, show_log=False)
+        init_time = (time.perf_counter() - init_start) * 1000
+        
+        # Run OCR
+        start = time.perf_counter()
+        result = ocr.ocr(crop_img, cls=use_angle_cls)
+        ocr_time = (time.perf_counter() - start) * 1000
+        
+        # Extract text from result
+        # PaddleOCR returns: [[[box], (text, confidence)], ...]
+        text_lines = []
+        confidences = []
+        
+        if result and result[0]:
+            for line in result[0]:
+                if line and len(line) >= 2:
+                    text, conf = line[1]
+                    text_lines.append(text)
+                    confidences.append(conf)
+        
+        text_raw = '\n'.join(text_lines)
+        text_clean = clean_ocr_noise(text_raw)
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+        
+        return {
+            'success': True,
+            'engine': 'paddle',
+            'text_raw': text_raw,
+            'text_clean': text_clean,
+            'time_ms': ocr_time,
+            'init_time_ms': init_time,
+            'confidence': avg_confidence,
+            'num_lines': len(text_lines),
+            'config': f'angle_cls={use_angle_cls}, lang={lang}',
+        }
+    except ImportError as e:
+        return {
+            'success': False,
+            'engine': 'paddle',
+            'error': f'PaddleOCR not installed: {e}',
+            'install_hint': 'pip install paddlepaddle paddleocr',
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'engine': 'paddle',
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+        }
 
 def test_ocr_on_image(image_path, save_crops=True):
     """
