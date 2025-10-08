@@ -263,10 +263,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         
         // Track maximum buffer size (DVR window) - only increase, never decrease
         // This represents the maximum seekable range, not the instantaneous buffered range
-        if (totalBuffer > maxBufferSecondsRef.current) {
-          maxBufferSecondsRef.current = totalBuffer;
-          setLiveBufferSeconds(totalBuffer);
-          console.log(`[@EnhancedHLSPlayer] Buffer growing: ${totalBuffer.toFixed(1)}s`);
+        // Cap at 150s since that's our live slider maximum range
+        if (totalBuffer > maxBufferSecondsRef.current && maxBufferSecondsRef.current < 150) {
+          const cappedBuffer = Math.min(totalBuffer, 150);
+          maxBufferSecondsRef.current = cappedBuffer;
+          setLiveBufferSeconds(cappedBuffer);
+          console.log(`[@EnhancedHLSPlayer] Buffer growing: ${cappedBuffer.toFixed(1)}s`);
         }
         
         if (atLiveEdge !== isAtLiveEdge) {

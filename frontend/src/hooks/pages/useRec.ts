@@ -4,7 +4,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { useHostManager } from '../useHostManager';
 import { calculateVncScaling } from '../../utils/vncUtils';
 
-import { buildServerUrl, buildStreamUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildStreamUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
 // Removed global state - no longer needed for simple monitoring patterns
 
 interface UseRecReturn {
@@ -22,7 +22,7 @@ interface UseRecReturn {
     width: string;
     height: string;
   };
-  getCaptureUrlFromStream: (streamUrl: string, device?: Device) => string | null; // Calculate capture URL from segment URL
+  getCaptureUrlFromStream: (streamUrl: string, device?: Device, host?: Host) => string | null; // Calculate capture URL from segment URL
   pollForFreshStream: (host: Host, deviceId: string, onReady: () => void, onTimeout: (error: string) => void) => () => void; // Returns cleanup function
 }
 
@@ -210,12 +210,16 @@ export const useRec = (): UseRecReturn => {
   }, []); // No dependencies - use refs instead to keep callback stable
 
   // Calculate capture URL from stream segment URL using FPS
-  const getCaptureUrlFromStream = useCallback((streamUrl: string, device?: Device): string | null => {
-    if (!streamUrl) return null;
+  // Uses existing buildCaptureUrl utility - no manual URL building!
+  const getCaptureUrlFromStream = useCallback((streamUrl: string, device?: Device, host?: Host): string | null => {
+    if (!streamUrl || !device || !host) {
+      console.warn('[@hook:useRec] Missing required parameters:', { streamUrl: !!streamUrl, device: !!device, host: !!host });
+      return null;
+    }
     
     try {
       // Get FPS from device (default: 5 for HDMI, 2 for VNC)
-      const fps = device?.video_fps || 5;
+      const fps = device.video_fps || 5;
       
       // Extract segment number from stream URL (e.g., segment_000078741.ts)
       const segmentMatch = streamUrl.match(/segment_(\d+)\.ts/);
@@ -227,11 +231,11 @@ export const useRec = (): UseRecReturn => {
       const segmentNumber = parseInt(segmentMatch[1], 10);
       const captureNumber = segmentNumber * fps; // segment * fps = capture
       
-      // Build capture URL by replacing /segments/segment_X.ts with /hot/captures/capture_X.jpg
-      const captureFilename = `capture_${String(captureNumber).padStart(10, '0')}.jpg`;
-      const captureUrl = streamUrl
-        .replace(/\/hot\/segments\/segment_\d+\.ts/, `/hot/captures/${captureFilename}`)
-        .replace(/\/segments\/segment_\d+\.ts/, `/hot/captures/${captureFilename}`);
+      // Format as padded string (buildCaptureUrl expects timestamp format)
+      const captureSequence = String(captureNumber).padStart(10, '0');
+      
+      // Use existing buildCaptureUrl utility (handles cold storage path automatically)
+      const captureUrl = buildCaptureUrl(host, captureSequence, device.device_id);
       
       console.log(`[@hook:useRec] Calculated capture: segment=${segmentNumber}, fps=${fps}, capture=${captureNumber}`);
       return captureUrl;
