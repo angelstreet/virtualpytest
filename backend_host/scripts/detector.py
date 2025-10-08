@@ -24,6 +24,9 @@ from contextlib import contextmanager
 # OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
 OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
 
+# OCR Enable/Disable: Set to False to completely disable OCR processing
+OCR_ENABLED = False  # Set to False to disable all OCR operations
+
 # Add scripts directory to path for crop_subtitles import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from crop_subtitles import find_subtitle_bbox
@@ -701,7 +704,24 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     if capture_dir in _audio_result_cache:
         has_audio_cached, _, _ = _audio_result_cache[capture_dir]
     
-    if is_audio_frame:
+    if not OCR_ENABLED:
+        # OCR globally disabled - skip all OCR operations
+        timings['subtitle_area_check'] = 0.0
+        timings['subtitle_ocr'] = 0.0
+        subtitle_result = {
+            'has_subtitles': False,
+            'extracted_text': '',
+            'detected_language': None,
+            'confidence': 0.0,
+            'box': None,
+            'ocr_method': None,
+            'downscaled_to_height': None,
+            'psm_mode': None,
+            'subtitle_edge_density': 0.0,
+            'skipped': True,
+            'skip_reason': 'ocr_disabled'
+        }
+    elif is_audio_frame:
         # Audio analysis frame - skip OCR to spread expensive operations
         timings['subtitle_area_check'] = 0.0
         timings['subtitle_ocr'] = 0.0
