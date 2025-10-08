@@ -105,8 +105,8 @@ const RecHostStreamModalContent: React.FC<{
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
 
-  // Get VNC scaling for monitoring
-  const { calculateVncScaling, pollForFreshStream } = useRec();
+  // Get VNC scaling and capture URL calculation from useRec
+  const { calculateVncScaling, pollForFreshStream, getCaptureUrlFromStream } = useRec();
 
   // NEW: Use device control hook (replaces all duplicate control logic)
   const { isControlActive, isControlLoading, controlError, handleToggleControl, clearError } =
@@ -539,56 +539,35 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [isLiveMode, monitoringMode, monitoringData, host, device]);
 
-  // Handle screenshot - call API and open image in new tab
-  const handleScreenshot = useCallback(async () => {
-    try {
-      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1'
-        })
-      });
-      
-      const result = await response.json();
-      if (result.success && result.screenshot_url) {
-        window.open(result.screenshot_url, '_blank');
-        console.log(`[@component:RecHostStreamModal] Opening screenshot: ${result.screenshot_url}`);
-      } else {
-        showError(`Screenshot failed: ${result.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      showError('Failed to take screenshot');
-      console.error('[@component:RecHostStreamModal] Screenshot error:', error);
+  // Handle screenshot - calculate from current segment and open in new tab
+  const handleScreenshot = useCallback(() => {
+    if (!streamUrl) {
+      showError('No stream available');
+      return;
     }
-  }, [host.host_name, device?.device_id, showError]);
 
-  // Handle AI Image Query - capture screenshot and show modal (live mode only, not restart)
-  const handleAIImageQuery = useCallback(async () => {
-    if (!isLiveMode || restartMode) return;
-    
-    try {
-      const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1'
-        })
-      });
-      
-      const result = await response.json();
-      if (result.success && result.screenshot_url) {
-        setCapturedImageUrl(result.screenshot_url);
-        setIsImageQueryVisible(true);
-      } else {
-        showError(`Screenshot failed: ${result.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      showError('Failed to capture frame');
+    const captureUrl = getCaptureUrlFromStream(streamUrl, device);
+    if (captureUrl) {
+      window.open(captureUrl, '_blank');
+      console.log(`[@component:RecHostStreamModal] Opening screenshot: ${captureUrl}`);
+    } else {
+      showError('Could not determine current frame');
     }
-  }, [host.host_name, device?.device_id, showError, isLiveMode, restartMode]);
+  }, [streamUrl, device, getCaptureUrlFromStream, showError]);
+
+  // Handle AI Image Query - calculate capture URL from current segment (live mode only, not restart)
+  const handleAIImageQuery = useCallback(() => {
+    if (!isLiveMode || restartMode || !streamUrl) return;
+    
+    const captureUrl = getCaptureUrlFromStream(streamUrl, device);
+    if (captureUrl) {
+      console.log(`[@RecHostStreamModal] AI Image Query capture URL: ${captureUrl}`);
+      setCapturedImageUrl(captureUrl);
+      setIsImageQueryVisible(true);
+    } else {
+      showError('Could not determine current frame');
+    }
+  }, [streamUrl, device, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
 
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {

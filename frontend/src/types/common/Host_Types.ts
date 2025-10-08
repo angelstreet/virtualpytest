@@ -53,6 +53,7 @@ export interface Device {
   video_stream_path?: string; // Video stream path for URL building (e.g., '/host/stream/capture1')
   video_capture_path?: string; // Video capture path for URL building (e.g., '/var/www/html/stream/capture1')
   video?: string; // Video device path (e.g., '/dev/video0', '/dev/video2')
+  video_fps?: number; // Video capture FPS (frames per second) - used to align segments with captures (e.g., 5 for HDMI, 2 for VNC)
   
   device_capabilities: DeviceCapabilities; // New detailed capability format (matches server format)
   device_controller_types?: string[]; // Device-specific controller types (prefixed for consistency)

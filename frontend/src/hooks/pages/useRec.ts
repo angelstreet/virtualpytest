@@ -22,6 +22,7 @@ interface UseRecReturn {
     width: string;
     height: string;
   };
+  getCaptureUrlFromStream: (streamUrl: string, device?: Device) => string | null; // Calculate capture URL from segment URL
   pollForFreshStream: (host: Host, deviceId: string, onReady: () => void, onTimeout: (error: string) => void) => () => void; // Returns cleanup function
 }
 
@@ -208,6 +209,38 @@ export const useRec = (): UseRecReturn => {
     }
   }, []); // No dependencies - use refs instead to keep callback stable
 
+  // Calculate capture URL from stream segment URL using FPS
+  const getCaptureUrlFromStream = useCallback((streamUrl: string, device?: Device): string | null => {
+    if (!streamUrl) return null;
+    
+    try {
+      // Get FPS from device (default: 5 for HDMI, 2 for VNC)
+      const fps = device?.video_fps || 5;
+      
+      // Extract segment number from stream URL (e.g., segment_000078741.ts)
+      const segmentMatch = streamUrl.match(/segment_(\d+)\.ts/);
+      if (!segmentMatch) {
+        console.warn('[@hook:useRec] Could not extract segment number from URL:', streamUrl);
+        return null;
+      }
+      
+      const segmentNumber = parseInt(segmentMatch[1], 10);
+      const captureNumber = segmentNumber * fps; // segment * fps = capture
+      
+      // Build capture URL by replacing /segments/segment_X.ts with /hot/captures/capture_X.jpg
+      const captureFilename = `capture_${String(captureNumber).padStart(10, '0')}.jpg`;
+      const captureUrl = streamUrl
+        .replace(/\/hot\/segments\/segment_\d+\.ts/, `/hot/captures/${captureFilename}`)
+        .replace(/\/segments\/segment_\d+\.ts/, `/hot/captures/${captureFilename}`);
+      
+      console.log(`[@hook:useRec] Calculated capture: segment=${segmentNumber}, fps=${fps}, capture=${captureNumber}`);
+      return captureUrl;
+    } catch (error) {
+      console.error('[@hook:useRec] Failed to calculate capture URL:', error);
+      return null;
+    }
+  }, []);
+
   // Poll for fresh stream after quality change - reusable across components
   const pollForFreshStream = useCallback((
     host: Host, 
@@ -308,6 +341,7 @@ export const useRec = (): UseRecReturn => {
       isRestarting,
       adaptiveInterval,
       calculateVncScaling, // Now using the imported version
+      getCaptureUrlFromStream, // Calculate capture URL from segment
       pollForFreshStream, // New polling function for quality changes
     };
   }, [
@@ -319,6 +353,7 @@ export const useRec = (): UseRecReturn => {
     restartStreams,
     isRestarting,
     adaptiveInterval,
+    getCaptureUrlFromStream,
     pollForFreshStream, // Add new function to dependency list
   ]);
   

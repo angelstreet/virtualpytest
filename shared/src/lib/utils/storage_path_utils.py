@@ -480,3 +480,21 @@ def get_capture_folder(capture_dir):
         else:
             # Subfolder path: /var/www/html/stream/capture1/captures -> capture1
             return os.path.basename(os.path.dirname(capture_dir))
+
+
+def get_capture_number_from_segment(segment_number: int, fps: int) -> int:
+    """
+    Calculate capture/image number from video segment number based on FPS.
+    
+    Args:
+        segment_number: Video segment number (e.g., 78741 from segment_000078741.ts)
+        fps: Frames per second / capture rate (e.g., 5, 2)
+        
+    Returns:
+        Capture number for the corresponding image
+        
+    Examples:
+        >>> get_capture_number_from_segment(78741, 5)
+        393705
+    """
+    return segment_number * fps

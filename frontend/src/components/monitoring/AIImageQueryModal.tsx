@@ -35,6 +35,7 @@ export const AIImageQueryModal: React.FC<AIImageQueryModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          host_name: host.host_name,
           device_id: device?.device_id || 'device1',
           image_source_url: imageUrl,
           query: query.trim(),
