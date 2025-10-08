@@ -853,7 +853,6 @@ def detect_issues(image_path, fps=5, queue_size=0):
                     words = [w for w in subtitle_text.split() if len(w) >= 2 and any(c.isalpha() for c in w)]
                     
                     # Check throttling: only detect language every 30 seconds per device
-                    global _language_detection_cache
                     current_time = time.time()
                     
                     # Get cached data (timestamp and language)
