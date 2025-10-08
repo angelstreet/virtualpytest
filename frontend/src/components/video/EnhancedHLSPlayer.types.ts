@@ -23,6 +23,7 @@ export interface TimedSegment {
   start: number;  // Start time in seconds (relative to chunk start)
   end: number;    // End time in seconds (relative to chunk start)
   text: string;   // Text for this segment
+  translations?: Record<string, string>;  // Optional translations
 }
 
 export interface TranscriptSegment {

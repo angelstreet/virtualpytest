@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { ArchiveMetadata } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
 import { buildStreamUrl } from '../../../utils/buildUrlUtils';

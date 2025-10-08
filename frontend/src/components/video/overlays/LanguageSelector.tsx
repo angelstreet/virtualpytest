@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Select, MenuItem, CircularProgress } from '@mui/material';
 import { Translate } from '@mui/icons-material';
-import { TranscriptData } from '../EnhancedHLSPlayer.types';
+import { TranscriptDataLegacy } from '../EnhancedHLSPlayer.types';
 
 interface LanguageSelectorProps {
-  transcriptData: TranscriptData | null;
+  transcriptData: TranscriptDataLegacy | null;
   selectedLanguage: string;
   isTranslating: boolean;
   onLanguageChange: (language: string) => void;
@@ -18,7 +18,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   onLanguageChange,
   show,
 }) => {
-  if (!show || !transcriptData || transcriptData.segments.length === 0) {
+  if (!show || !transcriptData || !transcriptData.segments || transcriptData.segments.length === 0) {
     return null;
   }
 

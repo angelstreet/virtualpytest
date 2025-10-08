@@ -107,7 +107,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     hookStreamUrl: hookStreamUrl || undefined,
     host,
     deviceId,
-    hostName,
   });
 
   useEffect(() => {

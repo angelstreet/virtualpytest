@@ -12,7 +12,6 @@ interface UseTranscriptPlayerProps {
   hookStreamUrl?: string;
   host?: Host;
   deviceId: string;
-  hostName: string;
 }
 
 // Type guard to check if transcript is new 10-minute format
@@ -60,9 +59,8 @@ export const useTranscriptPlayer = ({
   hookStreamUrl,
   host,
   deviceId,
-  hostName,
 }: UseTranscriptPlayerProps) => {
-  const [transcriptData, setTranscriptData] = useState<TranscriptData | null>(null);
+  const [transcriptData, setTranscriptData] = useState<TranscriptDataLegacy | null>(null);
   const [rawTranscriptData, setRawTranscriptData] = useState<TranscriptData10Min | null>(null);  // Keep raw 10-min data
   const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
   const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);  // Track current timed segment
@@ -175,10 +173,10 @@ export const useTranscriptPlayer = ({
   }, [isLiveMode, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, host]);
 
   useEffect(() => {
-    if (transcriptData && transcriptData.segments.length > 0) {
+    if (transcriptData && transcriptData.segments && transcriptData.segments.length > 0) {
       // For 10-minute chunks (1 segment), show transcript for entire chunk duration
       // For legacy 6-second segments, find closest segment
-      const isLongChunk = transcriptData.sample_interval_seconds >= 600; // 10 minutes
+      const isLongChunk = (transcriptData.sample_interval_seconds ?? 0) >= 600; // 10 minutes
       
       if (isLongChunk && transcriptData.segments.length === 1) {
         // NEW format: Show transcript for entire 10-minute chunk
