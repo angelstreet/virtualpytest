@@ -101,28 +101,39 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
       </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {/* Screenshot Button */}
+        {/* Screenshot Button - disabled in archive/restart mode */}
         {!restartMode && (
           <IconButton
             onClick={onScreenshot}
-            sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
+            disabled={!isLiveMode}
+            sx={{ 
+              color: isLiveMode ? 'grey.300' : 'grey.600',
+              '&:hover': { color: isLiveMode ? 'white' : 'grey.600' },
+              '&.Mui-disabled': {
+                color: 'grey.600',
+              }
+            }}
             aria-label="Take Screenshot"
-            title="Take Screenshot (opens in new tab)"
+            title={isLiveMode ? "Take Screenshot (opens in new tab)" : "Screenshot only available in Live mode"}
           >
             <CameraIcon />
           </IconButton>
         )}
 
-        {/* AI Image Query Button - only in live mode (not restart or archive) */}
-        {isLiveMode && !restartMode && onAIImageQuery && (
+        {/* AI Image Query Button - disabled in archive/restart mode */}
+        {!restartMode && onAIImageQuery && (
           <IconButton
             onClick={onAIImageQuery}
+            disabled={!isLiveMode}
             sx={{ 
-              color: 'rgba(0,150,255,0.8)', 
-              '&:hover': { color: 'rgba(0,150,255,1)' } 
+              color: isLiveMode ? 'rgba(0,150,255,0.8)' : 'grey.600',
+              '&:hover': { color: isLiveMode ? 'rgba(0,150,255,1)' : 'grey.600' },
+              '&.Mui-disabled': {
+                color: 'grey.600',
+              }
             }}
             aria-label="Ask AI about frame"
-            title="Ask AI about current frame"
+            title={isLiveMode ? "Ask AI about current frame" : "AI Query only available in Live mode"}
           >
             <AIIcon />
           </IconButton>

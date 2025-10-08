@@ -818,6 +818,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                         w = int(img_width * 0.80)
                         h = int(img_height * 0.35)
                         crop_method = f"smart_fallback_safe ({str(e)[:30]})"
+                        # LOG WARNING: Smart crop failed
+                        logger.warning(f"Smart crop failed: {str(e)[:50]} - using safe area {w}x{h}")
                 else:
                     # SAFE AREA: Fixed region (60-95% height, 10-90% width)
                     x = int(img_width * 0.10)   # 10% from left
@@ -954,6 +956,10 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 ocr_timings['language_detection'] = (time.perf_counter() - step_start) * 1000
                 
                 ocr_time_ms = (time.perf_counter() - ocr_start) * 1000
+                
+                # LOG WARNING: OCR is slow (>1 second)
+                if ocr_time_ms > 1000:
+                    logger.warning(f"⚠️  OCR took {ocr_time_ms:.0f}ms (crop={w}x{h}, method={crop_method}) - TEXT: '{subtitle_text[:50] if subtitle_text else 'none'}'")
                 
                 subtitle_result = {
                     'has_subtitles': bool(subtitle_text and len(subtitle_text.strip()) > 0),

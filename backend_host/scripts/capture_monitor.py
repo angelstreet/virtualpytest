@@ -112,11 +112,14 @@ class InotifyFrameMonitor:
                 elif queue_size > 0:
                     logger.info(f"[{capture_folder}] 📊 Queue size: {queue_size} frames")
             
-            # Log OCR state changes
+            # Log OCR state changes with more context
             if prev_queue_size <= 50 and queue_size > 50:
-                logger.warning(f"[{capture_folder}] 🚫 OCR DISABLED (queue overload: {queue_size} frames)")
+                logger.warning(f"[{capture_folder}] 🚫 OCR DISABLED (queue overload: {queue_size} frames) - Queue growing faster than processing!")
             elif prev_queue_size > 50 and queue_size <= 50:
-                logger.info(f"[{capture_folder}] ✅ OCR RE-ENABLED (queue cleared: {queue_size} frames)")
+                logger.info(f"[{capture_folder}] ✅ OCR RE-ENABLED (queue cleared: {queue_size} frames) - Back to normal processing")
+            elif queue_size > 50 and queue_size % 10 == 0:
+                # Log reminder every 10 frames while OCR is disabled
+                logger.warning(f"[{capture_folder}] ⏸️  OCR still DISABLED (queue: {queue_size} frames, threshold: 50)")
             
             try:
                 self.process_frame(path, filename, queue_size)
@@ -221,6 +224,21 @@ class InotifyFrameMonitor:
             
             if detection_result and detection_result.get('subtitle_analysis'):
                 subtitle_data = detection_result['subtitle_analysis']
+                
+                # Log OCR execution details (success or slow performance)
+                if not subtitle_data.get('skipped'):
+                    ocr_time = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
+                    crop_info = subtitle_data.get('box', {})
+                    crop_size = f"{crop_info.get('width', 0)}x{crop_info.get('height', 0)}" if crop_info else "unknown"
+                    
+                    if ocr_time > 1000:
+                        # Slow OCR - already logged in detector.py as WARNING
+                        pass
+                    elif ocr_time > 0:
+                        # Fast OCR - log success at debug level
+                        text = subtitle_data.get('extracted_text', '')
+                        logger.debug(f"[{capture_folder}] ✓ OCR executed in {ocr_time:.0f}ms (crop={crop_size}, text='{text[:30]}...')")
+                
                 if subtitle_data.get('has_subtitles'):
                     text = subtitle_data.get('extracted_text', '')
                     lang = subtitle_data.get('detected_language', 'unknown')

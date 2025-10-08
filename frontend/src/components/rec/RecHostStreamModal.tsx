@@ -540,8 +540,13 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [isLiveMode, monitoringMode, monitoringData, host, device]);
 
-  // Handle screenshot - calculate from current segment and open in new tab
+  // Handle screenshot - calculate from current segment and open in new tab (live mode only)
   const handleScreenshot = useCallback(() => {
+    if (!isLiveMode || restartMode) {
+      showError('Screenshot is only available in Live mode');
+      return;
+    }
+    
     if (!currentSegmentUrl) {
       showError('No segment available - video may still be loading');
       return;
@@ -554,7 +559,7 @@ const RecHostStreamModalContent: React.FC<{
     } else {
       showError('Could not determine current frame');
     }
-  }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError]);
+  }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
 
   // Handle AI Image Query - calculate capture URL from current segment (live mode only, not restart)
   const handleAIImageQuery = useCallback(() => {

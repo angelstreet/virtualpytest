@@ -111,8 +111,9 @@ def test_ocr_on_image(image_path, save_crops=True):
             w = int(img_width * 0.80)
             h = int(img_height * 0.35)
             crop_method = f"smart_fallback_safe ({str(e)[:30]})"
+            print(f"   ⚠️  Smart crop failed: {str(e)[:50]}")
     else:
-        # SAFE AREA: Fixed region
+        # SAFE AREA: Fixed region (60-95% height, 10-90% width)
         x = int(img_width * 0.10)
         y = int(img_height * 0.60)
         w = int(img_width * 0.80)
