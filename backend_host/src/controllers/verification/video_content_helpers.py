@@ -56,6 +56,298 @@ class VideoContentHelpers:
         self.ai_helpers = VideoAIHelpers(av_controller, device_name)
     
     # =============================================================================
+    # Optimized Edge-Based Detection Workflow
+    # =============================================================================
+    
+    def detect_zap_with_edge_analysis(self, image_path: str, threshold: int = 10) -> Dict[str, Any]:
+        """
+        Optimized zap detection using edge-based analysis.
+        
+        Workflow:
+        1. Edge detection (core - reused)
+        2. Blackscreen check (5-70% region, skip header & banner)
+        3. Bottom content check (only if blackscreen - for zap confirmation)
+        
+        Returns zap=True only if: blackscreen + bottom_content
+        
+        Args:
+            image_path: Path to image file
+            threshold: Pixel intensity threshold for blackscreen (default: 10)
+            
+        Returns:
+            Dictionary with zap analysis results
+        """
+        try:
+            img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return {'success': False, 'error': 'Failed to load image'}
+            
+            img_height, img_width = img.shape
+            timings = {}
+            total_start = time.perf_counter()
+            
+            # === STEP 1: Edge Detection (CORE - runs always) ===
+            start = time.perf_counter()
+            edges = cv2.Canny(img, 50, 150)
+            timings['edge_detection'] = (time.perf_counter() - start) * 1000
+            
+            # Define regions
+            header_y = int(img_height * 0.05)  # Skip top 5% (TV time/header)
+            split_y = int(img_height * 0.7)     # Blackscreen region: 5-70%
+            
+            # === STEP 2: Blackscreen Detection (fast sampling) ===
+            start = time.perf_counter()
+            # Analyze 5% to 70% (skip header, skip bottom banner)
+            top_region = img[header_y:split_y, :]
+            
+            # Sample every 3rd pixel (11% sample)
+            sample = top_region[::3, ::3]
+            sample_dark = np.sum(sample <= threshold)
+            sample_total = sample.shape[0] * sample.shape[1]
+            dark_percentage = (sample_dark / sample_total) * 100
+            
+            # Full scan only if edge case (70-90%)
+            if 70 <= dark_percentage <= 90:
+                total_pixels = top_region.shape[0] * top_region.shape[1]
+                dark_pixels = np.sum(top_region <= threshold)
+                dark_percentage = (dark_pixels / total_pixels) * 100
+            
+            blackscreen = dark_percentage > 85
+            timings['blackscreen'] = (time.perf_counter() - start) * 1000
+            
+            # === STEP 3: Bottom Content Check (ONLY if blackscreen) ===
+            start = time.perf_counter()
+            if blackscreen:
+                # Check bottom 30% for banner/channel info (zap confirmation)
+                edges_bottom = edges[split_y:img_height, :]
+                bottom_edge_density = np.sum(edges_bottom > 0) / edges_bottom.size * 100
+                has_bottom_content = 3 < bottom_edge_density < 20
+                timings['bottom_content'] = (time.perf_counter() - start) * 1000
+            else:
+                # No blackscreen = no need to check for zapping
+                has_bottom_content = False
+                bottom_edge_density = 0.0
+                timings['bottom_content'] = 0.0  # Skipped
+            
+            # Zap decision: blackscreen + bottom content
+            zap = blackscreen and has_bottom_content
+            
+            timings['total'] = (time.perf_counter() - total_start) * 1000
+            
+            return {
+                'success': True,
+                'zap': zap,
+                'blackscreen': blackscreen,
+                'blackscreen_percentage': round(dark_percentage, 1),
+                'blackscreen_threshold': threshold,
+                'blackscreen_region': '5-70%',
+                'has_bottom_content': has_bottom_content,
+                'bottom_edge_density': round(bottom_edge_density, 1),
+                'edges': edges,  # For reuse in subtitle detection
+                'timings': {k: round(v, 2) for k, v in timings.items()}
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Zap detection error: {str(e)}'
+            }
+    
+    def detect_subtitle_box_with_edges(self, image_path: str, edges: np.ndarray = None, skip_if_zap: bool = False) -> Dict[str, Any]:
+        """
+        Detect subtitle box location using edge analysis.
+        
+        Optimizations:
+        - Reuses edge detection from zap analysis
+        - Skips if zap detected (mutually exclusive)
+        - Returns box coordinates for OCR
+        
+        Args:
+            image_path: Path to image file
+            edges: Pre-computed edge detection (optional - reuse from zap)
+            skip_if_zap: Skip subtitle detection if zap detected
+            
+        Returns:
+            Dictionary with subtitle box detection results
+        """
+        try:
+            if skip_if_zap:
+                return {
+                    'success': True,
+                    'has_subtitle_area': False,
+                    'subtitle_edge_density': 0.0,
+                    'box': None,
+                    'skipped': True,
+                    'skip_reason': 'zap',
+                    'timing_ms': 0.0
+                }
+            
+            start = time.perf_counter()
+            
+            # Load image if edges not provided
+            if edges is None:
+                img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+                if img is None:
+                    return {'success': False, 'error': 'Failed to load image'}
+                edges = cv2.Canny(img, 50, 150)
+            else:
+                img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+                if img is None:
+                    return {'success': False, 'error': 'Failed to load image'}
+            
+            img_height, img_width = img.shape
+            
+            # Check subtitle area (bottom 15%)
+            subtitle_y = int(img_height * 0.85)
+            edges_subtitle = edges[subtitle_y:img_height, :]
+            
+            subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
+            has_subtitle_area = 2 < subtitle_edge_density < 25
+            
+            subtitle_box = None
+            if has_subtitle_area:
+                # Find specific subtitle box (bottom 40% of image)
+                search_y_start = int(img_height * 0.6)
+                edges_search_region = edges[search_y_start:img_height, :]
+                
+                # Find contours (connected edge regions)
+                contours, _ = cv2.findContours(edges_search_region, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                
+                # Filter for subtitle-like boxes
+                subtitle_boxes = []
+                for contour in contours:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    
+                    # Filter criteria for subtitle boxes:
+                    # - Width > 30% of image width (subtitles span screen)
+                    # - Height between 20-150 pixels (text size range)
+                    # - Aspect ratio > 3 (horizontal rectangle)
+                    if w > img_width * 0.3 and 20 < h < 150 and w / h > 3:
+                        # Adjust y coordinate to full image space
+                        subtitle_boxes.append({
+                            'x': x,
+                            'y': search_y_start + y,
+                            'width': w,
+                            'height': h
+                        })
+                
+                if subtitle_boxes:
+                    # Take ONLY the lowest box (highest Y coordinate = bottom-most)
+                    subtitle_boxes.sort(key=lambda box: box['y'], reverse=True)
+                    subtitle_box = subtitle_boxes[0]
+            
+            timing_ms = (time.perf_counter() - start) * 1000
+            
+            return {
+                'success': True,
+                'has_subtitle_area': has_subtitle_area,
+                'subtitle_edge_density': round(subtitle_edge_density, 1),
+                'box': subtitle_box,
+                'skipped': False,
+                'skip_reason': None,
+                'timing_ms': round(timing_ms, 2)
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Subtitle box detection error: {str(e)}'
+            }
+    
+    def extract_text_from_subtitle_box(self, image_path: str, box: Dict[str, int]) -> Dict[str, Any]:
+        """
+        Extract text from subtitle box using optimized OCR.
+        
+        Optimizations:
+        - Downscales to 80px height for speed
+        - Uses --psm 6 (multi-line text)
+        - Detects language and confidence
+        
+        Args:
+            image_path: Path to image file
+            box: Subtitle box coordinates {x, y, width, height}
+            
+        Returns:
+            Dictionary with OCR results
+        """
+        try:
+            start = time.perf_counter()
+            
+            img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return {'success': False, 'error': 'Failed to load image'}
+            
+            img_height, img_width = img.shape
+            
+            # Extract subtitle box with padding
+            padding = 5
+            x1 = max(0, box['x'] - padding)
+            y1 = max(0, box['y'] - padding)
+            x2 = min(img_width, box['x'] + box['width'] + padding)
+            y2 = min(img_height, box['y'] + box['height'] + padding)
+            
+            subtitle_box_region = img[y1:y2, x1:x2]
+            
+            # OPTIMIZATION 1: Downscale to target height for faster OCR
+            # Target height: 80 pixels (good for OCR, faster processing)
+            box_h, box_w = subtitle_box_region.shape
+            if box_h > 80:
+                scale = 80 / box_h
+                new_w = int(box_w * scale)
+                subtitle_box_region = cv2.resize(subtitle_box_region, (new_w, 80), interpolation=cv2.INTER_AREA)
+            
+            # OPTIMIZATION 2: Fast OCR - multi-line mode
+            # Use --psm 6 (uniform block of text) for subtitles
+            try:
+                import pytesseract
+                # Enhance contrast for better OCR
+                enhanced = cv2.convertScaleAbs(subtitle_box_region, alpha=2.0, beta=0)
+                _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
+                
+                # Multi-line OCR (--psm 6 = uniform block of text)
+                subtitle_text = pytesseract.image_to_string(thresh, config='--psm 6 --oem 3').strip()
+            except:
+                # Fallback to standard method
+                subtitle_text = extract_text_from_region(subtitle_box_region)
+            
+            timing_ms = (time.perf_counter() - start) * 1000
+            
+            # Detect language if text found
+            detected_language = None
+            confidence = 0.0
+            
+            if subtitle_text and len(subtitle_text.strip()) > 0:
+                try:
+                    detected_language = detect_language(subtitle_text)
+                    
+                    # If language detected successfully, trust the OCR (confidence = 1.0)
+                    if detected_language and detected_language != 'unknown':
+                        confidence = 1.0
+                    else:
+                        # Language unknown but text extracted - medium confidence
+                        confidence = 0.75
+                except:
+                    detected_language = 'unknown'
+                    confidence = 0.75
+            
+            return {
+                'success': True,
+                'extracted_text': subtitle_text if subtitle_text else '',
+                'detected_language': detected_language,
+                'confidence': confidence,
+                'ocr_method': 'edge_based_box_detection',
+                'downscaled_to_height': 80 if box_h > 80 else box_h,
+                'psm_mode': 6,
+                'timing_ms': round(timing_ms, 2)
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'OCR extraction error: {str(e)}'
+            }
+    
+    # =============================================================================
     # Blackscreen Detection
     # =============================================================================
     
@@ -1356,10 +1648,26 @@ class VideoContentHelpers:
             # Crop to analysis region
             img = img[y:y+height, x:x+width]
             
-            # Count dark pixels
-            very_dark_pixels = np.sum(img <= threshold)
+            # FAST PATH: Sample-based detection for performance
+            # For true blackscreen (0,0,0), we don't need to check every pixel
             total_pixels = img.shape[0] * img.shape[1]
-            dark_percentage = (very_dark_pixels / total_pixels) * 100
+            
+            # Sample 10% of pixels in a grid pattern (much faster)
+            sample_step = 3  # Check every 3rd pixel in both directions = ~11% sample
+            sample = img[::sample_step, ::sample_step]
+            sample_dark_pixels = np.sum(sample <= threshold)
+            sample_total = sample.shape[0] * sample.shape[1]
+            dark_percentage = (sample_dark_pixels / sample_total) * 100
+            
+            # If sample shows definitive result (>90% or <70%), trust it
+            # Otherwise fall back to full analysis for edge cases
+            if dark_percentage < 70 or dark_percentage > 90:
+                # Confident result from sample - no need for full analysis
+                pass
+            else:
+                # Edge case: 70-90% range, do full analysis to be sure
+                very_dark_pixels = np.sum(img <= threshold)
+                dark_percentage = (very_dark_pixels / total_pixels) * 100
             
             # Device-specific blackscreen thresholds to account for UI overlays
             if device_model and 'mobile' in device_model.lower():

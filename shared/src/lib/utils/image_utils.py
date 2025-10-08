@@ -298,27 +298,23 @@ def analyze_subtitle_region(img: np.ndarray, extract_text: bool = True) -> Dict[
 def extract_text_from_region(region_image: np.ndarray) -> str:
     """Extract text from image region using OCR."""
     if not OCR_AVAILABLE:
+        raise ImportError("pytesseract is not installed - cannot perform OCR. Install with: pip install pytesseract")
+    
+    if len(region_image.shape) == 3:
+        gray_region = cv2.cvtColor(region_image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray_region = region_image
+    
+    enhanced = cv2.convertScaleAbs(gray_region, alpha=2.0, beta=0)
+    _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
+    
+    text = pytesseract.image_to_string(thresh, config='--psm 6').strip()
+    
+    if len(text) < 3:
         return ''
     
-    try:
-        if len(region_image.shape) == 3:
-            gray_region = cv2.cvtColor(region_image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray_region = region_image
-        
-        enhanced = cv2.convertScaleAbs(gray_region, alpha=2.0, beta=0)
-        _, thresh = cv2.threshold(enhanced, 127, 255, cv2.THRESH_BINARY)
-        
-        text = pytesseract.image_to_string(thresh, config='--psm 6').strip()
-        
-        if len(text) < 3:
-            return ''
-        
-        cleaned_text = clean_ocr_text(text)
-        return cleaned_text if len(cleaned_text) >= 3 else text
-        
-    except Exception:
-        return ''
+    cleaned_text = clean_ocr_text(text)
+    return cleaned_text if len(cleaned_text) >= 3 else text
 
 
 def clean_ocr_text(text: str) -> str:

@@ -453,6 +453,7 @@ def get_capture_folder(capture_dir):
         /var/www/html/stream/capture1/captures -> capture1
         /var/www/html/stream/capture1/hot/captures -> capture1
         /var/www/html/stream/capture4/hot/segments -> capture4
+        /var/www/html/stream/capture4 -> capture4  (base path)
     """
     if not capture_dir:
         return None
@@ -471,5 +472,11 @@ def get_capture_folder(capture_dir):
             # Fallback to old logic if 'hot' not found
             return os.path.basename(os.path.dirname(capture_dir))
     else:
-        # Cold path: /var/www/html/stream/capture1/captures -> capture1
-        return os.path.basename(os.path.dirname(capture_dir))
+        # Check if this is already a base path (ends with captureX, not a subfolder)
+        basename = os.path.basename(capture_dir)
+        if basename.startswith('capture') or basename == 'stream' or basename == 'camera':
+            # Base path like /var/www/html/stream/capture4 -> capture4
+            return basename
+        else:
+            # Subfolder path: /var/www/html/stream/capture1/captures -> capture1
+            return os.path.basename(os.path.dirname(capture_dir))
