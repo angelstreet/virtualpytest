@@ -180,6 +180,20 @@ class InotifyFrameMonitor:
                 if frame_num % 5 == 0:  # Log every 1 second (every 5 frames)
                     perf = detection_result['performance_ms']
                     sub_total = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
+                    
+                    # Build subtitle info with skip reason or edge density
+                    sub_info = f"sub={sub_total:.0f}ms"
+                    if sub_total == 0 and detection_result.get('subtitle_analysis'):
+                        subtitle_data = detection_result['subtitle_analysis']
+                        skip_reason = subtitle_data.get('skip_reason')
+                        if skip_reason:
+                            # Show skip reason (e.g., no_edges, queue_overload_50, freeze, zap)
+                            sub_info = f"sub=0ms({skip_reason})"
+                        elif subtitle_data.get('skipped'):
+                            # Skipped but no reason - show edge density if available
+                            edge_density = subtitle_data.get('subtitle_edge_density', 0)
+                            sub_info = f"sub=0ms(edges={edge_density:.1f}%)"
+                    
                     logger.info(f"[{capture_folder}] ⏱️  Performance: "
                                f"img={perf.get('image_load', 0):.0f}ms "
                                f"edge={perf.get('edge_detection', 0):.0f}ms "
@@ -188,7 +202,7 @@ class InotifyFrameMonitor:
                                f"freeze={perf.get('freeze', 0):.0f}ms "
                                f"macro={perf.get('macroblocks', 0):.0f}ms "
                                f"audio={perf.get('audio', 0):.0f}ms{'(cache)' if perf.get('audio_cached') else ''} "
-                               f"sub={sub_total:.0f}ms "
+                               f"{sub_info} "
                                f"→ TOTAL={perf.get('total', 0):.0f}ms")
             
             # Get device info to check if this is the host
