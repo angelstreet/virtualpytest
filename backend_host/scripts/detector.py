@@ -101,6 +101,10 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         if prev_img is None:
             continue
         
+        # Ensure images have same size (resize if needed)
+        if prev_img.shape != current_img.shape:
+            prev_img = cv2.resize(prev_img, (current_img.shape[1], current_img.shape[0]), interpolation=cv2.INTER_AREA)
+        
         # Compute absolute pixel difference
         diff = cv2.absdiff(current_img, prev_img)
         
