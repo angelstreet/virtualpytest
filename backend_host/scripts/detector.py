@@ -120,10 +120,6 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
         
         pixel_diffs.append(diff_percentage)
         frames_compared.append(prev_filename)
-        
-        # EARLY EXIT: If difference > 5%, not frozen - stop checking
-        if diff_percentage > 5.0:
-            break
     
     # Frozen if ALL checked frames have < 5% difference
     frozen = len(pixel_diffs) >= 2 and all(diff < 5.0 for diff in pixel_diffs)
@@ -504,9 +500,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                         'frames_in_sequence': frame_number - zap_state['start_frame_number'] + 1
                     },
                     'freeze': False,
-                    'freeze_diffs': [],
-                    'last_3_filenames': [],
-                    'last_3_thumbnails': [],
+                    'freeze_comparisons': [],
                     'macroblocks': False,
                     'quality_score': 0.0,
                     'audio': has_audio,
@@ -539,9 +533,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                     'has_bottom_content': True,
                     'bottom_edge_density': 0.0,
                     'freeze': False,
-                    'freeze_diffs': [],
-                    'last_3_filenames': [],
-                    'last_3_thumbnails': [],
+                    'freeze_comparisons': [],
                     'macroblocks': False,
                     'quality_score': 0.0,
                     'audio': True,
@@ -1028,30 +1020,39 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         timings['audio'] = (time.perf_counter() - start) * 1000
         timings['audio_cached'] = True
     
-    # Get frame paths for R2 upload - freeze_details now contains thumbnail filenames
-    freeze_diffs = []
-    last_3_filenames = []
-    last_3_thumbnails = []
+    # Build freeze comparison list showing current vs previous frames
+    freeze_comparisons = []
     freeze_debug_info = {}
     
-    if freeze_details and 'frame_differences' in freeze_details:
-        freeze_diffs = freeze_details['frame_differences']
-        
     if freeze_details and 'frames_compared' in freeze_details:
-        # frames_compared now contains thumbnail filenames (e.g., capture_000009_thumbnail.jpg)
-        # Build full paths for both captures and thumbnails
         captures_dir = os.path.dirname(image_path)
         
-        for thumbnail_filename in freeze_details['frames_compared']:
-            # Convert thumbnail filename to capture filename by removing _thumbnail suffix
-            # capture_000009_thumbnail.jpg → capture_000009.jpg
+        # Get current frame info
+        current_capture_path = image_path
+        current_thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
+        current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
+        
+        # Build comparison for each previous frame checked
+        for idx, thumbnail_filename in enumerate(freeze_details['frames_compared']):
+            # Convert thumbnail filename to capture filename
             capture_filename = thumbnail_filename.replace('_thumbnail.jpg', '.jpg')
-            capture_full_path = os.path.join(captures_dir, capture_filename)
-            last_3_filenames.append(capture_full_path)
+            prev_capture_path = os.path.join(captures_dir, capture_filename)
+            prev_thumbnail_path = os.path.join(thumbnails_dir, thumbnail_filename)
             
-            # Thumbnail with full path (already determined by thumbnails_dir above)
-            thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
-            last_3_thumbnails.append(thumbnail_full_path)
+            # Get difference percentage for this comparison
+            diff_percentage = freeze_details['frame_differences'][idx] if idx < len(freeze_details['frame_differences']) else None
+            
+            # Add structured comparison
+            freeze_comparisons.append({
+                'current_frame': filename,
+                'previous_frame': capture_filename,
+                'difference_percentage': diff_percentage,
+                'current_capture_path': current_capture_path,
+                'previous_capture_path': prev_capture_path,
+                'current_thumbnail_path': current_thumbnail_path,
+                'previous_thumbnail_path': prev_thumbnail_path,
+                'frozen': diff_percentage < 5.0 if diff_percentage is not None else None
+            })
     
     # Capture freeze detection debug info
     if freeze_details:
@@ -1085,11 +1086,9 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         # Zap sequence tracking (NEW)
         'zap_sequence_start': zap_sequence_start,
         
-        # Freeze (with debug info)
+        # Freeze (with detailed comparisons)
         'freeze': bool(frozen),
-        'freeze_diffs': freeze_diffs,
-        'last_3_filenames': last_3_filenames,
-        'last_3_thumbnails': last_3_thumbnails,
+        'freeze_comparisons': freeze_comparisons,
         'freeze_debug': freeze_debug_info if freeze_debug_info else None,
         
         # Macroblocks (unchanged)
