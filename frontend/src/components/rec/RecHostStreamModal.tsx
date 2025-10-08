@@ -153,12 +153,9 @@ const RecHostStreamModalContent: React.FC<{
     const headerPadding = 16; // py: 1 = 8px top + 8px bottom = 16px total
     const actualHeaderHeight = headerMinHeight + headerPadding; // 48 + 16 = 64px
 
-    // Timeline overlay height (fixed)
-    const timelineHeight = 60; // Timeline at bottom of video container
-
     // Use fixed stream area (mobile overlay always shows with remote panel = 20%)
     const streamAreaWidth = modalWidth * 0.80;
-    const streamAreaHeight = modalHeight - actualHeaderHeight - timelineHeight;
+    const streamAreaHeight = modalHeight - actualHeaderHeight;
 
     // Modal position (centered)
     const modalX = (windowWidth - modalWidth) / 2;
@@ -185,7 +182,6 @@ const RecHostStreamModalContent: React.FC<{
       modalSize: { width: modalWidth, height: modalHeight },
       modalPosition: { x: modalX, y: modalY },
       headerHeight: actualHeaderHeight,
-      timelineHeight: timelineHeight,
       additionalOffset: additionalOffset,
       streamPosition: { x: streamX, y: streamY },
       finalDimensions: dimensions,
