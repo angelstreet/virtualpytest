@@ -751,15 +751,16 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         if has_subtitle_area:
             ocr_start = time.perf_counter()
             try:
-                # OPTIMIZED: Fixed safe area (60-95% height, 10-90% width)
-                # No box detection needed - tests show fixed area is optimal!
+                # SAFE AREA: Fixed region (60-95% height, 10-90% width)
+                # Simple and fast - no smart cropping to avoid RPi performance issues
                 x = int(img_width * 0.10)   # 10% from left
                 y = int(img_height * 0.60)  # Start at 60% height (bottom 40%)
                 w = int(img_width * 0.80)   # 80% width (centered)
                 h = int(img_height * 0.35)  # 35% height (60-95%)
                 
-                # Extract safe area (already grayscale)
+                # Extract safe area (already grayscale) - no smart cropping
                 subtitle_box_region = img[y:y+h, x:x+w]
+                crop_method = "safe_area_fixed"
                 
                 # Save debug crop if debug mode enabled (always same name, in /tmp RAM)
                 if debug:
@@ -773,16 +774,41 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 # OPTIMIZED OCR: Grayscale + PSM 6 + Language restriction
                 # Tests show grayscale is 20% faster than Otsu with similar quality
                 # Language restriction: English, French, Italian, German, Spanish
+                subtitle_text_raw = ""
+                ocr_method_used = "pytesseract"
                 try:
                     import pytesseract
-                    subtitle_text = pytesseract.image_to_string(
+                    ocr_config = '--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
+                    subtitle_text_raw = pytesseract.image_to_string(
                         subtitle_box_region, 
-                        config='--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
+                        config=ocr_config
                     ).strip()
-                except:
+                    subtitle_text = subtitle_text_raw
+                except Exception as ocr_error:
                     # Fallback to standard method
-                    from shared.src.lib.utils.image_utils import extract_text_from_region
-                    subtitle_text = extract_text_from_region(subtitle_box_region)
+                    ocr_method_used = "fallback"
+                    try:
+                        from shared.src.lib.utils.image_utils import extract_text_from_region
+                        subtitle_text_raw = extract_text_from_region(subtitle_box_region)
+                        subtitle_text = subtitle_text_raw
+                    except Exception as fallback_error:
+                        subtitle_text_raw = ""
+                        subtitle_text = ""
+                        ocr_method_used = f"error: {str(fallback_error)}"
+                
+                # Clean OCR noise (regex filter)
+                if subtitle_text:
+                    import re
+                    lines = subtitle_text.split('\n')
+                    cleaned_lines = []
+                    for line in lines:
+                        words = line.split()
+                        real_words = [w for w in words if len(re.sub(r'[^a-zA-Z]', '', w)) >= 3]
+                        if real_words:
+                            cleaned = re.sub(r'[\s,\.;:\-\|~\*]+$', '', line)
+                            cleaned = re.sub(r'^[\s,\.;:\-\|~\*]+', '', cleaned)
+                            cleaned_lines.append(cleaned)
+                    subtitle_text = '\n'.join(cleaned_lines).strip()
                 
                 # Detect language if text found
                 detected_language = None
@@ -843,21 +869,37 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                             detected_language = 'skipped'
                             confidence = 0.5
                 
+                ocr_time_ms = (time.perf_counter() - ocr_start) * 1000
+                
                 subtitle_result = {
                     'has_subtitles': bool(subtitle_text and len(subtitle_text.strip()) > 0),
                     'extracted_text': subtitle_text if subtitle_text else '',
                     'detected_language': detected_language,
                     'confidence': confidence,
                     'box': {'x': x, 'y': y, 'width': w, 'height': h},
-                    'ocr_method': 'fixed_safe_area',
+                    'ocr_method': crop_method,
                     'downscaled_to_height': None,
                     'psm_mode': 6,
                     'subtitle_edge_density': round(subtitle_edge_density, 1),
                     'skipped': False,
-                    'skip_reason': None
+                    'skip_reason': None,
+                    # DEBUG: Detailed OCR info
+                    'debug': {
+                        'ocr_time_ms': round(ocr_time_ms, 2),
+                        'crop_method': crop_method,
+                        'crop_size': f"{w}x{h}",
+                        'crop_position': f"({x},{y})",
+                        'raw_text': subtitle_text_raw,
+                        'raw_text_length': len(subtitle_text_raw),
+                        'cleaned_text_length': len(subtitle_text) if subtitle_text else 0,
+                        'chars_removed': len(subtitle_text_raw) - (len(subtitle_text) if subtitle_text else 0),
+                        'ocr_engine': ocr_method_used,
+                        'tesseract_config': '--psm 6 --oem 3 -l eng+fra+ita+deu+spa',
+                        'edge_density_percent': round(subtitle_edge_density, 2)
+                    }
                 }
                 
-                timings['subtitle_ocr'] = (time.perf_counter() - ocr_start) * 1000
+                timings['subtitle_ocr'] = ocr_time_ms
             except Exception as e:
                 subtitle_result = {
                     'has_subtitles': False,
