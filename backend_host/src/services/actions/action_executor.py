@@ -202,6 +202,9 @@ class ActionExecutor:
         
         print(f"[@lib:action_executor:execute_actions] Executing {action_summary} on {self.host_name}")
         
+        # Clear screenshots from previous step - ActionExecutor is reused across navigation steps
+        self.action_screenshots = []
+        
         # Validate inputs
         if not actions:
             return {
