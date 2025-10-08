@@ -898,10 +898,10 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                 detected_language = None
                 confidence = 0.0
                 
-                # CRITICAL: If OCR was already slow (>1s), SKIP language detection to save time
+                # CRITICAL: If OCR was already slow (>200ms), SKIP language detection to save time
                 tesseract_time = ocr_timings.get('tesseract_ocr', 0)
-                if tesseract_time > 1000:
-                    # OCR took >1s, skip language detection to avoid further slowdown
+                if tesseract_time > 200:
+                    # OCR took >200ms, skip language detection to avoid further slowdown
                     detected_language = 'skipped_slow_ocr'
                     confidence = 0.6
                 else:
