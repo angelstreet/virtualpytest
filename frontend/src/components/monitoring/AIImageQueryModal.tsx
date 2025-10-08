@@ -76,16 +76,16 @@ export const AIImageQueryModal: React.FC<AIImageQueryModalProps> = ({
           width: '100%',
           backgroundColor: '#1a1a1a',
           borderRadius: 2,
-          p: 3,
+          p: 1,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: 1,
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ color: '#fff' }}>Ask AI about this frame</Typography>
+          <Typography variant="h6" sx={{ color: '#fff' }}>Ask AI</Typography>
           <IconButton onClick={handleClose} size="small" sx={{ color: '#fff' }}>
             <CloseIcon />
           </IconButton>
