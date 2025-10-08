@@ -113,8 +113,8 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           </IconButton>
         )}
 
-        {/* AI Image Query Button - only in monitoring mode */}
-        {monitoringMode && onAIImageQuery && (
+        {/* AI Image Query Button - only in live mode (not restart or archive) */}
+        {isLiveMode && !restartMode && onAIImageQuery && (
           <IconButton
             onClick={onAIImageQuery}
             sx={{ 

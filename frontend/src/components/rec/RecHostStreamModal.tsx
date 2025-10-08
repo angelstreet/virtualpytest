@@ -564,9 +564,9 @@ const RecHostStreamModalContent: React.FC<{
     }
   }, [host.host_name, device?.device_id, showError]);
 
-  // Handle AI Image Query - capture screenshot and show modal
+  // Handle AI Image Query - capture screenshot and show modal (live mode only, not restart)
   const handleAIImageQuery = useCallback(async () => {
-    if (!monitoringMode) return;
+    if (!isLiveMode || restartMode) return;
     
     try {
       const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
@@ -588,7 +588,7 @@ const RecHostStreamModalContent: React.FC<{
     } catch (error) {
       showError('Failed to capture frame');
     }
-  }, [host.host_name, device?.device_id, showError, monitoringMode]);
+  }, [host.host_name, device?.device_id, showError, isLiveMode, restartMode]);
 
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {
