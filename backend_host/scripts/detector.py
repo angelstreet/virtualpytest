@@ -128,6 +128,8 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
     return frozen, {
         'frame_differences': [round(d, 2) for d in pixel_diffs],
         'frames_compared': frames_compared,
+        'frames_found': len(frames_compared),
+        'frames_needed': 2,
         'detection_method': 'pixel_diff'
     }
 
@@ -1026,6 +1028,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     freeze_diffs = []
     last_3_filenames = []
     last_3_thumbnails = []
+    freeze_debug_info = {}
     
     if freeze_details and 'frame_differences' in freeze_details:
         freeze_diffs = freeze_details['frame_differences']
@@ -1045,6 +1048,15 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             # Thumbnail with full path (already determined by thumbnails_dir above)
             thumbnail_full_path = os.path.join(thumbnails_dir, thumbnail_filename)
             last_3_thumbnails.append(thumbnail_full_path)
+    
+    # Capture freeze detection debug info
+    if freeze_details:
+        freeze_debug_info = {
+            'frames_found': freeze_details.get('frames_found', 0),
+            'frames_needed': freeze_details.get('frames_needed', 2),
+            'detection_method': freeze_details.get('detection_method', 'unknown'),
+            'thumbnails_dir': thumbnails_dir
+        }
     
     # Calculate total time
     timings['total'] = (time.perf_counter() - total_start) * 1000
@@ -1068,11 +1080,12 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         # Zap sequence tracking (NEW)
         'zap_sequence_start': zap_sequence_start,
         
-        # Freeze (unchanged)
+        # Freeze (with debug info)
         'freeze': bool(frozen),
         'freeze_diffs': freeze_diffs,
         'last_3_filenames': last_3_filenames,
         'last_3_thumbnails': last_3_thumbnails,
+        'freeze_debug': freeze_debug_info if freeze_debug_info else None,
         
         # Macroblocks (unchanged)
         'macroblocks': bool(macroblocks),
