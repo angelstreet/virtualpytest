@@ -365,10 +365,6 @@ def print_result(result, verbose=False):
         has_subtitle_area = result.get('subtitle_candidate', False)
         subtitle_density = result.get('subtitle_edge_density', 0)
         print(f"4. Subtitle Area ({subtitle_time:.2f}ms) → {'✅ YES' if has_subtitle_area else '❌ NO'} ({subtitle_density:.1f}% edges)")
-        if has_subtitle_area:
-            subtitle_text = result.get('subtitle_text')
-            if subtitle_text:
-                print(f"   Text: {subtitle_text}")
     
     # Freeze - conditional
     freeze = result.get('freeze', False)
@@ -410,7 +406,9 @@ def print_result(result, verbose=False):
         print(f"7. Subtitle OCR ({ocr_time:.0f}ms) → ✅ TEXT FOUND")
         if ocr_box_info:
             print(f"   Box: {ocr_box_info}")
-        print(f"   Text: \"{subtitle_text}\"")
+        # Display text in one line (replace newlines with space)
+        text_oneline = ' '.join(subtitle_text.split())
+        print(f"   Text: \"{text_oneline}\"")
         print(f"   Language: {detected_language} (confidence: {confidence:.2f})")
     else:
         # OCR ran but found nothing
