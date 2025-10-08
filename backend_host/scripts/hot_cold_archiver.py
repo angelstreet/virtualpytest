@@ -842,11 +842,17 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
         try:
             with open(chunk_path) as f:
                 data = json.load(f)
+            
+            # Include full transcript data in manifest (optimization: 1 call instead of 2)
             chunk_info.update({
                 "language": data.get("language", "unknown"),
                 "confidence": data.get("confidence", 0.0),
                 "has_transcript": bool(data.get("transcript", "").strip()),
-                "timestamp": data.get("timestamp")
+                "timestamp": data.get("timestamp"),
+                "transcript": data.get("transcript", ""),  # Full transcript text
+                "segments": data.get("segments", []),  # Timed segments for subtitles
+                "transcription_time_seconds": data.get("transcription_time_seconds", 0),
+                "mp3_file": data.get("mp3_file", "")
             })
         except:
             pass

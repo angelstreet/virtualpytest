@@ -122,46 +122,46 @@ export const useTranscriptPlayer = ({
               setMp3Url(null);
             }
             
-            console.log(`[@useTranscriptPlayer] Loading transcript chunk (hour ${hour}, chunk ${chunkIndex}):`, transcriptUrl);
+            // OPTIMIZATION: Transcript data is now included directly in manifest (1 API call instead of 2)
+            console.log(`[@useTranscriptPlayer] ⚡ Reading transcript directly from manifest (hour ${hour}, chunk ${chunkIndex})`);
             
-            // Transcript exists in manifest, fetch it
-            return fetch(transcriptUrl)
-              .then(res => res.json())
-              .then((transcript: TranscriptData) => {
-                if (!transcript) {
-                  console.log(`[@useTranscriptPlayer] No transcript data for chunk ${chunkIndex}`);
-                  setTranscriptData(null);
-                  setRawTranscriptData(null);
-                  return;
-                }
-                
-                // Detect format and normalize
-                const is10Min = isTranscriptData10Min(transcript);
-                console.log(`[@useTranscriptPlayer] Transcript format: ${is10Min ? '10-minute (NEW)' : '6-second segments (LEGACY)'}`);
-                
-                // Store raw 10-min data for timed segment access
-                if (is10Min) {
-                  setRawTranscriptData(transcript as TranscriptData10Min);
-                  console.log(`[@useTranscriptPlayer] 10-min transcript with ${(transcript as TranscriptData10Min).segments?.length || 0} timed segments`);
-                } else {
-                  setRawTranscriptData(null);
-                }
-                
-                const normalizedData = normalizeTranscriptData(transcript);
-                
-                if (is10Min) {
-                  console.log(`[@useTranscriptPlayer] 10-min transcript loaded:`, {
-                    language: (transcript as TranscriptData10Min).language,
-                    confidence: (transcript as TranscriptData10Min).confidence,
-                    textLength: (transcript as TranscriptData10Min).transcript.length,
-                    preview: (transcript as TranscriptData10Min).transcript.substring(0, 100)
-                  });
-                } else {
-                  console.log(`[@useTranscriptPlayer] Transcript chunk loaded: ${normalizedData.segments.length} segments`);
-                }
-                
-                setTranscriptData(normalizedData);
-              });
+            // Build transcript object from manifest data
+            const transcript: TranscriptData10Min = {
+              capture_folder: chunkInfo.capture_folder || deviceId,
+              hour: hour,
+              chunk_index: chunkIndex,
+              chunk_duration_minutes: 10,
+              language: chunkInfo.language || 'unknown',
+              transcript: chunkInfo.transcript || '',
+              confidence: chunkInfo.confidence || 0.0,
+              transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
+              timestamp: chunkInfo.timestamp || new Date().toISOString(),
+              mp3_file: chunkInfo.mp3_file || `chunk_10min_${chunkIndex}.mp3`,
+              segments: chunkInfo.segments || []
+            };
+            
+            if (!transcript.transcript) {
+              console.log(`[@useTranscriptPlayer] No transcript text in manifest for chunk ${chunkIndex}`);
+              setTranscriptData(null);
+              setRawTranscriptData(null);
+              return;
+            }
+            
+            // Store raw 10-min data for timed segment access
+            setRawTranscriptData(transcript);
+            console.log(`[@useTranscriptPlayer] 10-min transcript with ${transcript.segments?.length || 0} timed segments`);
+            
+            const normalizedData = normalizeTranscriptData(transcript);
+            
+            console.log(`[@useTranscriptPlayer] 10-min transcript loaded from manifest:`, {
+              language: transcript.language,
+              confidence: transcript.confidence,
+              textLength: transcript.transcript.length,
+              segmentCount: transcript.segments.length,
+              preview: transcript.transcript.substring(0, 100)
+            });
+            
+            setTranscriptData(normalizedData);
           })
           .catch((error) => {
             console.log(`[@useTranscriptPlayer] Error loading transcript:`, error.message);
@@ -299,11 +299,34 @@ export const useTranscriptPlayer = ({
       if (data.success) {
         console.log(`[@useTranscriptPlayer] ✅ Translation complete and cached`);
         
-        // Reload transcript to get updated data with cached translations
-        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${rawTranscriptData.hour}/chunk_10min_${rawTranscriptData.chunk_index}.json`);
-        const updatedTranscript = await fetch(transcriptUrl).then(res => res.json());
-        setRawTranscriptData(updatedTranscript);
-        setTranscriptData(normalizeTranscriptData(updatedTranscript));
+        // Reload transcript from manifest to get updated data with cached translations
+        const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
+        const manifest = await fetch(manifestUrl).then(res => res.json());
+        
+        if (manifest && manifest.chunks) {
+          const chunkInfo = manifest.chunks.find(
+            (chunk: any) => chunk.hour === rawTranscriptData.hour && chunk.chunk_index === rawTranscriptData.chunk_index
+          );
+          
+          if (chunkInfo && chunkInfo.transcript) {
+            const updatedTranscript: TranscriptData10Min = {
+              capture_folder: chunkInfo.capture_folder || deviceId,
+              hour: rawTranscriptData.hour,
+              chunk_index: rawTranscriptData.chunk_index,
+              chunk_duration_minutes: 10,
+              language: chunkInfo.language || 'unknown',
+              transcript: chunkInfo.transcript || '',
+              confidence: chunkInfo.confidence || 0.0,
+              transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
+              timestamp: chunkInfo.timestamp || new Date().toISOString(),
+              mp3_file: chunkInfo.mp3_file || '',
+              segments: chunkInfo.segments || []
+            };
+            
+            setRawTranscriptData(updatedTranscript);
+            setTranscriptData(normalizeTranscriptData(updatedTranscript));
+          }
+        }
       }
     } catch (error) {
       console.error('[@useTranscriptPlayer] Translation failed:', error);

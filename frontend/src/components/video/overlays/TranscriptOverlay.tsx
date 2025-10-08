@@ -54,7 +54,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
       <Box
         sx={{
           position: 'fixed',
-          bottom: 135,  // Position above the transcript box
+          bottom: 115,  // Position above the transcript box
           left: '40px',  // Left aligned
           display: 'flex',
           alignItems: 'center',
@@ -92,7 +92,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
       <Box
         sx={{
           position: 'fixed',
-          bottom: 75,  // Much closer to timeline (timeline takes ~80px from bottom)
+          bottom: 80,  // Much closer to timeline (timeline takes ~80px from bottom)
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
