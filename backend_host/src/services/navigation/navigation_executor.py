@@ -14,8 +14,9 @@ from  backend_host.src.services.navigation.navigation_pathfinding import find_sh
 from  backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from  backend_host.src.lib.utils.navigation_cache import populate_unified_cache
 
-# KPI measurement
-from backend_host.src.services.kpi.kpi_executor import get_kpi_executor, KPIMeasurementRequest
+# KPI measurement - now uses JSON file queue
+import json
+import uuid
 
 
 class NavigationExecutor:
@@ -1251,25 +1252,34 @@ class NavigationExecutor:
                 print(f"❌ [NavigationExecutor] Failed to create execution_result - KPI skipped")
                 return
             
-            # Create KPI measurement request - will fail early if validation fails
-            request = KPIMeasurementRequest(
-                execution_result_id=execution_result_id,
-                team_id=team_id,
-                capture_dir=capture_dir,
-                action_timestamp=action_timestamp,
-                verification_timestamp=verification_timestamp,
-                kpi_references=kpi_references,
-                timeout_ms=timeout_ms,
-                device_id=self.device_id,
-                device_model=self.device_model
-            )
+            # Create KPI measurement request data
+            request_data = {
+                'execution_result_id': execution_result_id,
+                'team_id': team_id,
+                'capture_dir': capture_dir,
+                'action_timestamp': action_timestamp,
+                'verification_timestamp': verification_timestamp,
+                'kpi_references': kpi_references,
+                'timeout_ms': timeout_ms,
+                'device_id': self.device_id,
+                'device_model': self.device_model
+            }
             
-            # Enqueue for background processing
-            kpi_executor = get_kpi_executor()
-            if kpi_executor.enqueue_measurement(request):
-                print(f"📊 [NavigationExecutor] KPI queued for {step.get('to_node_label')} ({len(kpi_references)} refs, {timeout_ms}ms timeout)")
-            else:
-                print(f"⚠️ [NavigationExecutor] Failed to queue KPI - queue full")
+            # Write to JSON file queue for standalone KPI executor service (atomic write for inotify)
+            kpi_queue_dir = '/tmp/kpi_queue'
+            os.makedirs(kpi_queue_dir, exist_ok=True)
+            
+            request_id = str(uuid.uuid4())
+            temp_file = os.path.join(kpi_queue_dir, f'kpi_request_{request_id}.json.tmp')
+            final_file = os.path.join(kpi_queue_dir, f'kpi_request_{request_id}.json')
+            
+            # Atomic write: write to .tmp, then rename (triggers inotify IN_MOVED_TO)
+            with open(temp_file, 'w') as f:
+                json.dump(request_data, f, indent=2)
+            os.rename(temp_file, final_file)
+            
+            print(f"📊 [NavigationExecutor] KPI queued for {step.get('to_node_label')} ({len(kpi_references)} refs, {timeout_ms}ms timeout)")
+            print(f"📝 [NavigationExecutor] KPI request file: {os.path.basename(final_file)}")
         
         except ValueError as e:
             # Validation errors from KPIMeasurementRequest - log and skip

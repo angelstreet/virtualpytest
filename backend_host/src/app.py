@@ -86,8 +86,6 @@ def register_host_routes(app):
         from routes import (
             host_control_routes,
             host_web_routes,
-            host_ai_execution_routes,
-            host_ai_generation_routes,
             host_verification_routes,
             host_power_routes,
             host_av_routes,
@@ -124,8 +122,6 @@ def register_host_routes(app):
     blueprints = [
         (host_control_routes.host_control_bp, 'Device control'),
         (host_web_routes.host_web_bp, 'Web automation'),
-        (host_ai_execution_routes.host_ai_execution_bp, 'AI execution'),
-        (host_ai_generation_routes.host_ai_generation_bp, 'AI interface generation'),
         (host_verification_routes.host_verification_bp, 'Verification services'),
         (host_power_routes.host_power_bp, 'Power control'),
         (host_av_routes.host_av_bp, 'Audio/Video operations'),
@@ -251,18 +247,10 @@ def main():
     print("[@backend_host:main] Step 4: Starting host services...")
     setup_host_cleanup()
     
-    # STEP 4.1: Initialize and start KPI Executor (in-process background worker)
-    print("[@backend_host:main] Step 4.1: Starting KPI Executor...")
-    try:
-        from backend_host.src.services.kpi.kpi_executor import get_kpi_executor
-        kpi_executor = get_kpi_executor()
-        kpi_executor.start()
-        print("[@backend_host:main] ✅ KPI Executor started successfully")
-    except Exception as e:
-        print(f"[@backend_host:main] ⚠️ Failed to start KPI Executor: {e}")
-        import traceback
-        traceback.print_exc()
-        # Continue anyway - KPI is optional
+    # STEP 4.1: KPI Executor runs as separate systemd service (kpi-executor.service)
+    print("[@backend_host:main] Step 4.1: KPI Executor")
+    print("[@backend_host:main]   Note: KPI Executor runs as separate service (backend_host/scripts/kpi_executor.py)")
+    print("[@backend_host:main]   Queue: JSON files in /tmp/kpi_queue/")
     
     # Get configuration
     host_port = int(os.getenv('HOST_PORT', '6109'))
