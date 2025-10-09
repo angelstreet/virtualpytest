@@ -234,10 +234,60 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
     Transcribe 10-minute MP3 in full (restored from per-minute processing)
     """
     try:
-        has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, capture_folder, sample_duration=5.0)
+        import psutil
+        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
+        process = psutil.Process()
+        process.cpu_percent(interval=None)
+
+        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (full 10min)")
+
+        sample_tmp = f'/tmp/sample_{capture_folder}.mp3'
+        has_audio = False
+        detected_language = None
+        sample_positions = [(0, 'start'), (300, 'middle')]  # Positions to try: 0s and 300s (mid for 10min)
+
+        for pos_idx, (start_sec, pos_name) in enumerate(sample_positions):
+            # Extract 5s sample
+            extract_start = time.time()
+            cmd = ['ffmpeg', '-i', mp3_path, '-ss', str(start_sec), '-t', '5', '-y', sample_tmp]
+            subprocess.run(cmd, capture_output=True, timeout=5)
+            extract_time = time.time() - extract_start
+            logger.info(f"[{capture_folder}] ✓ Extracted 5s {pos_name} sample in {extract_time:.1f}s")
+
+            # Check audio level on sample
+            sample_has_audio, mean_volume_db = check_mp3_has_audio(sample_tmp, capture_folder, sample_duration=5.0)
+            
+            if sample_has_audio:
+                has_audio = True
+                logger.info(f"[{capture_folder}] 🔊 Audio detected in {pos_name} sample ({mean_volume_db:.1f}dB)")
+                
+                # Detect language on this sample
+                sample_start = time.time()
+                sample_result = transcribe_audio(sample_tmp, model_name='tiny', skip_silence_check=True, device_id=capture_folder)
+                sample_time = time.time() - sample_start
+                detected_language = sample_result.get('language_code', None)
+                logger.info(f"[{capture_folder}] ✓ Language detection ({pos_name}): {detected_language or 'undetected'} in {sample_time:.1f}s")
+                
+                if detected_language:
+                    break  # Success - language detected
+                elif pos_idx == 0:
+                    logger.info(f"[{capture_folder}] ⚠️ Language undetected in start - trying middle")
+            else:
+                logger.info(f"[{capture_folder}] 🔇 Silent {pos_name} sample ({mean_volume_db:.1f}dB)")
+                if pos_idx == 0:
+                    continue  # Try middle
+                else:
+                    break  # Both silent - will skip
+
+        # Cleanup sample
+        try:
+            os.remove(sample_tmp)
+        except:
+            pass
+
         if not has_audio:
-            logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk_10min_{chunk_index}.mp3 (silent, {mean_volume_db:.1f}dB)")
+            logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk_10min_{chunk_index}.mp3 (both samples silent)")
             return {
                 'capture_folder': capture_folder,
                 'hour': hour,
@@ -251,43 +301,15 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 'mp3_file': os.path.basename(mp3_path),
                 'segments': [],
                 'skipped_reason': 'silent',
-                'mean_volume_db': mean_volume_db
+                'mean_volume_db': mean_volume_db  # Last checked
             }
-        
-        import psutil
-        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
-        
-        process = psutil.Process()
-        process.cpu_percent(interval=None)
 
-        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (full 10min)")
-
-        # Step 1: Extract 5s sample for language detection
-        sample_tmp = f'/tmp/sample_{capture_folder}.mp3'
-        extract_start = time.time()
-        cmd = ['ffmpeg', '-i', mp3_path, '-ss', '0', '-t', '5', '-y', sample_tmp]
-        subprocess.run(cmd, capture_output=True, timeout=5)
-        extract_time = time.time() - extract_start
-        logger.info(f"[{capture_folder}] ✓ Extracted 5s sample in {extract_time:.1f}s")
-
-        # Step 2: Detect language on sample
-        sample_start = time.time()
-        sample_result = transcribe_audio(sample_tmp, model_name='tiny', skip_silence_check=True, device_id=capture_folder)
-        sample_time = time.time() - sample_start
-        detected_language = sample_result.get('language_code', None)  # Use code for Whisper param
-        logger.info(f"[{capture_folder}] ✓ Language detection: {detected_language or 'auto'} in {sample_time:.1f}s")
-
-        # Cleanup sample
-        try:
-            os.remove(sample_tmp)
-        except:
-            pass
-
-        # Step 3: Full transcription with detected language
+        # Full transcription
         total_start = time.time()
         if detected_language:
             result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder, language=detected_language)
         else:
+            logger.info(f"[{capture_folder}] ⚠️ Language undetected in both samples - using auto detection")
             result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
         elapsed = time.time() - total_start
         cpu_final = process.cpu_percent(interval=None)
