@@ -330,7 +330,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 
                 # Give CPU to other processes between segments (except after last segment)
                 if seg_idx < 9:
-                    time.sleep(20)
+                    time.sleep(2)
                 
             except Exception as e:
                 logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
