@@ -247,9 +247,9 @@ class NavigationExecutor:
         
         # Get target node label for logging (if unified graph is available)
         target_node_label = None
-        if self.unified_graph:
+        if self.unified_graph or (tree_id and team_id):
             try:
-                target_node_label = self.get_node_label(target_node_id)
+                target_node_label = self.get_node_label(target_node_id, tree_id, team_id)
             except ValueError:
                 print(f"[@navigation_executor:execute_navigation] Could not find label for node_id '{target_node_id}' - will use ID for logging")
                 target_node_label = target_node_id
@@ -262,7 +262,7 @@ class NavigationExecutor:
             if current_node_id:
                 # Update navigation context with provided starting position
                 nav_context['current_node_id'] = current_node_id
-                nav_context['current_node_label'] = self.get_node_label(current_node_id)
+                nav_context['current_node_label'] = self.get_node_label(current_node_id, tree_id, team_id)
                 print(f"[@navigation_executor:execute_navigation] Starting from provided location: {current_node_id} ({nav_context['current_node_label']})")
             elif nav_context.get('current_node_id'):
                 current_label = nav_context.get('current_node_label', 'unknown')
@@ -1293,19 +1293,56 @@ class NavigationExecutor:
             'current_tree_id': nav_context['current_tree_id']
         }
     
-    def get_node_id(self, node_label: str) -> str:
-        """Get node_id by label using loaded unified graph"""
+    def get_node_id(self, node_label: str, tree_id: str = None, team_id: str = None) -> str:
+        """
+        Get node_id by label using loaded unified graph
+        
+        Args:
+            node_label: Label to search for
+            tree_id: Optional tree ID for auto-sync if graph not loaded
+            team_id: Optional team ID for auto-sync if graph not loaded
+            
+        Returns:
+            Node ID matching the label
+        """
+        # 🔄 AUTO-SYNC: Try to sync from cache if graph not loaded
+        if not self.unified_graph and tree_id and team_id:
+            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            cached_graph = get_cached_unified_graph(tree_id, team_id)
+            if cached_graph:
+                self.unified_graph = cached_graph
+                print(f"[@navigation_executor:get_node_id] ✅ Auto-synced unified_graph from cache ({len(cached_graph.nodes)} nodes)")
+        
         if not self.unified_graph:
-            raise ValueError("Unified graph not loaded - call load_navigation_tree() first")
+            raise ValueError("Unified graph not loaded - call load_navigation_tree() first or provide tree_id and team_id")
+        
         for node_id, node_data in self.unified_graph.nodes(data=True):
             if node_data.get('label') == node_label:
                 return node_id
         raise ValueError(f"Node with label '{node_label}' not found in navigation graph")
     
-    def get_node_label(self, node_id: str) -> str:
-        """Find node label by node_id using loaded unified graph"""
+    def get_node_label(self, node_id: str, tree_id: str = None, team_id: str = None) -> str:
+        """
+        Find node label by node_id using loaded unified graph
+        
+        Args:
+            node_id: Node ID to search for
+            tree_id: Optional tree ID for auto-sync if graph not loaded
+            team_id: Optional team ID for auto-sync if graph not loaded
+            
+        Returns:
+            Node label
+        """
+        # 🔄 AUTO-SYNC: Try to sync from cache if graph not loaded
+        if not self.unified_graph and tree_id and team_id:
+            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            cached_graph = get_cached_unified_graph(tree_id, team_id)
+            if cached_graph:
+                self.unified_graph = cached_graph
+                print(f"[@navigation_executor:get_node_label] ✅ Auto-synced unified_graph from cache ({len(cached_graph.nodes)} nodes)")
+        
         if not self.unified_graph:
-            raise ValueError("Unified graph not loaded - call load_navigation_tree() first")
+            raise ValueError("Unified graph not loaded - call load_navigation_tree() first or provide tree_id and team_id")
         
         if node_id in self.unified_graph.nodes:
             node_data = self.unified_graph.nodes[node_id]
