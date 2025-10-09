@@ -23,6 +23,10 @@ def get_whisper_model(model_name: str = "tiny"):
     # Reload if model name changed
     if _whisper_model is None or _whisper_model_name != model_name:
         try:
+            # Disable GPU discovery in ONNX Runtime (avoids warning on CPU-only systems)
+            os.environ['ORT_DISABLE_ALL_PROVIDERS'] = '1'
+            os.environ['ONNXRUNTIME_PROVIDERS'] = 'CPUExecutionProvider'
+            
             from faster_whisper import WhisperModel
             print(f"[AudioTranscriptionUtils] Loading faster-whisper model '{model_name}' (one-time load)...")
             # Use CPU with 4 threads for Raspberry Pi 4 optimization
