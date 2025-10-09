@@ -88,6 +88,9 @@ class KPIExecutor:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = cls()
+                    print(f"🆕 [KPIExecutor] Created NEW singleton instance (id={id(cls._instance)}, queue={id(cls._instance.queue)})", flush=True)
+        else:
+            print(f"♻️  [KPIExecutor] Returning EXISTING singleton (id={id(cls._instance)}, queue={id(cls._instance.queue)})", flush=True)
         return cls._instance
     
     def __init__(self):
@@ -144,7 +147,7 @@ class KPIExecutor:
         try:
             self.queue.put(request, block=False)
             thread_alive = self.worker_thread.is_alive() if self.worker_thread else False
-            print(f"📋 [KPIExecutor] Queued KPI measurement (queue size: {self.queue.qsize()}, worker running: {self.running}, thread alive: {thread_alive})", flush=True)
+            print(f"📋 [KPIExecutor] Queued KPI measurement (instance={id(self)}, queue={id(self.queue)}, queue size: {self.queue.qsize()}, worker running: {self.running}, thread alive: {thread_alive})", flush=True)
             sys.stdout.flush()
             return True
         except queue.Full:
@@ -160,7 +163,7 @@ class KPIExecutor:
         This ensures worker uses EXACT same queue object as enqueue_measurement()
         """
         import sys
-        print("🔄 [KPIExecutor] Worker loop started", flush=True)
+        print(f"🔄 [KPIExecutor] Worker loop started (work_queue id={id(work_queue)})", flush=True)
         sys.stdout.flush()
         
         iteration = 0
