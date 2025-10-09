@@ -3,11 +3,15 @@
 Subtitle OCR Monitor - processes subtitle detection in dedicated process
 
 OPTIMIZATIONS:
+- Skip if freeze/blackscreen/no audio → ~70% fewer OCR calls
 - Downscale to 33% (was 50%) → 30% faster OCR
 - Binarization (black/white) before OCR → 20% faster  
 - Language caching per device (2min) → 2x faster after first detection
 - Round-robin processing (1s delay per device)
 - LIFO queue (newest frames first, max 10 per device)
+
+DISABLED (too slow for real-time):
+- Spell checking (adds 200-500ms per OCR)
 
 EXPECTED PERFORMANCE:
 - OCR time: 50-100ms (was 200-300ms)
@@ -30,11 +34,10 @@ import numpy as np
 import inotify.adapters
 
 import re
-from spellchecker import SpellChecker
+# from spellchecker import SpellChecker  # Not used - too slow for real-time OCR
 
-import inotify.adapters
-
-from shared.src.lib.utils.audio_transcription_utils import clean_transcript_text, correct_spelling, ENABLE_SPELLCHECK
+from shared.src.lib.utils.audio_transcription_utils import clean_transcript_text
+# correct_spelling, ENABLE_SPELLCHECK  # Disabled - adds 200-500ms per OCR
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
@@ -127,9 +130,9 @@ class InotifySubtitleMonitor:
         with open(json_path, 'r') as f:
             data = json.load(f)
         
-        # New: Skip OCR if no audio detected (CPU optimization)
+        # Skip OCR if no audio detected (no content = no subtitles)
         if not data.get('audio', True):
-            logger.info(f"[{capture_folder}] ⊗ Skip: no audio detected")
+            logger.info(f"[{capture_folder}] ⊗ SKIP: No audio (no content to subtitle)")
             data['subtitle_analysis'] = {
                 'has_subtitles': False,
                 'extracted_text': '',
@@ -153,6 +156,36 @@ class InotifySubtitleMonitor:
         
         if not data.get('subtitle_ocr_pending', False):
             logger.info(f"[{capture_folder}] ⊗ Skip: no OCR pending")
+            return
+        
+        # Skip OCR if freeze detected (frozen frame = no new subtitles)
+        if data.get('freeze', False):
+            logger.info(f"[{capture_folder}] ⊗ SKIP: Freeze detected (no new content)")
+            data['subtitle_analysis'] = {
+                'has_subtitles': False,
+                'extracted_text': '',
+                'skipped': True,
+                'skip_reason': 'freeze'
+            }
+            data['subtitle_ocr_pending'] = False
+            with open(json_path + '.tmp', 'w') as f:
+                json.dump(data, f, indent=2)
+            os.rename(json_path + '.tmp', json_path)
+            return
+        
+        # Skip OCR if blackscreen detected (no content = no subtitles)
+        if data.get('blackscreen', False):
+            logger.info(f"[{capture_folder}] ⊗ SKIP: Blackscreen (no content)")
+            data['subtitle_analysis'] = {
+                'has_subtitles': False,
+                'extracted_text': '',
+                'skipped': True,
+                'skip_reason': 'blackscreen'
+            }
+            data['subtitle_ocr_pending'] = False
+            with open(json_path + '.tmp', 'w') as f:
+                json.dump(data, f, indent=2)
+            os.rename(json_path + '.tmp', json_path)
             return
         
         frame_path = os.path.join(captures_dir, frame_file)
@@ -179,7 +212,8 @@ class InotifySubtitleMonitor:
             edge_time = (time.perf_counter() - start_edge) * 1000
             
             if not (1.5 < subtitle_edge_density < 8):
-                logger.info(f"[{capture_folder}] ⊗ Skip: no_edges (density={subtitle_edge_density:.1f}%, {edge_time:.0f}ms)")
+                logger.info(f"[{capture_folder}] ⊗ SKIP: No subtitle edges detected")
+                logger.info(f"[{capture_folder}]    └─ Edge density: {subtitle_edge_density:.1f}% (need 1.5-8%)")
                 data['subtitle_analysis'] = {
                     'has_subtitles': False,
                     'extracted_text': '',
@@ -208,12 +242,11 @@ class InotifySubtitleMonitor:
                 _, crop = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 binarize_time = (time.perf_counter() - start_binarize) * 1000
                 
-                logger.info(f"[{capture_folder}] ✓ Crop: {w}x{h}@({x},{y}) → {down_w}x{down_h} ({crop_time:.1f}ms + {down_time:.1f}ms + bin={binarize_time:.1f}ms)")
-                
                 # Get cached language or use default (reuse language for 2 minutes)
                 current_time = time.time()
                 cached_lang = None
                 lang_config = 'eng+deu+fra'  # Default
+                lang_cached = False
                 
                 if capture_folder in self.language_cache:
                     cache_time, cached_lang = self.language_cache[capture_folder]
@@ -226,7 +259,7 @@ class InotifySubtitleMonitor:
                             lang_config = 'deu'
                         elif cached_lang == 'eng':
                             lang_config = 'eng'
-                        logger.debug(f"[{capture_folder}] Using cached language: {cached_lang} (age={cache_age:.0f}s)")
+                        lang_cached = True
                 
                 # OCR
                 start_ocr = time.perf_counter()
@@ -252,8 +285,11 @@ class InotifySubtitleMonitor:
                 
                 # New: Apply shared regex-based filter and optional spell correction
                 text = clean_transcript_text(text)
-                if ENABLE_SPELLCHECK:
-                    text = correct_spelling(text, detected_language)
+                
+                # DISABLED: Spell checking adds 200-500ms per OCR (too slow for real-time)
+                # Only enable for post-processing, not real-time subtitles
+                # if ENABLE_SPELLCHECK:
+                #     text = correct_spelling(text, detected_language)
                 
                 # Detect language if text found and not cached (or cache expired)
                 detected_language = None
@@ -282,6 +318,9 @@ class InotifySubtitleMonitor:
                 
                 total_time = (time.perf_counter() - start_total) * 1000
                 
+                # Calculate preprocessing time (everything except OCR)
+                preprocess_time = crop_time + down_time + binarize_time
+                
                 data['subtitle_analysis'] = {
                     'has_subtitles': bool(text),
                     'extracted_text': text,
@@ -294,11 +333,19 @@ class InotifySubtitleMonitor:
                     'binarized': True
                 }
                 
+                # Clear, readable logging showing what happened
                 if text:
                     lang_str = f" [{detected_language}]" if detected_language else ""
-                    logger.info(f"[{capture_folder}] 📝 Text{lang_str}: {len(text)} chars in {total_time:.0f}ms (OCR={ocr_time:.0f}ms) | '{text[:60]}'")
+                    lang_method = f" (cached)" if lang_cached else f" (3-lang)"
+                    logger.info(f"[{capture_folder}] 📝 TEXT FOUND{lang_str}:")
+                    logger.info(f"[{capture_folder}]    └─ '{text[:70]}'")
+                    logger.info(f"[{capture_folder}]    └─ Preprocessing: crop={crop_time:.0f}ms + resize={down_time:.0f}ms + binarize={binarize_time:.0f}ms = {preprocess_time:.0f}ms")
+                    logger.info(f"[{capture_folder}]    └─ OCR{lang_method}: {ocr_time:.0f}ms (Tesseract with lang={lang_config})")
+                    logger.info(f"[{capture_folder}]    └─ TOTAL: {total_time:.0f}ms ({len(text)} chars)")
                 else:
-                    logger.info(f"[{capture_folder}] ⊗ No text (OCR={ocr_time:.0f}ms, total={total_time:.0f}ms)")
+                    lang_method = f" (cached {lang_config})" if lang_cached else f" ({lang_config})"
+                    logger.info(f"[{capture_folder}] ⊗ NO TEXT")
+                    logger.info(f"[{capture_folder}]    └─ Preprocess: {preprocess_time:.0f}ms | OCR{lang_method}: {ocr_time:.0f}ms | Total: {total_time:.0f}ms")
         
         except Exception as e:
             data['subtitle_analysis'] = {
