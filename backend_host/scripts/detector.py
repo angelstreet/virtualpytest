@@ -775,15 +775,6 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                     'mean_volume_db': mean_volume_db,
                     'audio_check_method': audio_method,
                     'audio_check_time_ms': round(audio_time_ms, 2),
-                    'subtitle_analysis': {
-                        'has_subtitles': False,
-                        'extracted_text': '',
-                        'detected_language': None,
-                        'confidence': 0.0,
-                        'box': None,
-                        'skipped': True,
-                        'skip_reason': 'zap_just_ended'
-                    },
                     'performance_ms': {k: round(v, 2) for k, v in timings.items()}
                 }
             else:
@@ -808,15 +799,6 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                     'audio': True,
                     'volume_percentage': 0,
                     'mean_volume_db': -100.0,
-                    'subtitle_analysis': {
-                        'has_subtitles': False,
-                        'extracted_text': '',
-                        'detected_language': None,
-                        'confidence': 0.0,
-                        'box': None,
-                        'skipped': True,
-                        'skip_reason': 'zap_in_progress'
-                    },
                     'performance_ms': {k: round(v, 2) for k, v in timings.items()}
                 }
         except Exception as e:
@@ -931,12 +913,14 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
-    # === STEP 5: Subtitle Detection (SKIP if zap/freeze/queue overload/audio frame) ===
+    # === STEP 5: Subtitle Detection (DISABLED - handled by subtitle_monitor.py) ===
+    # Subtitle OCR is now handled exclusively by subtitle_monitor.py
+    # capture_monitor.py sets subtitle_ocr_pending=True, subtitle_monitor.py processes it
     subtitle_result = None
     start = time.perf_counter()
     
-    sample_interval = fps if fps >= 2 else 2
-    should_check_subtitles = (frame_number % sample_interval == 0)
+    # Skip all subtitle analysis - let subtitle_monitor.py handle it
+    should_check_subtitles = False
     
     # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
     # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
@@ -1455,9 +1439,5 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         # Performance (enhanced)
         'performance_ms': {k: round(v, 2) for k, v in timings.items()}
     }
-    
-    # Add subtitle analysis if available
-    if subtitle_result:
-        result['subtitle_analysis'] = subtitle_result
     
     return result
