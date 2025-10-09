@@ -597,6 +597,9 @@ class InotifyTranscriptMonitor:
                 if work_queue.empty():
                     self._refill_from_history(device_folder)
                 
+                # Show queue status for all devices
+                self._log_queue_status()
+                
                 time.sleep(10)
                 
             except queue.Empty:
@@ -625,6 +628,43 @@ class InotifyTranscriptMonitor:
                 break
         
         logger.info(f"[{device_folder}] Refilled ({len(self.history_queues[device_folder])} remaining)")
+    
+    def _log_queue_status(self):
+        """Log queue status for all devices"""
+        logger.info("=" * 80)
+        logger.info("📊 QUEUE STATUS")
+        for device_info in self.monitored_devices:
+            device_folder = device_info['device_folder']
+            work_queue = self.active_queues[device_folder]
+            history = self.history_queues[device_folder]
+            
+            # Get active queue items (peek without removing)
+            active_items = []
+            try:
+                temp_list = []
+                while not work_queue.empty():
+                    item = work_queue.get_nowait()
+                    temp_list.append(item)
+                
+                # Put items back
+                for item in temp_list:
+                    work_queue.put_nowait(item)
+                    mtime, hour, filename = item
+                    chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
+                    active_items.append(f"{hour}h{chunk_index}")
+            except:
+                pass
+            
+            # Format queue display
+            active_str = ', '.join(active_items) if active_items else 'empty'
+            history_count = len(history)
+            
+            if active_items or history_count > 0:
+                logger.info(f"  [{device_folder}] Active: [{active_str}] | History: {history_count}")
+            else:
+                logger.info(f"  [{device_folder}] ✓ All caught up")
+        
+        logger.info("=" * 80)
     
     def _process_mp4_backlog_batch(self, device_folder):
         """Process MP4 backlog batch"""
