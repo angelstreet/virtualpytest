@@ -245,7 +245,10 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, capture_folder, sample_duration=5.0)
         
         if not has_audio:
-            logger.info(f"[{capture_folder}] ⏭️  Skipped transcription: chunk_10min_{chunk_index}.mp3 (silent, {mean_volume_db:.1f}dB)")
+            logger.info(f"[{capture_folder}] " + "="*80)
+            logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk_10min_{chunk_index}.mp3 (hour {hour})")
+            logger.info(f"[{capture_folder}] 🔇 Reason: Silent audio (volume={mean_volume_db:.1f}dB, threshold=-50dB)")
+            logger.info(f"[{capture_folder}] " + "="*80)
             # Return minimal transcript data indicating silence
             return {
                 'capture_folder': capture_folder,
@@ -263,7 +266,8 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 'mean_volume_db': mean_volume_db
             }
         
-        logger.info(f"[{capture_folder}] 🎬 Transcribing chunk_10min_{chunk_index}.mp3 (hour {hour}, {mean_volume_db:.1f}dB)")
+        logger.info(f"[{capture_folder}] 🎬 START Transcription: chunk_10min_{chunk_index}.mp3 (hour {hour}, volume={mean_volume_db:.1f}dB)")
+        logger.info(f"[{capture_folder}] ⏳ Processing with Whisper 'tiny' model...")
         
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         import time
@@ -277,13 +281,20 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         timed_segments = result.get('segments', [])
         elapsed = time.time() - start_time
         
-        logger.info(f"[{capture_folder}] 📝 Language: {language} | Confidence: {confidence:.2f} | Duration: {elapsed:.1f}s")
+        # Clear summary log after transcription
+        logger.info(f"[{capture_folder}] " + "="*80)
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Language: {language} | Confidence: {confidence:.2f}")
+        
         if transcript:
-            preview = transcript[:200] + ('...' if len(transcript) > 200 else '')
-            logger.info(f"[{capture_folder}] 💬 '{preview}'")
-            logger.info(f"[{capture_folder}] ⏱️  Generated {len(timed_segments)} timed segments for subtitle display")
+            word_count = len(transcript.split())
+            char_count = len(transcript)
+            preview = transcript[:150] + ('...' if len(transcript) > 150 else '')
+            logger.info(f"[{capture_folder}] 📊 Stats: {word_count} words, {char_count} chars, {len(timed_segments)} segments")
+            logger.info(f"[{capture_folder}] 💬 Text: '{preview}'")
         else:
-            logger.info(f"[{capture_folder}] 🔇 No speech detected in chunk")
+            logger.info(f"[{capture_folder}] 🔇 Result: No speech detected (silent chunk)")
+        
+        logger.info(f"[{capture_folder}] " + "="*80)
         
         transcript_data = {
             'capture_folder': capture_folder,
@@ -527,12 +538,13 @@ class InotifyTranscriptMonitor:
                 
                 if transcript_data:
                     save_transcript_chunk(device_folder, hour, chunk_index, transcript_data, has_mp3=True)
-                    
                     elapsed = time.time() - start
+                    
+                    # Summary already logged in transcribe_mp3_chunk, just log save confirmation
                     if transcript_data.get('skipped_reason') == 'silent':
-                        logger.info(f"[{device_folder}] ⏭️  Skipped silent chunk in {elapsed:.1f}s")
+                        logger.info(f"[{device_folder}] 💾 Saved silent chunk metadata (total: {elapsed:.1f}s)")
                     else:
-                        logger.info(f"[{device_folder}] ✅ Transcribed in {elapsed:.1f}s")
+                        logger.info(f"[{device_folder}] 💾 Saved transcript JSON (total: {elapsed:.1f}s)")
                 
                 work_queue.task_done()
                 
