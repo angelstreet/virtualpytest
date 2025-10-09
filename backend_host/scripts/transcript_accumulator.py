@@ -651,7 +651,8 @@ class InotifyTranscriptMonitor:
                     work_queue.put_nowait(item)
                     mtime, hour, filename = item
                     chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
-                    active_items.append(f"{hour}h{chunk_index}")
+                    minute = chunk_index * 10
+                    active_items.append(f"{hour:02d}h{minute:02d}")
             except:
                 pass
             
