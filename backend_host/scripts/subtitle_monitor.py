@@ -55,7 +55,7 @@ class InotifySubtitleMonitor:
                 self.capture_dirs_map[capture_folder] = capture_dir
                 logger.info(f"Watching: {metadata_dir} -> {capture_folder}")
             
-            self.queues[capture_folder] = queue.Queue(maxsize=10)
+            self.queues[capture_folder] = queue.LifoQueue(maxsize=10)
         
         self._start_ocr_worker()
     
