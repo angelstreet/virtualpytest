@@ -6,9 +6,9 @@ HOT/COLD STORAGE ARCHIVER - Safety Cleanup + Progressive Grouping
 Responsibilities:
 1. SAFETY CLEANUP: Enforce hot storage limits on ALL file types (prevent RAM exhaustion)
 2. Progressive MP4 merging: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
-3. Progressive metadata grouping: HOT JSONs → 1min → 10min chunks saved to COLD /metadata/{hour}/
+3. Direct metadata grouping: HOT JSONs (3000 files) → 10min chunks saved to COLD /metadata/{hour}/
 4. Audio extraction: 10min MP4 → MP3 saved directly to COLD /audio/{hour}/
-5. 98% disk write reduction through progressive grouping
+5. 98% disk write reduction through direct grouping (no intermediate metadata files)
 
 Safety cleanup runs FIRST and independently to guarantee hot storage never exceeds
 limits even when merging/archiving pipelines fail or get backlogged.
@@ -491,9 +491,10 @@ def merge_metadata_batch(source_dir: str, pattern: str, output_path: Optional[st
     
     # Calculate required files for batch
     if pattern == 'capture_*.json':
-        # Need 300 files for 1 minute at 5fps (or 120 for 2fps VNC)
-        required = 60 * fps
-    else:  # '1min_*.json'
+        # Individual files: batch_size is in seconds
+        # e.g., 600 seconds * 5fps = 3000 files for 10 minutes
+        required = batch_size * fps
+    else:  # '1min_*.json' (legacy, not used anymore)
         # Need 10 files for 10 minutes
         required = batch_size
     
@@ -943,8 +944,8 @@ def process_capture_directory(capture_dir: str):
        - Segments: Keep 200 newest (safety net - FFmpeg normally auto-deletes @ 150)
        - Captures: Keep 300 newest (deleted, uploaded to R2 when needed)
        - Thumbnails: Keep 100 newest (deleted, local freeze detection only)
-       - Metadata: Keep 750 newest (individual JSONs deleted after grouping to cold)
-    2. Progressive metadata grouping: HOT individual JSONs → 1min → 10min chunks in COLD /metadata/{hour}/
+       - Metadata: Keep 750 newest (individual JSONs deleted after direct merge to cold)
+    2. Direct metadata grouping: HOT JSONs (3000 files) → 10min chunks in COLD /metadata/{hour}/
     3. Progressive MP4 merging: HOT TS → 1min → 10min MP4 chunks in COLD /segments/{hour}/
     4. Audio extraction: COLD 10min MP4 → direct to COLD /audio/{hour}/
     
@@ -967,18 +968,20 @@ def process_capture_directory(capture_dir: str):
     
     ram_mode = is_ram_mode(capture_dir)
     
-    # METADATA PROGRESSIVE GROUPING (mirrors MP4 flow: individual → 1min → 10min)
+    # METADATA DIRECT GROUPING (clean 2-tier: individual → 10min chunks)
     hot_metadata = os.path.join(capture_dir, 'hot', 'metadata') if ram_mode else os.path.join(capture_dir, 'metadata')
-    metadata_temp_dir = os.path.join(capture_dir, 'metadata', 'temp')
-    os.makedirs(metadata_temp_dir, exist_ok=True)
     
-    # Step 1: Group 1 minute of metadata (300 files at 5fps)
-    metadata_1min = merge_metadata_batch(hot_metadata, 'capture_*.json', os.path.join(metadata_temp_dir, f'1min_{int(time.time())}.json'), 60, fps=5)
-    if metadata_1min:
-        logger.info("Created 1min metadata")
-    
-    # Step 2: Group 10× 1-minute into 10-minute chunk
-    metadata_10min = merge_metadata_batch(metadata_temp_dir, '1min_*.json', None, 10, fps=5, is_final=True, capture_dir=capture_dir)
+    # Direct merge: 3000 individual JSONs → 1 x 10min chunk in /metadata/{hour}/
+    # No intermediate 1min files - eliminates gaps and corruption
+    metadata_10min = merge_metadata_batch(
+        hot_metadata,           # Source: individual capture_*.json files
+        'capture_*.json',       # Pattern: individual files (not 1min files)
+        None,                   # No intermediate output
+        600,                    # 600 seconds = 10 minutes
+        fps=5,
+        is_final=True,          # Save directly to /metadata/{hour}/chunk_10min_X.json
+        capture_dir=capture_dir
+    )
     if metadata_10min:
         logger.info("Created 10min metadata chunk")
     
@@ -1067,8 +1070,8 @@ def process_capture_directory(capture_dir: str):
     mp4_status = [s for s, result in [("1min", mp4_1min), ("10min", mp4_10min)] if result]
     mp4_info = f", MP4: {'+'.join(mp4_status)}" if mp4_status else ""
     
-    metadata_status = [s for s, result in [("1min", metadata_1min), ("10min", metadata_10min)] if result]
-    metadata_info = f", Metadata: {'+'.join(metadata_status)}" if metadata_status else ""
+    # Metadata uses direct 10min grouping (no 1min intermediate)
+    metadata_info = ", Metadata: 10min" if metadata_10min else ""
     
     # Safety cleanup stats
     safety_deletes = []
@@ -1092,10 +1095,10 @@ def process_capture_directory(capture_dir: str):
 
 def main_loop():
     """
-    Main service loop - Safety Cleanup + Progressive Grouping + Audio Extraction
+    Main service loop - Safety Cleanup + Direct Grouping + Audio Extraction
     Processes every 1min:
     - SAFETY CLEANUP: Enforce limits on ALL hot storage types (prevent RAM exhaustion)
-    - Metadata: HOT individual JSONs → 1min → 10min chunks saved to COLD /metadata/{hour}/
+    - Metadata: HOT JSONs (3000 files) → direct merge → 10min chunks in COLD /metadata/{hour}/
     - Segments: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
     - Audio: Extract from COLD 10min MP4 → directly to COLD /audio/{hour}/
     
@@ -1122,7 +1125,7 @@ def main_loop():
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Strategy: Safety cleanup (ALL types) + Progressive grouping (MP4/Metadata) + Audio extraction (direct to COLD)")
+    logger.info("Strategy: Safety cleanup (ALL types) + Direct metadata grouping (3000→1) + Progressive MP4 (60→10) + Audio extraction")
     logger.info("Safety: Enforces limits FIRST to prevent RAM exhaustion from pipeline failures")
     logger.info("=" * 60)
     

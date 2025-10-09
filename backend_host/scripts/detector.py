@@ -3,17 +3,14 @@
 Frame detector - analyzes frames for issues with rich metadata
 Returns same format as original analyze_audio_video.py
 
+NOTE: Subtitle OCR is handled by subtitle_monitor.py (separate process)
+      This detector focuses on: blackscreen, freeze, macroblocks, zap, audio
+
 ZAP STATE OPTIMIZATION:
 - Tracks when device is zapping (blackscreen + banner detected)
-- Skips expensive operations (OCR, redundant edge detection) during zap
+- Skips expensive operations during zap
 - Marks start/end frames in JSON for zap_executor
-- Saves ~99% CPU during zap sequence (2ms vs 300ms per frame)
-
-OCR OPTIMIZATION:
-- Downscales cropped subtitle region by 50% (75% fewer pixels) before OCR
-- Reduces OCR time by ~70% (150ms → 50ms typical)
-- Uses INTER_AREA interpolation for best quality downscaling
-- No impact on text extraction accuracy
+- Saves ~95% CPU during zap sequence (2ms vs ~40ms per frame)
 
 FREEZE DETECTION OPTIMIZATION:
 - In-memory thumbnail cache: Avoids disk I/O for previous frames
@@ -37,15 +34,7 @@ from datetime import datetime
 from contextlib import contextmanager
 
 # === CONFIGURATION ===
-# OCR Crop Method: 'smart' (dark mask-based, 60-70% smaller) or 'safe' (fixed region)
-OCR_CROP_METHOD = 'safe'  # Disabled smart crop - using safe area (faster, more reliable)
-
-# OCR Enable/Disable: Set to False to completely disable OCR processing
-OCR_ENABLED = False  # Set to False to disable all OCR operations
-
-# Add scripts directory to path for crop_subtitles import
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from crop_subtitles import find_subtitle_bbox
+# OCR is handled by subtitle_monitor.py - removed from detector.py
 
 from shared.src.lib.utils.storage_path_utils import (
     is_ram_mode,
@@ -67,8 +56,7 @@ from shared.src.lib.utils.image_utils import (
     load_and_downscale_image,
     analyze_blackscreen,
     analyze_freeze,
-    analyze_macroblocks,
-    analyze_subtitle_region
+    analyze_macroblocks
 )
 
 def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
@@ -193,16 +181,12 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
 
 # Performance: Cache for optimization
 _latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_time)}
-_subtitle_cache = {}  # {image_path: (mtime, subtitle_result)}
 _audio_result_cache = {}  # {capture_dir: (has_audio, volume, db, method, time_ms)} - Last known audio state per device (frame-level cache)
 _audio_volume_check_cache = {}  # {capture_dir: last_volume_check_timestamp} - Track when we last did full ffmpeg volume check
 _audio_ffprobe_cache = {}  # {capture_dir: (last_check_time, has_audio, volume, db, method, time_ms)} - Time-based throttle (5s)
 
 # Zap state tracking for CPU optimization
 _zap_state_cache = {}  # In-memory cache for fast access
-
-# Language detection throttling (per device)
-_language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_language)}
 
 # Freeze detection optimization - cache thumbnails in memory
 _freeze_thumbnail_cache = {}  # {device_dir: [(frame_number, thumbnail_img), ...]}
@@ -599,56 +583,7 @@ def analyze_audio(capture_dir):
     
     return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
 
-def analyze_subtitles(image_path, fps=5):
-    """
-    Analyze subtitle region on full-res capture (1280x720).
-    Runs every 1 second (every 5th frame at 5fps, every 2nd frame at 2fps VNC).
-    """
-    global _subtitle_cache
-    
-    try:
-        filename = os.path.basename(image_path)
-        frame_number = int(filename.split('_')[1].split('.')[0])
-    except:
-        return None
-    
-    sample_interval = fps if fps >= 2 else 2
-    if frame_number % sample_interval != 0:
-        return None
-    
-    if image_path in _subtitle_cache:
-        cached_mtime, cached_result = _subtitle_cache[image_path]
-        try:
-            current_mtime = os.path.getmtime(image_path)
-            if cached_mtime == current_mtime:
-                return cached_result
-        except:
-            pass
-    
-    try:
-        import cv2
-        
-        img = cv2.imread(image_path)
-        if img is None:
-            return None
-        
-        resized = cv2.resize(img, (640, 360), interpolation=cv2.INTER_AREA)
-        result = analyze_subtitle_region(resized, extract_text=True)
-        
-        try:
-            mtime = os.path.getmtime(image_path)
-            _subtitle_cache[image_path] = (mtime, result)
-            if len(_subtitle_cache) > 30:
-                _subtitle_cache = dict(list(_subtitle_cache.items())[-15:])
-        except:
-            pass
-        
-        return result
-        
-    except ImportError:
-        return None
-    except Exception as e:
-        return {'has_subtitles': False, 'error': str(e)}
+# analyze_subtitles() removed - now handled by subtitle_monitor.py
 
 def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     """
@@ -656,29 +591,27 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     
     Workflow:
     1. Check if device is zapping (state file)
-       - IF zapping → FAST PATH (skip OCR, just monitor blackscreen)
+       - IF zapping → FAST PATH (just monitor blackscreen)
        - IF NOT zapping → FULL PATH (all detections)
     2. Load image
     3. Edge detection (CORE - reused)
     4. Blackscreen + Zap detection (fast sampling)
-    5. Subtitle detection (conditional - skip if zap/freeze/queue overload)
-    6. Freeze detection
-    7. Macroblocks (skip if freeze or blackscreen)
-    8. Audio analysis (cached every 5 seconds)
+    5. Freeze detection
+    6. Macroblocks (skip if freeze or blackscreen)
+    7. Audio analysis (cached every 5 seconds)
     
     ZAP STATE OPTIMIZATION:
     - When zap detected: Save state, mark start frame
-    - During zap: Skip expensive ops (~2ms vs 300ms)
+    - During zap: Skip expensive ops (~2ms vs full detection)
     - When blackscreen ends: Mark end frame, clear state
     
-    QUEUE OVERLOAD PROTECTION:
-    - When queue > 50 frames: Disable OCR to drain queue faster
-    - Auto-re-enables when queue clears
+    NOTE: Subtitle OCR is handled by subtitle_monitor.py (separate process)
     
     Args:
         image_path: Path to capture image
         fps: Frames per second (5 for v4l2, 2 for x11grab/VNC) - used for freeze detection
-        queue_size: Current queue backlog (0 = no backlog, >50 = disable OCR)
+        queue_size: Current queue backlog
+        debug: Enable debug output (unused, kept for compatibility)
     """
     # Performance timing storage
     timings = {}
@@ -694,7 +627,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         frame_number = 0
     
     # Global cache access
-    global _audio_result_cache, _language_detection_cache
+    global _audio_result_cache
     
     # === CHECK: Is device currently zapping? ===
     zap_state = load_zap_state(capture_dir)
@@ -913,410 +846,18 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     
     timings['freeze'] = (time.perf_counter() - start) * 1000
     
-    # === STEP 5: Subtitle Detection (DISABLED - handled by subtitle_monitor.py) ===
-    # Subtitle OCR is now handled exclusively by subtitle_monitor.py
-    # capture_monitor.py sets subtitle_ocr_pending=True, subtitle_monitor.py processes it
-    subtitle_result = None
-    start = time.perf_counter()
+    # === STEP 5: Subtitle Detection - REMOVED ===
+    # Subtitle OCR is now handled exclusively by subtitle_monitor.py (separate process)
+    # No OCR code runs in detector.py anymore
     
-    # Skip all subtitle analysis - let subtitle_monitor.py handle it
-    should_check_subtitles = False
-    
-    # Check if this is an audio analysis frame (to avoid doing both OCR and audio)
-    # Dynamic interval: 5s if audio present, 10s if no audio (silence less critical)
+    # Calculate audio check interval for next step
     if capture_dir in _audio_result_cache:
         last_has_audio, _, _, _, _ = _audio_result_cache[capture_dir]
         audio_check_interval = fps * 5 if last_has_audio else fps * 10
     else:
-        # First check - use 5s interval
         audio_check_interval = fps * 5
     
     is_audio_frame = (frame_number % audio_check_interval == 0)
-    
-    # Check if we have audio (from cache or will check this frame)
-    has_audio_cached = False
-    if capture_dir in _audio_result_cache:
-        has_audio_cached, _, _, _, _ = _audio_result_cache[capture_dir]
-    
-    if not OCR_ENABLED:
-        # OCR globally disabled - skip all OCR operations
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': 'ocr_disabled'
-        }
-    elif is_audio_frame:
-        # Audio analysis frame - skip OCR to spread expensive operations
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': 'audio_frame'
-        }
-    elif not has_audio_cached and capture_dir in _audio_result_cache:
-        # No audio detected (from cache) - skip OCR since no content playing
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': 'no_audio'
-        }
-    elif queue_size > 50:
-        # Queue overload - disable OCR to drain queue faster
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': f'queue_overload_{queue_size}'
-        }
-    elif zap:
-        # Zapping = blackscreen with bottom content (not subtitles) - skip OCR
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': 'zap'
-        }
-    elif frozen or blackscreen:
-        # Skip OCR during freeze or blackscreen - saves CPU
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': 'freeze' if frozen else 'blackscreen'
-        }
-    elif should_check_subtitles:
-        # Check subtitle area (bottom 15%)
-        subtitle_y = int(img_height * 0.85)
-        edges_subtitle = edges[subtitle_y:img_height, :]
-        
-        subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
-        # Threshold: 1.5-8% (catch subtitles with black backgrounds, avoid UI/menus)
-        has_subtitle_area = bool(1.5 < subtitle_edge_density < 8)
-        timings['subtitle_area_check'] = (time.perf_counter() - start) * 1000
-        
-        # OCR only if subtitle edges detected
-        if has_subtitle_area:
-            ocr_start = time.perf_counter()
-            ocr_timings = {}  # Detailed timing for each OCR step
-            
-            try:
-                # STEP 1: Calculate crop boundaries (smart or safe area)
-                step_start = time.perf_counter()
-                
-                if OCR_CROP_METHOD == 'smart':
-                    # SMART CROP: Dark mask-based (proven implementation from crop_subtitles.py)
-                    try:
-                        bbox = find_subtitle_bbox(img)
-                        x, y, w, h = bbox.x, bbox.y, bbox.w, bbox.h
-                        crop_method = "smart_dark_mask"
-                    except (ValueError, Exception) as e:
-                        # Fall back to safe area if smart crop fails
-                        x = int(img_width * 0.10)
-                        y = int(img_height * 0.60)
-                        w = int(img_width * 0.80)
-                        h = int(img_height * 0.35)
-                        crop_method = f"smart_fallback_safe ({str(e)[:30]})"
-                        # LOG WARNING: Smart crop failed
-                        logger.warning(f"Smart crop failed: {str(e)[:50]} - using safe area {w}x{h}")
-                else:
-                    # SAFE AREA: Fixed region (60-95% height, 10-90% width)
-                    x = int(img_width * 0.10)   # 10% from left
-                    y = int(img_height * 0.60)  # Start at 60% height (bottom 40%)
-                    w = int(img_width * 0.80)   # 80% width (centered)
-                    h = int(img_height * 0.35)  # 35% height (60-95%)
-                    crop_method = "safe_area_fixed"
-                
-                ocr_timings['crop_calc'] = (time.perf_counter() - step_start) * 1000
-                
-                # STEP 2: Extract crop region
-                step_start = time.perf_counter()
-                subtitle_box_region = img[y:y+h, x:x+w]
-                ocr_timings['crop_extract'] = (time.perf_counter() - step_start) * 1000
-                
-                # STEP 3: Downscale to 50% for faster OCR (reduces pixels by 75%)
-                step_start = time.perf_counter()
-                subtitle_box_downscaled = cv2.resize(subtitle_box_region, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-                ocr_timings['downscale'] = (time.perf_counter() - step_start) * 1000
-                
-                # STEP 4: Save debug crop if enabled (downscaled version)
-                step_start = time.perf_counter()
-                if debug:
-                    # Fixed filename per device to avoid disk space issues
-                    device_name = os.path.basename(capture_dir)
-                    debug_filename = f"subtitle_crop_debug_{device_name}.jpg"
-                    debug_path = os.path.join('/tmp', debug_filename)
-                    cv2.imwrite(debug_path, subtitle_box_downscaled)
-                    print(f"   🔍 Saved subtitle crop: {debug_path}")
-                    ocr_timings['debug_save'] = (time.perf_counter() - step_start) * 1000
-                else:
-                    ocr_timings['debug_save'] = 0.0
-                
-                # STEP 5: Run Tesseract OCR (on downscaled image)
-                step_start = time.perf_counter()
-                subtitle_text_raw = ""
-                ocr_method_used = "pytesseract"
-                try:
-                    import pytesseract
-                    ocr_config = '--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
-                    subtitle_text_raw = pytesseract.image_to_string(
-                        subtitle_box_downscaled, 
-                        config=ocr_config
-                    ).strip()
-                    subtitle_text = subtitle_text_raw
-                    ocr_timings['tesseract_ocr'] = (time.perf_counter() - step_start) * 1000
-                except Exception as ocr_error:
-                    ocr_timings['tesseract_ocr'] = (time.perf_counter() - step_start) * 1000
-                    # Fallback to standard method
-                    ocr_method_used = "fallback"
-                    step_start = time.perf_counter()
-                    try:
-                        from shared.src.lib.utils.image_utils import extract_text_from_region
-                        subtitle_text_raw = extract_text_from_region(subtitle_box_downscaled)
-                        subtitle_text = subtitle_text_raw
-                        ocr_timings['fallback_ocr'] = (time.perf_counter() - step_start) * 1000
-                    except Exception as fallback_error:
-                        subtitle_text_raw = ""
-                        subtitle_text = ""
-                        ocr_method_used = f"error: {str(fallback_error)}"
-                        ocr_timings['fallback_ocr'] = (time.perf_counter() - step_start) * 1000
-                
-                # STEP 6: Clean OCR noise (regex filter)
-                step_start = time.perf_counter()
-                if subtitle_text:
-                    import re
-                    lines = subtitle_text.split('\n')
-                    cleaned_lines = []
-                    for line in lines:
-                        words = line.split()
-                        real_words = [w for w in words if len(re.sub(r'[^a-zA-Z]', '', w)) >= 3]
-                        if real_words:
-                            cleaned = re.sub(r'[\s,\.;:\-\|~\*]+$', '', line)
-                            cleaned = re.sub(r'^[\s,\.;:\-\|~\*]+', '', cleaned)
-                            cleaned_lines.append(cleaned)
-                    subtitle_text = '\n'.join(cleaned_lines).strip()
-                ocr_timings['noise_cleaning'] = (time.perf_counter() - step_start) * 1000
-                
-                # STEP 7: Detect language if text found
-                step_start = time.perf_counter()
-                detected_language = None
-                confidence = 0.0
-                
-                # CRITICAL: If OCR was already slow (>200ms), SKIP language detection to save time
-                tesseract_time = ocr_timings.get('tesseract_ocr', 0)
-                if tesseract_time > 200:
-                    # OCR took >200ms, skip language detection to avoid further slowdown
-                    detected_language = 'skipped_slow_ocr'
-                    confidence = 0.6
-                else:
-                    # Quick garbage filter: if text is mostly nonsense, skip language detection
-                    if subtitle_text and len(subtitle_text.strip()) > 0:
-                        # Check if text has reasonable characters (letters, spaces, punctuation)
-                        clean_text = subtitle_text.strip()
-                        alpha_count = sum(c.isalpha() or c.isspace() for c in clean_text)
-                        if len(clean_text) > 0 and alpha_count / len(clean_text) < 0.5:
-                            # More than 50% garbage characters - likely noise
-                            subtitle_text = None
-                    
-                    # OPTIMIZATION: Only detect language if we have 3+ real words AND it's been 30+ seconds
-                    if subtitle_text and len(subtitle_text.strip()) > 0:
-                        # Count real words (2+ characters, alpha only)
-                        words = [w for w in subtitle_text.split() if len(w) >= 2 and any(c.isalpha() for c in w)]
-                        
-                        # Check throttling: only detect language every 30 seconds per device
-                        current_time = time.time()
-                        
-                        # Get cached data (timestamp and language)
-                        cached_data = _language_detection_cache.get(capture_dir)
-                        if cached_data:
-                            last_detection_time, cached_language = cached_data
-                            time_since_last = current_time - last_detection_time
-                        else:
-                            last_detection_time = 0
-                            cached_language = None
-                            time_since_last = float('inf')
-                        
-                        # Only detect if: 3+ words AND 30+ seconds since last detection
-                        if len(words) >= 3 and time_since_last >= 30.0:
-                            try:
-                                from shared.src.lib.utils.image_utils import detect_language
-                                detected_language = detect_language(subtitle_text)
-                                
-                                # Update throttle cache with both timestamp and language
-                                _language_detection_cache[capture_dir] = (current_time, detected_language)
-                                
-                                # If language detected successfully, trust the OCR
-                                if detected_language and detected_language != 'unknown':
-                                    confidence = 1.0
-                                else:
-                                    # Language unknown but text extracted - medium confidence
-                                    confidence = 0.75
-                            except:
-                                detected_language = 'unknown'
-                                confidence = 0.75
-                        else:
-                            # Throttled - use cached language if available
-                            if cached_language:
-                                detected_language = cached_language
-                                confidence = 0.8  # Slightly lower confidence for cached
-                            else:
-                                # No cached language yet (< 3 words or first detection)
-                                detected_language = 'skipped'
-                                confidence = 0.5
-                
-                ocr_timings['language_detection'] = (time.perf_counter() - step_start) * 1000
-                
-                ocr_time_ms = (time.perf_counter() - ocr_start) * 1000
-                
-                # LOG WARNING: OCR is slow (>1 second)
-                if ocr_time_ms > 1000:
-                    logger.warning(f"⚠️  OCR took {ocr_time_ms:.0f}ms (crop={w}x{h}, method={crop_method}) - TEXT: '{subtitle_text[:50] if subtitle_text else 'none'}'")
-                
-                subtitle_result = {
-                    'has_subtitles': bool(subtitle_text and len(subtitle_text.strip()) > 0),
-                    'extracted_text': subtitle_text if subtitle_text else '',
-                    'detected_language': detected_language,
-                    'confidence': confidence,
-                    'box': {'x': x, 'y': y, 'width': w, 'height': h},
-                    'ocr_method': crop_method,
-                    'downscaled_to_height': None,
-                    'psm_mode': 6,
-                    'subtitle_edge_density': round(subtitle_edge_density, 1),
-                    'skipped': False,
-                    'skip_reason': None,
-                    # DEBUG: Detailed OCR info with step-by-step timings
-                    'debug': {
-                        'total_ocr_time_ms': round(ocr_time_ms, 2),
-                        'step_timings': {
-                            '1_crop_calc_ms': round(ocr_timings.get('crop_calc', 0), 2),
-                            '2_crop_extract_ms': round(ocr_timings.get('crop_extract', 0), 2),
-                            '3_downscale_ms': round(ocr_timings.get('downscale', 0), 2),
-                            '4_debug_save_ms': round(ocr_timings.get('debug_save', 0), 2),
-                            '5_tesseract_ocr_ms': round(ocr_timings.get('tesseract_ocr', 0), 2),
-                            '6_noise_cleaning_ms': round(ocr_timings.get('noise_cleaning', 0), 2),
-                            '7_language_detection_ms': round(ocr_timings.get('language_detection', 0), 2)
-                        },
-                        'context_timings': {
-                            'image_load_ms': round(timings.get('image_load', 0), 2),
-                            'edge_detection_ms': round(timings.get('edge_detection', 0), 2),
-                            'blackscreen_ms': round(timings.get('blackscreen', 0), 2),
-                            'subtitle_area_check_ms': round(timings.get('subtitle_area_check', 0), 2)
-                        },
-                        'crop_method': crop_method,
-                        'crop_size': f"{w}x{h}",
-                        'crop_position': f"({x},{y})",
-                        'raw_text': subtitle_text_raw,
-                        'raw_text_length': len(subtitle_text_raw),
-                        'cleaned_text_length': len(subtitle_text) if subtitle_text else 0,
-                        'chars_removed': len(subtitle_text_raw) - (len(subtitle_text) if subtitle_text else 0),
-                        'ocr_engine': ocr_method_used,
-                        'tesseract_config': '--psm 6 --oem 3 -l eng+fra+ita+deu+spa',
-                        'edge_density_percent': round(subtitle_edge_density, 2)
-                    }
-                }
-                
-                timings['subtitle_ocr'] = ocr_time_ms
-            except Exception as e:
-                subtitle_result = {
-                    'has_subtitles': False,
-                    'extracted_text': '',
-                    'detected_language': None,
-                    'confidence': 0.0,
-                    'box': None,
-                    'error': str(e),
-                    'subtitle_edge_density': round(subtitle_edge_density, 1),
-                    'skipped': False,
-                    'skip_reason': f'error: {str(e)}'
-                }
-                timings['subtitle_ocr'] = (time.perf_counter() - ocr_start) * 1000
-        else:
-            # No subtitle edges detected
-            subtitle_result = {
-                'has_subtitles': False,
-                'extracted_text': '',
-                'detected_language': None,
-                'confidence': 0.0,
-                'box': None,
-                'ocr_method': None,
-                'downscaled_to_height': None,
-                'psm_mode': None,
-                'subtitle_edge_density': round(subtitle_edge_density, 1),
-                'skipped': True,
-                'skip_reason': 'no_edges'
-            }
-            timings['subtitle_ocr'] = 0.0
-    else:
-        # Not sampled this frame (checked every 1 second)
-        timings['subtitle_area_check'] = 0.0
-        timings['subtitle_ocr'] = 0.0
-        subtitle_result = {
-            'has_subtitles': False,
-            'extracted_text': '',
-            'detected_language': None,
-            'confidence': 0.0,
-            'box': None,
-            'ocr_method': None,
-            'downscaled_to_height': None,
-            'psm_mode': None,
-            'subtitle_edge_density': 0.0,
-            'skipped': True,
-            'skip_reason': f'not_sampled_frame (checks every {sample_interval} frames = 1s)'
-        }
     
     # === STEP 6: Macroblock Analysis (skip if freeze or blackscreen) ===
     start = time.perf_counter()
@@ -1328,8 +869,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         timings['macroblocks'] = (time.perf_counter() - start) * 1000
     
     # === STEP 7: Audio Analysis - Sample every 5 seconds ===
-    # audio_check_interval already defined above (line 663)
-    should_check_audio = is_audio_frame  # Reuse the check from subtitle section
+    # audio_check_interval already defined above
+    should_check_audio = is_audio_frame
     
     start = time.perf_counter()
     audio_check_method = 'unknown'
