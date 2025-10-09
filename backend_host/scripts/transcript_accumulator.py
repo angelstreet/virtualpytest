@@ -361,7 +361,11 @@ def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, tran
         json.dump(transcript_data, f, indent=2)
     os.rename(transcript_path + '.tmp', transcript_path)
     
-    logger.info(f"✅ Saved: /transcript/{hour}/chunk_10min_{chunk_index}.json")
+    # Log full path and first 60 chars of transcript
+    transcript_text = transcript_data.get('transcript', '')
+    text_preview = transcript_text[:60] if transcript_text else '(no text)'
+    logger.info(f"✅ Saved: {transcript_path}")
+    logger.info(f"📝 Preview: '{text_preview}'")
     
     # Update transcript manifest
     try:
