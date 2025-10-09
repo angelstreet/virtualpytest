@@ -33,8 +33,6 @@ import logging
 import cv2
 import numpy as np
 import json
-import queue
-import threading
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -208,45 +206,6 @@ _language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_l
 
 # Freeze detection optimization - cache thumbnails in memory
 _freeze_thumbnail_cache = {}  # {device_dir: [(frame_number, thumbnail_img), ...]}
-
-# Single ffprobe queue to prevent concurrent execution (similar to Whisper in transcript_accumulator)
-_ffprobe_queue = queue.Queue(maxsize=100)  # Sequential processing of audio checks
-_ffprobe_worker = None  # Started lazily on first use
-
-def _ffprobe_worker_thread():
-    """Single worker thread for sequential ffprobe execution (prevents concurrent slowdowns)"""
-    while True:
-        try:
-            request = _ffprobe_queue.get(timeout=60)  # 60s timeout for idle detection
-            capture_dir, latest_segment, cached_volume, result_container, completion_event = request
-            
-            # Execute ffprobe/ffmpeg check
-            result = _execute_audio_check(capture_dir, latest_segment, cached_volume)
-            
-            # Store result and signal completion
-            result_container['result'] = result
-            completion_event.set()
-            
-            _ffprobe_queue.task_done()
-        except queue.Empty:
-            # Idle - continue waiting
-            continue
-        except Exception as e:
-            logger.error(f"FFprobe worker error: {e}")
-            if 'completion_event' in locals():
-                completion_event.set()  # Unblock caller even on error
-
-def _ensure_ffprobe_worker():
-    """Start ffprobe worker if not already running (lazy initialization)"""
-    global _ffprobe_worker
-    if _ffprobe_worker is None or not _ffprobe_worker.is_alive():
-        _ffprobe_worker = threading.Thread(
-            target=_ffprobe_worker_thread,
-            daemon=True,
-            name="ffprobe-worker"
-        )
-        _ffprobe_worker.start()
-        logger.info("Started single ffprobe worker (sequential audio checks)")
 
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
@@ -609,12 +568,11 @@ def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
 
 def analyze_audio(capture_dir):
     """
-    Queue-based audio check wrapper with time-based throttle (5s)
+    Check if audio is present with time-based throttle (5s)
     
     Strategy:
     - Time-based cache: Reuse result if checked within last 5 seconds (wall-clock time, not frames)
-    - Single ffprobe queue: Prevents concurrent ffprobe execution (like Whisper in transcript_accumulator)
-    - Sequential processing: Only one ffprobe runs at a time across ALL devices
+    - Direct ffprobe execution (concurrent per device, no queue blocking)
     
     Returns: (has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
     """
@@ -628,59 +586,16 @@ def analyze_audio(capture_dir):
         time_since_check = current_time - last_check_time
         
         if time_since_check < 5.0:
-            # Reuse cached result - no queue needed
+            # Reuse cached result
             return cached_has_audio, cached_volume, cached_db, f"{cached_method}_cached", cached_time_ms
     
-    # Need fresh check - prepare data for worker
-    capture_folder = get_capture_folder(capture_dir)
-    segments_dir = get_segments_path(capture_folder)
+    # Execute check directly (no queue)
+    has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms = _execute_audio_check(capture_dir)
     
-    # Pre-find latest segment (avoid duplicate work in worker)
-    latest_segment = None
-    if capture_dir in _latest_segment_cache:
-        cached_path, cached_mtime, last_check = _latest_segment_cache[capture_dir]
-        if current_time - last_check < 5.0 and os.path.exists(cached_path):
-            latest_segment = cached_path
+    # Cache result for 5-second time-based throttle
+    _audio_ffprobe_cache[capture_dir] = (current_time, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
     
-    # Pre-load volume cache
-    cached_volume = load_audio_volume_cache(capture_dir)
-    
-    # Ensure worker is running
-    _ensure_ffprobe_worker()
-    
-    # Submit to queue and wait for result
-    result_container = {}
-    completion_event = threading.Event()
-    
-    try:
-        _ffprobe_queue.put_nowait((capture_dir, latest_segment, cached_volume, result_container, completion_event))
-        
-        # Wait for worker to complete (with timeout)
-        if completion_event.wait(timeout=2.0):
-            result = result_container.get('result')
-            if result:
-                has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms = result
-                
-                # Cache result for 5-second time-based throttle
-                _audio_ffprobe_cache[capture_dir] = (current_time, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
-                
-                return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
-            else:
-                # Worker error
-                logger.warning(f"[{capture_dir}] FFprobe worker returned no result")
-                return False, 0, -100.0, 'worker_error', 0
-        else:
-            # Timeout
-            logger.warning(f"[{capture_dir}] FFprobe queue timeout (2s)")
-            return False, 0, -100.0, 'queue_timeout', 0
-            
-    except queue.Full:
-        # Queue full - use cached result or fallback
-        logger.warning(f"[{capture_dir}] FFprobe queue FULL (100 requests)")
-        if capture_dir in _audio_ffprobe_cache:
-            _, cached_has_audio, cached_volume, cached_db, cached_method, cached_time_ms = _audio_ffprobe_cache[capture_dir]
-            return cached_has_audio, cached_volume, cached_db, f"{cached_method}_queue_full", cached_time_ms
-        return False, 0, -100.0, 'queue_full', 0
+    return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
 
 def analyze_subtitles(image_path, fps=5):
     """
