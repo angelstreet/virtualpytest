@@ -26,7 +26,7 @@ export const useAICacheReset = ({ hostName }: UseAICacheResetOptions) => {
     setIsResetting(true);
     try {
       // buildServerUrl automatically adds team_id query parameter
-      const response = await fetch(buildServerUrl('/server/ai-execution/resetCache'), {
+      const response = await fetch(buildServerUrl('/server/ai/resetCache'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

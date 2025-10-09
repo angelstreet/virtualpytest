@@ -193,7 +193,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   const analyzeCompatibility = useCallback(async (prompt: string) => {
     try {
-      const response = await fetch(buildServerUrl('/server/ai-generation/analyzeCompatibility'), {
+      const response = await fetch(buildServerUrl('/server/ai/analyzeCompatibility'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -216,7 +216,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
 
   const generatePlan = useCallback(async (prompt: string, userinterface_name: string) => {
     try {
-      const response = await fetch(buildServerUrl('/server/ai-generation/generatePlan'), {
+      const response = await fetch(buildServerUrl('/server/ai/generatePlan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -275,7 +275,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       // STEP 1: Pre-analyze prompt (unless skipped after disambiguation)
       if (!skipAnalysis) {
         try {
-          const analysisResponse = await fetch(buildServerUrl('/server/ai-disambiguation/analyzePrompt'), {
+          const analysisResponse = await fetch(buildServerUrl('/server/ai/analyzePrompt'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -370,7 +370,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
             });
           }
           
-          const statusResponse = await fetch(buildServerUrl(`/server/ai-execution/getStatus`), {
+          const statusResponse = await fetch(buildServerUrl(`/server/ai/getStatus`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -577,7 +577,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           resolved
         }));
 
-        await fetch(buildServerUrl('/server/ai-disambiguation/saveDisambiguation'), {
+        await fetch(buildServerUrl('/server/ai/saveDisambiguation'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

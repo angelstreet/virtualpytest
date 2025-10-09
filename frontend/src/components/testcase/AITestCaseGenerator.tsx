@@ -110,7 +110,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
       // For now, generate test cases for each interface individually
       const generatedTestCases = [];
       for (const interfaceName of selectedInterfaces) {
-        const response = await fetch(buildServerUrl('/server/ai-execution/generatePlan'), {
+        const response = await fetch(buildServerUrl('/server/ai/generatePlan'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
