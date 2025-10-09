@@ -142,7 +142,9 @@ def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, ho
             '-i', mp4_path,
             '-vn',  # No video
             '-acodec', 'libmp3lame',
-            '-q:a', '2',  # Good quality
+            '-ar', '16000',      # 16kHz (Whisper's native sample rate - no resampling needed)
+            '-ac', '1',          # Mono (Whisper only uses 1 channel, saves 50% space)
+            '-b:a', '24k',       # Low bitrate for speech (still clear, 6-8x smaller files)
             '-y',  # Overwrite
             mp3_tmp_path
         ]
