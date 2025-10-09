@@ -258,21 +258,45 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
         process = psutil.Process()
-        # Initialize CPU measurement (first call always returns 0.0, so call it now)
         process.cpu_percent(interval=None)
-        
+
         logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (full 10min)")
-        
+
+        # Step 1: Extract 5s sample for language detection
+        sample_tmp = f'/tmp/sample_{capture_folder}.mp3'
+        extract_start = time.time()
+        cmd = ['ffmpeg', '-i', mp3_path, '-ss', '0', '-t', '5', '-y', sample_tmp]
+        subprocess.run(cmd, capture_output=True, timeout=5)
+        extract_time = time.time() - extract_start
+        logger.info(f"[{capture_folder}] ✓ Extracted 5s sample in {extract_time:.1f}s")
+
+        # Step 2: Detect language on sample
+        sample_start = time.time()
+        sample_result = transcribe_audio(sample_tmp, model_name='tiny', skip_silence_check=True, device_id=capture_folder)
+        sample_time = time.time() - sample_start
+        detected_language = sample_result.get('language_code', None)  # Use code for Whisper param
+        logger.info(f"[{capture_folder}] ✓ Language detection: {detected_language or 'auto'} in {sample_time:.1f}s")
+
+        # Cleanup sample
+        try:
+            os.remove(sample_tmp)
+        except:
+            pass
+
+        # Step 3: Full transcription with detected language
         total_start = time.time()
-        result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
+        if detected_language:
+            result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder, language=detected_language)
+        else:
+            result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
         elapsed = time.time() - total_start
         cpu_final = process.cpu_percent(interval=None)
-        
+
         transcript = result.get('transcript', '').strip()
         segments = result.get('segments', [])
         language = result.get('language', 'unknown')
         confidence = result.get('confidence', 0.0)
-        
+
         logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {language} | {len(transcript)} chars, {len(segments)} segments | CPU: {cpu_final:.1f}%")
         
         return {
