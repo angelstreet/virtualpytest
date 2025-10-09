@@ -482,12 +482,12 @@ class InotifyTranscriptMonitor:
             self.mp4_workers[device_folder] = mp4_worker
     
     def _scan_last_24h(self):
-        """Scan last 24h for MP3s without transcripts"""
+        """Scan last 3h for MP3s without transcripts (accept data loss for older chunks)"""
         from pathlib import Path
         
-        logger.info("Scanning last 24h for unprocessed MP3s")
+        logger.info("Scanning last 3 hours for unprocessed MP3s (ignoring older backlog)")
         now = time.time()
-        cutoff = now - (24 * 3600)
+        cutoff = now - (3 * 3600)  # Only last 3 hours
         
         all_pending = {}
         
@@ -518,15 +518,21 @@ class InotifyTranscriptMonitor:
                         pending.append((mtime, hour, mp3_file.name))
             
             pending.sort(reverse=True)
+            
+            # CRITICAL: Only keep 3 newest (accept data loss for older chunks)
+            if len(pending) > 3:
+                logger.warning(f"[{device_folder}] Found {len(pending)} pending MP3s, keeping only 3 newest (accepting data loss)")
+                pending = pending[:3]
+            
             all_pending[device_folder] = pending
             
             if pending:
-                logger.info(f"[{device_folder}] {len(pending)} MP3s need transcription")
+                logger.info(f"[{device_folder}] {len(pending)} MP3s queued for transcription")
         
         return all_pending
     
     def _initialize_queues(self, all_pending):
-        """Put 3 newest in active queue, rest in history"""
+        """Put up to 3 newest in active queue (scan already limited to 3 items max)"""
         for device_folder, pending in all_pending.items():
             self.active_queues[device_folder] = queue.Queue(maxsize=3)
             self.history_queues[device_folder] = []
@@ -537,7 +543,8 @@ class InotifyTranscriptMonitor:
                 except queue.Full:
                     break
             
-            self.history_queues[device_folder] = pending[3:]
+            # Note: pending already limited to 3 items in _scan_last_24h, so history will be empty
+            self.history_queues[device_folder] = pending[3:] if len(pending) > 3 else []
             logger.info(f"[{device_folder}] Active: {self.active_queues[device_folder].qsize()}, History: {len(self.history_queues[device_folder])}")
     
     def _start_whisper_worker(self):
@@ -602,12 +609,15 @@ class InotifyTranscriptMonitor:
             time.sleep(0.5)
     
     def _refill_from_history(self, device_folder):
-        """Refill active queue from history"""
+        """Refill active queue from history - always prioritize 3 newest"""
         history = self.history_queues[device_folder]
         
         if not history:
             logger.info(f"[{device_folder}] All caught up")
             return
+        
+        # Always sort to get 3 newest from history (in case old items were pushed back)
+        history.sort(reverse=True)  # Newest first by mtime
         
         refill = history[:3]
         self.history_queues[device_folder] = history[3:]
@@ -620,7 +630,7 @@ class InotifyTranscriptMonitor:
                 self.history_queues[device_folder].insert(0, item)
                 break
         
-        logger.info(f"[{device_folder}] Refilled ({len(self.history_queues[device_folder])} remaining)")
+        logger.info(f"[{device_folder}] Refilled with 3 newest ({len(self.history_queues[device_folder])} remaining)")
     
     def _log_queue_status(self):
         """Log queue status for all devices"""
@@ -771,14 +781,36 @@ class InotifyTranscriptMonitor:
                 elif filename.endswith('.mp3') and 'chunk_10min_' in filename:
                     device_folder = self.audio_path_to_device.get(path)
                     if device_folder:
-                        logger.info(f"[{device_folder}] New MP3: {filename}")
+                        logger.info(f"[{device_folder}] 🆕 New MP3: {filename}")
                         hour = int(os.path.basename(path))
                         mtime = os.path.getmtime(os.path.join(path, filename))
+                        new_item = (mtime, hour, filename)
+                        
+                        work_queue = self.active_queues[device_folder]
                         try:
-                            self.active_queues[device_folder].put_nowait((mtime, hour, filename))
+                            work_queue.put_nowait(new_item)
+                            logger.info(f"[{device_folder}] ✓ Added to active queue")
                         except queue.Full:
-                            self.history_queues[device_folder].insert(0, (mtime, hour, filename))
-                            logger.info(f"[{device_folder}] Queue full, added to history")
+                            # PRIORITY: New files replace oldest in active queue
+                            # Extract all items, find oldest, push it to history, add new one
+                            items = []
+                            while not work_queue.empty():
+                                items.append(work_queue.get_nowait())
+                            
+                            # Sort by mtime (oldest first), take oldest out
+                            items.sort()  # Ascending by mtime
+                            oldest = items.pop(0)  # Remove oldest
+                            
+                            # Put oldest back to history
+                            self.history_queues[device_folder].insert(0, oldest)
+                            
+                            # Add new item and remaining items back to active queue
+                            items.append(new_item)
+                            items.sort(reverse=True)  # Newest first
+                            for item in items:
+                                work_queue.put_nowait(item)
+                            
+                            logger.info(f"[{device_folder}] ⚡ Replaced oldest in active queue with new MP3")
         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
