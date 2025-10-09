@@ -518,7 +518,7 @@ class InotifyTranscriptMonitor:
             name="whisper-worker"
         )
         self.whisper_worker.start()
-        logger.info("Single Whisper worker started (round-robin, 10s delay)")
+        logger.info("Single Whisper worker started (round-robin, 30s delay, low priority)")
     
     def _round_robin_worker(self):
         """Process MP3s round-robin across devices"""
@@ -560,7 +560,7 @@ class InotifyTranscriptMonitor:
                 if work_queue.empty():
                     self._refill_from_history(device_folder)
                 
-                time.sleep(10)
+                time.sleep(30)
                 
             except queue.Empty:
                 pass
@@ -720,6 +720,13 @@ class InotifyTranscriptMonitor:
                     pass
 
 def main():
+    # Lower process priority (nice +10 = background task)
+    try:
+        os.nice(10)
+        print(f"[@transcript_accumulator] Lowered priority: nice +10 (background task)")
+    except:
+        pass
+    
     # Clean log file first
     cleanup_logs_on_startup()
     
@@ -744,6 +751,7 @@ def main():
     logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")
     logger.info("=" * 80)
     logger.info("Architecture: Event-driven (zero CPU when idle)")
+    logger.info("Priority: Low (nice +10, 30s delay) - max 80% CPU")
     logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s per chunk)")
     logger.info("Pipeline 2: MP3 → JSON (transcription, ~2min per chunk)")
     logger.info("Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json")
