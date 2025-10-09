@@ -303,21 +303,13 @@ class InotifyFrameMonitor:
                         now = datetime.now()
                         time_key = f"{now.hour:02d}{now.minute:02d}"  # "1300"
                         
-                        # Generate thumbnail paths (FFmpeg creates these in thumbnails/ directory)
-                        last_3_thumbnails = []
-                        for capture_path in last_3_captures:
-                            if os.path.exists(capture_path):
-                                # Use convenience function to get thumbnails path
-                                # /var/www/html/stream/capture1/hot/captures/capture_000014342.jpg
-                                # -> /var/www/html/stream/capture1/hot/thumbnails/capture_000014342_thumbnail.jpg
-                                thumbnail_path = capture_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
-                                if os.path.exists(thumbnail_path):
-                                    last_3_thumbnails.append(thumbnail_path)
-                                else:
-                                    logger.warning(f"[{capture_folder}] Thumbnail not found: {thumbnail_path}, using original")
-                                    last_3_thumbnails.append(capture_path)  # Fallback to original
+                        # Use last_3_thumbnails from detector (already validated to exist)
+                        last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                         
-                        logger.info(f"[{capture_folder}] 🆕 Freeze confirmed (3 matching frames) - uploading {len(last_3_thumbnails)} thumbnails to R2 with time_key={time_key}")
+                        if last_3_thumbnails:
+                            logger.info(f"[{capture_folder}] 🆕 NEW freeze detected - uploading {len(last_3_thumbnails)} thumbnails to R2 (time_key={time_key})")
+                        else:
+                            logger.warning(f"[{capture_folder}] 🆕 NEW freeze detected but no thumbnails available (detector returned {len(last_3_captures)} captures)")
                         r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
                             last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
                         )
@@ -329,9 +321,9 @@ class InotifyFrameMonitor:
                             detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
                             detection_result['r2_images'] = r2_urls
                             freeze_urls_newly_uploaded = True
-                            logger.info(f"[{capture_folder}] 📤 Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails to R2:")
+                            logger.info(f"[{capture_folder}] 📤 Uploaded {len(r2_urls['thumbnail_urls'])} FREEZE thumbnails to R2:")
                             for i, url in enumerate(r2_urls['thumbnail_urls']):
-                                logger.info(f"[{capture_folder}]   Thumbnail {i}: {url}")
+                                logger.info(f"[{capture_folder}]   🖼️  R2 URL {i+1}: {url}")
                         else:
                             logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
                     
@@ -341,7 +333,7 @@ class InotifyFrameMonitor:
                         detection_result['r2_images'] = device_state.get('freeze_r2_images', {
                             'thumbnail_urls': cached_r2_urls
                         })
-                        logger.info(f"[{capture_folder}] ♻️ Freeze ongoing - reusing cached R2 thumbnail URLs")
+                        logger.debug(f"[{capture_folder}] Freeze ongoing")
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation

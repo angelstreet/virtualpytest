@@ -240,9 +240,9 @@ class IncidentManager:
                 if 'r2_images' in analysis_result:
                     enhanced_metadata['r2_images'] = analysis_result['r2_images']
                     r2_count = len(analysis_result['r2_images'].get('thumbnail_urls', []))
-                    logger.info(f"[{capture_folder}] 📋 Added r2_images to metadata: {r2_count} thumbnail URLs")
+                    logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with {r2_count} R2 image URLs:")
                     for i, url in enumerate(analysis_result['r2_images'].get('thumbnail_urls', [])):
-                        logger.info(f"[{capture_folder}]    📸 URL {i}: {url}")
+                        logger.info(f"[{capture_folder}]     🖼️  R2 Image {i+1}: {url}")
                 else:
                     logger.warning(f"[{capture_folder}] ⚠️  NO r2_images in analysis_result for {issue_type} incident!")
             
@@ -359,9 +359,15 @@ class IncidentManager:
                         
                         if has_r2_images:
                             r2_count = len(detection_result.get('r2_images', {}).get('thumbnail_urls', []))
-                            logger.info(f"[{capture_folder}] ✅ detection_result has {r2_count} R2 thumbnail URLs")
+                            logger.info(f"[{capture_folder}] ✅ {issue_type.upper()} incident has {r2_count} R2 thumbnail URLs")
+                            # Show the URLs
+                            for i, url in enumerate(detection_result.get('r2_images', {}).get('thumbnail_urls', [])):
+                                logger.info(f"[{capture_folder}]     🖼️  R2 URL {i+1}: {url}")
                         else:
-                            logger.warning(f"[{capture_folder}] ⚠️  detection_result MISSING r2_images!")
+                            if issue_type == 'freeze':
+                                logger.warning(f"[{capture_folder}] ⚠️  {issue_type.upper()} incident MISSING r2_images!")
+                            else:
+                                logger.debug(f"[{capture_folder}] {issue_type.upper()} incident (no images expected)")
                         
                         logger.info(f"[{capture_folder}] Calling create_incident for {issue_type}...")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)

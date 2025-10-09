@@ -760,18 +760,27 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
         
         # Build comparison for each previous frame checked
-        for idx, thumbnail_filename in enumerate(freeze_details['frames_compared']):
-            # Convert thumbnail filename to capture filename
-            capture_filename = thumbnail_filename.replace('_thumbnail.jpg', '.jpg')
+        for idx, frame_compared in enumerate(freeze_details['frames_compared']):
+            # frame_compared is like "frame_12345" - extract number and build proper filename
+            prev_frame_num = int(frame_compared.split('_')[1])
+            
+            # Build filenames with same format as current file
+            frame_prefix = filename.rsplit('_', 1)[0]  # "capture"
+            frame_digits = len(filename.split('_')[1].split('.')[0])
+            capture_filename = f"{frame_prefix}_{str(prev_frame_num).zfill(frame_digits)}.jpg"
+            thumbnail_filename = f"{frame_prefix}_{str(prev_frame_num).zfill(frame_digits)}_thumbnail.jpg"
+            
             prev_capture_path = os.path.join(captures_dir, capture_filename)
             prev_thumbnail_path = os.path.join(thumbnails_dir, thumbnail_filename)
             
             # Get difference percentage for this comparison
             diff_percentage = freeze_details['frame_differences'][idx] if idx < len(freeze_details['frame_differences']) else None
             
-            # For R2 upload - collect paths (RESTORED)
-            last_3_filenames.append(prev_capture_path)
-            last_3_thumbnails.append(prev_thumbnail_path)
+            # For R2 upload - collect paths (RESTORED) - only if files exist
+            if os.path.exists(prev_capture_path):
+                last_3_filenames.append(prev_capture_path)
+            if os.path.exists(prev_thumbnail_path):
+                last_3_thumbnails.append(prev_thumbnail_path)
             
             # Add structured comparison
             freeze_comparisons.append({
