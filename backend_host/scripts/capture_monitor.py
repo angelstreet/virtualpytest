@@ -130,6 +130,108 @@ class InotifyFrameMonitor:
         logger.info("Skipping startup scan (inotify will catch new frames immediately)")
         return
     
+    def _append_to_chunk(self, capture_folder, filename, analysis_data, fps=5):
+        """
+        INCREMENTAL ARCHIVAL: Append frame to correct 10min chunk immediately.
+        
+        This creates/updates chunks in real-time as frames arrive, eliminating:
+        - Need to accumulate 3000 files
+        - Batch merging complexity
+        - Gaps from lost intermediate files
+        
+        Args:
+            capture_folder: Device folder (e.g., 'capture1')
+            filename: Frame filename (e.g., 'capture_000012345.jpg')
+            analysis_data: Frame metadata to append
+            fps: Frames per second (default 5)
+        """
+        import json
+        import fcntl
+        from pathlib import Path
+        
+        try:
+            # Extract sequence from filename
+            sequence = int(filename.split('_')[1].split('.')[0])
+            
+            # Calculate chunk location
+            hour = (sequence // (3600 * fps)) % 24
+            chunk_index = ((sequence % (3600 * fps)) // (600 * fps))  # 0-5
+            
+            # Get device base path
+            from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+            base_path = f"/var/www/html/stream/{capture_folder}"
+            
+            # Chunk path: /var/www/html/stream/capture1/metadata/13/chunk_10min_2.json
+            chunk_dir = os.path.join(base_path, 'metadata', str(hour))
+            os.makedirs(chunk_dir, exist_ok=True)
+            chunk_path = os.path.join(chunk_dir, f'chunk_10min_{chunk_index}.json')
+            
+            # Prepare frame data (extract only what we need for archive)
+            frame_data = {
+                'sequence': sequence,
+                'timestamp': analysis_data.get('timestamp'),
+                'filename': analysis_data.get('filename'),
+                'blackscreen': analysis_data.get('blackscreen', False),
+                'blackscreen_percentage': analysis_data.get('blackscreen_percentage', 0),
+                'freeze': analysis_data.get('freeze', False),
+                'freeze_diffs': analysis_data.get('freeze_diffs', []),
+                'audio': analysis_data.get('audio', True),
+                'volume_percentage': analysis_data.get('volume_percentage', 0),
+                'mean_volume_db': analysis_data.get('mean_volume_db', -100.0)
+            }
+            
+            # Atomic append with file locking
+            lock_path = chunk_path + '.lock'
+            with open(lock_path, 'w') as lock_file:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                
+                try:
+                    # Read existing chunk
+                    if os.path.exists(chunk_path):
+                        with open(chunk_path, 'r') as f:
+                            chunk_data = json.load(f)
+                    else:
+                        # Create new chunk
+                        chunk_data = {
+                            'hour': hour,
+                            'chunk_index': chunk_index,
+                            'frames_count': 0,
+                            'frames': []
+                        }
+                    
+                    # Check if frame already exists (avoid duplicates)
+                    existing_sequences = {f.get('sequence') for f in chunk_data['frames']}
+                    if sequence not in existing_sequences:
+                        # Append frame
+                        chunk_data['frames'].append(frame_data)
+                        chunk_data['frames_count'] = len(chunk_data['frames'])
+                        
+                        # Update time range
+                        if chunk_data['frames']:
+                            chunk_data['start_time'] = chunk_data['frames'][0].get('timestamp')
+                            chunk_data['end_time'] = chunk_data['frames'][-1].get('timestamp')
+                        
+                        # Sort by sequence (keep chronological order)
+                        chunk_data['frames'].sort(key=lambda x: x.get('sequence', 0))
+                        
+                        # Write back atomically
+                        with open(chunk_path + '.tmp', 'w') as f:
+                            json.dump(chunk_data, f, indent=2)
+                        os.rename(chunk_path + '.tmp', chunk_path)
+                
+                finally:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            
+            # Clean up lock file
+            try:
+                os.remove(lock_path)
+            except:
+                pass
+                
+        except Exception as e:
+            # Non-critical failure - individual JSON still saved
+            raise Exception(f"Chunk append error: {e}")
+    
     def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""
         
@@ -261,8 +363,15 @@ class InotifyFrameMonitor:
                         "error": "detection_result_was_none"
                     }
                 
+                # Save individual JSON (hot storage)
                 with open(json_file, 'w') as f:
                     json.dump(analysis_data, f, indent=2)
+                
+                # IMMEDIATE ARCHIVAL: Append to 10min chunk (cold storage)
+                try:
+                    self._append_to_chunk(capture_folder, filename, analysis_data)
+                except Exception as e:
+                    logger.debug(f"[{capture_folder}] Chunk append failed (non-critical): {e}")
                     
             except Exception as e:
                 logger.error(f"[{capture_folder}] Error saving: {e}")
