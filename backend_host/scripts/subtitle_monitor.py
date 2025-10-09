@@ -238,9 +238,9 @@ class InotifySubtitleMonitor:
             subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
             edge_time = (time.perf_counter() - start_edge) * 1000
             
-            if not (1.5 < subtitle_edge_density < 8):
+            if not (1.2 < subtitle_edge_density < 8):
                 logger.info(f"[{capture_folder}] ⊗ SKIP: No subtitle edges detected")
-                logger.info(f"[{capture_folder}]    └─ Edge density: {subtitle_edge_density:.1f}% (need 1.5-8%)")
+                logger.info(f"[{capture_folder}]    └─ Edge density: {subtitle_edge_density:.1f}% (need 1.2-8%)")
                 data['subtitle_analysis'] = {
                     'has_subtitles': False,
                     'extracted_text': '',
