@@ -153,9 +153,12 @@ class InotifyFrameMonitor:
             # Extract sequence from filename
             sequence = int(filename.split('_')[1].split('.')[0])
             
-            # Calculate chunk location
-            hour = (sequence // (3600 * fps)) % 24
-            chunk_index = ((sequence % (3600 * fps)) // (600 * fps))  # 0-5
+            # Calculate chunk location using ACTUAL timestamp (centralized function)
+            from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+            from datetime import datetime
+            
+            timestamp = analysis_data.get('timestamp') or datetime.now().isoformat()
+            hour, chunk_index = calculate_chunk_location(timestamp)
             
             # Get device base path
             from shared.src.lib.utils.storage_path_utils import get_capture_storage_path

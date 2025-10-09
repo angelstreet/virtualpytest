@@ -994,9 +994,9 @@ def process_capture_directory(capture_dir: str):
             oldest_timestamp = int(oldest_file.stem.replace('1min_', ''))
             oldest_dt = datetime.fromtimestamp(oldest_timestamp)
             
-            # Calculate hour and chunk_index from actual video time (not current time!)
-            hour = oldest_dt.hour
-            chunk_index = oldest_dt.minute // 10  # 0-5 based on 10-minute window
+            # Calculate hour and chunk_index from actual video time (centralized function)
+            from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+            hour, chunk_index = calculate_chunk_location(oldest_dt)
             
             hour_dir = os.path.join(capture_dir, 'segments', str(hour))
             os.makedirs(hour_dir, exist_ok=True)

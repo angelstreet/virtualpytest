@@ -498,3 +498,35 @@ def get_capture_number_from_segment(segment_number: int, fps: int) -> int:
         393705
     """
     return segment_number * fps
+
+
+def calculate_chunk_location(timestamp):
+    """
+    Calculate hour and chunk_index from timestamp for 10-minute chunks.
+    CENTRALIZED - Use this for both metadata and MP4 chunk placement!
+    
+    Args:
+        timestamp: datetime object or ISO format string
+        
+    Returns:
+        Tuple of (hour, chunk_index) where:
+        - hour: 0-23 (hour of day)
+        - chunk_index: 0-5 (which 10-minute window within the hour)
+        
+    Examples:
+        >>> from datetime import datetime
+        >>> calculate_chunk_location(datetime(2025, 10, 9, 15, 4))
+        (15, 0)  # 15:00-15:10
+        >>> calculate_chunk_location(datetime(2025, 10, 9, 15, 25))
+        (15, 2)  # 15:20-15:30
+    """
+    from datetime import datetime
+    
+    # Handle string timestamps
+    if isinstance(timestamp, str):
+        timestamp = datetime.fromisoformat(timestamp)
+    
+    hour = timestamp.hour
+    chunk_index = timestamp.minute // 10  # 0-5 for 10-minute windows
+    
+    return hour, chunk_index
