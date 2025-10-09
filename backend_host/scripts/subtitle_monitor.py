@@ -4,8 +4,8 @@ Subtitle OCR Monitor - processes subtitle detection in dedicated process
 
 OPTIMIZATIONS:
 - Skip if freeze/blackscreen/no audio → ~70% fewer OCR calls
-- Downscale to 33% (was 50%) → 30% faster OCR
-- Binarization (black/white) before OCR → 20% faster  
+- Configurable downscale (default 33% = 89% fewer pixels)
+- Optional binarization (black/white) before OCR → ~20% faster  
 - Language caching per device (2min) → 2x faster after first detection
 - Round-robin processing (1s delay per device)
 - LIFO queue (newest frames first, max 10 per device)
@@ -13,10 +13,28 @@ OPTIMIZATIONS:
 DISABLED (too slow for real-time):
 - Spell checking (adds 200-500ms per OCR)
 
-EXPECTED PERFORMANCE:
+PERFORMANCE TUNING:
+- Edit DOWNSCALE_FACTOR (line 28) to test different resize percentages
+- Edit ENABLE_BINARIZATION (line 29) to toggle black/white conversion
+- Edit ENABLE_SPELLCHECK (line 30) to enable/disable spell correction
+
+EXPECTED PERFORMANCE (without spellcheck):
 - OCR time: 50-100ms (was 200-300ms)
 - Total per frame: 80-150ms (was 300-500ms)
+
+WITH SPELLCHECK ENABLED (adds 200-500ms):
+- Corrects misspelled words (e.g., "helo" → "hello")
+- Filters garbage text (replaces unknown words)
+- Shows corrections in logs with timing
 """
+
+# ============================================================================
+# PERFORMANCE TUNING FLAGS
+# ============================================================================
+DOWNSCALE_FACTOR = 0.33      # Resize factor (0.33 = 33% = 89% fewer pixels, 0.5 = 50% = 75% fewer pixels)
+ENABLE_BINARIZATION = False  # Set to False to disable binarization for speed comparison
+ENABLE_SPELLCHECK = False    # Set to True to enable spell checking (SLOW: adds 200-500ms per OCR)
+# ============================================================================
 
 import os
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -40,7 +58,13 @@ sys.path.insert(0, project_root)
 
 # Now import from shared (after path is set up)
 from shared.src.lib.utils.audio_transcription_utils import clean_transcript_text
-# correct_spelling, ENABLE_SPELLCHECK  # Disabled - adds 200-500ms per OCR
+
+# Spell checker import (only used if ENABLE_SPELLCHECK=True)
+try:
+    from spellchecker import SpellChecker
+    SPELLCHECKER_AVAILABLE = True
+except ImportError:
+    SPELLCHECKER_AVAILABLE = False
 
 from shared.src.lib.utils.storage_path_utils import (
     get_capture_base_directories,
@@ -95,7 +119,10 @@ class InotifySubtitleMonitor:
             name="ocr-worker"
         )
         self.ocr_worker.start()
-        logger.info("OCR worker started (33% downscale + binarization + language caching)")
+        binarize_status = "ON" if ENABLE_BINARIZATION else "OFF"
+        spellcheck_status = "ON" if ENABLE_SPELLCHECK else "OFF"
+        downscale_pct = int(DOWNSCALE_FACTOR * 100)
+        logger.info(f"OCR worker started (resize={downscale_pct}% + binarization={binarize_status} + spellcheck={spellcheck_status} + language caching)")
     
     def _round_robin_worker(self):
         devices = list(self.queues.keys())
@@ -147,12 +174,14 @@ class InotifySubtitleMonitor:
             return
         
         frame_file = os.path.basename(json_path).replace('.json', '.jpg')
+        frame_path = os.path.join(captures_dir, frame_file)
         
-        # Log detection state
+        # Log detection state with full paths
         audio = "🔇" if not data.get('audio', True) else "🔊"
         freeze = "❄️" if data.get('freeze', False) else ""
         black = "⬛" if data.get('blackscreen', False) else ""
-        logger.info(f"[{capture_folder}] {frame_file} {audio}{freeze}{black}")
+        logger.info(f"[{capture_folder}] Processing frame: {frame_path} {audio}{freeze}{black}")
+        logger.info(f"[{capture_folder}]    └─ JSON: {json_path}")
         
         if not data.get('subtitle_ocr_pending', False):
             logger.info(f"[{capture_folder}] ⊗ Skip: no OCR pending")
@@ -187,8 +216,6 @@ class InotifySubtitleMonitor:
                 json.dump(data, f, indent=2)
             os.rename(json_path + '.tmp', json_path)
             return
-        
-        frame_path = os.path.join(captures_dir, frame_file)
         
         if not os.path.exists(frame_path):
             logger.error(f"[{capture_folder}] ⊗ Skip: image deleted")
@@ -231,15 +258,21 @@ class InotifySubtitleMonitor:
                 crop = img[y:y+h, x:x+w]
                 crop_time = (time.perf_counter() - start_crop) * 1000
                 
-                # Downscale to 33% (was 50%) - 30% faster OCR
+                # Downscale - reduces pixels for faster OCR
                 start_down = time.perf_counter()
-                crop = cv2.resize(crop, None, fx=0.33, fy=0.33, interpolation=cv2.INTER_AREA)
+                crop = cv2.resize(crop, None, fx=DOWNSCALE_FACTOR, fy=DOWNSCALE_FACTOR, interpolation=cv2.INTER_AREA)
                 down_h, down_w = crop.shape
                 down_time = (time.perf_counter() - start_down) * 1000
                 
-                # Binarization (black/white only) - 20% faster OCR
+                # Calculate actual pixel reduction
+                original_pixels = w * h
+                downscaled_pixels = down_w * down_h
+                pixel_reduction_pct = ((original_pixels - downscaled_pixels) / original_pixels) * 100
+                
+                # Binarization (black/white only) - 20% faster OCR (OPTIONAL)
                 start_binarize = time.perf_counter()
-                _, crop = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                if ENABLE_BINARIZATION:
+                    _, crop = cv2.threshold(crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
                 binarize_time = (time.perf_counter() - start_binarize) * 1000
                 
                 # Get cached language or use default (reuse language for 2 minutes)
@@ -248,18 +281,24 @@ class InotifySubtitleMonitor:
                 lang_config = 'eng+deu+fra'  # Default
                 lang_cached = False
                 
+                # Language mapping: langdetect (2-letter) -> Tesseract (3-letter)
+                lang_map = {
+                    'en': 'eng',
+                    'fr': 'fra', 
+                    'de': 'deu',
+                    'es': 'spa',
+                    'it': 'ita'
+                }
+                
                 if capture_folder in self.language_cache:
                     cache_time, cached_lang = self.language_cache[capture_folder]
                     cache_age = current_time - cache_time
                     if cache_age < 120:  # 2 minutes
-                        # Use cached language
-                        if cached_lang == 'fra':
-                            lang_config = 'fra'
-                        elif cached_lang == 'deu':
-                            lang_config = 'deu'
-                        elif cached_lang == 'eng':
-                            lang_config = 'eng'
+                        # Map detected language (en/fr/de) to Tesseract code (eng/fra/deu)
+                        tesseract_lang = lang_map.get(cached_lang, 'eng')
+                        lang_config = tesseract_lang
                         lang_cached = True
+                        logger.info(f"[{capture_folder}] 🔄 Using cached language: {cached_lang} → {tesseract_lang} (age={cache_age:.0f}s)")
                 
                 # OCR
                 start_ocr = time.perf_counter()
@@ -283,13 +322,55 @@ class InotifySubtitleMonitor:
                             cleaned.append(line.strip())
                     text = '\n'.join(cleaned).strip()
                 
-                # New: Apply shared regex-based filter and optional spell correction
+                # Apply shared regex-based filter
+                text_before_spellcheck = text
                 text = clean_transcript_text(text)
                 
-                # DISABLED: Spell checking adds 200-500ms per OCR (too slow for real-time)
-                # Only enable for post-processing, not real-time subtitles
-                # if ENABLE_SPELLCHECK:
-                #     text = correct_spelling(text, detected_language)
+                # Spell checking (optional - measures time and shows corrections)
+                spell_time = 0
+                spell_corrections = 0
+                spell_status = "disabled"
+                
+                if ENABLE_SPELLCHECK and SPELLCHECKER_AVAILABLE and text:
+                    start_spell = time.perf_counter()
+                    try:
+                        # Initialize spell checker (cached after first use)
+                        if not hasattr(self, '_spell_checker'):
+                            self._spell_checker = SpellChecker()
+                        
+                        spell = self._spell_checker
+                        words = text.split()
+                        corrected_words = []
+                        corrections_made = []
+                        
+                        for word in words:
+                            # Only check words with letters (skip numbers, punctuation)
+                            if any(c.isalpha() for c in word):
+                                # Get correction
+                                corrected = spell.correction(word.lower())
+                                if corrected and corrected != word.lower():
+                                    # Word was corrected
+                                    corrected_words.append(corrected)
+                                    corrections_made.append(f"{word}→{corrected}")
+                                    spell_corrections += 1
+                                else:
+                                    corrected_words.append(word)
+                            else:
+                                corrected_words.append(word)
+                        
+                        text = ' '.join(corrected_words)
+                        spell_time = (time.perf_counter() - start_spell) * 1000
+                        spell_status = f"corrected {spell_corrections} words" if spell_corrections > 0 else "no corrections"
+                        
+                        if corrections_made:
+                            logger.info(f"[{capture_folder}] ✏️  Spell corrections: {', '.join(corrections_made[:5])}")
+                            
+                    except Exception as e:
+                        spell_time = (time.perf_counter() - start_spell) * 1000
+                        spell_status = f"error: {str(e)[:30]}"
+                        logger.warning(f"[{capture_folder}] Spell check error: {e}")
+                elif ENABLE_SPELLCHECK and not SPELLCHECKER_AVAILABLE:
+                    spell_status = "unavailable (install pyspellchecker)"
                 
                 # Detect language if text found and not cached (or cache expired)
                 detected_language = None
@@ -329,23 +410,39 @@ class InotifySubtitleMonitor:
                     'box': {'x': x, 'y': y, 'width': w, 'height': h},
                     'skipped': False,
                     'ocr_time_ms': round(ocr_time, 2),
-                    'downscale_factor': 0.33,
-                    'binarized': True
+                    'downscale_factor': DOWNSCALE_FACTOR,
+                    'pixel_reduction_pct': round(pixel_reduction_pct, 1),
+                    'binarized': ENABLE_BINARIZATION
                 }
                 
                 # Clear, readable logging showing what happened
+                binarize_status = "ON" if ENABLE_BINARIZATION else "OFF"
+                downscale_pct = int(DOWNSCALE_FACTOR * 100)
+                
                 if text:
                     lang_str = f" [{detected_language}]" if detected_language else ""
-                    lang_method = f" (cached)" if lang_cached else f" (3-lang)"
+                    if lang_cached:
+                        lang_method = f" (cached, single lang)"
+                        lang_info = f"lang={lang_config} ⚡"
+                    else:
+                        lang_method = f" (3 languages)"
+                        lang_info = f"lang={lang_config}"
+                    
                     logger.info(f"[{capture_folder}] 📝 TEXT FOUND{lang_str}:")
                     logger.info(f"[{capture_folder}]    └─ '{text[:70]}'")
-                    logger.info(f"[{capture_folder}]    └─ Preprocessing: crop={crop_time:.0f}ms + resize={down_time:.0f}ms + binarize={binarize_time:.0f}ms = {preprocess_time:.0f}ms")
-                    logger.info(f"[{capture_folder}]    └─ OCR{lang_method}: {ocr_time:.0f}ms (Tesseract with lang={lang_config})")
+                    logger.info(f"[{capture_folder}]    └─ Image: {w}x{h} → {down_w}x{down_h} (resize={downscale_pct}%, {pixel_reduction_pct:.0f}% fewer pixels)")
+                    logger.info(f"[{capture_folder}]    └─ Preprocessing: crop={crop_time:.0f}ms + resize={down_time:.0f}ms + binarize={binarize_time:.0f}ms [bin={binarize_status}] = {preprocess_time:.0f}ms")
+                    logger.info(f"[{capture_folder}]    └─ OCR{lang_method}: {ocr_time:.0f}ms (Tesseract {lang_info})")
+                    if ENABLE_SPELLCHECK:
+                        logger.info(f"[{capture_folder}]    └─ Spellcheck: {spell_time:.0f}ms ({spell_status})")
                     logger.info(f"[{capture_folder}]    └─ TOTAL: {total_time:.0f}ms ({len(text)} chars)")
                 else:
-                    lang_method = f" (cached {lang_config})" if lang_cached else f" ({lang_config})"
+                    if lang_cached:
+                        lang_info = f" (cached {lang_config})"
+                    else:
+                        lang_info = f" ({lang_config})"
                     logger.info(f"[{capture_folder}] ⊗ NO TEXT")
-                    logger.info(f"[{capture_folder}]    └─ Preprocess: {preprocess_time:.0f}ms | OCR{lang_method}: {ocr_time:.0f}ms | Total: {total_time:.0f}ms")
+                    logger.info(f"[{capture_folder}]    └─ Resize: {downscale_pct}% ({pixel_reduction_pct:.0f}% fewer pixels) | Preprocess: {preprocess_time:.0f}ms [bin={binarize_status}] | OCR{lang_info}: {ocr_time:.0f}ms | Total: {total_time:.0f}ms")
         
         except Exception as e:
             data['subtitle_analysis'] = {
@@ -410,10 +507,16 @@ def main():
         capture_path = get_captures_path(device_folder)
         capture_dirs.append(capture_path)
     
+    binarize_status = "ENABLED" if ENABLE_BINARIZATION else "DISABLED"
+    spellcheck_status = "ENABLED" if ENABLE_SPELLCHECK else "DISABLED"
+    downscale_pct = int(DOWNSCALE_FACTOR * 100)
+    pixel_reduction = int((1 - DOWNSCALE_FACTOR**2) * 100)
+    
     logger.info("=" * 80)
     logger.info("Subtitle OCR Monitor - OPTIMIZED")
-    logger.info("- 33% downscale (89% fewer pixels)")
-    logger.info("- Binarization (black/white for faster OCR)")
+    logger.info(f"- Downscale: {downscale_pct}% ({pixel_reduction}% fewer pixels)")
+    logger.info(f"- Binarization: {binarize_status} (black/white for faster OCR)")
+    logger.info(f"- Spellcheck: {spellcheck_status} (corrects misspelled words)")
     logger.info("- Language caching (2min per device)")
     logger.info("=" * 80)
     logger.info(f"Monitoring {len(capture_dirs)} devices (queue: 10 most recent per device)")
