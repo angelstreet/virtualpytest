@@ -55,6 +55,21 @@ def analyze_test_case():
         
         print(f"[@server_ai_testcase] Analyzing prompt: {prompt}")
         
+        # Get first available host for AI analysis (global operation doesn't need specific host)
+        from  backend_server.src.lib.utils.server_utils import get_host_manager
+        host_manager = get_host_manager()
+        all_hosts = host_manager.get_all_hosts()
+        
+        if not all_hosts:
+            return jsonify({
+                'success': False,
+                'error': 'No hosts available for AI analysis. Please ensure at least one host is running.'
+            }), 503
+        
+        # Pick first available host (doesn't matter which one for global analysis)
+        first_host_name = list(all_hosts.keys())[0]
+        print(f"[@server_ai_testcase] Using host '{first_host_name}' for AI analysis")
+        
         # Get all available userinterfaces for this team
         userinterfaces = get_all_userinterfaces(team_id)
         
@@ -86,7 +101,8 @@ def analyze_test_case():
                     {
                         'prompt': prompt,
                         'context': context,
-                        'team_id': team_id
+                        'team_id': team_id,
+                        'host_name': first_host_name
                     },
                     {}
                 )
@@ -200,6 +216,20 @@ def generate_test_cases():
         original_prompt = cached_analysis['prompt']
         generated_testcases = []
         
+        # Get first available host for AI generation
+        from  backend_server.src.lib.utils.server_utils import get_host_manager
+        host_manager = get_host_manager()
+        all_hosts = host_manager.get_all_hosts()
+        
+        if not all_hosts:
+            return jsonify({
+                'success': False,
+                'error': 'No hosts available for AI generation. Please ensure at least one host is running.'
+            }), 503
+        
+        first_host_name = list(all_hosts.keys())[0]
+        print(f"[@server_ai_testcase] Using host '{first_host_name}' for AI generation")
+        
         # Generate ONE test case with ALL confirmed interfaces
         if confirmed_interfaces:
             try:
@@ -224,7 +254,8 @@ def generate_test_cases():
                     {
                         'prompt': original_prompt,
                         'context': context,
-                        'team_id': team_id
+                        'team_id': team_id,
+                        'host_name': first_host_name
                     },
                     {}
                 )
@@ -408,6 +439,19 @@ def quick_feasibility_check():
                 'message': 'team_id is required'
             }), 400
         
+        # Get first available host for AI feasibility check
+        from  backend_server.src.lib.utils.server_utils import get_host_manager
+        host_manager = get_host_manager()
+        all_hosts = host_manager.get_all_hosts()
+        
+        if not all_hosts:
+            return jsonify({
+                'success': False,
+                'error': 'No hosts available for AI feasibility check. Please ensure at least one host is running.'
+            }), 503
+        
+        first_host_name = list(all_hosts.keys())[0]
+        
         # Create minimal context for feasibility check
         context = {
             'device_model': 'unknown',
@@ -424,7 +468,8 @@ def quick_feasibility_check():
             {
                 'prompt': prompt,
                 'context': context,
-                'team_id': team_id
+                'team_id': team_id,
+                'host_name': first_host_name
             },
             {}
         )

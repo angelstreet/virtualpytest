@@ -69,21 +69,24 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(buildServerUrl('/server/ai-execution/analyzeCompatibility'), {
+      const response = await fetch(buildServerUrl('/server/ai-testcase/analyze'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       });
 
-      if (!response.ok) throw new Error('Analysis failed');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Analysis failed');
+      }
       
       const analysisResult = await response.json();
       setAnalysis(analysisResult);
       setCurrentStep('analysis');
       
       // Pre-select all compatible interfaces by default
-      if (analysisResult.compatible_interfaces) {
-        setSelectedInterfaces(analysisResult.compatible_interfaces.map((i: any) => i.userinterface_name));
+      if (analysisResult.compatibility_matrix?.compatible_userinterfaces) {
+        setSelectedInterfaces(analysisResult.compatibility_matrix.compatible_userinterfaces);
       }
       
       // Reset expanded steps for new analysis
