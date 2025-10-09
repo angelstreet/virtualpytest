@@ -396,7 +396,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           show={!isLiveMode}
         />
 
-        {monitoringMode && isLiveMode && (
+        {monitoringMode && (
           <Box
             sx={{
               position: 'absolute',
