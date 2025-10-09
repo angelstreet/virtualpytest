@@ -6,7 +6,12 @@ import {
   LanguageMenuAnalysis,
 } from '../../types/pages/Monitoring_Types';
 
-import { buildServerUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
+import { 
+  buildServerUrl, 
+  buildCaptureUrl, 
+  calculateChunkLocation, 
+  buildMetadataChunkUrl 
+} from '../../utils/buildUrlUtils';
 
 interface ErrorTrendData {
   blackscreenConsecutive: number;
@@ -190,60 +195,77 @@ export const useMonitoring = ({
     }
   }, [host, device?.device_id]);
 
-  // Fetch archive JSON by timestamp
+  // Cache for metadata chunks (avoid re-fetching same 10min window)
+  const chunkCacheRef = useRef<Map<string, any>>(new Map());
+  
+  // Fetch archive data by directly fetching chunk file (no backend endpoint!)
   const fetchArchiveData = useCallback(async (timestampSeconds: number) => {
     try {
-      const response = await fetch(buildServerUrl('/server/monitoring/json-by-time'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          device_id: device?.device_id || 'device1',
-          timestamp_seconds: Math.floor(timestampSeconds),
-          fps: 5
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.json_data) {
-          const data = result.json_data;
+      // Calculate chunk location from video timestamp
+      const { hour, chunkIndex } = calculateChunkLocation(timestampSeconds);
+      const cacheKey = `${device?.device_id}_${hour}_${chunkIndex}`;
+      
+      // Check cache first
+      let chunkData = chunkCacheRef.current.get(cacheKey);
+      
+      if (!chunkData) {
+        // Fetch chunk directly from host (no backend!)
+        const chunkUrl = buildMetadataChunkUrl(host, device?.device_id || 'device1', hour, chunkIndex);
+        console.log(`[useMonitoring] Fetching chunk directly: ${chunkUrl}`);
+        
+        const response = await fetch(chunkUrl);
+        if (response.ok) {
+          chunkData = await response.json();
+          // Cache chunk for future requests in same 10min window
+          chunkCacheRef.current.set(cacheKey, chunkData);
+        } else {
+          console.warn(`[useMonitoring] Chunk not found: ${hour}/chunk_10min_${chunkIndex}.json`);
+          return;
+        }
+      }
+      
+      // Find nearest frame in chunk by timestamp
+      if (chunkData?.frames && Array.isArray(chunkData.frames)) {
+        // Find frame closest to video timestamp
+        let nearestFrame = null;
+        let minDiff = Infinity;
+        
+        for (const frame of chunkData.frames) {
+          if (!frame.timestamp) continue;
           
-          const parsedAnalysis: MonitoringAnalysis = {
-            timestamp: data.timestamp || new Date().toISOString(),
-            filename: data.filename || '',
-            thumbnail: data.thumbnail || '',
-            blackscreen: data.blackscreen ?? false,
-            blackscreen_percentage: data.blackscreen_percentage ?? 0,
-            freeze: data.freeze ?? false,
-            freeze_diffs: data.freeze_diffs || [],
-            last_3_filenames: data.last_3_filenames || [],
-            last_3_thumbnails: data.last_3_thumbnails || [],
-            audio: data.audio ?? false,
-            volume_percentage: data.volume_percentage ?? 0,
-            mean_volume_db: data.mean_volume_db ?? -100,
-            macroblocks: data.macroblocks ?? false,
-            quality_score: data.quality_score ?? 0,
-            has_incidents: data.has_incidents ?? false,
-          };
+          const frameDate = new Date(frame.timestamp);
+          const frameSeconds = frameDate.getHours() * 3600 + frameDate.getMinutes() * 60 + frameDate.getSeconds();
+          const diff = Math.abs(frameSeconds - timestampSeconds);
           
-          // Extract subtitle data from archive metadata
-          let subtitleAnalysis: SubtitleAnalysis | null = null;
-          if (data.subtitle_analysis?.has_subtitles) {
-            const sub = data.subtitle_analysis;
-            subtitleAnalysis = {
-              subtitles_detected: sub.has_subtitles,
-              combined_extracted_text: sub.extracted_text || '',
-              detected_language: sub.detected_language !== 'unknown' ? sub.detected_language : undefined,
-              confidence: sub.confidence || 0.9,
-              detection_message: sub.extracted_text ? `Detected: ${sub.extracted_text}` : 'Subtitles detected',
-            };
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearestFrame = frame;
           }
+        }
+        
+        if (nearestFrame) {
+          const parsedAnalysis: MonitoringAnalysis = {
+            timestamp: nearestFrame.timestamp || new Date().toISOString(),
+            filename: nearestFrame.filename || '',
+            thumbnail: '',
+            blackscreen: nearestFrame.blackscreen ?? false,
+            blackscreen_percentage: nearestFrame.blackscreen_percentage ?? 0,
+            freeze: nearestFrame.freeze ?? false,
+            freeze_diffs: nearestFrame.freeze_diffs || [],
+            last_3_filenames: [],
+            last_3_thumbnails: [],
+            audio: nearestFrame.audio ?? false,
+            volume_percentage: nearestFrame.volume_percentage ?? 0,
+            mean_volume_db: nearestFrame.mean_volume_db ?? -100,
+            macroblocks: false,
+            quality_score: 0,
+            has_incidents: false,
+          };
           
           const snapshot: AnalysisSnapshot = {
             timestamp: parsedAnalysis.timestamp,
             analysis: parsedAnalysis,
-            subtitleAnalysis,
+            subtitleAnalysis: null,
             languageMenuAnalysis: null,
             aiDescription: null,
           };

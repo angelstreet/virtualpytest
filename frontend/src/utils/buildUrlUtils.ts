@@ -337,6 +337,66 @@ const getDeviceStreamUrlPath = (host: any, deviceId: string): string => {
   );
 };
 
+// =====================================================
+// METADATA CHUNK UTILITIES (Archive Mode)
+// =====================================================
+
+/**
+ * Calculate hour and chunk_index from video timestamp for 10-minute chunks.
+ * Mirrors Python calculate_chunk_location() in storage_path_utils.py
+ * 
+ * @param timestampSeconds - Video timestamp in seconds (from video currentTime)
+ * @returns Object with hour (0-23) and chunk_index (0-5)
+ * 
+ * Examples:
+ *   calculateChunkLocation(54000) // 15:00:00 -> { hour: 15, chunkIndex: 0 }
+ *   calculateChunkLocation(55800) // 15:30:00 -> { hour: 15, chunkIndex: 3 }
+ */
+export const calculateChunkLocation = (timestampSeconds: number): { hour: number; chunkIndex: number } => {
+  // Convert seconds to Date object (using today's date + time)
+  const date = new Date();
+  date.setHours(0, 0, 0, 0); // Start at midnight
+  date.setSeconds(timestampSeconds); // Add video timestamp
+  
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const chunkIndex = Math.floor(minute / 10); // 0-5 for 10-minute windows
+  
+  return { hour, chunkIndex };
+};
+
+/**
+ * Build URL for metadata chunk JSON file (direct file access).
+ * Chunks contain metadata for 10 minutes of recording (up to 3000 frames at 5fps).
+ * 
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @param hour - Hour (0-23)
+ * @param chunkIndex - Chunk index within hour (0-5)
+ * @returns URL to metadata chunk file
+ * 
+ * Example:
+ *   buildMetadataChunkUrl(host, 'device1', 15, 0)
+ *   -> "http://host/stream/capture1/metadata/15/chunk_10min_0.json"
+ */
+export const buildMetadataChunkUrl = (
+  host: any,
+  deviceId: string,
+  hour: number,
+  chunkIndex: number
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildMetadataChunkUrl');
+  }
+  
+  // Get device capture path and convert to metadata path
+  const capturePath = getDeviceCaptureUrlPath(host, deviceId);
+  // Remove /captures suffix and add /metadata/{hour}/chunk_10min_{chunkIndex}.json
+  const basePath = capturePath.replace('/captures', '');
+  const chunkPath = `${basePath}/metadata/${hour}/chunk_10min_${chunkIndex}.json`;
+  
+  return internalBuildHostUrl(host, `host${chunkPath}`);
+};
 /**
  * Get device-specific capture URL path from host configuration.
  * Uses video_capture_path from device configuration.
@@ -382,3 +442,63 @@ const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
   );
 };
 
+// =====================================================
+// METADATA CHUNK UTILITIES (Archive Mode)
+// =====================================================
+
+/**
+ * Calculate hour and chunk_index from video timestamp for 10-minute chunks.
+ * Mirrors Python calculate_chunk_location() in storage_path_utils.py
+ * 
+ * @param timestampSeconds - Video timestamp in seconds (from video currentTime)
+ * @returns Object with hour (0-23) and chunk_index (0-5)
+ * 
+ * Examples:
+ *   calculateChunkLocation(54000) // 15:00:00 -> { hour: 15, chunkIndex: 0 }
+ *   calculateChunkLocation(55800) // 15:30:00 -> { hour: 15, chunkIndex: 3 }
+ */
+export const calculateChunkLocation = (timestampSeconds: number): { hour: number; chunkIndex: number } => {
+  // Convert seconds to Date object (using today's date + time)
+  const date = new Date();
+  date.setHours(0, 0, 0, 0); // Start at midnight
+  date.setSeconds(timestampSeconds); // Add video timestamp
+  
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const chunkIndex = Math.floor(minute / 10); // 0-5 for 10-minute windows
+  
+  return { hour, chunkIndex };
+};
+
+/**
+ * Build URL for metadata chunk JSON file (direct file access).
+ * Chunks contain metadata for 10 minutes of recording (up to 3000 frames at 5fps).
+ * 
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @param hour - Hour (0-23)
+ * @param chunkIndex - Chunk index within hour (0-5)
+ * @returns URL to metadata chunk file
+ * 
+ * Example:
+ *   buildMetadataChunkUrl(host, 'device1', 15, 0)
+ *   -> "http://host/stream/capture1/metadata/15/chunk_10min_0.json"
+ */
+export const buildMetadataChunkUrl = (
+  host: any,
+  deviceId: string,
+  hour: number,
+  chunkIndex: number
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildMetadataChunkUrl');
+  }
+  
+  // Get device capture path and convert to metadata path
+  const capturePath = getDeviceCaptureUrlPath(host, deviceId);
+  // Remove /captures suffix and add /metadata/{hour}/chunk_10min_{chunkIndex}.json
+  const basePath = capturePath.replace('/captures', '');
+  const chunkPath = `${basePath}/metadata/${hour}/chunk_10min_${chunkIndex}.json`;
+  
+  return internalBuildHostUrl(host, `host${chunkPath}`);
+};
