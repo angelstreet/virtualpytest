@@ -255,9 +255,13 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
             }
         
         import time
+        import psutil
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
-        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (10× 60s segments)")
+        process = psutil.Process()
+        cpu_start = process.cpu_percent(interval=0.1)
+        
+        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (10× 60s segments, CPU: {cpu_start:.1f}%)")
         
         all_segments = []
         all_text = []
@@ -272,10 +276,18 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
             minute_end = start_sec + 60
             
             try:
+                # FFmpeg extraction
+                extract_start = time.time()
                 cmd = ['ffmpeg', '-i', mp3_path, '-ss', str(start_sec), '-t', '60', '-y', segment_tmp]
                 subprocess.run(cmd, capture_output=True, timeout=5)
+                extract_time = time.time() - extract_start
                 
+                # Whisper transcription
+                cpu_before_seg = process.cpu_percent(interval=0.1)
+                seg_start = time.time()
                 result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
+                seg_time = time.time() - seg_start
+                cpu_after_seg = process.cpu_percent(interval=0.1)
                 
                 text = result.get('transcript', '').strip()
                 segments = result.get('segments', [])
@@ -304,7 +316,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                     'confidence': round(confidence, 2)
                 })
                 
-                logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs")
+                logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_after_seg:.1f}%")
                 
             except Exception as e:
                 logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
@@ -322,8 +334,9 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         
         elapsed = time.time() - total_start
         transcript = ' '.join(all_text)
+        cpu_end = process.cpu_percent(interval=0.1)
         
-        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {detected_language} | {len(transcript)} chars, {len(all_segments)} segments")
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {detected_language} | {len(transcript)} chars, {len(all_segments)} segments | CPU: {cpu_start:.1f}% → {cpu_end:.1f}%")
         
         return {
             'capture_folder': capture_folder,
