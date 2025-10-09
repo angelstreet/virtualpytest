@@ -266,11 +266,16 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 'mean_volume_db': mean_volume_db
             }
         
+        import psutil
+        import time
+        
+        process = psutil.Process()
+        cpu_before = process.cpu_percent(interval=0.1)
+        
         logger.info(f"[{capture_folder}] 🎬 START Transcription: chunk_10min_{chunk_index}.mp3 (hour {hour}, volume={mean_volume_db:.1f}dB)")
-        logger.info(f"[{capture_folder}] ⏳ Processing with Whisper 'tiny' model...")
+        logger.info(f"[{capture_folder}] ⏳ Processing with Whisper 'tiny' model... (CPU: {cpu_before:.1f}%)")
         
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
-        import time
         
         start_time = time.time()
         result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
@@ -281,9 +286,11 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         timed_segments = result.get('segments', [])
         elapsed = time.time() - start_time
         
+        cpu_after = process.cpu_percent(interval=0.1)
+        
         # Clear summary log after transcription
         logger.info(f"[{capture_folder}] " + "="*80)
-        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Language: {language} | Confidence: {confidence:.2f}")
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | CPU: {cpu_after:.1f}% | Language: {language} | Confidence: {confidence:.2f}")
         
         if transcript:
             word_count = len(transcript.split())
