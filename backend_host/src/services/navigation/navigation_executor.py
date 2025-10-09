@@ -1166,7 +1166,7 @@ class NavigationExecutor:
     # KPI MEASUREMENT METHODS
     # ========================================
     
-    def _queue_kpi_measurement_if_configured(
+    def _queue_kpi_measurement(
         self,
         step: Dict[str, Any],
         action_timestamp: float,
@@ -1174,8 +1174,8 @@ class NavigationExecutor:
         team_id: str
     ):
         """
-        Queue KPI measurement if target node has kpi_references configured.
-        Fail early if any required data missing.
+        Queue KPI measurement for target node.
+        Writes JSON request file for standalone KPI executor service.
         """
         try:
             # ✅ FAIL EARLY: Validate required fields (no fallbacks)

@@ -22,6 +22,8 @@ import glob
 import queue
 import logging
 import threading
+import shutil
+import uuid
 from queue import Queue
 from datetime import datetime
 
@@ -158,34 +160,109 @@ class KPIExecutorService:
         
         start_time = time.time()
         
-        # Scan captures - stops at first match or timeout
-        match_result = self._scan_until_match(request)
+        # CRITICAL: Copy images from hot storage to /tmp/ (RAM) to avoid race condition
+        # Hot storage only keeps 150 images (30s at 5fps), they may be deleted during processing
+        working_dir = self._copy_images_to_tmp(request)
+        if not working_dir:
+            self._update_result(request.execution_result_id, request.team_id, False, None, "Failed to copy images from hot storage")
+            return
         
-        # Store result
-        if match_result['success']:
-            kpi_ms = int((match_result['timestamp'] - request.action_timestamp) * 1000)
-            algorithm = match_result.get('algorithm', 'unknown')
-            logger.info(f"✅ KPI match found!")
-            logger.info(f"   • KPI duration: {kpi_ms}ms")
-            logger.info(f"   • Algorithm: {algorithm}")
-            logger.info(f"   • Captures scanned: {match_result['captures_scanned']}")
-            self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
-        else:
-            algorithm = match_result.get('algorithm', 'unknown')
-            logger.error(f"❌ KPI measurement failed: {match_result['error']}")
-            logger.info(f"   • Algorithm: {algorithm}")
-            logger.info(f"   • Captures scanned: {match_result.get('captures_scanned', 0)}")
-            self._update_result(request.execution_result_id, request.team_id, False, None, match_result['error'])
+        try:
+            # Scan captures from /tmp/ working directory
+            match_result = self._scan_until_match(request, working_dir)
+            
+            # Store result
+            if match_result['success']:
+                kpi_ms = int((match_result['timestamp'] - request.action_timestamp) * 1000)
+                algorithm = match_result.get('algorithm', 'unknown')
+                logger.info(f"✅ KPI match found!")
+                logger.info(f"   • KPI duration: {kpi_ms}ms")
+                logger.info(f"   • Algorithm: {algorithm}")
+                logger.info(f"   • Captures scanned: {match_result['captures_scanned']}")
+                self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
+            else:
+                algorithm = match_result.get('algorithm', 'unknown')
+                logger.error(f"❌ KPI measurement failed: {match_result['error']}")
+                logger.info(f"   • Algorithm: {algorithm}")
+                logger.info(f"   • Captures scanned: {match_result.get('captures_scanned', 0)}")
+                self._update_result(request.execution_result_id, request.team_id, False, None, match_result['error'])
+            
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(f"⏱️  KPI processing completed in {processing_time}ms")
         
-        processing_time = int((time.time() - start_time) * 1000)
-        logger.info(f"⏱️  KPI processing completed in {processing_time}ms")
+        finally:
+            # Cleanup: Delete working directory
+            self._cleanup_working_dir(working_dir)
     
-    def _scan_until_match(self, request: KPIMeasurementRequest) -> dict:
-        """Scan captures using optimized quick check + backward scan algorithm"""
-        capture_dir = request.capture_dir
+    def _copy_images_to_tmp(self, request: KPIMeasurementRequest) -> str:
+        """
+        Copy required images from hot/cold storage to /tmp/ working directory (RAM).
+        Avoids race condition where hot storage images are deleted during processing.
+        
+        Returns:
+            Working directory path, or None if copy failed
+        """
+        
+        # Create working directory in /tmp/ (RAM)
+        working_id = str(uuid.uuid4())[:8]
+        working_dir = f'/tmp/kpi_working/{request.execution_result_id[:8]}_{working_id}'
+        os.makedirs(working_dir, exist_ok=True)
+        
+        logger.info(f"📂 Copying images to /tmp/ working directory...")
+        logger.info(f"   • Source: {request.capture_dir}")
+        logger.info(f"   • Working dir: {working_dir}")
+        
+        # Find all captures in time window
+        pattern = os.path.join(request.capture_dir, "capture_*.jpg")
+        copied_count = 0
+        
+        for source_path in glob.glob(pattern):
+            if "_thumbnail" in source_path:
+                continue
+            
+            try:
+                ts = os.path.getmtime(source_path)
+                # Copy images in time window: action → verification
+                if request.action_timestamp <= ts <= request.verification_timestamp:
+                    filename = os.path.basename(source_path)
+                    dest_path = os.path.join(working_dir, filename)
+                    shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
+                    copied_count += 1
+            except (OSError, IOError) as e:
+                logger.warning(f"Could not copy {source_path}: {e}")
+                continue
+        
+        if copied_count == 0:
+            logger.error(f"❌ No images copied from {request.capture_dir}")
+            return None
+        
+        logger.info(f"✅ Copied {copied_count} images to /tmp/ (RAM)")
+        return working_dir
+    
+    def _cleanup_working_dir(self, working_dir: str):
+        """Delete working directory and all its contents"""
+        if not working_dir or not os.path.exists(working_dir):
+            return
+        
+        try:
+            shutil.rmtree(working_dir)
+            logger.debug(f"🗑️  Cleaned up working directory: {working_dir}")
+        except Exception as e:
+            logger.warning(f"Could not cleanup working directory {working_dir}: {e}")
+    
+    def _scan_until_match(self, request: KPIMeasurementRequest, capture_dir: str) -> dict:
+        """
+        Scan captures using optimized quick check + backward scan algorithm.
+        
+        Args:
+            request: KPI measurement request
+            capture_dir: Directory to scan (usually /tmp/ working directory)
+        """
         action_timestamp = request.action_timestamp
         verification_timestamp = request.verification_timestamp
         kpi_references = request.kpi_references
+        
+        logger.info(f"🔍 Scanning captures in: {capture_dir}")
         
         # Get device instance
         from backend_host.src.lib.utils.host_utils import get_device_by_id
