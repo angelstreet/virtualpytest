@@ -15,7 +15,13 @@ Performance:
 - Controlled rate limiting
 - Graceful overflow handling
 """
+
+# CRITICAL: Limit Tesseract/OpenCV threads BEFORE importing
 import os
+os.environ['OMP_NUM_THREADS'] = '1'          # OpenMP (Tesseract uses this)
+os.environ['MKL_NUM_THREADS'] = '1'          # Intel MKL
+os.environ['OPENBLAS_NUM_THREADS'] = '1'     # OpenBLAS (OpenCV)
+
 import sys
 import json
 import logging
@@ -86,7 +92,7 @@ class InotifySubtitleMonitor:
             name="ocr-worker"
         )
         self.ocr_worker.start()
-        logger.info("Single OCR worker started (round-robin, 0.5s delay)")
+        logger.info("Single OCR worker started (round-robin, 1s delay - optimized for CPU)")
     
     def _round_robin_worker(self):
         """Process OCR requests round-robin across devices"""
@@ -115,7 +121,7 @@ class InotifySubtitleMonitor:
                 if work_queue.empty():
                     self._refill_from_history(capture_folder)
                 
-                time.sleep(0.5)
+                time.sleep(1.0)  # 1s delay (reduced CPU load vs 0.5s)
                 
             except queue.Empty:
                 pass
@@ -196,9 +202,11 @@ class InotifySubtitleMonitor:
                 
                 try:
                     import pytesseract
+                    # Optimized config: OEM 1 (faster legacy engine), 3 languages only, timeout
                     text = pytesseract.image_to_string(
                         crop,
-                        config='--psm 6 --oem 3 -l eng+fra+ita+deu+spa'
+                        config='--psm 6 --oem 1 -l eng+deu+fra',
+                        timeout=2  # Prevent hanging on difficult images
                     ).strip()
                     
                     if text:
