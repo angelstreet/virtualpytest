@@ -228,9 +228,10 @@ export const useMonitoring = ({
         }
       }
       
-      // Find nearest frame in chunk by timestamp
+      // Find nearest frame in chunk by timestamp (1fps = one frame per second)
       if (chunkData?.frames && Array.isArray(chunkData.frames)) {
-        // Find frame closest to video timestamp (with sub-second precision)
+        // Round video time to nearest second since frames are 1fps
+        const targetSecond = Math.round(timestampSeconds);
         let nearestFrame = null;
         let minDiff = Infinity;
         
@@ -238,12 +239,10 @@ export const useMonitoring = ({
           if (!frame.timestamp) continue;
           
           const frameDate = new Date(frame.timestamp);
-          // Include milliseconds for precise matching (even though frames are 1fps now)
           const frameSeconds = frameDate.getHours() * 3600 
             + frameDate.getMinutes() * 60 
-            + frameDate.getSeconds() 
-            + frameDate.getMilliseconds() / 1000;
-          const diff = Math.abs(frameSeconds - timestampSeconds);
+            + frameDate.getSeconds();
+          const diff = Math.abs(frameSeconds - targetSecond);
           
           if (diff < minDiff) {
             minDiff = diff;
