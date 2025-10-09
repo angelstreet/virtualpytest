@@ -580,7 +580,7 @@ class InotifyTranscriptMonitor:
                 # Show queue status for all devices
                 self._log_queue_status()
                 
-                time.sleep(30)
+                time.sleep(10)
                 
             except queue.Empty:
                 pass
