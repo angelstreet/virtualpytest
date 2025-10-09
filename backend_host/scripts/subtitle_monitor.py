@@ -33,7 +33,7 @@ WITH SPELLCHECK ENABLED (adds 200-500ms):
 # ============================================================================
 DOWNSCALE_FACTOR = 0.33      # Resize factor (0.33 = 33% = 89% fewer pixels, 0.5 = 50% = 75% fewer pixels)
 ENABLE_BINARIZATION = False  # Set to False to disable binarization for speed comparison
-ENABLE_SPELLCHECK = True    # Set to True to enable spell checking (SLOW: adds 200-500ms per OCR)
+ENABLE_SPELLCHECK = False    # Set to True to enable spell checking (SLOW: adds 200-500ms per OCR)
 # ============================================================================
 
 import os
