@@ -77,8 +77,6 @@ export const useTranscriptPlayer = ({
         const chunkIndex = currentManifest.chunk_index;
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         
-        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
-        
         // Check transcript manifest first to avoid 404s
         const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
         
@@ -158,7 +156,7 @@ export const useTranscriptPlayer = ({
               language: transcript.language,
               confidence: transcript.confidence,
               textLength: transcript.transcript.length,
-              segmentCount: transcript.segments.length,
+              segmentCount: transcript.segments?.length || 0,
               preview: transcript.transcript.substring(0, 100)
             });
             
