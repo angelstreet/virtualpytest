@@ -111,8 +111,10 @@ class KPIExecutor:
                 return
             
             self.running = True
+            # CRITICAL: Pass queue directly to worker (proven pattern from capture_monitor.py)
             self.worker_thread = threading.Thread(
                 target=self._worker_loop,
+                args=(self.queue,),  # ← Pass queue as argument
                 daemon=True,
                 name="KPI-Worker"
             )
@@ -150,8 +152,13 @@ class KPIExecutor:
             sys.stdout.flush()
             return False
     
-    def _worker_loop(self):
-        """Background worker loop that processes measurement requests"""
+    def _worker_loop(self, work_queue):
+        """
+        Background worker loop that processes measurement requests
+        
+        CRITICAL: Queue passed as argument (proven pattern from capture_monitor.py)
+        This ensures worker uses EXACT same queue object as enqueue_measurement()
+        """
         import sys
         print("🔄 [KPIExecutor] Worker loop started", flush=True)
         sys.stdout.flush()
@@ -161,12 +168,12 @@ class KPIExecutor:
             try:
                 # Wait for measurement request with timeout (allows clean shutdown)
                 try:
-                    request = self.queue.get(timeout=1.0)
+                    request = work_queue.get(timeout=1.0)
                 except queue.Empty:
                     # Periodic heartbeat every 30 iterations (~30 seconds)
                     iteration += 1
                     if iteration % 30 == 0:
-                        print(f"💓 [KPIExecutor] Worker heartbeat (queue size: {self.queue.qsize()})", flush=True)
+                        print(f"💓 [KPIExecutor] Worker heartbeat (queue size: {work_queue.qsize()})", flush=True)
                         sys.stdout.flush()
                     continue
                 
@@ -194,7 +201,7 @@ class KPIExecutor:
                     import traceback
                     traceback.print_exc()
                 finally:
-                    self.queue.task_done()
+                    work_queue.task_done()
                     
             except Exception as e:
                 print(f"❌ [KPIExecutor] Worker loop error: {e}", flush=True)
