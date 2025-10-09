@@ -421,3 +421,177 @@ export const buildMetadataChunkUrl = (
   
   return internalBuildHostUrl(host, `host${chunkPath}`);
 };
+
+// =====================================================
+// STREAM UTILITIES (Quality Changes & Captures)
+// =====================================================
+
+/**
+ * Poll for fresh stream after quality change
+ * Returns cleanup function to cancel polling
+ */
+export const pollForFreshStream = (
+  host: any,
+  deviceId: string,
+  onReady: () => void,
+  onTimeout: (error: string) => void
+): (() => void) => {
+  // Use proper buildStreamUrl to handle all host-specific paths (e.g., /pi2/, /pi3/, etc.)
+  const manifestUrl = buildStreamUrl(host, deviceId);
+  console.log(`[@utils:buildUrlUtils] Starting manifest polling for fresh stream: ${manifestUrl}`);
+
+  let pollCount = 0;
+  const maxPolls = 15; // 15 seconds max (1000ms * 15)
+  const requiredSegments = 3; // Need at least 3 segments in manifest
+
+  const pollingInterval = setInterval(async () => {
+    pollCount++;
+
+    // Check timeout FIRST before polling
+    if (pollCount > maxPolls) {
+      console.warn(
+        `[@utils:buildUrlUtils] Polling timeout after ${maxPolls} attempts for ${host.host_name}-${deviceId}`
+      );
+      clearInterval(pollingInterval);
+      onTimeout('Stream restart took longer than expected');
+      return;
+    }
+
+    console.log(
+      `[@utils:buildUrlUtils] Polling attempt ${pollCount}/${maxPolls} for ${host.host_name}-${deviceId}`
+    );
+
+    try {
+      // Add timestamp to prevent caching
+      const cacheBustUrl = `${manifestUrl}?_t=${Date.now()}`;
+      const response = await fetch(cacheBustUrl, {
+        method: 'GET',
+        cache: 'no-store', // Stronger than no-cache
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
+
+      if (!response.ok) {
+        console.log(
+          `[@utils:buildUrlUtils] Manifest not ready yet (status: ${response.status}) for ${host.host_name}-${deviceId}`
+        );
+        return;
+      }
+
+      const manifestText = await response.text();
+      console.log(
+        `[@utils:buildUrlUtils] Manifest received for ${host.host_name}-${deviceId}, length: ${manifestText.length} bytes`
+      );
+
+      // Check if manifest has proper header
+      if (!manifestText.includes('#EXTM3U')) {
+        console.log(
+          `[@utils:buildUrlUtils] Invalid manifest for ${host.host_name}-${deviceId} - no #EXTM3U header. First 100 chars:`,
+          manifestText.substring(0, 100)
+        );
+        return;
+      }
+
+      // Count segments in manifest by counting #EXTINF lines
+      const segmentCount = (manifestText.match(/#EXTINF/g) || []).length;
+
+      // Extract media sequence number to ensure we have a fresh stream
+      const mediaSequenceMatch = manifestText.match(/#EXT-X-MEDIA-SEQUENCE:(\d+)/);
+      const mediaSequence = mediaSequenceMatch ? parseInt(mediaSequenceMatch[1], 10) : -1;
+
+      console.log(
+        `[@utils:buildUrlUtils] Manifest valid for ${host.host_name}-${deviceId}! Has ${segmentCount} segments (need ${requiredSegments}), media sequence: ${mediaSequence}`
+      );
+
+      // Check both segment count AND that we have a fresh stream (low media sequence)
+      // Fresh stream should start from 0 or very low numbers (allow up to 10 for some tolerance)
+      const isFreshStream = mediaSequence >= 0 && mediaSequence <= 10;
+
+      if (segmentCount >= requiredSegments && isFreshStream) {
+        console.log(
+          `[@utils:buildUrlUtils] ✅ Fresh stream ready for ${host.host_name}-${deviceId}! ${segmentCount} segments, sequence ${mediaSequence}`
+        );
+        clearInterval(pollingInterval);
+        onReady();
+      } else if (segmentCount >= requiredSegments && !isFreshStream) {
+        console.log(
+          `[@utils:buildUrlUtils] ⏳ Manifest for ${host.host_name}-${deviceId} has ${segmentCount} segments but sequence ${mediaSequence} is too high - waiting for fresh stream restart`
+        );
+      }
+    } catch (error) {
+      console.log(
+        `[@utils:buildUrlUtils] Manifest check failed for ${host.host_name}-${deviceId}: ${error}`
+      );
+    }
+  }, 1000); // 1 second interval
+
+  // Return cleanup function
+  return () => {
+    console.log(`[@utils:buildUrlUtils] Cleaning up polling for ${host.host_name}-${deviceId}`);
+    clearInterval(pollingInterval);
+  };
+};
+
+/**
+ * Get capture URL from stream segment (calls backend to copy hot->cold)
+ * Backend handles: segment→capture calculation, hot→cold copy, URL building
+ */
+export const getCaptureUrlFromStream = async (
+  streamUrl: string,
+  device?: any,
+  host?: any
+): Promise<string | null> => {
+  if (!streamUrl || !device || !host) {
+    console.warn('[@utils:buildUrlUtils] Missing required parameters:', {
+      streamUrl: !!streamUrl,
+      device: !!device,
+      host: !!host,
+    });
+    return null;
+  }
+
+  try {
+    // Extract segment number from stream URL (e.g., segment_000078741.ts)
+    const segmentMatch = streamUrl.match(/segment_(\d+)\.ts/);
+    if (!segmentMatch) {
+      console.warn('[@utils:buildUrlUtils] Could not extract segment number from URL:', streamUrl);
+      return null;
+    }
+
+    const segmentNumber = parseInt(segmentMatch[1], 10);
+    const fps = device.video_fps || 5;
+
+    console.log(`[@utils:buildUrlUtils] Requesting capture: segment=${segmentNumber}, fps=${fps}`);
+
+    // Call backend to get capture (handles hot→cold copy)
+    const response = await fetch(buildServerUrl('/server/av/getSegmentCapture'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        host_name: host.host_name,
+        device_id: device.device_id,
+        segment_number: segmentNumber,
+        fps: fps,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[@utils:buildUrlUtils] Backend request failed:', response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    if (result.success && result.capture_url) {
+      console.log(`[@utils:buildUrlUtils] Got capture URL (COLD): ${result.capture_url}`);
+      return result.capture_url;
+    }
+
+    console.error('[@utils:buildUrlUtils] Backend returned error:', result.error);
+    return null;
+  } catch (error) {
+    console.error('[@utils:buildUrlUtils] Failed to get capture URL:', error);
+    return null;
+  }
+};

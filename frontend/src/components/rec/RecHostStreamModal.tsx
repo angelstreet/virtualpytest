@@ -3,13 +3,13 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { VNCStateProvider } from '../../contexts/VNCStateContext';
 import { useStream } from '../../hooks/controller';
-import { useRec } from '../../hooks/pages/useRec';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
 import { useToast } from '../../hooks/useToast';
 import { useMonitoring } from '../../hooks/monitoring/useMonitoring';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
-import { buildServerUrl, buildCaptureUrl } from '../../utils/buildUrlUtils';
+import { buildServerUrl, buildCaptureUrl, pollForFreshStream, getCaptureUrlFromStream } from '../../utils/buildUrlUtils';
+import { calculateVncScaling } from '../../utils/vncUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
 import { AIImageQueryModal } from '../monitoring';
@@ -105,9 +105,6 @@ const RecHostStreamModalContent: React.FC<{
 
   // Hooks - now only run when modal is actually open
   const { showError, showWarning } = useToast();
-
-  // Get VNC scaling and capture URL calculation from useRec
-  const { calculateVncScaling, pollForFreshStream, getCaptureUrlFromStream } = useRec();
 
   // NEW: Use device control hook (replaces all duplicate control logic)
   const { isControlActive, isControlLoading, controlError, handleToggleControl, clearError } =
