@@ -131,20 +131,7 @@ class InotifyFrameMonitor:
         return
     
     def _append_to_chunk(self, capture_folder, filename, analysis_data, fps=5):
-        """
-        INCREMENTAL ARCHIVAL: Append frame to correct 10min chunk immediately.
-        
-        This creates/updates chunks in real-time as frames arrive, eliminating:
-        - Need to accumulate 3000 files
-        - Batch merging complexity
-        - Gaps from lost intermediate files
-        
-        Args:
-            capture_folder: Device folder (e.g., 'capture1')
-            filename: Frame filename (e.g., 'capture_000012345.jpg')
-            analysis_data: Frame metadata to append
-            fps: Frames per second (default 5)
-        """
+        """Append frame to 10min chunk (called for 1 frame per second only)"""
         import json
         import fcntl
         from pathlib import Path
@@ -370,15 +357,16 @@ class InotifyFrameMonitor:
                         "error": "detection_result_was_none"
                     }
                 
-                # Save individual JSON (hot storage)
                 with open(json_file, 'w') as f:
                     json.dump(analysis_data, f, indent=2)
                 
-                # IMMEDIATE ARCHIVAL: Append to 10min chunk (cold storage)
-                try:
-                    self._append_to_chunk(capture_folder, filename, analysis_data)
-                except Exception as e:
-                    logger.warning(f"[{capture_folder}] Chunk append failed (non-critical): {e}")
+                # Append to chunk: 1 frame per second only (HLS displays at 1-second granularity)
+                sequence = int(filename.split('_')[1].split('.')[0])
+                if sequence % 5 == 0:
+                    try:
+                        self._append_to_chunk(capture_folder, filename, analysis_data)
+                    except Exception as e:
+                        logger.warning(f"[{capture_folder}] Chunk append failed: {e}")
                     
             except Exception as e:
                 logger.error(f"[{capture_folder}] Error saving: {e}")
