@@ -33,6 +33,8 @@ import logging
 import cv2
 import numpy as np
 import json
+import queue
+import threading
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -196,6 +198,7 @@ _latest_segment_cache = {}  # {capture_dir: (segment_path, mtime, last_check_tim
 _subtitle_cache = {}  # {image_path: (mtime, subtitle_result)}
 _audio_result_cache = {}  # {capture_dir: (has_audio, volume, db, method, time_ms)} - Last known audio state per device (frame-level cache)
 _audio_volume_check_cache = {}  # {capture_dir: last_volume_check_timestamp} - Track when we last did full ffmpeg volume check
+_audio_ffprobe_cache = {}  # {capture_dir: (last_check_time, has_audio, volume, db, method, time_ms)} - Time-based throttle (5s)
 
 # Zap state tracking for CPU optimization
 _zap_state_cache = {}  # In-memory cache for fast access
@@ -205,6 +208,45 @@ _language_detection_cache = {}  # {capture_dir: (last_detection_time, detected_l
 
 # Freeze detection optimization - cache thumbnails in memory
 _freeze_thumbnail_cache = {}  # {device_dir: [(frame_number, thumbnail_img), ...]}
+
+# Single ffprobe queue to prevent concurrent execution (similar to Whisper in transcript_accumulator)
+_ffprobe_queue = queue.Queue(maxsize=100)  # Sequential processing of audio checks
+_ffprobe_worker = None  # Started lazily on first use
+
+def _ffprobe_worker_thread():
+    """Single worker thread for sequential ffprobe execution (prevents concurrent slowdowns)"""
+    while True:
+        try:
+            request = _ffprobe_queue.get(timeout=60)  # 60s timeout for idle detection
+            capture_dir, latest_segment, cached_volume, result_container, completion_event = request
+            
+            # Execute ffprobe/ffmpeg check
+            result = _execute_audio_check(capture_dir, latest_segment, cached_volume)
+            
+            # Store result and signal completion
+            result_container['result'] = result
+            completion_event.set()
+            
+            _ffprobe_queue.task_done()
+        except queue.Empty:
+            # Idle - continue waiting
+            continue
+        except Exception as e:
+            logger.error(f"FFprobe worker error: {e}")
+            if 'completion_event' in locals():
+                completion_event.set()  # Unblock caller even on error
+
+def _ensure_ffprobe_worker():
+    """Start ffprobe worker if not already running (lazy initialization)"""
+    global _ffprobe_worker
+    if _ffprobe_worker is None or not _ffprobe_worker.is_alive():
+        _ffprobe_worker = threading.Thread(
+            target=_ffprobe_worker_thread,
+            daemon=True,
+            name="ffprobe-worker"
+        )
+        _ffprobe_worker.start()
+        logger.info("Started single ffprobe worker (sequential audio checks)")
 
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
@@ -316,71 +358,77 @@ def quick_blackscreen_check(img, threshold=10):
     
     return bool(dark_percentage > 85), dark_percentage
 
-def analyze_audio(capture_dir):
+def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
     """
-    Check if audio is present in latest segment
+    Internal function: Execute actual ffprobe/ffmpeg check (called by queue worker)
     
-    Strategy:
-    - ffprobe every call (~1ms) - checks stream presence (no cache)
-    - ffmpeg every 30s (~200ms) - measures precise volume (cached for 30s)
+    Args:
+        capture_dir: Device directory
+        latest_segment: Pre-found latest segment path (optional)
+        cached_volume: Pre-loaded volume cache (optional)
     
     Returns: (has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
     """
     global _latest_segment_cache, _audio_volume_check_cache
     
     current_time = time.time()
-    latest = None
-    latest_mtime = 0
     
-    # Use convenience function - automatically resolves hot/cold and RAM mode
-    capture_folder = get_capture_folder(capture_dir)
-    segments_dir = get_segments_path(capture_folder)
-    
-    # CRITICAL FIX: Check cache first - only rescan directory every 5 seconds
-    if capture_dir in _latest_segment_cache:
-        cached_path, cached_mtime, last_check = _latest_segment_cache[capture_dir]
+    # Use latest_segment if provided (from wrapper), otherwise find it
+    if latest_segment:
+        latest = latest_segment
+        latest_mtime = os.path.getmtime(latest) if os.path.exists(latest) else 0
+    else:
+        latest = None
+        latest_mtime = 0
         
-        # Reuse cached path if checked recently (within 5 seconds)
-        if current_time - last_check < 5.0:
-            # Verify cached file still exists and get its current mtime
-            if os.path.exists(cached_path):
-                try:
-                    current_file_mtime = os.path.getmtime(cached_path)
-                    latest = cached_path
-                    latest_mtime = current_file_mtime
-                except:
-                    pass  # Will rescan below
-    
-    # Rescan if cache miss or cache expired (every 5 seconds) - HOT STORAGE ONLY
-    if not latest and os.path.exists(segments_dir):
-        try:
-            with os.scandir(segments_dir) as it:
-                for entry in it:
-                    # Only check files in hot storage (root), not hour folders (max 10 files)
-                    if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
-                        mtime = entry.stat().st_mtime
-                        if mtime > latest_mtime:
-                            latest = entry.path
-                            latest_mtime = mtime
-        except Exception:
-            return True, 0, -100.0
+        # Use convenience function - automatically resolves hot/cold and RAM mode
+        capture_folder = get_capture_folder(capture_dir)
+        segments_dir = get_segments_path(capture_folder)
         
-        # Update cache
-        if latest:
-            _latest_segment_cache[capture_dir] = (latest, latest_mtime, current_time)
+        # CRITICAL FIX: Check cache first - only rescan directory every 5 seconds
+        if capture_dir in _latest_segment_cache:
+            cached_path, cached_mtime, last_check = _latest_segment_cache[capture_dir]
+            
+            # Reuse cached path if checked recently (within 5 seconds)
+            if current_time - last_check < 5.0:
+                # Verify cached file still exists and get its current mtime
+                if os.path.exists(cached_path):
+                    try:
+                        current_file_mtime = os.path.getmtime(cached_path)
+                        latest = cached_path
+                        latest_mtime = current_file_mtime
+                    except:
+                        pass  # Will rescan below
+        
+        # Rescan if cache miss or cache expired (every 5 seconds) - HOT STORAGE ONLY
+        if not latest and os.path.exists(segments_dir):
+            try:
+                with os.scandir(segments_dir) as it:
+                    for entry in it:
+                        # Only check files in hot storage (root), not hour folders (max 10 files)
+                        if entry.is_file() and entry.name.startswith('segment_') and entry.name.endswith('.ts'):
+                            mtime = entry.stat().st_mtime
+                            if mtime > latest_mtime:
+                                latest = entry.path
+                                latest_mtime = mtime
+            except Exception:
+                return True, 0, -100.0
+            
+            # Update cache
+            if latest:
+                _latest_segment_cache[capture_dir] = (latest, latest_mtime, current_time)
+        
+        if not latest:
+            return True, 0, -100.0, 'no_segment', 0
+        
+        # Check if recent (within last 5 minutes)
+        age_seconds = current_time - latest_mtime
+        if age_seconds > 300:  # 5 minutes
+            return False, 0, -100.0, 'segment_too_old', 0
     
-    if not latest:
-        return True, 0, -100.0, 'no_segment', 0
-    
-    # Check if recent (within last 5 minutes)
-    current_time = time.time()
-    age_seconds = current_time - latest_mtime
-    if age_seconds > 300:  # 5 minutes
-        return False, 0, -100.0, 'segment_too_old', 0
-    
-    # Load volume cache (only used to get volume data from last ffmpeg check within 30s)
-    # We don't cache audio detection - always check with ffprobe (fast ~1ms)
-    cached_volume = load_audio_volume_cache(capture_dir)
+    # Use cached_volume if provided (from wrapper), otherwise load it
+    if cached_volume is None:
+        cached_volume = load_audio_volume_cache(capture_dir)
     
     try:
         # No valid cache - check if we should do a full volume check (every 30 seconds)
@@ -558,6 +606,81 @@ def analyze_audio(capture_dir):
         except:
             logger.warning(f"Audio detection failed: {e}")
             return False, 0, -100.0, 'error', 0
+
+def analyze_audio(capture_dir):
+    """
+    Queue-based audio check wrapper with time-based throttle (5s)
+    
+    Strategy:
+    - Time-based cache: Reuse result if checked within last 5 seconds (wall-clock time, not frames)
+    - Single ffprobe queue: Prevents concurrent ffprobe execution (like Whisper in transcript_accumulator)
+    - Sequential processing: Only one ffprobe runs at a time across ALL devices
+    
+    Returns: (has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
+    """
+    global _audio_ffprobe_cache
+    
+    current_time = time.time()
+    
+    # Time-based throttle: Check if we already checked this device within last 5 seconds
+    if capture_dir in _audio_ffprobe_cache:
+        last_check_time, cached_has_audio, cached_volume, cached_db, cached_method, cached_time_ms = _audio_ffprobe_cache[capture_dir]
+        time_since_check = current_time - last_check_time
+        
+        if time_since_check < 5.0:
+            # Reuse cached result - no queue needed
+            return cached_has_audio, cached_volume, cached_db, f"{cached_method}_cached", cached_time_ms
+    
+    # Need fresh check - prepare data for worker
+    capture_folder = get_capture_folder(capture_dir)
+    segments_dir = get_segments_path(capture_folder)
+    
+    # Pre-find latest segment (avoid duplicate work in worker)
+    latest_segment = None
+    if capture_dir in _latest_segment_cache:
+        cached_path, cached_mtime, last_check = _latest_segment_cache[capture_dir]
+        if current_time - last_check < 5.0 and os.path.exists(cached_path):
+            latest_segment = cached_path
+    
+    # Pre-load volume cache
+    cached_volume = load_audio_volume_cache(capture_dir)
+    
+    # Ensure worker is running
+    _ensure_ffprobe_worker()
+    
+    # Submit to queue and wait for result
+    result_container = {}
+    completion_event = threading.Event()
+    
+    try:
+        _ffprobe_queue.put_nowait((capture_dir, latest_segment, cached_volume, result_container, completion_event))
+        
+        # Wait for worker to complete (with timeout)
+        if completion_event.wait(timeout=2.0):
+            result = result_container.get('result')
+            if result:
+                has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms = result
+                
+                # Cache result for 5-second time-based throttle
+                _audio_ffprobe_cache[capture_dir] = (current_time, has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms)
+                
+                return has_audio, volume_percentage, mean_volume_db, check_method, check_time_ms
+            else:
+                # Worker error
+                logger.warning(f"[{capture_dir}] FFprobe worker returned no result")
+                return False, 0, -100.0, 'worker_error', 0
+        else:
+            # Timeout
+            logger.warning(f"[{capture_dir}] FFprobe queue timeout (2s)")
+            return False, 0, -100.0, 'queue_timeout', 0
+            
+    except queue.Full:
+        # Queue full - use cached result or fallback
+        logger.warning(f"[{capture_dir}] FFprobe queue FULL (100 requests)")
+        if capture_dir in _audio_ffprobe_cache:
+            _, cached_has_audio, cached_volume, cached_db, cached_method, cached_time_ms = _audio_ffprobe_cache[capture_dir]
+            return cached_has_audio, cached_volume, cached_db, f"{cached_method}_queue_full", cached_time_ms
+        return False, 0, -100.0, 'queue_full', 0
 
 def analyze_subtitles(image_path, fps=5):
     """
