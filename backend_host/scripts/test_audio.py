@@ -188,7 +188,7 @@ def test_ffmpeg_raw_pcm(ts_file):
             '-'                 # Pipe to stdout
         ]
         
-        result = subprocess.run(cmd, capture_output=True, stderr=subprocess.DEVNULL, timeout=1)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=1)
         
         # Parse raw PCM data
         audio_data = np.frombuffer(result.stdout, dtype=np.float32)
