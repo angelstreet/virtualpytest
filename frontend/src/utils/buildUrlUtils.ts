@@ -387,37 +387,16 @@ const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
 // =====================================================
 
 /**
- * Calculate hour and chunk_index from video timestamp for 10-minute chunks.
- * Mirrors Python calculate_chunk_location() in storage_path_utils.py
- * 
- * @param timestampSeconds - Video timestamp in seconds (from video currentTime)
- * @returns Object with hour (0-23) and chunk_index (0-5)
- * 
- * Examples:
- *   calculateChunkLocation(54000) // 15:00:00 -> { hour: 15, chunkIndex: 0 }
- *   calculateChunkLocation(55800) // 15:30:00 -> { hour: 15, chunkIndex: 3 }
- */
-export const calculateChunkLocation = (timestampSeconds: number): { hour: number; chunkIndex: number } => {
-  // Convert seconds to Date object (using today's date + time)
-  const date = new Date();
-  date.setHours(0, 0, 0, 0); // Start at midnight
-  date.setSeconds(timestampSeconds); // Add video timestamp
-  
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-  const chunkIndex = Math.floor(minute / 10); // 0-5 for 10-minute windows
-  
-  return { hour, chunkIndex };
-};
-
-/**
  * Build URL for metadata chunk JSON file (direct file access).
  * Chunks contain metadata for 10 minutes of recording (up to 3000 frames at 5fps).
  * 
+ * IMPORTANT: Chunk location calculation is done in useArchivePlayer.ts (hour * 3600 + chunk_index * 600)
+ * This ensures consistency with video playback timeline. DO NOT duplicate the calculation here!
+ * 
  * @param host - Host object
  * @param deviceId - Device ID
- * @param hour - Hour (0-23)
- * @param chunkIndex - Chunk index within hour (0-5)
+ * @param hour - Hour (0-23) - from useArchivePlayer's globalCurrentTime
+ * @param chunkIndex - Chunk index within hour (0-5) - from useArchivePlayer's globalCurrentTime
  * @returns URL to metadata chunk file
  * 
  * Example:

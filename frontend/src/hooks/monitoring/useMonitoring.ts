@@ -9,7 +9,6 @@ import {
 import { 
   buildServerUrl, 
   buildCaptureUrl, 
-  calculateChunkLocation, 
   buildMetadataChunkUrl 
 } from '../../utils/buildUrlUtils';
 
@@ -201,9 +200,13 @@ export const useMonitoring = ({
   // Fetch archive data by directly fetching chunk file (no backend endpoint!)
   const fetchArchiveData = useCallback(async (timestampSeconds: number) => {
     try {
-      // Calculate chunk location from video timestamp
-      const { hour, chunkIndex } = calculateChunkLocation(timestampSeconds);
+      // Calculate chunk location from global timestamp (REUSE archive player logic!)
+      // timestampSeconds is globalCurrentTime from useArchivePlayer (hour * 3600 + chunk_index * 600 + video.currentTime)
+      const hour = Math.floor(timestampSeconds / 3600) % 24;  // Extract hour from global time
+      const chunkIndex = Math.floor((timestampSeconds % 3600) / 600);  // Extract 10min chunk (0-5)
       const cacheKey = `${device?.device_id}_${hour}_${chunkIndex}`;
+      
+      console.log(`[useMonitoring] Archive lookup: ${timestampSeconds}s -> hour ${hour}, chunk ${chunkIndex}`);
       
       // Check cache first
       let chunkData = chunkCacheRef.current.get(cacheKey);
