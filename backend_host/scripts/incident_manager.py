@@ -231,10 +231,20 @@ class IncidentManager:
                 # Add frame information and R2 URLs (uploaded immediately by capture_monitor)
                 if 'last_3_filenames' in analysis_result:
                     enhanced_metadata['last_3_filenames'] = analysis_result['last_3_filenames']
+                    logger.info(f"[{capture_folder}] 📋 Added last_3_filenames to metadata: {len(analysis_result['last_3_filenames'])} files")
+                    
                 if 'last_3_thumbnails' in analysis_result:
                     enhanced_metadata['last_3_thumbnails'] = analysis_result['last_3_thumbnails']
+                    logger.info(f"[{capture_folder}] 📋 Added last_3_thumbnails to metadata: {len(analysis_result['last_3_thumbnails'])} items")
+                    
                 if 'r2_images' in analysis_result:
                     enhanced_metadata['r2_images'] = analysis_result['r2_images']
+                    r2_count = len(analysis_result['r2_images'].get('thumbnail_urls', []))
+                    logger.info(f"[{capture_folder}] 📋 Added r2_images to metadata: {r2_count} thumbnail URLs")
+                    for i, url in enumerate(analysis_result['r2_images'].get('thumbnail_urls', [])):
+                        logger.info(f"[{capture_folder}]    📸 URL {i}: {url}")
+                else:
+                    logger.warning(f"[{capture_folder}] ⚠️  NO r2_images in analysis_result for {issue_type} incident!")
             
             # Call database exactly as before
             result = create_alert_safe(
@@ -343,9 +353,15 @@ class IncidentManager:
                         # Issue has persisted for 5+ minutes, report to DB
                         logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB NOW")
                         
-                        # DON'T upload again - freeze thumbnails already uploaded immediately when first detected
-                        # r2_images should already be in detection_result from capture_monitor
-                        logger.info(f"[{capture_folder}] Using r2_images from initial freeze detection (no duplicate upload)")
+                        # Check what's in detection_result
+                        has_r2_images = 'r2_images' in detection_result and detection_result['r2_images']
+                        has_thumbnails = 'last_3_thumbnails' in detection_result and detection_result['last_3_thumbnails']
+                        
+                        if has_r2_images:
+                            r2_count = len(detection_result.get('r2_images', {}).get('thumbnail_urls', []))
+                            logger.info(f"[{capture_folder}] ✅ detection_result has {r2_count} R2 thumbnail URLs")
+                        else:
+                            logger.warning(f"[{capture_folder}] ⚠️  detection_result MISSING r2_images!")
                         
                         logger.info(f"[{capture_folder}] Calling create_incident for {issue_type}...")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)

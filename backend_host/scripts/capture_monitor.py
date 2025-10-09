@@ -288,8 +288,12 @@ class InotifyFrameMonitor:
             if detection_result and detection_result.get('freeze', False):
                 last_3_captures = detection_result.get('last_3_filenames', [])
                 if last_3_captures:
+                    # Get device_id (same key used by incident_manager.process_detection)
+                    device_info = get_device_info_from_capture_folder(capture_folder)
+                    device_id = device_info.get('device_id', capture_folder)
+                    
                     # Get device state from incident manager (creates if doesn't exist)
-                    device_state = self.incident_manager.get_device_state(capture_folder)
+                    device_state = self.incident_manager.get_device_state(device_id)
                     
                     # Check if we already uploaded for this freeze event
                     cached_r2_urls = device_state.get('freeze_r2_urls')
@@ -360,8 +364,16 @@ class InotifyFrameMonitor:
                 with open(json_file, 'w') as f:
                     json.dump(analysis_data, f, indent=2)
                 
-                # Append to chunk: 1 frame per second only (HLS displays at 1-second granularity)
+                # Log successful individual JSON creation
                 sequence = int(filename.split('_')[1].split('.')[0])
+                has_r2_images = 'r2_images' in analysis_data and analysis_data['r2_images']
+                if has_r2_images:
+                    r2_count = len(analysis_data.get('r2_images', {}).get('thumbnail_urls', []))
+                    logger.info(f"[{capture_folder}] ✓ Created JSON → {os.path.basename(json_file)} (seq={sequence}, r2_urls={r2_count})")
+                else:
+                    logger.debug(f"[{capture_folder}] ✓ Created JSON → {os.path.basename(json_file)} (seq={sequence})")
+                
+                # Append to chunk: 1 frame per second only (HLS displays at 1-second granularity)
                 if sequence % 5 == 0:
                     try:
                         self._append_to_chunk(capture_folder, filename, analysis_data)
