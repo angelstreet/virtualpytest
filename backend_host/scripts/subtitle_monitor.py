@@ -31,8 +31,8 @@ WITH SPELLCHECK ENABLED (adds 200-500ms):
 # ============================================================================
 # PERFORMANCE TUNING FLAGS
 # ============================================================================
-DOWNSCALE_FACTOR = 0.33      # Resize factor (0.33 = 33% = 89% fewer pixels, 0.5 = 50% = 75% fewer pixels)
-ENABLE_BINARIZATION = True  # Set to False to disable binarization for speed comparison
+DOWNSCALE_FACTOR = 0.5      # Resize factor (0.33 = 33% = 89% fewer pixels, 0.5 = 50% = 75% fewer pixels)
+ENABLE_BINARIZATION = False  # Set to False to disable binarization for speed comparison
 ENABLE_SPELLCHECK = False    # Set to True to enable spell checking (SLOW: adds 200-500ms per OCR)
 # ============================================================================
 
