@@ -33,8 +33,6 @@ from queue import LifoQueue
 import threading
 from datetime import datetime
 import time
-import psutil
-from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(script_dir)
@@ -233,7 +231,7 @@ def check_mp3_has_audio(mp3_path: str, capture_folder: str, sample_duration: flo
 
 def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> dict:
     """
-    Transcribe 10-minute MP3 in 10× 60s chunks (reduces CPU bursts)
+    Transcribe 10-minute MP3 in full (restored from per-minute processing)
     """
     try:
         has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, capture_folder, sample_duration=5.0)
@@ -255,6 +253,9 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 'skipped_reason': 'silent',
                 'mean_volume_db': mean_volume_db
             }
+        
+        import psutil
+        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
         process = psutil.Process()
         # Initialize CPU measurement (first call always returns 0.0, so call it now)
