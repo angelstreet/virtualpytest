@@ -137,7 +137,8 @@ export const useTranscriptPlayer = ({
               transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
               timestamp: chunkInfo.timestamp || new Date().toISOString(),
               mp3_file: chunkInfo.mp3_file || `chunk_10min_${chunkIndex}.mp3`,
-              segments: chunkInfo.segments || []
+              segments: chunkInfo.segments || [],
+              minute_metadata: chunkInfo.minute_metadata || []
             };
             
             if (!transcript.transcript) {
@@ -211,14 +212,13 @@ export const useTranscriptPlayer = ({
     }
   }, [transcriptData, globalCurrentTime]);
   
-  // NEW: Find current timed segment based on video playback time (for subtitle-style display)
+  // Find current timed segment based on video playback time (per-minute granularity)
   useEffect(() => {
     if (!rawTranscriptData || !rawTranscriptData.segments || rawTranscriptData.segments.length === 0) {
       setCurrentTimedSegment(null);
       return;
     }
     
-    // Calculate local time within the chunk (video.currentTime)
     if (!archiveMetadata || archiveMetadata.manifests.length === 0) {
       setCurrentTimedSegment(null);
       return;
@@ -233,14 +233,21 @@ export const useTranscriptPlayer = ({
     // Local time within the 10-minute chunk (0-600 seconds)
     const localTime = globalCurrentTime - currentManifest.start_time_seconds;
     
-    // Find the timed segment that contains this local time
+    // Find current minute (0-9)
+    const currentMinute = Math.floor(localTime / 60);
+    
+    // Filter segments for current minute only (60s window)
+    const minuteStart = currentMinute * 60;
+    const minuteEnd = minuteStart + 60;
+    
+    // Find active segment within current minute
     const activeSegment = rawTranscriptData.segments.find(
-      seg => localTime >= seg.start && localTime < seg.end
+      seg => seg.start >= minuteStart && seg.start < minuteEnd && localTime >= seg.start && localTime < seg.end
     );
     
     if (activeSegment) {
       setCurrentTimedSegment(activeSegment);
-      console.log(`[@useTranscriptPlayer] Current timed segment: ${localTime.toFixed(1)}s -> "${activeSegment.text.substring(0, 50)}..."`);
+      console.log(`[@useTranscriptPlayer] Minute ${currentMinute} | ${localTime.toFixed(1)}s -> "${activeSegment.text.substring(0, 50)}..."`);
     } else {
       setCurrentTimedSegment(null);
     }

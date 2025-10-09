@@ -48,6 +48,18 @@ export interface TranscriptDataLegacy {
 }
 
 // NEW format (10-minute single transcript per chunk with timed segments)
+export interface MinuteMetadata {
+  minute: number;
+  time_range: string;
+  has_text: boolean;
+  text_length?: number;
+  word_count?: number;
+  segment_count?: number;
+  language?: string;
+  confidence?: number;
+  error?: string;
+}
+
 export interface TranscriptData10Min {
   capture_folder: string;
   hour: number;
@@ -60,7 +72,8 @@ export interface TranscriptData10Min {
   timestamp: string;
   mp3_file: string;
   translations?: Record<string, string>;
-  segments?: TimedSegment[];  // Timed segments for subtitle-style display
+  segments?: TimedSegment[];
+  minute_metadata?: MinuteMetadata[];
 }
 
 // Union type for backward compatibility
