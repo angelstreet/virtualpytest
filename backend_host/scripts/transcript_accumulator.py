@@ -17,12 +17,12 @@ Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json
 # CRITICAL: Limit CPU threads BEFORE importing PyTorch/Whisper
 # PyTorch/NumPy/OpenBLAS create 40+ threads by default, killing performance
 import os
-os.environ['OMP_NUM_THREADS'] = '2'          # OpenMP
-os.environ['MKL_NUM_THREADS'] = '2'          # Intel MKL
-os.environ['OPENBLAS_NUM_THREADS'] = '2'     # OpenBLAS
-os.environ['NUMEXPR_NUM_THREADS'] = '2'      # NumExpr
-os.environ['VECLIB_MAXIMUM_THREADS'] = '2'   # macOS Accelerate
-os.environ['TORCH_NUM_THREADS'] = '2'        # PyTorch
+os.environ['OMP_NUM_THREADS'] = '4'          # OpenMP
+os.environ['MKL_NUM_THREADS'] = '4'          # Intel MKL
+os.environ['OPENBLAS_NUM_THREADS'] = '4'     # OpenBLAS
+os.environ['NUMEXPR_NUM_THREADS'] = '4'      # NumExpr
+os.environ['VECLIB_MAXIMUM_THREADS'] = '4'   # macOS Accelerate
+os.environ['TORCH_NUM_THREADS'] = '4'        # PyTorch (was 2, now 4 for better Whisper performance)
 
 import sys
 import json
@@ -259,9 +259,10 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
         process = psutil.Process()
-        cpu_start = process.cpu_percent(interval=0.1)
+        # Initialize CPU measurement (first call always returns 0.0, so call it now)
+        process.cpu_percent(interval=None)
         
-        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (10× 60s segments, CPU: {cpu_start:.1f}%)")
+        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (10× 60s segments)")
         
         all_segments = []
         all_text = []
@@ -283,11 +284,10 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 extract_time = time.time() - extract_start
                 
                 # Whisper transcription
-                cpu_before_seg = process.cpu_percent(interval=0.1)
                 seg_start = time.time()
                 result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
                 seg_time = time.time() - seg_start
-                cpu_after_seg = process.cpu_percent(interval=0.1)
+                cpu_percent = process.cpu_percent(interval=None)
                 
                 text = result.get('transcript', '').strip()
                 segments = result.get('segments', [])
@@ -318,10 +318,10 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 
                 if text:
                     text_preview = text[:80].replace('\n', ' ')
-                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_after_seg:.1f}%")
+                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_percent:.1f}%")
                     logger.info(f"[{capture_folder}] 💬 Text: '{text_preview}'")
                 else:
-                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): no text | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_after_seg:.1f}%")
+                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): no text | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_percent:.1f}%")
                 
             except Exception as e:
                 logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
@@ -339,9 +339,9 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         
         elapsed = time.time() - total_start
         transcript = ' '.join(all_text)
-        cpu_end = process.cpu_percent(interval=0.1)
+        cpu_final = process.cpu_percent(interval=None)
         
-        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {detected_language} | {len(transcript)} chars, {len(all_segments)} segments | CPU: {cpu_start:.1f}% → {cpu_end:.1f}%")
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {detected_language} | {len(transcript)} chars, {len(all_segments)} segments | CPU: {cpu_final:.1f}%")
         
         return {
             'capture_folder': capture_folder,
@@ -798,13 +798,6 @@ class InotifyTranscriptMonitor:
                     pass
 
 def main():
-    # Lower process priority (nice +10 = background task)
-    try:
-        os.nice(10)
-        print(f"[@transcript_accumulator] Lowered priority: nice +10 (background task)")
-    except:
-        pass
-    
     # Clean log file first
     cleanup_logs_on_startup()
     
@@ -829,7 +822,8 @@ def main():
     logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")
     logger.info("=" * 80)
     logger.info("Architecture: Event-driven (zero CPU when idle)")
-    logger.info("Priority: Low (nice +10) - distributed CPU load")
+    logger.info("Priority: Normal (no nice) - faster transcription")
+    logger.info("Threads: 4 per library (was 2) - better Whisper performance")
     logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s)")
     logger.info("Pipeline 2: MP3 → JSON (10× 60s segments, 10s delay)")
     logger.info("CPU: 10× small bursts vs 1× large burst")
