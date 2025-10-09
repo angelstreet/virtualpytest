@@ -73,7 +73,7 @@ INCIDENT = 1
 class IncidentManager:
     def __init__(self):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
-        self.INCIDENT_REPORT_DELAY = 10  # Only report to DB after 5 minutes of continuous detection
+        self.INCIDENT_REPORT_DELAY = 300  # Only report to DB after 5 minutes of continuous detection
         # Start fresh on service restart - resolve any stale incidents from previous run
         self._resolve_all_incidents_on_startup()
         
