@@ -231,27 +231,13 @@ def check_mp3_has_audio(mp3_path: str, capture_folder: str, sample_duration: flo
 
 def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> dict:
     """
-    Transcribe a single 10-minute MP3 chunk using Whisper
-    
-    Args:
-        mp3_path: Path to MP3 file (chunk_10min_X.mp3)
-        capture_folder: Device identifier
-        hour: Hour (0-23)
-        chunk_index: Chunk within hour (0-5)
-    
-    Returns:
-        dict: Transcript data with timed segments (or None if silent)
+    Transcribe 10-minute MP3 in 10× 60s chunks (reduces CPU bursts)
     """
     try:
-        # OPTIMIZATION: Check if MP3 has actual audio before expensive Whisper transcription
         has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, capture_folder, sample_duration=5.0)
         
         if not has_audio:
-            logger.info(f"[{capture_folder}] " + "="*80)
-            logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk_10min_{chunk_index}.mp3 (hour {hour})")
-            logger.info(f"[{capture_folder}] 🔇 Reason: Silent audio (volume={mean_volume_db:.1f}dB, threshold=-50dB)")
-            logger.info(f"[{capture_folder}] " + "="*80)
-            # Return minimal transcript data indicating silence
+            logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk_10min_{chunk_index}.mp3 (silent, {mean_volume_db:.1f}dB)")
             return {
                 'capture_folder': capture_folder,
                 'hour': hour,
@@ -268,61 +254,70 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 'mean_volume_db': mean_volume_db
             }
         
-        import psutil
         import time
-        
-        process = psutil.Process()
-        cpu_before = process.cpu_percent(interval=0.1)
-        
-        logger.info(f"[{capture_folder}] 🎬 START Transcription: chunk_10min_{chunk_index}.mp3 (hour {hour}, volume={mean_volume_db:.1f}dB)")
-        logger.info(f"[{capture_folder}] ⏳ Processing with Whisper 'tiny' model... (CPU: {cpu_before:.1f}%)")
-        
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
-        start_time = time.time()
-        result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
+        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (10× 60s segments)")
         
-        transcript = result.get('transcript', '').strip()
-        language = result.get('language', 'unknown')
-        confidence = result.get('confidence', 0.0)
-        timed_segments = result.get('segments', [])
-        elapsed = time.time() - start_time
+        all_segments = []
+        all_text = []
+        total_start = time.time()
+        segment_tmp = f'/tmp/segment_{capture_folder}.mp3'
         
-        cpu_after = process.cpu_percent(interval=0.1)
+        for seg_idx in range(10):
+            start_sec = seg_idx * 60
+            try:
+                # Extract 60s segment using FFmpeg
+                cmd = ['ffmpeg', '-i', mp3_path, '-ss', str(start_sec), '-t', '60', '-y', segment_tmp]
+                subprocess.run(cmd, capture_output=True, timeout=5)
+                
+                # Transcribe 60s segment
+                result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
+                
+                text = result.get('transcript', '').strip()
+                segments = result.get('segments', [])
+                
+                # Offset segment timestamps
+                for seg in segments:
+                    seg['start'] += start_sec
+                    seg['end'] += start_sec
+                
+                all_segments.extend(segments)
+                if text:
+                    all_text.append(text)
+                
+                logger.info(f"[{capture_folder}] ✓ Segment {seg_idx+1}/10: {len(text)} chars")
+                
+            except Exception as e:
+                logger.warning(f"[{capture_folder}] ⚠️ Segment {seg_idx+1}/10 failed: {e}")
         
-        # Clear summary log after transcription
-        logger.info(f"[{capture_folder}] " + "="*80)
-        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | CPU: {cpu_after:.1f}% | Language: {language} | Confidence: {confidence:.2f}")
+        # Cleanup temp
+        try:
+            os.remove(segment_tmp)
+        except:
+            pass
         
-        if transcript:
-            word_count = len(transcript.split())
-            char_count = len(transcript)
-            preview = transcript[:150] + ('...' if len(transcript) > 150 else '')
-            logger.info(f"[{capture_folder}] 📊 Stats: {word_count} words, {char_count} chars, {len(timed_segments)} segments")
-            logger.info(f"[{capture_folder}] 💬 Text: '{preview}'")
-        else:
-            logger.info(f"[{capture_folder}] 🔇 Result: No speech detected (silent chunk)")
+        elapsed = time.time() - total_start
+        transcript = ' '.join(all_text)
         
-        logger.info(f"[{capture_folder}] " + "="*80)
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | {len(transcript)} chars, {len(all_segments)} segments")
         
-        transcript_data = {
+        return {
             'capture_folder': capture_folder,
             'hour': hour,
             'chunk_index': chunk_index,
             'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
-            'language': language,
+            'language': 'unknown',
             'transcript': transcript,
-            'confidence': confidence,
+            'confidence': 0.0,
             'transcription_time_seconds': elapsed,
             'timestamp': datetime.now().isoformat(),
             'mp3_file': os.path.basename(mp3_path),
-            'segments': timed_segments
+            'segments': all_segments
         }
         
-        return transcript_data
-        
     except Exception as e:
-        logger.error(f"[{capture_folder}] ❌ Error transcribing MP3 chunk: {e}")
+        logger.error(f"[{capture_folder}] ❌ Error: {e}")
         return None
 
 def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_data: dict, has_mp3: bool = True):
@@ -518,7 +513,7 @@ class InotifyTranscriptMonitor:
             name="whisper-worker"
         )
         self.whisper_worker.start()
-        logger.info("Single Whisper worker started (round-robin, 30s delay, low priority)")
+        logger.info("Single Whisper worker started (10× 60s segments, 10s delay)")
     
     def _round_robin_worker(self):
         """Process MP3s round-robin across devices"""
@@ -560,7 +555,7 @@ class InotifyTranscriptMonitor:
                 if work_queue.empty():
                     self._refill_from_history(device_folder)
                 
-                time.sleep(30)
+                time.sleep(10)
                 
             except queue.Empty:
                 pass
@@ -751,10 +746,10 @@ def main():
     logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")
     logger.info("=" * 80)
     logger.info("Architecture: Event-driven (zero CPU when idle)")
-    logger.info("Priority: Low (nice +10, 30s delay) - max 80% CPU")
-    logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s per chunk)")
-    logger.info("Pipeline 2: MP3 → JSON (transcription, ~2min per chunk)")
-    logger.info("Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json")
+    logger.info("Priority: Low (nice +10) - distributed CPU load")
+    logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s)")
+    logger.info("Pipeline 2: MP3 → JSON (10× 60s segments, 10s delay)")
+    logger.info("CPU: 10× small bursts vs 1× large burst")
     logger.info("=" * 80)
     
     try:
