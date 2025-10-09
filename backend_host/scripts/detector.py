@@ -354,19 +354,27 @@ def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
                             if mtime > latest_mtime:
                                 latest = entry.path
                                 latest_mtime = mtime
-            except Exception:
-                return True, 0, -100.0
+            except Exception as scan_error:
+                capture_folder = get_capture_folder(capture_dir)
+                logger.error(f"[{capture_folder}] ❌ Segment scan failed in {segments_dir}: {scan_error}")
+                return True, 0, -100.0, 'segment_scan_error', 0
             
             # Update cache
             if latest:
                 _latest_segment_cache[capture_dir] = (latest, latest_mtime, current_time)
+                capture_folder = get_capture_folder(capture_dir)
+                logger.debug(f"[{capture_folder}] 📁 Found latest segment: {latest} (mtime={latest_mtime})")
         
         if not latest:
+            capture_folder = get_capture_folder(capture_dir)
+            logger.warning(f"[{capture_folder}] ⚠️ No segment files found in {segments_dir}")
             return True, 0, -100.0, 'no_segment', 0
         
         # Check if recent (within last 5 minutes)
         age_seconds = current_time - latest_mtime
         if age_seconds > 300:  # 5 minutes
+            capture_folder = get_capture_folder(capture_dir)
+            logger.warning(f"[{capture_folder}] ⏰ Segment too old: {latest} (age: {age_seconds:.1f}s > 300s)")
             return False, 0, -100.0, 'segment_too_old', 0
     
     # Use cached_volume if provided (from wrapper), otherwise load it
@@ -448,6 +456,9 @@ def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
                 latest
             ]
             
+            capture_folder = get_capture_folder(capture_dir)
+            logger.debug(f"[{capture_folder}] 🔍 Running ffprobe on: {latest}")
+            
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -458,18 +469,38 @@ def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
             check_time_ms = (time.perf_counter() - check_start) * 1000
             check_method = 'ffprobe'
             
-            # If ffprobe finds audio stream, output will contain "audio" and codec name
-            output = result.stdout.strip()
-            has_audio_stream = 'audio' in output.lower()
+            # Log full ffprobe output for diagnostics
+            stdout = result.stdout.strip()
+            stderr = result.stderr.strip()
+            returncode = result.returncode
             
-            # Log if unexpectedly slow
+            # If ffprobe finds audio stream, output will contain "audio" and codec name
+            has_audio_stream = 'audio' in stdout.lower()
+            
+            # Log if unexpectedly slow or failed
             if check_time_ms > 50:
-                capture_folder = get_capture_folder(capture_dir)
                 logger.warning(f"[{capture_folder}] ⚠️  FFprobe audio check took {check_time_ms:.0f}ms (expected ~1ms)")
+                logger.warning(f"[{capture_folder}]     Segment: {latest}")
+                logger.warning(f"[{capture_folder}]     Return code: {returncode}")
+                logger.warning(f"[{capture_folder}]     Stdout: {repr(stdout)}")
+                logger.warning(f"[{capture_folder}]     Stderr: {repr(stderr)}")
+            
+            # Log failures
+            if returncode != 0:
+                logger.error(f"[{capture_folder}] ❌ FFprobe failed (return code {returncode})")
+                logger.error(f"[{capture_folder}]     Segment: {latest}")
+                logger.error(f"[{capture_folder}]     Stdout: {repr(stdout)}")
+                logger.error(f"[{capture_folder}]     Stderr: {repr(stderr)}")
+                logger.error(f"[{capture_folder}]     Time: {check_time_ms:.0f}ms")
+                # Don't return here - continue to check if we got useful output despite error
             
             if not has_audio_stream:
                 # No audio stream detected
+                logger.info(f"[{capture_folder}] 🔇 No audio stream detected in {latest} (stdout: {repr(stdout)}, returncode: {returncode})")
                 return False, 0, -100.0, check_method, check_time_ms
+            
+            # Audio stream exists - success!
+            logger.debug(f"[{capture_folder}] ✅ FFprobe succeeded in {check_time_ms:.1f}ms - audio stream found (stdout: {repr(stdout)})")
             
             # Audio stream exists - get volume data from JSON cache (last ffmpeg check within 30s)
             has_audio = True
@@ -498,58 +529,25 @@ def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
                 check_method = 'ffprobe_estimated'
             
             return has_audio, volume_percentage, mean_volume, check_method, check_time_ms
+    except subprocess.TimeoutExpired as timeout_error:
+        capture_folder = get_capture_folder(capture_dir)
+        logger.error(f"[{capture_folder}] ⏱️ FFprobe timeout after {timeout_error.timeout}s")
+        logger.error(f"[{capture_folder}]     Segment: {latest if 'latest' in locals() else 'unknown'}")
+        logger.error(f"[{capture_folder}]     This likely means segment is still being written by FFmpeg")
+        # Return safe defaults - assume audio present to avoid false alarms
+        return True, 0, -100.0, 'ffprobe_timeout', 0
     except Exception as e:
-        # Fallback: Try the old ffmpeg method as last resort
-        try:
-            check_start = time.perf_counter()
-            
-            cmd = [
-                'ffmpeg',
-                '-hide_banner',
-                '-loglevel', 'info',
-                '-i', latest,
-                '-t', '0.1',
-                '-vn',
-                '-af', 'volumedetect',
-                '-f', 'null',
-                '-'
-            ]
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=1
-            )
-            
-            check_time_ms = (time.perf_counter() - check_start) * 1000
-            check_method = 'ffmpeg_fallback'
-            
-            output = result.stderr
-            has_audio = False
-            mean_volume = -100.0
-            
-            for line in output.split('\n'):
-                if 'mean_volume:' in line:
-                    try:
-                        mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
-                        has_audio = mean_volume > -50.0
-                        break
-                    except:
-                        pass
-            
-            if mean_volume > -100:
-                volume_percentage = max(0, min(100, (mean_volume + 50) * 2.5))
-            else:
-                volume_percentage = 0
-            
-            # Save volume data to cache (fallback case)
-            save_audio_volume_cache(capture_dir, has_audio, volume_percentage, mean_volume, check_method, check_time_ms)
-            
-            return has_audio, volume_percentage, mean_volume, check_method, check_time_ms
-        except:
-            logger.warning(f"Audio detection failed: {e}")
-            return False, 0, -100.0, 'error', 0
+        capture_folder = get_capture_folder(capture_dir)
+        logger.error(f"[{capture_folder}] ❌ Audio check FAILED with exception: {type(e).__name__}: {e}")
+        logger.error(f"[{capture_folder}]     Segment: {latest if 'latest' in locals() else 'unknown'}")
+        logger.error(f"[{capture_folder}]     Segments dir: {segments_dir if 'segments_dir' in locals() else 'unknown'}")
+        
+        # Import traceback for detailed error context
+        import traceback
+        logger.error(f"[{capture_folder}]     Traceback:\n{traceback.format_exc()}")
+        
+        # Return safe defaults - assume audio present to avoid false audio_loss incidents from timing issues
+        return True, 0, -100.0, 'error', 0
 
 def analyze_audio(capture_dir):
     """
