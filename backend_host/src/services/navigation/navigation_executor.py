@@ -199,6 +199,16 @@ class NavigationExecutor:
         """
         start_time = time.time()
         
+        # 🔄 AUTO-SYNC: If unified_graph not loaded but cache exists, sync from cache
+        if not self.unified_graph and team_id:
+            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            cached_graph = get_cached_unified_graph(tree_id, team_id)
+            if cached_graph:
+                self.unified_graph = cached_graph
+                print(f"[@navigation_executor:execute_navigation] ✅ Auto-synced unified_graph from cache ({len(cached_graph.nodes)} nodes)")
+            else:
+                print(f"[@navigation_executor:execute_navigation] ⚠️ No cached graph found for tree {tree_id}")
+        
         # Validate parameters - exactly one of target_node_id or target_node_label must be provided
         if not target_node_id and not target_node_label:
             return self._build_result(
@@ -217,7 +227,7 @@ class NavigationExecutor:
         # Convert target_node_label to target_node_id if needed
         if target_node_label:
             try:
-                target_node_id = self.get_node_id(target_node_label)
+                target_node_id = self.get_node_id(target_node_label, tree_id, team_id)
                 print(f"[@navigation_executor:execute_navigation] Resolved label '{target_node_label}' to node_id '{target_node_id}'")
             except ValueError as e:
                 return self._build_result(
