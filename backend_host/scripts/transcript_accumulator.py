@@ -261,23 +261,30 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         
         all_segments = []
         all_text = []
+        minute_metadata = []
         total_start = time.time()
         segment_tmp = f'/tmp/segment_{capture_folder}.mp3'
+        detected_language = 'unknown'
         
         for seg_idx in range(10):
             start_sec = seg_idx * 60
+            minute_start = start_sec
+            minute_end = start_sec + 60
+            
             try:
-                # Extract 60s segment using FFmpeg
                 cmd = ['ffmpeg', '-i', mp3_path, '-ss', str(start_sec), '-t', '60', '-y', segment_tmp]
                 subprocess.run(cmd, capture_output=True, timeout=5)
                 
-                # Transcribe 60s segment
                 result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
                 
                 text = result.get('transcript', '').strip()
                 segments = result.get('segments', [])
+                language = result.get('language', 'unknown')
+                confidence = result.get('confidence', 0.0)
                 
-                # Offset segment timestamps
+                if language != 'unknown':
+                    detected_language = language
+                
                 for seg in segments:
                     seg['start'] += start_sec
                     seg['end'] += start_sec
@@ -286,12 +293,28 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 if text:
                     all_text.append(text)
                 
-                logger.info(f"[{capture_folder}] ✓ Segment {seg_idx+1}/10: {len(text)} chars")
+                minute_metadata.append({
+                    'minute': seg_idx,
+                    'time_range': f"{minute_start}-{minute_end}s",
+                    'has_text': bool(text),
+                    'text_length': len(text),
+                    'word_count': len(text.split()) if text else 0,
+                    'segment_count': len(segments),
+                    'language': language,
+                    'confidence': round(confidence, 2)
+                })
+                
+                logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs")
                 
             except Exception as e:
-                logger.warning(f"[{capture_folder}] ⚠️ Segment {seg_idx+1}/10 failed: {e}")
+                logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
+                minute_metadata.append({
+                    'minute': seg_idx,
+                    'time_range': f"{minute_start}-{minute_end}s",
+                    'has_text': False,
+                    'error': str(e)
+                })
         
-        # Cleanup temp
         try:
             os.remove(segment_tmp)
         except:
@@ -300,20 +323,21 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         elapsed = time.time() - total_start
         transcript = ' '.join(all_text)
         
-        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | {len(transcript)} chars, {len(all_segments)} segments")
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {detected_language} | {len(transcript)} chars, {len(all_segments)} segments")
         
         return {
             'capture_folder': capture_folder,
             'hour': hour,
             'chunk_index': chunk_index,
             'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
-            'language': 'unknown',
+            'language': detected_language,
             'transcript': transcript,
-            'confidence': 0.0,
+            'confidence': sum(m.get('confidence', 0) for m in minute_metadata) / len(minute_metadata) if minute_metadata else 0.0,
             'transcription_time_seconds': elapsed,
             'timestamp': datetime.now().isoformat(),
             'mp3_file': os.path.basename(mp3_path),
-            'segments': all_segments
+            'segments': all_segments,
+            'minute_metadata': minute_metadata
         }
         
     except Exception as e:
