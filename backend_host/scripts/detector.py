@@ -480,7 +480,9 @@ def _execute_audio_check(capture_dir, latest_segment=None, cached_volume=None):
             
             # Log if unexpectedly slow
             if check_time_ms > 50:
-                logger.warning(f"⚠️  FFprobe audio check took {check_time_ms:.0f}ms (expected ~1ms)")
+                from shared.src.lib.utils.storage_path_utils import get_capture_folder
+                capture_folder = get_capture_folder(capture_dir)
+                logger.warning(f"[{capture_folder}] ⚠️  FFprobe audio check took {check_time_ms:.0f}ms (expected ~1ms)")
             
             if not has_audio_stream:
                 # No audio stream detected
