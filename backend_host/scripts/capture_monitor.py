@@ -105,21 +105,8 @@ class InotifyFrameMonitor:
             frame_count += 1
             queue_size = work_queue.qsize()
             
-            # Log queue status every 25 frames (5 seconds at 5fps)
-            if frame_count % 25 == 0:
-                if queue_size > 50:
-                    logger.warning(f"[{capture_folder}] ⚠️  Queue backlog: {queue_size} frames pending")
-                elif queue_size > 0:
-                    logger.info(f"[{capture_folder}] 📊 Queue size: {queue_size} frames")
-            
-            # Log OCR state changes with more context
-            if prev_queue_size <= 50 and queue_size > 50:
-                logger.warning(f"[{capture_folder}] 🚫 OCR DISABLED (queue overload: {queue_size} frames) - Queue growing faster than processing!")
-            elif prev_queue_size > 50 and queue_size <= 50:
-                logger.info(f"[{capture_folder}] ✅ OCR RE-ENABLED (queue cleared: {queue_size} frames) - Back to normal processing")
-            elif queue_size > 50 and queue_size % 10 == 0:
-                # Log reminder every 10 frames while OCR is disabled
-                logger.warning(f"[{capture_folder}] ⏸️  OCR still DISABLED (queue: {queue_size} frames, threshold: 50)")
+            if frame_count % 25 == 0 and queue_size > 50:
+                logger.warning(f"[{capture_folder}] ⚠️  Queue backlog: {queue_size} frames pending")
             
             try:
                 self.process_frame(path, filename, queue_size)
@@ -171,47 +158,14 @@ class InotifyFrameMonitor:
         if os.path.exists(json_file):
             return
         
-        logger.info(f"[{capture_folder}] 🔍 Analyzing: {filename}")
-        
         try:
-            # Analyze frame (blackscreen, freeze, audio) with performance timing
             detection_result = detect_issues(frame_path, queue_size=queue_size)
-            
-            # Log performance metrics for EVERY frame to see what was done
-            if detection_result and 'performance_ms' in detection_result:
-                perf = detection_result['performance_ms']
-                sub_total = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
-                
-                # Build subtitle info with skip reason or edge density
-                sub_info = f"sub={sub_total:.0f}ms"
-                if sub_total == 0 and detection_result.get('subtitle_analysis'):
-                    subtitle_data = detection_result['subtitle_analysis']
-                    skip_reason = subtitle_data.get('skip_reason')
-                    if skip_reason:
-                        # Show skip reason (e.g., no_edges, queue_overload_50, freeze, zap)
-                        sub_info = f"sub=0ms({skip_reason})"
-                    elif subtitle_data.get('skipped'):
-                        # Skipped but no reason - show edge density if available
-                        edge_density = subtitle_data.get('subtitle_edge_density', 0)
-                        sub_info = f"sub=0ms(edges={edge_density:.1f}%)"
-                
-                logger.info(f"[{capture_folder}] ⏱️  Performance: "
-                           f"img={perf.get('image_load', 0):.0f}ms "
-                           f"edge={perf.get('edge_detection', 0):.0f}ms "
-                           f"black={perf.get('blackscreen', 0):.0f}ms "
-                           f"zap={perf.get('zap', 0):.0f}ms "
-                           f"freeze={perf.get('freeze', 0):.0f}ms "
-                           f"macro={perf.get('macroblocks', 0):.0f}ms "
-                           f"audio={perf.get('audio', 0):.0f}ms{'(cache)' if perf.get('audio_cached') else ''} "
-                           f"{sub_info} "
-                           f"→ TOTAL={perf.get('total', 0):.0f}ms")
             
             # Get device info to check if this is the host
             device_info = get_device_info_from_capture_folder(capture_folder)
             device_id = device_info.get('device_id', capture_folder)
             is_host = (device_id == 'host')
             
-            # Log detected issues
             issues = []
             if detection_result and detection_result.get('blackscreen', False):
                 issues.append('blackscreen')
@@ -220,54 +174,8 @@ class InotifyFrameMonitor:
             if not is_host and detection_result and not detection_result.get('audio', True):
                 issues.append('audio_loss')
             
-            if detection_result and detection_result.get('subtitle_analysis'):
-                subtitle_data = detection_result['subtitle_analysis']
-                
-                # Log OCR execution details (full details if >300ms)
-                if not subtitle_data.get('skipped'):
-                    ocr_time = perf.get('subtitle_area_check', 0) + perf.get('subtitle_ocr', 0)
-                    
-                    if ocr_time > 300:
-                        # SLOW OCR (>300ms) - log FULL details for diagnosis
-                        crop_info = subtitle_data.get('box', {})
-                        crop_size = f"{crop_info.get('width', 0)}x{crop_info.get('height', 0)}" if crop_info else "unknown"
-                        crop_pixels = crop_info.get('width', 0) * crop_info.get('height', 0) if crop_info else 0
-                        text = subtitle_data.get('extracted_text', '')
-                        method = subtitle_data.get('ocr_method', 'unknown')
-                        lang = subtitle_data.get('detected_language', 'unknown')
-                        has_text = subtitle_data.get('has_subtitles', False)
-                        
-                        # Get detailed timings from debug section if available
-                        debug_info = subtitle_data.get('debug', {})
-                        step_timings = debug_info.get('step_timings', {})
-                        
-                        logger.warning(
-                            f"[{capture_folder}] 🐌 SLOW OCR: {ocr_time:.0f}ms\n"
-                            f"  └─ Method: {method}\n"
-                            f"  └─ Crop: {crop_size} ({crop_pixels:,} pixels)\n"
-                            f"  └─ Has text: {has_text}\n"
-                            f"  └─ Language: {lang}\n"
-                            f"  └─ Text: '{text[:80]}'\n"
-                            f"  └─ Timings: crop={step_timings.get('1_crop_calc_ms', 0):.1f}ms, "
-                            f"extract={step_timings.get('2_crop_extract_ms', 0):.1f}ms, "
-                            f"tesseract={step_timings.get('4_tesseract_ocr_ms', 0):.1f}ms, "
-                            f"language={step_timings.get('6_language_detection_ms', 0):.1f}ms"
-                        )
-                    elif ocr_time > 0:
-                        # Fast OCR - log success at debug level
-                        text = subtitle_data.get('extracted_text', '')
-                        crop_info = subtitle_data.get('box', {})
-                        crop_size = f"{crop_info.get('width', 0)}x{crop_info.get('height', 0)}" if crop_info else "unknown"
-                        logger.debug(f"[{capture_folder}] ✓ OCR executed in {ocr_time:.0f}ms (crop={crop_size}, text='{text[:30]}...')")
-                
-                if subtitle_data.get('has_subtitles'):
-                    text = subtitle_data.get('extracted_text', '')
-                    lang = subtitle_data.get('detected_language', 'unknown')
-                    if text:
-                        logger.info(f"[{capture_folder}] 📝 Subtitles [{lang}]: '{text}'")
-            
             if issues:
-                logger.info(f"[{capture_folder}] Issues detected: {issues}")
+                logger.info(f"[{capture_folder}] Issues: {issues}")
             
             # Upload freeze frames to R2 ONCE per freeze event (not every frame)
             # Freeze is confirmed when detector returns 3 matching images
@@ -330,46 +238,32 @@ class InotifyFrameMonitor:
             # Thumbnails are uploaded inside process_detection after 5min confirmation
             transitions = self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
             
-            # Save JSON metadata (marks frame as analyzed)
             try:
                 if detection_result:
                     analysis_data = {
                         "analyzed": True,
-                        **detection_result  # Include all detection data (freeze, blackscreen, audio, etc.)
+                        "subtitle_ocr_pending": True,
+                        **detection_result
                     }
-                    
-                    # Only log detailed URLs when they're newly uploaded (not cached/reused)
-                    if freeze_urls_newly_uploaded and detection_result.get('freeze'):
-                        last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
-                        if last_3_thumbnails and isinstance(last_3_thumbnails, list) and last_3_thumbnails[0].startswith('http'):
-                            logger.info(f"[{capture_folder}] 💾 Saving JSON with freeze R2 thumbnail URLs:")
-                            for i, url in enumerate(last_3_thumbnails):
-                                logger.info(f"[{capture_folder}]    Thumbnail {i}: {url}")
                 else:
-                    logger.error(f"[{capture_folder}] ERROR: detection_result is None/empty, saving fallback")
                     analysis_data = {
                         "analyzed": True,
+                        "subtitle_ocr_pending": True,
                         "error": "detection_result_was_none"
                     }
                 
                 with open(json_file, 'w') as f:
                     json.dump(analysis_data, f, indent=2)
-                logger.info(f"[{capture_folder}] ✓ Saved JSON: {json_file}")
                     
             except Exception as e:
-                logger.error(f"[{capture_folder}] Error saving analysis data: {e}")
-                # Fallback to simple marker
+                logger.error(f"[{capture_folder}] Error saving: {e}")
                 with open(json_file, 'w') as f:
-                    f.write('{"analyzed": true, "error": "failed_to_save_full_data"}')
+                    f.write('{"analyzed": true, "subtitle_ocr_pending": true, "error": "failed_to_save_full_data"}')
         
         except Exception as e:
-            logger.error(f"[{capture_folder}] Error processing frame {filename}: {e}")
-            # Save error marker so we don't retry indefinitely
-            try:
-                with open(json_file, 'w') as f:
-                    json.dump({"analyzed": True, "error": str(e)}, f)
-            except:
-                pass
+            logger.error(f"[{capture_folder}] Error: {e}")
+            with open(json_file, 'w') as f:
+                json.dump({"analyzed": True, "subtitle_ocr_pending": True, "error": str(e)}, f)
     
     def run(self):
         """Main event loop - enqueue frames for worker threads"""

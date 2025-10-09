@@ -166,8 +166,8 @@ const RecHostStreamModalContent: React.FC<{
     
     // Calculate stream Y position - this should be the actual content area position
     // The content area starts immediately after the header (including padding)
-    // Additional 32px offset needed for proper overlay alignment (empirically determined)
-    const additionalOffset = 32; // Modal container padding/spacing not accounted for in CSS calculations
+    // Adjusted offset to align overlay with actual video content area
+    const additionalOffset = -8; // Corrected offset after testing (was 32, reduced by 40)
     const streamY = modalY + actualHeaderHeight + additionalOffset;
 
     const dimensions = {

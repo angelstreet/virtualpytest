@@ -30,10 +30,11 @@ interface TimelineOverlayProps {
 }
 
 const formatTime = (seconds: number) => {
-  if (!seconds || !isFinite(seconds)) return '0h00';
+  if (!seconds || !isFinite(seconds)) return '0h00:00';
   const hours = Math.floor(seconds / 3600) % 24;
   const minutes = Math.floor((seconds % 3600) / 60);
-  return `${hours}h${minutes.toString().padStart(2, '0')}`;
+  const secs = Math.floor(seconds % 60);
+  return `${hours}h${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 const getRoundedNow = () => {

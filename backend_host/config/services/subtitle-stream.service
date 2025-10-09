@@ -1,0 +1,19 @@
+[Unit]
+PartOf=stream.service
+Description=Subtitle Accumulator (24h circular subtitle transcription)
+After=network.target stream.service
+
+[Service]
+Type=simple
+User=sunri-pi4
+WorkingDirectory=/home/sunri-pi4/virtualpytest/backend_host/scripts
+Environment="PATH=/home/sunri-pi4/virtualpytest/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStartPre=/bin/sleep 10
+ExecStart=/home/sunri-pi4/virtualpytest/venv/bin/python3 /home/sunri-pi4/virtualpytest/backend_host/scripts/subtitle_accumulator.py
+Restart=always
+RestartSec=10
+StandardOutput=truncate:/tmp/subtitle.log
+StandardError=truncate:/tmp/subtitle.log
+
+[Install]
+WantedBy=multi-user.target

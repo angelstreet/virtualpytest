@@ -251,49 +251,32 @@ def save_transcript_chunk(capture_folder: str, hour: int, chunk_index: int, tran
         logger.warning(f"Failed to update transcript manifest: {e}")
 
 class InotifyTranscriptMonitor:
-    """
-    Dual-pipeline inotify monitor with per-device queue processing
-    
-    Pipeline 1: MP4 → MP3 (audio extraction)
-    Pipeline 2: MP3 → JSON (transcription)
-    
-    Intelligent backlog processing:
-    - Prioritize inotify events (new files)
-    - Process backlog in batches of 3 when idle
-    - Track full backlog for visibility
-    """
+    """Single Whisper worker with round-robin device processing"""
     
     def __init__(self, monitored_devices):
-        """
-        Initialize inotify monitor with dual pipelines
-        
-        Args:
-            monitored_devices: List of dicts with device info
-                [{'device_folder': 'capture1', 'segments_base': '/path/to/segments', 'audio_base': '/path/to/audio'}]
-        """
         self.monitored_devices = monitored_devices
         self.inotify = inotify.adapters.Inotify()
         
-        # Path mappings for event routing
-        self.segments_path_to_device = {}  # segments path → device_folder
-        self.audio_path_to_device = {}  # audio path → device_folder
+        self.segments_path_to_device = {}
+        self.audio_path_to_device = {}
         
-        # Per-device queues (LIFO = newest first)
-        self.mp4_queues = {}  # device_folder → LIFO queue for MP4→MP3
-        self.mp3_queues = {}  # device_folder → LIFO queue for MP3→JSON
-        
-        # Backlog tracking (sorted by mtime, newest first)
-        self.mp4_backlog = {}  # device_folder → list of (mtime, hour_dir, filename)
-        self.mp3_backlog = {}  # device_folder → list of (mtime, hour_dir, filename)
-        self.backlog_lock = threading.Lock()  # Protect backlog access
-        
-        # Worker threads
+        self.mp4_queues = {}
         self.mp4_workers = {}
-        self.mp3_workers = {}
+        self.mp4_backlog = {}
+        
+        self.active_queues = {}
+        self.history_queues = {}
+        
+        self.whisper_worker = None
+        self.worker_running = False
         
         self._setup_watches()
-        self._start_workers()
-        self._scan_existing_files()
+        self._start_mp4_workers()
+        
+        all_pending = self._scan_last_24h()
+        self._initialize_queues(all_pending)
+        
+        self._start_whisper_worker()
     
     def _setup_watches(self):
         """Setup inotify watches for all segments and audio directories"""
@@ -345,168 +328,176 @@ class InotifyTranscriptMonitor:
         logger.info(f"Total: {len(self.segments_path_to_device)} segments + {len(self.audio_path_to_device)} audio watches")
         logger.info("=" * 80)
     
-    def _start_workers(self):
-        """Start worker threads for each device (2 workers per device)"""
-        logger.info("Starting worker threads (2 per device):")
-        
+    def _start_mp4_workers(self):
+        """Start MP4→MP3 extraction workers"""
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            
-            # Create LIFO queues (newest first)
             self.mp4_queues[device_folder] = LifoQueue(maxsize=100)
-            self.mp3_queues[device_folder] = LifoQueue(maxsize=100)
             
-            # Worker 1: MP4 → MP3 (audio extraction - fast)
             mp4_worker = threading.Thread(
                 target=self._mp4_worker,
                 args=(device_folder,),
                 daemon=True,
-                name=f"mp4-worker-{device_folder}"
+                name=f"mp4-{device_folder}"
             )
             mp4_worker.start()
             self.mp4_workers[device_folder] = mp4_worker
-            
-            # Worker 2: MP3 → JSON (transcription - slow)
-            mp3_worker = threading.Thread(
-                target=self._mp3_worker,
-                args=(device_folder,),
-                daemon=True,
-                name=f"mp3-worker-{device_folder}"
-            )
-            mp3_worker.start()
-            self.mp3_workers[device_folder] = mp3_worker
-            
-            logger.info(f"[{device_folder}] ✓ Started MP4→MP3 worker (audio extraction)")
-            logger.info(f"[{device_folder}] ✓ Started MP3→JSON worker (transcription)")
     
-    def _scan_existing_files(self):
-        """
-        Scan for ALL unprocessed MP4/MP3 files and build backlog
-        Enqueue only 3 most recent for immediate processing
-        """
+    def _scan_last_24h(self):
+        """Scan last 24h for MP3s without transcripts"""
         from pathlib import Path
         
-        logger.info("=" * 80)
-        logger.info("Scanning for existing files (building backlog):")
-        logger.info("=" * 80)
+        logger.info("Scanning last 24h for unprocessed MP3s")
+        now = time.time()
+        cutoff = now - (24 * 3600)
         
-        # Build per-device backlogs
+        all_pending = {}
+        
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            segments_base = device_info['segments_base']
             audio_base = device_info['audio_base']
+            transcript_base = get_transcript_path(device_folder)
             
-            device_mp4_backlog = []
-            device_mp3_backlog = []
+            pending = []
             
-            # Scan MP4 chunks (segments) - find ALL unprocessed
             for hour in range(24):
-                hour_dir = os.path.join(segments_base, str(hour))
-                if not os.path.exists(hour_dir):
+                audio_dir = os.path.join(audio_base, str(hour))
+                transcript_dir = os.path.join(transcript_base, str(hour))
+                
+                if not os.path.exists(audio_dir):
                     continue
                 
-                for mp4_file in Path(hour_dir).glob('chunk_10min_*.mp4'):
-                    chunk_index = int(mp4_file.stem.replace('chunk_10min_', ''))
+                for mp3_file in Path(audio_dir).glob('chunk_10min_*.mp3'):
+                    mtime = mp3_file.stat().st_mtime
                     
-                    # Check if MP3 already exists
-                    mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
-                    if not os.path.exists(mp3_path):
-                        mtime = mp4_file.stat().st_mtime
-                        device_mp4_backlog.append((mtime, hour_dir, mp4_file.name))
-            
-            # Scan MP3 chunks (audio) - find ALL unprocessed
-            for hour in range(24):
-                hour_dir = os.path.join(audio_base, str(hour))
-                if not os.path.exists(hour_dir):
-                    continue
-                
-                for mp3_file in Path(hour_dir).glob('chunk_10min_*.mp3'):
-                    chunk_index = int(mp3_file.stem.replace('chunk_10min_', ''))
+                    if mtime < cutoff:
+                        continue
                     
-                    # Check if transcript already exists
-                    transcript_base = get_transcript_path(device_folder)
-                    transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
-                    if not os.path.exists(transcript_path):
-                        mtime = mp3_file.stat().st_mtime
-                        device_mp3_backlog.append((mtime, hour_dir, mp3_file.name))
+                    chunk_index = int(mp3_file.stem.split('_')[-1])
+                    transcript_file = Path(transcript_dir) / f'chunk_10min_{chunk_index}.json'
+                    
+                    if not transcript_file.exists() or transcript_file.stat().st_mtime < cutoff:
+                        pending.append((mtime, hour, mp3_file.name))
             
-            # Sort by mtime (newest first)
-            device_mp4_backlog.sort(reverse=True, key=lambda x: x[0])
-            device_mp3_backlog.sort(reverse=True, key=lambda x: x[0])
+            pending.sort(reverse=True)
+            all_pending[device_folder] = pending
             
-            # Store backlog
-            self.mp4_backlog[device_folder] = device_mp4_backlog
-            self.mp3_backlog[device_folder] = device_mp3_backlog
-            
-            # Log backlog status
-            if device_mp4_backlog:
-                logger.info(f"[{device_folder}] 📦 MP4 backlog: {len(device_mp4_backlog)} chunks need audio extraction")
-            if device_mp3_backlog:
-                logger.info(f"[{device_folder}] 📦 MP3 backlog: {len(device_mp3_backlog)} chunks need transcription")
-            
-            # Enqueue 3 most recent MP4s for immediate processing
-            if device_mp4_backlog:
-                immediate_mp4s = device_mp4_backlog[:3]
-                logger.info(f"[{device_folder}] ⚡ Enqueuing {len(immediate_mp4s)} most recent MP4s:")
-                for mtime, hour_dir, filename in immediate_mp4s:
-                    from datetime import datetime
-                    mtime_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-                    logger.info(f"    {filename} (modified: {mtime_str})")
-                    try:
-                        self.mp4_queues[device_folder].put_nowait((hour_dir, filename))
-                    except queue.Full:
-                        logger.warning(f"    Queue full, skipping {filename}")
-            
-            # Enqueue 3 most recent MP3s for immediate processing
-            if device_mp3_backlog:
-                immediate_mp3s = device_mp3_backlog[:3]
-                logger.info(f"[{device_folder}] ⚡ Enqueuing {len(immediate_mp3s)} most recent MP3s:")
-                for mtime, hour_dir, filename in immediate_mp3s:
-                    from datetime import datetime
-                    mtime_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
-                    logger.info(f"    {filename} (modified: {mtime_str})")
-                    try:
-                        self.mp3_queues[device_folder].put_nowait((hour_dir, filename))
-                    except queue.Full:
-                        logger.warning(f"    Queue full, skipping {filename}")
+            if pending:
+                logger.info(f"[{device_folder}] {len(pending)} MP3s need transcription")
         
-        # Summary
-        total_mp4_backlog = sum(len(backlog) for backlog in self.mp4_backlog.values())
-        total_mp3_backlog = sum(len(backlog) for backlog in self.mp3_backlog.values())
-        logger.info("=" * 80)
-        logger.info(f"📊 Total backlog: {total_mp4_backlog} MP4s + {total_mp3_backlog} MP3s")
-        logger.info("🎯 Strategy: Process new files (inotify) first, then backlog when idle (3 at a time)")
-        logger.info("=" * 80)
+        return all_pending
     
-    def _process_mp4_backlog_batch(self, device_folder):
-        """
-        Process up to 3 items from MP4 backlog when idle
-        Returns number of items added to queue
-        """
-        with self.backlog_lock:
-            backlog = self.mp4_backlog.get(device_folder, [])
-            if not backlog:
-                return 0
+    def _initialize_queues(self, all_pending):
+        """Put 3 newest in active queue, rest in history"""
+        for device_folder, pending in all_pending.items():
+            self.active_queues[device_folder] = queue.Queue(maxsize=3)
+            self.history_queues[device_folder] = []
             
-            # Take up to 3 items from backlog
-            batch = backlog[:3]
-            self.mp4_backlog[device_folder] = backlog[3:]  # Remove processed items
-            
-            added = 0
-            for mtime, hour_dir, filename in batch:
+            for item in pending[:3]:
                 try:
-                    self.mp4_queues[device_folder].put_nowait((hour_dir, filename))
-                    added += 1
+                    self.active_queues[device_folder].put_nowait(item)
                 except queue.Full:
-                    # Put back in backlog if queue is full
-                    self.mp4_backlog[device_folder].insert(0, (mtime, hour_dir, filename))
                     break
             
-            remaining = len(self.mp4_backlog[device_folder])
-            if added > 0:
-                logger.info(f"[{device_folder}] 🔄 Backlog: Added {added} MP4s to queue ({remaining} remaining)")
+            self.history_queues[device_folder] = pending[3:]
+            logger.info(f"[{device_folder}] Active: {self.active_queues[device_folder].qsize()}, History: {len(self.history_queues[device_folder])}")
+    
+    def _start_whisper_worker(self):
+        """Start single shared Whisper worker"""
+        self.worker_running = True
+        self.whisper_worker = threading.Thread(
+            target=self._round_robin_worker,
+            daemon=True,
+            name="whisper-worker"
+        )
+        self.whisper_worker.start()
+        logger.info("Single Whisper worker started (round-robin, 10s delay)")
+    
+    def _round_robin_worker(self):
+        """Process MP3s round-robin across devices"""
+        device_index = 0
+        
+        while self.worker_running:
+            if not self.monitored_devices:
+                time.sleep(1)
+                continue
             
-            return added
+            device_info = self.monitored_devices[device_index]
+            device_folder = device_info['device_folder']
+            audio_base = device_info['audio_base']
+            work_queue = self.active_queues[device_folder]
+            
+            try:
+                mtime, hour, filename = work_queue.get_nowait()
+                
+                logger.info(f"[{device_folder}] Processing: {filename}")
+                
+                mp3_path = os.path.join(audio_base, str(hour), filename)
+                chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
+                
+                start = time.time()
+                transcript_data = transcribe_mp3_chunk(mp3_path, device_folder, hour, chunk_index)
+                
+                if transcript_data:
+                    save_transcript_chunk(device_folder, hour, chunk_index, transcript_data, has_mp3=True)
+                    logger.info(f"[{device_folder}] Transcribed in {time.time()-start:.1f}s")
+                
+                work_queue.task_done()
+                
+                if work_queue.empty():
+                    self._refill_from_history(device_folder)
+                
+                time.sleep(10)
+                
+            except queue.Empty:
+                pass
+            
+            device_index = (device_index + 1) % len(self.monitored_devices)
+            time.sleep(0.5)
+    
+    def _refill_from_history(self, device_folder):
+        """Refill active queue from history"""
+        history = self.history_queues[device_folder]
+        
+        if not history:
+            logger.info(f"[{device_folder}] All caught up")
+            return
+        
+        refill = history[:3]
+        self.history_queues[device_folder] = history[3:]
+        
+        work_queue = self.active_queues[device_folder]
+        for item in refill:
+            try:
+                work_queue.put_nowait(item)
+            except queue.Full:
+                self.history_queues[device_folder].insert(0, item)
+                break
+        
+        logger.info(f"[{device_folder}] Refilled ({len(self.history_queues[device_folder])} remaining)")
+    
+    def _process_mp4_backlog_batch(self, device_folder):
+        """Process MP4 backlog batch"""
+        backlog = self.mp4_backlog.get(device_folder, [])
+        if not backlog:
+            return 0
+        
+        batch = backlog[:3]
+        self.mp4_backlog[device_folder] = backlog[3:]
+        
+        added = 0
+        for mtime, hour_dir, filename in batch:
+            try:
+                self.mp4_queues[device_folder].put_nowait((hour_dir, filename))
+                added += 1
+            except queue.Full:
+                self.mp4_backlog[device_folder].insert(0, (mtime, hour_dir, filename))
+                break
+        
+        if added > 0:
+            logger.info(f"[{device_folder}] Refilled {added} MP4s ({len(self.mp4_backlog[device_folder])} remaining)")
+        
+        return added
     
     def _mp4_worker(self, device_folder):
         """Worker thread for MP4 → MP3 audio extraction (fast, ~3s per chunk)"""
@@ -564,92 +555,6 @@ class InotifyTranscriptMonitor:
             finally:
                 work_queue.task_done()
     
-    def _process_mp3_backlog_batch(self, device_folder):
-        """
-        Process up to 3 items from MP3 backlog when idle
-        Returns number of items added to queue
-        """
-        with self.backlog_lock:
-            backlog = self.mp3_backlog.get(device_folder, [])
-            if not backlog:
-                return 0
-            
-            # Take up to 3 items from backlog
-            batch = backlog[:3]
-            self.mp3_backlog[device_folder] = backlog[3:]  # Remove processed items
-            
-            added = 0
-            for mtime, hour_dir, filename in batch:
-                try:
-                    self.mp3_queues[device_folder].put_nowait((hour_dir, filename))
-                    added += 1
-                except queue.Full:
-                    # Put back in backlog if queue is full
-                    self.mp3_backlog[device_folder].insert(0, (mtime, hour_dir, filename))
-                    break
-            
-            remaining = len(self.mp3_backlog[device_folder])
-            if added > 0:
-                logger.info(f"[{device_folder}] 🔄 Backlog: Added {added} MP3s to queue ({remaining} remaining)")
-            
-            return added
-    
-    def _mp3_worker(self, device_folder):
-        """Worker thread for MP3 → JSON transcription (slow, ~2min per chunk)"""
-        work_queue = self.mp3_queues[device_folder]
-        
-        logger.info(f"[{device_folder}] MP3 worker ready (transcription pipeline)")
-        
-        while True:
-            try:
-                # Try to get work with timeout for idle detection
-                path, filename = work_queue.get(timeout=5)
-            except queue.Empty:
-                # Queue is empty - check backlog
-                if self._process_mp3_backlog_batch(device_folder) == 0:
-                    # No backlog either - truly idle
-                    continue
-                else:
-                    # Added backlog items, get next item
-                    continue
-            
-            try:
-                # Log queue size occasionally
-                queue_size = work_queue.qsize()
-                if queue_size > 5:
-                    logger.warning(f"[{device_folder}] MP3 queue backlog: {queue_size} chunks (transcription is slow)")
-                
-                # Parse hour and chunk_index from path and filename
-                hour = int(os.path.basename(path))
-                chunk_index = int(filename.replace('chunk_10min_', '').replace('.mp3', ''))
-                
-                mp3_path = os.path.join(path, filename)
-                
-                # Build transcript output path
-                transcript_base = get_transcript_path(device_folder)
-                transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
-                
-                # Skip if transcript already exists
-                if os.path.exists(transcript_path):
-                    logger.debug(f"[{device_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp3 (transcript exists)")
-                    continue
-                
-                # Transcribe
-                logger.info("=" * 80)
-                transcript_data = transcribe_mp3_chunk(mp3_path, device_folder, hour, chunk_index)
-                
-                if transcript_data:
-                    save_transcript_chunk(device_folder, hour, chunk_index, transcript_data, has_mp3=True)
-                    logger.info(f"[{device_folder}] ✅ Transcription complete for hour {hour}, chunk {chunk_index}")
-                else:
-                    logger.warning(f"[{device_folder}] ⚠️ Transcription failed for {hour}/chunk_10min_{chunk_index}.mp3")
-                logger.info("=" * 80)
-                
-            except Exception as e:
-                logger.error(f"[{device_folder}] MP3 worker error: {e}")
-            finally:
-                work_queue.task_done()
-    
     def run(self):
         """Main event loop - enqueue files for worker threads (dual pipeline)"""
         logger.info("=" * 80)
@@ -682,12 +587,14 @@ class InotifyTranscriptMonitor:
                 elif filename.endswith('.mp3') and 'chunk_10min_' in filename:
                     device_folder = self.audio_path_to_device.get(path)
                     if device_folder:
-                        logger.info(f"[{device_folder}] 🎵 New MP3 detected: {filename}")
+                        logger.info(f"[{device_folder}] New MP3: {filename}")
+                        hour = int(os.path.basename(path))
+                        mtime = os.path.getmtime(os.path.join(path, filename))
                         try:
-                            work_queue = self.mp3_queues[device_folder]
-                            work_queue.put_nowait((path, filename))
+                            self.active_queues[device_folder].put_nowait((mtime, hour, filename))
                         except queue.Full:
-                            logger.error(f"[{device_folder}] 🚨 MP3 queue FULL, dropping: {filename}")
+                            self.history_queues[device_folder].insert(0, (mtime, hour, filename))
+                            logger.info(f"[{device_folder}] Queue full, added to history")
         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
