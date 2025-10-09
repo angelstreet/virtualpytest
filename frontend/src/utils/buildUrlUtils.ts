@@ -337,6 +337,51 @@ const getDeviceStreamUrlPath = (host: any, deviceId: string): string => {
   );
 };
 
+/**
+ * Get device-specific capture URL path from host configuration.
+ * Uses video_capture_path from device configuration.
+ */
+const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
+  if (!host) {
+    throw new Error('Host information is required for device capture path resolution');
+  }
+
+  if (!deviceId) {
+    throw new Error('deviceId is required - no fallbacks allowed');
+  }
+
+  // Get devices configuration from host
+  const devices = host?.devices || [];
+  if (!devices.length) {
+    throw new Error(`No devices configured in host configuration for device_id: ${deviceId}`);
+  }
+
+  // Find the specific device
+  for (const device of devices) {
+    if (device?.device_id === deviceId) {
+      const capturePath = device?.video_capture_path;
+      if (!capturePath) {
+        throw new Error(`Device ${deviceId} has no video_capture_path configured`);
+      }
+
+      // Convert local path to URL path by removing '/var/www/html' prefix
+      let urlPath = capturePath.replace('/var/www/html', '').replace(/^\/+/, '/');
+      
+      // Add /captures suffix if not already present
+      if (!urlPath.endsWith('/captures')) {
+        urlPath = `${urlPath}/captures`;
+      }
+      
+      return urlPath;
+    }
+  }
+
+  const availableDevices = devices.map((d: any) => d?.device_id).filter(Boolean);
+  throw new Error(
+    `Device ${deviceId} not found in host configuration. Available devices: ${availableDevices.join(', ')}`,
+  );
+};
+
 // =====================================================
 // METADATA CHUNK UTILITIES (Archive Mode)
 // =====================================================
@@ -396,49 +441,4 @@ export const buildMetadataChunkUrl = (
   const chunkPath = `${basePath}/metadata/${hour}/chunk_10min_${chunkIndex}.json`;
   
   return internalBuildHostUrl(host, `host${chunkPath}`);
-};
-
-/**
- * Get device-specific capture URL path from host configuration.
- * Uses video_capture_path from device configuration.
- */
-const getDeviceCaptureUrlPath = (host: any, deviceId: string): string => {
-  if (!host) {
-    throw new Error('Host information is required for device capture path resolution');
-  }
-
-  if (!deviceId) {
-    throw new Error('deviceId is required - no fallbacks allowed');
-  }
-
-  // Get devices configuration from host
-  const devices = host?.devices || [];
-  if (!devices.length) {
-    throw new Error(`No devices configured in host configuration for device_id: ${deviceId}`);
-  }
-
-  // Find the specific device
-  for (const device of devices) {
-    if (device?.device_id === deviceId) {
-      const capturePath = device?.video_capture_path;
-      if (!capturePath) {
-        throw new Error(`Device ${deviceId} has no video_capture_path configured`);
-      }
-
-      // Convert local path to URL path by removing '/var/www/html' prefix
-      let urlPath = capturePath.replace('/var/www/html', '').replace(/^\/+/, '/');
-      
-      // Add /captures suffix if not already present
-      if (!urlPath.endsWith('/captures')) {
-        urlPath = `${urlPath}/captures`;
-      }
-      
-      return urlPath;
-    }
-  }
-
-  const availableDevices = devices.map((d: any) => d?.device_id).filter(Boolean);
-  throw new Error(
-    `Device ${deviceId} not found in host configuration. Available devices: ${availableDevices.join(', ')}`,
-  );
 };
