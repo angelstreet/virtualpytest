@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Box, Slider, Typography, IconButton } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { ArchiveMetadata } from '../EnhancedHLSPlayer.types';
+import { getZIndex } from '../../../utils/zIndexUtils';
 
 interface TimelineOverlayProps {
   isLiveMode: boolean;
@@ -144,9 +145,9 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     right: 0,
     bottom: 0,
     width: '100%',
-    background: 'rgba(0,0,0,1)', // Solid dark background, no gradient
+    background: 'transparent',
     padding: '8px 16px 8px 16px', // Reduced vertical padding
-    zIndex: 1300, // High z-index to be above everything
+    zIndex: getZIndex('TIMELINE_OVERLAY'), // Above modals but below interactive overlays
     pointerEvents: 'auto' as const,
   };
 

@@ -17,12 +17,12 @@ Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json
 # CRITICAL: Limit CPU threads BEFORE importing PyTorch/Whisper
 # PyTorch/NumPy/OpenBLAS create 40+ threads by default, killing performance
 import os
-os.environ['OMP_NUM_THREADS'] = '4'          # OpenMP
-os.environ['MKL_NUM_THREADS'] = '4'          # Intel MKL
-os.environ['OPENBLAS_NUM_THREADS'] = '4'     # OpenBLAS
-os.environ['NUMEXPR_NUM_THREADS'] = '4'      # NumExpr
-os.environ['VECLIB_MAXIMUM_THREADS'] = '4'   # macOS Accelerate
-os.environ['TORCH_NUM_THREADS'] = '4'        # PyTorch (was 2, now 4 for better Whisper performance)
+os.environ['OMP_NUM_THREADS'] = '2'          # OpenMP
+os.environ['MKL_NUM_THREADS'] = '2'          # Intel MKL
+os.environ['OPENBLAS_NUM_THREADS'] = '2'     # OpenBLAS
+os.environ['NUMEXPR_NUM_THREADS'] = '2'      # NumExpr
+os.environ['VECLIB_MAXIMUM_THREADS'] = '2'   # macOS Accelerate
+os.environ['TORCH_NUM_THREADS'] = '2'        # PyTorch (was 2, now 4 for better Whisper performance)
 
 import sys
 import json
@@ -270,7 +270,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         total_start = time.time()
         segment_tmp = f'/tmp/segment_{capture_folder}.mp3'
         detected_language = 'unknown'
-        
+        detected_language_code = 'unknown'
         for seg_idx in range(10):
             start_sec = seg_idx * 60
             minute_start = start_sec
@@ -285,7 +285,12 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 
                 # Whisper transcription
                 seg_start = time.time()
-                result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
+                if seg_idx == 0:
+                    result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
+                    detected_language = result.get('language', 'unknown')
+                    detected_language_code = result.get('language_code', 'unknown')
+                else:
+                    result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder, language=detected_language_code)
                 seg_time = time.time() - seg_start
                 cpu_percent = process.cpu_percent(interval=None)
                 
@@ -294,7 +299,7 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 language = result.get('language', 'unknown')
                 confidence = result.get('confidence', 0.0)
                 
-                if language != 'unknown':
+                if language != 'unknown' and seg_idx == 0:
                     detected_language = language
                 
                 for seg in segments:

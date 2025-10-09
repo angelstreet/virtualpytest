@@ -30,7 +30,13 @@ def get_whisper_model(model_name: str = "tiny"):
             from faster_whisper import WhisperModel
             print(f"[AudioTranscriptionUtils] Loading faster-whisper model '{model_name}' (one-time load)...")
             # Use CPU with 4 threads for Raspberry Pi 4 optimization
-            _whisper_model = WhisperModel(model_name, device="cpu", compute_type="int8", num_workers=4)
+            _whisper_model = WhisperModel(
+                model_name,
+                device="cpu",
+                compute_type="int8",
+                cpu_threads=2,
+                num_workers=1
+            )
             _whisper_model_name = model_name
             print(f"[AudioTranscriptionUtils] ✓ faster-whisper model '{model_name}' loaded and cached (4-5x faster than openai-whisper)")
         except ImportError:
@@ -151,7 +157,7 @@ def detect_audio_level(file_path: str, device_id: str = "") -> tuple:
         return True, 0, -100.0
 
 
-def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silence_check: bool = False, device_id: str = "") -> Dict[str, Any]:
+def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silence_check: bool = False, device_id: str = "", language: Optional[str] = None) -> Dict[str, Any]:
     """
     Transcribe audio file using Whisper (with model caching)
     
@@ -201,8 +207,10 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
             beam_size=1,
             vad_filter=True,  # Voice Activity Detection - skip silence automatically
             vad_parameters=dict(min_silence_duration_ms=500),
-            language=None,  # Auto-detect
-            word_timestamps=False  # Sentence-level timestamps (30-40% faster, still perfect for subtitles)
+            language=language,
+            word_timestamps=False,  # Sentence-level timestamps (30-40% faster, still perfect for subtitles)
+            condition_on_previous_text=False,
+            temperature=0
         )
         
         # Collect all segments and build transcript with timing info
@@ -236,6 +244,7 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
             'success': True,
             'transcript': transcript,
             'language': language_name,
+            'language_code': language if language else info.language,
             'confidence': confidence,
             'segments': timed_segments  # Add timed segments for subtitle display
         }

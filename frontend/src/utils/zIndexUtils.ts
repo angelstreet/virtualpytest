@@ -47,12 +47,13 @@ const Z_INDEX_ORDER = [
   'MODAL_CONTENT', // 260 - Modal content windows
   'SCREENSHOT_MODAL', // 270 - Screenshot viewing modals
   'AI_DISAMBIGUATION_MODAL', // 280 - AI disambiguation requires user input before execution
+  'TIMELINE_OVERLAY', // 290 - Video timeline controls
   
   // Interactive overlays (highest layer - on top of everything)
-  'APPIUM_OVERLAY', // 290 - Appium element overlays
-  'ANDROID_MOBILE_OVERLAY', // 300 - Android mobile overlays
-  'DEBUG_OVERLAY', // 310 - Debug information overlays
-  'SCREENSHOT_CAPTURE_OVERLAY', // 320 - Screenshot capture drag selection overlay (above all overlays)
+  'APPIUM_OVERLAY', // 300 - Appium element overlays
+  'ANDROID_MOBILE_OVERLAY', // 310 - Android mobile overlays
+  'DEBUG_OVERLAY', // 320 - Debug information overlays
+  'SCREENSHOT_CAPTURE_OVERLAY', // 330 - Screenshot capture drag selection overlay (above all overlays)
 ] as const;
 
 type ZIndexComponent = (typeof Z_INDEX_ORDER)[number];
