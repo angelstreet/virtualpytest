@@ -527,7 +527,12 @@ class InotifyTranscriptMonitor:
                 
                 if transcript_data:
                     save_transcript_chunk(device_folder, hour, chunk_index, transcript_data, has_mp3=True)
-                    logger.info(f"[{device_folder}] Transcribed in {time.time()-start:.1f}s")
+                    
+                    elapsed = time.time() - start
+                    if transcript_data.get('skipped_reason') == 'silent':
+                        logger.info(f"[{device_folder}] ⏭️  Skipped silent chunk in {elapsed:.1f}s")
+                    else:
+                        logger.info(f"[{device_folder}] ✅ Transcribed in {elapsed:.1f}s")
                 
                 work_queue.task_done()
                 
