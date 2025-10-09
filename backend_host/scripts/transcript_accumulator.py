@@ -323,6 +323,10 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 else:
                     logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): no text | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_percent:.1f}%")
                 
+                # Give CPU to other processes between segments (except after last segment)
+                if seg_idx < 9:
+                    time.sleep(5)
+                
             except Exception as e:
                 logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
                 minute_metadata.append({
@@ -825,8 +829,8 @@ def main():
     logger.info("Priority: Normal (no nice) - faster transcription")
     logger.info("Threads: 4 per library (was 2) - better Whisper performance")
     logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s)")
-    logger.info("Pipeline 2: MP3 → JSON (10× 60s segments, 10s delay)")
-    logger.info("CPU: 10× small bursts vs 1× large burst")
+    logger.info("Pipeline 2: MP3 → JSON (10× 60s segments, 5s rest between segments, 10s delay between chunks)")
+    logger.info("CPU: 10× small bursts with 5s rest - gives CPU to other processes")
     logger.info("=" * 80)
     
     try:
