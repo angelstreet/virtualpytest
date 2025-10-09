@@ -32,15 +32,15 @@ import time
 import cv2
 import numpy as np
 import inotify.adapters
-
 import re
-# from spellchecker import SpellChecker  # Not used - too slow for real-time OCR
 
-from shared.src.lib.utils.audio_transcription_utils import clean_transcript_text
-# correct_spelling, ENABLE_SPELLCHECK  # Disabled - adds 200-500ms per OCR
-
+# Setup project root BEFORE importing from shared
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
+
+# Now import from shared (after path is set up)
+from shared.src.lib.utils.audio_transcription_utils import clean_transcript_text
+# correct_spelling, ENABLE_SPELLCHECK  # Disabled - adds 200-500ms per OCR
 
 from shared.src.lib.utils.storage_path_utils import (
     get_capture_base_directories,
