@@ -102,29 +102,43 @@ class InotifySubtitleMonitor:
         with open(json_path, 'r') as f:
             data = json.load(f)
         
+        frame_file = os.path.basename(json_path).replace('.json', '.jpg')
+        
+        # Log detection state
+        audio = "🔇" if not data.get('audio', True) else "🔊"
+        freeze = "❄️" if data.get('freeze', False) else ""
+        black = "⬛" if data.get('blackscreen', False) else ""
+        logger.info(f"[{capture_folder}] {frame_file} {audio}{freeze}{black}")
+        
         if not data.get('subtitle_ocr_pending', False):
+            logger.info(f"[{capture_folder}] ⊗ Skip: no OCR pending")
             return
         
-        frame_file = os.path.basename(json_path).replace('.json', '.jpg')
         frame_path = os.path.join(captures_dir, frame_file)
         
         if not os.path.exists(frame_path):
+            logger.error(f"[{capture_folder}] ⊗ Skip: image deleted")
             return
         
         try:
-            start = time.perf_counter()
+            start_total = time.perf_counter()
             img = cv2.imread(frame_path, cv2.IMREAD_GRAYSCALE)
             
             if img is None:
                 return
             
             img_height, img_width = img.shape
+            
+            # Edge detection
+            start_edge = time.perf_counter()
             edges = cv2.Canny(img, 50, 150)
             subtitle_y = int(img_height * 0.85)
             edges_subtitle = edges[subtitle_y:img_height, :]
             subtitle_edge_density = np.sum(edges_subtitle > 0) / edges_subtitle.size * 100
+            edge_time = (time.perf_counter() - start_edge) * 1000
             
             if not (1.5 < subtitle_edge_density < 8):
+                logger.info(f"[{capture_folder}] ⊗ Skip: no_edges (density={subtitle_edge_density:.1f}%, {edge_time:.0f}ms)")
                 data['subtitle_analysis'] = {
                     'has_subtitles': False,
                     'extracted_text': '',
@@ -133,20 +147,32 @@ class InotifySubtitleMonitor:
                     'skip_reason': 'no_edges'
                 }
             else:
+                # Crop
+                start_crop = time.perf_counter()
                 x = int(img_width * 0.10)
                 y = int(img_height * 0.60)
                 w = int(img_width * 0.80)
                 h = int(img_height * 0.35)
-                
                 crop = img[y:y+h, x:x+w]
-                crop = cv2.resize(crop, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+                crop_time = (time.perf_counter() - start_crop) * 1000
                 
+                # Downscale
+                start_down = time.perf_counter()
+                crop = cv2.resize(crop, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+                down_h, down_w = crop.shape
+                down_time = (time.perf_counter() - start_down) * 1000
+                
+                logger.info(f"[{capture_folder}] ✓ Crop: {w}x{h}@({x},{y}) → {down_w}x{down_h} ({crop_time:.1f}ms + {down_time:.1f}ms)")
+                
+                # OCR
+                start_ocr = time.perf_counter()
                 import pytesseract
                 text = pytesseract.image_to_string(
                     crop,
                     config='--psm 6 --oem 1 -l eng+deu+fra',
                     timeout=2
                 ).strip()
+                ocr_time = (time.perf_counter() - start_ocr) * 1000
                 
                 if text:
                     import re
@@ -159,7 +185,7 @@ class InotifySubtitleMonitor:
                             cleaned.append(line.strip())
                     text = '\n'.join(cleaned).strip()
                 
-                ocr_time = (time.perf_counter() - start) * 1000
+                total_time = (time.perf_counter() - start_total) * 1000
                 
                 data['subtitle_analysis'] = {
                     'has_subtitles': bool(text),
@@ -171,7 +197,9 @@ class InotifySubtitleMonitor:
                 }
                 
                 if text:
-                    logger.info(f"[{capture_folder}] 📝 Subtitle: '{text[:80]}'")
+                    logger.info(f"[{capture_folder}] 📝 Text: {len(text)} chars in {total_time:.0f}ms (OCR={ocr_time:.0f}ms) | '{text[:60]}'")
+                else:
+                    logger.info(f"[{capture_folder}] ⊗ No text (OCR={ocr_time:.0f}ms, total={total_time:.0f}ms)")
         
         except Exception as e:
             data['subtitle_analysis'] = {
