@@ -170,7 +170,7 @@ def clean_transcript_text(text: str) -> str:
     import re
     if not text:
         return ''
-    
+
     # Common OCR/transcript fixes
     corrections = {
         '1': 'l', '0': 'o', '5': 'S', '8': 'B',
@@ -178,11 +178,17 @@ def clean_transcript_text(text: str) -> str:
     }
     for wrong, right in corrections.items():
         text = text.replace(wrong, right)
-    
+
     # Remove noise: repeated chars, isolated symbols
     text = re.sub(r'(.)\1{2,}', r'\1\1', text)
     text = re.sub(r'(?<!\w)[^a-zA-Z\s]{1,2}(?!\w)', '', text)
-    
+
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text.strip())
+
+    # Remove short non-words (e.g., isolated numbers/symbols)
+    text = re.sub(r'\b(?:\d{1,3}|[^a-zA-Z\d\s]{1,3})\b', '', text)
+
     # Filter junk lines
     lines = text.split('\n')
     cleaned = []
@@ -194,7 +200,7 @@ def clean_transcript_text(text: str) -> str:
         if letter_ratio < 0.6:
             continue
         cleaned.append(line)
-    
+
     return ' '.join(cleaned).strip()
 
 def correct_spelling(text: str, detected_language: str = None) -> str:
