@@ -218,6 +218,9 @@ class InotifyFrameMonitor:
                         with open(chunk_path + '.tmp', 'w') as f:
                             json.dump(chunk_data, f, indent=2)
                         os.rename(chunk_path + '.tmp', chunk_path)
+                        
+                        # Log success
+                        logger.info(f"[{capture_folder}] ✓ Merged JSON → {chunk_path} (seq={sequence}, frames={chunk_data['frames_count']})")
                 
                 finally:
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
@@ -230,6 +233,7 @@ class InotifyFrameMonitor:
                 
         except Exception as e:
             # Non-critical failure - individual JSON still saved
+            logger.error(f"[{capture_folder}] ✗ Chunk append FAILED → {chunk_path if 'chunk_path' in locals() else 'unknown'}: {e}")
             raise Exception(f"Chunk append error: {e}")
     
     def process_frame(self, captures_path, filename, queue_size=0):
@@ -371,7 +375,7 @@ class InotifyFrameMonitor:
                 try:
                     self._append_to_chunk(capture_folder, filename, analysis_data)
                 except Exception as e:
-                    logger.debug(f"[{capture_folder}] Chunk append failed (non-critical): {e}")
+                    logger.warning(f"[{capture_folder}] Chunk append failed (non-critical): {e}")
                     
             except Exception as e:
                 logger.error(f"[{capture_folder}] Error saving: {e}")
