@@ -33,6 +33,8 @@ from queue import LifoQueue
 import threading
 from datetime import datetime
 import time
+import psutil
+from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(script_dir)
@@ -254,117 +256,36 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                 'mean_volume_db': mean_volume_db
             }
         
-        import time
-        import psutil
-        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
-        
         process = psutil.Process()
         # Initialize CPU measurement (first call always returns 0.0, so call it now)
         process.cpu_percent(interval=None)
         
-        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (10× 60s segments)")
+        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (full 10min)")
         
-        all_segments = []
-        all_text = []
-        minute_metadata = []
         total_start = time.time()
-        segment_tmp = f'/tmp/segment_{capture_folder}.mp3'
-        detected_language = 'unknown'
-        detected_language_code = 'unknown'
-        for seg_idx in range(10):
-            start_sec = seg_idx * 60
-            minute_start = start_sec
-            minute_end = start_sec + 60
-            
-            try:
-                # FFmpeg extraction
-                extract_start = time.time()
-                cmd = ['ffmpeg', '-i', mp3_path, '-ss', str(start_sec), '-t', '60', '-y', segment_tmp]
-                subprocess.run(cmd, capture_output=True, timeout=5)
-                extract_time = time.time() - extract_start
-                
-                # Whisper transcription
-                seg_start = time.time()
-                if seg_idx == 0:
-                    result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
-                    detected_language = result.get('language', 'unknown')
-                    detected_language_code = result.get('language_code', 'unknown')
-                else:
-                    result = transcribe_audio(segment_tmp, model_name='tiny', skip_silence_check=False, device_id=capture_folder, language=detected_language_code)
-                seg_time = time.time() - seg_start
-                cpu_percent = process.cpu_percent(interval=None)
-                
-                text = result.get('transcript', '').strip()
-                segments = result.get('segments', [])
-                language = result.get('language', 'unknown')
-                confidence = result.get('confidence', 0.0)
-                
-                if language != 'unknown' and seg_idx == 0:
-                    detected_language = language
-                
-                for seg in segments:
-                    seg['start'] += start_sec
-                    seg['end'] += start_sec
-                
-                all_segments.extend(segments)
-                if text:
-                    all_text.append(text)
-                
-                minute_metadata.append({
-                    'minute': seg_idx,
-                    'time_range': f"{minute_start}-{minute_end}s",
-                    'has_text': bool(text),
-                    'text_length': len(text),
-                    'word_count': len(text.split()) if text else 0,
-                    'segment_count': len(segments),
-                    'language': language,
-                    'confidence': round(confidence, 2)
-                })
-                
-                if text:
-                    text_preview = text[:80].replace('\n', ' ')
-                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_percent:.1f}%")
-                    logger.info(f"[{capture_folder}] 💬 Text: '{text_preview}'")
-                else:
-                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): no text | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_percent:.1f}%")
-                
-                # Give CPU to other processes between segments (except after last segment)
-                if seg_idx < 9:
-                    time.sleep(2)
-                
-            except Exception as e:
-                logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
-                minute_metadata.append({
-                    'minute': seg_idx,
-                    'time_range': f"{minute_start}-{minute_end}s",
-                    'has_text': False,
-                    'error': str(e)
-                })
-        
-        try:
-            os.remove(segment_tmp)
-        except:
-            pass
-        
+        result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
         elapsed = time.time() - total_start
-        transcript = ' '.join(all_text)
         cpu_final = process.cpu_percent(interval=None)
         
-        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {detected_language} | {len(transcript)} chars, {len(all_segments)} segments | CPU: {cpu_final:.1f}%")
+        transcript = result.get('transcript', '').strip()
+        segments = result.get('segments', [])
+        language = result.get('language', 'unknown')
+        confidence = result.get('confidence', 0.0)
+        
+        logger.info(f"[{capture_folder}] ✅ COMPLETED in {elapsed:.1f}s | Lang: {language} | {len(transcript)} chars, {len(segments)} segments | CPU: {cpu_final:.1f}%")
         
         return {
             'capture_folder': capture_folder,
             'hour': hour,
             'chunk_index': chunk_index,
             'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
-            'language': detected_language,
+            'language': language,
             'transcript': transcript,
-            'confidence': sum(m.get('confidence', 0) for m in minute_metadata) / len(minute_metadata) if minute_metadata else 0.0,
+            'confidence': confidence,
             'transcription_time_seconds': elapsed,
             'timestamp': datetime.now().isoformat(),
             'mp3_file': os.path.basename(mp3_path),
-            'segments': all_segments,
-            'minute_metadata': minute_metadata
+            'segments': segments
         }
         
     except Exception as e:
@@ -564,7 +485,7 @@ class InotifyTranscriptMonitor:
             name="whisper-worker"
         )
         self.whisper_worker.start()
-        logger.info("Single Whisper worker started (10× 60s segments, 10s delay)")
+        logger.info("Single Whisper worker started (round-robin, 30s delay, low priority)")
     
     def _round_robin_worker(self):
         """Process MP3s round-robin across devices"""
@@ -609,7 +530,7 @@ class InotifyTranscriptMonitor:
                 # Show queue status for all devices
                 self._log_queue_status()
                 
-                time.sleep(10)
+                time.sleep(30)
                 
             except queue.Empty:
                 pass
@@ -761,7 +682,7 @@ class InotifyTranscriptMonitor:
         logger.info("Starting inotify event loop (dual pipeline)")
         logger.info("Zero CPU when idle - event-driven processing")
         logger.info("Pipeline 1: MP4 → MP3 (audio extraction)")
-        logger.info("Pipeline 2: MP3 → JSON (transcription)")
+        logger.info("Pipeline 2: MP3 → JSON (transcription, ~2min per chunk)")
         logger.info("=" * 80)
         
         try:
