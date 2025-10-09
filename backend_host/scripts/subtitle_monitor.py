@@ -246,7 +246,8 @@ class InotifySubtitleMonitor:
             for event in self.inotify.event_gen(yield_nones=False):
                 (_, type_names, path, filename) = event
                 
-                if 'IN_MOVED_TO' not in type_names:
+                # Watch for both IN_CLOSE_WRITE (direct write) and IN_MOVED_TO (atomic move)
+                if 'IN_CLOSE_WRITE' not in type_names and 'IN_MOVED_TO' not in type_names:
                     continue
                 
                 if not filename.endswith('.json'):
