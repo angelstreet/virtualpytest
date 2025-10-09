@@ -555,6 +555,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                     },
                     'freeze': False,
                     'freeze_comparisons': [],
+                    'last_3_filenames': [],
+                    'last_3_thumbnails': [],
                     'macroblocks': False,
                     'quality_score': 0.0,
                     'audio': has_audio,
@@ -581,6 +583,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
                     'bottom_edge_density': 0.0,
                     'freeze': False,
                     'freeze_comparisons': [],
+                    'last_3_filenames': [],
+                    'last_3_thumbnails': [],
                     'macroblocks': False,
                     'quality_score': 0.0,
                     'audio': True,
@@ -744,6 +748,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # Build freeze comparison list showing current vs previous frames
     freeze_comparisons = []
     freeze_debug_info = {}
+    last_3_filenames = []  # For R2 upload (RESTORED - was removed in refactoring)
+    last_3_thumbnails = []  # For R2 upload (RESTORED - was removed in refactoring)
     
     if freeze_details and 'frames_compared' in freeze_details:
         captures_dir = os.path.dirname(image_path)
@@ -762,6 +768,10 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             
             # Get difference percentage for this comparison
             diff_percentage = freeze_details['frame_differences'][idx] if idx < len(freeze_details['frame_differences']) else None
+            
+            # For R2 upload - collect paths (RESTORED)
+            last_3_filenames.append(prev_capture_path)
+            last_3_thumbnails.append(prev_thumbnail_path)
             
             # Add structured comparison
             freeze_comparisons.append({
@@ -811,6 +821,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         'freeze': bool(frozen),
         'freeze_comparisons': freeze_comparisons,
         'freeze_debug': freeze_debug_info if freeze_debug_info else None,
+        'last_3_filenames': last_3_filenames,  # RESTORED - needed for R2 upload
+        'last_3_thumbnails': last_3_thumbnails,  # RESTORED - needed for R2 upload
         
         # Macroblocks (unchanged)
         'macroblocks': bool(macroblocks),
