@@ -51,6 +51,7 @@ PyP100>=0.1.2  # Tapo power control
 # OCR and text recognition
 pytesseract>=0.3.10
 langdetect>=1.0.9
+pyspellchecker>=0.8.0  # For OCR text correction (lightweight spell checking)
 #sudo apt-get install tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra tesseract-ocr-deu tesseract-ocr-ita
 
 # Audio transcription and speech-to-text

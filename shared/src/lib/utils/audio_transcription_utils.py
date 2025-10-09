@@ -157,6 +157,63 @@ def detect_audio_level(file_path: str, device_id: str = "") -> tuple:
         return True, 0, -100.0
 
 
+# Global flag to enable/disable spell checking (disabled by default for CPU efficiency)
+ENABLE_SPELLCHECK = False
+
+# Initialize spellchecker globally if enabled (loads dictionary once)
+if ENABLE_SPELLCHECK:
+    from spellchecker import SpellChecker
+    spell = SpellChecker(language='en')  # Default to English; will adjust dynamically
+
+def clean_transcript_text(text: str) -> str:
+    """Regex-based text cleaning for OCR/transcript noise (shared utility)"""
+    import re
+    if not text:
+        return ''
+    
+    # Common OCR/transcript fixes
+    corrections = {
+        '1': 'l', '0': 'o', '5': 'S', '8': 'B',
+        '|': 'l', '!': 'l', '(': 'C', ')': 'D'
+    }
+    for wrong, right in corrections.items():
+        text = text.replace(wrong, right)
+    
+    # Remove noise: repeated chars, isolated symbols
+    text = re.sub(r'(.)\1{2,}', r'\1\1', text)
+    text = re.sub(r'(?<!\w)[^a-zA-Z\s]{1,2}(?!\w)', '', text)
+    
+    # Filter junk lines
+    lines = text.split('\n')
+    cleaned = []
+    for line in lines:
+        line = line.strip()
+        if len(line) < 10:
+            continue
+        letter_ratio = len(re.sub(r'[^a-zA-Z]', '', line)) / len(line)
+        if letter_ratio < 0.6:
+            continue
+        cleaned.append(line)
+    
+    return ' '.join(cleaned).strip()
+
+def correct_spelling(text: str, detected_language: str = None) -> str:
+    """Optional spell correction (shared utility) - requires ENABLE_SPELLCHECK=True"""
+    if not ENABLE_SPELLCHECK or not text:
+        return text
+    
+    # Adjust language
+    lang = 'en'
+    if detected_language in ['fra', 'fr']:
+        lang = 'fr'
+    elif detected_language in ['deu', 'de']:
+        lang = 'de'
+    spell.language = lang  # Dynamically switch
+    
+    words = text.split()
+    corrected = [spell.correction(word) if len(word) >= 3 and spell.unknown([word]) else word for word in words]
+    return ' '.join(corrected).strip()
+
 def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silence_check: bool = False, device_id: str = "", language: Optional[str] = None) -> Dict[str, Any]:
     """
     Transcribe audio file using Whisper (with model caching)
@@ -239,6 +296,11 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
                     'end': seg.end,
                     'text': seg.text.strip()
                 })
+        
+        # New: Apply shared cleaning (regex + optional spellcheck)
+        transcript = clean_transcript_text(transcript)
+        if ENABLE_SPELLCHECK:
+            transcript = correct_spelling(transcript, language)
         
         return {
             'success': True,

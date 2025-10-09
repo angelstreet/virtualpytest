@@ -29,6 +29,13 @@ import cv2
 import numpy as np
 import inotify.adapters
 
+import re
+from spellchecker import SpellChecker
+
+import inotify.adapters
+
+from shared.src.lib.utils.audio_transcription_utils import clean_transcript_text, correct_spelling, ENABLE_SPELLCHECK
+
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
 
@@ -119,6 +126,22 @@ class InotifySubtitleMonitor:
     def process_ocr(self, json_path, captures_dir, capture_folder):
         with open(json_path, 'r') as f:
             data = json.load(f)
+        
+        # New: Skip OCR if no audio detected (CPU optimization)
+        if not data.get('audio', True):
+            logger.info(f"[{capture_folder}] ⊗ Skip: no audio detected")
+            data['subtitle_analysis'] = {
+                'has_subtitles': False,
+                'extracted_text': '',
+                'skipped': True,
+                'skip_reason': 'no_audio'
+            }
+            data['subtitle_ocr_pending'] = False
+            
+            with open(json_path + '.tmp', 'w') as f:
+                json.dump(data, f, indent=2)
+            os.rename(json_path + '.tmp', json_path)
+            return
         
         frame_file = os.path.basename(json_path).replace('.json', '.jpg')
         
@@ -226,6 +249,11 @@ class InotifySubtitleMonitor:
                         if real:
                             cleaned.append(line.strip())
                     text = '\n'.join(cleaned).strip()
+                
+                # New: Apply shared regex-based filter and optional spell correction
+                text = clean_transcript_text(text)
+                if ENABLE_SPELLCHECK:
+                    text = correct_spelling(text, detected_language)
                 
                 # Detect language if text found and not cached (or cache expired)
                 detected_language = None

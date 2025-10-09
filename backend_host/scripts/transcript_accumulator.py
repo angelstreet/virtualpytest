@@ -51,6 +51,13 @@ from shared.src.lib.utils.storage_path_utils import (
     get_cold_segments_path
 )
 
+from shared.src.lib.utils.audio_transcription_utils import (
+    transcribe_audio,
+    clean_transcript_text,
+    correct_spelling,
+    ENABLE_SPELLCHECK
+)
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -235,7 +242,6 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
     """
     try:
         import psutil
-        from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         
         process = psutil.Process()
         process.cpu_percent(interval=None)
@@ -313,8 +319,15 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
             result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=False, device_id=capture_folder)
         elapsed = time.time() - total_start
         cpu_final = process.cpu_percent(interval=None)
-
+        
         transcript = result.get('transcript', '').strip()
+        
+        # New: Apply shared cleaning (regex + optional spellcheck)
+        # Note: This is in addition to any cleaning in transcribe_audio
+        transcript = clean_transcript_text(transcript)
+        if ENABLE_SPELLCHECK:
+            transcript = correct_spelling(transcript, result.get('language_code'))
+        
         segments = result.get('segments', [])
         language = result.get('language', 'unknown')
         confidence = result.get('confidence', 0.0)
