@@ -296,7 +296,8 @@ export const useArchivePlayer = ({
         setGlobalCurrentTime(globalTime);
         
         if (onVideoTimeUpdate) {
-          onVideoTimeUpdate(video.currentTime);
+          // Pass global clock time (seconds in day) to consumers for consistent archive lookups
+          onVideoTimeUpdate(globalTime);
         }
         
         const progressRatio = video.currentTime / video.duration;
