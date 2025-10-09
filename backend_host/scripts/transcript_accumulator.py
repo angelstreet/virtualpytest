@@ -172,6 +172,61 @@ def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, ho
                 pass
         return False
 
+def check_mp3_has_audio(mp3_path: str, capture_folder: str, sample_duration: float = 5.0) -> tuple[bool, float]:
+    """
+    Check if MP3 has actual audio content (not silence) using ffmpeg volumedetect
+    
+    Uses 5s sample (vs 0.1s in capture_monitor) for better silence detection.
+    Reuses same logic as detector.py analyze_audio() but for MP3 files.
+    
+    Args:
+        mp3_path: Path to MP3 file
+        capture_folder: Device identifier (for logging)
+        sample_duration: Duration to sample in seconds (default 5.0s)
+    
+    Returns:
+        (has_audio: bool, mean_volume_db: float)
+    """
+    try:
+        cmd = [
+            'ffmpeg',
+            '-hide_banner',
+            '-loglevel', 'info',
+            '-i', mp3_path,
+            '-t', str(sample_duration),  # Sample 5 seconds
+            '-af', 'volumedetect',
+            '-f', 'null',
+            '-'
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        output = result.stderr
+        mean_volume = -100.0
+        
+        for line in output.split('\n'):
+            if 'mean_volume:' in line:
+                try:
+                    mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                    break
+                except:
+                    pass
+        
+        # Consider silent if volume < -50dB (same threshold as detector.py)
+        has_audio = mean_volume > -50.0
+        
+        return has_audio, mean_volume
+        
+    except Exception as e:
+        logger.warning(f"[{capture_folder}] Failed to check MP3 audio level: {e}")
+        # On error, assume has audio (safer to transcribe than skip)
+        return True, 0.0
+
 def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> dict:
     """
     Transcribe a single 10-minute MP3 chunk using Whisper
@@ -183,10 +238,32 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
         chunk_index: Chunk within hour (0-5)
     
     Returns:
-        dict: Transcript data with timed segments
+        dict: Transcript data with timed segments (or None if silent)
     """
     try:
-        logger.info(f"[{capture_folder}] 🎬 Transcribing chunk_10min_{chunk_index}.mp3 (hour {hour})")
+        # OPTIMIZATION: Check if MP3 has actual audio before expensive Whisper transcription
+        has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, capture_folder, sample_duration=5.0)
+        
+        if not has_audio:
+            logger.info(f"[{capture_folder}] ⏭️  Skipped transcription: chunk_10min_{chunk_index}.mp3 (silent, {mean_volume_db:.1f}dB)")
+            # Return minimal transcript data indicating silence
+            return {
+                'capture_folder': capture_folder,
+                'hour': hour,
+                'chunk_index': chunk_index,
+                'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
+                'language': 'unknown',
+                'transcript': '',
+                'confidence': 0.0,
+                'transcription_time_seconds': 0.0,
+                'timestamp': datetime.now().isoformat(),
+                'mp3_file': os.path.basename(mp3_path),
+                'segments': [],
+                'skipped_reason': 'silent',
+                'mean_volume_db': mean_volume_db
+            }
+        
+        logger.info(f"[{capture_folder}] 🎬 Transcribing chunk_10min_{chunk_index}.mp3 (hour {hour}, {mean_volume_db:.1f}dB)")
         
         from shared.src.lib.utils.audio_transcription_utils import transcribe_audio
         import time
