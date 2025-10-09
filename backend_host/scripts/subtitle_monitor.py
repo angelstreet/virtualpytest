@@ -37,9 +37,9 @@ ENABLE_SPELLCHECK = False    # Set to True to enable spell checking (SLOW: adds 
 # ============================================================================
 
 import os
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['OMP_NUM_THREADS'] = '4'
+os.environ['MKL_NUM_THREADS'] = '4'
+os.environ['OPENBLAS_NUM_THREADS'] = '4'
 
 import sys
 import json
