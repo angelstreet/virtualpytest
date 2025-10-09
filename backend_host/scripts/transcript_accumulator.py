@@ -316,7 +316,12 @@ def transcribe_mp3_chunk(mp3_path: str, capture_folder: str, hour: int, chunk_in
                     'confidence': round(confidence, 2)
                 })
                 
-                logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_after_seg:.1f}%")
+                if text:
+                    text_preview = text[:80].replace('\n', ' ')
+                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): {len(text)} chars, {len(segments)} segs | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_after_seg:.1f}%")
+                    logger.info(f"[{capture_folder}] 💬 Text: '{text_preview}'")
+                else:
+                    logger.info(f"[{capture_folder}] ✓ Min {seg_idx+1}/10 ({minute_start}-{minute_end}s): no text | {seg_time:.1f}s (extract={extract_time:.1f}s) | CPU: {cpu_after_seg:.1f}%")
                 
             except Exception as e:
                 logger.warning(f"[{capture_folder}] ⚠️ Min {seg_idx+1}/10 failed: {e}")
