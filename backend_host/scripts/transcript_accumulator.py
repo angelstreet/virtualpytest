@@ -13,7 +13,17 @@ Pipeline 2: MP3 → JSON (transcription)
 
 Perfect alignment: chunk_10min_X.mp4 + chunk_10min_X.mp3 + chunk_10min_X.json
 """
+
+# CRITICAL: Limit CPU threads BEFORE importing PyTorch/Whisper
+# PyTorch/NumPy/OpenBLAS create 40+ threads by default, killing performance
 import os
+os.environ['OMP_NUM_THREADS'] = '2'          # OpenMP
+os.environ['MKL_NUM_THREADS'] = '2'          # Intel MKL
+os.environ['OPENBLAS_NUM_THREADS'] = '2'     # OpenBLAS
+os.environ['NUMEXPR_NUM_THREADS'] = '2'      # NumExpr
+os.environ['VECLIB_MAXIMUM_THREADS'] = '2'   # macOS Accelerate
+os.environ['TORCH_NUM_THREADS'] = '2'        # PyTorch
+
 import sys
 import json
 import subprocess

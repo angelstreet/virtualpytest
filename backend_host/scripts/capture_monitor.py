@@ -11,7 +11,15 @@ Per-device queue processing:
 - Parallel processing across devices maintains performance
 - Queue size logging: Tracks backlog to detect performance issues
 """
+
+# CRITICAL: Limit CPU threads BEFORE importing OpenCV/NumPy
+# OpenCV/NumPy/OpenBLAS create many threads by default
 import os
+os.environ['OMP_NUM_THREADS'] = '2'          # OpenMP
+os.environ['MKL_NUM_THREADS'] = '2'          # Intel MKL
+os.environ['OPENBLAS_NUM_THREADS'] = '2'     # OpenBLAS
+os.environ['NUMEXPR_NUM_THREADS'] = '2'      # NumExpr
+
 import sys
 import json
 import logging
