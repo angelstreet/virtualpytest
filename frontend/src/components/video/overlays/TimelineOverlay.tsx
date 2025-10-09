@@ -194,10 +194,16 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const minValue = isLiveMode ? 0 : 0;
                 const maxValue = isLiveMode ? 150 : 82800;  // Match the slider max
                 
+                // Calculate percentage (0-100)
                 const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
-                return `calc(${percentage}% - 40px)`;  // Subtract ~half the tooltip width for centering
+                
+                // Clamp percentage to prevent tooltip from going off-screen
+                // Leave some margin (5% on each side = ~40-50px depending on screen width)
+                const clampedPercentage = Math.max(5, Math.min(95, percentage));
+                
+                return `${clampedPercentage}%`;
               })(),
-              transform: 'translateX(0)',
+              transform: 'translateX(-50%)',  // Center the tooltip on its position
               pointerEvents: 'none',
               zIndex: 10,  // High z-index to ensure it's above everything
               display: 'flex',
