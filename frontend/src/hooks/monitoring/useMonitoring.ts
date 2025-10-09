@@ -221,6 +221,7 @@ export const useMonitoring = ({
           chunkData = await response.json();
           // Cache chunk for future requests in same 10min window
           chunkCacheRef.current.set(cacheKey, chunkData);
+          console.log(`[useMonitoring] Chunk loaded: ${chunkData.frames?.length || 0} frames`);
         } else {
           console.warn(`[useMonitoring] Chunk not found: ${hour}/chunk_10min_${chunkIndex}.json`);
           return;
@@ -247,6 +248,14 @@ export const useMonitoring = ({
         }
         
         if (nearestFrame) {
+          console.log(`[useMonitoring] Nearest frame found:`, {
+            timestamp: nearestFrame.timestamp,
+            filename: nearestFrame.filename,
+            blackscreen: nearestFrame.blackscreen,
+            freeze: nearestFrame.freeze,
+            audio: nearestFrame.audio
+          });
+          
           const parsedAnalysis: MonitoringAnalysis = {
             timestamp: nearestFrame.timestamp || new Date().toISOString(),
             filename: nearestFrame.filename || '',
@@ -274,7 +283,12 @@ export const useMonitoring = ({
           };
           setAnalysisHistory([snapshot]);
           if (isLoadingRef.current) setIsLoading(false);
+          console.log(`[useMonitoring] Archive analysis updated for ${nearestFrame.timestamp}`);
+        } else {
+          console.warn(`[useMonitoring] No frames found in chunk`);
         }
+      } else {
+        console.warn(`[useMonitoring] Invalid chunk data structure:`, chunkData);
       }
     } catch (error) {
       console.error('[useMonitoring] Archive fetch error:', error);
