@@ -42,8 +42,9 @@ const getRoundedNow = () => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
-  const roundedMinute = Math.floor(currentMinute / 10) * 10;
-  return currentHour * 3600 + roundedMinute * 60;
+  const currentSecond = now.getSeconds();
+  // Don't round! Use actual current time for accurate positioning
+  return currentHour * 3600 + currentMinute * 60 + currentSecond;
 };
 
 const positionToClockTime = (position: number, roundedNow: number) => {

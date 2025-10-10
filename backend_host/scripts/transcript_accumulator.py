@@ -705,7 +705,7 @@ class InotifyTranscriptMonitor:
                 logger.error(f"✗ [{device_folder}] Failed to start audio detection worker: {e}")
     
     def _audio_detection_worker(self, device_folder):
-        """Worker thread: Check audio every 5s from manifest"""
+        """Worker thread: Check audio every 5s by scanning segments directory"""
         BLUE = '\033[94m'
         RESET = '\033[0m'
         
@@ -713,44 +713,53 @@ class InotifyTranscriptMonitor:
         
         # Resolve segments path once (hot/cold aware)
         from shared.src.lib.utils.storage_path_utils import get_segments_path
-        segments_base = get_segments_path(device_folder)
-        manifest_path = os.path.join(segments_base, "manifest.m3u8")
+        segments_dir = get_segments_path(device_folder)
         
         check_count = 0
         while True:
             check_count += 1
             try:
-                
-                if not os.path.exists(manifest_path):
-                    # Log every 12 checks (1 minute) when manifest missing
+                # Find latest segment file (same approach as old detector.py)
+                if not os.path.exists(segments_dir):
                     if check_count % 12 == 0:
-                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Waiting for manifest (check #{check_count}): {manifest_path}{RESET}")
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segments directory not found (check #{check_count}): {segments_dir}{RESET}")
                     time.sleep(5)
                     continue
                 
-                with open(manifest_path, 'r') as f:
-                    lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+                # Scan for latest segment_*.ts or segment_*.mp4 file
+                latest_segment = None
+                latest_mtime = 0
                 
-                if not lines:
-                    # Log every 12 checks (1 minute) when manifest empty
+                try:
+                    with os.scandir(segments_dir) as it:
+                        for entry in it:
+                            # Check TS or MP4 segments (not hour folders)
+                            if entry.is_file() and entry.name.startswith('segment_') and (entry.name.endswith('.ts') or entry.name.endswith('.mp4')):
+                                mtime = entry.stat().st_mtime
+                                if mtime > latest_mtime:
+                                    latest_segment = entry.path
+                                    latest_mtime = mtime
+                except Exception as e:
                     if check_count % 12 == 0:
-                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Manifest empty (check #{check_count}){RESET}")
+                        logger.error(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment scan failed (check #{check_count}): {e}{RESET}")
                     time.sleep(5)
                     continue
                 
-                last_segment_name = lines[-1]
-                
-                hour = int(last_segment_name.split('/')[0])
-                segment_file = last_segment_name.split('/')[-1]
-                # Use centralized storage path utility (segments_base already resolved above)
-                segment_path = os.path.join(segments_base, str(hour), segment_file)
-                
-                if not os.path.exists(segment_path):
-                    # Log every 12 checks (1 minute) when segment missing
+                if not latest_segment:
                     if check_count % 12 == 0:
-                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment not found (check #{check_count}): {segment_file}{RESET}")
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  No segments found (check #{check_count}){RESET}")
                     time.sleep(5)
                     continue
+                
+                # Check if segment is recent (within last 5 minutes)
+                age_seconds = time.time() - latest_mtime
+                if age_seconds > 300:
+                    if check_count % 12 == 0:
+                        logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment too old (check #{check_count}): {age_seconds:.0f}s{RESET}")
+                    time.sleep(5)
+                    continue
+                
+                segment_path = latest_segment
                 
                 cmd = [
                     'ffmpeg',
@@ -790,7 +799,8 @@ class InotifyTranscriptMonitor:
                     os.makedirs(metadata_path, mode=0o777, exist_ok=True)
                     
                     # Use segment filename for JSON (e.g., segment_1min_59_1728561234.mp4 → .json)
-                    json_filename = segment_file.replace('.mp4', '.json')
+                    segment_filename = os.path.basename(segment_path)
+                    json_filename = segment_filename.replace('.mp4', '.json').replace('.ts', '.json')
                     json_file = os.path.join(metadata_path, json_filename)
                     
                     # Only update if file exists (created by capture_monitor), don't create new files

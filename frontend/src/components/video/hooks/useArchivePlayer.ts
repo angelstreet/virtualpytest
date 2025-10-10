@@ -108,21 +108,39 @@ export const useArchivePlayer = ({
           return;
         }
         
-        // Start from the NEWEST available chunk (last in sorted array, closest to now)
-        const newestIndex = metadata.manifests.length - 1;
-        const newestChunk = metadata.manifests[newestIndex];
-        
-        // Position at the start of the newest chunk (which might be the current building chunk)
+        // Find chunk closest to current time (not just last in array)
         const now = new Date();
         const currentHour = now.getHours();
-        const currentChunkIndex = Math.floor(now.getMinutes() / 10);
+        const currentMinute = now.getMinutes();
+        const currentTimeSeconds = currentHour * 3600 + currentMinute * 60;
+        
+        let closestIndex = 0;
+        let minDistance = Infinity;
+        
+        metadata.manifests.forEach((chunk, index) => {
+          const chunkTimeSeconds = chunk.window_index * 3600 + chunk.chunk_index * 600;
+          
+          // Calculate circular distance (handles day wrap: 23h -> 0h)
+          let distance = currentTimeSeconds - chunkTimeSeconds;
+          if (distance < 0) distance += 86400; // Wrap yesterday to today
+          if (distance > 43200) distance = 86400 - distance; // Prefer closer of two directions
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = index;
+          }
+        });
+        
+        const newestChunk = metadata.manifests[closestIndex];
+        const currentChunkIndex = Math.floor(currentMinute / 10);
         const isCurrentBuildingChunk = newestChunk.window_index === currentHour && newestChunk.chunk_index === currentChunkIndex;
         
         console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks`);
-        console.log(`[@EnhancedHLSPlayer] Starting from NEWEST chunk: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index}${isCurrentBuildingChunk ? ' (building)' : ''}`);
+        console.log(`[@EnhancedHLSPlayer] Current time: ${currentHour}h${currentMinute}m`);
+        console.log(`[@EnhancedHLSPlayer] Starting from CLOSEST chunk to now: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index} (${minDistance}s away)${isCurrentBuildingChunk ? ' (building)' : ''}`);
         
         setArchiveMetadata(metadata);
-        setCurrentManifestIndex(newestIndex);
+        setCurrentManifestIndex(closestIndex);
         setGlobalCurrentTime(newestChunk.start_time_seconds);
       };
       
