@@ -171,18 +171,19 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Execute each transition using navigate_to() (same as goto.py)
+    # Execute each transition - each validation = 1 step with nested sub-actions
     successful = 0
     for i, step in enumerate(validation_sequence):
         target = step.get('to_node_label', 'unknown')
         from_node = step.get('from_node_label', 'unknown')
+        edge_type = step.get('transition_type', 'forward')
         
         print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {target}")
         
-        # Record step start time
         step_start_time = time.time()
+        step_count_before = len(context.step_results)
         
-        # Use NavigationExecutor directly
+        # Execute navigation (records sub-steps automatically)
         device = context.selected_device
         result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
@@ -191,8 +192,21 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             context=context
         )
         
-        # Note: Step recording is handled automatically by NavigationExecutor.execute_navigation()
-        # No need to manually record steps here - it would create duplicates in the report
+        # Capture sub-steps and nest them under parent validation step
+        sub_steps = context.step_results[step_count_before:]
+        context.step_results = context.step_results[:step_count_before]
+        
+        # Record as single validation step with nested actions
+        context.step_results.append({
+            'step_number': len(context.step_results) + 1,
+            'name': f"{from_node} → {target}",
+            'transition_type': edge_type,
+            'success': result.get('success', False),
+            'duration': time.time() - step_start_time,
+            'timestamp': step_start_time,
+            'sub_steps': sub_steps,
+            'screenshots': result.get('screenshots', [])
+        })
         
         if result.get('success', False):
             successful += 1
