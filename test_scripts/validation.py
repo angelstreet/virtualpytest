@@ -189,10 +189,12 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {to_node}")
         
         # RECOVERY MECHANISM: Check if we're at the expected starting position
-        current_position = device.navigation_executor.get_current_position(context.tree_id)
-        if current_position and current_position != from_node_id:
-            print(f"🔄 [validation] Recovery needed: current position '{current_position}' != expected '{from_node_id}'")
-            print(f"🔄 [validation] Navigating from '{current_position}' to '{from_node}' before executing edge")
+        position_info = device.navigation_executor.get_current_position()
+        current_node_id = position_info.get('current_node_id') if position_info.get('success') else None
+        
+        if current_node_id and current_node_id != from_node_id:
+            print(f"🔄 [validation] Recovery needed: current position '{current_node_id}' != expected '{from_node_id}'")
+            print(f"🔄 [validation] Navigating from current position to '{from_node}' before executing edge")
             
             # Use execute_navigation to recover position (will record recovery steps)
             recovery_result = device.navigation_executor.execute_navigation(
@@ -216,7 +218,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
                 continue
             
             print(f"✅ [validation] Recovery successful - now at '{from_node}'")
-        elif not current_position:
+        elif not current_node_id:
             print(f"⚠️  [validation] No current position tracked - assuming at correct position")
         else:
             print(f"✓ [validation] Already at starting position '{from_node}'")
