@@ -806,8 +806,9 @@ class ActionExecutor:
                     print(f"[@action_executor:_write_action_to_frame_json]      - {os.path.basename(json_file)}: ERROR - {e}")
                     continue
             
-            # Update matching JSON if within 500ms tolerance
-            if best_match_file and min_delta < 0.5:
+            # Update matching JSON if within 1500ms tolerance
+            # Frames are written every 1s, so we need tolerance > 1000ms
+            if best_match_file and min_delta < 1.5:
                 lock_path = best_match_file + '.lock'
                 try:
                     with open(lock_path, 'w') as lock_file:
@@ -841,7 +842,7 @@ class ActionExecutor:
                             capture_logger.info(f"📁 File: {os.path.basename(best_match_file)}")
                             capture_logger.info(f"⚡ Action: {action.get('command')}")
                             capture_logger.info(f"⏱️  Timestamp: {action_completion_timestamp}")
-                            capture_logger.info(f"🎯 Delta: {int(min_delta*1000)}ms")
+                            capture_logger.info(f"🎯 Delta: {int(min_delta*1000)}ms (tolerance: 1500ms)")
                             capture_logger.info(f"📋 Params: {action.get('params', {})}")
                             capture_logger.info("=" * 80)
                             
@@ -864,7 +865,7 @@ class ActionExecutor:
                     print(f"[@action_executor:_write_action_to_frame_json] ❌ Failed to update frame JSON: {e}")
                     print(f"[@action_executor:_write_action_to_frame_json]    • File: {best_match_file}")
             elif best_match_file:
-                print(f"[@action_executor:_write_action_to_frame_json] ⚠️ No matching frame found within 500ms tolerance")
+                print(f"[@action_executor:_write_action_to_frame_json] ⚠️ No matching frame found within 1500ms tolerance")
                 print(f"[@action_executor:_write_action_to_frame_json]    • Best match: {best_match_file}")
                 print(f"[@action_executor:_write_action_to_frame_json]    • Best delta: {int(min_delta*1000)}ms")
             else:
