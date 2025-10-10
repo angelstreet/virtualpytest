@@ -110,7 +110,7 @@ self._write_action_to_frame_json(action, action_completion_timestamp)
 
 ### 2. Zapping Detection (zapping_detector_utils.py)
 
-When blackscreen ends (< 2s duration):
+When blackscreen ends (< 10s duration):
 ```python
 def detect_and_record_zapping(...):
     # 1. Analyze frame for channel banner (reuses existing AI)

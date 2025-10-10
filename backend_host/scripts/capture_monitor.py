@@ -259,9 +259,9 @@ class InotifyFrameMonitor:
                 device_state[event_start_key] = None
                 
                 # ✅ Automatic zapping detection when blackscreen ends
-                if event_type == 'blackscreen' and total_duration_ms < 2000:
-                    # Only trigger for SHORT blackscreens (< 2s) - likely zapping
-                    # Long blackscreens are likely incidents, not channel changes
+                if event_type == 'blackscreen' and total_duration_ms < 10000:
+                    # Trigger for blackscreens up to 10s (zapping can take time depending on signal/TV)
+                    # Blackscreens > 10s are likely real incidents, not channel changes
                     logger.info(f"[{capture_folder}] Blackscreen ended ({total_duration_ms}ms) - checking for zapping...")
                     self._check_for_zapping(
                         capture_folder=capture_folder,
