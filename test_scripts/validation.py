@@ -197,13 +197,16 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         context.step_results = context.step_results[:step_count_before]
         
         # Record as single validation step with nested actions
+        duration = time.time() - step_start_time
         context.step_results.append({
             'step_number': len(context.step_results) + 1,
             'name': f"{from_node} → {target}",
+            'message': f"{from_node} → {target}",
             'transition_type': edge_type,
             'success': result.get('success', False),
-            'duration': time.time() - step_start_time,
-            'timestamp': step_start_time,
+            'duration_ms': int(duration * 1000),
+            'start_time': step_start_time,
+            'end_time': time.time(),
             'sub_steps': sub_steps,
             'screenshots': result.get('screenshots', [])
         })

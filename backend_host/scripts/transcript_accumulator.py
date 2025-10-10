@@ -421,10 +421,11 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             RESET = '\033[0m'
             logger.info(f"{GREEN}[{capture_folder}] 💾 Merged chunk {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
             logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s, mp3_file={chunk_data.get('mp3_file')}{RESET}")
-            if chunk_data['segments']:
-                sample_seg = chunk_data['segments'][0]
+            if new_segments:
+                # Show sample from NEWLY ADDED segments (not first segment which is always from minute 0)
+                sample_seg = new_segments[0]
                 seg_duration = sample_seg.get('duration', sample_seg.get('end', 0) - sample_seg.get('start', 0))
-                logger.info(f"{GREEN}[{capture_folder}] 📋 Sample segment: start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📋 NEW segment sample (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
