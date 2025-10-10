@@ -108,15 +108,22 @@ export const useArchivePlayer = ({
           return;
         }
         
-        // Start from the OLDEST available chunk (first in sorted array)
-        // With inverted timeline, this will be positioned on the LEFT
-        const firstChunk = metadata.manifests[0];
+        // Start from the NEWEST available chunk (last in sorted array, closest to now)
+        const newestIndex = metadata.manifests.length - 1;
+        const newestChunk = metadata.manifests[newestIndex];
+        
+        // Position at the start of the newest chunk (which might be the current building chunk)
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentChunkIndex = Math.floor(now.getMinutes() / 10);
+        const isCurrentBuildingChunk = newestChunk.window_index === currentHour && newestChunk.chunk_index === currentChunkIndex;
+        
         console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks`);
-        console.log(`[@EnhancedHLSPlayer] Starting from OLDEST chunk: hour ${firstChunk.window_index}, chunk ${firstChunk.chunk_index} (${firstChunk.start_time_seconds}s)`);
+        console.log(`[@EnhancedHLSPlayer] Starting from NEWEST chunk: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index}${isCurrentBuildingChunk ? ' (building)' : ''}`);
         
         setArchiveMetadata(metadata);
-        setCurrentManifestIndex(0);
-        setGlobalCurrentTime(firstChunk.start_time_seconds);
+        setCurrentManifestIndex(newestIndex);
+        setGlobalCurrentTime(newestChunk.start_time_seconds);
       };
       
       initializeArchiveMode();
