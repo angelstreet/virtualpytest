@@ -342,7 +342,8 @@ def generate_and_upload_script_report(
             'test_video_url': uploaded_test_video_url,
             'script_result_id': script_result_id,
             'custom_data': custom_data or {},  # Pass zap data from memory
-            'zap_detailed_summary': zap_detailed_summary
+            'zap_detailed_summary': zap_detailed_summary,
+            'logs_url': logs_url  # Add logs URL for clickable link in report
         }
         
         html_content = generate_validation_report(report_data)
