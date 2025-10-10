@@ -59,23 +59,38 @@ from shared.src.lib.utils.image_utils import (
     analyze_macroblocks
 )
 
-def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5):
+def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue_size=0):
     """
     Freeze detection using pixel difference - OPTIMIZED with in-memory cache
     
     Compares current thumbnail with previous 3 thumbnails using cv2.absdiff.
     Uses in-memory cache to avoid disk I/O on thumbnail loading (5-10ms savings).
     
+    QUEUE BACKLOG OPTIMIZATION:
+    - When queue_size > 50, frames are OLD (from backlog)
+    - Previous frames have likely been archived to cold storage
+    - Skip freeze detection to avoid OpenCV warnings and wasted CPU
+    
     Args:
         current_img: Current thumbnail (grayscale numpy array, 320x180)
         thumbnails_dir: Directory containing thumbnails
         filename: Current frame filename (e.g., capture_000001.jpg)
         fps: Frames per second
+        queue_size: Current processing queue size (skip if > 50)
         
     Returns:
         (frozen: bool, details: dict)
     """
     global _freeze_thumbnail_cache
+    
+    # SKIP freeze detection when processing backlog (old frames)
+    # Previous frames are likely archived → reading them causes OpenCV warnings
+    if queue_size > 50:
+        return False, {
+            'skipped_reason': 'queue_backlog',
+            'queue_size': queue_size,
+            'frames_found': 0
+        }
     
     try:
         # Extract frame number
