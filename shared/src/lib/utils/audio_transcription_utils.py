@@ -294,13 +294,26 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
         
         # Build timed segments (group words into 2-line segments for subtitle display)
         timed_segments = []
+        total_duration = 0.0
         if segments:
             for seg in segments:
                 # Each segment from Whisper has start/end time and words
+                # Add confidence from segment's avg_logprob (faster-whisper provides this)
+                segment_confidence = 0.0
+                if hasattr(seg, 'avg_logprob'):
+                    # Convert avg_logprob to confidence (0-1 range)
+                    # avg_logprob is typically between -1 and 0, we convert to 0-1 scale
+                    segment_confidence = max(0.0, min(1.0, (seg.avg_logprob + 1.0)))
+                
+                segment_duration = seg.end - seg.start
+                total_duration = max(total_duration, seg.end)  # Track total audio duration
+                
                 timed_segments.append({
                     'start': seg.start,
                     'end': seg.end,
-                    'text': seg.text.strip()
+                    'text': seg.text.strip(),
+                    'confidence': segment_confidence,
+                    'duration': segment_duration
                 })
         
         # New: Apply shared cleaning (regex + optional spellcheck)
@@ -314,7 +327,8 @@ def transcribe_audio(audio_file_path: str, model_name: str = "tiny", skip_silenc
             'language': language_name,
             'language_code': language if language else info.language,
             'confidence': confidence,
-            'segments': timed_segments  # Add timed segments for subtitle display
+            'segments': timed_segments,  # Add timed segments for subtitle display
+            'duration': total_duration  # Total audio duration in seconds
         }
         
     except Exception as e:

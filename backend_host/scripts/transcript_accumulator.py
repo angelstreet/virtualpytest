@@ -260,7 +260,7 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         import psutil
         
         process = psutil.Process()
-        process.cpu_percent(interval=None)
+        cpu_before = process.cpu_percent(interval=None)  # Initialize CPU monitoring
 
         logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (transcribe once, save progressively)")
 
@@ -270,19 +270,36 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
             logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk silent ({mean_volume_db:.1f}dB)")
             return []
         
+        # Log CPU before Whisper execution
+        time.sleep(0.1)  # Small delay to get accurate baseline
+        cpu_before = process.cpu_percent(interval=None)
+        
         total_start = time.time()
         result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=True, device_id=capture_folder)
         elapsed = time.time() - total_start
-        cpu_final = process.cpu_percent(interval=None)
+        cpu_after = process.cpu_percent(interval=None)
         
         segments = result.get('segments', [])
         language = result.get('language', 'unknown')
         language_code = result.get('language_code', 'unknown')
         confidence = result.get('confidence', 0.0)
+        audio_duration = result.get('duration', 0.0)
+        
+        # Calculate real-time factor (RTF): processing_time / audio_duration
+        # RTF < 1.0 means faster than real-time (good!)
+        # RTF = 1.0 means processing at real-time speed
+        # RTF > 1.0 means slower than real-time (problematic for live transcription)
+        rtf = elapsed / audio_duration if audio_duration > 0 else 0.0
         
         GREEN = '\033[92m'
+        YELLOW = '\033[93m'
         RESET = '\033[0m'
-        logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ Transcribed in {elapsed:.1f}s | Lang: {language} ({language_code}) | Confidence: {confidence:.2f} | {len(segments)} segments | CPU: {cpu_final:.1f}%{RESET}")
+        logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ TRANSCRIPTION COMPLETE:{RESET}")
+        logger.info(f"{GREEN}  • Processing time: {elapsed:.1f}s{RESET}")
+        logger.info(f"{GREEN}  • Audio duration: {audio_duration:.1f}s{RESET}")
+        logger.info(f"{YELLOW}  • Real-time factor (RTF): {rtf:.2f}x ({elapsed:.1f}s / {audio_duration:.1f}s){RESET}")
+        logger.info(f"{GREEN}  • Language: {language} ({language_code}), Confidence: {confidence:.2f}{RESET}")
+        logger.info(f"{GREEN}  • Segments: {len(segments)}, CPU: {cpu_before:.1f}%→{cpu_after:.1f}%{RESET}")
         
         minute_groups = {}
         for i in range(10):
@@ -386,6 +403,14 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                     chunk_data['confidence'] = sum(confidences) / len(confidences) if confidences else 0.0
                 
                 chunk_data['timestamp'] = datetime.now().isoformat()
+                
+                # Calculate total audio duration from segments
+                if chunk_data['segments']:
+                    last_segment = max(chunk_data['segments'], key=lambda s: s.get('end', 0))
+                    chunk_duration_seconds = last_segment.get('end', 0)
+                    chunk_data['chunk_duration_seconds'] = chunk_duration_seconds
+                else:
+                    chunk_data['chunk_duration_seconds'] = 0.0
             
             with open(chunk_path + '.tmp', 'w') as f:
                 json.dump(chunk_data, f, indent=2)
@@ -395,10 +420,11 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             GREEN = '\033[92m'
             RESET = '\033[0m'
             logger.info(f"{GREEN}[{capture_folder}] 💾 Merged chunk {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
-            logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, mp3_file={chunk_data.get('mp3_file')}{RESET}")
+            logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s, mp3_file={chunk_data.get('mp3_file')}{RESET}")
             if chunk_data['segments']:
                 sample_seg = chunk_data['segments'][0]
-                logger.info(f"{GREEN}[{capture_folder}] 📋 Sample segment: start={sample_seg.get('start', 0):.2f}s, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
+                seg_duration = sample_seg.get('duration', sample_seg.get('end', 0) - sample_seg.get('start', 0))
+                logger.info(f"{GREEN}[{capture_folder}] 📋 Sample segment: start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
