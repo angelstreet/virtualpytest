@@ -430,6 +430,17 @@ class InotifyFrameMonitor:
                 pass  # If can't read, run detection
         
         try:
+            # Populate audio cache from previous frame if empty
+            if capture_folder not in self.audio_cache:
+                sequence = int(filename.split('_')[1].split('.')[0])
+                prev_json = os.path.join(metadata_path, f'capture_{sequence-1:09d}.json')
+                if os.path.exists(prev_json):
+                    with open(prev_json, 'r') as f:
+                        prev_data = json.load(f)
+                    if 'audio' in prev_data:
+                        self.audio_cache[capture_folder] = {'audio': prev_data['audio'], 'mean_volume_db': prev_data.get('mean_volume_db', -100)}
+                        logger.info(f"[{capture_folder}] 🔍 Cached audio from previous frame: audio={'✅' if prev_data['audio'] else '❌'}, volume={prev_data.get('mean_volume_db', -100):.1f}dB")
+            
             # Run expensive detection only if needed
             if needs_detection:
                 detection_result = detect_issues(frame_path, queue_size=queue_size)
@@ -532,37 +543,7 @@ class InotifyFrameMonitor:
                     existing_data.update(self.audio_cache[capture_folder])
                     audio_val = "✅ YES" if self.audio_cache[capture_folder]['audio'] else "❌ NO"
                     volume = self.audio_cache[capture_folder].get('mean_volume_db', -100)
-                    logger.info(f"[{capture_folder}] 📋 Using cached audio for {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
-                else:
-                    # No audio in current JSON and cache empty - scan for recent JSONs with audio to populate cache
-                    try:
-                        current_time = time.time()
-                        with os.scandir(metadata_path) as it:
-                            for entry in it:
-                                if entry.is_file() and entry.name.startswith('capture_') and entry.name.endswith('.json'):
-                                    mtime = entry.stat().st_mtime
-                                    # Only check recent JSONs (last 10 seconds)
-                                    if current_time - mtime < 10.0:
-                                        try:
-                                            with open(entry.path, 'r') as f:
-                                                recent_json = json.load(f)
-                                            if 'audio' in recent_json:
-                                                # Found audio data! Update cache
-                                                self.audio_cache[capture_folder] = {
-                                                    'audio': recent_json['audio'],
-                                                    'mean_volume_db': recent_json.get('mean_volume_db', -100),
-                                                    'audio_check_timestamp': recent_json.get('audio_check_timestamp'),
-                                                    'audio_segment_file': recent_json.get('audio_segment_file')
-                                                }
-                                                existing_data.update(self.audio_cache[capture_folder])
-                                                audio_val = "✅ YES" if recent_json['audio'] else "❌ NO"
-                                                volume = recent_json.get('mean_volume_db', -100)
-                                                logger.info(f"[{capture_folder}] 🔍 Found audio in {entry.name}, populated cache: audio={audio_val}, volume={volume:.1f}dB")
-                                                break
-                                        except:
-                                            pass
-                    except:
-                        pass
+                    logger.debug(f"[{capture_folder}] 📋 Using cached audio for {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
                 
                 if detection_result:
                     analysis_data = {
