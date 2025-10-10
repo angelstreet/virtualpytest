@@ -277,6 +277,7 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         
         segments = result.get('segments', [])
         language = result.get('language', 'unknown')
+        language_code = result.get('language_code', 'unknown')
         
         GREEN = '\033[92m'
         RESET = '\033[0m'
@@ -589,7 +590,7 @@ class InotifyTranscriptMonitor:
                 result = transcribe_audio(tmp_audio, model_name='tiny', skip_silence_check=True, device_id=device_folder, language=lang)
                 
                 if not lang:
-                    set_chunk_language(device_folder, hour, chunk_index, result.get('language', 'unknown'))
+                    set_chunk_language(device_folder, hour, chunk_index, result.get('language_code', 'unknown'))
                 
                 segments = result.get('segments', [])
                 if segments:
