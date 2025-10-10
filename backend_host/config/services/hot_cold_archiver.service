@@ -4,9 +4,8 @@
 
 [Unit]
 Description=Hot/Cold Storage Archiver - RAM+SD Architecture
-After=network.target stream.service
+After=network.target
 Wants=network.target
-PartOf=stream.service
 
 [Service]
 Type=simple

@@ -4,9 +4,8 @@
 
 [Unit]
 Description=Transcript Accumulator - 24h Audio Transcription
-After=network.target stream.service
+After=network.target
 Wants=network.target
-PartOf=stream.service
 
 [Service]
 Type=simple

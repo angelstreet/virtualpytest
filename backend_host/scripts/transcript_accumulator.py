@@ -486,6 +486,9 @@ class InotifyTranscriptMonitor:
     
     def _audio_detection_worker(self, device_folder):
         """Worker thread: Check audio every 5s from manifest"""
+        BLUE = '\033[94m'
+        RESET = '\033[0m'
+        
         while True:
             try:
                 manifest_path = f"/var/www/html/stream/{device_folder}/segments/manifest.m3u8"
@@ -531,6 +534,9 @@ class InotifyTranscriptMonitor:
                         break
                 
                 has_audio = mean_volume > -50.0
+                status_icon = '🔊' if has_audio else '🔇'
+                
+                logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB{RESET}")
                 
                 detection_result = {
                     'audio': has_audio,
@@ -544,7 +550,7 @@ class InotifyTranscriptMonitor:
                     self.incident_manager.process_detection(device_folder, detection_result, host_name)
                 
             except Exception as e:
-                logger.error(f"[{device_folder}] Audio detection error: {e}")
+                logger.error(f"{BLUE}[AUDIO:{device_folder}] Error: {e}{RESET}")
             
             time.sleep(5)
     
@@ -627,6 +633,9 @@ class InotifyTranscriptMonitor:
     
     def _round_robin_worker(self):
         """Process MP3s round-robin across devices"""
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
         device_index = 0
         
         while self.worker_running:
@@ -642,7 +651,7 @@ class InotifyTranscriptMonitor:
             try:
                 mtime, hour, filename = work_queue.get_nowait()
                 
-                logger.info(f"[{device_folder}] Processing: {filename}")
+                logger.info(f"{GREEN}[WHISPER:{device_folder}] Processing: {filename}{RESET}")
                 
                 mp3_path = os.path.join(audio_base, str(hour), filename)
                 chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
@@ -651,7 +660,7 @@ class InotifyTranscriptMonitor:
                 
                 for minute_data in minute_results:
                     merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
-                    logger.info(f"[{device_folder}] 💾 Saved minute {minute_data['minute_offset']}")
+                    logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Saved minute {minute_data['minute_offset']}{RESET}")
                 
                 work_queue.task_done()
                 
@@ -671,10 +680,13 @@ class InotifyTranscriptMonitor:
     
     def _refill_from_history(self, device_folder):
         """Refill active queue from history - always prioritize 3 newest"""
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
         history = self.history_queues[device_folder]
         
         if not history:
-            logger.info(f"[{device_folder}] All caught up")
+            logger.info(f"{GREEN}[WHISPER:{device_folder}] All caught up{RESET}")
             return
         
         # Always sort to get 3 newest from history (in case old items were pushed back)
@@ -691,12 +703,15 @@ class InotifyTranscriptMonitor:
                 self.history_queues[device_folder].insert(0, item)
                 break
         
-        logger.info(f"[{device_folder}] Refilled with 3 newest ({len(self.history_queues[device_folder])} remaining)")
+        logger.info(f"{GREEN}[WHISPER:{device_folder}] Refilled with 3 newest ({len(self.history_queues[device_folder])} remaining){RESET}")
     
     def _log_queue_status(self):
         """Log queue status for all devices"""
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
         logger.info("=" * 80)
-        logger.info("📊 QUEUE STATUS")
+        logger.info(f"{GREEN}📊 WHISPER QUEUE STATUS{RESET}")
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
             work_queue = self.active_queues[device_folder]
@@ -725,14 +740,17 @@ class InotifyTranscriptMonitor:
             history_count = len(history)
             
             if active_items or history_count > 0:
-                logger.info(f"  [{device_folder}] Active: [{active_str}] | History: {history_count}")
+                logger.info(f"{GREEN}  [WHISPER:{device_folder}] Active: [{active_str}] | History: {history_count}{RESET}")
             else:
-                logger.info(f"  [{device_folder}] ✓ All caught up")
+                logger.info(f"{GREEN}  [WHISPER:{device_folder}] ✓ All caught up{RESET}")
         
         logger.info("=" * 80)
     
     def _process_mp4_backlog_batch(self, device_folder):
         """Process MP4 backlog batch"""
+        CYAN = '\033[96m'
+        RESET = '\033[0m'
+        
         backlog = self.mp4_backlog.get(device_folder, [])
         if not backlog:
             return 0
@@ -750,15 +768,18 @@ class InotifyTranscriptMonitor:
                 break
         
         if added > 0:
-            logger.info(f"[{device_folder}] Refilled {added} MP4s ({len(self.mp4_backlog[device_folder])} remaining)")
+            logger.info(f"{CYAN}[MP4:{device_folder}] Refilled {added} MP4s ({len(self.mp4_backlog[device_folder])} remaining){RESET}")
         
         return added
     
     def _mp4_worker(self, device_folder):
         """Worker thread for MP4 → MP3 audio extraction (fast, ~3s per chunk)"""
+        CYAN = '\033[96m'
+        RESET = '\033[0m'
+        
         work_queue = self.mp4_queues[device_folder]
         
-        logger.info(f"[{device_folder}] MP4 worker ready (audio extraction pipeline)")
+        logger.info(f"{CYAN}[MP4:{device_folder}] Worker ready (audio extraction pipeline){RESET}")
         
         while True:
             try:
@@ -777,7 +798,7 @@ class InotifyTranscriptMonitor:
                 # Log queue size occasionally
                 queue_size = work_queue.qsize()
                 if queue_size > 10:
-                    logger.warning(f"[{device_folder}] MP4 queue backlog: {queue_size} chunks")
+                    logger.warning(f"{CYAN}[MP4:{device_folder}] Queue backlog: {queue_size} chunks{RESET}")
                 
                 # Parse hour and chunk_index from path and filename
                 hour = int(os.path.basename(path))
@@ -791,21 +812,19 @@ class InotifyTranscriptMonitor:
                 mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
                 
                 if os.path.exists(mp3_path):
-                    logger.debug(f"[{device_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp4 (MP3 exists)")
+                    logger.debug(f"{CYAN}[MP4:{device_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp4 (MP3 exists){RESET}")
                     continue
                 
                 # Extract audio
-                logger.info("=" * 80)
+                logger.info(f"{CYAN}[MP4:{device_folder}] Extracting: {hour}/chunk_10min_{chunk_index}.mp4{RESET}")
                 result = extract_audio_from_mp4(mp4_path, mp3_path, device_folder, hour, chunk_index)
                 if result is True:
-                    logger.info(f"[{device_folder}] ✅ Audio extraction complete for hour {hour}, chunk {chunk_index}")
+                    logger.info(f"{CYAN}[MP4:{device_folder}] ✅ Complete for hour {hour}, chunk {chunk_index}{RESET}")
                 elif result is False:
-                    logger.warning(f"[{device_folder}] ⚠️ Audio extraction failed for {hour}/chunk_10min_{chunk_index}.mp4")
-                # elif result is None: already logged "Skipped" in extract_audio_from_mp4
-                logger.info("=" * 80)
+                    logger.warning(f"{CYAN}[MP4:{device_folder}] ⚠️ Failed for {hour}/chunk_10min_{chunk_index}.mp4{RESET}")
                 
             except Exception as e:
-                logger.error(f"[{device_folder}] MP4 worker error: {e}")
+                logger.error(f"{CYAN}[MP4:{device_folder}] Error: {e}{RESET}")
             finally:
                 work_queue.task_done()
     

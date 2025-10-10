@@ -4,9 +4,8 @@
 
 [Unit]
 Description=VirtualPyTest Capture Monitor Service
-After=network.target stream.service
+After=network.target
 Wants=network.target
-PartOf=stream.service
 
 [Service]
 Type=simple

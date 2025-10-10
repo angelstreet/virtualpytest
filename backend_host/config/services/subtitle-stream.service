@@ -1,7 +1,6 @@
 [Unit]
-PartOf=stream.service
 Description=Subtitle Accumulator (24h circular subtitle transcription)
-After=network.target stream.service
+After=network.target
 
 [Service]
 Type=simple
