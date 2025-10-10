@@ -750,7 +750,12 @@ class ActionExecutor:
             capture_folder = get_capture_folder(capture_dir)
             metadata_path = get_metadata_path(capture_folder)
             
+            print(f"[@action_executor:_write_action_to_frame_json] 🔍 Looking for frame JSON to write action '{action.get('command')}'")
+            print(f"[@action_executor:_write_action_to_frame_json]    • Metadata path: {metadata_path}")
+            print(f"[@action_executor:_write_action_to_frame_json]    • Action timestamp: {action_completion_timestamp}")
+            
             if not os.path.exists(metadata_path):
+                print(f"[@action_executor:_write_action_to_frame_json] ❌ Metadata path does not exist: {metadata_path}")
                 return  # No metadata directory yet
             
             # Get last 5 JSON files by mtime (fastest approach - uses cached stat)
@@ -761,11 +766,14 @@ class ActionExecutor:
                         json_files.append((entry.path, entry.stat().st_mtime))
             
             if not json_files:
+                print(f"[@action_executor:_write_action_to_frame_json] ❌ No JSON files found in {metadata_path}")
                 return  # No JSON files yet
             
             # Sort by mtime (newest first) and take top 5
             json_files.sort(key=lambda x: x[1], reverse=True)
             last_5_files = [path for path, _ in json_files[:5]]
+            
+            print(f"[@action_executor:_write_action_to_frame_json]    • Found {len(last_5_files)} recent JSON files, searching for best match...")
             
             # Find JSON with timestamp closest to action_completion_timestamp
             best_match_file = None
@@ -784,11 +792,14 @@ class ActionExecutor:
                     frame_timestamp = datetime.fromisoformat(frame_timestamp_str.replace('Z', '+00:00')).timestamp()
                     delta = abs(frame_timestamp - action_completion_timestamp)
                     
+                    print(f"[@action_executor:_write_action_to_frame_json]      - {os.path.basename(json_file)}: delta={int(delta*1000)}ms")
+                    
                     if delta < min_delta:
                         min_delta = delta
                         best_match_file = json_file
                 except Exception as e:
                     # Skip files that can't be read or parsed
+                    print(f"[@action_executor:_write_action_to_frame_json]      - {os.path.basename(json_file)}: ERROR - {e}")
                     continue
             
             # Update matching JSON if within 500ms tolerance
@@ -818,7 +829,12 @@ class ActionExecutor:
                                 json.dump(data, f, indent=2)
                             os.rename(best_match_file + '.tmp', best_match_file)
                             
-                            print(f"[@action_executor:_write_action_to_frame_json] ✓ Updated {os.path.basename(best_match_file)} with action '{action.get('command')}' (delta={int(min_delta*1000)}ms)")
+                            print(f"[@action_executor:_write_action_to_frame_json] ✅ SUCCESS! Written action to frame JSON:")
+                            print(f"[@action_executor:_write_action_to_frame_json]    • Full path: {best_match_file}")
+                            print(f"[@action_executor:_write_action_to_frame_json]    • Action command: {action.get('command')}")
+                            print(f"[@action_executor:_write_action_to_frame_json]    • Action timestamp: {action_completion_timestamp}")
+                            print(f"[@action_executor:_write_action_to_frame_json]    • Time delta: {int(min_delta*1000)}ms")
+                            print(f"[@action_executor:_write_action_to_frame_json]    • Action params: {action.get('params', {})}")
                         finally:
                             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                     
@@ -829,9 +845,14 @@ class ActionExecutor:
                         pass
                         
                 except Exception as e:
-                    print(f"[@action_executor:_write_action_to_frame_json] Failed to update frame JSON: {e}")
+                    print(f"[@action_executor:_write_action_to_frame_json] ❌ Failed to update frame JSON: {e}")
+                    print(f"[@action_executor:_write_action_to_frame_json]    • File: {best_match_file}")
             elif best_match_file:
-                print(f"[@action_executor:_write_action_to_frame_json] ⚠️ No matching frame found within 500ms (best match delta={int(min_delta*1000)}ms)")
+                print(f"[@action_executor:_write_action_to_frame_json] ⚠️ No matching frame found within 500ms tolerance")
+                print(f"[@action_executor:_write_action_to_frame_json]    • Best match: {best_match_file}")
+                print(f"[@action_executor:_write_action_to_frame_json]    • Best delta: {int(min_delta*1000)}ms")
+            else:
+                print(f"[@action_executor:_write_action_to_frame_json] ⚠️ No matching frame found at all")
         
         except Exception as e:
             # Non-blocking - log error but don't fail action execution
