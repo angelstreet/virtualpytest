@@ -185,32 +185,39 @@ export const useArchivePlayer = ({
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
     
-    // "Now" mark always at the far right
-    const nowPosition = 86400;
-    marks.push({
-      value: nowPosition,
-      label: 'Now',
-      style: {
-        fontWeight: 700,
-        color: 'rgba(255, 255, 255, 1)',
-      }
-    });
-    
-    // Generate marks every 2 hours for cleaner display (instead of every hour)
-    // Skip marks that are too close to "Now" to prevent overlap
-    for (let hoursAgo = 2; hoursAgo <= 24; hoursAgo += 2) {
+    // Generate marks for the last 24 hours in INVERTED order (now at right)
+    // Timeline goes from 24h ago (left, 0 seconds) to now (right, 86400 seconds)
+    for (let hoursAgo = 0; hoursAgo <= 24; hoursAgo++) {
+      // Skip 24h ago mark (redundant)
+      if (hoursAgo === 24) continue;
+      
+      // Calculate the actual hour for this position
       const actualHour = (currentHour - hoursAgo + 24) % 24;
+      
+      // Position in seconds: hoursAgo=0 (now) = 86400s, hoursAgo=24 = 0s
       const timeValue = (24 - hoursAgo) * 3600;
       
       // Check if this hour is available
       const isAvailable = availableHours.includes(actualHour);
       
-      // Show hour label
-      const hourLabel = `${actualHour}h`;
+      // Generate label
+      let label = '';
+      if (hoursAgo === 0) {
+        label = 'Now';
+      } else {
+        // Show hour label
+        const hourLabel = `${actualHour}h`;
+        if (hoursAgo > currentHour) {
+          // This is yesterday
+          label = `${hourLabel}`;
+        } else {
+          label = hourLabel;
+        }
+      }
       
       marks.push({
         value: timeValue,
-        label: hourLabel,
+        label: label,
         style: isAvailable ? {} : {
           color: 'rgba(255, 255, 255, 0.3)',
           opacity: 0.5
@@ -218,25 +225,29 @@ export const useArchivePlayer = ({
       });
     }
     
-    // Add current hour start mark if we're more than 15 minutes into the hour
-    // This helps show "where we are" in the current hour
-    if (currentMinute >= 15) {
+    // Add current hour start mark ONLY if we're past the hour AND it's not already in the marks
+    // This ensures "16h" shows before "Now" when it's 16:30, but avoids duplicates
+    if (currentMinute > 0 || currentSecond > 0) {
       const currentHourStartPosition = 86400 - (currentMinute * 60 + currentSecond);
-      
-      // Only add if not too close to "Now" (at least 30 minutes away)
+      const nowPosition = 86400;
       const distanceToNow = nowPosition - currentHourStartPosition;
-      if (distanceToNow >= 1800) { // 30 minutes
-        const isAvailable = availableHours.includes(currentHour);
-        marks.push({
-          value: currentHourStartPosition,
-          label: `${currentHour}h`,
-          style: isAvailable ? {
-            fontWeight: 600,
-          } : {
-            color: 'rgba(255, 255, 255, 0.3)',
-            opacity: 0.5
-          }
-        });
+      
+      // Only show if at least 30 minutes away from "Now" to prevent overlap
+      if (distanceToNow >= 1800) { // 1800 seconds = 30 minutes
+        // Check if this position already has a mark (avoid duplicates)
+        const hasExistingMark = marks.some(mark => Math.abs(mark.value - currentHourStartPosition) < 60);
+        
+        if (!hasExistingMark) {
+          const isAvailable = availableHours.includes(currentHour);
+          marks.push({
+            value: currentHourStartPosition,
+            label: `${currentHour}h`,
+            style: isAvailable ? {} : {
+              color: 'rgba(255, 255, 255, 0.3)',
+              opacity: 0.5
+            }
+          });
+        }
       }
     }
     
