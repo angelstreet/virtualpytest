@@ -171,9 +171,6 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Initialize transition results list before the loop
-    context.transition_results = []
-
     # Execute each transition using navigate_to() (same as goto.py)
     successful = 0
     for i, step in enumerate(validation_sequence):
@@ -194,28 +191,22 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             context=context
         )
         
-        # Group the transition and its result
-        transition_result = {
-            'transition': step,
-            'execution_result': result,
-            'step_number': i+1,
-            'success': result.get('success', False)
-        }
-        context.transition_results.append(transition_result)
+        # Note: Step recording is handled automatically by NavigationExecutor.execute_navigation()
+        # No need to manually record steps here - it would create duplicates in the report
         
-        if transition_result['success']:
+        if result.get('success', False):
             successful += 1
-            print(f"✅ [validation] Transition {i+1} successful")
+            print(f"✅ [validation] Step {i+1} successful")
         else:
-            print(f"❌ [validation] Transition {i+1} failed: {result.get('error', 'Unknown error')}")
+            print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
     
-    # Use transition_results for overall success
+    # Calculate success and store stats for summary generation
     context.overall_success = successful == len(validation_sequence)
     context.validation_successful_steps = successful
     context.validation_total_steps = len(validation_sequence)
     coverage = (successful / len(validation_sequence) * 100) if validation_sequence else 0
     
-    print(f"🎉 [validation] Results: {successful}/{len(validation_sequence)} transitions successful ({coverage:.1f}%)")
+    print(f"🎉 [validation] Results: {successful}/{len(validation_sequence)} successful ({coverage:.1f}%)")
     return context.overall_success
 
 
