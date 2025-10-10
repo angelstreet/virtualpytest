@@ -105,6 +105,13 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       allChunks[key] = true;
     });
 
+    // Mark current building chunk as available (progressive build)
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentChunkIndex = Math.floor(now.getMinutes() / 10);
+    const currentKey = `${currentHour}-${currentChunkIndex}`;
+    allChunks[currentKey] = true;
+
     const colorStops: { percent: number; color: string }[] = [];
 
     for (let i = 0; i < 144; i++) {
@@ -133,7 +140,14 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
     const hour = Math.floor(timeSeconds / 3600);
     const chunk = Math.floor((timeSeconds % 3600) / 600);
     const key = `${hour}-${chunk}`;
-    return archiveMetadata.manifests.some(
+    
+    // Check if it's the current building chunk
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentChunkIndex = Math.floor(now.getMinutes() / 10);
+    const isCurrentChunk = hour === currentHour && chunk === currentChunkIndex;
+    
+    return isCurrentChunk || archiveMetadata.manifests.some(
       manifest => `${manifest.window_index}-${manifest.chunk_index}` === key
     );
   };
@@ -274,11 +288,26 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const roundedNow = getRoundedNow();
                 const seekTime = positionToClockTime(positionValue, roundedNow);
 
+                // Check if seeking to current building chunk (last 10min window)
+                const now = new Date();
+                const currentHour = now.getHours();
+                const currentMinute = now.getMinutes();
+                const currentChunkIndex = Math.floor(currentMinute / 10);
+                const currentChunkStartTime = currentHour * 3600 + currentChunkIndex * 600;
+                const isCurrentChunk = seekTime >= currentChunkStartTime && seekTime < currentChunkStartTime + 600;
+
+                // Allow seeking to current building chunk (even if incomplete)
+                if (isCurrentChunk) {
+                  onSeek(event, seekTime);
+                  return;
+                }
+
                 if (isTimeAvailable(seekTime)) {
                   onSeek(event, seekTime);
                   return;
                 }
 
+                // Find nearest available chunk (but prefer recent chunks over yesterday)
                 let nearestTime = null;
                 let minDiff = Infinity;
 
@@ -286,8 +315,14 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   archiveMetadata.manifests.forEach(manifest => {
                     const chunkStartTime = manifest.window_index * 3600 + manifest.chunk_index * 600;
                     const diff = Math.abs(chunkStartTime - seekTime);
-                    if (diff < minDiff) {
-                      minDiff = diff;
+                    
+                    // Prefer chunks within 1 hour over wrapping to yesterday
+                    const timeDiff = seekTime - chunkStartTime;
+                    const isRecent = timeDiff >= -3600 && timeDiff <= 3600;
+                    const adjustedDiff = isRecent ? diff : diff + 86400;
+                    
+                    if (adjustedDiff < minDiff) {
+                      minDiff = adjustedDiff;
                       nearestTime = chunkStartTime;
                     }
                   });
