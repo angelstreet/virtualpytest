@@ -108,36 +108,64 @@ export const useArchivePlayer = ({
           return;
         }
         
-        // Find chunk closest to current time (not just last in array)
+        // Find chunk closest to current time, prioritizing current building chunk
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
         const currentTimeSeconds = currentHour * 3600 + currentMinute * 60;
+        const currentChunkIndex = Math.floor(currentMinute / 10);
         
-        let closestIndex = 0;
-        let minDistance = Infinity;
-        
+        // First, try to find the current building chunk (highest priority)
+        let closestIndex = -1;
         metadata.manifests.forEach((chunk, index) => {
-          const chunkTimeSeconds = chunk.window_index * 3600 + chunk.chunk_index * 600;
-          
-          // Calculate circular distance (handles day wrap: 23h -> 0h)
-          let distance = currentTimeSeconds - chunkTimeSeconds;
-          if (distance < 0) distance += 86400; // Wrap yesterday to today
-          if (distance > 43200) distance = 86400 - distance; // Prefer closer of two directions
-          
-          if (distance < minDistance) {
-            minDistance = distance;
+          if (chunk.window_index === currentHour && chunk.chunk_index === currentChunkIndex) {
             closestIndex = index;
           }
         });
         
+        // If current building chunk not found, find the most recent chunk before now
+        if (closestIndex === -1) {
+          let bestIndex = 0;
+          let minDistanceBack = Infinity;
+          
+          metadata.manifests.forEach((chunk, index) => {
+            const chunkStartTime = chunk.window_index * 3600 + chunk.chunk_index * 600;
+            
+            // Only consider chunks that started in the past (before or at current time)
+            // This prevents jumping to future chunks from yesterday
+            if (chunkStartTime <= currentTimeSeconds) {
+              const distanceBack = currentTimeSeconds - chunkStartTime;
+              if (distanceBack < minDistanceBack) {
+                minDistanceBack = distanceBack;
+                bestIndex = index;
+              }
+            }
+          });
+          
+          // If no chunks found before current time (all are from "future" yesterday),
+          // find the absolute closest chunk as fallback
+          if (minDistanceBack === Infinity) {
+            let minDistance = Infinity;
+            metadata.manifests.forEach((chunk, index) => {
+              const chunkStartTime = chunk.window_index * 3600 + chunk.chunk_index * 600;
+              const distance = Math.abs(currentTimeSeconds - chunkStartTime);
+              if (distance < minDistance) {
+                minDistance = distance;
+                bestIndex = index;
+              }
+            });
+          }
+          
+          closestIndex = bestIndex;
+        }
+        
         const newestChunk = metadata.manifests[closestIndex];
-        const currentChunkIndex = Math.floor(currentMinute / 10);
         const isCurrentBuildingChunk = newestChunk.window_index === currentHour && newestChunk.chunk_index === currentChunkIndex;
+        const chunkDistance = Math.abs(currentTimeSeconds - (newestChunk.window_index * 3600 + newestChunk.chunk_index * 600));
         
         console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks`);
         console.log(`[@EnhancedHLSPlayer] Current time: ${currentHour}h${currentMinute}m`);
-        console.log(`[@EnhancedHLSPlayer] Starting from CLOSEST chunk to now: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index} (${minDistance}s away)${isCurrentBuildingChunk ? ' (building)' : ''}`);
+        console.log(`[@EnhancedHLSPlayer] Starting from ${isCurrentBuildingChunk ? 'CURRENT BUILDING' : 'closest'} chunk: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index} (${chunkDistance}s away)${isCurrentBuildingChunk ? ' ⚡' : ''}`);
         
         setArchiveMetadata(metadata);
         setCurrentManifestIndex(closestIndex);
