@@ -639,7 +639,7 @@ class NavigationExecutor:
             
             if kpi_step and kpi_action_timestamp:
                 print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
-                self._queue_kpi_measurement_if_configured(
+                self._queue_kpi_measurement(
                     step=kpi_step,
                     action_timestamp=kpi_action_timestamp,
                     verification_timestamp=verification_timestamp,
