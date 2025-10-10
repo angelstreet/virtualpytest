@@ -306,7 +306,9 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
             if ENABLE_SPELLCHECK:
                 minute_transcript = correct_spelling(minute_transcript, result.get('language_code'))
             
-            logger.info(f"[{capture_folder}] 📝 Minute {minute_offset}: {len(minute_segments)} segments, {len(minute_transcript)} chars - \"{minute_transcript[:50]}...\"")
+            GREEN = '\033[92m'
+            RESET = '\033[0m'
+            logger.info(f"{GREEN}[{capture_folder}] 📝 Minute {minute_offset}: {len(minute_segments)} segments, {len(minute_transcript)} chars - \"{minute_transcript[:50]}...\"{RESET}")
             
             minute_results.append({
                 'minute_offset': minute_offset,
@@ -389,12 +391,14 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 json.dump(chunk_data, f, indent=2)
             os.rename(chunk_path + '.tmp', chunk_path)
             
-            # Log summary of merged data with sample
-            logger.info(f"[{capture_folder}] 💾 Merged chunk {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars")
-            logger.info(f"[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, mp3_file={chunk_data.get('mp3_file')}")
+            # Log summary of merged data with sample (green for success)
+            GREEN = '\033[92m'
+            RESET = '\033[0m'
+            logger.info(f"{GREEN}[{capture_folder}] 💾 Merged chunk {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
+            logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, mp3_file={chunk_data.get('mp3_file')}{RESET}")
             if chunk_data['segments']:
                 sample_seg = chunk_data['segments'][0]
-                logger.info(f"[{capture_folder}] 📋 Sample segment: start={sample_seg.get('start', 0):.2f}s, text=\"{sample_seg.get('text', '')[:80]}...\"")
+                logger.info(f"{GREEN}[{capture_folder}] 📋 Sample segment: start={sample_seg.get('start', 0):.2f}s, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
@@ -649,8 +653,10 @@ class InotifyTranscriptMonitor:
         
         try:
             from backend_host.scripts.incident_manager import IncidentManager
-            self.incident_manager = IncidentManager()
-            logger.info("✓ IncidentManager initialized")
+            # Don't resolve stale incidents - that's capture_monitor's job
+            # We only report audio detection results, not manage incident lifecycle
+            self.incident_manager = IncidentManager(skip_startup_cleanup=True)
+            logger.info("✓ IncidentManager initialized (audio reporting only)")
         except Exception as e:
             logger.warning(f"⚠️  Failed to initialize IncidentManager: {e} (audio detection will continue without incident tracking)")
             self.incident_manager = None
@@ -685,7 +691,9 @@ class InotifyTranscriptMonitor:
                 manifest_path = f"/var/www/html/stream/{device_folder}/segments/manifest.m3u8"
                 
                 if not os.path.exists(manifest_path):
-                    logger.debug(f"{BLUE}[AUDIO:{device_folder}] Manifest not found: {manifest_path}{RESET}")
+                    # Log every 12 checks (1 minute) when manifest missing
+                    if check_count % 12 == 0:
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Waiting for manifest (check #{check_count}): {manifest_path}{RESET}")
                     time.sleep(5)
                     continue
                 
@@ -693,7 +701,9 @@ class InotifyTranscriptMonitor:
                     lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
                 
                 if not lines:
-                    logger.debug(f"{BLUE}[AUDIO:{device_folder}] Manifest is empty{RESET}")
+                    # Log every 12 checks (1 minute) when manifest empty
+                    if check_count % 12 == 0:
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Manifest empty (check #{check_count}){RESET}")
                     time.sleep(5)
                     continue
                 
@@ -704,7 +714,9 @@ class InotifyTranscriptMonitor:
                 segment_path = f"/var/www/html/stream/{device_folder}/segments/{hour}/{segment_file}"
                 
                 if not os.path.exists(segment_path):
-                    logger.debug(f"{BLUE}[AUDIO:{device_folder}] Segment not found: {segment_path}{RESET}")
+                    # Log every 12 checks (1 minute) when segment missing
+                    if check_count % 12 == 0:
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment not found (check #{check_count}): {segment_file}{RESET}")
                     time.sleep(5)
                     continue
                 
@@ -740,6 +752,46 @@ class InotifyTranscriptMonitor:
                     'timestamp': datetime.now().isoformat()
                 }
                 
+                # Save audio detection to metadata JSON (same pattern as capture_monitor)
+                try:
+                    metadata_path = get_metadata_path(device_folder)
+                    os.makedirs(metadata_path, mode=0o777, exist_ok=True)
+                    
+                    # Use segment filename for JSON (e.g., segment_1min_59_1728561234.mp4 → .json)
+                    json_filename = segment_file.replace('.mp4', '.json')
+                    json_file = os.path.join(metadata_path, json_filename)
+                    
+                    # Only update if file exists (created by capture_monitor), don't create new files
+                    if os.path.exists(json_file):
+                        # Read existing metadata
+                        import fcntl
+                        with open(json_file, 'r') as f:
+                            existing_data = json.load(f)
+                        
+                        # Update with audio detection results
+                        existing_data['audio'] = has_audio
+                        existing_data['mean_volume_db'] = mean_volume
+                        existing_data['audio_check_timestamp'] = detection_result['timestamp']
+                        
+                        # Write back atomically with lock
+                        lock_path = json_file + '.lock'
+                        with open(lock_path, 'w') as lock_file:
+                            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                            try:
+                                with open(json_file + '.tmp', 'w') as f:
+                                    json.dump(existing_data, f, indent=2)
+                                os.rename(json_file + '.tmp', json_file)
+                            finally:
+                                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                        
+                        try:
+                            os.remove(lock_path)
+                        except:
+                            pass
+                except Exception as e:
+                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] Failed to update JSON: {e}{RESET}")
+                
+                # Report to incident manager for tracking only (no lifecycle management)
                 if self.incident_manager:
                     host_name = os.getenv('USER', 'unknown')
                     self.incident_manager.process_detection(device_folder, detection_result, host_name)
@@ -994,7 +1046,7 @@ class InotifyTranscriptMonitor:
                     merge_start = time.time()
                     merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
                     merge_time = time.time() - merge_start
-                    logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Merged minute {minute_data['minute_offset']}/10 in {merge_time:.3f}s{RESET}")
+                    logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Saved minute {minute_data['minute_offset']}/10 in {merge_time:.3f}s{RESET}")
                 
                 work_queue.task_done()
                 
@@ -1273,8 +1325,9 @@ def main():
         force=True
     )
     
-    # Enable faster-whisper internal logging for detailed processing info
-    logging.getLogger('faster_whisper').setLevel(logging.INFO)
+    # Disable noisy faster-whisper internal logs (they don't show capture folder)
+    # Our own logs are more informative and show device context
+    logging.getLogger('faster_whisper').setLevel(logging.WARNING)
     
     logger.info("=" * 80)
     logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")

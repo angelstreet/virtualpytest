@@ -10,8 +10,12 @@ The core logic is the same as /server/action/executeBatch but available as a reu
 """
 
 import time
+import logging
 from typing import Dict, List, Optional, Any
 from shared.src.lib.supabase.execution_results_db import record_edge_execution
+
+# Get capture monitor logger for frame JSON operations
+logger = logging.getLogger('capture_monitor')
 
 
 class ActionExecutor:
@@ -828,6 +832,18 @@ class ActionExecutor:
                             with open(best_match_file + '.tmp', 'w') as f:
                                 json.dump(data, f, indent=2)
                             os.rename(best_match_file + '.tmp', best_match_file)
+                            
+                            # Log to capture_monitor with prominent visual separators
+                            capture_logger = logging.getLogger('capture_monitor')
+                            capture_logger.info("=" * 80)
+                            capture_logger.info("🎬 ACTION TIMESTAMP WRITTEN TO FRAME JSON")
+                            capture_logger.info("-" * 80)
+                            capture_logger.info(f"📁 File: {os.path.basename(best_match_file)}")
+                            capture_logger.info(f"⚡ Action: {action.get('command')}")
+                            capture_logger.info(f"⏱️  Timestamp: {action_completion_timestamp}")
+                            capture_logger.info(f"🎯 Delta: {int(min_delta*1000)}ms")
+                            capture_logger.info(f"📋 Params: {action.get('params', {})}")
+                            capture_logger.info("=" * 80)
                             
                             print(f"[@action_executor:_write_action_to_frame_json] ✅ SUCCESS! Written action to frame JSON:")
                             print(f"[@action_executor:_write_action_to_frame_json]    • Full path: {best_match_file}")
