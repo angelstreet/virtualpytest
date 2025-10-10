@@ -278,7 +278,9 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         segments = result.get('segments', [])
         language = result.get('language', 'unknown')
         
-        logger.info(f"[{capture_folder}] ✅ Transcribed in {elapsed:.1f}s | Lang: {language} | {len(segments)} segments | CPU: {cpu_final:.1f}%")
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ Transcribed in {elapsed:.1f}s | Lang: {language} | {len(segments)} segments | CPU: {cpu_final:.1f}%{RESET}")
         
         minute_groups = {}
         for i in range(10):
@@ -382,13 +384,6 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             with open(chunk_path + '.tmp', 'w') as f:
                 json.dump(chunk_data, f, indent=2)
             os.rename(chunk_path + '.tmp', chunk_path)
-            
-            GREEN = '\033[92m'
-            RESET = '\033[0m'
-            transcript_text = minute_data.get('transcript', '')
-            text_preview = transcript_text[:60] if transcript_text else '(no text)'
-            logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ Merged minute {minute_offset}/10 ({len(new_segments)} new, total={len(chunk_data['segments'])}){RESET}")
-            logger.info(f"{GREEN}[WHISPER:{capture_folder}] 📝 '{text_preview}'{RESET}")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
@@ -534,6 +529,8 @@ class InotifyTranscriptMonitor:
             
             tmp_audio = None
             try:
+                start_time = time.time()
+                
                 tmp_audio = f'/tmp/segment_{device_folder}_{os.getpid()}.mp3'
                 cmd = [
                     'ffmpeg', '-i', segment_path, '-vn',
@@ -565,7 +562,9 @@ class InotifyTranscriptMonitor:
                         'segments': segments
                     }
                     merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
-                    logger.info(f"{YELLOW}[SEGMENT:{device_folder}] ✅ {hour}h{minute_offset:02d}min transcribed{RESET}")
+                    
+                    elapsed = time.time() - start_time
+                    logger.info(f"{YELLOW}[SEGMENT:{device_folder}] ✅ {hour}h{minute_offset:02d}min in {elapsed:.1f}s ({len(segments)} segments){RESET}")
                 
                 work_queue.task_done()
             except Exception as e:
@@ -771,7 +770,10 @@ class InotifyTranscriptMonitor:
                 minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
                 
                 for minute_data in minute_results:
+                    merge_start = time.time()
                     merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
+                    merge_time = time.time() - merge_start
+                    logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Merged minute {minute_data['minute_offset']}/10 in {merge_time:.3f}s{RESET}")
                 
                 work_queue.task_done()
                 

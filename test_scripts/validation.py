@@ -171,6 +171,10 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
+    # Clear any existing steps before validation (NavigationExecutor creates low-level steps)
+    # We want to track high-level validation steps instead
+    context.step_results = []
+    
     # Execute each transition using navigate_to() (same as goto.py)
     successful = 0
     for i, step in enumerate(validation_sequence):
@@ -191,8 +195,27 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             context=context
         )
         
-        # Note: Step recording is handled automatically by NavigationExecutor.execute_navigation()
-        # No need to manually record steps here - it would create duplicates in the report
+        # Calculate step duration
+        step_duration_ms = int((time.time() - step_start_time) * 1000)
+        
+        # Record validation step with proper success/failure status
+        validation_step = {
+            'step_number': i + 1,
+            'success': result.get('success', False),
+            'from_node': from_node,
+            'to_node': target,
+            'start_time': time.strftime('%H:%M:%S', time.localtime(step_start_time)),
+            'end_time': time.strftime('%H:%M:%S', time.localtime(time.time())),
+            'duration': f"{step_duration_ms/1000:.1f}s",
+            'execution_time_ms': step_duration_ms,
+            'error_message': result.get('error', '') if not result.get('success', False) else '',
+            'actions': [],  # Navigation executor handles actions internally
+            'verifications': [],  # Will be shown in error message if failed
+            'screenshots': []  # Screenshots are captured by navigation executor
+        }
+        
+        # Add to context
+        context.step_results.append(validation_step)
         
         if result.get('success', False):
             successful += 1

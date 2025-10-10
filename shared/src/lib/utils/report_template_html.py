@@ -111,6 +111,7 @@ def create_themed_html_template() -> str:
                         <h3>Execution Summary</h3>
                         <div class="execution-summary-content">
                             {{execution_summary}}
+                            {{logs_link}}
                         </div>
                     </div>
                 </div>

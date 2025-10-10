@@ -85,6 +85,19 @@ def generate_validation_report(report_data: Dict) -> str:
             </div>
             """
         
+        # Generate logs link if available
+        logs_url = report_data.get('logs_url', '')
+        logs_link_html = ''
+        if logs_url:
+            logs_link_html = f'''
+            <div style="margin-top: 15px; padding: 10px; background-color: var(--background-secondary); border-radius: 4px; border-left: 3px solid var(--info-color);">
+                <strong>📝 Execution Logs:</strong> 
+                <a href="{logs_url}" target="_blank" style="color: var(--link-color); text-decoration: none; font-weight: bold;">
+                    View Full Logs →
+                </a>
+            </div>
+            '''
+        
         # Replace placeholders with actual content
         html_content = html_template.format(
             script_name=script_name,
@@ -106,7 +119,8 @@ def generate_validation_report(report_data: Dict) -> str:
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
             final_screenshot=get_thumbnail_screenshot_html(screenshots.get('final')),
             test_video=get_video_thumbnail_html(test_video_url, 'Test Execution'),
-            zap_summary_section=zap_summary_section
+            zap_summary_section=zap_summary_section,
+            logs_link=logs_link_html
         )
         
         print(f"[@utils:report_utils:generate_validation_report] Report generated successfully")
@@ -328,7 +342,8 @@ def generate_and_upload_script_report(
             'test_video_url': uploaded_test_video_url,
             'script_result_id': script_result_id,
             'custom_data': custom_data or {},  # Pass zap data from memory
-            'zap_detailed_summary': zap_detailed_summary
+            'zap_detailed_summary': zap_detailed_summary,
+            'logs_url': logs_url  # Add logs URL for clickable link in report
         }
         
         html_content = generate_validation_report(report_data)
