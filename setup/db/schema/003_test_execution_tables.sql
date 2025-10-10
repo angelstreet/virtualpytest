@@ -188,6 +188,8 @@ COMMENT ON TABLE test_results IS 'Test execution results and outcomes';
 COMMENT ON TABLE execution_results IS 'Detailed execution results matching automai schema';
 COMMENT ON TABLE script_results IS 'Script execution results matching automai schema';
 COMMENT ON TABLE zap_results IS 'Individual zap iteration results with detailed analysis data';
+COMMENT ON COLUMN zap_results.script_result_id IS 'References script execution. NULL for automatic zapping detection during monitoring';
+COMMENT ON COLUMN zap_results.detection_method IS 'Detection method: automatic (system action) or manual (user IR remote)';
 COMMENT ON COLUMN execution_results.kpi_measurement_ms IS 'KPI: Measured time from action to visual confirmation';
 COMMENT ON COLUMN execution_results.kpi_measurement_success IS 'KPI: Whether measurement succeeded';
 COMMENT ON COLUMN execution_results.kpi_measurement_error IS 'KPI: Error message if measurement failed';

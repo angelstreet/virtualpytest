@@ -389,7 +389,7 @@ CREATE TABLE ai_analysis_cache (
 -- Zap results table (NEW TABLE)
 CREATE TABLE zap_results (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    script_result_id uuid REFERENCES script_results(id) ON DELETE CASCADE,
+    script_result_id uuid REFERENCES script_results(id) ON DELETE CASCADE, -- NULL for automatic zapping detection during monitoring
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     host_name text NOT NULL,
     device_name text NOT NULL,
@@ -407,7 +407,7 @@ CREATE TABLE zap_results (
     audio_language text,
     audio_transcript text,
     blackscreen_freeze_duration_seconds numeric,
-    detection_method text,
+    detection_method text, -- 'automatic' or 'manual' for zapping detection
     channel_name text,
     channel_number text,
     program_name text,
@@ -1067,6 +1067,8 @@ COMMENT ON TABLE script_results IS 'Script execution results matching automai sc
 COMMENT ON TABLE campaign_executions IS 'Campaign execution tracking with references to individual script results';
 COMMENT ON TABLE ai_analysis_cache IS 'Caches AI analysis results for the two-step test case generation process.';
 COMMENT ON TABLE zap_results IS 'Individual zap iteration results with detailed analysis data';
+COMMENT ON COLUMN zap_results.script_result_id IS 'References script execution. NULL for automatic zapping detection during monitoring';
+COMMENT ON COLUMN zap_results.detection_method IS 'Detection method: automatic (system action) or manual (user IR remote)';
 
 -- Column comments
 COMMENT ON COLUMN alerts.device_id IS 'device1, device2, device3';
