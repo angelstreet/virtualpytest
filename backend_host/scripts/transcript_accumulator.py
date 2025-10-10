@@ -711,11 +711,15 @@ class InotifyTranscriptMonitor:
         
         logger.info(f"{BLUE}[AUDIO:{device_folder}] Worker thread started - checking every 5s{RESET}")
         
+        # Resolve segments path once (hot/cold aware)
+        from shared.src.lib.utils.storage_path_utils import get_segments_path
+        segments_base = get_segments_path(device_folder)
+        manifest_path = os.path.join(segments_base, "manifest.m3u8")
+        
         check_count = 0
         while True:
             check_count += 1
             try:
-                manifest_path = f"/var/www/html/stream/{device_folder}/segments/manifest.m3u8"
                 
                 if not os.path.exists(manifest_path):
                     # Log every 12 checks (1 minute) when manifest missing
@@ -738,7 +742,8 @@ class InotifyTranscriptMonitor:
                 
                 hour = int(last_segment_name.split('/')[0])
                 segment_file = last_segment_name.split('/')[-1]
-                segment_path = f"/var/www/html/stream/{device_folder}/segments/{hour}/{segment_file}"
+                # Use centralized storage path utility (segments_base already resolved above)
+                segment_path = os.path.join(segments_base, str(hour), segment_file)
                 
                 if not os.path.exists(segment_path):
                     # Log every 12 checks (1 minute) when segment missing

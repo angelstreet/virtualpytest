@@ -300,10 +300,13 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const currentMinute = now.getMinutes();
                 const currentChunkIndex = Math.floor(currentMinute / 10);
                 const currentChunkStartTime = currentHour * 3600 + currentChunkIndex * 600;
-                const isCurrentChunk = seekTime >= currentChunkStartTime && seekTime < currentChunkStartTime + 600;
+                const currentChunkEndTime = currentChunkStartTime + 600;
+                
+                // Expand range to include last 30s of previous chunk (handles boundary seeks)
+                const isCurrentChunk = seekTime >= currentChunkStartTime - 30 && seekTime < currentChunkEndTime;
 
-                console.log('  Current chunk:', currentHour + 'h' + (currentChunkIndex * 10) + 'm', `(${currentChunkStartTime}s)`);
-                console.log('  Is current chunk?', isCurrentChunk);
+                console.log('  Current chunk:', currentHour + 'h' + (currentChunkIndex * 10) + 'm', `(${currentChunkStartTime}-${currentChunkEndTime}s)`);
+                console.log('  Is current chunk?', isCurrentChunk, `(seekTime=${seekTime})`);
 
                 // Allow seeking to current building chunk (even if incomplete)
                 if (isCurrentChunk) {
