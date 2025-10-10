@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-HOT/COLD STORAGE ARCHIVER - Safety Cleanup + Progressive Grouping
-==================================================================
+HOT/COLD STORAGE ARCHIVER - Safety Cleanup + Progressive MP4 Building
+======================================================================
 
 Responsibilities:
 1. SAFETY CLEANUP: Enforce hot storage limits on ALL file types (prevent RAM exhaustion)
-2. Progressive MP4 merging: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
+2. Progressive MP4 building: HOT TS → 1min MP4 → append to growing 10min chunk in COLD
 3. Audio extraction: 10min MP4 → MP3 saved directly to COLD /audio/{hour}/
 
-Note: Metadata archival is handled by capture_monitor.py (incremental append to chunks)
+Progressive append: Each minute appends 1min to the growing chunk (same URL, grows 1→10min)
+Result: Frontend timeline has NO CHANGES - same chunk URL just grows in duration
 
-Safety cleanup runs FIRST and independently to guarantee hot storage never exceeds
-limits even when merging/archiving pipelines fail or get backlogged.
+Note: Metadata archival is handled by capture_monitor.py (incremental append to chunks)
 
 What goes to COLD storage:
 - Segments (as 10min MP4 chunks in /segments/{hour}/)
@@ -945,11 +945,10 @@ def process_capture_directory(capture_dir: str):
        - Captures: Keep 300 newest (deleted, uploaded to R2 when needed)
        - Thumbnails: Keep 100 newest (deleted, local freeze detection only)
        - Metadata: Keep 750 newest (individual JSONs, archived incrementally by capture_monitor)
-    2. Progressive MP4 merging: HOT TS → 1min → 10min MP4 chunks in COLD /segments/{hour}/
+    2. Progressive MP4 building: HOT TS → 1min MP4 → append to growing 10min chunk in COLD
     3. Audio extraction: COLD 10min MP4 → direct to COLD /audio/{hour}/
     
-    Note: Metadata archived by capture_monitor.py (incremental append to chunks)
-    Safety cleanup runs FIRST to guarantee RAM limits regardless of pipeline status.
+    Progressive append: Same chunk URL grows from 1min to 10min (no timeline changes)
     """
     logger.info(f"Processing {capture_dir}")
     
@@ -970,58 +969,31 @@ def process_capture_directory(capture_dir: str):
     # METADATA ARCHIVAL: Handled by capture_monitor.py (incremental append)
     # Chunks are created/updated in real-time as frames arrive - no batch merging needed!
     
-    # SEGMENTS PROGRESSIVE GROUPING (2-step: TS → 1min → 10min)
+    # SEGMENTS PROGRESSIVE BUILDING: TS → 1min MP4 → append to growing 10min chunk
     hot_segments = os.path.join(capture_dir, 'hot', 'segments') if ram_mode else os.path.join(capture_dir, 'segments')
     temp_dir = os.path.join(capture_dir, 'segments', 'temp')
     os.makedirs(temp_dir, exist_ok=True)
     
-    # Step 1: Merge 60 TS segments directly into 1min MP4 (no 6s intermediate)
+    # Step 1: Merge 60 TS → 1min MP4, Step 2: Append to 10min chunk (grows 1→10min)
     mp4_1min = merge_progressive_batch(hot_segments, 'segment_*.ts', os.path.join(temp_dir, f'1min_{int(time.time())}.mp4'), 60, True, 20)
-    if mp4_1min:
-        logger.info("Created 1min MP4")
-    
-    # Check if we have enough 1min files for a 10min chunk
-    one_min_files = sorted(
-        [f for f in Path(temp_dir).glob('1min_*.mp4') if f.is_file()],
-        key=os.path.getmtime
-    )
     
     mp4_10min = None
-    if len(one_min_files) >= 10:
-        # Get timestamp from OLDEST 1min file to determine correct chunk time
-        oldest_file = one_min_files[0]
-        try:
-            oldest_timestamp = int(oldest_file.stem.replace('1min_', ''))
-            oldest_dt = datetime.fromtimestamp(oldest_timestamp)
-            
-            # Calculate hour and chunk_index from actual video time (centralized function)
-            from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
-            hour, chunk_index = calculate_chunk_location(oldest_dt)
-            
-            hour_dir = os.path.join(capture_dir, 'segments', str(hour))
-            os.makedirs(hour_dir, exist_ok=True)
-            mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
-            
-            # Check if chunk exists and if it's old (>12h = previous day's data)
-            should_create = True
-            if os.path.exists(mp4_path):
-                chunk_age = time.time() - os.path.getmtime(mp4_path)
-                if chunk_age < 43200:  # 12 hours - still within same day
-                    logger.debug(f"Chunk already exists and is recent ({chunk_age/3600:.1f}h old): {hour}/chunk_10min_{chunk_index}.mp4 (skipping duplicate)")
-                    should_create = False
-                else:
-                    logger.info(f"Overwriting old chunk ({chunk_age/3600:.1f}h old): {hour}/chunk_10min_{chunk_index}.mp4 (24h rollover)")
-            
-            if should_create:
-                mp4_10min = merge_progressive_batch(temp_dir, '1min_*.mp4', mp4_path, 10, True, 20)
-            else:
-                mp4_10min = None
-        except (ValueError, OSError) as e:
-            logger.error(f"Error calculating chunk time from {oldest_file}: {e}")
-    
-    if mp4_10min:
-        logger.info(f"Created 10min chunk: {hour}/chunk_10min_{chunk_index}.mp4")
+    if mp4_1min:
+        from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+        timestamp = int(Path(mp4_1min).stem.replace('1min_', ''))
+        hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
+        hour_dir = os.path.join(capture_dir, 'segments', str(hour))
+        os.makedirs(hour_dir, exist_ok=True)
+        mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
         
+        if os.path.exists(mp4_path):
+            from shared.src.lib.utils.video_utils import merge_video_files
+            merge_video_files([mp4_path, mp4_1min], mp4_path, 'mp4', False, 10)
+        else:
+            shutil.copy(mp4_1min, mp4_path)
+        
+        mp4_10min = mp4_path
+        logger.info(f"Progressive append: {hour}/chunk_10min_{chunk_index}.mp4")
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
         
         # Extract audio directly to COLD storage (source MP4 already in COLD)
@@ -1052,11 +1024,7 @@ def process_capture_directory(capture_dir: str):
     elapsed = time.time() - start_time
     
     # Build status summary
-    mp4_status = [s for s, result in [("1min", mp4_1min), ("10min", mp4_10min)] if result]
-    mp4_info = f", MP4: {'+'.join(mp4_status)}" if mp4_status else ""
-    
-    # Metadata handled by capture_monitor (incremental append)
-    metadata_info = ""
+    mp4_info = ", MP4: appended" if mp4_10min else ""
     
     # Safety cleanup stats
     safety_deletes = []
@@ -1075,19 +1043,19 @@ def process_capture_directory(capture_dir: str):
     
     cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
     
-    logger.info(f"✓ Completed in {elapsed:.2f}s ({cleanup_info}{metadata_info}{mp4_info})")
+    logger.info(f"✓ Completed in {elapsed:.2f}s ({cleanup_info}{mp4_info})")
 
 
 def main_loop():
     """
-    Main service loop - Safety Cleanup + MP4 Grouping + Audio Extraction
+    Main service loop - Safety Cleanup + Progressive MP4 Building + Audio Extraction
     Processes every 1min:
     - SAFETY CLEANUP: Enforce limits on ALL hot storage types (prevent RAM exhaustion)
-    - Segments: HOT TS → 1min → 10min MP4 saved to COLD /segments/{hour}/
-    - Audio: Extract from COLD 10min MP4 → directly to COLD /audio/{hour}/
+    - Segments: HOT TS → 1min MP4 → progressively append to 10min chunk in COLD
+    - Audio: Extract from 10min chunks → directly to COLD /audio/{hour}/
     
-    Note: Metadata archived by capture_monitor.py (incremental append to chunks)
-    Safety cleanup runs FIRST and independently to guarantee hot storage limits.
+    Progressive append: Each minute appends to growing chunk (no batch-merge-at-end)
+    Result: Timeline has no changes, same URL grows from 1min to 10min duration
     """
     # Kill any existing archiver instances before starting
     from shared.src.lib.utils.system_utils import kill_existing_script_instances
@@ -1097,7 +1065,7 @@ def main_loop():
         time.sleep(1)
     
     logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER - SAFETY CLEANUP + PROGRESSIVE GROUPING")
+    logger.info("HOT/COLD ARCHIVER - SAFETY CLEANUP + PROGRESSIVE MP4 BUILDING")
     logger.info("=" * 60)
     
     # Detect mode from first capture directory
@@ -1109,9 +1077,8 @@ def main_loop():
     logger.info(f"Mode: {mode_name}")
     logger.info(f"Run interval: {run_interval}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
-    logger.info("Strategy: Safety cleanup (ALL types) + Progressive MP4 (60→10) + Audio extraction")
-    logger.info("Note: Metadata archived by capture_monitor (incremental append)")
-    logger.info("Safety: Enforces limits FIRST to prevent RAM exhaustion from pipeline failures")
+    logger.info("Strategy: Safety cleanup + Progressive append (TS→1min→append to 10min chunk)")
+    logger.info("Result: Same chunk URL grows 1→10min (no timeline changes for frontend)")
     logger.info("=" * 60)
     
     # STARTUP ONLY: Rebuild all manifests from disk to discover existing chunks

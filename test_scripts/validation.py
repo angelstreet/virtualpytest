@@ -171,19 +171,18 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Execute each transition - each validation = 1 step with nested sub-actions
+    # Execute each transition - record 1 step per validation
     successful = 0
     for i, step in enumerate(validation_sequence):
         target = step.get('to_node_label', 'unknown')
         from_node = step.get('from_node_label', 'unknown')
-        edge_type = step.get('transition_type', 'forward')
         
         print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {target}")
         
         step_start_time = time.time()
         step_count_before = len(context.step_results)
         
-        # Execute navigation (records sub-steps automatically)
+        # Execute navigation
         device = context.selected_device
         result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
@@ -192,22 +191,12 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             context=context
         )
         
-        # Capture sub-steps and nest them under parent validation step
-        sub_steps = context.step_results[step_count_before:]
+        # Remove auto-recorded steps and replace with single validation step
         context.step_results = context.step_results[:step_count_before]
-        
-        # Record as single validation step with nested actions
-        duration = time.time() - step_start_time
-        context.step_results.append({
-            'step_number': len(context.step_results) + 1,
+        context.record_step_immediately({
             'name': f"{from_node} → {target}",
-            'message': f"{from_node} → {target}",
-            'transition_type': edge_type,
             'success': result.get('success', False),
-            'duration_ms': int(duration * 1000),
-            'start_time': step_start_time,
-            'end_time': time.time(),
-            'sub_steps': sub_steps,
+            'duration': time.time() - step_start_time,
             'screenshots': result.get('screenshots', [])
         })
         
