@@ -44,17 +44,28 @@ def generate_validation_report(report_data: Dict) -> str:
         host_info = report_data.get('host_info', {})
         execution_time = report_data.get('execution_time', 0)
         success = report_data.get('success', False)
-        step_results = report_data.get('step_results', [])
+
+        # Check for transition_results first (new grouped structure)
+        transition_results = report_data.get('transition_results', [])
+        if transition_results:
+            # Use grouped transitions
+            total_transitions = len(transition_results)
+            passed_transitions = sum(1 for t in transition_results if t.get('success', False))
+            failed_transitions = total_transitions - passed_transitions
+            # For step_results, flatten or use execution_results
+            step_results = [t['execution_result'] for t in transition_results]
+        else:
+            # Fallback to original
+            step_results = report_data.get('step_results', [])
+            total_steps = len(step_results)
+            passed_steps = sum(1 for step in step_results if step.get('success', False))
+            failed_steps = total_steps - passed_steps
+
         screenshots = report_data.get('screenshots', {})
         error_msg = report_data.get('error_msg', '')
         timestamp = report_data.get('timestamp', datetime.now().strftime('%Y%m%d%H%M%S'))
         start_time = report_data.get('start_time', timestamp)
         end_time = report_data.get('end_time', timestamp)
-        
-        # Calculate stats
-        total_steps = len(step_results)
-        passed_steps = sum(1 for step in step_results if step.get('success', False))
-        failed_steps = total_steps - passed_steps
         
         # Generate HTML content
         html_template = create_themed_html_template()
@@ -110,10 +121,10 @@ def generate_validation_report(report_data: Dict) -> str:
             device_name=device_info.get('device_name', 'Unknown Device'),
             device_model=device_info.get('device_model', 'Unknown Model'),
             host_name=host_info.get('host_name', 'Unknown Host'),
-            total_steps=total_steps,
-            passed_steps=passed_steps,
-            failed_steps=failed_steps,
-            step_results_html=create_compact_step_results_section(step_results, screenshots),
+            total_steps=total_transitions if transition_results else total_steps,
+            passed_steps=passed_transitions if transition_results else passed_steps,
+            failed_steps=failed_transitions if transition_results else failed_steps,
+            step_results_html=create_compact_step_results_section(transition_results if transition_results else step_results, screenshots),  # Pass transitions for hierarchical rendering
             error_section=create_error_section(error_msg) if error_msg else '',
             execution_summary=format_console_summary_for_html(report_data.get('execution_summary', '')),
             initial_screenshot=get_thumbnail_screenshot_html(screenshots.get('initial')),
