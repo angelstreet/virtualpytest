@@ -123,3 +123,25 @@ def proxy_monitoring_image(filename):
             'success': False,
             'error': f'Monitoring file proxy error: {str(e)}'
         }), 500
+
+@server_monitoring_bp.route('/live-events', methods=['POST'])
+def get_live_events():
+    """
+    Get live monitoring events (zapping, etc.) for real-time display.
+    Events auto-expire after 10 seconds.
+    Proxies request to host to read live_events.json file.
+    """
+    try:
+        request_data = request.get_json() or {}
+        device_id = request_data.get('device_id', 'device1')
+        
+        response_data, status_code = proxy_to_host_with_params(
+            '/host/monitoring/live-events',
+            'POST',
+            request_data,
+            {'device_id': device_id}
+        )
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -90,108 +90,102 @@ class ScriptExecutionContext:
     def add_screenshot(self, screenshot_path: str):
         """Store screenshot path - auto-copy to cold if in hot storage"""
         if screenshot_path:
-            # Auto-copy from hot to cold if needed (makes images survive 1 hour)
             if '/hot/' in screenshot_path and not screenshot_path.startswith('https://'):
                 import shutil
                 cold_path = screenshot_path.replace('/hot/', '/')
                 if not os.path.exists(cold_path):
                     os.makedirs(os.path.dirname(cold_path), mode=0o777, exist_ok=True)
                     shutil.copy2(screenshot_path, cold_path)
+                
+                # Copy thumbnail to cold
+                thumb_hot = screenshot_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
+                if os.path.exists(thumb_hot):
+                    thumb_cold = cold_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
+                    os.makedirs(os.path.dirname(thumb_cold), mode=0o777, exist_ok=True)
+                    shutil.copy2(thumb_hot, thumb_cold)
+                
                 screenshot_path = cold_path
             
             self.screenshot_paths.append(screenshot_path)
     
-    def upload_screenshots_to_r2(self) -> Dict[str, str]:
+    def upload_screenshots_to_r2(self, force_thumb: bool = True) -> Dict[str, str]:
         """
         Batch upload all local screenshots to R2 at script end.
+        
+        Args:
+            force_thumb: Use thumbnails instead of full images (default: True)
         
         Returns:
             Dict mapping local paths to R2 URLs for report generation
         """
-        url_mapping = {}  # Map local_path -> r2_url
+        url_mapping = {}
         
         if not self.screenshot_paths:
             return url_mapping
         
-        print(f"📤 [Context] Batch uploading {len(self.screenshot_paths)} screenshots to R2...")
+        print(f"📤 [Context] Batch uploading {len(self.screenshot_paths)} screenshots to R2 (thumbnails: {force_thumb})...")
         
         try:
             from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
             uploader = get_cloudflare_utils()
             device_id = self.selected_device.device_id if hasattr(self, 'selected_device') else 'unknown'
             
-            # Store original paths for mapping
-            original_paths = self.screenshot_paths.copy()
-            
-            # Separate already-uploaded URLs and local files
             already_uploaded = []
             file_mappings = []
-            path_to_index = {}  # Track original index for each file
+            path_to_index = {}
             
             for idx, path in enumerate(self.screenshot_paths):
-                # Skip None paths - keep as None in final result
                 if not path:
-                    print(f"⚠️ [Context] Skipping None screenshot at index {idx}")
-                    already_uploaded.append((idx, None))  # Track the None
+                    already_uploaded.append((idx, None))
                     continue
                 
-                # Already R2 URL - keep as-is
                 if path.startswith('https://'):
                     already_uploaded.append((idx, path))
                     continue
                 
-                # Local path - check if exists
-                if not os.path.exists(path):
-                    print(f"⚠️ [Context] Screenshot not found: {path}")
-                    already_uploaded.append((idx, path))  # Keep original path (even if missing)
+                # Use thumbnail if force_thumb=True
+                upload_path = path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg') if force_thumb else path
+                
+                if not os.path.exists(upload_path):
+                    print(f"⚠️ [Context] Screenshot not found: {upload_path}")
+                    already_uploaded.append((idx, path))
                     continue
                 
-                # Add to batch upload
-                filename = os.path.basename(path)
+                filename = os.path.basename(upload_path)
                 remote_path = f"script-screenshots/{device_id}/{filename}"
                 file_mappings.append({
-                    'local_path': path,
+                    'local_path': upload_path,
                     'remote_path': remote_path
                 })
-                path_to_index[path] = idx
+                path_to_index[upload_path] = idx
             
-            # Upload all files at once
             if file_mappings:
                 upload_result = uploader.upload_files(file_mappings)
                 
-                # Build updated paths list maintaining original order
                 updated_paths = [None] * len(self.screenshot_paths)
                 
-                # Place already uploaded URLs back
                 for idx, url in already_uploaded:
                     updated_paths[idx] = url
                 
-                # Place successfully uploaded files and delete local copies
                 for uploaded_file in upload_result['uploaded_files']:
                     original_idx = path_to_index[uploaded_file['local_path']]
                     updated_paths[original_idx] = uploaded_file['url']
-                    # Build mapping: local -> R2 URL
                     url_mapping[uploaded_file['local_path']] = uploaded_file['url']
                     
-                    # Delete local file from cold storage after successful upload
-                    local_path = uploaded_file['local_path']
+                    # Delete thumbnail after upload
                     try:
-                        if os.path.exists(local_path):
-                            os.remove(local_path)
-                            print(f"🗑️  [Context] Deleted local file after upload: {os.path.basename(local_path)}")
+                        if os.path.exists(uploaded_file['local_path']):
+                            os.remove(uploaded_file['local_path'])
                     except Exception as e:
-                        print(f"⚠️ [Context] Failed to delete local file {os.path.basename(local_path)}: {e}")
+                        print(f"⚠️ [Context] Failed to delete {os.path.basename(uploaded_file['local_path'])}: {e}")
                 
-                # Place failed uploads (keep original path)
                 for failed_file in upload_result['failed_uploads']:
                     original_idx = path_to_index[failed_file['local_path']]
-                    filename = os.path.basename(failed_file['local_path'])
-                    print(f"⚠️ [Context] Upload failed for {filename}: {failed_file['error']}")
+                    print(f"⚠️ [Context] Upload failed for {os.path.basename(failed_file['local_path'])}: {failed_file['error']}")
                     updated_paths[original_idx] = failed_file['local_path']
                 
                 self.screenshot_paths = updated_paths
-                print(f"✅ [Context] Uploaded {upload_result['uploaded_count']}/{len(file_mappings)} screenshots to R2")
-                print(f"📋 [Context] Built mapping with {len(url_mapping)} local->R2 URL pairs")
+                print(f"✅ [Context] Uploaded {upload_result['uploaded_count']}/{len(file_mappings)} thumbnails to R2")
             else:
                 print(f"✅ [Context] All {len(already_uploaded)} screenshots already uploaded")
             

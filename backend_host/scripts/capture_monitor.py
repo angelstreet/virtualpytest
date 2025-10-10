@@ -41,6 +41,7 @@ from shared.src.lib.utils.storage_path_utils import (
     get_metadata_path,
     get_captures_path
 )
+from shared.src.lib.utils.zapping_detector_utils import detect_and_record_zapping
 from detector import detect_issues
 from incident_manager import IncidentManager
 
@@ -223,6 +224,131 @@ class InotifyFrameMonitor:
             logger.error(f"[{capture_folder}] ✗ Chunk append FAILED → {chunk_path if 'chunk_path' in locals() else 'unknown'}: {e}")
             raise Exception(f"Chunk append error: {e}")
     
+    def _add_event_duration_metadata(self, capture_folder, detection_result, current_filename):
+        """Add event duration tracking for all event types"""
+        from datetime import datetime
+        
+        device_info = get_device_info_from_capture_folder(capture_folder)
+        device_id = device_info.get('device_id', capture_folder)
+        device_model = device_info.get('device_model', 'unknown')
+        device_state = self.incident_manager.get_device_state(device_id)
+        current_time = datetime.now()
+        
+        # Track all event types with same logic
+        for event_type in ['blackscreen', 'freeze', 'audio', 'macroblocks']:
+            event_active = detection_result.get(event_type, False)
+            event_start_key = f'{event_type}_event_start'
+            
+            if event_active:
+                if not device_state.get(event_start_key):
+                    # Event START
+                    device_state[event_start_key] = current_time.isoformat()
+                    detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
+                    detection_result[f'{event_type}_event_duration_ms'] = 0
+                else:
+                    # Event ONGOING
+                    start = datetime.fromisoformat(device_state[event_start_key])
+                    detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
+                    detection_result[f'{event_type}_event_duration_ms'] = int((current_time - start).total_seconds() * 1000)
+            elif device_state.get(event_start_key):
+                # Event END
+                start = datetime.fromisoformat(device_state[event_start_key])
+                detection_result[f'{event_type}_event_end'] = current_time.isoformat()
+                total_duration_ms = int((current_time - start).total_seconds() * 1000)
+                detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
+                device_state[event_start_key] = None
+                
+                # ✅ Automatic zapping detection when blackscreen ends
+                if event_type == 'blackscreen' and total_duration_ms < 2000:
+                    # Only trigger for SHORT blackscreens (< 2s) - likely zapping
+                    # Long blackscreens are likely incidents, not channel changes
+                    logger.info(f"[{capture_folder}] Blackscreen ended ({total_duration_ms}ms) - checking for zapping...")
+                    self._check_for_zapping(
+                        capture_folder=capture_folder,
+                        device_id=device_id,
+                        device_model=device_model,
+                        current_filename=current_filename,
+                        blackscreen_duration_ms=total_duration_ms
+                    )
+        
+        return detection_result
+    
+    def _check_for_zapping(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms):
+        """
+        Check if blackscreen was caused by zapping (channel change).
+        This happens AFTER blackscreen ends, analyzing the first normal frame.
+        
+        Uses shared zapping detection utility (reuses existing banner detection AI).
+        """
+        try:
+            # Get action info from current frame JSON (with 10s timeout check)
+            action_info = self._read_action_from_frame_json(capture_folder, current_filename)
+            
+            # Call shared zapping detection function (reuses existing video controller)
+            result = detect_and_record_zapping(
+                device_id=device_id,
+                device_model=device_model,
+                capture_folder=capture_folder,
+                frame_filename=current_filename,
+                blackscreen_duration_ms=blackscreen_duration_ms,
+                action_info=action_info
+            )
+            
+            if result.get('zapping_detected'):
+                channel_name = result.get('channel_name', 'Unknown')
+                channel_number = result.get('channel_number', '')
+                detection_type = result.get('detection_type', 'unknown')
+                logger.info(f"[{capture_folder}] 📺 {detection_type.upper()} ZAPPING: {channel_name} {channel_number}")
+            
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Error checking for zapping: {e}")
+    
+    def _read_action_from_frame_json(self, capture_folder, frame_filename):
+        """
+        Read last_action info from frame JSON with 10s timeout check.
+        Returns None if no action found or action is too old (> 10s).
+        """
+        from datetime import datetime
+        
+        metadata_path = get_metadata_path(capture_folder)
+        json_file = os.path.join(metadata_path, frame_filename.replace('.jpg', '.json'))
+        
+        if not os.path.exists(json_file):
+            return None
+        
+        try:
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            
+            # Check if action exists
+            last_action_timestamp = data.get('last_action_timestamp')
+            if not last_action_timestamp:
+                return None  # No action found
+            
+            # ✅ 10-SECOND TIMEOUT CHECK
+            frame_timestamp_str = data.get('timestamp')
+            if not frame_timestamp_str:
+                return None
+            
+            frame_timestamp = datetime.fromisoformat(frame_timestamp_str.replace('Z', '+00:00')).timestamp()
+            time_since_action = frame_timestamp - last_action_timestamp
+            
+            if time_since_action > 10.0:
+                logger.debug(f"[{capture_folder}] Action too old ({time_since_action:.1f}s) - manual zapping")
+                return None  # Action too old → manual zapping
+            
+            # ✅ Action within 10s - associate with this blackscreen
+            return {
+                'last_action_executed': data.get('last_action_executed'),
+                'last_action_timestamp': last_action_timestamp,
+                'action_params': data.get('action_params', {}),
+                'time_since_action_ms': int(time_since_action * 1000)
+            }
+            
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Error reading action from JSON: {e}")
+            return None
+    
     def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""
         
@@ -262,6 +388,9 @@ class InotifyFrameMonitor:
         
         try:
             detection_result = detect_issues(frame_path, queue_size=queue_size)
+            
+            # Add event duration tracking metadata
+            detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename)
             
             issues = []
             if detection_result and detection_result.get('blackscreen', False):

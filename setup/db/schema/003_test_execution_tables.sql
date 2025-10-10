@@ -124,7 +124,7 @@ CREATE TABLE script_results (
 -- Zap results table (moved from 001_core_tables.sql to fix dependency)
 CREATE TABLE zap_results (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    script_result_id uuid REFERENCES script_results(id) ON DELETE CASCADE,
+    script_result_id uuid REFERENCES script_results(id) ON DELETE CASCADE, -- NULL for automatic zapping detection during monitoring
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     host_name text NOT NULL,
     device_name text NOT NULL,
@@ -142,7 +142,7 @@ CREATE TABLE zap_results (
     audio_language text,
     audio_transcript text,
     blackscreen_freeze_duration_seconds numeric,
-    detection_method text,
+    detection_method text, -- 'automatic' or 'manual' for zapping detection
     channel_name text,
     channel_number text,
     program_name text,

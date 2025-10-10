@@ -1,7 +1,8 @@
 import { Box, Typography, CircularProgress } from '@mui/material';
 import React from 'react';
 
-import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
+import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis, LiveMonitoringEvent } from '../../types/pages/Monitoring_Types';
+import { ActionHistory } from './ActionHistory';
 
 // Language code to name mapping
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -38,6 +39,7 @@ interface MonitoringOverlayProps {
   showLanguageMenu?: boolean;
   analysisTimestamp?: string;
   isAIAnalyzing?: boolean;
+  liveEvents?: LiveMonitoringEvent[];
 }
 
 export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
@@ -50,6 +52,7 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   showLanguageMenu = false,
   analysisTimestamp,
   isAIAnalyzing = false,
+  liveEvents = [],
 }) => {
   // Use separate data sources
   const analysis = monitoringAnalysis;
@@ -73,6 +76,12 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
     } catch (error) {
       return 'Unknown';
     }
+  };
+
+  // Format duration (ms -> "1.5s")
+  const formatDuration = (ms?: number): string => {
+    if (!ms) return '0s';
+    return `${(ms / 1000).toFixed(1)}s`;
   };
 
   // Always render overlay with empty state when no analysis
@@ -142,6 +151,11 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
                 ({consecutiveErrorCounts.blackscreenConsecutive})
               </Typography>
             )}
+            {analysis?.blackscreen && analysis.blackscreen_event_start && (
+              <Typography component="span" variant="body2" sx={{ color: '#ffaaaa', ml: 1 }}>
+                {formatTimestamp(analysis.blackscreen_event_start)}, {formatDuration(analysis.blackscreen_event_duration_ms)}
+              </Typography>
+            )}
           </Typography>
         </Box>
 
@@ -161,6 +175,11 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
             {analysis?.freeze && consecutiveErrorCounts && (
               <Typography component="span" variant="body2" sx={{ color: '#cccccc', ml: 1 }}>
                 ({consecutiveErrorCounts.freezeConsecutive})
+              </Typography>
+            )}
+            {analysis?.freeze && analysis.freeze_event_start && (
+              <Typography component="span" variant="body2" sx={{ color: '#ffaaaa', ml: 1 }}>
+                {formatTimestamp(analysis.freeze_event_start)}, {formatDuration(analysis.freeze_event_duration_ms)}
               </Typography>
             )}
           </Typography>
@@ -184,6 +203,11 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
                 ({consecutiveErrorCounts.macroblocksConsecutive})
               </Typography>
             )}
+            {analysis?.macroblocks && analysis.macroblocks_event_start && (
+              <Typography component="span" variant="body2" sx={{ color: '#ffaaaa', ml: 1 }}>
+                {formatTimestamp(analysis.macroblocks_event_start)}, {formatDuration(analysis.macroblocks_event_duration_ms)}
+              </Typography>
+            )}
           </Typography>
         </Box>
 
@@ -203,6 +227,11 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
             {!analysis?.audio && consecutiveErrorCounts && (
               <Typography component="span" variant="body2" sx={{ color: '#cccccc', ml: 1 }}>
                 ({consecutiveErrorCounts.audioLossConsecutive})
+              </Typography>
+            )}
+            {!analysis?.audio && analysis?.audio_event_start && (
+              <Typography component="span" variant="body2" sx={{ color: '#ffaaaa', ml: 1 }}>
+                {formatTimestamp(analysis.audio_event_start)}, {formatDuration(analysis.audio_event_duration_ms)}
               </Typography>
             )}
           </Typography>
@@ -331,6 +360,14 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           </Typography>
         </Box>
       )}
+      
+      {/* Action History with Live Events (zapping) */}
+      <ActionHistory
+        lastAction={analysis?.last_action_executed}
+        lastActionTimestamp={analysis?.last_action_timestamp}
+        actionParams={analysis?.action_params}
+        liveEvents={liveEvents}
+      />
     </>
   );
 };

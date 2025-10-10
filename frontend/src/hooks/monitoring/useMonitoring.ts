@@ -4,6 +4,7 @@ import {
   MonitoringAnalysis,
   SubtitleAnalysis,
   LanguageMenuAnalysis,
+  LiveMonitoringEvent,
 } from '../../types/pages/Monitoring_Types';
 
 import { 
@@ -37,6 +38,7 @@ interface UseMonitoringReturn {
   errorTrendData: ErrorTrendData | null;
   isLoading: boolean;
   analysisTimestamp: string | null;
+  liveEvents: LiveMonitoringEvent[];
   requestAIAnalysisForFrame: (imageUrl: string, sequence: string) => void; // Fire-and-forget (non-blocking)
   isAIAnalyzing: boolean;
 }
@@ -60,6 +62,7 @@ export const useMonitoring = ({
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
+  const [liveEvents, setLiveEvents] = useState<LiveMonitoringEvent[]>([]);
   // AI analysis disabled
   // const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -94,6 +97,19 @@ export const useMonitoring = ({
       macroblocks: data.macroblocks ?? false,
       quality_score: data.quality_score ?? 0,
       has_incidents: data.has_incidents ?? false,
+      // Event duration metadata
+      blackscreen_event_start: data.blackscreen_event_start,
+      blackscreen_event_duration_ms: data.blackscreen_event_duration_ms,
+      freeze_event_start: data.freeze_event_start,
+      freeze_event_duration_ms: data.freeze_event_duration_ms,
+      audio_event_start: data.audio_event_start,
+      audio_event_duration_ms: data.audio_event_duration_ms,
+      macroblocks_event_start: data.macroblocks_event_start,
+      macroblocks_event_duration_ms: data.macroblocks_event_duration_ms,
+      // Action metadata
+      last_action_executed: data.last_action_executed,
+      last_action_timestamp: data.last_action_timestamp,
+      action_params: data.action_params,
     };
     
     // Extract subtitle data from metadata
@@ -275,6 +291,19 @@ export const useMonitoring = ({
             macroblocks: false,
             quality_score: 0,
             has_incidents: false,
+            // Event duration metadata (from chunk JSON)
+            blackscreen_event_start: nearestFrame.blackscreen_event_start,
+            blackscreen_event_duration_ms: nearestFrame.blackscreen_event_duration_ms,
+            freeze_event_start: nearestFrame.freeze_event_start,
+            freeze_event_duration_ms: nearestFrame.freeze_event_duration_ms,
+            audio_event_start: nearestFrame.audio_event_start,
+            audio_event_duration_ms: nearestFrame.audio_event_duration_ms,
+            macroblocks_event_start: nearestFrame.macroblocks_event_start,
+            macroblocks_event_duration_ms: nearestFrame.macroblocks_event_duration_ms,
+            // Action metadata (from chunk JSON)
+            last_action_executed: nearestFrame.last_action_executed,
+            last_action_timestamp: nearestFrame.last_action_timestamp,
+            action_params: nearestFrame.action_params,
           };
           
           const snapshot: AnalysisSnapshot = {
@@ -452,6 +481,50 @@ export const useMonitoring = ({
     };
   }, [analysisHistory]);
 
+  // Poll live events (zapping, etc.) separately for real-time display
+  const fetchLiveEvents = useCallback(async () => {
+    if (!host || !device?.device_id) return;
+    
+    try {
+      const response = await fetch(buildServerUrl('/server/monitoring/live-events'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host_name: host.host_name,
+          host_ip: host.ip,
+          host_port: host.port,
+          device_id: device.device_id,
+        }),
+      });
+      
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      
+      if (data.success && data.events) {
+        setLiveEvents(data.events);
+      }
+    } catch (error) {
+      // Silent fail - don't spam console for network errors
+    }
+  }, [host, device?.device_id]);
+  
+  // Setup live events polling (every 1 second, only in live mode)
+  useEffect(() => {
+    if (!enabled || archiveMode) {
+      setLiveEvents([]);
+      return;
+    }
+    
+    // Poll live events every 1 second
+    const interval = setInterval(fetchLiveEvents, 1000);
+    
+    // Initial fetch
+    fetchLiveEvents();
+    
+    return () => clearInterval(interval);
+  }, [enabled, archiveMode, fetchLiveEvents]);
+
   // Get latest snapshot (most recent)
   const latestSnapshot = analysisHistory.length > 0 ? analysisHistory[analysisHistory.length - 1] : null;
 
@@ -463,6 +536,7 @@ export const useMonitoring = ({
     errorTrendData: computeErrorTrends(),
     isLoading,
     analysisTimestamp: latestSnapshot?.timestamp || null,
+    liveEvents,
     requestAIAnalysisForFrame,
     isAIAnalyzing: false, // AI disabled
   };

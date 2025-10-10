@@ -14,7 +14,7 @@ def get_supabase():
 
 
 def record_zap_iteration(
-    script_result_id: str,
+    script_result_id: Optional[str],  # ✅ Now nullable for automatic zapping
     team_id: str,
     host_name: str,
     device_name: str,
@@ -41,7 +41,14 @@ def record_zap_iteration(
     program_start_time: Optional[str] = None,
     program_end_time: Optional[str] = None
 ) -> Optional[str]:
-    """Record a single zap iteration result in database."""
+    """
+    Record a single zap iteration result in database.
+    
+    Args:
+        script_result_id: UUID of parent script execution. 
+                         Can be None for automatic zapping detection during monitoring.
+        ... (other args)
+    """
     try:
         zap_result_id = str(uuid4())
         

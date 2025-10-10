@@ -51,12 +51,20 @@ def capture_screenshot_for_script(device, context, screenshot_id: str = None) ->
         if not screenshot_path:
             return None
         
-        # Copy from HOT to COLD if needed (same logic as context.add_screenshot)
+        # Copy from HOT to COLD if needed
         if '/hot/' in screenshot_path:
             cold_path = screenshot_path.replace('/hot/', '/')
             os.makedirs(os.path.dirname(cold_path), exist_ok=True)
             if os.path.exists(screenshot_path):
                 shutil.copy2(screenshot_path, cold_path)
+            
+            # Copy thumbnail to cold
+            thumb_hot = screenshot_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
+            if os.path.exists(thumb_hot):
+                thumb_cold = cold_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
+                os.makedirs(os.path.dirname(thumb_cold), exist_ok=True)
+                shutil.copy2(thumb_hot, thumb_cold)
+            
             screenshot_path = cold_path
         
         # Add to context for batch upload

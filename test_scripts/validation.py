@@ -104,9 +104,14 @@ def capture_validation_summary(context, userinterface_name: str, max_iteration: 
     
     # Show validation iterations and actual navigation steps executed
     if max_iteration is not None:
-        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (validated {validation_total} transitions, executed {detailed_steps} navigation steps)")
+        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (validated {validation_total} transitions, executed {detailed_steps} total steps)")
     else:
-        lines.append(f"🔢 Validated {validation_total} transitions (executed {detailed_steps} navigation steps)")
+        lines.append(f"🔢 Validated {validation_total} transitions (executed {detailed_steps} total steps)")
+    
+    # Note about recovery steps if more steps than transitions
+    if detailed_steps > validation_total:
+        recovery_steps = detailed_steps - validation_total
+        lines.append(f"🔄 Recovery: {recovery_steps} navigation step(s) used for recovery")
     
     lines.append(f"📊 Steps: {validation_successful}/{validation_total} steps successful")
     lines.append(f"✅ Successful: {validation_successful}")
@@ -170,49 +175,153 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Track validation-level results separately (don't interfere with detailed step recording)
-    validation_results = []
-    
-    # Execute each transition using navigate_to() (NavigationExecutor records detailed steps)
+    # Execute each edge transition directly (without pathfinding)
+    # This ensures 29 validation transitions = 29 steps in report
     successful = 0
+    device = context.selected_device
+    
     for i, step in enumerate(validation_sequence):
-        target = step.get('to_node_label', 'unknown')
         from_node = step.get('from_node_label', 'unknown')
+        to_node = step.get('to_node_label', 'unknown')
+        from_node_id = step.get('from_node_id', 'unknown')
+        to_node_id = step.get('to_node_id', 'unknown')
         
-        print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {target}")
+        print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {to_node}")
         
-        # Record step start time
+        # RECOVERY MECHANISM: Check if we're at the expected starting position
+        current_position = device.navigation_executor.get_current_position(context.tree_id)
+        if current_position and current_position != from_node_id:
+            print(f"🔄 [validation] Recovery needed: current position '{current_position}' != expected '{from_node_id}'")
+            print(f"🔄 [validation] Navigating from '{current_position}' to '{from_node}' before executing edge")
+            
+            # Use execute_navigation to recover position (will record recovery steps)
+            recovery_result = device.navigation_executor.execute_navigation(
+                tree_id=context.tree_id,
+                target_node_id=from_node_id,
+                team_id=context.team_id,
+                context=context
+            )
+            
+            if not recovery_result.get('success', False):
+                print(f"❌ [validation] Recovery navigation failed - skipping step {i+1}")
+                # Record failed step due to recovery failure
+                step_result = {
+                    'success': False,
+                    'message': f"{from_node} → {to_node}",
+                    'error': f"Recovery navigation failed: {recovery_result.get('error', 'Unknown error')}",
+                    'execution_time_ms': 0,
+                    'step_category': 'validation'
+                }
+                context.record_step_immediately(step_result)
+                continue
+            
+            print(f"✅ [validation] Recovery successful - now at '{from_node}'")
+        elif not current_position:
+            print(f"⚠️  [validation] No current position tracked - assuming at correct position")
+        else:
+            print(f"✓ [validation] Already at starting position '{from_node}'")
+        
+        # Record step start time and capture start screenshot
         step_start_time = time.time()
+        from datetime import datetime
+        step_start_timestamp = datetime.fromtimestamp(step_start_time).strftime('%H:%M:%S')
         
-        # Use NavigationExecutor directly (it will record detailed steps automatically)
-        device = context.selected_device
-        result = device.navigation_executor.execute_navigation(
-            tree_id=context.tree_id,
-            target_node_label=target,
+        from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+        step_start_screenshot_path = ""
+        screenshot_id = capture_screenshot_for_script(device, context, f"step_{i+1}_start")
+        if screenshot_id and context.screenshot_paths:
+            step_start_screenshot_path = context.screenshot_paths[-1]
+            print(f"📸 [validation] Step-start screenshot captured: {screenshot_id}")
+        
+        # Set edge context for action executor (for KPI tracking)
+        device.action_executor.tree_id = context.tree_id
+        device.action_executor.edge_id = step.get('edge_id')
+        device.action_executor.action_set_id = step.get('action_set_id')
+        
+        # Execute the edge's actions directly
+        actions = step.get('actions', [])
+        retry_actions = step.get('retryActions', [])
+        failure_actions = step.get('failureActions', [])
+        
+        action_result = device.action_executor.execute_actions(
+            actions=actions,
+            retry_actions=retry_actions,
+            failure_actions=failure_actions,
             team_id=context.team_id,
             context=context
         )
         
-        # Track validation-level result (separate from detailed steps)
-        validation_result = {
-            'validation_step': i + 1,
-            'from_node': from_node,
-            'to_node': target,
-            'success': result.get('success', False),
-            'error': result.get('error', ''),
-            'duration_ms': int((time.time() - step_start_time) * 1000)
-        }
-        validation_results.append(validation_result)
+        # Execute verifications on the target node
+        verification_result = device.verification_executor.verify_node(
+            node_id=to_node_id,
+            team_id=context.team_id,
+            tree_id=context.tree_id
+        )
         
-        if result.get('success', False):
+        # Capture end screenshot
+        step_end_screenshot_path = ""
+        screenshot_id = capture_screenshot_for_script(device, context, f"step_{i+1}_end")
+        if screenshot_id and context.screenshot_paths:
+            step_end_screenshot_path = context.screenshot_paths[-1]
+            print(f"📸 [validation] Step-end screenshot captured: {screenshot_id}")
+        
+        # Calculate execution time
+        step_execution_time = int((time.time() - step_start_time) * 1000)
+        step_end_timestamp = datetime.now().strftime('%H:%M:%S')
+        
+        # Determine overall success for this step
+        actions_succeeded = action_result.get('success', False) and action_result.get('main_actions_succeeded', False)
+        verifications_succeeded = verification_result.get('success', False)
+        has_verifications = verification_result.get('has_verifications', True)
+        
+        # Step succeeds if actions pass AND (verifications pass OR no verifications defined)
+        step_success = actions_succeeded and (verifications_succeeded or not has_verifications)
+        
+        # Extract action name for labeling
+        action_name = "validation_edge"
+        if actions and len(actions) > 0:
+            first_action = actions[0]
+            if isinstance(first_action, dict) and first_action.get('command'):
+                action_name = first_action.get('command')
+        
+        # Record the step result (exactly one step per validation transition)
+        step_result = {
+            'success': step_success,
+            'screenshot_path': step_end_screenshot_path,
+            'step_start_screenshot_path': step_start_screenshot_path,
+            'step_end_screenshot_path': step_end_screenshot_path,
+            'message': f"{from_node} → {to_node}",
+            'execution_time_ms': step_execution_time,
+            'start_time': step_start_timestamp,
+            'end_time': step_end_timestamp,
+            'from_node': from_node,
+            'to_node': to_node,
+            'action_name': action_name,
+            'actions': actions,
+            'retry_actions': retry_actions,
+            'failure_actions': failure_actions,
+            'action_results': action_result.get('results', []),
+            'action_screenshots': action_result.get('action_screenshots', []),
+            'verifications': step.get('verifications', []),
+            'verification_results': verification_result.get('results', []),
+            'error': action_result.get('error') if not actions_succeeded else (verification_result.get('error') if not verifications_succeeded else None),
+            'step_category': 'validation'
+        }
+        
+        # Record step to context
+        context.record_step_immediately(step_result)
+        
+        # Update navigation position if step succeeded
+        if step_success:
+            device.navigation_executor.update_current_position(to_node_id, context.tree_id, to_node)
             successful += 1
             print(f"✅ [validation] Step {i+1} successful")
         else:
-            print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
+            error_msg = step_result.get('error', 'Unknown error')
+            print(f"❌ [validation] Step {i+1} failed: {error_msg}")
     
-    # Store validation-level stats for summary generation (separate from step-level details)
+    # Store validation-level stats for summary generation
     context.overall_success = successful == len(validation_sequence)
-    context.validation_results = validation_results  # Store validation-level results
     context.validation_successful_steps = successful
     context.validation_total_steps = len(validation_sequence)
     coverage = (successful / len(validation_sequence) * 100) if validation_sequence else 0

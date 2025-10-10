@@ -103,6 +103,37 @@ except ImportError:
     logger.warning("python-dotenv not available, relying on system environment")
 
 
+def get_capture_folder_from_device_id(device_id: str):
+    """
+    Get capture folder name from device_id (reverse lookup).
+    Used by live events API to find metadata path from device_id.
+    
+    Args:
+        device_id: Device identifier (e.g., 'host', 'device1', 'device2')
+    
+    Returns:
+        Capture folder name (e.g., 'capture1') or None if not found
+    """
+    # Check HOST
+    if device_id == 'host':
+        host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
+        if host_capture_path:
+            # Extract folder name from path: '/var/www/html/stream/capture1' -> 'capture1'
+            return os.path.basename(host_capture_path)
+    
+    # Check DEVICE_1 through DEVICE_8
+    for i in range(1, 9):
+        device_key = f'DEVICE_{i}'
+        device_capture_path = os.getenv(f'{device_key}_VIDEO_CAPTURE_PATH')
+        device_env_id = os.getenv(f'{device_key}_ID')
+        
+        if device_env_id == device_id and device_capture_path:
+            # Extract folder name from path
+            return os.path.basename(device_capture_path)
+    
+    logger.warning(f"[get_capture_folder_from_device_id] Device {device_id} not found in .env")
+    return None
+
 def get_device_info_from_capture_folder(capture_folder):
     """
     Get device info from .env by matching capture path - LIGHTWEIGHT (no DB)

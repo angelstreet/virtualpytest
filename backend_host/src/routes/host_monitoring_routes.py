@@ -108,3 +108,58 @@ def disk_usage_diagnostics():
             'success': False,
             'error': f'Disk usage diagnostics error: {str(e)}'
         }), 500
+
+@host_monitoring_bp.route('/live-events', methods=['POST'])
+def get_live_events():
+    """
+    Get live monitoring events (zapping, etc.) for real-time display.
+    Events auto-expire after 10 seconds.
+    Reads live_events.json file from device metadata directory.
+    """
+    try:
+        import os
+        import json
+        from datetime import datetime
+        from shared.src.lib.utils.storage_path_utils import get_metadata_path, get_capture_folder_from_device_id
+        
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        # Get device's metadata path
+        capture_folder = get_capture_folder_from_device_id(device_id)
+        if not capture_folder:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found'
+            }), 404
+        
+        metadata_path = get_metadata_path(capture_folder)
+        live_events_file = os.path.join(metadata_path, 'live_events.json')
+        
+        # Read live events
+        events = []
+        if os.path.exists(live_events_file):
+            try:
+                with open(live_events_file, 'r') as f:
+                    file_data = json.load(f)
+                    events = file_data.get('events', [])
+                    
+                # Filter out expired events
+                current_time = datetime.now().timestamp()
+                events = [e for e in events if e.get('expires_at', 0) > current_time]
+                
+            except Exception as e:
+                # If file is corrupted or being written, return empty list
+                events = []
+        
+        return jsonify({
+            'success': True,
+            'events': events,
+            'count': len(events)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Live events error: {str(e)}'
+        }), 500

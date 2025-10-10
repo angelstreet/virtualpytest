@@ -31,6 +31,31 @@ export interface MonitoringAnalysis {
     thumbnail_r2_paths: string[];
     timestamp: string;
   };
+
+  // Event duration tracking (from capture_monitor.py)
+  blackscreen_event_start?: string;
+  blackscreen_event_duration_ms?: number;
+  freeze_event_start?: string;
+  freeze_event_duration_ms?: number;
+  audio_event_start?: string;
+  audio_event_duration_ms?: number;
+  macroblocks_event_start?: string;
+  macroblocks_event_duration_ms?: number;
+
+  // Action metadata (from action_executor.py)
+  last_action_executed?: string;
+  last_action_timestamp?: number;
+  action_params?: Record<string, any>;
+  
+  // Zapping detection metadata (from zapping_detector_utils.py)
+  zapping_detected?: boolean;
+  zapping_channel_name?: string;
+  zapping_channel_number?: string;
+  zapping_program_name?: string;
+  zapping_confidence?: number;
+  zapping_blackscreen_duration_ms?: number;
+  zapping_detection_type?: 'automatic' | 'manual';
+  zapping_detected_at?: string; // ISO timestamp
 }
 
 // Subtitle analysis from backend detection (video.py) - EXACT field names
@@ -57,6 +82,31 @@ export interface LanguageMenuAnalysis {
   subtitle_languages: string[]; // result.subtitle_languages (ordered list)
   selected_audio: number; // result.selected_audio (index or -1)
   selected_subtitle: number; // result.selected_subtitle (index or -1)
+}
+
+// Live monitoring events (zapping, etc.) - polled separately for real-time display
+export interface LiveMonitoringEvent {
+  event_id: string;
+  event_type: 'zapping';
+  timestamp: string; // ISO format
+  frame_filename: string;
+  detection_type: 'automatic' | 'manual';
+  blackscreen_duration_ms: number;
+  channel_name: string;
+  channel_number: string;
+  program_name: string;
+  confidence: number;
+  expires_at: number; // Unix timestamp
+  
+  // Only present for automatic zapping
+  action_command?: string;
+  action_timestamp?: number;
+}
+
+export interface LiveEventsResponse {
+  success: boolean;
+  events: LiveMonitoringEvent[];
+  count: number;
 }
 
 // Alert/Incident types from backend alerts_db.py - EXACT field names
