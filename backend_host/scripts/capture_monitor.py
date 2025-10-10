@@ -414,15 +414,30 @@ class InotifyFrameMonitor:
         json_filename = filename.replace('.jpg', '.json')
         json_file = os.path.join(metadata_path, json_filename)
         
-        # Skip if already analyzed
+        # Check if we need to run detection (expensive) or just add audio (cheap)
+        needs_detection = True
         if os.path.exists(json_file):
-            return
+            try:
+                with open(json_file, 'r') as f:
+                    check_json = json.load(f)
+                # If already analyzed, skip detection (but continue to add audio if needed)
+                if check_json.get('analyzed'):
+                    needs_detection = False
+                    # If already has audio, skip entirely
+                    if 'audio' in check_json:
+                        return
+            except:
+                pass  # If can't read, run detection
         
         try:
-            detection_result = detect_issues(frame_path, queue_size=queue_size)
-            
-            # Add event duration tracking metadata
-            detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename)
+            # Run expensive detection only if needed
+            if needs_detection:
+                detection_result = detect_issues(frame_path, queue_size=queue_size)
+                # Add event duration tracking metadata
+                detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename)
+            else:
+                # JSON exists without audio - just add audio from cache (no detection needed)
+                detection_result = {}  # Empty dict to merge with existing data
             
             issues = []
             if detection_result and detection_result.get('blackscreen', False):
@@ -511,13 +526,43 @@ class InotifyFrameMonitor:
                     }
                     audio_val = "✅ YES" if existing_data['audio'] else "❌ NO"
                     volume = existing_data.get('mean_volume_db', -100)
-                    logger.debug(f"[{capture_folder}] 🔄 Updated audio cache: audio={audio_val}, volume={volume:.1f}dB")
+                    logger.info(f"[{capture_folder}] 🔄 Updated audio cache from {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
                 elif capture_folder in self.audio_cache:
                     # No audio in JSON but we have cached value - use it
                     existing_data.update(self.audio_cache[capture_folder])
                     audio_val = "✅ YES" if self.audio_cache[capture_folder]['audio'] else "❌ NO"
                     volume = self.audio_cache[capture_folder].get('mean_volume_db', -100)
-                    logger.debug(f"[{capture_folder}] 📋 Using cached audio: audio={audio_val}, volume={volume:.1f}dB")
+                    logger.info(f"[{capture_folder}] 📋 Using cached audio for {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
+                else:
+                    # No audio in current JSON and cache empty - scan for recent JSONs with audio to populate cache
+                    try:
+                        current_time = time.time()
+                        with os.scandir(metadata_path) as it:
+                            for entry in it:
+                                if entry.is_file() and entry.name.startswith('capture_') and entry.name.endswith('.json'):
+                                    mtime = entry.stat().st_mtime
+                                    # Only check recent JSONs (last 10 seconds)
+                                    if current_time - mtime < 10.0:
+                                        try:
+                                            with open(entry.path, 'r') as f:
+                                                recent_json = json.load(f)
+                                            if 'audio' in recent_json:
+                                                # Found audio data! Update cache
+                                                self.audio_cache[capture_folder] = {
+                                                    'audio': recent_json['audio'],
+                                                    'mean_volume_db': recent_json.get('mean_volume_db', -100),
+                                                    'audio_check_timestamp': recent_json.get('audio_check_timestamp'),
+                                                    'audio_segment_file': recent_json.get('audio_segment_file')
+                                                }
+                                                existing_data.update(self.audio_cache[capture_folder])
+                                                audio_val = "✅ YES" if recent_json['audio'] else "❌ NO"
+                                                volume = recent_json.get('mean_volume_db', -100)
+                                                logger.info(f"[{capture_folder}] 🔍 Found audio in {entry.name}, populated cache: audio={audio_val}, volume={volume:.1f}dB")
+                                                break
+                                        except:
+                                            pass
+                    except:
+                        pass
                 
                 if detection_result:
                     analysis_data = {
