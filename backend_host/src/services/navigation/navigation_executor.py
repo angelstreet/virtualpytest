@@ -634,20 +634,26 @@ class NavigationExecutor:
             
             # Queue KPI measurement AFTER final verification passes
             # Only if main actions were executed and succeeded
+            # IMPORTANT: KPI queueing must NEVER block navigation - it's observability, not critical path
             kpi_step = nav_context.get('kpi_step')
             kpi_action_timestamp = nav_context.get('kpi_action_timestamp')
             
             if kpi_step and kpi_action_timestamp:
-                print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
-                self._queue_kpi_measurement(
-                    step=kpi_step,
-                    action_timestamp=kpi_action_timestamp,
-                    verification_timestamp=verification_timestamp,
-                    team_id=team_id
-                )
-                # Clear KPI context
-                nav_context['kpi_step'] = None
-                nav_context['kpi_action_timestamp'] = None
+                try:
+                    print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
+                    self._queue_kpi_measurement(
+                        step=kpi_step,
+                        action_timestamp=kpi_action_timestamp,
+                        verification_timestamp=verification_timestamp,
+                        team_id=team_id
+                    )
+                except Exception as e:
+                    # KPI queueing failed - log but DO NOT block navigation
+                    print(f"⚠️ [NavigationExecutor] KPI queueing failed (non-blocking): {e}")
+                finally:
+                    # Always clear KPI context regardless of success/failure
+                    nav_context['kpi_step'] = None
+                    nav_context['kpi_action_timestamp'] = None
             else:
                 print(f"[@navigation_executor] No KPI to queue (no actions were executed or actions failed)")
             
