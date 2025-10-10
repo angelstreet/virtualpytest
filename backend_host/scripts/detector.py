@@ -511,7 +511,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     if os.path.exists(current_thumbnail_path):
         current_thumbnail = cv2.imread(current_thumbnail_path, cv2.IMREAD_GRAYSCALE)
         if current_thumbnail is not None:
-            frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps)
+            frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps, queue_size)
         else:
             frozen, freeze_details = False, {}
     else:

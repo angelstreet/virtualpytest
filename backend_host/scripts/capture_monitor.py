@@ -515,19 +515,23 @@ class InotifyFrameMonitor:
                         capture_folder = self.dir_to_info[path]['capture_folder']
                         logger.debug(f"[{capture_folder}] inotify event: {filename}")
                         
-                        try:
-                            work_queue = self.device_queues[capture_folder]
-                            work_queue.put_nowait((path, filename))
-                            
-                            # Log if queue is building up (potential performance issue)
-                            queue_size = work_queue.qsize()
-                            if queue_size > 100:
-                                logger.warning(f"[{capture_folder}] 🔴 Queue backlog growing: {queue_size}/1000 frames (processing too slow!)")
-                            elif queue_size > 50 and queue_size % 25 == 0:
-                                logger.warning(f"[{capture_folder}] 🟡 Queue backlog: {queue_size}/1000 frames")
+                        work_queue = self.device_queues[capture_folder]
+                        queue_size = work_queue.qsize()
+                        
+                        # Don't fill queue if >150 (images may be deleted from hot storage before processing)
+                        if queue_size > 150:
+                            logger.warning(f"[{capture_folder}] ⏭️  Queue over 150 ({queue_size}), skipping {filename} (images may expire)")
+                        else:
+                            try:
+                                work_queue.put_nowait((path, filename))
                                 
-                        except queue.Full:
-                            logger.error(f"[{capture_folder}] 🚨 Queue FULL (1000 frames), dropping: {filename}")
+                                if queue_size > 100:
+                                    logger.warning(f"[{capture_folder}] 🔴 Queue backlog: {queue_size}/1000 frames")
+                                elif queue_size > 50 and queue_size % 25 == 0:
+                                    logger.warning(f"[{capture_folder}] 🟡 Queue backlog: {queue_size}/1000 frames")
+                                    
+                            except queue.Full:
+                                logger.error(f"[{capture_folder}] 🚨 Queue FULL, dropping: {filename}")
                         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
