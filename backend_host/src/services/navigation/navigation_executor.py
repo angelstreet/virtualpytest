@@ -1188,19 +1188,8 @@ class NavigationExecutor:
             target_node_id = step.get('to_node_id')
             target_tree_id = step.get('to_tree_id')  # ONE TRUTH: use to_tree_id (target tree)
             edge_id = step.get('edge_id')
-
-            print(f"[@navigation_executor:_queue_kpi_measurement] Evaluating KPI queue for edge {edge_id} → node {target_node_id}")
             
-            if not target_node_id:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_node_id in step - skipping KPI queue")
-                return
-            
-            if not target_tree_id:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Missing to_tree_id in step - skipping KPI queue")
-                return
-            
-            if not edge_id:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Missing edge_id in step - skipping KPI queue")
+            if not target_node_id or not target_tree_id or not edge_id:
                 return
             
             # Get target node's KPI references
@@ -1208,10 +1197,10 @@ class NavigationExecutor:
             node_result = get_node_by_id(target_tree_id, target_node_id, team_id)
             
             if not node_result.get('success'):
-                print(f"[@navigation_executor:_queue_kpi_measurement] Failed to load node {target_node_id} in tree {target_tree_id} - skipping KPI queue")
                 return
             
             node_data = node_result['node']
+            node_label = node_data.get('label', target_node_id)
             
             # Check if node uses verifications for KPI measurement
             use_verifications_for_kpi = node_data.get('use_verifications_for_kpi', False)
@@ -1219,14 +1208,13 @@ class NavigationExecutor:
             if use_verifications_for_kpi:
                 # Use verifications[] for KPI measurement
                 kpi_references = node_data.get('verifications', [])
-                print(f"[@navigation_executor:_queue_kpi_measurement] Using verifications for KPI (count: {len(kpi_references)})")
             else:
                 # Use kpi_references[] for KPI measurement (default behavior)
                 kpi_references = node_data.get('kpi_references', [])
-                print(f"[@navigation_executor:_queue_kpi_measurement] Using kpi_references for KPI (count: {len(kpi_references)})")
             
+            # Early exit if no KPI configured - single log line
             if not kpi_references:
-                print(f"[@navigation_executor:_queue_kpi_measurement] Node {target_node_id} has no KPI references configured - skipping KPI queue")
+                print(f"[@navigation_executor] No KPI configured for '{node_label}' - skipping measurement")
                 return
             
             # Get capture directory from device (MANDATORY)
