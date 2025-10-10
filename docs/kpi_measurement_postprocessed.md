@@ -90,7 +90,7 @@ When navigation executor completes a step successfully:
 # navigation_executor.py (line 473)
 if result.get('success', False) and result.get('main_actions_succeeded', False):
     # Only queue KPI if MAIN actions succeeded (not retry/failure)
-    self._queue_kpi_measurement_if_configured(
+    self._queue_kpi_measurement(
         step=step,
         action_timestamp=action_completion_timestamp,
         team_id=team_id
@@ -106,7 +106,7 @@ if result.get('success', False) and result.get('main_actions_succeeded', False):
 ### 3. **Queueing Process**
 
 ```python
-# navigation_executor.py (_queue_kpi_measurement_if_configured)
+# navigation_executor.py (_queue_kpi_measurement)
 
 # 1. Get node's KPI references from database
 node_data = get_node_by_id(target_tree_id, target_node_id, team_id)

@@ -306,13 +306,13 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
 
 def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minute_data: dict, has_mp3: bool = True):
     """
-    Merge 1-minute transcription into 10-minute chunk (progressive merging)
+    Progressively append segments to 10-minute chunk (same format as before)
     
     Args:
         capture_folder: Device folder name (e.g., 'capture1')
         hour: Hour (0-23)
         chunk_index: Chunk index (0-5)
-        minute_data: Minute transcription data to merge
+        minute_data: Minute transcription data with segments to append
         has_mp3: Whether corresponding MP3 exists
     """
     import fcntl
@@ -331,28 +331,53 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             if os.path.exists(chunk_path):
                 with open(chunk_path, 'r') as f:
                     chunk_data = json.load(f)
+                if 'segments' not in chunk_data:
+                    chunk_data['segments'] = []
             else:
                 chunk_data = {
+                    'capture_folder': capture_folder,
                     'hour': hour,
                     'chunk_index': chunk_index,
                     'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
-                    'minutes': []
+                    'language': 'unknown',
+                    'transcript': '',
+                    'confidence': 0.0,
+                    'transcription_time_seconds': 0.0,
+                    'timestamp': datetime.now().isoformat(),
+                    'mp3_file': f'chunk_10min_{chunk_index}.mp3' if has_mp3 else None,
+                    'segments': []
                 }
             
+            minute_segments = minute_data.get('segments', [])
             minute_offset = minute_data.get('minute_offset')
-            existing_offsets = {m.get('minute_offset') for m in chunk_data['minutes']}
-            if minute_offset not in existing_offsets:
-                chunk_data['minutes'].append(minute_data)
-                chunk_data['minutes'].sort(key=lambda x: x.get('minute_offset', 0))
+            
+            existing_starts = {s.get('start') for s in chunk_data['segments']}
+            new_segments = [s for s in minute_segments if s.get('start') not in existing_starts]
+            
+            if new_segments:
+                chunk_data['segments'].extend(new_segments)
+                chunk_data['segments'].sort(key=lambda x: x.get('start', 0))
+                
+                full_transcript = ' '.join([s.get('text', '').strip() for s in chunk_data['segments']])
+                chunk_data['transcript'] = full_transcript
+                chunk_data['language'] = minute_data.get('language', chunk_data.get('language', 'unknown'))
+                
+                if chunk_data['segments']:
+                    confidences = [s.get('confidence', 0) for s in chunk_data['segments'] if 'confidence' in s]
+                    chunk_data['confidence'] = sum(confidences) / len(confidences) if confidences else 0.0
+                
+                chunk_data['timestamp'] = datetime.now().isoformat()
             
             with open(chunk_path + '.tmp', 'w') as f:
                 json.dump(chunk_data, f, indent=2)
             os.rename(chunk_path + '.tmp', chunk_path)
             
+            GREEN = '\033[92m'
+            RESET = '\033[0m'
             transcript_text = minute_data.get('transcript', '')
             text_preview = transcript_text[:60] if transcript_text else '(no text)'
-            logger.info(f"✅ Merged: {chunk_path} (minute {minute_offset}/10, total={len(chunk_data['minutes'])})")
-            logger.info(f"📝 Preview: '{text_preview}'")
+            logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ Merged minute {minute_offset}/10 ({len(new_segments)} new, total={len(chunk_data['segments'])}){RESET}")
+            logger.info(f"{GREEN}[WHISPER:{capture_folder}] 📝 '{text_preview}'{RESET}")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
@@ -660,7 +685,6 @@ class InotifyTranscriptMonitor:
                 
                 for minute_data in minute_results:
                     merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
-                    logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Saved minute {minute_data['minute_offset']}{RESET}")
                 
                 work_queue.task_done()
                 
