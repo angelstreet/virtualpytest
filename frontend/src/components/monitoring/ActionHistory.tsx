@@ -1,12 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { LiveMonitoringEvent } from '../../types/pages/Monitoring_Types';
+import { MonitoringAnalysis } from '../../types/pages/Monitoring_Types';
 
 interface ActionHistoryProps {
-  lastAction?: string;
-  lastActionTimestamp?: number;
-  actionParams?: Record<string, any>;
-  liveEvents?: LiveMonitoringEvent[];
+  monitoringAnalysis?: MonitoringAnalysis | null;
 }
 
 interface ActionEntry {
@@ -17,64 +14,59 @@ interface ActionEntry {
 }
 
 export const ActionHistory: React.FC<ActionHistoryProps> = ({
-  lastAction,
-  lastActionTimestamp,
-  actionParams,
-  liveEvents = [],
+  monitoringAnalysis,
 }) => {
   const [actions, setActions] = useState<ActionEntry[]>([]);
 
-  // Add zapping events from live events feed
+  // ✅ Process monitoring analysis - includes both regular actions AND zapping detection from frame JSON
   useEffect(() => {
-    if (!liveEvents || liveEvents.length === 0) return;
-    
-    // Convert zapping events to action entries
-    const zappingActions = liveEvents
-      .filter(event => event.event_type === 'zapping')
-      .map(event => ({
-        command: event.detection_type === 'automatic'
-          ? `📺 ZAP → ${event.channel_name} ${event.channel_number ? `(${event.channel_number})` : ''}`
-          : `📺 MANUAL ZAP → ${event.channel_name} ${event.channel_number ? `(${event.channel_number})` : ''}`,
-        timestamp: new Date(event.timestamp).getTime() / 1000,
+    if (!monitoringAnalysis) return;
+
+    const currentActions: ActionEntry[] = [];
+
+    // Check for zapping detection in frame JSON
+    if (monitoringAnalysis.zapping_detected) {
+      const zappingAction: ActionEntry = {
+        command: monitoringAnalysis.zapping_detection_type === 'automatic'
+          ? `📺 ZAP → ${monitoringAnalysis.zapping_channel_name || 'Unknown'} ${monitoringAnalysis.zapping_channel_number ? `(${monitoringAnalysis.zapping_channel_number})` : ''}`
+          : `📺 MANUAL ZAP → ${monitoringAnalysis.zapping_channel_name || 'Unknown'} ${monitoringAnalysis.zapping_channel_number ? `(${monitoringAnalysis.zapping_channel_number})` : ''}`,
+        timestamp: monitoringAnalysis.zapping_detected_at 
+          ? new Date(monitoringAnalysis.zapping_detected_at).getTime() / 1000
+          : Date.now() / 1000,
         params: {
-          channel_name: event.channel_name,
-          channel_number: event.channel_number,
-          program_name: event.program_name,
-          detection_type: event.detection_type,
+          channel_name: monitoringAnalysis.zapping_channel_name,
+          channel_number: monitoringAnalysis.zapping_channel_number,
+          program_name: monitoringAnalysis.zapping_program_name,
+          detection_type: monitoringAnalysis.zapping_detection_type,
         },
-        id: event.event_id,
-      }));
-    
-    // Merge with existing actions
-    setActions(prev => {
-      const combined = [...zappingActions, ...prev];
-      const uniqueMap = new Map(combined.map(a => [a.id, a]));
-      const unique = Array.from(uniqueMap.values());
-      return unique
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 3); // Keep last 3 actions
-    });
-  }, [liveEvents]);
+        id: `zap-${monitoringAnalysis.zapping_detected_at || Date.now()}`,
+      };
+      currentActions.push(zappingAction);
+    }
 
-  // Add new action when it changes
-  useEffect(() => {
-    if (!lastAction || !lastActionTimestamp) return;
+    // Check for regular action in frame JSON
+    if (monitoringAnalysis.last_action_executed && monitoringAnalysis.last_action_timestamp) {
+      const regularAction: ActionEntry = {
+        command: monitoringAnalysis.last_action_executed,
+        timestamp: monitoringAnalysis.last_action_timestamp,
+        params: monitoringAnalysis.action_params,
+        id: `${monitoringAnalysis.last_action_timestamp}-${monitoringAnalysis.last_action_executed}`,
+      };
+      currentActions.push(regularAction);
+    }
 
-    const newAction: ActionEntry = {
-      command: lastAction,
-      timestamp: lastActionTimestamp,
-      params: actionParams,
-      id: `${lastActionTimestamp}-${lastAction}`,
-    };
-
-    setActions(prev => {
-      // Check if this action is already in the list (avoid duplicates)
-      if (prev.some(a => a.id === newAction.id)) return prev;
-
-      // Add new action at the top, keep only last 3
-      return [newAction, ...prev].slice(0, 3);
-    });
-  }, [lastAction, lastActionTimestamp, actionParams]);
+    // Merge with existing actions, keep unique, sort by timestamp, keep last 3
+    if (currentActions.length > 0) {
+      setActions(prev => {
+        const combined = [...currentActions, ...prev];
+        const uniqueMap = new Map(combined.map(a => [a.id, a]));
+        const unique = Array.from(uniqueMap.values());
+        return unique
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 3);
+      });
+    }
+  }, [monitoringAnalysis]);
 
   // Auto-remove actions after 10 seconds (increased for zapping events)
   useEffect(() => {

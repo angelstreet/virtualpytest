@@ -6,17 +6,17 @@ called from both capture_monitor.py and zap_executor.py.
 
 Architecture:
 - Reuses existing banner detection AI from device video controllers
-- Updates frame JSON for archive/playback
-- Writes to live_events.json for real-time monitoring overlay
-- Stores events in database
+- Updates frame JSON with zapping metadata (single source of truth!)
+- Stores events in zap_results database table
+- Frontend reads directly from frame JSON (1s polling)
 
-No code duplication - single source of truth!
+✅ OPTIMIZED: No separate live events system - frame JSON has everything!
+✅ NO CODE DUPLICATION - single source of truth!
 """
 
 import os
 import json
 import fcntl
-import uuid
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -141,17 +141,10 @@ def detect_and_record_zapping(
             is_automatic=is_automatic
         )
         
-        # 2️⃣ Write to live events queue (for real-time display)
-        _write_to_live_events_queue(
-            capture_folder=capture_folder,
-            frame_filename=frame_filename,
-            channel_info=channel_info,
-            blackscreen_duration_ms=blackscreen_duration_ms,
-            is_automatic=is_automatic,
-            action_info=action_info
-        )
+        # ❌ REMOVED: Live events queue - redundant! Frame JSON is single source of truth
+        # Frontend polls frame JSON directly (1s interval) which already has zapping + action data
         
-        # 3️⃣ Store in database
+        # 2️⃣ Store in database
         _store_zapping_event(
             device_id=device_id,
             blackscreen_duration_ms=blackscreen_duration_ms,
@@ -248,93 +241,9 @@ def _update_frame_json_with_zapping(
         logger.error(f"[{capture_folder}] ❌ Failed to update frame JSON: {e}")
 
 
-def _write_to_live_events_queue(
-    capture_folder: str,
-    frame_filename: str,
-    channel_info: Dict[str, Any],
-    blackscreen_duration_ms: int,
-    is_automatic: bool,
-    action_info: Optional[Dict[str, Any]]
-):
-    """
-    Write zapping event to live_events.json for real-time monitoring overlay.
-    Events auto-expire after 10 seconds.
-    """
-    try:
-        from shared.src.lib.utils.storage_path_utils import get_metadata_path
-        
-        metadata_path = get_metadata_path(capture_folder)
-        live_events_file = os.path.join(metadata_path, 'live_events.json')
-        
-        # Create zapping event
-        zapping_event = {
-            'event_id': str(uuid.uuid4()),
-            'event_type': 'zapping',
-            'timestamp': datetime.now().isoformat(),
-            'frame_filename': frame_filename,
-            'detection_type': 'automatic' if is_automatic else 'manual',
-            'blackscreen_duration_ms': blackscreen_duration_ms,
-            'channel_name': channel_info.get('channel_name', ''),
-            'channel_number': channel_info.get('channel_number', ''),
-            'program_name': channel_info.get('program_name', ''),
-            'confidence': channel_info.get('confidence', 0.0),
-            'expires_at': (datetime.now().timestamp() + 10)  # Expires in 10 seconds
-        }
-        
-        # Add action info if automatic
-        if is_automatic and action_info:
-            zapping_event['action_command'] = action_info.get('last_action_executed', '')
-            zapping_event['action_timestamp'] = action_info.get('last_action_timestamp', 0)
-        
-        # Atomic update with file locking
-        lock_path = live_events_file + '.lock'
-        with open(lock_path, 'w') as lock_file:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            
-            try:
-                # Read existing events
-                events = []
-                if os.path.exists(live_events_file):
-                    try:
-                        with open(live_events_file, 'r') as f:
-                            data = json.load(f)
-                            events = data.get('events', [])
-                    except:
-                        events = []
-                
-                # Remove expired events
-                current_time = datetime.now().timestamp()
-                events = [e for e in events if e.get('expires_at', 0) > current_time]
-                
-                # Add new event (newest first)
-                events.insert(0, zapping_event)
-                
-                # Keep only last 5 events
-                events = events[:5]
-                
-                # Write back
-                data = {
-                    'events': events,
-                    'updated_at': datetime.now().isoformat()
-                }
-                
-                with open(live_events_file + '.tmp', 'w') as f:
-                    json.dump(data, f, indent=2)
-                os.rename(live_events_file + '.tmp', live_events_file)
-                
-                logger.info(f"[{capture_folder}] ✅ Added to live_events.json (total: {len(events)})")
-                
-            finally:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-        
-        # Clean up lock file
-        try:
-            os.remove(lock_path)
-        except:
-            pass
-            
-    except Exception as e:
-        logger.error(f"[{capture_folder}] ❌ Failed to write live events: {e}")
+# ❌ REMOVED: _write_to_live_events_queue() - No longer needed!
+# Frame JSON is the single source of truth (includes both action + zapping data)
+# Frontend polls frame JSON directly - no need for separate live events system
 
 
 def _store_zapping_event(

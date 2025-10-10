@@ -1,7 +1,7 @@
 import { Box, Typography, CircularProgress } from '@mui/material';
 import React from 'react';
 
-import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis, LiveMonitoringEvent } from '../../types/pages/Monitoring_Types';
+import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 import { ActionHistory } from './ActionHistory';
 
 // Language code to name mapping
@@ -39,7 +39,6 @@ interface MonitoringOverlayProps {
   showLanguageMenu?: boolean;
   analysisTimestamp?: string;
   isAIAnalyzing?: boolean;
-  liveEvents?: LiveMonitoringEvent[];
 }
 
 export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
@@ -52,7 +51,6 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
   showLanguageMenu = false,
   analysisTimestamp,
   isAIAnalyzing = false,
-  liveEvents = [],
 }) => {
   // Use separate data sources
   const analysis = monitoringAnalysis;
@@ -361,12 +359,9 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
         </Box>
       )}
       
-      {/* Action History with Live Events (zapping) */}
+      {/* Action History (includes zapping detection from frame JSON) */}
       <ActionHistory
-        lastAction={analysis?.last_action_executed}
-        lastActionTimestamp={analysis?.last_action_timestamp}
-        actionParams={analysis?.action_params}
-        liveEvents={liveEvents}
+        monitoringAnalysis={monitoringAnalysis}
       />
     </>
   );

@@ -4,7 +4,6 @@ import {
   MonitoringAnalysis,
   SubtitleAnalysis,
   LanguageMenuAnalysis,
-  LiveMonitoringEvent,
 } from '../../types/pages/Monitoring_Types';
 
 import { 
@@ -38,7 +37,6 @@ interface UseMonitoringReturn {
   errorTrendData: ErrorTrendData | null;
   isLoading: boolean;
   analysisTimestamp: string | null;
-  liveEvents: LiveMonitoringEvent[];
   requestAIAnalysisForFrame: (imageUrl: string, sequence: string) => void; // Fire-and-forget (non-blocking)
   isAIAnalyzing: boolean;
 }
@@ -62,7 +60,6 @@ export const useMonitoring = ({
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisSnapshot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastProcessedSequence, setLastProcessedSequence] = useState<string>('');
-  const [liveEvents, setLiveEvents] = useState<LiveMonitoringEvent[]>([]);
   // AI analysis disabled
   // const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -481,49 +478,9 @@ export const useMonitoring = ({
     };
   }, [analysisHistory]);
 
-  // Poll live events (zapping, etc.) separately for real-time display
-  const fetchLiveEvents = useCallback(async () => {
-    if (!host || !device?.device_id) return;
-    
-    try {
-      const response = await fetch(buildServerUrl('/server/monitoring/live-events'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host_name: host.host_name,
-          host_ip: host.ip,
-          host_port: host.port,
-          device_id: device.device_id,
-        }),
-      });
-      
-      if (!response.ok) return;
-      
-      const data = await response.json();
-      
-      if (data.success && data.events) {
-        setLiveEvents(data.events);
-      }
-    } catch (error) {
-      // Silent fail - don't spam console for network errors
-    }
-  }, [host, device?.device_id]);
-  
-  // Setup live events polling (every 1 second, only in live mode)
-  useEffect(() => {
-    if (!enabled || archiveMode) {
-      setLiveEvents([]);
-      return;
-    }
-    
-    // Poll live events every 1 second
-    const interval = setInterval(fetchLiveEvents, 1000);
-    
-    // Initial fetch
-    fetchLiveEvents();
-    
-    return () => clearInterval(interval);
-  }, [enabled, archiveMode, fetchLiveEvents]);
+  // ❌ REMOVED: Live events polling - redundant!
+  // Frame JSON already contains zapping info + action info
+  // No need for separate polling
 
   // Get latest snapshot (most recent)
   const latestSnapshot = analysisHistory.length > 0 ? analysisHistory[analysisHistory.length - 1] : null;
@@ -536,7 +493,6 @@ export const useMonitoring = ({
     errorTrendData: computeErrorTrends(),
     isLoading,
     analysisTimestamp: latestSnapshot?.timestamp || null,
-    liveEvents,
     requestAIAnalysisForFrame,
     isAIAnalyzing: false, // AI disabled
   };
