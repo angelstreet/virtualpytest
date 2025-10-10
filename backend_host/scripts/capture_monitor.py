@@ -65,6 +65,9 @@ class InotifyFrameMonitor:
         self.device_queues = {}
         self.device_workers = {}
         
+        # Audio cache: last known audio status per device (updated every 5s by transcript_accumulator)
+        self.audio_cache = {}  # {capture_folder: {'audio': bool, 'mean_volume_db': float, 'timestamp': str}}
+        
         for capture_dir in capture_dirs:
             # Use centralized path utilities (handles both hot and cold storage)
             capture_folder = get_capture_folder(capture_dir)
@@ -488,33 +491,46 @@ class InotifyFrameMonitor:
             transitions = self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
             
             try:
-                # Check if JSON already exists (transcript_accumulator might have created it with audio data)
+                # Check if JSON already exists (transcript_accumulator might have written audio data)
                 existing_data = {}
-                has_audio_data = False
                 if os.path.exists(json_file):
                     try:
                         with open(json_file, 'r') as f:
                             existing_data = json.load(f)
-                        has_audio_data = 'audio' in existing_data
-                        if has_audio_data:
-                            audio_val = "✅ YES" if existing_data.get('audio') else "❌ NO"
-                            volume = existing_data.get('mean_volume_db', -100)
-                            logger.info(f"[{capture_folder}] 🔗 MERGING audio data: audio={audio_val}, volume={volume:.1f}dB")
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] Failed to read existing JSON: {e}")
+                
+                # Audio handling: Update cache if JSON has fresh audio data, otherwise use cached value
+                if 'audio' in existing_data:
+                    # JSON has audio data from transcript_accumulator - update cache
+                    self.audio_cache[capture_folder] = {
+                        'audio': existing_data['audio'],
+                        'mean_volume_db': existing_data.get('mean_volume_db', -100),
+                        'audio_check_timestamp': existing_data.get('audio_check_timestamp'),
+                        'audio_segment_file': existing_data.get('audio_segment_file')
+                    }
+                    audio_val = "✅ YES" if existing_data['audio'] else "❌ NO"
+                    volume = existing_data.get('mean_volume_db', -100)
+                    logger.debug(f"[{capture_folder}] 🔄 Updated audio cache: audio={audio_val}, volume={volume:.1f}dB")
+                elif capture_folder in self.audio_cache:
+                    # No audio in JSON but we have cached value - use it
+                    existing_data.update(self.audio_cache[capture_folder])
+                    audio_val = "✅ YES" if self.audio_cache[capture_folder]['audio'] else "❌ NO"
+                    volume = self.audio_cache[capture_folder].get('mean_volume_db', -100)
+                    logger.debug(f"[{capture_folder}] 📋 Using cached audio: audio={audio_val}, volume={volume:.1f}dB")
                 
                 if detection_result:
                     analysis_data = {
                         "analyzed": True,
                         "subtitle_ocr_pending": True,
-                        **existing_data,  # Keep existing data (e.g., audio from transcript_accumulator)
+                        **existing_data,  # Includes audio from cache or JSON
                         **detection_result  # Merge detection results (overwrites if keys conflict)
                     }
                 else:
                     analysis_data = {
                         "analyzed": True,
                         "subtitle_ocr_pending": True,
-                        **existing_data,  # Keep existing data
+                        **existing_data,  # Includes audio from cache or JSON
                         "error": "detection_result_was_none"
                     }
                 

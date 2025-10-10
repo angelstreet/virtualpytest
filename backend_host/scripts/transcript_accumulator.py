@@ -836,14 +836,13 @@ class InotifyTranscriptMonitor:
                     'timestamp': datetime.now().isoformat()
                 }
                 
-                # Save audio detection to latest capture JSON (capture_monitor creates these)
-                # Segment timing: segment file corresponds to ~5 capture images
-                # Strategy: Find most recent capture JSON and update it with audio info
+                # Write audio detection to ONE recent capture JSON
+                # capture_monitor will propagate this to all subsequent frames via its audio cache
                 try:
                     metadata_path = get_metadata_path(device_folder)
                     os.makedirs(metadata_path, mode=0o777, exist_ok=True)
                     
-                    # Find most recent capture JSON (within last 2 seconds)
+                    # Find most recent capture JSON
                     import fcntl
                     latest_json = None
                     latest_mtime = 0
@@ -861,7 +860,7 @@ class InotifyTranscriptMonitor:
                     except Exception:
                         pass
                     
-                    # If no recent JSON, wait 100ms and try again (capture_monitor might be creating it)
+                    # If no recent JSON, wait 100ms and try again
                     if not latest_json:
                         time.sleep(0.1)
                         try:
@@ -876,17 +875,16 @@ class InotifyTranscriptMonitor:
                             pass
                     
                     if latest_json and os.path.exists(latest_json):
-                        # Read existing capture JSON
+                        # Update ONE JSON with audio data (capture_monitor will propagate via cache)
                         with open(latest_json, 'r') as f:
                             existing_data = json.load(f)
                         
-                        # Update with audio detection results
                         existing_data['audio'] = has_audio
                         existing_data['mean_volume_db'] = mean_volume
                         existing_data['audio_check_timestamp'] = detection_result['timestamp']
                         existing_data['audio_segment_file'] = segment_filename
                         
-                        # Write back atomically with lock
+                        # Write atomically
                         lock_path = latest_json + '.lock'
                         with open(lock_path, 'w') as lock_file:
                             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
@@ -895,9 +893,9 @@ class InotifyTranscriptMonitor:
                                     json.dump(existing_data, f, indent=2)
                                 os.rename(latest_json + '.tmp', latest_json)
                                 
-                                # Log audio write with full details
+                                # Log audio write
                                 audio_status = "✅ YES" if has_audio else "❌ NO"
-                                logger.info(f"{BLUE}[AUDIO:{device_folder}] 💾 WROTE → {os.path.basename(latest_json)}: audio={audio_status}, volume={mean_volume:.1f}dB{RESET}")
+                                logger.info(f"{BLUE}[AUDIO:{device_folder}] 💾 WROTE → {os.path.basename(latest_json)}: audio={audio_status}, volume={mean_volume:.1f}dB (will propagate via cache){RESET}")
                             finally:
                                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                         
@@ -905,15 +903,9 @@ class InotifyTranscriptMonitor:
                             os.remove(lock_path)
                         except:
                             pass
-                    else:
-                        # No recent JSON found - either capture_monitor is behind or just starting
-                        # This is rare (audio every 5s, captures every 0.2s = ~25 captures per audio check)
-                        # Next audio check (in 5s) will find and update the capture JSONs
-                        if check_count % 12 == 0:  # Log once per minute
-                            logger.debug(f"{BLUE}[AUDIO:{device_folder}] No recent capture JSON found (capture_monitor might be behind){RESET}")
                         
                 except Exception as e:
-                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] Failed to update JSON: {e}{RESET}")
+                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] Failed to write audio to JSON: {e}{RESET}")
                 
                 # Report to incident manager for tracking only (no lifecycle management)
                 if self.incident_manager:
