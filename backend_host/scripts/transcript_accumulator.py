@@ -425,6 +425,7 @@ class InotifyTranscriptMonitor:
         
         self.backfill_scanner = None
         self.scan_position = {}
+        self.last_cleanup_day = None
         
         self.whisper_worker = None
         self.worker_running = False
@@ -824,6 +825,13 @@ class InotifyTranscriptMonitor:
         
         while True:
             try:
+                current_day = datetime.now().day
+                if self.last_cleanup_day != current_day:
+                    logger.info(f"{MAGENTA}[BACKFILL] Day changed - clearing scan history{RESET}")
+                    for device_folder in [d['device_folder'] for d in self.monitored_devices]:
+                        self.backfill_scanned[device_folder].clear()
+                    self.last_cleanup_day = current_day
+                
                 if not self._check_all_queues_idle():
                     time.sleep(30)
                     continue
