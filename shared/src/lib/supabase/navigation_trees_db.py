@@ -411,8 +411,8 @@ def create_sub_tree(parent_tree_id: str, parent_node_id: str, tree_data: Dict, t
     try:
         supabase = get_supabase()
         
-        # Get parent tree depth
-        parent_result = supabase.table('navigation_trees').select('tree_depth')\
+        # Get parent tree depth and userinterface_id
+        parent_result = supabase.table('navigation_trees').select('tree_depth, userinterface_id')\
             .eq('id', parent_tree_id)\
             .eq('team_id', team_id)\
             .execute()
@@ -421,10 +421,15 @@ def create_sub_tree(parent_tree_id: str, parent_node_id: str, tree_data: Dict, t
             return {'success': False, 'error': 'Parent tree not found'}
         
         parent_depth = parent_result.data[0]['tree_depth']
+        parent_userinterface_id = parent_result.data[0].get('userinterface_id')
         
         # Validate depth limit
         if parent_depth >= 5:
             return {'success': False, 'error': 'Maximum nesting depth reached (5 levels)'}
+        
+        # Inherit userinterface_id from parent if not provided
+        if 'userinterface_id' not in tree_data or tree_data['userinterface_id'] is None:
+            tree_data['userinterface_id'] = parent_userinterface_id
         
         # Set nested tree properties
         tree_data.update({
