@@ -416,9 +416,15 @@ class InotifyTranscriptMonitor:
         
         self.segment_queues = {}
         self.segment_workers = {}
+        self.backfill_queues = {}
+        self.backfill_queued = {}
+        self.backfill_scanned = {}
         
         self.active_queues = {}
         self.history_queues = {}
+        
+        self.backfill_scanner = None
+        self.scan_position = {}
         
         self.whisper_worker = None
         self.worker_running = False
@@ -435,6 +441,7 @@ class InotifyTranscriptMonitor:
         self._initialize_queues(all_pending)
         
         self._start_whisper_worker()
+        self._start_backfill_scanner()
     
     def _setup_watches(self):
         """Setup inotify watches for all segments and audio directories"""
@@ -505,6 +512,10 @@ class InotifyTranscriptMonitor:
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
             self.segment_queues[device_folder] = queue.Queue(maxsize=20)
+            self.backfill_queues[device_folder] = queue.Queue(maxsize=100)
+            self.backfill_queued[device_folder] = set()
+            self.backfill_scanned[device_folder] = {}
+            self.scan_position[device_folder] = 23
             
             segment_worker = threading.Thread(
                 target=self._segment_worker,
@@ -517,29 +528,60 @@ class InotifyTranscriptMonitor:
     
     def _segment_worker(self, device_folder):
         YELLOW = '\033[93m'
+        MAGENTA = '\033[95m'
         RESET = '\033[0m'
         
-        work_queue = self.segment_queues[device_folder]
+        real_time_queue = self.segment_queues[device_folder]
+        backfill_queue = self.backfill_queues[device_folder]
         
         while True:
+            item = None
+            is_backfill = False
+            
             try:
-                segment_path, hour, chunk_index, minute_offset = work_queue.get(timeout=5)
+                item = real_time_queue.get_nowait()
             except queue.Empty:
-                continue
+                try:
+                    item = backfill_queue.get(timeout=5)
+                    is_backfill = True
+                except queue.Empty:
+                    continue
             
             tmp_audio = None
+            hour = chunk_index = minute_offset = None
             try:
                 start_time = time.time()
-                
                 tmp_audio = f'/tmp/segment_{device_folder}_{os.getpid()}.mp3'
-                cmd = [
-                    'ffmpeg', '-i', segment_path, '-vn',
-                    '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
-                    '-y', tmp_audio
-                ]
+                
+                if is_backfill:
+                    mp3_path, hour, chunk_index, minute_offset = item
+                    start_sec = minute_offset * 60
+                    cmd = [
+                        'ffmpeg', '-ss', str(start_sec), '-t', '60',
+                        '-i', mp3_path, '-vn',
+                        '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
+                        '-y', tmp_audio
+                    ]
+                    color = MAGENTA
+                    prefix = "BACKFILL"
+                else:
+                    segment_path, hour, chunk_index, minute_offset = item
+                    cmd = [
+                        'ffmpeg', '-i', segment_path, '-vn',
+                        '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
+                        '-y', tmp_audio
+                    ]
+                    color = YELLOW
+                    prefix = "SEGMENT"
+                
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if result.returncode != 0:
-                    work_queue.task_done()
+                    if is_backfill:
+                        item_key = (hour, chunk_index, minute_offset)
+                        self.backfill_queued[device_folder].discard(item_key)
+                        backfill_queue.task_done()
+                    else:
+                        real_time_queue.task_done()
                     continue
                 
                 lang = get_chunk_language(device_folder, hour, chunk_index)
@@ -564,12 +606,24 @@ class InotifyTranscriptMonitor:
                     merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
                     
                     elapsed = time.time() - start_time
-                    logger.info(f"{YELLOW}[SEGMENT:{device_folder}] ✅ {hour}h{minute_offset:02d}min in {elapsed:.1f}s ({len(segments)} segments){RESET}")
+                    logger.info(f"{color}[{prefix}:{device_folder}] ✅ {hour}h{minute_offset:02d}min in {elapsed:.1f}s ({len(segments)} segments){RESET}")
                 
-                work_queue.task_done()
+                if is_backfill:
+                    item_key = (hour, chunk_index, minute_offset)
+                    self.backfill_queued[device_folder].discard(item_key)
+                    backfill_queue.task_done()
+                else:
+                    real_time_queue.task_done()
             except Exception as e:
                 logger.error(f"{YELLOW}[SEGMENT:{device_folder}] Error: {e}{RESET}")
-                work_queue.task_done()
+                if item:
+                    if is_backfill:
+                        if hour is not None:
+                            item_key = (hour, chunk_index, minute_offset)
+                            self.backfill_queued[device_folder].discard(item_key)
+                        backfill_queue.task_done()
+                    else:
+                        real_time_queue.task_done()
             finally:
                 if tmp_audio and os.path.exists(tmp_audio):
                     try:
@@ -664,6 +718,134 @@ class InotifyTranscriptMonitor:
                 logger.error(f"{BLUE}[AUDIO:{device_folder}] Error: {e}{RESET}")
             
             time.sleep(5)
+    
+    def _start_backfill_scanner(self):
+        scanner = threading.Thread(
+            target=self._backfill_scanner_worker,
+            daemon=True,
+            name="backfill-scanner"
+        )
+        scanner.start()
+        self.backfill_scanner = scanner
+        logger.info("Backfill scanner started (progressive recovery when idle)")
+    
+    def _check_all_queues_idle(self):
+        for device_folder in [d['device_folder'] for d in self.monitored_devices]:
+            if not self.active_queues[device_folder].empty():
+                return False
+            if self.history_queues[device_folder]:
+                return False
+        return True
+    
+    def _has_transcript_for_minute(self, transcript_path: str, minute_offset: int) -> bool:
+        if not os.path.exists(transcript_path):
+            return False
+        
+        try:
+            with open(transcript_path, 'r') as f:
+                data = json.load(f)
+            
+            segments = data.get('segments', [])
+            if not segments:
+                return False
+            
+            start_time = minute_offset * 60
+            end_time = (minute_offset + 1) * 60
+            
+            for seg in segments:
+                seg_start = seg.get('start', 0)
+                if start_time <= seg_start < end_time:
+                    return True
+            
+            return False
+        except:
+            return False
+    
+    def _scan_hour_for_backfill(self, device_folder: str, hour: int) -> int:
+        audio_base = None
+        transcript_base = None
+        
+        for device_info in self.monitored_devices:
+            if device_info['device_folder'] == device_folder:
+                audio_base = device_info['audio_base']
+                transcript_base = get_transcript_path(device_folder)
+                break
+        
+        if not audio_base or not transcript_base:
+            return 0
+        
+        added = 0
+        now = time.time()
+        scan_ttl = 3600
+        
+        for chunk_index in range(6):
+            mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
+            if not os.path.exists(mp3_path):
+                continue
+            
+            if not has_audio_stream(mp3_path):
+                continue
+            
+            transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+            
+            for minute_offset in range(10):
+                item_key = (hour, chunk_index, minute_offset)
+                
+                last_scan = self.backfill_scanned[device_folder].get(item_key, 0)
+                if now - last_scan < scan_ttl:
+                    continue
+                
+                if not self._has_transcript_for_minute(transcript_path, minute_offset):
+                    if item_key in self.backfill_queued[device_folder]:
+                        continue
+                    
+                    try:
+                        self.backfill_queues[device_folder].put_nowait((mp3_path, hour, chunk_index, minute_offset))
+                        self.backfill_queued[device_folder].add(item_key)
+                        added += 1
+                    except queue.Full:
+                        return added
+                
+                self.backfill_scanned[device_folder][item_key] = now
+        
+        if len(self.backfill_scanned[device_folder]) > 500:
+            self.backfill_scanned[device_folder] = {
+                k: v for k, v in self.backfill_scanned[device_folder].items()
+                if now - v < scan_ttl
+            }
+        
+        return added
+    
+    def _backfill_scanner_worker(self):
+        MAGENTA = '\033[95m'
+        RESET = '\033[0m'
+        
+        time.sleep(60)
+        
+        while True:
+            try:
+                if not self._check_all_queues_idle():
+                    time.sleep(30)
+                    continue
+                
+                for device_info in self.monitored_devices:
+                    device_folder = device_info['device_folder']
+                    hour = self.scan_position[device_folder]
+                    
+                    logger.info(f"{MAGENTA}[BACKFILL:{device_folder}] Scanning hour {hour}{RESET}")
+                    
+                    added = self._scan_hour_for_backfill(device_folder, hour)
+                    
+                    if added > 0:
+                        logger.info(f"{MAGENTA}[BACKFILL:{device_folder}] Found {added} missing transcripts in hour {hour}{RESET}")
+                    
+                    self.scan_position[device_folder] = (hour - 1) % 24
+                
+                time.sleep(30)
+                
+            except Exception as e:
+                logger.error(f"{MAGENTA}[BACKFILL] Scanner error: {e}{RESET}")
+                time.sleep(30)
     
     def _scan_last_24h(self):
         """Scan last 3h for MP3s without transcripts (accept data loss for older chunks)"""
