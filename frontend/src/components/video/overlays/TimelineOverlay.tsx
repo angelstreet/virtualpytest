@@ -206,7 +206,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                   ? (isDraggingSlider ? dragSliderValue : liveSliderPosition)
                   : (isDraggingSlider ? dragSliderValue : sliderValue);
                 const minValue = isLiveMode ? 0 : 0;
-                const maxValue = isLiveMode ? 150 : 82800;  // Match the slider max
+                const maxValue = isLiveMode ? 150 : 86400;  // 24h in seconds
                 
                 // Calculate percentage (0-100)
                 const percentage = ((currentValue - minValue) / (maxValue - minValue)) * 100;
@@ -288,21 +288,35 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 const roundedNow = getRoundedNow();
                 const seekTime = positionToClockTime(positionValue, roundedNow);
 
-                // Check if seeking to current building chunk (last 10min window)
                 const now = new Date();
+                console.log('🔍 [Timeline Seek Debug]');
+                console.log('  Position value:', positionValue);
+                console.log('  Rounded now:', roundedNow, `(${Math.floor(roundedNow/3600)}h${Math.floor((roundedNow%3600)/60)}m)`);
+                console.log('  Seek time:', seekTime, `(${Math.floor(seekTime/3600)}h${Math.floor((seekTime%3600)/60)}m)`);
+                console.log('  Current time:', now.getHours() + 'h' + now.getMinutes() + 'm');
+
+                // Check if seeking to current building chunk (last 10min window)
                 const currentHour = now.getHours();
                 const currentMinute = now.getMinutes();
                 const currentChunkIndex = Math.floor(currentMinute / 10);
                 const currentChunkStartTime = currentHour * 3600 + currentChunkIndex * 600;
                 const isCurrentChunk = seekTime >= currentChunkStartTime && seekTime < currentChunkStartTime + 600;
 
+                console.log('  Current chunk:', currentHour + 'h' + (currentChunkIndex * 10) + 'm', `(${currentChunkStartTime}s)`);
+                console.log('  Is current chunk?', isCurrentChunk);
+
                 // Allow seeking to current building chunk (even if incomplete)
                 if (isCurrentChunk) {
+                  console.log('  ✅ Seeking to current building chunk:', seekTime);
                   onSeek(event, seekTime);
                   return;
                 }
 
-                if (isTimeAvailable(seekTime)) {
+                const isAvailable = isTimeAvailable(seekTime);
+                console.log('  Is time available?', isAvailable);
+
+                if (isAvailable) {
+                  console.log('  ✅ Seeking to available time:', seekTime);
                   onSeek(event, seekTime);
                   return;
                 }
@@ -312,6 +326,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                 let minDiff = Infinity;
 
                 if (archiveMetadata && archiveMetadata.manifests) {
+                  console.log('  Searching', archiveMetadata.manifests.length, 'chunks for nearest...');
                   archiveMetadata.manifests.forEach(manifest => {
                     const chunkStartTime = manifest.window_index * 3600 + manifest.chunk_index * 600;
                     const diff = Math.abs(chunkStartTime - seekTime);
@@ -324,11 +339,13 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
                     if (adjustedDiff < minDiff) {
                       minDiff = adjustedDiff;
                       nearestTime = chunkStartTime;
+                      console.log('    New nearest:', manifest.window_index + 'h' + (manifest.chunk_index * 10) + 'm', `(${chunkStartTime}s, diff=${diff}s, isRecent=${isRecent})`);
                     }
                   });
                 }
 
                 if (nearestTime !== null) {
+                  console.log('  ⚠️  Seeking to nearest:', nearestTime, `(${Math.floor(nearestTime/3600)}h${Math.floor((nearestTime%3600)/60)}m)`);
                   onSeek(event, nearestTime);
                 }
                 return;

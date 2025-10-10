@@ -129,6 +129,11 @@ export const useArchivePlayer = ({
     const marks = [];
     const now = new Date();
     const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentSecond = now.getSeconds();
+    
+    // Calculate current time in seconds since midnight
+    const nowSecondsToday = currentHour * 3600 + currentMinute * 60 + currentSecond;
     
     // Generate marks for the last 24 hours in INVERTED order (now at right)
     // Timeline goes from 24h ago (left, 0 seconds) to now (right, 86400 seconds)
@@ -168,6 +173,24 @@ export const useArchivePlayer = ({
         }
       });
     }
+    
+    // Add current hour start mark if we're not at the top of the hour (ensures "16h" shows before "Now")
+    if (currentMinute > 0 || currentSecond > 0) {
+      const currentHourStartPosition = 86400 - (currentMinute * 60 + currentSecond);
+      const isAvailable = availableHours.includes(currentHour);
+      
+      marks.push({
+        value: currentHourStartPosition,
+        label: `${currentHour}h`,
+        style: isAvailable ? {} : {
+          color: 'rgba(255, 255, 255, 0.3)',
+          opacity: 0.5
+        }
+      });
+    }
+    
+    // Sort marks by value for proper display
+    marks.sort((a, b) => a.value - b.value);
     
     return marks;
   }, [archiveMetadata, availableHours]);
