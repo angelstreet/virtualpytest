@@ -278,10 +278,11 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         segments = result.get('segments', [])
         language = result.get('language', 'unknown')
         language_code = result.get('language_code', 'unknown')
+        confidence = result.get('confidence', 0.0)
         
         GREEN = '\033[92m'
         RESET = '\033[0m'
-        logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ Transcribed in {elapsed:.1f}s | Lang: {language} | {len(segments)} segments | CPU: {cpu_final:.1f}%{RESET}")
+        logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ Transcribed in {elapsed:.1f}s | Lang: {language} ({language_code}) | Confidence: {confidence:.2f} | {len(segments)} segments | CPU: {cpu_final:.1f}%{RESET}")
         
         minute_groups = {}
         for i in range(10):
@@ -304,6 +305,8 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
             minute_transcript = clean_transcript_text(minute_transcript)
             if ENABLE_SPELLCHECK:
                 minute_transcript = correct_spelling(minute_transcript, result.get('language_code'))
+            
+            logger.info(f"[{capture_folder}] 📝 Minute {minute_offset}: {len(minute_segments)} segments, {len(minute_transcript)} chars - \"{minute_transcript[:50]}...\"")
             
             minute_results.append({
                 'minute_offset': minute_offset,
@@ -385,6 +388,13 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             with open(chunk_path + '.tmp', 'w') as f:
                 json.dump(chunk_data, f, indent=2)
             os.rename(chunk_path + '.tmp', chunk_path)
+            
+            # Log summary of merged data with sample
+            logger.info(f"[{capture_folder}] 💾 Merged chunk {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars")
+            logger.info(f"[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, mp3_file={chunk_data.get('mp3_file')}")
+            if chunk_data['segments']:
+                sample_seg = chunk_data['segments'][0]
+                logger.info(f"[{capture_folder}] 📋 Sample segment: start={sample_seg.get('start', 0):.2f}s, text=\"{sample_seg.get('text', '')[:80]}...\"")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
@@ -635,32 +645,47 @@ class InotifyTranscriptMonitor:
     
     def _start_audio_workers(self):
         """Start audio detection workers (5s interval per device)"""
-        from backend_host.scripts.incident_manager import IncidentManager
-        self.incident_manager = IncidentManager()
+        logger.info("Starting audio detection workers...")
+        
+        try:
+            from backend_host.scripts.incident_manager import IncidentManager
+            self.incident_manager = IncidentManager()
+            logger.info("✓ IncidentManager initialized")
+        except Exception as e:
+            logger.warning(f"⚠️  Failed to initialize IncidentManager: {e} (audio detection will continue without incident tracking)")
+            self.incident_manager = None
         
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
             
-            audio_worker = threading.Thread(
-                target=self._audio_detection_worker,
-                args=(device_folder,),
-                daemon=True,
-                name=f"audio-{device_folder}"
-            )
-            audio_worker.start()
-            self.audio_workers[device_folder] = audio_worker
-            logger.info(f"[{device_folder}] Started audio detection worker (5s interval)")
+            try:
+                audio_worker = threading.Thread(
+                    target=self._audio_detection_worker,
+                    args=(device_folder,),
+                    daemon=True,
+                    name=f"audio-{device_folder}"
+                )
+                audio_worker.start()
+                self.audio_workers[device_folder] = audio_worker
+                logger.info(f"✓ [{device_folder}] Started audio detection worker (5s interval)")
+            except Exception as e:
+                logger.error(f"✗ [{device_folder}] Failed to start audio detection worker: {e}")
     
     def _audio_detection_worker(self, device_folder):
         """Worker thread: Check audio every 5s from manifest"""
         BLUE = '\033[94m'
         RESET = '\033[0m'
         
+        logger.info(f"{BLUE}[AUDIO:{device_folder}] Worker thread started - checking every 5s{RESET}")
+        
+        check_count = 0
         while True:
+            check_count += 1
             try:
                 manifest_path = f"/var/www/html/stream/{device_folder}/segments/manifest.m3u8"
                 
                 if not os.path.exists(manifest_path):
+                    logger.debug(f"{BLUE}[AUDIO:{device_folder}] Manifest not found: {manifest_path}{RESET}")
                     time.sleep(5)
                     continue
                 
@@ -668,6 +693,7 @@ class InotifyTranscriptMonitor:
                     lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
                 
                 if not lines:
+                    logger.debug(f"{BLUE}[AUDIO:{device_folder}] Manifest is empty{RESET}")
                     time.sleep(5)
                     continue
                 
@@ -678,6 +704,7 @@ class InotifyTranscriptMonitor:
                 segment_path = f"/var/www/html/stream/{device_folder}/segments/{hour}/{segment_file}"
                 
                 if not os.path.exists(segment_path):
+                    logger.debug(f"{BLUE}[AUDIO:{device_folder}] Segment not found: {segment_path}{RESET}")
                     time.sleep(5)
                     continue
                 
@@ -703,7 +730,8 @@ class InotifyTranscriptMonitor:
                 has_audio = mean_volume > -50.0
                 status_icon = '🔊' if has_audio else '🔇'
                 
-                logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB{RESET}")
+                # Log every check (every 5s)
+                logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB (check #{check_count}){RESET}")
                 
                 detection_result = {
                     'audio': has_audio,
@@ -717,7 +745,9 @@ class InotifyTranscriptMonitor:
                     self.incident_manager.process_detection(device_folder, detection_result, host_name)
                 
             except Exception as e:
+                import traceback
                 logger.error(f"{BLUE}[AUDIO:{device_folder}] Error: {e}{RESET}")
+                logger.error(f"{BLUE}[AUDIO:{device_folder}] Traceback: {traceback.format_exc()}{RESET}")
             
             time.sleep(5)
     
@@ -1242,6 +1272,9 @@ def main():
         handlers=[logging.StreamHandler()],
         force=True
     )
+    
+    # Enable faster-whisper internal logging for detailed processing info
+    logging.getLogger('faster_whisper').setLevel(logging.INFO)
     
     logger.info("=" * 80)
     logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")
