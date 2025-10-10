@@ -894,7 +894,10 @@ class InotifyTranscriptMonitor:
                                 with open(latest_json + '.tmp', 'w') as f:
                                     json.dump(existing_data, f, indent=2)
                                 os.rename(latest_json + '.tmp', latest_json)
-                                logger.debug(f"{BLUE}[AUDIO:{device_folder}] ✓ Updated {os.path.basename(latest_json)} with audio={has_audio}{RESET}")
+                                
+                                # Log audio write with full details
+                                audio_status = "✅ YES" if has_audio else "❌ NO"
+                                logger.info(f"{BLUE}[AUDIO:{device_folder}] 💾 WROTE → {os.path.basename(latest_json)}: audio={audio_status}, volume={mean_volume:.1f}dB{RESET}")
                             finally:
                                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                         

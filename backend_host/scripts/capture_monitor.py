@@ -236,7 +236,13 @@ class InotifyFrameMonitor:
         
         # Track all event types with same logic
         for event_type in ['blackscreen', 'freeze', 'audio', 'macroblocks']:
-            event_active = detection_result.get(event_type, False)
+            # For audio: True=good, False=problem (inverse of other events)
+            if event_type == 'audio':
+                # Track audio_loss (absence of audio)
+                event_active = not detection_result.get(event_type, True)  # No audio = problem
+            else:
+                event_active = detection_result.get(event_type, False)
+            
             event_start_key = f'{event_type}_event_start'
             
             if event_active:
@@ -245,11 +251,27 @@ class InotifyFrameMonitor:
                     device_state[event_start_key] = current_time.isoformat()
                     detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
                     detection_result[f'{event_type}_event_duration_ms'] = 0
+                    
+                    # Log event start
+                    if event_type == 'audio':
+                        volume = detection_result.get('mean_volume_db', -100)
+                        logger.info(f"[{capture_folder}] 🔇 AUDIO LOSS started (volume={volume:.1f}dB)")
+                    else:
+                        logger.info(f"[{capture_folder}] ⚠️  {event_type.upper()} started")
                 else:
                     # Event ONGOING
                     start = datetime.fromisoformat(device_state[event_start_key])
                     detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
-                    detection_result[f'{event_type}_event_duration_ms'] = int((current_time - start).total_seconds() * 1000)
+                    duration_ms = int((current_time - start).total_seconds() * 1000)
+                    detection_result[f'{event_type}_event_duration_ms'] = duration_ms
+                    
+                    # Log ongoing event every 10 seconds
+                    if duration_ms % 10000 < 200:  # Log approximately every 10s
+                        if event_type == 'audio':
+                            volume = detection_result.get('mean_volume_db', -100)
+                            logger.info(f"[{capture_folder}] 🔇 AUDIO LOSS ongoing: {duration_ms/1000:.1f}s (volume={volume:.1f}dB)")
+                        else:
+                            logger.info(f"[{capture_folder}] ⚠️  {event_type.upper()} ongoing: {duration_ms/1000:.1f}s")
             elif device_state.get(event_start_key):
                 # Event END
                 start = datetime.fromisoformat(device_state[event_start_key])
@@ -257,6 +279,13 @@ class InotifyFrameMonitor:
                 total_duration_ms = int((current_time - start).total_seconds() * 1000)
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
+                
+                # Log event end
+                if event_type == 'audio':
+                    volume = detection_result.get('mean_volume_db', -100)
+                    logger.info(f"[{capture_folder}] 🔊 AUDIO RESTORED after {total_duration_ms/1000:.1f}s (volume={volume:.1f}dB)")
+                else:
+                    logger.info(f"[{capture_folder}] ✅ {event_type.upper()} ended after {total_duration_ms/1000:.1f}s")
                 
                 # ✅ Automatic zapping detection when blackscreen ends
                 if event_type == 'blackscreen' and total_duration_ms < 10000:
@@ -461,11 +490,16 @@ class InotifyFrameMonitor:
             try:
                 # Check if JSON already exists (transcript_accumulator might have created it with audio data)
                 existing_data = {}
+                has_audio_data = False
                 if os.path.exists(json_file):
                     try:
                         with open(json_file, 'r') as f:
                             existing_data = json.load(f)
-                        logger.debug(f"[{capture_folder}] Found existing JSON with keys: {list(existing_data.keys())}")
+                        has_audio_data = 'audio' in existing_data
+                        if has_audio_data:
+                            audio_val = "✅ YES" if existing_data.get('audio') else "❌ NO"
+                            volume = existing_data.get('mean_volume_db', -100)
+                            logger.info(f"[{capture_folder}] 🔗 MERGING audio data: audio={audio_val}, volume={volume:.1f}dB")
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] Failed to read existing JSON: {e}")
                 
