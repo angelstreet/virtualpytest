@@ -317,9 +317,13 @@ class IncidentManager:
         current_time = time.time()
         transitions = {}  # Track state changes for this detection
         
-        # Skip audio_loss for host device (no audio capture)
-        issue_types = ['blackscreen', 'freeze']
-        if not is_host:
+        # Determine issue types based on what's in detection_result
+        issue_types = []
+        if 'blackscreen' in detection_result:
+            issue_types.append('blackscreen')
+        if 'freeze' in detection_result:
+            issue_types.append('freeze')
+        if 'audio' in detection_result and not is_host:
             issue_types.append('audio_loss')
         
         # Check each issue type

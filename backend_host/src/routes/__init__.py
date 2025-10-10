@@ -4,11 +4,11 @@
 from . import (
     host_control_routes,
     host_web_routes,
-    host_ai_execution_routes,
     host_verification_routes,
     host_power_routes,
     host_av_routes,
     host_restart_routes,
+    host_system_routes,
     host_translation_routes,
     host_monitoring_routes,
     host_remote_routes,
@@ -24,5 +24,6 @@ from . import (
     host_actions_routes,
     host_navigation_routes,
     host_ai_routes,
+    host_ai_disambiguation_routes,
     host_campaign_routes
 ) 

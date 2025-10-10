@@ -164,10 +164,7 @@ class InotifyFrameMonitor:
                 'blackscreen': analysis_data.get('blackscreen', False),
                 'blackscreen_percentage': analysis_data.get('blackscreen_percentage', 0),
                 'freeze': analysis_data.get('freeze', False),
-                'freeze_diffs': analysis_data.get('freeze_diffs', []),
-                'audio': analysis_data.get('audio', True),
-                'volume_percentage': analysis_data.get('volume_percentage', 0),
-                'mean_volume_db': analysis_data.get('mean_volume_db', -100.0)
+                'freeze_diffs': analysis_data.get('freeze_diffs', [])
             }
             
             # Atomic append with file locking
@@ -266,18 +263,11 @@ class InotifyFrameMonitor:
         try:
             detection_result = detect_issues(frame_path, queue_size=queue_size)
             
-            # Get device info to check if this is the host
-            device_info = get_device_info_from_capture_folder(capture_folder)
-            device_id = device_info.get('device_id', capture_folder)
-            is_host = (device_id == 'host')
-            
             issues = []
             if detection_result and detection_result.get('blackscreen', False):
                 issues.append('blackscreen')
             if detection_result and detection_result.get('freeze', False):
                 issues.append('freeze')
-            if not is_host and detection_result and not detection_result.get('audio', True):
-                issues.append('audio_loss')
             
             if issues:
                 logger.info(f"[{capture_folder}] Issues: {issues}")
