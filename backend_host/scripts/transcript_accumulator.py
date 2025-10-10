@@ -738,6 +738,7 @@ class InotifyTranscriptMonitor:
         
         # Resolve segments path once (hot/cold aware)
         segments_dir = get_segments_path(device_folder)
+        logger.info(f"{BLUE}[AUDIO:{device_folder}] 📂 Watching: {segments_dir}{RESET}")
         
         check_count = 0
         while True:
@@ -771,12 +772,18 @@ class InotifyTranscriptMonitor:
                 
                 if not latest_segment:
                     if check_count % 12 == 0:
-                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  No segments found (check #{check_count}){RESET}")
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  No segments found in {segments_dir} (check #{check_count}){RESET}")
                     time.sleep(5)
                     continue
                 
                 # Check if segment is recent (within last 5 minutes)
                 age_seconds = time.time() - latest_mtime
+                segment_filename = os.path.basename(latest_segment)
+                
+                # DEBUG: Log segment found every 12 checks
+                if check_count % 12 == 0:
+                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 📁 Found segment: {segment_filename} (age: {age_seconds:.1f}s){RESET}")
+                
                 if age_seconds > 300:
                     if check_count % 12 == 0:
                         logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment too old (check #{check_count}): {age_seconds:.0f}s{RESET}")
@@ -788,7 +795,7 @@ class InotifyTranscriptMonitor:
                 cmd = [
                     'ffmpeg',
                     '-hide_banner',
-                    '-loglevel', 'error',
+                    '-loglevel', 'info',  # Changed from 'error' to 'info' to get volumedetect output
                     '-i', segment_path,
                     '-t', '0.5',
                     '-af', 'volumedetect',
@@ -801,14 +808,26 @@ class InotifyTranscriptMonitor:
                 mean_volume = -100.0
                 for line in result.stderr.split('\n'):
                     if 'mean_volume:' in line:
-                        mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
-                        break
+                        try:
+                            mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                            break
+                        except Exception as e:
+                            logger.error(f"{BLUE}[AUDIO:{device_folder}] Failed to parse volume: {line} (error: {e}){RESET}")
                 
                 has_audio = mean_volume > -50.0
                 status_icon = '🔊' if has_audio else '🔇'
                 
-                # Log every check (every 5s)
-                logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB (check #{check_count}){RESET}")
+                # Log every check (every 5s) with segment info
+                logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB from {segment_filename} (check #{check_count}){RESET}")
+                
+                # DEBUG: Log full ffmpeg output every 12 checks (1 minute) if no audio detected
+                if not has_audio and check_count % 12 == 0:
+                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 🔍 DEBUG: FFmpeg command: {' '.join(cmd)}{RESET}")
+                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 🔍 DEBUG: FFmpeg returncode: {result.returncode}{RESET}")
+                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 🔍 DEBUG: FFmpeg stderr:{RESET}")
+                    for line in result.stderr.split('\n'):
+                        if line.strip():
+                            logger.info(f"{BLUE}[AUDIO:{device_folder}]   {line}{RESET}")
                 
                 detection_result = {
                     'audio': has_audio,
