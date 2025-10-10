@@ -836,36 +836,65 @@ class InotifyTranscriptMonitor:
                     'timestamp': datetime.now().isoformat()
                 }
                 
-                # Save audio detection to metadata JSON (same pattern as capture_monitor)
+                # Save audio detection to latest capture JSON (capture_monitor creates these)
+                # Segment timing: segment file corresponds to ~5 capture images
+                # Strategy: Find most recent capture JSON and update it with audio info
                 try:
                     metadata_path = get_metadata_path(device_folder)
                     os.makedirs(metadata_path, mode=0o777, exist_ok=True)
                     
-                    # Use segment filename for JSON (e.g., segment_1min_59_1728561234.mp4 → .json)
-                    segment_filename = os.path.basename(segment_path)
-                    json_filename = segment_filename.replace('.mp4', '.json').replace('.ts', '.json')
-                    json_file = os.path.join(metadata_path, json_filename)
+                    # Find most recent capture JSON (within last 2 seconds)
+                    import fcntl
+                    latest_json = None
+                    latest_mtime = 0
+                    current_time = time.time()
                     
-                    # Only update if file exists (created by capture_monitor), don't create new files
-                    if os.path.exists(json_file):
-                        # Read existing metadata
-                        import fcntl
-                        with open(json_file, 'r') as f:
+                    try:
+                        with os.scandir(metadata_path) as it:
+                            for entry in it:
+                                if entry.is_file() and entry.name.startswith('capture_') and entry.name.endswith('.json'):
+                                    mtime = entry.stat().st_mtime
+                                    # Only consider JSONs from last 2 seconds
+                                    if current_time - mtime < 2.0 and mtime > latest_mtime:
+                                        latest_json = entry.path
+                                        latest_mtime = mtime
+                    except Exception:
+                        pass
+                    
+                    # If no recent JSON, wait 100ms and try again (capture_monitor might be creating it)
+                    if not latest_json:
+                        time.sleep(0.1)
+                        try:
+                            with os.scandir(metadata_path) as it:
+                                for entry in it:
+                                    if entry.is_file() and entry.name.startswith('capture_') and entry.name.endswith('.json'):
+                                        mtime = entry.stat().st_mtime
+                                        if current_time - mtime < 2.0 and mtime > latest_mtime:
+                                            latest_json = entry.path
+                                            latest_mtime = mtime
+                        except Exception:
+                            pass
+                    
+                    if latest_json and os.path.exists(latest_json):
+                        # Read existing capture JSON
+                        with open(latest_json, 'r') as f:
                             existing_data = json.load(f)
                         
                         # Update with audio detection results
                         existing_data['audio'] = has_audio
                         existing_data['mean_volume_db'] = mean_volume
                         existing_data['audio_check_timestamp'] = detection_result['timestamp']
+                        existing_data['audio_segment_file'] = segment_filename
                         
                         # Write back atomically with lock
-                        lock_path = json_file + '.lock'
+                        lock_path = latest_json + '.lock'
                         with open(lock_path, 'w') as lock_file:
                             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
                             try:
-                                with open(json_file + '.tmp', 'w') as f:
+                                with open(latest_json + '.tmp', 'w') as f:
                                     json.dump(existing_data, f, indent=2)
-                                os.rename(json_file + '.tmp', json_file)
+                                os.rename(latest_json + '.tmp', latest_json)
+                                logger.debug(f"{BLUE}[AUDIO:{device_folder}] ✓ Updated {os.path.basename(latest_json)} with audio={has_audio}{RESET}")
                             finally:
                                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                         
@@ -873,6 +902,13 @@ class InotifyTranscriptMonitor:
                             os.remove(lock_path)
                         except:
                             pass
+                    else:
+                        # No recent JSON found - either capture_monitor is behind or just starting
+                        # This is rare (audio every 5s, captures every 0.2s = ~25 captures per audio check)
+                        # Next audio check (in 5s) will find and update the capture JSONs
+                        if check_count % 12 == 0:  # Log once per minute
+                            logger.debug(f"{BLUE}[AUDIO:{device_folder}] No recent capture JSON found (capture_monitor might be behind){RESET}")
+                        
                 except Exception as e:
                     logger.warning(f"{BLUE}[AUDIO:{device_folder}] Failed to update JSON: {e}{RESET}")
                 

@@ -459,16 +459,28 @@ class InotifyFrameMonitor:
             transitions = self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
             
             try:
+                # Check if JSON already exists (transcript_accumulator might have created it with audio data)
+                existing_data = {}
+                if os.path.exists(json_file):
+                    try:
+                        with open(json_file, 'r') as f:
+                            existing_data = json.load(f)
+                        logger.debug(f"[{capture_folder}] Found existing JSON with keys: {list(existing_data.keys())}")
+                    except Exception as e:
+                        logger.warning(f"[{capture_folder}] Failed to read existing JSON: {e}")
+                
                 if detection_result:
                     analysis_data = {
                         "analyzed": True,
                         "subtitle_ocr_pending": True,
-                        **detection_result
+                        **existing_data,  # Keep existing data (e.g., audio from transcript_accumulator)
+                        **detection_result  # Merge detection results (overwrites if keys conflict)
                     }
                 else:
                     analysis_data = {
                         "analyzed": True,
                         "subtitle_ocr_pending": True,
+                        **existing_data,  # Keep existing data
                         "error": "detection_result_was_none"
                     }
                 
