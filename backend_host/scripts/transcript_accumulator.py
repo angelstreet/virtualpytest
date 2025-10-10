@@ -65,6 +65,8 @@ logger = logging.getLogger(__name__)
 CHUNK_DURATION_MINUTES = 10
 SEGMENT_DURATION_MINUTES = 1
 
+_chunk_languages = {}
+
 def cleanup_logs_on_startup():
     """Clean up log file on service restart for fresh debugging"""
     try:
@@ -175,13 +177,22 @@ def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, ho
         
     except Exception as e:
         logger.error(f"[{capture_folder}] ❌ Error extracting audio: {e}")
-        # Clean up temp file if exists
         if mp3_tmp_path and os.path.exists(mp3_tmp_path):
             try:
                 os.remove(mp3_tmp_path)
             except:
                 pass
         return False
+
+def get_chunk_language(capture_folder: str, hour: int, chunk_index: int):
+    global _chunk_languages
+    chunk_key = f"{capture_folder}_{hour}_{chunk_index}"
+    return _chunk_languages.get(chunk_key)
+
+def set_chunk_language(capture_folder: str, hour: int, chunk_index: int, language: str):
+    global _chunk_languages
+    chunk_key = f"{capture_folder}_{hour}_{chunk_index}"
+    _chunk_languages[chunk_key] = language
 
 def check_mp3_has_audio(mp3_path: str, capture_folder: str, sample_duration: float = 5.0) -> tuple[bool, float]:
     """
@@ -408,6 +419,9 @@ class InotifyTranscriptMonitor:
         self.mp4_workers = {}
         self.mp4_backlog = {}
         
+        self.segment_queues = {}
+        self.segment_workers = {}
+        
         self.active_queues = {}
         self.history_queues = {}
         
@@ -419,6 +433,7 @@ class InotifyTranscriptMonitor:
         
         self._setup_watches()
         self._start_mp4_workers()
+        self._start_segment_workers()
         self._start_audio_workers()
         
         all_pending = self._scan_last_24h()
@@ -490,6 +505,78 @@ class InotifyTranscriptMonitor:
             )
             mp4_worker.start()
             self.mp4_workers[device_folder] = mp4_worker
+    
+    def _start_segment_workers(self):
+        for device_info in self.monitored_devices:
+            device_folder = device_info['device_folder']
+            self.segment_queues[device_folder] = queue.Queue(maxsize=20)
+            
+            segment_worker = threading.Thread(
+                target=self._segment_worker,
+                args=(device_folder,),
+                daemon=True,
+                name=f"segment-{device_folder}"
+            )
+            segment_worker.start()
+            self.segment_workers[device_folder] = segment_worker
+    
+    def _segment_worker(self, device_folder):
+        YELLOW = '\033[93m'
+        RESET = '\033[0m'
+        
+        work_queue = self.segment_queues[device_folder]
+        
+        while True:
+            try:
+                segment_path, hour, chunk_index, minute_offset = work_queue.get(timeout=5)
+            except queue.Empty:
+                continue
+            
+            tmp_audio = None
+            try:
+                tmp_audio = f'/tmp/segment_{device_folder}_{os.getpid()}.mp3'
+                cmd = [
+                    'ffmpeg', '-i', segment_path, '-vn',
+                    '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
+                    '-y', tmp_audio
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode != 0:
+                    work_queue.task_done()
+                    continue
+                
+                lang = get_chunk_language(device_folder, hour, chunk_index)
+                result = transcribe_audio(tmp_audio, model_name='tiny', skip_silence_check=True, device_id=device_folder, language=lang)
+                
+                if not lang:
+                    set_chunk_language(device_folder, hour, chunk_index, result.get('language', 'unknown'))
+                
+                segments = result.get('segments', [])
+                if segments:
+                    transcript = ' '.join([s.get('text', '').strip() for s in segments])
+                    transcript = clean_transcript_text(transcript)
+                    if ENABLE_SPELLCHECK:
+                        transcript = correct_spelling(transcript, result.get('language_code'))
+                    
+                    minute_data = {
+                        'minute_offset': minute_offset,
+                        'language': result.get('language', 'unknown'),
+                        'transcript': transcript,
+                        'segments': segments
+                    }
+                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                    logger.info(f"{YELLOW}[SEGMENT:{device_folder}] ✅ {hour}h{minute_offset:02d}min transcribed{RESET}")
+                
+                work_queue.task_done()
+            except Exception as e:
+                logger.error(f"{YELLOW}[SEGMENT:{device_folder}] Error: {e}{RESET}")
+                work_queue.task_done()
+            finally:
+                if tmp_audio and os.path.exists(tmp_audio):
+                    try:
+                        os.remove(tmp_audio)
+                    except:
+                        pass
     
     def _start_audio_workers(self):
         """Start audio detection workers (5s interval per device)"""
@@ -869,7 +956,7 @@ class InotifyTranscriptMonitor:
                 if 'IN_MOVED_TO' not in type_names:
                     continue
                 
-                # Pipeline 1: MP4 chunk created → Extract audio
+                # Pipeline 1: MP4 chunk created → Extract audio (10min archival)
                 if filename.endswith('.mp4') and 'chunk_10min_' in filename:
                     device_folder = self.segments_path_to_device.get(path)
                     if device_folder:
@@ -879,6 +966,23 @@ class InotifyTranscriptMonitor:
                             work_queue.put_nowait((path, filename))
                         except queue.Full:
                             logger.error(f"[{device_folder}] 🚨 MP4 queue FULL, dropping: {filename}")
+                
+                # Pipeline 3: 1min segment → Transcribe immediately (low latency)
+                elif filename.endswith('.mp4') and 'segment_1min_' in filename:
+                    device_folder = self.segments_path_to_device.get(path)
+                    if device_folder:
+                        try:
+                            segment_path = os.path.join(path, filename)
+                            hour = int(os.path.basename(path))
+                            parts = filename.replace('segment_1min_', '').replace('.mp4', '').split('_')
+                            minute_in_hour = int(parts[0])
+                            chunk_index = minute_in_hour // 10
+                            minute_offset = minute_in_hour % 10
+                            
+                            work_queue = self.segment_queues[device_folder]
+                            work_queue.put_nowait((segment_path, hour, chunk_index, minute_offset))
+                        except queue.Full:
+                            pass
                 
                 # Pipeline 2: MP3 chunk created → Transcribe
                 elif filename.endswith('.mp3') and 'chunk_10min_' in filename:
