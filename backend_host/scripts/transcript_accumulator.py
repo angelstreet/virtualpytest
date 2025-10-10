@@ -49,7 +49,9 @@ from shared.src.lib.utils.storage_path_utils import (
     get_device_base_path,
     get_audio_path,
     get_transcript_path,
-    get_cold_segments_path
+    get_cold_segments_path,
+    get_metadata_path,
+    get_segments_path
 )
 
 from shared.src.lib.utils.audio_transcription_utils import (
@@ -375,7 +377,7 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                     'hour': hour,
                     'chunk_index': chunk_index,
                     'chunk_duration_minutes': CHUNK_DURATION_MINUTES,
-                    'language': 'unknown',
+                    'language': None,  # Will be set when first segment is added
                     'transcript': '',
                     'confidence': 0.0,
                     'transcription_time_seconds': 0.0,
@@ -396,7 +398,13 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 
                 full_transcript = ' '.join([s.get('text', '').strip() for s in chunk_data['segments']])
                 chunk_data['transcript'] = full_transcript
-                chunk_data['language'] = minute_data.get('language', chunk_data.get('language', 'unknown'))
+                
+                # Only update language if we have a valid detected language (not 'unknown')
+                detected_lang = minute_data.get('language')
+                if detected_lang and detected_lang != 'unknown':
+                    chunk_data['language'] = detected_lang
+                elif not chunk_data.get('language'):
+                    chunk_data['language'] = None  # Keep as None if still unknown
                 
                 if chunk_data['segments']:
                     confidences = [s.get('confidence', 0) for s in chunk_data['segments'] if 'confidence' in s]
@@ -619,6 +627,18 @@ class InotifyTranscriptMonitor:
                 
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if result.returncode != 0:
+                    logger.error(f"{color}[{prefix}:{device_folder}] FFmpeg extraction failed: {result.stderr[:200]}{RESET}")
+                    if is_backfill:
+                        item_key = (hour, chunk_index, minute_offset)
+                        self.backfill_queued[device_folder].discard(item_key)
+                        backfill_queue.task_done()
+                    else:
+                        real_time_queue.task_done()
+                    continue
+                
+                # Verify extracted MP3 is valid (not empty/corrupt)
+                if not os.path.exists(tmp_audio) or os.path.getsize(tmp_audio) < 1024:
+                    logger.error(f"{color}[{prefix}:{device_folder}] Invalid MP3 file (size={os.path.getsize(tmp_audio) if os.path.exists(tmp_audio) else 0}){RESET}")
                     if is_backfill:
                         item_key = (hour, chunk_index, minute_offset)
                         self.backfill_queued[device_folder].discard(item_key)
@@ -628,10 +648,15 @@ class InotifyTranscriptMonitor:
                     continue
                 
                 lang = get_chunk_language(device_folder, hour, chunk_index)
-                result = transcribe_audio(tmp_audio, model_name='tiny', skip_silence_check=True, device_id=device_folder, language=lang)
                 
-                if not lang:
-                    set_chunk_language(device_folder, hour, chunk_index, result.get('language_code', 'unknown'))
+                # Don't pass 'unknown' as language - Whisper will auto-detect instead
+                whisper_lang = None if (not lang or lang == 'unknown') else lang
+                result = transcribe_audio(tmp_audio, model_name='tiny', skip_silence_check=True, device_id=device_folder, language=whisper_lang)
+                
+                # Cache detected language for next segments in same chunk (skip if 'unknown' detected)
+                detected_lang = result.get('language_code', 'unknown')
+                if not lang and detected_lang != 'unknown':
+                    set_chunk_language(device_folder, hour, chunk_index, detected_lang)
                 
                 segments = result.get('segments', [])
                 if segments:
@@ -712,7 +737,6 @@ class InotifyTranscriptMonitor:
         logger.info(f"{BLUE}[AUDIO:{device_folder}] Worker thread started - checking every 5s{RESET}")
         
         # Resolve segments path once (hot/cold aware)
-        from shared.src.lib.utils.storage_path_utils import get_segments_path
         segments_dir = get_segments_path(device_folder)
         
         check_count = 0
