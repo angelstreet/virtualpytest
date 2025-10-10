@@ -73,16 +73,15 @@ def _get_validation_plan(context):
 
 
 def capture_validation_summary(context, userinterface_name: str, max_iteration: int = None) -> str:
-    """Capture validation summary as text for report - uses actual recorded steps"""
+    """Capture validation summary as text for report - uses validation-level stats"""
     
-    # Get actual step counts from context.step_results (not validation counters)
-    # This ensures consistency between summary and detailed step list
-    total_steps = len(context.step_results)
-    successful_steps = sum(1 for step in context.step_results if step.get('success', False))
-    failed_steps = total_steps - successful_steps
+    # Use validation-level stats (high-level transitions tested)
+    validation_total = getattr(context, 'validation_total_steps', 0)
+    validation_successful = getattr(context, 'validation_successful_steps', 0)
+    validation_failed = validation_total - validation_successful
     
-    # Get validation sequence stats for reference
-    validation_iterations = getattr(context, 'validation_total_steps', 0)
+    # Detailed steps count (for reference - includes all navigation sub-steps)
+    detailed_steps = len(context.step_results)
     
     lines = []
     lines.append("-"*60)
@@ -105,21 +104,21 @@ def capture_validation_summary(context, userinterface_name: str, max_iteration: 
     
     # Show validation iterations and actual navigation steps executed
     if max_iteration is not None:
-        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (validated {validation_iterations} transitions, executed {total_steps} navigation steps)")
+        lines.append(f"🔢 Max Iteration Limit: {max_iteration} (validated {validation_total} transitions, executed {detailed_steps} navigation steps)")
     else:
-        lines.append(f"🔢 Validated {validation_iterations} transitions (executed {total_steps} navigation steps)")
+        lines.append(f"🔢 Validated {validation_total} transitions (executed {detailed_steps} navigation steps)")
     
-    lines.append(f"📊 Steps: {successful_steps}/{total_steps} steps successful")
-    lines.append(f"✅ Successful: {successful_steps}")
-    lines.append(f"❌ Failed: {failed_steps}")
+    lines.append(f"📊 Steps: {validation_successful}/{validation_total} steps successful")
+    lines.append(f"✅ Successful: {validation_successful}")
+    lines.append(f"❌ Failed: {validation_failed}")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     
-    # Calculate coverage based on actual steps
-    if total_steps > 0:
-        coverage = (successful_steps / total_steps * 100)
+    # Calculate coverage based on validation transitions
+    if validation_total > 0:
+        coverage = (validation_successful / validation_total * 100)
         lines.append(f"🎯 Coverage: {coverage:.1f}%")
     else:
-        lines.append(f"🎯 Coverage: 0.0% (no steps executed)")
+        lines.append(f"🎯 Coverage: 0.0% (no validation steps)")
     
     lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
     
@@ -171,11 +170,10 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Clear any existing steps before validation (NavigationExecutor creates low-level steps)
-    # We want to track high-level validation steps instead
-    context.step_results = []
+    # Track validation-level results separately (don't interfere with detailed step recording)
+    validation_results = []
     
-    # Execute each transition using navigate_to() (same as goto.py)
+    # Execute each transition using navigate_to() (NavigationExecutor records detailed steps)
     successful = 0
     for i, step in enumerate(validation_sequence):
         target = step.get('to_node_label', 'unknown')
@@ -186,7 +184,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         # Record step start time
         step_start_time = time.time()
         
-        # Use NavigationExecutor directly
+        # Use NavigationExecutor directly (it will record detailed steps automatically)
         device = context.selected_device
         result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
@@ -195,27 +193,16 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             context=context
         )
         
-        # Calculate step duration
-        step_duration_ms = int((time.time() - step_start_time) * 1000)
-        
-        # Record validation step with proper success/failure status
-        validation_step = {
-            'step_number': i + 1,
-            'success': result.get('success', False),
+        # Track validation-level result (separate from detailed steps)
+        validation_result = {
+            'validation_step': i + 1,
             'from_node': from_node,
             'to_node': target,
-            'start_time': time.strftime('%H:%M:%S', time.localtime(step_start_time)),
-            'end_time': time.strftime('%H:%M:%S', time.localtime(time.time())),
-            'duration': f"{step_duration_ms/1000:.1f}s",
-            'execution_time_ms': step_duration_ms,
-            'error_message': result.get('error', '') if not result.get('success', False) else '',
-            'actions': [],  # Navigation executor handles actions internally
-            'verifications': [],  # Will be shown in error message if failed
-            'screenshots': []  # Screenshots are captured by navigation executor
+            'success': result.get('success', False),
+            'error': result.get('error', ''),
+            'duration_ms': int((time.time() - step_start_time) * 1000)
         }
-        
-        # Add to context
-        context.step_results.append(validation_step)
+        validation_results.append(validation_result)
         
         if result.get('success', False):
             successful += 1
@@ -223,8 +210,9 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         else:
             print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
     
-    # Calculate success and store stats for summary generation
+    # Store validation-level stats for summary generation (separate from step-level details)
     context.overall_success = successful == len(validation_sequence)
+    context.validation_results = validation_results  # Store validation-level results
     context.validation_successful_steps = successful
     context.validation_total_steps = len(validation_sequence)
     coverage = (successful / len(validation_sequence) * 100) if validation_sequence else 0
@@ -251,7 +239,7 @@ def main():
 
 # Define script-specific arguments
 main._script_args = [
-    '--max-iteration:int:10',
+    '--max-iteration:int:0',  # 0 = no limit, validate all transitions
     '--edges:str:'  # Comma-separated list of edge IDs (from_node-to_node), default: empty (validate all)
 ]
 
