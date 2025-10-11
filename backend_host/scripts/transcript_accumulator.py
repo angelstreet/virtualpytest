@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 """
-inotify-based Transcript Accumulator - Dual Pipeline (MP4→MP3→JSON)
+inotify-based Transcript Accumulator - MP3 Transcription Only
 Event-driven processing: Zero CPU when idle, immediate response to new files
 
-Pipeline 1: MP4 → MP3 (audio extraction)
-  - Watches /video/{hour}/ directories for chunk_10min_X.mp4
-  - Extracts audio → chunk_10min_X.mp3
-  
-Pipeline 2: MP3 → JSON (transcription + progressive save)
-  - Watches /audio/{hour}/ directories for chunk_10min_X.mp3
-  - Transcribes 10-minute MP3 once (Whisper auto-segments)
-  - Groups segments by minute, saves progressively to chunk_10min_X.json
+COLD STORAGE ARCHITECTURE:
+  - Watches COLD /audio/temp/ for 1min MP3 files (instant transcription)
+  - Scans COLD /audio/{hour}/ for 10min MP3 chunks (backfill/recovery)
+  - MP3s created by hot_cold_archiver.py (extracted from MP4 segments)
 
-Progressive processing: Load once, transcribe once, save by minute
+Instant transcription: 1min MP3 → immediate Whisper transcription → merge to JSON
+Progressive save: Transcripts saved by minute to chunk_10min_X.json
 """
 
 # CRITICAL: Limit CPU threads BEFORE importing PyTorch/Whisper
@@ -546,10 +543,11 @@ class InotifyTranscriptMonitor:
         
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            audio_base = device_info['audio_base']
             
-            # Watch temp directory for 1min MP3 files (instant transcription)
-            audio_temp_dir = os.path.join(audio_base, 'temp')
+            # Watch COLD temp directory for 1min MP3 files (same location as segments/temp)
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+            audio_cold = get_cold_storage_path(device_folder, 'audio')
+            audio_temp_dir = os.path.join(audio_cold, 'temp')
             os.makedirs(audio_temp_dir, exist_ok=True)
             self.inotify.add_watch(audio_temp_dir)
             self.audio_path_to_device[audio_temp_dir] = device_folder
@@ -568,8 +566,11 @@ class InotifyTranscriptMonitor:
         test_results = []
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            audio_base = device_info['audio_base']
-            audio_temp_dir = os.path.join(audio_base, 'temp')
+            
+            # Use COLD temp directory (same as setup)
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+            audio_cold = get_cold_storage_path(device_folder, 'audio')
+            audio_temp_dir = os.path.join(audio_cold, 'temp')
             
             # Create test file to verify inotify
             test_file = os.path.join(audio_temp_dir, '_inotify_test.mp3')
@@ -599,12 +600,15 @@ class InotifyTranscriptMonitor:
         
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            audio_base = device_info['audio_base']
+            
+            # Scan COLD audio hour directories for 10min chunks
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+            audio_cold = get_cold_storage_path(device_folder, 'audio')
             transcript_base = get_transcript_path(device_folder)
             
             found = 0
             for hour in range(24):
-                audio_dir = os.path.join(audio_base, str(hour))
+                audio_dir = os.path.join(audio_cold, str(hour))
                 if not os.path.exists(audio_dir):
                     continue
                 
@@ -642,13 +646,13 @@ class InotifyTranscriptMonitor:
                 if len(item) == 3:
                     # 10min scan: (device_folder, hour, chunk_index)
                     device_folder, hour, chunk_index = item
-                    mp3_path = None
-                    for device_info in self.monitored_devices:
-                        if device_info['device_folder'] == device_folder:
-                            mp3_path = os.path.join(device_info['audio_base'], str(hour), f'chunk_10min_{chunk_index}.mp3')
-                            break
                     
-                    if mp3_path and os.path.exists(mp3_path):
+                    # Build path to 10min chunk in COLD storage
+                    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+                    audio_cold = get_cold_storage_path(device_folder, 'audio')
+                    mp3_path = os.path.join(audio_cold, str(hour), f'chunk_10min_{chunk_index}.mp3')
+                    
+                    if os.path.exists(mp3_path):
                         logger.info(f"[{device_folder}] Transcribing 10min: {hour}/chunk_10min_{chunk_index}.mp3")
                         minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
                         for minute_data in minute_results:
@@ -1028,8 +1032,8 @@ def main():
     logger.info("Transcript Accumulator - MP3 Transcription Service")
     logger.info("=" * 80)
     logger.info("Architecture: inotify event-driven (zero CPU when idle)")
-    logger.info("Watches: 1min MP3 files in /audio/temp/ (instant transcription)")
-    logger.info("Scans: 10min MP3 chunks in /audio/{hour}/ (backfill/recovery)")
+    logger.info("Watches: 1min MP3 files in COLD /audio/temp/ (instant transcription)")
+    logger.info("Scans: 10min MP3 chunks in COLD /audio/{hour}/ (backfill/recovery)")
     logger.info("Processing: MP3 → JSON transcript (Whisper tiny model)")
     logger.info("=" * 80)
     
@@ -1058,15 +1062,10 @@ def main():
                 skipped_count += 1
                 continue
             
-            # Get audio path (hot/cold aware - returns /hot/audio/ in RAM mode)
-            audio_base = get_audio_path(device_folder)
-            
             logger.info(f"  ✓ Monitoring: {device_folder}")
-            logger.info(f"    Audio: {audio_base}")
             
             monitored_devices.append({
-                'device_folder': device_folder,
-                'audio_base': audio_base
+                'device_folder': device_folder
             })
         
         if not monitored_devices:

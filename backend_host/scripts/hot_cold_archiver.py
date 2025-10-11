@@ -984,28 +984,41 @@ def process_capture_directory(capture_dir: str):
         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
         
         # Create 1min MP3 in audio temp dir (hot/cold aware for inotify + instant transcription)
-        from shared.src.lib.utils.storage_path_utils import get_audio_path
+        from shared.src.lib.utils.storage_path_utils import get_audio_path, get_device_info_from_capture_folder
         from pathlib import Path as PathLib
         
         # Get device folder from capture_dir path
         device_folder = os.path.basename(capture_dir)
-        audio_base = get_audio_path(device_folder)
-        audio_temp_dir = os.path.join(audio_base, 'temp')
-        os.makedirs(audio_temp_dir, exist_ok=True)
-        mp3_1min = os.path.join(audio_temp_dir, f'1min_{timestamp}.mp3')
         
-        try:
-            import subprocess
-            logger.info(f"Creating 1min MP3: {mp3_1min}")
-            subprocess.run(
-                ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', f'{mp3_1min}.tmp', '-y'],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
-            )
-            os.rename(f'{mp3_1min}.tmp', mp3_1min)
-            logger.info(f"✓ Created 1min MP3 (triggers inotify): {os.path.basename(mp3_1min)}")
-        except Exception as e:
-            logger.warning(f"Failed to create 1min MP3: {e}")
-            mp3_1min = None
+        # Check if device has audio (skip host/VNC devices)
+        device_info = get_device_info_from_capture_folder(device_folder)
+        device_id = device_info.get('device_id', device_folder)
+        is_host = (device_id == 'host')
+        
+        mp3_1min = None
+        if not is_host:
+            # Use COLD storage for temp (same as segments/temp)
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+            audio_cold = get_cold_storage_path(device_folder, 'audio')
+            audio_temp_dir = os.path.join(audio_cold, 'temp')
+            os.makedirs(audio_temp_dir, exist_ok=True)
+            mp3_1min = os.path.join(audio_temp_dir, f'1min_{timestamp}.mp3')
+            
+            try:
+                import subprocess
+                subprocess.run(
+                    ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', f'{mp3_1min}.tmp', '-y'],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
+                )
+                os.rename(f'{mp3_1min}.tmp', mp3_1min)
+                logger.debug(f"✓ Created 1min MP3: {os.path.basename(mp3_1min)}")
+            except subprocess.CalledProcessError:
+                # MP4 has no audio track (VNC/silent source) - this is expected
+                logger.debug(f"⊗ Skipped MP3 (no audio in source)")
+                mp3_1min = None
+            except Exception as e:
+                logger.warning(f"MP3 extraction error: {e}")
+                mp3_1min = None
         
         # Progressive append MP4
         hour_dir = os.path.join(capture_dir, 'segments', str(hour))
