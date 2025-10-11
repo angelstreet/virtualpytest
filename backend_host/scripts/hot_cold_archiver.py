@@ -1009,15 +1009,16 @@ def process_capture_directory(capture_dir: str):
             
             try:
                 import subprocess
+                logger.info(f"Extracting MP3 from: {mp4_1min} → {mp3_1min}")
                 subprocess.run(
                     ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', f'{mp3_1min}.tmp', '-y'],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
                 )
                 os.rename(f'{mp3_1min}.tmp', mp3_1min)
                 logger.info(f"✓ Created 1min MP3: {mp3_1min}")
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as e:
                 # MP4 has no audio track (VNC/silent source) - this is expected
-                logger.debug(f"⊗ Skipped MP3 (no audio in source): {mp4_1min}")
+                logger.info(f"⊗ Skipped MP3 (no audio in source): {mp4_1min}")
                 mp3_1min = None
             except Exception as e:
                 logger.warning(f"MP3 extraction error: {e}")
