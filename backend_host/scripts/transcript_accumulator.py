@@ -354,12 +354,24 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 # Real audio data merged - show detailed log
                 GREEN = '\033[92m'
                 RESET = '\033[0m'
-                logger.info(f"{GREEN}[{capture_folder}] 💾 Merged audio data → {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
-                logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s, mp3_file={chunk_data.get('mp3_file')}{RESET}")
+                
+                # Build full MP3 path for logging
+                mp3_filename = chunk_data.get('mp3_file')
+                if mp3_filename:
+                    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+                    audio_cold = get_cold_storage_path(capture_folder, 'audio')
+                    mp3_full_path = os.path.join(audio_cold, str(hour), mp3_filename)
+                else:
+                    mp3_full_path = "None"
+                
+                logger.info(f"{GREEN}[{capture_folder}] 💾 Merged transcript to→ {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📄 language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 🎵 mp3_file={mp3_full_path}{RESET}")
                 # Show sample from NEWLY ADDED segments
                 sample_seg = new_segments[0]
                 seg_duration = sample_seg.get('duration', sample_seg.get('end', 0) - sample_seg.get('start', 0))
-                logger.info(f"{GREEN}[{capture_folder}] 📋 NEW segment sample (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📋 (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}"{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] text=\"{sample_seg.get('text', '')[:200]}...\"{RESET}")
             else:
                 # No audio merged - just status tracking (silent minute)
                 logger.debug(f"[{capture_folder}] ✓ Updated chunk {hour}h/chunk_{chunk_index} status: minute {minute_offset} processed (skip_reason: {skip_reason or 'no_audio'})")
