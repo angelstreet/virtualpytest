@@ -247,16 +247,16 @@ class ChromeManager:
         env = os.environ.copy()
         env["DISPLAY"] = ":1"
         
-        # Launch Chrome (with or without cgroup limits)
-        process = subprocess.Popen(cmd_line, env=env)
+        # Launch Chrome (with or without cgroup limits) - capture stderr to detect errors
+        process = subprocess.Popen(cmd_line, env=env, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         print(f'[ChromeManager] Chrome launched with PID: {process.pid}')
         
         # Add process monitoring for debugging
         print(f'[ChromeManager] Chrome command line: {" ".join(cmd_line)}')
         print(f'[ChromeManager] Environment DISPLAY: {env.get("DISPLAY", "not set")}')
         
-        # Wait for Chrome to be ready
-        cls._wait_for_chrome_ready(debug_port)
+        # Wait for Chrome to be ready - pass process to check for early failures
+        cls._wait_for_chrome_ready(debug_port, process)
         
         return process
     

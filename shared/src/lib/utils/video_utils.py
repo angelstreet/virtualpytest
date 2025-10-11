@@ -80,10 +80,18 @@ def merge_video_files(
                         pass
             
             return output_path
+        else:
+            # Log FFmpeg failure details
+            stderr = result.stderr.decode('utf-8', errors='replace') if result.stderr else 'No stderr'
+            print(f"[video_utils] FFmpeg merge failed (returncode={result.returncode})")
+            print(f"[video_utils] FFmpeg stderr: {stderr[-500:]}")  # Last 500 chars
+            return None
         
+    except subprocess.TimeoutExpired as e:
+        print(f"[video_utils] FFmpeg merge timeout after {timeout}s")
         return None
-        
-    except Exception:
+    except Exception as e:
+        print(f"[video_utils] FFmpeg merge exception: {e}")
         return None
     finally:
         if os.path.exists(concat_file):
