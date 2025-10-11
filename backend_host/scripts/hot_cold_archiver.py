@@ -1113,17 +1113,23 @@ def process_capture_directory(capture_dir: str):
         mp4_append_start = time.time()
         if os.path.exists(mp4_path):
             from shared.src.lib.utils.video_utils import merge_video_files
-            # Use 60s timeout for concat (was 10s which caused corrupted files when FFmpeg was killed)
-            result = merge_video_files([mp4_path, mp4_1min], mp4_path, 'mp4', False, 60)
+            # Use temporary file to prevent corruption from in-place overwrite
+            temp_output = mp4_path + '.tmp'
+            result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60)
             mp4_append_elapsed = time.time() - mp4_append_start
-            if result:
+            if result and os.path.exists(temp_output):
+                # Atomic replace: only overwrite original if merge succeeded
+                os.rename(temp_output, mp4_path)
                 logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
             else:
                 logger.error(f"\033[31m✗ Failed to append 1min MP4 to 10min chunk (timeout or FFmpeg error)\033[0m")
-                # Clean up potentially corrupted file
-                if os.path.exists(mp4_path) and os.path.getsize(mp4_path) < 100000:  # Less than 100KB is likely corrupted
-                    logger.warning(f"\033[33m⚠ Removing corrupted chunk (size={os.path.getsize(mp4_path)} bytes)\033[0m")
-                    os.remove(mp4_path)
+                # Clean up temporary file on failure (original file remains intact)
+                if os.path.exists(temp_output):
+                    try:
+                        os.remove(temp_output)
+                        logger.debug(f"Cleaned up failed temp file: {temp_output}")
+                    except Exception as e:
+                        logger.warning(f"Failed to clean up temp file: {e}")
         else:
             shutil.copy(mp4_1min, mp4_path)
             mp4_append_elapsed = time.time() - mp4_append_start
@@ -1140,14 +1146,25 @@ def process_capture_directory(capture_dir: str):
             mp3_append_start = time.time()
             if os.path.exists(mp3_10min_path):
                 try:
-                    # MP3 is a streaming format - binary concatenation works perfectly
-                    with open(mp3_10min_path, 'ab') as dest:
+                    # Use temp file for atomic append (prevents corruption if process killed mid-write)
+                    temp_output = mp3_10min_path + '.tmp'
+                    shutil.copy(mp3_10min_path, temp_output)  # Copy existing file
+                    with open(temp_output, 'ab') as dest:
                         with open(mp3_1min, 'rb') as src:
                             dest.write(src.read())
+                    os.rename(temp_output, mp3_10min_path)  # Atomic replace
                     mp3_append_elapsed = time.time() - mp3_append_start
                     logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s)\033[0m")
                 except Exception as e:
                     logger.warning(f"Failed to append MP3: {e}")
+                    # Clean up temp file on failure (original file remains intact)
+                    temp_output = mp3_10min_path + '.tmp'
+                    if os.path.exists(temp_output):
+                        try:
+                            os.remove(temp_output)
+                            logger.debug(f"Cleaned up failed MP3 temp file: {temp_output}")
+                        except Exception as cleanup_error:
+                            logger.warning(f"Failed to clean up MP3 temp file: {cleanup_error}")
             else:
                 shutil.copy(mp3_1min, mp3_10min_path)
                 mp3_append_elapsed = time.time() - mp3_append_start
