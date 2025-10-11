@@ -264,8 +264,10 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         
         process = psutil.Process()
         cpu_before = process.cpu_percent(interval=None)  # Initialize CPU monitoring
-
-        logger.info(f"[{capture_folder}] 🎬 START: chunk_10min_{chunk_index}.mp3 (transcribe once, save progressively)")
+        
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        logger.info(f"{GREEN}[WHISPER:{capture_folder}] 🎬 Processing: {mp3_path} (transcribe once, save progressively){RESET}")
 
         has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, capture_folder, sample_duration=5.0)
         
@@ -292,17 +294,24 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         # RTF < 1.0 means faster than real-time (good!)
         # RTF = 1.0 means processing at real-time speed
         # RTF > 1.0 means slower than real-time (problematic for live transcription)
-        rtf = elapsed / audio_duration if audio_duration > 0 else 0.0
-        
         GREEN = '\033[92m'
         YELLOW = '\033[93m'
         RESET = '\033[0m'
+        
+        # Get text preview from first segment (if any)
+        text_preview = ""
+        if segments:
+            first_text = segments[0].get('text', '').strip()
+            text_preview = f' | Text: "{first_text[:60]}..."' if first_text else ""
+        
+        # Duration 0.0s = Whisper detected silence/no speech (normal for silent sources)
+        duration_note = " (silent audio)" if audio_duration == 0 else ""
+        
         logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ TRANSCRIPTION COMPLETE:{RESET}")
         logger.info(f"{GREEN}  • Processing time: {elapsed:.1f}s{RESET}")
-        logger.info(f"{GREEN}  • Audio duration: {audio_duration:.1f}s{RESET}")
-        logger.info(f"{YELLOW}  • Real-time factor (RTF): {rtf:.2f}x ({elapsed:.1f}s / {audio_duration:.1f}s){RESET}")
+        logger.info(f"{GREEN}  • Audio duration: {audio_duration:.1f}s{duration_note}{RESET}")
         logger.info(f"{GREEN}  • Language: {language} ({language_code}), Confidence: {confidence:.2f}{RESET}")
-        logger.info(f"{GREEN}  • Segments: {len(segments)}, CPU: {cpu_before:.1f}%→{cpu_after:.1f}%{RESET}")
+        logger.info(f"{GREEN}  • Segments: {len(segments)}, CPU: {cpu_before:.1f}%→{cpu_after:.1f}%{text_preview}{RESET}")
         
         minute_groups = {}
         for i in range(10):
@@ -1142,11 +1151,12 @@ class InotifyTranscriptMonitor:
                     detection_result['filename'] = latest_json_filename
                 
                 # Upload R2 image for audio_loss incidents (once per incident)
-                if not has_audio and self.incident_manager and latest_json_filename:
+                if not has_audio and self.incident_manager:
                     device_state = self.incident_manager.get_device_state(device_folder)
                     cached_audio_r2_urls = device_state.get('audio_loss_r2_urls')
                     
-                    if not cached_audio_r2_urls:
+                    # Upload new image if we don't have cached URLs and have a frame
+                    if not cached_audio_r2_urls and latest_json_filename:
                         # First audio loss - upload frame to R2
                         now = datetime.now()
                         time_key = f"{now.hour:02d}{now.minute:02d}"
@@ -1166,8 +1176,9 @@ class InotifyTranscriptMonitor:
                                 device_state['audio_loss_r2_images'] = r2_urls
                                 detection_result['r2_images'] = r2_urls
                                 logger.info(f"{BLUE}[AUDIO:{device_folder}] 📤 Uploaded to R2: {r2_urls['thumbnail_urls'][0]}{RESET}")
-                    else:
-                        # Reuse cached R2 URL
+                    
+                    # ALWAYS add cached R2 images to detection_result (for DB insert after 5min)
+                    if cached_audio_r2_urls:
                         detection_result['r2_images'] = device_state.get('audio_loss_r2_images', {'thumbnail_urls': cached_audio_r2_urls})
                 
                 # Clear audio_loss R2 cache when audio returns
@@ -1452,11 +1463,10 @@ class InotifyTranscriptMonitor:
             try:
                 mtime, hour, filename = work_queue.get_nowait()
                 
-                logger.info(f"{GREEN}[WHISPER:{device_folder}] 🎬 Processing: {filename}{RESET}")
-                
                 mp3_path = os.path.join(audio_base, str(hour), filename)
                 chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
                 
+                # Logging is done inside transcribe_mp3_chunk_progressive (shows full path)
                 minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
                 
                 for minute_data in minute_results:
