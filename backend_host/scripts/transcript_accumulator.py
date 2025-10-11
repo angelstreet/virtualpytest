@@ -751,6 +751,9 @@ class InotifyTranscriptMonitor:
                 scan_size = self.scan_queue.qsize()
                 queue_status = f"queues[inotify={inotify_size}, scan={scan_size}]"
                 
+                # Debug: log what item we picked up
+                logger.debug(f"[TRANSCRIPTION] Picked up item (len={len(item)}) from {source_queue}: {item}")
+                
                 if len(item) == 3:
                     # 10min MP3 chunk
                     device_folder, hour, chunk_index = item
@@ -760,14 +763,25 @@ class InotifyTranscriptMonitor:
                     mp3_path = os.path.join(audio_cold, str(hour), f'chunk_10min_{chunk_index}.mp3')
                     
                     if os.path.exists(mp3_path):
-                        logger.info(f"[{device_folder}] 🎵 Transcribing 10min: {hour}h/chunk_{chunk_index} (source={source_queue}, {queue_status})")
-                        minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
-                        for minute_data in minute_results:
-                            merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
+                        # Early silence check BEFORE loading Whisper (avoid wasting CPU on silent MP3s)
+                        logger.info(f"[{device_folder}] 🎵 Checking 10min: {hour}h/chunk_{chunk_index} (source={source_queue}, {queue_status})")
+                        has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, device_folder, sample_duration=5.0)
+                        
+                        if not has_audio:
+                            logger.info(f"[{device_folder}] ⏭️  SKIPPED 10min chunk (silent: {mean_volume_db:.1f}dB) - no Whisper needed")
+                        else:
+                            logger.info(f"[{device_folder}] ✅ Audio detected ({mean_volume_db:.1f}dB), starting Whisper transcription...")
+                            minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
+                            for minute_data in minute_results:
+                                merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
+                    else:
+                        logger.warning(f"[{device_folder}] ⚠️  10min MP3 not found: {mp3_path}")
                 
                 elif len(item) == 4:
-                    # 1min MP3 segment
+                    # 1min MP3 segment (only created when audio detected, so no silence check needed)
                     device_folder, mp3_path, hour, chunk_index = item
+                    
+                    logger.info(f"[{device_folder}] 📋 Processing 1min MP3: {mp3_path}")
                     
                     if os.path.exists(mp3_path):
                         minute_offset = (datetime.fromtimestamp(int(Path(mp3_path).stem.replace('1min_', ''))).minute % 60) % 10
@@ -789,6 +803,10 @@ class InotifyTranscriptMonitor:
                                 'segments': segments
                             }
                             merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                        else:
+                            logger.info(f"[{device_folder}] ⏭️  1min MP3 returned no segments (Whisper detected silence)")
+                    else:
+                        logger.warning(f"[{device_folder}] ⚠️  1min MP3 not found (may have been archived): {mp3_path}")
                 
                 # Mark task done on appropriate queue
                 if source_queue == 'inotify':
@@ -797,7 +815,9 @@ class InotifyTranscriptMonitor:
                     self.scan_queue.task_done()
                 
             except Exception as e:
+                import traceback
                 logger.error(f"Transcription error: {e}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 if source_queue == 'inotify':
                     self.inotify_queue.task_done()
                 elif source_queue == 'scan':
