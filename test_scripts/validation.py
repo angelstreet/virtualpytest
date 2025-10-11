@@ -171,7 +171,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Execute each transition using navigate_to() (same as goto.py)
+    # Execute each transition using pre-computed path (no re-pathfinding!)
     successful = 0
     for i, step in enumerate(validation_sequence):
         target = step.get('to_node_label', 'unknown')
@@ -182,11 +182,12 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         # Record step start time
         step_start_time = time.time()
         
-        # Use NavigationExecutor directly
+        # Use NavigationExecutor with pre-computed path (validation mode)
+        # This skips pathfinding and executes the exact transition from the validation plan
         device = context.selected_device
         result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
-            target_node_label=target,
+            navigation_path=[step],  # ✅ Pass pre-computed path - no pathfinding!
             team_id=context.team_id,
             context=context
         )

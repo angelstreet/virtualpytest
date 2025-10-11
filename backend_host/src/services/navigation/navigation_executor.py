@@ -178,6 +178,7 @@ class NavigationExecutor:
                           tree_id: str, 
                           target_node_id: str = None,
                           target_node_label: str = None,
+                          navigation_path: List[Dict] = None,
                           current_node_id: Optional[str] = None,
                           image_source_url: Optional[str] = None,
                           team_id: str = None,
@@ -190,6 +191,8 @@ class NavigationExecutor:
             tree_id: Navigation tree ID
             target_node_id: ID of the target node to navigate to (mutually exclusive with target_node_label)
             target_node_label: Label of the target node to navigate to (mutually exclusive with target_node_id)
+            navigation_path: Optional pre-computed navigation path (for validation scripts)
+                           If provided, pathfinding is skipped and this path is executed directly
             current_node_id: Optional current node ID for starting point
             image_source_url: Optional image source URL
             team_id: Team ID for security
@@ -210,20 +213,31 @@ class NavigationExecutor:
             else:
                 print(f"[@navigation_executor:execute_navigation] ⚠️ No cached graph found for tree {tree_id}")
         
-        # Validate parameters - exactly one of target_node_id or target_node_label must be provided
-        if not target_node_id and not target_node_label:
-            return self._build_result(
-                False, 
-                "Either target_node_id or target_node_label must be provided",
-                tree_id, None, current_node_id, start_time
-            )
-        
-        if target_node_id and target_node_label:
-            return self._build_result(
-                False, 
-                "Cannot provide both target_node_id and target_node_label - use only one",
-                tree_id, target_node_id, current_node_id, start_time
-            )
+        # Validate parameters - either navigation_path OR target must be provided
+        if navigation_path:
+            # Pre-computed path mode (validation scripts)
+            if target_node_id or target_node_label:
+                return self._build_result(
+                    False,
+                    "Cannot provide both navigation_path and target - use only one",
+                    tree_id, None, current_node_id, start_time
+                )
+            print(f"[@navigation_executor:execute_navigation] 🔄 Pre-computed path mode: {len(navigation_path)} transitions provided")
+        else:
+            # Normal pathfinding mode (goto scripts)
+            if not target_node_id and not target_node_label:
+                return self._build_result(
+                    False, 
+                    "Either target_node_id, target_node_label, or navigation_path must be provided",
+                    tree_id, None, current_node_id, start_time
+                )
+            
+            if target_node_id and target_node_label:
+                return self._build_result(
+                    False, 
+                    "Cannot provide both target_node_id and target_node_label - use only one",
+                    tree_id, target_node_id, current_node_id, start_time
+                )
         
         # Convert target_node_label to target_node_id if needed
         if target_node_label:
@@ -271,14 +285,19 @@ class NavigationExecutor:
             else:
                 print(f"[@navigation_executor:execute_navigation] Starting from default entry point (no current location)")
             
-            print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label or target_node_id}' using unified pathfinding")
+            # Skip "already at target" optimization if using pre-computed path (validation mode)
+            if navigation_path:
+                print(f"[@navigation_executor:execute_navigation] Pre-computed path mode - skipping position checks")
+            else:
+                print(f"[@navigation_executor:execute_navigation] Navigating to '{target_node_label or target_node_id}' using unified pathfinding")
             
             # Check if already at target BEFORE pathfinding - but ONLY if we know our current position
-            # Only verify if current_node_id is not None (we know where we are) and matches target
+            # Skip this check if using pre-computed path (validation needs to test the transition)
             current_position = nav_context.get('current_node_id')
-            print(f"[@navigation_executor:execute_navigation] Current position: {current_position}, Target: {target_node_id}")
+            if not navigation_path:
+                print(f"[@navigation_executor:execute_navigation] Current position: {current_position}, Target: {target_node_id}")
             
-            if current_position and current_position == target_node_id:
+            if current_position and current_position == target_node_id and not navigation_path:
                 print(f"[@navigation_executor:execute_navigation] 🔍 Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
                 
                 # Always verify we're actually at this node (context may be stale or corrupted)
@@ -319,8 +338,9 @@ class NavigationExecutor:
                     nav_context['current_node_id'] = None
                     nav_context['current_node_label'] = None
                     nav_context['last_verified_timestamp'] = 0
-            elif not current_position:
+            elif not current_position and not navigation_path:
                 # Current position is null - check if we might already be at destination
+                # Skip this optimization if using pre-computed path (validation mode)
                 # OPTIMIZATION: For "home" target specifically, always verify first to avoid expensive entry flow
                 is_home_target = (target_node_label and 'home' in target_node_label.lower()) or \
                                 (target_node_id and 'home' in target_node_id.lower())
@@ -385,20 +405,23 @@ class NavigationExecutor:
                 # Positions don't match - proceed with navigation
                 print(f"[@navigation_executor:execute_navigation] Current position ({current_position}) != target ({target_node_id}) - proceeding with navigation")
             
-            # Use unified pathfinding with current navigation context position
-            navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))
-            
+            # Use unified pathfinding with current navigation context position (unless path already provided)
             if not navigation_path:
-                # Empty path but not at target - this is an error
-                nav_context['current_node_navigation_success'] = False
-                return self._build_result(
-                    False, 
-                    f"No unified path found to '{target_node_label or target_node_id}'",
-                    tree_id, target_node_id, current_node_id, start_time,
-                    unified_pathfinding_used=True
-                )
-            
-            print(f"[@navigation_executor:execute_navigation] Found path with {len(navigation_path)} steps")
+                navigation_path = find_shortest_path(tree_id, target_node_id, team_id, nav_context.get('current_node_id'))
+                
+                if not navigation_path:
+                    # Empty path but not at target - this is an error
+                    nav_context['current_node_navigation_success'] = False
+                    return self._build_result(
+                        False, 
+                        f"No unified path found to '{target_node_label or target_node_id}'",
+                        tree_id, target_node_id, current_node_id, start_time,
+                        unified_pathfinding_used=True
+                    )
+                
+                print(f"[@navigation_executor:execute_navigation] Found path with {len(navigation_path)} steps")
+            else:
+                print(f"[@navigation_executor:execute_navigation] Using pre-computed path with {len(navigation_path)} steps (pathfinding skipped)")
             
             # Execute navigation sequence with early stopping for navigation functions
             transitions_executed = 0
