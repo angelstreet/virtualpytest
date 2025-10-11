@@ -50,6 +50,7 @@ def get_report_css() -> str:
     --error-bg: #f8d7da;
     --error-border: #f5c6cb;
     --modal-bg: rgba(0,0,0,0.8);
+    --link-color: #1976d2;
 }}
 
 [data-theme="dark"] {{
@@ -74,6 +75,7 @@ def get_report_css() -> str:
     --error-bg: #4a1a1a;
     --error-border: #6b2c2c;
     --modal-bg: rgba(0,0,0,0.9);
+    --link-color: #60a5fa;
 }}
 
 * {{

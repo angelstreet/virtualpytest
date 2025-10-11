@@ -90,10 +90,10 @@ def generate_validation_report(report_data: Dict) -> str:
         logs_link_html = ''
         if logs_url:
             logs_link_html = f'''
-            <div style="margin-top: 15px; padding: 10px; background-color: var(--background-secondary); border-radius: 4px; border-left: 3px solid var(--info-color);">
-                <strong>📝 Execution Logs:</strong> 
+            <div style="margin-top: 2px; background-color: var(--background-secondary); border-radius: 4px; border-left: 3px solid var(--info-color);">
+                📝 Execution Logs:
                 <a href="{logs_url}" target="_blank" style="color: var(--link-color); text-decoration: none; font-weight: bold;">
-                    View Full Logs →
+                    Click here
                 </a>
             </div>
             '''
