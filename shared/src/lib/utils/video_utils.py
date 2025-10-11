@@ -59,7 +59,8 @@ def merge_video_files(
                 cmd.extend(['-vf', f'fps={compression_settings["fps"]}'])
             cmd.extend(['-c:a', 'aac', '-b:a', '64k'])
         else:
-            cmd.extend(['-c', 'copy'])
+            # Copy all streams (video + audio) without re-encoding
+            cmd.extend(['-c:v', 'copy', '-c:a', 'copy'])
         
         if output_format == 'mp4':
             cmd.extend(['-movflags', '+faststart'])
