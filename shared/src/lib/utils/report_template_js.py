@@ -335,7 +335,7 @@ function openVideoModal(videoUrl, label) {{
                     <button class="modal-close" onclick="closeVideoModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <video id="modal-video" controls style="width: 100%; max-width: 800px;">
+                    <video id="modal-video" controls style="width: 100%; max-width: 1600px;">
                         Your browser does not support video playback.
                     </video>
                 </div>

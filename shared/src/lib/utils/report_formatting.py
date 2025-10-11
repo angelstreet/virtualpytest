@@ -48,7 +48,7 @@ def get_video_thumbnail_html(video_url: str, label: str = "Video") -> str:
     video_format = "MP4" if video_url.endswith('.mp4') else "HLS"
     
     return f"""
-    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked: {video_format}'); openVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer; position: relative; width: 100%; max-width: 200px;" title="Click to play {video_format} video">
+    <div class="video-thumbnail" onclick="console.log('Video thumbnail clicked: {video_format}'); openVideoModal('{escaped_url}', '{escaped_label}')" style="cursor: pointer; position: relative; width: 100%; max-width: 200px; margin: 0 auto; display: block;" title="Click to play {video_format} video">
         <video muted preload="metadata" style="width: 100%; height: auto; object-fit: contain; max-height: 150px;">
             <source src="{video_url}" type="{video_type}">
         </video>
