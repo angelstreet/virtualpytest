@@ -1115,13 +1115,26 @@ def process_capture_directory(capture_dir: str):
             from shared.src.lib.utils.video_utils import merge_video_files
             # Use temporary file to prevent corruption from in-place overwrite
             temp_output = mp4_path + '.tmp'
+            
+            # Log input file details for diagnostics
+            input1_size = os.path.getsize(mp4_path)
+            input2_size = os.path.getsize(mp4_1min)
+            logger.debug(f"MP4 merge inputs: {mp4_path} ({input1_size/1024/1024:.2f}MB) + {mp4_1min} ({input2_size/1024/1024:.2f}MB)")
+            
             result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60)
             mp4_append_elapsed = time.time() - mp4_append_start
+            
+            # Enhanced diagnostics
+            if not result:
+                logger.error(f"merge_video_files returned False (FFmpeg process failed or timed out after 60s)")
+            if result and not os.path.exists(temp_output):
+                logger.error(f"merge_video_files returned True but temp file was not created: {temp_output}")
+            
             if result and os.path.exists(temp_output):
                 # Verify output file size before replacing
                 temp_size = os.path.getsize(temp_output)
-                original_size = os.path.getsize(mp4_path)
-                new_chunk_size = os.path.getsize(mp4_1min)
+                original_size = input1_size  # Reuse from above
+                new_chunk_size = input2_size  # Reuse from above
                 
                 # Expected size should be roughly original + new chunk (allow 5% variance for MP4 overhead)
                 expected_min_size = original_size + (new_chunk_size * 0.95)
@@ -1139,20 +1152,27 @@ def process_capture_directory(capture_dir: str):
                     os.rename(temp_output, mp4_path)
                     final_size = os.path.getsize(mp4_path)
                     logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {original_size/1024/1024:.2f}MB → {final_size/1024/1024:.2f}MB, +{(final_size-original_size)/1024/1024:.2f}MB)\033[0m")
+                    mp4_10min = mp4_path  # Mark success
             else:
-                logger.error(f"\033[31m✗ Failed to append 1min MP4 to 10min chunk (timeout or FFmpeg error)\033[0m")
-                # Clean up temporary file on failure (original file remains intact)
+                logger.error(f"\033[31m✗ Failed to append 1min MP4 to 10min chunk (likely corrupted)\033[0m")
+                # Clean up temp file
                 if os.path.exists(temp_output):
                     try:
                         os.remove(temp_output)
-                        logger.debug(f"Cleaned up failed temp file: {temp_output}")
-                    except Exception as e:
-                        logger.warning(f"Failed to clean up temp file: {e}")
+                    except:
+                        pass
+                # Delete corrupted original - will recreate from 1min on next cycle
+                try:
+                    os.remove(mp4_path)
+                    logger.warning(f"\033[33m⚠ Deleted corrupted chunk, will recreate from scratch\033[0m")
+                except:
+                    pass
         else:
             shutil.copy(mp4_1min, mp4_path)
             mp4_append_elapsed = time.time() - mp4_append_start
             created_size = os.path.getsize(mp4_path)
             logger.info(f"\033[34m✓ Created 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {created_size/1024/1024:.2f}MB)\033[0m")
+            mp4_10min = mp4_path  # Mark success
         
         # Progressive append MP3 to 10min chunk (after transcription happens via inotify)
         mp3_10min_path = None
@@ -1216,8 +1236,9 @@ def process_capture_directory(capture_dir: str):
         # File will be overwritten in ~10 minutes when slot rotates
         logger.debug(f"1min MP4 kept in temp/ for individual playback (slot {minute_slot} will auto-rotate)")
         
-        mp4_10min = mp4_path
-        update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
+        # Update manifest only if MP4 operation succeeded
+        if mp4_10min:
+            update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
     
     # SAFETY CLEANUP: Delete orphaned 1min files from temp/
     # MP4: Rotating slots (no cleanup - kept for playback)
@@ -1228,7 +1249,12 @@ def process_capture_directory(capture_dir: str):
     elapsed = time.time() - start_time
     
     # Build status summary
-    mp4_info = ", MP4: appended" if mp4_10min else ""
+    if mp4_10min:
+        mp4_info = ", MP4: ✓"
+    elif mp4_1min:  # 1min was created but 10min append failed
+        mp4_info = ", MP4: ✗ failed"
+    else:
+        mp4_info = ""
     
     # Safety cleanup stats
     safety_deletes = []
