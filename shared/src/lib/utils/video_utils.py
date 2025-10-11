@@ -24,6 +24,8 @@ def merge_video_files(
     """
     Generic video file merger using FFmpeg concat demuxer
     
+    Uses atomic write (via .tmp file) to prevent corruption from partial writes.
+    
     Args:
         input_files: List of video file paths to merge
         output_path: Path for output file
@@ -43,6 +45,8 @@ def merge_video_files(
         return input_files[0]
     
     concat_file = f"{output_path}.concat.txt"
+    # Use .tmp file for atomic write (prevents reading incomplete files)
+    temp_output = f"{output_path}.tmp"
     
     try:
         with open(concat_file, 'w') as f:
@@ -69,11 +73,13 @@ def merge_video_files(
         
         # Explicitly specify output format to avoid issues with .tmp or non-standard extensions
         cmd.extend(['-f', output_format])
-        cmd.append(output_path)
+        cmd.append(temp_output)
         
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
         
-        if result.returncode == 0 and os.path.exists(output_path):
+        if result.returncode == 0 and os.path.exists(temp_output):
+            # Atomic rename: file only appears complete when fully written
+            os.rename(temp_output, output_path)
             os.remove(concat_file)
             
             if delete_source:
@@ -98,9 +104,15 @@ def merge_video_files(
         print(f"[video_utils] FFmpeg merge exception: {e}")
         return None
     finally:
+        # Cleanup temp files
         if os.path.exists(concat_file):
             try:
                 os.remove(concat_file)
+            except:
+                pass
+        if os.path.exists(temp_output):
+            try:
+                os.remove(temp_output)
             except:
                 pass
 
