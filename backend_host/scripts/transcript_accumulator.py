@@ -147,9 +147,10 @@ def extract_audio_from_mp4(mp4_path: str, mp3_path: str, capture_folder: str, ho
         # Ensure output directory exists
         os.makedirs(os.path.dirname(mp3_path), exist_ok=True)
         
-        # Create temp file in /tmp with proper .mp3 extension (FFmpeg needs proper extension)
-        # One temp file per device (overwritten each time, since worker processes one at a time)
-        mp3_tmp_path = f'/tmp/audio_{capture_folder}.mp3'
+        # CRITICAL: Create temp file in SAME directory as final MP3 (not /tmp)
+        # This ensures os.rename() triggers IN_MOVED_TO inotify event (same filesystem)
+        # Using /tmp would do copy+delete across filesystems = no inotify event!
+        mp3_tmp_path = mp3_path + '.tmp'
         
         cmd = [
             'ffmpeg',
