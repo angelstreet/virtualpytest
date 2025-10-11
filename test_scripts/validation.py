@@ -72,6 +72,134 @@ def _get_validation_plan(context):
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
+def execute_validation_step(device, step, context):
+    """
+    Execute a single validation step using the pre-planned actions.
+    Does NOT recalculate paths - executes exactly what was planned.
+    """
+    from datetime import datetime
+    from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+    
+    from_node = step.get('from_node_label', 'unknown')
+    to_node = step.get('to_node_label', 'unknown')
+    
+    print(f"  📋 Executing planned transition: {from_node} → {to_node}")
+    
+    # Get pre-planned actions from the step
+    actions = step.get('actions', [])
+    retry_actions = step.get('retryActions', [])
+    failure_actions = step.get('failureActions', [])
+    verifications = step.get('verifications', [])
+    
+    step_start_time = time.time()
+    
+    # Capture start screenshot
+    step_name = f"{from_node}_to_{to_node}"
+    step_start_screenshot_path = ""
+    screenshot_id = capture_screenshot_for_script(device, context, f"{step_name}_start")
+    if screenshot_id and context.screenshot_paths:
+        step_start_screenshot_path = context.screenshot_paths[-1]
+    
+    # Execute actions directly using ActionExecutor
+    action_result = {'success': True, 'results': []}
+    if actions:
+        print(f"  ⚡ Executing {len(actions)} actions")
+        action_result = device.action_executor.execute_actions(
+            actions=actions,
+            retry_actions=retry_actions,
+            failure_actions=failure_actions,
+            team_id=context.team_id,
+            context=context
+        )
+    
+    # If actions succeeded, run verifications on the target node
+    verification_result = {'success': True, 'results': []}
+    if action_result.get('success') and verifications:
+        print(f"  🔍 Running {len(verifications)} verifications")
+        verification_result = device.verification_executor.verify_node(
+            node_id=step.get('to_node_id'),
+            team_id=context.team_id,
+            tree_id=step.get('to_tree_id')
+        )
+    
+    # Capture end screenshot
+    step_end_screenshot_path = ""
+    screenshot_id = capture_screenshot_for_script(device, context, f"{step_name}_end")
+    if screenshot_id and context.screenshot_paths:
+        step_end_screenshot_path = context.screenshot_paths[-1]
+    
+    step_execution_time = int((time.time() - step_start_time) * 1000)
+    step_start_timestamp = datetime.fromtimestamp(step_start_time).strftime('%H:%M:%S')
+    step_end_timestamp = datetime.now().strftime('%H:%M:%S')
+    
+    # Determine overall success
+    overall_success = action_result.get('success', False) and verification_result.get('success', False)
+    
+    # Build error message if failed
+    error_msg = None
+    if not overall_success:
+        if not action_result.get('success'):
+            error_msg = action_result.get('error', 'Action execution failed')
+        elif not verification_result.get('success'):
+            error_msg = verification_result.get('error', 'Verification failed')
+    
+    # Record step result for report
+    step_result = {
+        'success': overall_success,
+        'from_node': from_node,
+        'to_node': to_node,
+        'actions': actions,
+        'retry_actions': retry_actions,
+        'failure_actions': failure_actions,
+        'verifications': verifications,
+        'action_results': action_result.get('results', []),
+        'verification_results': verification_result.get('results', []),
+        'screenshot_path': step_end_screenshot_path,
+        'step_start_screenshot_path': step_start_screenshot_path,
+        'step_end_screenshot_path': step_end_screenshot_path,
+        'execution_time_ms': step_execution_time,
+        'start_time': step_start_timestamp,
+        'end_time': step_end_timestamp,
+        'error': error_msg,
+        'step_category': 'validation'
+    }
+    
+    context.record_step_immediately(step_result)
+    
+    # Update device position if successful (skip for action nodes)
+    if overall_success:
+        to_node_type = step.get('to_node_type', 'normal')
+        if to_node_type != 'action':
+            device.navigation_context['current_node_id'] = step.get('to_node_id')
+            device.navigation_context['current_node_label'] = to_node
+            print(f"  ✅ Position updated: now at {to_node}")
+        else:
+            print(f"  ✅ Action executed (position unchanged)")
+    
+    return step_result
+
+
+def recover_position(device, target_node_id, context):
+    """
+    Recover device position after a failure.
+    Navigates to target position with minimal steps (1 navigation max).
+    """
+    current_position = device.navigation_context.get('current_node_id')
+    
+    if current_position == target_node_id:
+        return  # Already at target, no recovery needed
+    
+    print(f"🔧 [validation] Recovering position: {current_position} → {target_node_id}")
+    
+    # Single navigation to get to target position
+    device.navigation_executor.execute_navigation(
+        tree_id=context.tree_id,
+        target_node_id=target_node_id,
+        team_id=context.team_id,
+        context=context
+    )
+
+
 def capture_validation_summary(context, userinterface_name: str, max_iteration: int = None) -> str:
     """Capture validation summary as text for report - uses actual recorded steps"""
     
@@ -171,34 +299,31 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         validation_sequence = validation_sequence[:max_iteration]
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
-    # Execute each transition using navigate_to() (same as goto.py)
+    # Execute each transition directly (execute pre-planned actions, don't re-navigate)
     successful = 0
+    device = context.selected_device
+    
     for i, step in enumerate(validation_sequence):
-        target = step.get('to_node_label', 'unknown')
         from_node = step.get('from_node_label', 'unknown')
+        to_node = step.get('to_node_label', 'unknown')
         
-        print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {target}")
+        print(f"⚡ [validation] Transition {i+1}/{len(validation_sequence)}: {from_node} → {to_node}")
         
-        # Record step start time
-        step_start_time = time.time()
-        
-        # Use NavigationExecutor directly
-        device = context.selected_device
-        result = device.navigation_executor.execute_navigation(
-            tree_id=context.tree_id,
-            target_node_label=target,
-            team_id=context.team_id,
-            context=context
-        )
-        
-        # Note: Step recording is handled automatically by NavigationExecutor.execute_navigation()
-        # No need to manually record steps here - it would create duplicates in the report
+        # Execute the planned step directly (no re-navigation)
+        result = execute_validation_step(device, step, context)
         
         if result.get('success', False):
             successful += 1
-            print(f"✅ [validation] Step {i+1} successful")
+            print(f"✅ [validation] Transition {i+1} successful")
         else:
-            print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
+            print(f"❌ [validation] Transition {i+1} failed: {result.get('error', 'Unknown error')}")
+            
+            # If failed and there are more steps, recover position for next step
+            if i < len(validation_sequence) - 1:
+                next_step = validation_sequence[i + 1]
+                next_from_node = next_step.get('from_node_id')
+                if next_from_node:
+                    recover_position(device, next_from_node, context)
     
     # Calculate success and store stats for summary generation
     context.overall_success = successful == len(validation_sequence)
