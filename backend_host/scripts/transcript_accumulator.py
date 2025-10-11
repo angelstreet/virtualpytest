@@ -51,7 +51,8 @@ from shared.src.lib.utils.storage_path_utils import (
     get_transcript_path,
     get_cold_segments_path,
     get_metadata_path,
-    get_segments_path
+    get_segments_path,
+    get_captures_path
 )
 
 from shared.src.lib.utils.audio_transcription_utils import (
@@ -840,6 +841,7 @@ class InotifyTranscriptMonitor:
                 
                 # Write audio detection to ONE recent capture JSON
                 # capture_monitor will propagate this to all subsequent frames via its audio cache
+                latest_json_filename = None
                 try:
                     metadata_path = get_metadata_path(device_folder)
                     os.makedirs(metadata_path, mode=0o777, exist_ok=True)
@@ -877,6 +879,8 @@ class InotifyTranscriptMonitor:
                             pass
                     
                     if latest_json and os.path.exists(latest_json):
+                        latest_json_filename = os.path.basename(latest_json).replace('.json', '.jpg')
+                        
                         # Update ONE JSON with audio data (capture_monitor will propagate via cache)
                         with open(latest_json, 'r') as f:
                             existing_data = json.load(f)
@@ -908,6 +912,46 @@ class InotifyTranscriptMonitor:
                         
                 except Exception as e:
                     logger.warning(f"{BLUE}[AUDIO:{device_folder}] Failed to write audio to JSON: {e}{RESET}")
+                
+                # Add frame filename to detection_result for R2 upload
+                if latest_json_filename:
+                    detection_result['filename'] = latest_json_filename
+                
+                # Upload R2 image for audio_loss incidents (once per incident)
+                if not has_audio and self.incident_manager and latest_json_filename:
+                    device_state = self.incident_manager.get_device_state(device_folder)
+                    cached_audio_r2_urls = device_state.get('audio_loss_r2_urls')
+                    
+                    if not cached_audio_r2_urls:
+                        # First audio loss - upload frame to R2
+                        now = datetime.now()
+                        time_key = f"{now.hour:02d}{now.minute:02d}"
+                        thumbnail_filename = latest_json_filename.replace('.jpg', '_thumbnail.jpg')
+                        
+                        # Check if thumbnail exists
+                        captures_path = get_captures_path(device_folder)
+                        thumbnail_path = os.path.join(captures_path, thumbnail_filename)
+                        
+                        if os.path.exists(thumbnail_path):
+                            logger.info(f"{BLUE}[AUDIO:{device_folder}] 🆕 NEW audio_loss - uploading frame to R2{RESET}")
+                            r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
+                                [latest_json_filename], [thumbnail_filename], device_folder, time_key, thumbnails_only=True
+                            )
+                            if r2_urls and r2_urls.get('thumbnail_urls'):
+                                device_state['audio_loss_r2_urls'] = r2_urls['thumbnail_urls']
+                                device_state['audio_loss_r2_images'] = r2_urls
+                                detection_result['r2_images'] = r2_urls
+                                logger.info(f"{BLUE}[AUDIO:{device_folder}] 📤 Uploaded to R2: {r2_urls['thumbnail_urls'][0]}{RESET}")
+                    else:
+                        # Reuse cached R2 URL
+                        detection_result['r2_images'] = device_state.get('audio_loss_r2_images', {'thumbnail_urls': cached_audio_r2_urls})
+                
+                # Clear audio_loss R2 cache when audio returns
+                if has_audio and self.incident_manager:
+                    device_state = self.incident_manager.get_device_state(device_folder)
+                    if device_state.get('audio_loss_r2_urls'):
+                        device_state['audio_loss_r2_urls'] = None
+                        device_state['audio_loss_r2_images'] = None
                 
                 # Report to incident manager for tracking only (no lifecycle management)
                 if self.incident_manager:
