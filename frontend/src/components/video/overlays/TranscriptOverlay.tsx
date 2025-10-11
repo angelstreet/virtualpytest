@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, Menu, MenuItem, Chip } from '@mui/material';
+import { Box, Typography, IconButton, Menu, MenuItem } from '@mui/material';
 import { AutoAwesome, Headphones, Language } from '@mui/icons-material';
 import { TranscriptSegment } from '../EnhancedHLSPlayer.types';
 
 interface TranscriptOverlayProps {
   currentTranscript: TranscriptSegment | null;
   transcriptText: string;
-  selectedLanguage: string;
+  
+  // Separate language controls for audio and transcript
+  selectedAudioLanguage?: string;
+  selectedTranscriptLanguage?: string;
   availableLanguages?: string[];
-  onLanguageChange?: (language: string) => void;
+  availableDubbedLanguages?: string[];
+  onAudioLanguageChange?: (language: string) => void;
+  onTranscriptLanguageChange?: (language: string) => void;
+  
   isTranslating?: boolean;
   show: boolean;
   hasMp3?: boolean;
@@ -18,39 +24,60 @@ interface TranscriptOverlayProps {
 export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
   currentTranscript,
   transcriptText,
-  selectedLanguage,
+  selectedAudioLanguage = 'original',
+  selectedTranscriptLanguage = 'original',
   availableLanguages = ['original'],
-  onLanguageChange,
+  availableDubbedLanguages = [],
+  onAudioLanguageChange,
+  onTranscriptLanguageChange,
   isTranslating = false,
   show,
   hasMp3,
   mp3Url,
 }) => {
-  const [languageMenuAnchor, setLanguageMenuAnchor] = useState<null | HTMLElement>(null);
+  const [audioMenuAnchor, setAudioMenuAnchor] = useState<null | HTMLElement>(null);
+  const [transcriptMenuAnchor, setTranscriptMenuAnchor] = useState<null | HTMLElement>(null);
   
   if (!show || !currentTranscript || !transcriptText) {
     return null;
   }
 
-  const handleAudioClick = () => {
+  const handleMp3Click = () => {
     if (mp3Url) {
       window.open(mp3Url, '_blank');
     }
   };
   
-  const handleLanguageClick = (event: React.MouseEvent<HTMLElement>) => {
-    setLanguageMenuAnchor(event.currentTarget);
+  // Audio language menu handlers
+  const handleAudioClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAudioMenuAnchor(event.currentTarget);
   };
-  
-  const handleLanguageClose = () => {
-    setLanguageMenuAnchor(null);
+
+  const handleAudioClose = () => {
+    setAudioMenuAnchor(null);
   };
-  
-  const handleLanguageSelect = (language: string) => {
-    if (onLanguageChange) {
-      onLanguageChange(language);
+
+  const handleAudioSelect = (language: string) => {
+    if (onAudioLanguageChange) {
+      onAudioLanguageChange(language);
     }
-    handleLanguageClose();
+    setAudioMenuAnchor(null);
+  };
+
+  // Transcript language menu handlers
+  const handleTranscriptClick = (event: React.MouseEvent<HTMLElement>) => {
+    setTranscriptMenuAnchor(event.currentTarget);
+  };
+
+  const handleTranscriptClose = () => {
+    setTranscriptMenuAnchor(null);
+  };
+
+  const handleTranscriptSelect = (language: string) => {
+    if (onTranscriptLanguageChange) {
+      onTranscriptLanguageChange(language);
+    }
+    setTranscriptMenuAnchor(null);
   };
   
   // Language display names
@@ -65,10 +92,11 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
 
   return (
     <>
-      {/* Audio button - top right */}
+      {/* Audio MP3 download button - top right */}
       {hasMp3 && mp3Url && (
         <IconButton
-          onClick={handleAudioClick}
+          onClick={handleMp3Click}
+          title="Download MP3"
           sx={{
             position: 'fixed',
             top: 16,
@@ -82,31 +110,98 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           <Headphones />
         </IconButton>
       )}
-      
-      {/* Language selector button - top right, below audio button */}
-      {availableLanguages.length > 1 && (
+
+      {/* Audio language selector (dubbed audio) */}
+      {availableDubbedLanguages.length > 0 && (
         <>
           <IconButton
-            onClick={handleLanguageClick}
+            onClick={handleAudioClick}
             disabled={isTranslating}
+            title="Audio Language"
             sx={{
               position: 'fixed',
               top: hasMp3 && mp3Url ? 72 : 16,
               right: 16,
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              backgroundColor: 'rgba(156, 39, 176, 0.8)',
               color: 'white',
               zIndex: 1250,
-              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
-              '&.Mui-disabled': { backgroundColor: 'rgba(0, 0, 0, 0.5)', color: 'rgba(255, 255, 255, 0.5)' },
+              '&:hover': { backgroundColor: 'rgba(156, 39, 176, 0.95)' },
+              '&.Mui-disabled': { backgroundColor: 'rgba(156, 39, 176, 0.5)', color: 'rgba(255, 255, 255, 0.5)' },
+            }}
+          >
+            <Headphones />
+          </IconButton>
+          
+          <Menu
+            anchorEl={audioMenuAnchor}
+            open={Boolean(audioMenuAnchor)}
+            onClose={handleAudioClose}
+            sx={{
+              '& .MuiPaper-root': {
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                color: 'white',
+              },
+            }}
+          >
+            <MenuItem
+              onClick={() => handleAudioSelect('original')}
+              selected={selectedAudioLanguage === 'original'}
+              sx={{
+                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(156, 39, 176, 0.3)',
+                  '&:hover': { backgroundColor: 'rgba(156, 39, 176, 0.4)' },
+                },
+              }}
+            >
+              Original Audio {selectedAudioLanguage === 'original' && ' ✓'}
+            </MenuItem>
+            {availableDubbedLanguages.map((lang) => (
+              <MenuItem
+                key={lang}
+                onClick={() => handleAudioSelect(lang)}
+                selected={lang === selectedAudioLanguage}
+                sx={{
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(156, 39, 176, 0.3)',
+                    '&:hover': { backgroundColor: 'rgba(156, 39, 176, 0.4)' },
+                  },
+                }}
+              >
+                {languageNames[lang] || lang.toUpperCase()}
+                {lang === selectedAudioLanguage && ' ✓'}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      )}
+
+      {/* Transcript/Subtitle language selector */}
+      {availableLanguages.length > 1 && (
+        <>
+          <IconButton
+            onClick={handleTranscriptClick}
+            disabled={isTranslating}
+            title="Subtitle Language"
+            sx={{
+              position: 'fixed',
+              top: hasMp3 && mp3Url ? (availableDubbedLanguages.length > 0 ? 128 : 72) : (availableDubbedLanguages.length > 0 ? 72 : 16),
+              right: 16,
+              backgroundColor: 'rgba(33, 150, 243, 0.8)',
+              color: 'white',
+              zIndex: 1250,
+              '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.95)' },
+              '&.Mui-disabled': { backgroundColor: 'rgba(33, 150, 243, 0.5)', color: 'rgba(255, 255, 255, 0.5)' },
             }}
           >
             <Language />
           </IconButton>
           
           <Menu
-            anchorEl={languageMenuAnchor}
-            open={Boolean(languageMenuAnchor)}
-            onClose={handleLanguageClose}
+            anchorEl={transcriptMenuAnchor}
+            open={Boolean(transcriptMenuAnchor)}
+            onClose={handleTranscriptClose}
             sx={{
               '& .MuiPaper-root': {
                 backgroundColor: 'rgba(0, 0, 0, 0.9)',
@@ -117,8 +212,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
             {availableLanguages.map((lang) => (
               <MenuItem
                 key={lang}
-                onClick={() => handleLanguageSelect(lang)}
-                selected={lang === selectedLanguage}
+                onClick={() => handleTranscriptSelect(lang)}
+                selected={lang === selectedTranscriptLanguage}
                 sx={{
                   '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
                   '&.Mui-selected': {
@@ -128,7 +223,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
                 }}
               >
                 {languageNames[lang] || lang.toUpperCase()}
-                {lang === selectedLanguage && ' ✓'}
+                {lang === selectedTranscriptLanguage && ' ✓'}
               </MenuItem>
             ))}
           </Menu>
@@ -147,7 +242,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           zIndex: 1250,
         }}
       >
-        {currentTranscript.enhanced_transcript && selectedLanguage === 'original' && (
+        {currentTranscript.enhanced_transcript && selectedTranscriptLanguage === 'original' && (
           <Box sx={{ display: 'flex', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)', px: 1, py: 0.5, borderRadius: 1 }}>
             <AutoAwesome sx={{ fontSize: 14, color: '#2196f3', mr: 0.5 }} />
             <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 600, fontSize: '0.7rem' }}>
@@ -165,9 +260,9 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
               fontWeight: 500,
             }}
           >
-            {selectedLanguage === 'original' 
+            {selectedTranscriptLanguage === 'original' 
               ? `${currentTranscript.language.charAt(0).toUpperCase() + currentTranscript.language.slice(1).toLowerCase()} • ${Math.round(currentTranscript.confidence * 100)}%`
-              : `Translated to ${selectedLanguage}`
+              : `Translated to ${languageNames[selectedTranscriptLanguage] || selectedTranscriptLanguage}`
             }
           </Typography>
         </Box>
@@ -188,10 +283,10 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           maxWidth: 'calc(100% - 80px)',  // Window width minus 80px
           width: 'calc(100% - 80px)',      // Use full available width
           textAlign: 'center',
-          border: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
+          border: currentTranscript.enhanced_transcript && selectedTranscriptLanguage === 'original'
             ? '2px solid rgba(33, 150, 243, 0.8)'
             : '1px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: currentTranscript.enhanced_transcript && selectedLanguage === 'original'
+          boxShadow: currentTranscript.enhanced_transcript && selectedTranscriptLanguage === 'original'
             ? '0 4px 12px rgba(33, 150, 243, 0.4)'
             : '0 4px 12px rgba(0,0,0,0.5)',
           zIndex: 1250,  // Below timeline (which is 1300) but above video
@@ -215,6 +310,41 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         >
           {transcriptText}
         </Typography>
+      </Box>
+      
+      {/* Status indicators */}
+      <Box sx={{ position: 'fixed', bottom: 16, left: 16, zIndex: 1250, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {selectedAudioLanguage !== 'original' && (
+          <Box
+            sx={{
+              padding: '6px 12px',
+              backgroundColor: 'rgba(156, 39, 176, 0.8)',
+              color: 'white',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            🎤 Audio: {languageNames[selectedAudioLanguage] || selectedAudioLanguage.toUpperCase()}
+          </Box>
+        )}
+        {selectedTranscriptLanguage !== 'original' && (
+          <Box
+            sx={{
+              padding: '6px 12px',
+              backgroundColor: 'rgba(33, 150, 243, 0.8)',
+              color: 'white',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 500,
+            }}
+          >
+            💬 Subtitles: {languageNames[selectedTranscriptLanguage] || selectedTranscriptLanguage.toUpperCase()}
+          </Box>
+        )}
       </Box>
     </>
   );

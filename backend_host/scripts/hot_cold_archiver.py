@@ -860,16 +860,30 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
             
             # Check for pre-translated language files
             available_languages = ['original']  # Original language is always available
+            available_dubbed_languages = []  # Dubbed audio files
+            
             chunk_dir = os.path.dirname(chunk_path)
             chunk_basename = os.path.basename(chunk_path).replace('.json', '')
             
-            # Check for language-specific files
+            # Check for language-specific transcript and audio files
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+            device_folder = os.path.basename(capture_dir)
+            audio_cold = get_cold_storage_path(device_folder, 'audio')
+            audio_dir = os.path.join(audio_cold, str(hour))
+            
             for lang_code in ['fr', 'en', 'es', 'de', 'it']:
+                # Check transcript file
                 lang_file = os.path.join(chunk_dir, f'{chunk_basename}_{lang_code}.json')
                 if os.path.exists(lang_file):
                     available_languages.append(lang_code)
+                
+                # Check dubbed audio file
+                audio_file = os.path.join(audio_dir, f'{chunk_basename}_{lang_code}.mp3')
+                if os.path.exists(audio_file):
+                    available_dubbed_languages.append(lang_code)
             
             chunk_info["available_languages"] = available_languages
+            chunk_info["available_dubbed_languages"] = available_dubbed_languages
         except:
             pass
     

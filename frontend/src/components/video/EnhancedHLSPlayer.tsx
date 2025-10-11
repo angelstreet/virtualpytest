@@ -9,7 +9,6 @@ import { useArchivePlayer } from './hooks/useArchivePlayer';
 import { useTranscriptPlayer } from './hooks/useTranscriptPlayer';
 import { TimelineOverlay } from './overlays/TimelineOverlay';
 import { TranscriptOverlay } from './overlays/TranscriptOverlay';
-import { LanguageSelector } from './overlays/LanguageSelector';
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   deviceId,
@@ -37,6 +36,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   isAIAnalyzing = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const dubbedAudioRef = useRef<HTMLAudioElement>(null); // Dubbed audio player
   const videoContainerRef = useRef<HTMLDivElement>(null); // Container ref for timeline positioning
   const [internalIsLiveMode] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -330,6 +330,79 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     return () => clearTimeout(timer);
   }, [isLiveMode]);
 
+  // Dubbed audio sync and control (reuses restart pattern!)
+  useEffect(() => {
+    const video = videoRef.current;
+    const dubbedAudio = dubbedAudioRef.current;
+    if (!video || !dubbedAudio) return;
+
+    const hasDubbedAudio = !!transcript.dubbedAudioUrl;
+
+    if (hasDubbedAudio) {
+      console.log(`[@EnhancedHLSPlayer] 🎤 Enabling dubbed audio:`, transcript.dubbedAudioUrl);
+      
+      // Mute video, play dubbed audio
+      video.muted = true;
+      dubbedAudio.src = transcript.dubbedAudioUrl || '';
+      dubbedAudio.currentTime = video.currentTime;
+      
+      // Sync playback state
+      if (!video.paused) {
+        dubbedAudio.play().catch(err => {
+          console.warn('[@EnhancedHLSPlayer] Failed to play dubbed audio:', err);
+        });
+      }
+    } else {
+      // Restore original video audio
+      video.muted = muted;
+      dubbedAudio.pause();
+      dubbedAudio.src = '';
+      console.log(`[@EnhancedHLSPlayer] 🔊 Restored original audio`);
+    }
+  }, [transcript.dubbedAudioUrl, muted]);
+
+  // Sync dubbed audio with video playback
+  useEffect(() => {
+    const video = videoRef.current;
+    const dubbedAudio = dubbedAudioRef.current;
+    if (!video || !dubbedAudio || !transcript.dubbedAudioUrl) return;
+
+    const syncAudio = () => {
+      // Keep audio synced with video (tolerance: 0.3s)
+      if (Math.abs(dubbedAudio.currentTime - video.currentTime) > 0.3) {
+        dubbedAudio.currentTime = video.currentTime;
+      }
+    };
+
+    const handleVideoPlay = () => {
+      dubbedAudio.play().catch(err => {
+        console.warn('[@EnhancedHLSPlayer] Failed to play dubbed audio:', err);
+      });
+    };
+
+    const handleVideoPause = () => {
+      dubbedAudio.pause();
+    };
+
+    const handleVideoSeeking = () => {
+      dubbedAudio.currentTime = video.currentTime;
+    };
+
+    // Sync every 100ms
+    const syncInterval = setInterval(syncAudio, 100);
+
+    video.addEventListener('play', handleVideoPlay);
+    video.addEventListener('pause', handleVideoPause);
+    video.addEventListener('seeking', handleVideoSeeking);
+
+    return () => {
+      clearInterval(syncInterval);
+      video.removeEventListener('play', handleVideoPlay);
+      video.removeEventListener('pause', handleVideoPause);
+      video.removeEventListener('seeking', handleVideoSeeking);
+    };
+  }, [transcript.dubbedAudioUrl]);
+
   return (
     <Box className={className} sx={{ width, position: 'relative' }}>
       <style>
@@ -343,6 +416,9 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       </style>
       
       <Box ref={videoContainerRef} sx={{ position: 'relative', height, overflow: 'visible' }}>
+        {/* Hidden dubbed audio player (synced with video) */}
+        <audio ref={dubbedAudioRef} style={{ display: 'none' }} />
+        
         {!isTransitioning && (!archive.isCheckingAvailability && (isLiveMode || archive.availableHours.length > 0)) ? (
           <HLSVideoPlayer
             key={`${isLiveMode ? 'live' : 'archive'}`}
@@ -386,14 +462,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
-        <LanguageSelector
-          transcriptData={transcript.transcriptData}
-          selectedLanguage={transcript.selectedLanguage}
-          isTranslating={transcript.isTranslating}
-          onLanguageChange={transcript.handleLanguageChange}
-          show={!isLiveMode}
-          detectedLanguage={transcript.currentTranscript?.language}
-        />
+        {/* Language selectors now integrated into TranscriptOverlay */}
 
         {monitoringMode && (
           <Box
@@ -460,9 +529,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         <TranscriptOverlay
           currentTranscript={transcript.currentTranscript}
           transcriptText={transcript.getCurrentTranscriptText()}
-          selectedLanguage={transcript.selectedLanguage}
+          selectedAudioLanguage={transcript.selectedAudioLanguage}
+          selectedTranscriptLanguage={transcript.selectedTranscriptLanguage}
           availableLanguages={transcript.availableLanguages}
-          onLanguageChange={transcript.handleLanguageChange}
+          availableDubbedLanguages={transcript.availableDubbedLanguages}
+          onAudioLanguageChange={transcript.handleAudioLanguageChange}
+          onTranscriptLanguageChange={transcript.handleTranscriptLanguageChange}
           isTranslating={transcript.isTranslating}
           show={!isLiveMode}
           hasMp3={transcript.hasMp3}

@@ -63,12 +63,18 @@ export const useTranscriptPlayer = ({
   const [transcriptData, setTranscriptData] = useState<TranscriptDataLegacy | null>(null);
   const [rawTranscriptData, setRawTranscriptData] = useState<TranscriptData10Min | null>(null);  // Keep raw 10-min data
   const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
-  const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);  // Track current timed segment
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
+  const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);
+  
+  // Separate language selection for audio and transcript
+  const [selectedAudioLanguage, setSelectedAudioLanguage] = useState<string>('original');
+  const [selectedTranscriptLanguage, setSelectedTranscriptLanguage] = useState<string>('original');
+  
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(['original']);
+  const [availableDubbedLanguages, setAvailableDubbedLanguages] = useState<string[]>([]);
   const [isTranslating, setIsTranslating] = useState(false);
   const [hasMp3, setHasMp3] = useState(false);
   const [mp3Url, setMp3Url] = useState<string | null>(null);
+  const [dubbedAudioUrl, setDubbedAudioUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
@@ -123,8 +129,11 @@ export const useTranscriptPlayer = ({
             
             // Extract available languages from manifest
             const languages = chunkInfo.available_languages || ['original'];
+            const dubbedLanguages = chunkInfo.available_dubbed_languages || [];
             setAvailableLanguages(languages);
+            setAvailableDubbedLanguages(dubbedLanguages);
             console.log(`[@useTranscriptPlayer] Available languages:`, languages);
+            console.log(`[@useTranscriptPlayer] Available dubbed audio:`, dubbedLanguages);
             
             // OPTIMIZATION: Transcript data is now included directly in manifest (1 API call instead of 2)
             console.log(`[@useTranscriptPlayer] ⚡ Reading transcript directly from manifest (hour ${hour}, chunk ${chunkIndex})`);
@@ -348,17 +357,61 @@ export const useTranscriptPlayer = ({
     }
   }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
 
-  const handleLanguageChange = useCallback(async (language: string) => {
-    setSelectedLanguage(language);
+  // Handle audio language change (dubbed audio only)
+  const handleAudioLanguageChange = useCallback(async (language: string) => {
+    setSelectedAudioLanguage(language);
     
     if (!archiveMetadata?.manifests.length) return;
     const currentManifest = archiveMetadata.manifests[currentManifestIndex];
     if (!currentManifest) return;
 
-    // Load pre-translated file if available, otherwise translate on-demand (legacy)
+    const hour = currentManifest.window_index;
+    const chunkIndex = currentManifest.chunk_index;
+    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+
+    if (language === 'original') {
+      setDubbedAudioUrl(null);
+      console.log(`[@useTranscriptPlayer] Switched to original audio`);
+    } else if (availableDubbedLanguages.includes(language)) {
+      // Try 1-minute dubbed audio first (fast!), fallback to 10-minute
+      const currentMinute = Math.floor(globalCurrentTime / 60) % 10; // 0-9
+      const url1min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/temp/1min_${currentMinute}_${language}.mp3`);
+      const url10min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/${hour}/chunk_10min_${chunkIndex}_${language}.mp3`);
+      
+      // Check if 1-minute dubbed audio exists (HEAD request for speed)
+      try {
+        const response = await fetch(url1min, { method: 'HEAD' });
+        if (response.ok) {
+          setDubbedAudioUrl(url1min);
+          console.log(`[@useTranscriptPlayer] 🎤 Using 1min dubbed audio (${language}):`, url1min);
+          return;
+        }
+      } catch (e) {
+        console.debug(`[@useTranscriptPlayer] 1min dubbed audio not available, trying 10min...`);
+      }
+      
+      // Fallback to 10-minute dubbed audio
+      setDubbedAudioUrl(url10min);
+      console.log(`[@useTranscriptPlayer] 🎤 Using 10min dubbed audio (${language}):`, url10min);
+    } else {
+      setDubbedAudioUrl(null);
+    }
+  }, [availableDubbedLanguages, archiveMetadata, currentManifestIndex, globalCurrentTime, providedStreamUrl, hookStreamUrl, host, deviceId]);
+
+  // Handle transcript/subtitle language change (text only)
+  const handleTranscriptLanguageChange = useCallback(async (language: string) => {
+    setSelectedTranscriptLanguage(language);
+    
+    if (!archiveMetadata?.manifests.length) return;
+    const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+    if (!currentManifest) return;
+
+    const hour = currentManifest.window_index;
+    const chunkIndex = currentManifest.chunk_index;
+
     if (availableLanguages.includes(language)) {
       setIsTranslating(true);
-      await loadTranscriptForLanguage(currentManifest.window_index, currentManifest.chunk_index, language);
+      await loadTranscriptForLanguage(hour, chunkIndex, language);
       setIsTranslating(false);
     } else if (language !== 'original') {
       // Legacy: translate on-demand (slow)
@@ -369,14 +422,50 @@ export const useTranscriptPlayer = ({
     }
   }, [availableLanguages, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, translateFullTranscript, reloadTranscriptData]);
 
+  // Auto-update 1-minute dubbed audio as video progresses through minutes
+  useEffect(() => {
+    if (selectedAudioLanguage === 'original' || !availableDubbedLanguages.includes(selectedAudioLanguage)) {
+      return;
+    }
+
+    if (!archiveMetadata?.manifests.length) return;
+    const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+    if (!currentManifest) return;
+
+    const currentMinute = Math.floor(globalCurrentTime / 60) % 10;
+    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+    const hour = currentManifest.window_index;
+    const chunkIndex = currentManifest.chunk_index;
+
+    // Try 1-minute dubbed audio for current minute
+    const url1min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/temp/1min_${currentMinute}_${selectedAudioLanguage}.mp3`);
+    const url10min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/${hour}/chunk_10min_${chunkIndex}_${selectedAudioLanguage}.mp3`);
+
+    // Quick HEAD check (async, don't block)
+    fetch(url1min, { method: 'HEAD' })
+      .then(response => {
+        if (response.ok && dubbedAudioUrl !== url1min) {
+          setDubbedAudioUrl(url1min);
+          console.log(`[@useTranscriptPlayer] 🔄 Auto-switched to 1min dubbed audio for minute ${currentMinute}`);
+        } else if (!response.ok && dubbedAudioUrl !== url10min) {
+          setDubbedAudioUrl(url10min);
+        }
+      })
+      .catch(() => {
+        if (dubbedAudioUrl !== url10min) {
+          setDubbedAudioUrl(url10min);
+        }
+      });
+  }, [globalCurrentTime, selectedAudioLanguage, availableDubbedLanguages, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, host, deviceId, dubbedAudioUrl]);
+
   const getCurrentTranscriptText = useCallback(() => {
     // For new 10-min format with timed segments, ONLY use timed segments (no fallback)
     if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0) {
       if (!currentTimedSegment) return '';  // Show nothing between segments - no fallback to full transcript
       
       // Check for translation in timed segment
-      if (selectedLanguage !== 'original' && currentTimedSegment.translations?.[selectedLanguage]) {
-        return currentTimedSegment.translations[selectedLanguage];
+      if (selectedTranscriptLanguage !== 'original' && currentTimedSegment.translations?.[selectedTranscriptLanguage]) {
+        return currentTimedSegment.translations[selectedTranscriptLanguage];
       }
       return currentTimedSegment.text;
     }
@@ -384,13 +473,13 @@ export const useTranscriptPlayer = ({
     // Legacy format (6-second segments) - use currentTranscript
     if (!currentTranscript) return '';
     
-    if (selectedLanguage === 'original') {
+    if (selectedTranscriptLanguage === 'original') {
       return currentTranscript.enhanced_transcript || currentTranscript.transcript;
     }
     
-    const translation = currentTranscript.translations?.[selectedLanguage];
+    const translation = currentTranscript.translations?.[selectedTranscriptLanguage];
     return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
-  }, [rawTranscriptData, currentTranscript, currentTimedSegment, selectedLanguage]);
+  }, [rawTranscriptData, currentTranscript, currentTimedSegment, selectedTranscriptLanguage]);
 
   const clearTranscriptData = useCallback(() => {
     setTranscriptData(null);
@@ -400,24 +489,32 @@ export const useTranscriptPlayer = ({
   return useMemo(() => ({
     transcriptData,
     currentTranscript,
-    selectedLanguage,
+    selectedAudioLanguage,
+    selectedTranscriptLanguage,
     availableLanguages,
+    availableDubbedLanguages,
     isTranslating,
-    handleLanguageChange,
+    handleAudioLanguageChange,
+    handleTranscriptLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
     hasMp3,
     mp3Url,
+    dubbedAudioUrl,
   }), [
     transcriptData,
     currentTranscript,
-    selectedLanguage,
+    selectedAudioLanguage,
+    selectedTranscriptLanguage,
     availableLanguages,
+    availableDubbedLanguages,
     isTranslating,
-    handleLanguageChange,
+    handleAudioLanguageChange,
+    handleTranscriptLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
     hasMp3,
     mp3Url,
+    dubbedAudioUrl,
   ]);
 };

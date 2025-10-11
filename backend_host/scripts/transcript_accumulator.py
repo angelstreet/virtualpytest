@@ -567,6 +567,10 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
         total_elapsed = time.time() - translation_start
         logger.info(f"{GREEN}[TRANSLATE:{capture_folder}] 🎉 Completed {translated_count}/{len(TRANSLATION_LANGUAGES)} translations in {total_elapsed:.2f}s{RESET}")
         
+        # Generate dubbed audio for translated languages (reuse restart Edge-TTS!)
+        if translated_count > 0:
+            generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
+        
         # Update manifest with available languages
         try:
             from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
@@ -578,6 +582,181 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
         logger.error(f"[TRANSLATE:{capture_folder}] ❌ Translation error: {e}")
         import traceback
         logger.error(f"[TRANSLATE:{capture_folder}] Traceback: {traceback.format_exc()}")
+
+def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_text: str, slot: int, hour: int, chunk_index: int):
+    """
+    Generate 1-minute dubbed audio immediately after transcription (fast user access!)
+    Uses rotating slots like 1min MP3s: 1min_0_fr.mp3, 1min_1_en.mp3, etc.
+    
+    Args:
+        device_folder: Device folder (e.g., 'capture1')
+        mp3_path: Original 1min MP3 path (for timing reference)
+        transcript_text: Transcribed text to dub
+        slot: Minute slot (0-9)
+        hour: Hour (0-23)
+        chunk_index: Chunk index (0-5)
+    """
+    try:
+        from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
+        from shared.src.lib.utils.translation_utils import translate_text
+        from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+        
+        CYAN = '\033[96m'
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
+        # Get audio temp directory (COLD storage, same as 1min MP3s)
+        audio_cold = get_cold_storage_path(device_folder, 'audio')
+        audio_temp_dir = os.path.join(audio_cold, 'temp')
+        os.makedirs(audio_temp_dir, exist_ok=True)
+        
+        # Voice mapping (same as 10min dubbing)
+        voice_map = {
+            'fr': 'fr-FR-DeniseNeural',
+            'en': 'en-US-JennyNeural',
+            'es': 'es-ES-ElviraNeural',
+            'de': 'de-DE-KatjaNeural',
+            'it': 'it-IT-ElsaNeural'
+        }
+        
+        logger.info(f"{CYAN}[1MIN-DUB:{device_folder}] 🎤 Starting 1min dubbed audio for slot {slot} ({len(transcript_text)} chars)...{RESET}")
+        dub_start = time.time()
+        dubbed_count = 0
+        
+        for lang_code, voice_name in voice_map.items():
+            try:
+                lang_start = time.time()
+                
+                # Translate transcript
+                translated_text = translate_text(transcript_text, lang_code)
+                if not translated_text or len(translated_text) < 10:
+                    logger.debug(f"[1MIN-DUB:{device_folder}] Skipping {lang_code} (translation too short)")
+                    continue
+                
+                # Generate dubbed audio with rotating slot naming: 1min_0_fr.mp3
+                output_mp3 = os.path.join(audio_temp_dir, f'1min_{slot}_{lang_code}.mp3')
+                
+                # Delete old file in this slot (if exists) - rotating behavior
+                if os.path.exists(output_mp3):
+                    try:
+                        os.remove(output_mp3)
+                    except:
+                        pass
+                
+                success = generate_edge_tts_audio(
+                    text=translated_text,
+                    language_code=lang_code,
+                    output_path=output_mp3,
+                    voice_name=voice_name
+                )
+                
+                if success and os.path.exists(output_mp3):
+                    audio_size = os.path.getsize(output_mp3)
+                    dubbed_count += 1
+                    lang_elapsed = time.time() - lang_start
+                    logger.info(f"{GREEN}[1MIN-DUB:{device_folder}] ✓ {lang_code}: {audio_size/1024:.1f}KB ({lang_elapsed:.2f}s) → {output_mp3}{RESET}")
+                else:
+                    logger.warning(f"[1MIN-DUB:{device_folder}] ⚠️  Failed to generate {lang_code} audio")
+                
+            except Exception as e:
+                logger.error(f"[1MIN-DUB:{device_folder}] ❌ Error dubbing {lang_code}: {e}")
+                continue
+        
+        total_elapsed = time.time() - dub_start
+        logger.info(f"{GREEN}[1MIN-DUB:{device_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} 1min dubbed files in {total_elapsed:.2f}s{RESET}")
+        
+    except Exception as e:
+        logger.error(f"[1MIN-DUB:{device_folder}] ❌ Dubbing error: {e}")
+        import traceback
+        logger.error(f"[1MIN-DUB:{device_folder}] Traceback: {traceback.format_exc()}")
+
+
+def generate_dubbed_audio_for_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_dir: str, device_base_path: str):
+    """
+    Generate dubbed audio for all translated languages (reuses restart Edge-TTS pipeline!)
+    Creates language-specific MP3 files for instant playback.
+    
+    Args:
+        capture_folder: Device folder (e.g., 'capture1')
+        hour: Hour (0-23)
+        chunk_index: Chunk index (0-5)
+        transcript_dir: Directory containing transcript JSONs
+        device_base_path: Base path for device
+    """
+    try:
+        from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
+        from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+        
+        MAGENTA = '\033[95m'
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
+        logger.info(f"{MAGENTA}[DUBBING:{capture_folder}] 🎤 Starting dubbed audio generation for {hour}h/chunk_{chunk_index}...{RESET}")
+        dubbing_start = time.time()
+        dubbed_count = 0
+        
+        # Get audio output directory (COLD storage)
+        audio_cold = get_cold_storage_path(capture_folder, 'audio')
+        audio_hour_dir = os.path.join(audio_cold, str(hour))
+        os.makedirs(audio_hour_dir, exist_ok=True)
+        
+        # Voice mapping (reuse restart configuration)
+        voice_map = {
+            'fr': 'fr-FR-DeniseNeural',
+            'en': 'en-US-JennyNeural',
+            'es': 'es-ES-ElviraNeural',
+            'de': 'de-DE-KatjaNeural',
+            'it': 'it-IT-ElsaNeural'
+        }
+        
+        for lang_code, voice_name in voice_map.items():
+            lang_transcript_file = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')
+            
+            # Skip if translation doesn't exist
+            if not os.path.exists(lang_transcript_file):
+                logger.debug(f"[DUBBING:{capture_folder}] Skipping {lang_code} (no translation file)")
+                continue
+            
+            try:
+                # Load translated transcript
+                with open(lang_transcript_file, 'r') as f:
+                    translated_data = json.load(f)
+                
+                translated_text = translated_data.get('transcript', '')
+                if not translated_text or len(translated_text) < 20:
+                    logger.debug(f"[DUBBING:{capture_folder}] Skipping {lang_code} (transcript too short)")
+                    continue
+                
+                # Generate dubbed audio using Edge-TTS (SAME as restart!)
+                output_mp3 = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}_{lang_code}.mp3')
+                
+                lang_start = time.time()
+                success = generate_edge_tts_audio(
+                    text=translated_text,
+                    language_code=lang_code,
+                    output_path=output_mp3,
+                    voice_name=voice_name
+                )
+                lang_elapsed = time.time() - lang_start
+                
+                if success and os.path.exists(output_mp3):
+                    audio_size = os.path.getsize(output_mp3)
+                    dubbed_count += 1
+                    logger.info(f"{GREEN}[DUBBING:{capture_folder}] ✓ {lang_code}: {audio_size/1024:.1f}KB ({lang_elapsed:.2f}s){RESET}")
+                else:
+                    logger.warning(f"[DUBBING:{capture_folder}] ⚠️  Failed to generate {lang_code} audio")
+                
+            except Exception as e:
+                logger.error(f"[DUBBING:{capture_folder}] ❌ Error generating {lang_code} audio: {e}")
+                continue
+        
+        total_elapsed = time.time() - dubbing_start
+        logger.info(f"{GREEN}[DUBBING:{capture_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} dubbed audio files in {total_elapsed:.2f}s{RESET}")
+        
+    except Exception as e:
+        logger.error(f"[DUBBING:{capture_folder}] ❌ Dubbing error: {e}")
+        import traceback
+        logger.error(f"[DUBBING:{capture_folder}] Traceback: {traceback.format_exc()}")
 
 def should_skip_minute_by_metadata(capture_folder: str, hour: int, minute_in_hour: int) -> tuple[bool, str]:
     """
@@ -969,6 +1148,10 @@ class InotifyTranscriptMonitor:
                                 'segments': segments
                             }
                             merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                            
+                            # Generate 1-minute dubbed audio immediately (fast accessibility!)
+                            if len(transcript) > 20:  # Only dub if substantial content
+                                generate_1min_dubbed_audio(device_folder, mp3_path, transcript, slot, hour, chunk_index)
                         else:
                             logger.info(f"[{device_folder}] ⏭️  1min MP3 returned no segments (Whisper detected silence)")
                     else:
