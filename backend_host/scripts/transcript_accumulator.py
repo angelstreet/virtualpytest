@@ -440,16 +440,20 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 json.dump(chunk_data, f, indent=2)
             os.rename(chunk_path + '.tmp', chunk_path)
             
-            # Log summary of merged data with sample (green for success)
-            GREEN = '\033[92m'
-            RESET = '\033[0m'
-            logger.info(f"{GREEN}[{capture_folder}] 💾 Merged chunk {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
-            logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s, mp3_file={chunk_data.get('mp3_file')}{RESET}")
+            # Log ONLY if actual audio data was merged (not status updates)
             if new_segments:
-                # Show sample from NEWLY ADDED segments (not first segment which is always from minute 0)
+                # Real audio data merged - show detailed log
+                GREEN = '\033[92m'
+                RESET = '\033[0m'
+                logger.info(f"{GREEN}[{capture_folder}] 💾 Merged audio data → {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📄 Chunk structure: language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s, mp3_file={chunk_data.get('mp3_file')}{RESET}")
+                # Show sample from NEWLY ADDED segments
                 sample_seg = new_segments[0]
                 seg_duration = sample_seg.get('duration', sample_seg.get('end', 0) - sample_seg.get('start', 0))
                 logger.info(f"{GREEN}[{capture_folder}] 📋 NEW segment sample (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}, text=\"{sample_seg.get('text', '')[:80]}...\"{RESET}")
+            else:
+                # No audio merged - just status tracking (silent minute)
+                logger.debug(f"[{capture_folder}] ✓ Updated chunk {hour}h/chunk_{chunk_index} status: minute {minute_offset} processed (skip_reason: {skip_reason or 'no_audio'})")
     
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)

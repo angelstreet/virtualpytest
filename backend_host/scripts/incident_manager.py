@@ -573,16 +573,19 @@ class IncidentManager:
             # Delete each file from R2
             deleted_count = 0
             failed_count = 0
+            deleted_files = []
             for r2_path in paths_to_delete:
                 if uploader.delete_file(r2_path):
                     deleted_count += 1
+                    deleted_files.append(os.path.basename(r2_path))
                 else:
                     failed_count += 1
             
-            if deleted_count > 0:
-                logger.info(f"[{capture_folder}] 🗑️  Deleted {deleted_count} orphaned R2 images (freeze < 5min)")
-            if failed_count > 0:
-                logger.warning(f"[{capture_folder}] Failed to delete {failed_count} R2 images")
+            # Single-line log with file names
+            if deleted_count > 0 or failed_count > 0:
+                files_str = ', '.join(deleted_files) if deleted_files else 'none'
+                status = f"✅ {deleted_count}" if failed_count == 0 else f"✅ {deleted_count}, ❌ {failed_count}"
+                logger.info(f"[{capture_folder}] 🗑️  R2 cleanup (freeze < 5min): {status} | Files: {files_str}")
                 
         except Exception as e:
             logger.error(f"[{capture_folder}] Error deleting R2 freeze images: {e}")

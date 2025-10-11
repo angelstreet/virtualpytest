@@ -260,7 +260,8 @@ class InotifyFrameMonitor:
                         volume = detection_result.get('mean_volume_db', -100)
                         logger.info(f"[{capture_folder}] 🔇 AUDIO LOSS started (volume={volume:.1f}dB)")
                     elif event_type == 'freeze':
-                        freeze_diffs = detection_result.get('freeze_diffs', [])
+                        freeze_comparisons = detection_result.get('freeze_comparisons', [])
+                        freeze_diffs = [c.get('difference_percentage', 0) for c in freeze_comparisons]
                         diffs_str = f"diffs={freeze_diffs}" if freeze_diffs else "diffs=[]"
                         logger.info(f"[{capture_folder}] ⚠️  FREEZE started ({diffs_str})")
                     else:
@@ -292,7 +293,8 @@ class InotifyFrameMonitor:
                     volume = detection_result.get('mean_volume_db', -100)
                     logger.info(f"[{capture_folder}] 🔊 AUDIO RESTORED after {total_duration_ms/1000:.1f}s (volume={volume:.1f}dB)")
                 elif event_type == 'freeze':
-                    freeze_diffs = detection_result.get('freeze_diffs', [])
+                    freeze_comparisons = detection_result.get('freeze_comparisons', [])
+                    freeze_diffs = [c.get('difference_percentage', 0) for c in freeze_comparisons]
                     diffs_str = f"diffs={freeze_diffs}" if freeze_diffs else "diffs=[]"
                     logger.info(f"[{capture_folder}] ✅ FREEZE ended after {total_duration_ms/1000:.1f}s ({diffs_str})")
                 else:
@@ -494,7 +496,8 @@ class InotifyFrameMonitor:
                         last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                         
                         # Get freeze diff values for logging
-                        freeze_diffs = detection_result.get('freeze_diffs', [])
+                        freeze_comparisons = detection_result.get('freeze_comparisons', [])
+                        freeze_diffs = [c.get('difference_percentage', 0) for c in freeze_comparisons]
                         diffs_str = f" diffs={freeze_diffs}" if freeze_diffs else ""
                         
                         if last_3_thumbnails:
