@@ -62,6 +62,15 @@ from shared.src.lib.utils.audio_transcription_utils import (
 
 logger = logging.getLogger(__name__)
 
+# Pre-translation target languages
+TRANSLATION_LANGUAGES = {
+    'fr': 'French',
+    'en': 'English',
+    'es': 'Spanish',
+    'de': 'German',
+    'it': 'Italian'
+}
+
 # Configuration
 CHUNK_DURATION_MINUTES = 10
 SEGMENT_DURATION_MINUTES = 1
@@ -422,8 +431,153 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
         device_base_path = get_device_base_path(capture_folder)
         from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
         update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=has_mp3)
+        
+        # Pre-translate chunk if it has substantial content
+        if new_segments and len(chunk_data.get('transcript', '')) > 20:
+            translate_chunk_to_languages(capture_folder, hour, chunk_index, chunk_path, device_base_path)
     except Exception as e:
         logger.warning(f"Failed to update transcript manifest: {e}")
+
+def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: int, chunk_path: str, device_base_path: str):
+    """
+    Pre-translate transcript chunk to multiple languages in background.
+    Creates language-specific JSON files (e.g., chunk_10min_0_fr.json).
+    
+    Args:
+        capture_folder: Device folder (e.g., 'capture1')
+        hour: Hour (0-23)
+        chunk_index: Chunk index (0-5)
+        chunk_path: Path to original transcript JSON
+        device_base_path: Base path for device
+    """
+    try:
+        # Load original transcript
+        with open(chunk_path, 'r') as f:
+            original_data = json.load(f)
+        
+        full_transcript = original_data.get('transcript', '')
+        if not full_transcript or len(full_transcript) < 20:
+            # Skip translation for very short or empty transcripts
+            return
+        
+        source_language = original_data.get('language', 'unknown')
+        if source_language == 'unknown':
+            logger.debug(f"[{capture_folder}] Skipping translation - unknown source language")
+            return
+        
+        # Map detected language to code
+        lang_code_map = {
+            'english': 'en', 'french': 'fr', 'spanish': 'es', 
+            'german': 'de', 'italian': 'it', 'portuguese': 'pt',
+            'russian': 'ru', 'japanese': 'ja', 'korean': 'ko',
+            'chinese': 'zh', 'arabic': 'ar', 'hindi': 'hi'
+        }
+        source_code = lang_code_map.get(source_language.lower(), 'en')
+        
+        CYAN = '\033[96m'
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
+        logger.info(f"{CYAN}[TRANSLATE:{capture_folder}] 🌐 Pre-translating {hour}h/chunk_{chunk_index} from {source_language} to {len(TRANSLATION_LANGUAGES)} languages...{RESET}")
+        
+        translation_start = time.time()
+        translated_count = 0
+        
+        # Import translation utils
+        from backend_host.src.lib.utils.translation_utils import translate_text
+        
+        transcript_dir = os.path.dirname(chunk_path)
+        
+        for lang_code, lang_name in TRANSLATION_LANGUAGES.items():
+            # Skip if same as source
+            if lang_code == source_code:
+                logger.debug(f"[TRANSLATE:{capture_folder}] Skipping {lang_code} (same as source)")
+                continue
+            
+            lang_file_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')
+            
+            try:
+                # Translate full transcript (single API call)
+                lang_start = time.time()
+                result = translate_text(full_transcript, source_code, lang_code, 'google')
+                lang_elapsed = time.time() - lang_start
+                
+                if not result.get('success'):
+                    logger.warning(f"[TRANSLATE:{capture_folder}] ⚠️  Failed to translate to {lang_code}")
+                    continue
+                
+                translated_text = result.get('translated_text', '')
+                
+                # Create translated version of the chunk
+                translated_data = original_data.copy()
+                translated_data['transcript'] = translated_text
+                translated_data['source_language'] = source_language
+                translated_data['translated_to'] = lang_code
+                translated_data['translation_timestamp'] = datetime.now().isoformat()
+                
+                # Translate segments (map translated text to segments by proportional splitting)
+                if original_data.get('segments'):
+                    original_segments = original_data['segments']
+                    translated_segments = []
+                    
+                    # Simple proportional split (better than nothing)
+                    words_original = full_transcript.split()
+                    words_translated = translated_text.split()
+                    ratio = len(words_translated) / len(words_original) if len(words_original) > 0 else 1.0
+                    
+                    for seg in original_segments:
+                        seg_copy = seg.copy()
+                        seg_text = seg.get('text', '').strip()
+                        
+                        # Find segment text in original transcript
+                        if seg_text in full_transcript:
+                            idx = full_transcript.find(seg_text)
+                            # Approximate position in translated text
+                            char_ratio = len(translated_text) / len(full_transcript) if len(full_transcript) > 0 else 1.0
+                            approx_idx = int(idx * char_ratio)
+                            approx_len = int(len(seg_text) * char_ratio)
+                            
+                            translated_seg_text = translated_text[approx_idx:approx_idx + approx_len].strip()
+                            if not translated_seg_text:
+                                # Fallback: use proportional chunk
+                                seg_word_count = len(seg_text.split())
+                                translated_seg_text = ' '.join(translated_text.split()[:seg_word_count])
+                            
+                            seg_copy['text'] = translated_seg_text
+                        else:
+                            # Fallback
+                            seg_copy['text'] = translated_text[:50]
+                        
+                        translated_segments.append(seg_copy)
+                    
+                    translated_data['segments'] = translated_segments
+                
+                # Save translated version atomically
+                with open(lang_file_path + '.tmp', 'w') as f:
+                    json.dump(translated_data, f, indent=2)
+                os.rename(lang_file_path + '.tmp', lang_file_path)
+                
+                translated_count += 1
+                logger.info(f"{GREEN}[TRANSLATE:{capture_folder}] ✓ {lang_code}: {len(translated_text)} chars ({lang_elapsed:.2f}s){RESET}")
+                
+            except Exception as e:
+                logger.error(f"[TRANSLATE:{capture_folder}] ❌ Error translating to {lang_code}: {e}")
+                continue
+        
+        total_elapsed = time.time() - translation_start
+        logger.info(f"{GREEN}[TRANSLATE:{capture_folder}] 🎉 Completed {translated_count}/{len(TRANSLATION_LANGUAGES)} translations in {total_elapsed:.2f}s{RESET}")
+        
+        # Update manifest with available languages
+        try:
+            from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
+            update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=original_data.get('mp3_file') is not None)
+        except Exception as e:
+            logger.warning(f"[TRANSLATE:{capture_folder}] Failed to update manifest after translation: {e}")
+        
+    except Exception as e:
+        logger.error(f"[TRANSLATE:{capture_folder}] ❌ Translation error: {e}")
+        import traceback
+        logger.error(f"[TRANSLATE:{capture_folder}] Traceback: {traceback.format_exc()}")
 
 def should_skip_minute_by_metadata(capture_folder: str, hour: int, minute_in_hour: int) -> tuple[bool, str]:
     """

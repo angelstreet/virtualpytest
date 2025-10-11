@@ -65,6 +65,7 @@ export const useTranscriptPlayer = ({
   const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
   const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);  // Track current timed segment
   const [selectedLanguage, setSelectedLanguage] = useState<string>('original');
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>(['original']);
   const [isTranslating, setIsTranslating] = useState(false);
   const [hasMp3, setHasMp3] = useState(false);
   const [mp3Url, setMp3Url] = useState<string | null>(null);
@@ -119,6 +120,11 @@ export const useTranscriptPlayer = ({
             } else {
               setMp3Url(null);
             }
+            
+            // Extract available languages from manifest
+            const languages = chunkInfo.available_languages || ['original'];
+            setAvailableLanguages(languages);
+            console.log(`[@useTranscriptPlayer] Available languages:`, languages);
             
             // OPTIMIZATION: Transcript data is now included directly in manifest (1 API call instead of 2)
             console.log(`[@useTranscriptPlayer] ⚡ Reading transcript directly from manifest (hour ${hour}, chunk ${chunkIndex})`);
@@ -281,6 +287,27 @@ export const useTranscriptPlayer = ({
     }
   }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
   
+  // Helper: Load transcript for a specific language (original or pre-translated)
+  const loadTranscriptForLanguage = useCallback(async (hour: number, chunkIndex: number, language: string) => {
+    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+    const langSuffix = language === 'original' ? '' : `_${language}`;
+    const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}${langSuffix}.json`);
+    
+    try {
+      const response = await fetch(transcriptUrl);
+      if (!response.ok) throw new Error(`Failed to load ${language} transcript`);
+      
+      const data = await response.json();
+      const transcript: TranscriptData10Min = { ...data, hour, chunk_index: chunkIndex };
+      
+      setRawTranscriptData(transcript);
+      setTranscriptData(normalizeTranscriptData(transcript));
+      console.log(`[@useTranscriptPlayer] ✅ Loaded ${language} transcript`);
+    } catch (error) {
+      console.error(`[@useTranscriptPlayer] Error loading ${language}:`, error);
+    }
+  }, [providedStreamUrl, hookStreamUrl, deviceId, host]);
+  
   // Helper: Reload transcript data from manifest
   const reloadTranscriptData = useCallback(async () => {
     if (!rawTranscriptData) return;
@@ -324,44 +351,23 @@ export const useTranscriptPlayer = ({
   const handleLanguageChange = useCallback(async (language: string) => {
     setSelectedLanguage(language);
     
-    if (language === 'original') {
-      console.log('[@useTranscriptPlayer] Switched to original language');
+    if (!archiveMetadata?.manifests.length) return;
+    const currentManifest = archiveMetadata.manifests[currentManifestIndex];
+    if (!currentManifest) return;
+
+    // Load pre-translated file if available, otherwise translate on-demand (legacy)
+    if (availableLanguages.includes(language)) {
+      setIsTranslating(true);
+      await loadTranscriptForLanguage(currentManifest.window_index, currentManifest.chunk_index, language);
       setIsTranslating(false);
-      return;
-    }
-
-    // Check if translations already cached
-    const hasTranslations = rawTranscriptData?.segments?.some(
-      seg => seg.translations && seg.translations[language]
-    );
-    
-    if (hasTranslations) {
-      console.log(`[@useTranscriptPlayer] Using cached translations for ${language}`);
+    } else if (language !== 'original') {
+      // Legacy: translate on-demand (slow)
+      setIsTranslating(true);
+      const success = await translateFullTranscript(language);
+      if (success) await reloadTranscriptData();
       setIsTranslating(false);
-      return;
     }
-
-    // Need to translate
-    if (!rawTranscriptData) {
-      console.log('[@useTranscriptPlayer] No transcript data to translate');
-      return;
-    }
-
-    console.log(`[@useTranscriptPlayer] 🌐 Translating FULL transcript to ${language}...`);
-    
-    setIsTranslating(true);
-    
-    const success = await translateFullTranscript(language);
-    
-    if (success) {
-      await reloadTranscriptData();
-      console.log(`[@useTranscriptPlayer] ✅ Translation complete!`);
-    } else {
-      console.error(`[@useTranscriptPlayer] ❌ Translation failed`);
-    }
-    
-    setIsTranslating(false);
-  }, [rawTranscriptData, translateFullTranscript, reloadTranscriptData]);
+  }, [availableLanguages, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, translateFullTranscript, reloadTranscriptData]);
 
   const getCurrentTranscriptText = useCallback(() => {
     // For new 10-min format with timed segments, ONLY use timed segments (no fallback)
@@ -395,6 +401,7 @@ export const useTranscriptPlayer = ({
     transcriptData,
     currentTranscript,
     selectedLanguage,
+    availableLanguages,
     isTranslating,
     handleLanguageChange,
     getCurrentTranscriptText,
@@ -405,6 +412,7 @@ export const useTranscriptPlayer = ({
     transcriptData,
     currentTranscript,
     selectedLanguage,
+    availableLanguages,
     isTranslating,
     handleLanguageChange,
     getCurrentTranscriptText,

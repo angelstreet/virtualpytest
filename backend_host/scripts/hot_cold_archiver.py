@@ -857,6 +857,19 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
                 "transcription_time_seconds": data.get("transcription_time_seconds", 0),
                 "mp3_file": data.get("mp3_file", "")
             })
+            
+            # Check for pre-translated language files
+            available_languages = ['original']  # Original language is always available
+            chunk_dir = os.path.dirname(chunk_path)
+            chunk_basename = os.path.basename(chunk_path).replace('.json', '')
+            
+            # Check for language-specific files
+            for lang_code in ['fr', 'en', 'es', 'de', 'it']:
+                lang_file = os.path.join(chunk_dir, f'{chunk_basename}_{lang_code}.json')
+                if os.path.exists(lang_file):
+                    available_languages.append(lang_code)
+            
+            chunk_info["available_languages"] = available_languages
         except:
             pass
     

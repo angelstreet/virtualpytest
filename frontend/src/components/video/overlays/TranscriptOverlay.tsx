@@ -1,12 +1,15 @@
-import React from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
-import { AutoAwesome, Headphones } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { Box, Typography, IconButton, Menu, MenuItem, Chip } from '@mui/material';
+import { AutoAwesome, Headphones, Language } from '@mui/icons-material';
 import { TranscriptSegment } from '../EnhancedHLSPlayer.types';
 
 interface TranscriptOverlayProps {
   currentTranscript: TranscriptSegment | null;
   transcriptText: string;
   selectedLanguage: string;
+  availableLanguages?: string[];
+  onLanguageChange?: (language: string) => void;
+  isTranslating?: boolean;
   show: boolean;
   hasMp3?: boolean;
   mp3Url?: string | null;
@@ -16,10 +19,15 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
   currentTranscript,
   transcriptText,
   selectedLanguage,
+  availableLanguages = ['original'],
+  onLanguageChange,
+  isTranslating = false,
   show,
   hasMp3,
   mp3Url,
 }) => {
+  const [languageMenuAnchor, setLanguageMenuAnchor] = useState<null | HTMLElement>(null);
+  
   if (!show || !currentTranscript || !transcriptText) {
     return null;
   }
@@ -28,6 +36,31 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
     if (mp3Url) {
       window.open(mp3Url, '_blank');
     }
+  };
+  
+  const handleLanguageClick = (event: React.MouseEvent<HTMLElement>) => {
+    setLanguageMenuAnchor(event.currentTarget);
+  };
+  
+  const handleLanguageClose = () => {
+    setLanguageMenuAnchor(null);
+  };
+  
+  const handleLanguageSelect = (language: string) => {
+    if (onLanguageChange) {
+      onLanguageChange(language);
+    }
+    handleLanguageClose();
+  };
+  
+  // Language display names
+  const languageNames: { [key: string]: string } = {
+    'original': 'Original',
+    'en': 'English',
+    'fr': 'Français',
+    'es': 'Español',
+    'de': 'Deutsch',
+    'it': 'Italiano'
   };
 
   return (
@@ -48,6 +81,58 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         >
           <Headphones />
         </IconButton>
+      )}
+      
+      {/* Language selector button - top right, below audio button */}
+      {availableLanguages.length > 1 && (
+        <>
+          <IconButton
+            onClick={handleLanguageClick}
+            disabled={isTranslating}
+            sx={{
+              position: 'fixed',
+              top: hasMp3 && mp3Url ? 72 : 16,
+              right: 16,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              zIndex: 1250,
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+              '&.Mui-disabled': { backgroundColor: 'rgba(0, 0, 0, 0.5)', color: 'rgba(255, 255, 255, 0.5)' },
+            }}
+          >
+            <Language />
+          </IconButton>
+          
+          <Menu
+            anchorEl={languageMenuAnchor}
+            open={Boolean(languageMenuAnchor)}
+            onClose={handleLanguageClose}
+            sx={{
+              '& .MuiPaper-root': {
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                color: 'white',
+              },
+            }}
+          >
+            {availableLanguages.map((lang) => (
+              <MenuItem
+                key={lang}
+                onClick={() => handleLanguageSelect(lang)}
+                selected={lang === selectedLanguage}
+                sx={{
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(33, 150, 243, 0.3)',
+                    '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.4)' },
+                  },
+                }}
+              >
+                {languageNames[lang] || lang.toUpperCase()}
+                {lang === selectedLanguage && ' ✓'}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
       )}
 
       {/* Language and confidence info - positioned above transcript box */}
