@@ -1011,7 +1011,7 @@ def process_capture_directory(capture_dir: str):
                 import subprocess
                 logger.info(f"Extracting MP3 from: {mp4_1min} → {mp3_1min}")
                 subprocess.run(
-                    ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', f'{mp3_1min}.tmp', '-y'],
+                    ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', '-f', 'mp3', f'{mp3_1min}.tmp', '-y'],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
                 )
                 os.rename(f'{mp3_1min}.tmp', mp3_1min)
