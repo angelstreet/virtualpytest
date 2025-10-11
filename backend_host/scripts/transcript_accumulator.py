@@ -370,7 +370,7 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 # Show sample from NEWLY ADDED segments
                 sample_seg = new_segments[0]
                 seg_duration = sample_seg.get('duration', sample_seg.get('end', 0) - sample_seg.get('start', 0))
-                logger.info(f"{GREEN}[{capture_folder}] 📋 (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}"{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📋 (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}{RESET}")
                 logger.info(f"{GREEN}[{capture_folder}] text=\"{sample_seg.get('text', '')[:200]}...\"{RESET}")
             else:
                 # No audio merged - just status tracking (silent minute)

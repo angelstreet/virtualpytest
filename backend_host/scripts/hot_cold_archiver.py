@@ -976,9 +976,11 @@ def process_capture_directory(capture_dir: str):
     
     # Step 1: Merge 60 TS → 1min MP4, Step 2: Append to 10min chunk (grows 1→10min)
     mp4_1min_path = os.path.join(temp_dir, f'1min_{int(time.time())}.mp4')
+    mp4_start = time.time()
     mp4_1min = merge_progressive_batch(hot_segments, 'segment_*.ts', mp4_1min_path, 60, True, 20)
     if mp4_1min:
-        logger.info(f"\033[34m🎬 Created 1min MP4:\033[0m {mp4_1min}")
+        mp4_elapsed = time.time() - mp4_start
+        logger.info(f"\033[34m🎬 Created 1min MP4:\033[0m {mp4_1min} \033[90m({mp4_elapsed:.2f}s)\033[0m")
     
     mp4_10min = None
     if mp4_1min:
@@ -1034,13 +1036,14 @@ def process_capture_directory(capture_dir: str):
             
             try:
                 import subprocess
-                logger.info(f"\033[36m🎵 Extracting MP3:\033[0m {mp4_1min} → {mp3_1min}")
+                mp3_start = time.time()
                 subprocess.run(
                     ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', '-f', 'mp3', f'{mp3_1min}.tmp', '-y'],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
                 )
                 os.rename(f'{mp3_1min}.tmp', mp3_1min)
-                logger.info(f"\033[32m✓ Created 1min MP3:\033[0m {mp3_1min}")
+                mp3_elapsed = time.time() - mp3_start
+                logger.info(f"\033[32m🎵 Created 1min MP3:\033[0m {mp3_1min} \033[90m({mp3_elapsed:.2f}s)\033[0m")
             except subprocess.CalledProcessError as e:
                 # MP4 has no audio track (VNC/silent source) - this is expected
                 logger.info(f"⊗ Skipped MP3 (no audio in source): {mp4_1min}")
@@ -1054,13 +1057,16 @@ def process_capture_directory(capture_dir: str):
         os.makedirs(hour_dir, exist_ok=True)
         mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
         
+        mp4_append_start = time.time()
         if os.path.exists(mp4_path):
             from shared.src.lib.utils.video_utils import merge_video_files
             merge_video_files([mp4_path, mp4_1min], mp4_path, 'mp4', False, 10)
-            logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path}")
+            mp4_append_elapsed = time.time() - mp4_append_start
+            logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
         else:
             shutil.copy(mp4_1min, mp4_path)
-            logger.info(f"\033[34m✓ Created 10min MP4:\033[0m {mp4_path}")
+            mp4_append_elapsed = time.time() - mp4_append_start
+            logger.info(f"\033[34m✓ Created 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
         
         # Progressive append MP3 to 10min chunk (after transcription happens via inotify)
         mp3_10min_path = None
@@ -1070,18 +1076,21 @@ def process_capture_directory(capture_dir: str):
             os.makedirs(audio_hour_dir, exist_ok=True)
             mp3_10min_path = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
             
+            mp3_append_start = time.time()
             if os.path.exists(mp3_10min_path):
                 try:
                     # MP3 is a streaming format - binary concatenation works perfectly
                     with open(mp3_10min_path, 'ab') as dest:
                         with open(mp3_1min, 'rb') as src:
                             dest.write(src.read())
-                    logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path}")
+                    mp3_append_elapsed = time.time() - mp3_append_start
+                    logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s)\033[0m")
                 except Exception as e:
                     logger.warning(f"Failed to append MP3: {e}")
             else:
                 shutil.copy(mp3_1min, mp3_10min_path)
-                logger.info(f"\033[32m✓ Created 10min MP3:\033[0m {mp3_10min_path}")
+                mp3_append_elapsed = time.time() - mp3_append_start
+                logger.info(f"\033[32m✓ Created 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s)\033[0m")
             
             try:
                 os.remove(mp3_1min)
@@ -1090,7 +1099,6 @@ def process_capture_directory(capture_dir: str):
                 pass
         
         mp4_10min = mp4_path
-        logger.info(f"\033[35m✓ Progressive append complete:\033[0m MP4={mp4_path}" + (f", MP3={mp3_10min_path}" if mp3_10min_path else ""))
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
     
     # SAFETY CLEANUP: Delete orphaned 1min files older than 2 hours from temp/
