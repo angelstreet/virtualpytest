@@ -34,6 +34,7 @@ from queue import LifoQueue
 import threading
 from datetime import datetime
 import time
+from pathlib import Path
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(script_dir)
@@ -496,19 +497,9 @@ def should_skip_minute_by_metadata(capture_folder: str, hour: int, minute_in_hou
         logger.warning(f"[{capture_folder}] Error checking metadata: {e}")
         return False, None
 
+
 def check_minute_already_processed(capture_folder: str, hour: int, chunk_index: int, minute_offset: int) -> bool:
-    """
-    Check if minute was already processed today (persistent across restarts)
-    
-    Args:
-        capture_folder: Device folder
-        hour: Hour (0-23)
-        chunk_index: Chunk index (0-5)
-        minute_offset: Minute within chunk (0-9)
-    
-    Returns:
-        bool: True if processed today
-    """
+    """Check if minute was already processed today"""
     try:
         transcript_base = get_transcript_path(capture_folder)
         chunk_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
@@ -525,7 +516,6 @@ def check_minute_already_processed(capture_folder: str, hour: int, chunk_index: 
         if not minute_status:
             return False
         
-        # Check if processed today
         processed_day = minute_status.get('processed_day')
         today = datetime.now().strftime('%Y-%m-%d')
         
@@ -535,315 +525,128 @@ def check_minute_already_processed(capture_folder: str, hour: int, chunk_index: 
         return False
 
 class InotifyTranscriptMonitor:
-    """Single Whisper worker with round-robin device processing"""
+    """Simple MP3 transcription monitor"""
     
     def __init__(self, monitored_devices):
         self.monitored_devices = monitored_devices
         self.inotify = inotify.adapters.Inotify()
-        
-        self.segments_path_to_device = {}
         self.audio_path_to_device = {}
-        
-        self.mp4_queues = {}
-        self.mp4_workers = {}
-        self.mp4_backlog = {}
-        
-        self.segment_queues = {}
-        self.segment_workers = {}
-        self.backfill_queues = {}
-        self.backfill_queued = {}
-        self.backfill_scanned = {}
-        
-        self.active_queues = {}
-        self.history_queues = {}
-        
-        self.backfill_scanner = None
-        self.scan_position = {}
-        self.last_cleanup_day = None
-        
-        self.whisper_worker = None
-        self.worker_running = False
-        
+        self.mp3_queue = queue.Queue()
         self.audio_workers = {}
         self.incident_manager = None
         
         self._setup_watches()
-        self._start_mp4_workers()
-        self._start_segment_workers()
         self._start_audio_workers()
-        
-        all_pending = self._scan_last_24h()
-        self._initialize_queues(all_pending)
-        
-        self._start_whisper_worker()
-        self._start_backfill_scanner()
+        self._scan_existing_mp3s()
+        self._start_transcription_worker()
     
     def _setup_watches(self):
-        """Setup inotify watches for all segments and audio directories"""
-        logger.info("=" * 80)
-        logger.info("Setting up inotify watches (dual pipeline):")
-        logger.info("=" * 80)
+        """Setup inotify watches for 1min MP3 files in temp/"""
+        logger.info("Setting up 1min MP3 inotify watches...")
         
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            segments_base = device_info['segments_base']
             audio_base = device_info['audio_base']
             
-            logger.info(f"[{device_folder}] Setting up watches...")
+            # Watch temp directory for 1min MP3 files (instant transcription)
+            audio_temp_dir = os.path.join(audio_base, 'temp')
+            os.makedirs(audio_temp_dir, exist_ok=True)
+            self.inotify.add_watch(audio_temp_dir)
+            self.audio_path_to_device[audio_temp_dir] = device_folder
             
-            # Watch all 24 hour directories for segments (MP4 chunks)
-            segments_watch_count = 0
-            for hour in range(24):
-                segments_hour_dir = os.path.join(segments_base, str(hour))
-                if os.path.exists(segments_hour_dir):
-                    self.inotify.add_watch(segments_hour_dir)
-                    self.segments_path_to_device[segments_hour_dir] = device_folder
-                    segments_watch_count += 1
-                else:
-                    # Create directory so inotify can watch it
-                    os.makedirs(segments_hour_dir, exist_ok=True)
-                    self.inotify.add_watch(segments_hour_dir)
-                    self.segments_path_to_device[segments_hour_dir] = device_folder
-                    segments_watch_count += 1
-            
-            # Watch all 24 hour directories for audio (MP3 chunks)
-            audio_watch_count = 0
-            for hour in range(24):
-                audio_hour_dir = os.path.join(audio_base, str(hour))
-                if os.path.exists(audio_hour_dir):
-                    self.inotify.add_watch(audio_hour_dir)
-                    self.audio_path_to_device[audio_hour_dir] = device_folder
-                    audio_watch_count += 1
-                else:
-                    # Create directory so inotify can watch it
-                    os.makedirs(audio_hour_dir, exist_ok=True)
-                    self.inotify.add_watch(audio_hour_dir)
-                    self.audio_path_to_device[audio_hour_dir] = device_folder
-                    audio_watch_count += 1
-            
-            logger.info(f"[{device_folder}] ✓ Segments watches: {segments_watch_count}/24 hour dirs")
-            logger.info(f"[{device_folder}] ✓ Audio watches: {audio_watch_count}/24 hour dirs")
+            logger.info(f"[{device_folder}] ✓ Watching {audio_temp_dir}")
         
-        logger.info("=" * 80)
-        logger.info(f"Total: {len(self.segments_path_to_device)} segments + {len(self.audio_path_to_device)} audio watches")
-        logger.info("=" * 80)
+        logger.info(f"Total: {len(self.audio_path_to_device)} temp dir watches")
     
-    def _start_mp4_workers(self):
-        """Start MP4→MP3 extraction workers"""
+    def _scan_existing_mp3s(self):
+        """Scan existing 10min MP3s and queue missing transcripts"""
+        logger.info("Scanning existing 10min MP3s...")
+        
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
-            self.mp4_queues[device_folder] = LifoQueue(maxsize=100)
+            audio_base = device_info['audio_base']
+            transcript_base = get_transcript_path(device_folder)
             
-            mp4_worker = threading.Thread(
-                target=self._mp4_worker,
-                args=(device_folder,),
-                daemon=True,
-                name=f"mp4-{device_folder}"
-            )
-            mp4_worker.start()
-            self.mp4_workers[device_folder] = mp4_worker
-    
-    def _start_segment_workers(self):
-        for device_info in self.monitored_devices:
-            device_folder = device_info['device_folder']
-            self.segment_queues[device_folder] = queue.Queue(maxsize=20)
-            self.backfill_queues[device_folder] = queue.Queue(maxsize=100)
-            self.backfill_queued[device_folder] = set()
-            self.backfill_scanned[device_folder] = {}
-            self.scan_position[device_folder] = 23
+            found = 0
+            for hour in range(24):
+                audio_dir = os.path.join(audio_base, str(hour))
+                if not os.path.exists(audio_dir):
+                    continue
+                
+                for mp3_file in os.listdir(audio_dir):
+                    if mp3_file.startswith('chunk_10min_') and mp3_file.endswith('.mp3'):
+                        chunk_index = int(mp3_file.replace('chunk_10min_', '').replace('.mp3', ''))
+                        transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+                        
+                        if not os.path.exists(transcript_path):
+                            self.mp3_queue.put((device_folder, hour, chunk_index))
+                            found += 1
             
-            segment_worker = threading.Thread(
-                target=self._segment_worker,
-                args=(device_folder,),
-                daemon=True,
-                name=f"segment-{device_folder}"
-            )
-            segment_worker.start()
-            self.segment_workers[device_folder] = segment_worker
+            if found > 0:
+                logger.info(f"[{device_folder}] Queued {found} MP3s for transcription")
     
-    def _segment_worker(self, device_folder):
-        YELLOW = '\033[93m'
-        MAGENTA = '\033[95m'
-        RESET = '\033[0m'
-        
-        real_time_queue = self.segment_queues[device_folder]
-        backfill_queue = self.backfill_queues[device_folder]
-        last_status_log = time.time()
-        idle_count = 0
-        
+    def _start_transcription_worker(self):
+        """Start single transcription worker"""
+        worker = threading.Thread(target=self._transcription_worker, daemon=True)
+        worker.start()
+        logger.info("Transcription worker started")
+    
+    def _transcription_worker(self):
+        """Process MP3 transcription queue (1min or 10min)"""
         while True:
-            item = None
-            is_backfill = False
-            
             try:
-                item = real_time_queue.get_nowait()
-                idle_count = 0  # Reset idle counter
+                item = self.mp3_queue.get(timeout=30)
+                
+                # Handle both 1min (from inotify) and 10min (from scan)
+                if len(item) == 3:
+                    # 10min scan: (device_folder, hour, chunk_index)
+                    device_folder, hour, chunk_index = item
+                    mp3_path = None
+                    for device_info in self.monitored_devices:
+                        if device_info['device_folder'] == device_folder:
+                            mp3_path = os.path.join(device_info['audio_base'], str(hour), f'chunk_10min_{chunk_index}.mp3')
+                            break
+                    
+                    if mp3_path and os.path.exists(mp3_path):
+                        logger.info(f"[{device_folder}] Transcribing 10min: {hour}/chunk_10min_{chunk_index}.mp3")
+                        minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
+                        for minute_data in minute_results:
+                            merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
+                
+                elif len(item) == 4:
+                    # 1min inotify: (device_folder, mp3_path, hour, chunk_index)
+                    device_folder, mp3_path, hour, chunk_index = item
+                    
+                    if os.path.exists(mp3_path):
+                        minute_offset = (datetime.fromtimestamp(int(Path(mp3_path).stem.replace('1min_', ''))).minute % 60) % 10
+                        logger.info(f"[{device_folder}] Transcribing 1min: {hour}h{minute_offset:02d}min")
+                        
+                        result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=True, device_id=device_folder)
+                        segments = result.get('segments', [])
+                        
+                        if segments:
+                            transcript = ' '.join([s.get('text', '').strip() for s in segments])
+                            transcript = clean_transcript_text(transcript)
+                            if ENABLE_SPELLCHECK:
+                                transcript = correct_spelling(transcript, result.get('language_code'))
+                            
+                            minute_data = {
+                                'minute_offset': minute_offset,
+                                'language': result.get('language', 'unknown'),
+                                'transcript': transcript,
+                                'segments': segments
+                            }
+                            merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                
+                self.mp3_queue.task_done()
+                
             except queue.Empty:
-                try:
-                    item = backfill_queue.get(timeout=5)
-                    is_backfill = True
-                    idle_count = 0  # Reset idle counter
-                except queue.Empty:
-                    idle_count += 1
-                    
-                    # Log idle status every 60 seconds (12 cycles * 5s timeout)
-                    if idle_count >= 12 and time.time() - last_status_log > 60:
-                        logger.info(f"{YELLOW}[SEGMENT:{device_folder}] 😴 Idle - waiting for 1min segments{RESET}")
-                        last_status_log = time.time()
-                    continue
-            
-            tmp_audio = None
-            hour = chunk_index = minute_offset = None
-            try:
-                start_time = time.time()
-                tmp_audio = f'/tmp/segment_{device_folder}_{os.getpid()}.mp3'
-                
-                if is_backfill:
-                    mp3_path, hour, chunk_index, minute_offset = item
-                    color = MAGENTA
-                    prefix = "BACKFILL"
-                else:
-                    segment_path, hour, chunk_index, minute_offset = item
-                    color = YELLOW
-                    prefix = "SEGMENT"
-                
-                # CRITICAL: Check if already processed today
-                if check_minute_already_processed(device_folder, hour, chunk_index, minute_offset):
-                    logger.debug(f"{color}[{prefix}:{device_folder}] ⏭️  Already processed today: {hour}h{minute_offset:02d}min{RESET}")
-                    if is_backfill:
-                        item_key = (hour, chunk_index, minute_offset)
-                        self.backfill_queued[device_folder].discard(item_key)
-                        backfill_queue.task_done()
-                    else:
-                        real_time_queue.task_done()
-                    continue
-                
-                # CRITICAL: Check metadata to see if this minute should be skipped
-                minute_in_hour = (chunk_index * 10) + minute_offset
-                should_skip, skip_reason = should_skip_minute_by_metadata(device_folder, hour, minute_in_hour)
-                
-                if should_skip:
-                    logger.info(f"{color}[{prefix}:{device_folder}] ⏭️  SKIP {hour}h{minute_offset:02d}min (reason: {skip_reason}){RESET}")
-                    
-                    # Mark as processed with skip reason
-                    minute_data = {
-                        'minute_offset': minute_offset,
-                        'language': 'unknown',
-                        'transcript': '',
-                        'segments': [],
-                        'skip_reason': skip_reason
-                    }
-                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
-                    
-                    if is_backfill:
-                        item_key = (hour, chunk_index, minute_offset)
-                        self.backfill_queued[device_folder].discard(item_key)
-                        backfill_queue.task_done()
-                    else:
-                        real_time_queue.task_done()
-                    continue
-                
-                # Proceed with FFmpeg extraction
-                if is_backfill:
-                    start_sec = minute_offset * 60
-                    cmd = [
-                        'ffmpeg', '-ss', str(start_sec), '-t', '60',
-                        '-i', mp3_path, '-vn',
-                        '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
-                        '-y', tmp_audio
-                    ]
-                else:
-                    cmd = [
-                        'ffmpeg', '-i', segment_path, '-vn',
-                        '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
-                        '-y', tmp_audio
-                    ]
-                
-                result = subprocess.run(cmd, capture_output=True, text=True)
-                if result.returncode != 0:
-                    logger.error(f"{color}[{prefix}:{device_folder}] FFmpeg extraction failed: {result.stderr[:200]}{RESET}")
-                    if is_backfill:
-                        item_key = (hour, chunk_index, minute_offset)
-                        self.backfill_queued[device_folder].discard(item_key)
-                        backfill_queue.task_done()
-                    else:
-                        real_time_queue.task_done()
-                    continue
-                
-                # Verify extracted MP3 is valid (not empty/corrupt)
-                if not os.path.exists(tmp_audio) or os.path.getsize(tmp_audio) < 1024:
-                    file_size = os.path.getsize(tmp_audio) if os.path.exists(tmp_audio) else 0
-                    logger.info(f"{color}[{prefix}:{device_folder}] ⏭️  SKIP - Invalid MP3 (size={file_size}B, likely silent source){RESET}")
-                    
-                    # Mark as processed so we don't retry infinitely
-                    minute_data = {
-                        'minute_offset': minute_offset,
-                        'language': 'unknown',
-                        'transcript': '',
-                        'segments': [],
-                        'skip_reason': 'invalid_extraction'
-                    }
-                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
-                    
-                    if is_backfill:
-                        item_key = (hour, chunk_index, minute_offset)
-                        self.backfill_queued[device_folder].discard(item_key)
-                        backfill_queue.task_done()
-                    else:
-                        real_time_queue.task_done()
-                    continue
-                
-                lang = get_chunk_language(device_folder, hour, chunk_index)
-                
-                # Don't pass 'unknown' as language - Whisper will auto-detect instead
-                whisper_lang = None if (not lang or lang == 'unknown') else lang
-                result = transcribe_audio(tmp_audio, model_name='tiny', skip_silence_check=True, device_id=device_folder, language=whisper_lang)
-                
-                # Cache detected language for next segments in same chunk (skip if 'unknown' detected)
-                detected_lang = result.get('language_code', 'unknown')
-                if not lang and detected_lang != 'unknown':
-                    set_chunk_language(device_folder, hour, chunk_index, detected_lang)
-                
-                segments = result.get('segments', [])
-                if segments:
-                    transcript = ' '.join([s.get('text', '').strip() for s in segments])
-                    transcript = clean_transcript_text(transcript)
-                    if ENABLE_SPELLCHECK:
-                        transcript = correct_spelling(transcript, result.get('language_code'))
-                    
-                    minute_data = {
-                        'minute_offset': minute_offset,
-                        'language': result.get('language', 'unknown'),
-                        'transcript': transcript,
-                        'segments': segments
-                    }
-                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
-                    
-                    elapsed = time.time() - start_time
-                    logger.info(f"{color}[{prefix}:{device_folder}] ✅ {hour}h{minute_offset:02d}min in {elapsed:.1f}s ({len(segments)} segments){RESET}")
-                
-                if is_backfill:
-                    item_key = (hour, chunk_index, minute_offset)
-                    self.backfill_queued[device_folder].discard(item_key)
-                    backfill_queue.task_done()
-                else:
-                    real_time_queue.task_done()
+                continue
             except Exception as e:
-                logger.error(f"{YELLOW}[SEGMENT:{device_folder}] Error: {e}{RESET}")
-                if item:
-                    if is_backfill:
-                        if hour is not None:
-                            item_key = (hour, chunk_index, minute_offset)
-                            self.backfill_queued[device_folder].discard(item_key)
-                        backfill_queue.task_done()
-                    else:
-                        real_time_queue.task_done()
-            finally:
-                if tmp_audio and os.path.exists(tmp_audio):
-                    try:
-                        os.remove(tmp_audio)
-                    except:
-                        pass
+                logger.error(f"Transcription error: {e}")
+                self.mp3_queue.task_done()
+    
+    
     
     def _start_audio_workers(self):
         """Start audio detection workers (5s interval per device)"""
@@ -1102,562 +905,30 @@ class InotifyTranscriptMonitor:
             
             time.sleep(5)
     
-    def _start_backfill_scanner(self):
-        scanner = threading.Thread(
-            target=self._backfill_scanner_worker,
-            daemon=True,
-            name="backfill-scanner"
-        )
-        scanner.start()
-        self.backfill_scanner = scanner
-        logger.info("Backfill scanner started (progressive recovery when idle)")
-    
-    def _check_all_queues_idle(self):
-        for device_folder in [d['device_folder'] for d in self.monitored_devices]:
-            if not self.active_queues[device_folder].empty():
-                return False
-            if self.history_queues[device_folder]:
-                return False
-        return True
-    
-    def _has_transcript_for_minute(self, transcript_path: str, minute_offset: int) -> bool:
-        if not os.path.exists(transcript_path):
-            return False
-        
-        try:
-            with open(transcript_path, 'r') as f:
-                data = json.load(f)
-            
-            segments = data.get('segments', [])
-            if not segments:
-                return False
-            
-            start_time = minute_offset * 60
-            end_time = (minute_offset + 1) * 60
-            
-            for seg in segments:
-                seg_start = seg.get('start', 0)
-                if start_time <= seg_start < end_time:
-                    return True
-            
-            return False
-        except:
-            return False
-    
-    def _scan_hour_for_backfill(self, device_folder: str, hour: int) -> int:
-        audio_base = None
-        transcript_base = None
-        
-        for device_info in self.monitored_devices:
-            if device_info['device_folder'] == device_folder:
-                audio_base = device_info['audio_base']
-                transcript_base = get_transcript_path(device_folder)
-                break
-        
-        if not audio_base or not transcript_base:
-            return 0
-        
-        added = 0
-        now = time.time()
-        scan_ttl = 3600
-        
-        for chunk_index in range(6):
-            mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
-            if not os.path.exists(mp3_path):
-                continue
-            
-            if not has_audio_stream(mp3_path):
-                continue
-            
-            transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
-            
-            for minute_offset in range(10):
-                item_key = (hour, chunk_index, minute_offset)
-                
-                last_scan = self.backfill_scanned[device_folder].get(item_key, 0)
-                if now - last_scan < scan_ttl:
-                    continue
-                
-                # Check if already processed today
-                if check_minute_already_processed(device_folder, hour, chunk_index, minute_offset):
-                    self.backfill_scanned[device_folder][item_key] = now
-                    continue
-                
-                # Check metadata to see if should skip
-                minute_in_hour = (chunk_index * 10) + minute_offset
-                should_skip, skip_reason = should_skip_minute_by_metadata(device_folder, hour, minute_in_hour)
-                
-                if should_skip:
-                    # Mark as processed with skip reason (don't queue)
-                    minute_data = {
-                        'minute_offset': minute_offset,
-                        'language': 'unknown',
-                        'transcript': '',
-                        'segments': [],
-                        'skip_reason': skip_reason
-                    }
-                    try:
-                        merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
-                    except Exception as e:
-                        logger.warning(f"[{device_folder}] Failed to mark minute as skipped: {e}")
-                    self.backfill_scanned[device_folder][item_key] = now
-                    continue
-                
-                # Queue if no transcript for this minute
-                # No need to check timestamps - inotify catches all MP3 updates now
-                if not self._has_transcript_for_minute(transcript_path, minute_offset):
-                    if item_key in self.backfill_queued[device_folder]:
-                        continue
-                    
-                    try:
-                        self.backfill_queues[device_folder].put_nowait((mp3_path, hour, chunk_index, minute_offset))
-                        self.backfill_queued[device_folder].add(item_key)
-                        added += 1
-                    except queue.Full:
-                        return added
-                
-                self.backfill_scanned[device_folder][item_key] = now
-        
-        if len(self.backfill_scanned[device_folder]) > 500:
-            self.backfill_scanned[device_folder] = {
-                k: v for k, v in self.backfill_scanned[device_folder].items()
-                if now - v < scan_ttl
-            }
-        
-        return added
-    
-    def _backfill_scanner_worker(self):
-        MAGENTA = '\033[95m'
-        RESET = '\033[0m'
-        
-        time.sleep(60)
-        
-        while True:
-            try:
-                current_day = datetime.now().day
-                if self.last_cleanup_day != current_day:
-                    logger.info(f"{MAGENTA}[BACKFILL] Day changed - clearing scan history{RESET}")
-                    for device_folder in [d['device_folder'] for d in self.monitored_devices]:
-                        self.backfill_scanned[device_folder].clear()
-                    self.last_cleanup_day = current_day
-                
-                if not self._check_all_queues_idle():
-                    time.sleep(30)
-                    continue
-                
-                for device_info in self.monitored_devices:
-                    device_folder = device_info['device_folder']
-                    hour = self.scan_position[device_folder]
-                    
-                    logger.info(f"{MAGENTA}[BACKFILL:{device_folder}] Scanning hour {hour}{RESET}")
-                    
-                    added = self._scan_hour_for_backfill(device_folder, hour)
-                    
-                    if added > 0:
-                        logger.info(f"{MAGENTA}[BACKFILL:{device_folder}] Found {added} missing transcripts in hour {hour}{RESET}")
-                    
-                    self.scan_position[device_folder] = (hour - 1) % 24
-                
-                time.sleep(30)
-                
-            except Exception as e:
-                logger.error(f"{MAGENTA}[BACKFILL] Scanner error: {e}{RESET}")
-                time.sleep(30)
-    
-    def _scan_last_24h(self):
-        """Scan last 3h for MP3s without transcripts (accept data loss for older chunks)"""
-        from pathlib import Path
-        
-        logger.info("Scanning last 3 hours for unprocessed MP3s (ignoring older backlog)")
-        now = time.time()
-        cutoff = now - (3 * 3600)  # Only last 3 hours
-        
-        all_pending = {}
-        
-        for device_info in self.monitored_devices:
-            device_folder = device_info['device_folder']
-            audio_base = device_info['audio_base']
-            transcript_base = get_transcript_path(device_folder)
-            
-            pending = []
-            
-            for hour in range(24):
-                audio_dir = os.path.join(audio_base, str(hour))
-                transcript_dir = os.path.join(transcript_base, str(hour))
-                
-                if not os.path.exists(audio_dir):
-                    continue
-                
-                for mp3_file in Path(audio_dir).glob('chunk_10min_*.mp3'):
-                    mtime = mp3_file.stat().st_mtime
-                    
-                    if mtime < cutoff:
-                        continue
-                    
-                    chunk_index = int(mp3_file.stem.split('_')[-1])
-                    chunk_file = Path(transcript_dir) / f'chunk_10min_{chunk_index}.json'
-                    
-                    # Only queue if transcript doesn't exist or is stale
-                    # No need to check MP3 vs transcript mtime - inotify catches all updates now
-                    if not chunk_file.exists() or chunk_file.stat().st_mtime < cutoff:
-                        pending.append((mtime, hour, mp3_file.name))
-            
-            pending.sort(reverse=True)
-            
-            # CRITICAL: Only keep 3 newest (accept data loss for older chunks)
-            if len(pending) > 3:
-                logger.warning(f"[{device_folder}] Found {len(pending)} pending MP3s, keeping only 3 newest (accepting data loss)")
-                pending = pending[:3]
-            
-            all_pending[device_folder] = pending
-            
-            if pending:
-                logger.info(f"[{device_folder}] {len(pending)} MP3s queued for transcription")
-        
-        return all_pending
-    
-    def _initialize_queues(self, all_pending):
-        """Put up to 3 newest in active queue (scan already limited to 3 items max)"""
-        for device_folder, pending in all_pending.items():
-            self.active_queues[device_folder] = queue.Queue(maxsize=3)
-            self.history_queues[device_folder] = []
-            
-            for item in pending[:3]:
-                try:
-                    self.active_queues[device_folder].put_nowait(item)
-                except queue.Full:
-                    break
-            
-            # Note: pending already limited to 3 items in _scan_last_24h, so history will be empty
-            self.history_queues[device_folder] = pending[3:] if len(pending) > 3 else []
-            logger.info(f"[{device_folder}] Active: {self.active_queues[device_folder].qsize()}, History: {len(self.history_queues[device_folder])}")
-    
-    def _start_whisper_worker(self):
-        """Start single shared Whisper worker"""
-        self.worker_running = True
-        self.whisper_worker = threading.Thread(
-            target=self._round_robin_worker,
-            daemon=True,
-            name="whisper-worker"
-        )
-        self.whisper_worker.start()
-        logger.info("Single Whisper worker started (round-robin, 30s delay, low priority)")
-    
-    def _round_robin_worker(self):
-        """Process MP3s round-robin across devices"""
-        GREEN = '\033[92m'
-        RESET = '\033[0m'
-        
-        device_index = 0
-        idle_cycles = 0
-        last_status_log = time.time()
-        
-        while self.worker_running:
-            if not self.monitored_devices:
-                time.sleep(1)
-                continue
-            
-            device_info = self.monitored_devices[device_index]
-            device_folder = device_info['device_folder']
-            audio_base = device_info['audio_base']
-            work_queue = self.active_queues[device_folder]
-            
-            try:
-                mtime, hour, filename = work_queue.get_nowait()
-                
-                mp3_path = os.path.join(audio_base, str(hour), filename)
-                chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
-                
-                # Logging is done inside transcribe_mp3_chunk_progressive (shows full path)
-                minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
-                
-                for minute_data in minute_results:
-                    merge_start = time.time()
-                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
-                    merge_time = time.time() - merge_start
-                    logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Saved minute {minute_data['minute_offset']}/10 in {merge_time:.3f}s{RESET}")
-                
-                work_queue.task_done()
-                idle_cycles = 0  # Reset idle counter on work
-                
-                if work_queue.empty():
-                    self._refill_from_history(device_folder)
-                
-                # Show queue status for all devices
-                self._log_queue_status()
-                
-                time.sleep(10)
-                
-            except queue.Empty:
-                idle_cycles += 1
-                
-                # Log idle status every 60 seconds (120 cycles * 0.5s)
-                if time.time() - last_status_log > 60:
-                    self._log_whisper_idle_status()
-                    last_status_log = time.time()
-            
-            device_index = (device_index + 1) % len(self.monitored_devices)
-            time.sleep(0.5)
-    
-    def _refill_from_history(self, device_folder):
-        """Refill active queue from history - always prioritize 3 newest"""
-        GREEN = '\033[92m'
-        RESET = '\033[0m'
-        
-        history = self.history_queues[device_folder]
-        
-        if not history:
-            logger.info(f"{GREEN}[WHISPER:{device_folder}] All caught up{RESET}")
-            return
-        
-        # Always sort to get 3 newest from history (in case old items were pushed back)
-        history.sort(reverse=True)  # Newest first by mtime
-        
-        refill = history[:3]
-        self.history_queues[device_folder] = history[3:]
-        
-        work_queue = self.active_queues[device_folder]
-        for item in refill:
-            try:
-                work_queue.put_nowait(item)
-            except queue.Full:
-                self.history_queues[device_folder].insert(0, item)
-                break
-        
-        logger.info(f"{GREEN}[WHISPER:{device_folder}] Refilled with 3 newest ({len(self.history_queues[device_folder])} remaining){RESET}")
-    
-    def _log_whisper_idle_status(self):
-        """Log idle status when no work to do"""
-        GREEN = '\033[92m'
-        RESET = '\033[0m'
-        
-        total_active = sum(self.active_queues[d['device_folder']].qsize() for d in self.monitored_devices)
-        total_history = sum(len(self.history_queues[d['device_folder']]) for d in self.monitored_devices)
-        
-        if total_active == 0 and total_history == 0:
-            logger.info(f"{GREEN}[WHISPER] 😴 Idle - all caught up (no MP3s to transcribe){RESET}")
-        else:
-            logger.info(f"{GREEN}[WHISPER] 🔄 Waiting for next chunk (active={total_active}, history={total_history}){RESET}")
-    
-    def _log_queue_status(self):
-        """Log queue status for all devices"""
-        GREEN = '\033[92m'
-        RESET = '\033[0m'
-        
-        logger.info("=" * 80)
-        logger.info(f"{GREEN}📊 WHISPER QUEUE STATUS{RESET}")
-        for device_info in self.monitored_devices:
-            device_folder = device_info['device_folder']
-            work_queue = self.active_queues[device_folder]
-            history = self.history_queues[device_folder]
-            
-            # Get active queue items (peek without removing)
-            active_items = []
-            try:
-                temp_list = []
-                while not work_queue.empty():
-                    item = work_queue.get_nowait()
-                    temp_list.append(item)
-                
-                # Put items back
-                for item in temp_list:
-                    work_queue.put_nowait(item)
-                    mtime, hour, filename = item
-                    chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
-                    minute = chunk_index * 10
-                    active_items.append(f"{hour:02d}h{minute:02d}")
-            except:
-                pass
-            
-            # Format queue display
-            active_str = ', '.join(active_items) if active_items else 'empty'
-            history_count = len(history)
-            
-            if active_items or history_count > 0:
-                logger.info(f"{GREEN}  [WHISPER:{device_folder}] Active: [{active_str}] | History: {history_count}{RESET}")
-            else:
-                logger.info(f"{GREEN}  [WHISPER:{device_folder}] ✓ All caught up{RESET}")
-        
-        logger.info("=" * 80)
-    
-    def _process_mp4_backlog_batch(self, device_folder):
-        """Process MP4 backlog batch"""
-        CYAN = '\033[96m'
-        RESET = '\033[0m'
-        
-        backlog = self.mp4_backlog.get(device_folder, [])
-        if not backlog:
-            return 0
-        
-        batch = backlog[:3]
-        self.mp4_backlog[device_folder] = backlog[3:]
-        
-        added = 0
-        for mtime, hour_dir, filename in batch:
-            try:
-                self.mp4_queues[device_folder].put_nowait((hour_dir, filename))
-                added += 1
-            except queue.Full:
-                self.mp4_backlog[device_folder].insert(0, (mtime, hour_dir, filename))
-                break
-        
-        if added > 0:
-            logger.info(f"{CYAN}[MP4:{device_folder}] Refilled {added} MP4s ({len(self.mp4_backlog[device_folder])} remaining){RESET}")
-        
-        return added
-    
-    def _mp4_worker(self, device_folder):
-        """Worker thread for MP4 → MP3 audio extraction (fast, ~3s per chunk)"""
-        CYAN = '\033[96m'
-        RESET = '\033[0m'
-        
-        work_queue = self.mp4_queues[device_folder]
-        last_status_log = time.time()
-        idle_count = 0
-        
-        logger.info(f"{CYAN}[MP4:{device_folder}] Worker ready (audio extraction pipeline){RESET}")
-        
-        while True:
-            try:
-                # Try to get work with timeout for idle detection
-                path, filename = work_queue.get(timeout=5)
-                idle_count = 0  # Reset idle counter
-            except queue.Empty:
-                idle_count += 1
-                
-                # Log idle status every 60 seconds (12 cycles * 5s timeout)
-                if idle_count >= 12 and time.time() - last_status_log > 60:
-                    logger.info(f"{CYAN}[MP4:{device_folder}] 😴 Idle - waiting for MP4 chunks{RESET}")
-                    last_status_log = time.time()
-                
-                # Queue is empty - check backlog
-                if self._process_mp4_backlog_batch(device_folder) == 0:
-                    # No backlog either - truly idle
-                    continue
-                else:
-                    # Added backlog items, get next item
-                    idle_count = 0
-                    continue
-            
-            try:
-                # Log queue size occasionally
-                queue_size = work_queue.qsize()
-                if queue_size > 10:
-                    logger.warning(f"{CYAN}[MP4:{device_folder}] Queue backlog: {queue_size} chunks{RESET}")
-                
-                # Parse hour and chunk_index from path and filename
-                hour = int(os.path.basename(path))
-                chunk_index = int(filename.replace('chunk_10min_', '').replace('.mp4', ''))
-                
-                mp4_path = os.path.join(path, filename)
-                
-                # Build MP3 output path (same structure under /audio/)
-                device_base_path = get_device_base_path(device_folder)
-                audio_base = get_audio_path(device_folder)
-                mp3_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
-                
-                if os.path.exists(mp3_path):
-                    logger.debug(f"{CYAN}[MP4:{device_folder}] Skipping {hour}/chunk_10min_{chunk_index}.mp4 (MP3 exists){RESET}")
-                    continue
-                
-                # Extract audio
-                logger.info(f"{CYAN}[MP4:{device_folder}] Extracting: {hour}/chunk_10min_{chunk_index}.mp4{RESET}")
-                result = extract_audio_from_mp4(mp4_path, mp3_path, device_folder, hour, chunk_index)
-                if result is True:
-                    logger.info(f"{CYAN}[MP4:{device_folder}] ✅ Complete for hour {hour}, chunk {chunk_index}{RESET}")
-                elif result is False:
-                    logger.warning(f"{CYAN}[MP4:{device_folder}] ⚠️ Failed for {hour}/chunk_10min_{chunk_index}.mp4{RESET}")
-                
-            except Exception as e:
-                logger.error(f"{CYAN}[MP4:{device_folder}] Error: {e}{RESET}")
-            finally:
-                work_queue.task_done()
-    
     def run(self):
-        """Main event loop - enqueue files for worker threads (dual pipeline)"""
-        logger.info("=" * 80)
-        logger.info("Starting inotify event loop (dual pipeline)")
-        logger.info("Zero CPU when idle - event-driven processing")
-        logger.info("Pipeline 1: MP4 → MP3 (audio extraction)")
-        logger.info("Pipeline 2: MP3 → JSON (transcription, ~10s per chunk)")
-        logger.info("=" * 80)
+        """Main event loop - watch for 1min MP3 files in temp/"""
+        logger.info("Starting 1min MP3 inotify event loop...")
         
         try:
             for event in self.inotify.event_gen(yield_nones=False):
                 (_, type_names, path, filename) = event
                 
-                # Only process files moved into watched directories (atomic writes)
-                if 'IN_MOVED_TO' not in type_names:
-                    continue
-                
-                # Pipeline 1: MP4 chunk created → Extract audio (10min archival)
-                if filename.endswith('.mp4') and 'chunk_10min_' in filename:
-                    device_folder = self.segments_path_to_device.get(path)
-                    if device_folder:
-                        logger.info(f"[{device_folder}] 🎬 New MP4 detected: {filename}")
-                        try:
-                            work_queue = self.mp4_queues[device_folder]
-                            work_queue.put_nowait((path, filename))
-                        except queue.Full:
-                            logger.error(f"[{device_folder}] 🚨 MP4 queue FULL, dropping: {filename}")
-                
-                # Pipeline 3: 1min segment → Transcribe immediately (low latency)
-                elif filename.endswith('.mp4') and 'segment_1min_' in filename:
-                    device_folder = self.segments_path_to_device.get(path)
-                    if device_folder:
-                        try:
-                            segment_path = os.path.join(path, filename)
-                            hour = int(os.path.basename(path))
-                            parts = filename.replace('segment_1min_', '').replace('.mp4', '').split('_')
-                            minute_in_hour = int(parts[0])
-                            chunk_index = minute_in_hour // 10
-                            minute_offset = minute_in_hour % 10
-                            
-                            work_queue = self.segment_queues[device_folder]
-                            work_queue.put_nowait((segment_path, hour, chunk_index, minute_offset))
-                        except queue.Full:
-                            pass
-                
-                # Pipeline 2: MP3 chunk created → Transcribe
-                elif filename.endswith('.mp3') and 'chunk_10min_' in filename:
+                # Watch for 1min MP3 files (IN_MOVED_TO = atomic rename after creation)
+                if 'IN_MOVED_TO' in type_names and filename.endswith('.mp3') and filename.startswith('1min_'):
                     device_folder = self.audio_path_to_device.get(path)
                     if device_folder:
-                        logger.info(f"[{device_folder}] 🆕 New MP3: {filename}")
-                        hour = int(os.path.basename(path))
-                        mtime = os.path.getmtime(os.path.join(path, filename))
-                        new_item = (mtime, hour, filename)
+                        mp3_path = os.path.join(path, filename)
+                        timestamp = int(filename.replace('1min_', '').replace('.mp3', ''))
+                        from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+                        hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
                         
-                        work_queue = self.active_queues[device_folder]
-                        try:
-                            work_queue.put_nowait(new_item)
-                            logger.info(f"[{device_folder}] ✓ Added to active queue")
-                        except queue.Full:
-                            # PRIORITY: New files replace oldest in active queue
-                            # Extract all items, find oldest, push it to history, add new one
-                            items = []
-                            while not work_queue.empty():
-                                items.append(work_queue.get_nowait())
-                            
-                            # Sort by mtime (oldest first), take oldest out
-                            items.sort()  # Ascending by mtime
-                            oldest = items.pop(0)  # Remove oldest
-                            
-                            # Put oldest back to history
-                            self.history_queues[device_folder].insert(0, oldest)
-                            
-                            # Add new item and remaining items back to active queue
-                            items.append(new_item)
-                            items.sort(reverse=True)  # Newest first
-                            for item in items:
-                                work_queue.put_nowait(item)
-                            
-                            logger.info(f"[{device_folder}] ⚡ Replaced oldest in active queue with new MP3")
+                        logger.info(f"[{device_folder}] 🆕 1min MP3: {filename}")
+                        self.mp3_queue.put((device_folder, mp3_path, hour, chunk_index))
         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
         finally:
-            # Clean up inotify watches
-            for path in list(self.segments_path_to_device.keys()) + list(self.audio_path_to_device.keys()):
+            for path in self.audio_path_to_device.keys():
                 try:
                     self.inotify.remove_watch(path)
                 except:
@@ -1689,14 +960,12 @@ def main():
     logging.getLogger('faster_whisper').setLevel(logging.WARNING)
     
     logger.info("=" * 80)
-    logger.info("Starting inotify-based Transcript Accumulator (Dual Pipeline)")
+    logger.info("Transcript Accumulator - MP3 Transcription Service")
     logger.info("=" * 80)
-    logger.info("Architecture: Event-driven (zero CPU when idle)")
-    logger.info("Priority: Normal (no nice) - faster transcription")
-    logger.info("Threads: 4 per library (was 2) - better Whisper performance")
-    logger.info("Pipeline 1: MP4 → MP3 (audio extraction, ~3s)")
-    logger.info("Pipeline 2: MP3 → JSON (transcribe once, save by minute)")
-    logger.info("CPU: 10× small bursts with 5s rest - gives CPU to other processes")
+    logger.info("Architecture: inotify event-driven (zero CPU when idle)")
+    logger.info("Watches: 1min MP3 files in /audio/temp/ (instant transcription)")
+    logger.info("Scans: 10min MP3 chunks in /audio/{hour}/ (backfill/recovery)")
+    logger.info("Processing: MP3 → JSON transcript (Whisper tiny model)")
     logger.info("=" * 80)
     
     try:
@@ -1724,19 +993,14 @@ def main():
                 skipped_count += 1
                 continue
             
-            # Get segments path (where MP4 chunks are stored)
-            segments_base = get_cold_segments_path(device_folder)
-            
             # Get audio path (ALWAYS cold storage)
             audio_base = get_audio_path(device_folder)
             
             logger.info(f"  ✓ Monitoring: {device_folder}")
-            logger.info(f"    Segments: {segments_base}")
             logger.info(f"    Audio: {audio_base}")
             
             monitored_devices.append({
                 'device_folder': device_folder,
-                'segments_base': segments_base,
                 'audio_base': audio_base
             })
         

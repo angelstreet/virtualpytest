@@ -982,6 +982,24 @@ def process_capture_directory(capture_dir: str):
         from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
         timestamp = int(Path(mp4_1min).stem.replace('1min_', ''))
         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
+        
+        # Create 1min MP3 in audio temp dir (for inotify + instant transcription)
+        audio_temp_dir = os.path.join(capture_dir, 'audio', 'temp')
+        os.makedirs(audio_temp_dir, exist_ok=True)
+        mp3_1min = os.path.join(audio_temp_dir, f'1min_{timestamp}.mp3')
+        
+        try:
+            import subprocess
+            subprocess.run(
+                ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', f'{mp3_1min}.tmp', '-y'],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
+            )
+            os.rename(f'{mp3_1min}.tmp', mp3_1min)
+        except Exception as e:
+            logger.warning(f"Failed to create 1min MP3: {e}")
+            mp3_1min = None
+        
+        # Progressive append MP4
         hour_dir = os.path.join(capture_dir, 'segments', str(hour))
         os.makedirs(hour_dir, exist_ok=True)
         mp4_path = os.path.join(hour_dir, f'chunk_10min_{chunk_index}.mp4')
@@ -992,40 +1010,32 @@ def process_capture_directory(capture_dir: str):
         else:
             shutil.copy(mp4_1min, mp4_path)
         
-        mp4_10min = mp4_path
-        logger.info(f"Progressive append: {hour}/chunk_10min_{chunk_index}.mp4")
-        update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
-        
-        # Extract audio directly to COLD storage (source MP4 already in COLD)
-        # Audio extraction is fast (~2-3s) and doesn't need hot storage buffer
-        audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
-        os.makedirs(audio_hour_dir, exist_ok=True)
-        audio_path = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
-        audio_temp_path = f'{audio_path}.tmp'
-        
-        try:
-            import subprocess
-            # Extract audio using FFmpeg: MP4 → MP3 (write to .tmp, then atomic rename)
-            # This ensures transcript_accumulator sees IN_MOVED_TO inotify event
-            subprocess.run(
-                ['ffmpeg', '-i', mp4_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', audio_temp_path, '-y'],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                check=True,
-                timeout=30
-            )
+        # Progressive append MP3 to 10min chunk (after transcription happens via inotify)
+        if mp3_1min and os.path.exists(mp3_1min):
+            audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
+            os.makedirs(audio_hour_dir, exist_ok=True)
+            mp3_10min = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
             
-            # Atomic rename → triggers IN_MOVED_TO event for transcript_accumulator
-            os.rename(audio_temp_path, audio_path)
-            logger.info(f"Extracted audio to COLD: /audio/{hour}/chunk_10min_{chunk_index}.mp3")
-        except Exception as e:
-            logger.warning(f"Failed to extract audio from chunk {chunk_index}: {e}")
-            # Clean up temp file if extraction failed
-            if os.path.exists(audio_temp_path):
+            if os.path.exists(mp3_10min):
                 try:
-                    os.remove(audio_temp_path)
-                except:
-                    pass
+                    subprocess.run(
+                        ['ffmpeg', '-i', f'concat:{mp3_10min}|{mp3_1min}', '-acodec', 'copy', f'{mp3_10min}.tmp', '-y'],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
+                    )
+                    os.rename(f'{mp3_10min}.tmp', mp3_10min)
+                except Exception as e:
+                    logger.warning(f"Failed to append MP3: {e}")
+            else:
+                shutil.copy(mp3_1min, mp3_10min)
+            
+            try:
+                os.remove(mp3_1min)
+            except:
+                pass
+        
+        mp4_10min = mp4_path
+        logger.info(f"Progressive append: {hour}/chunk_10min_{chunk_index}.mp4 + .mp3")
+        update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
     
     # SAFETY CLEANUP: Delete orphaned 1min files older than 2 hours from temp/
     # These are files that failed to merge into 10min chunks (e.g., due to errors)
