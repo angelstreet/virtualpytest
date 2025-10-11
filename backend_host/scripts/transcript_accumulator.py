@@ -584,6 +584,8 @@ class InotifyTranscriptMonitor:
         
         real_time_queue = self.segment_queues[device_folder]
         backfill_queue = self.backfill_queues[device_folder]
+        last_status_log = time.time()
+        idle_count = 0
         
         while True:
             item = None
@@ -591,11 +593,19 @@ class InotifyTranscriptMonitor:
             
             try:
                 item = real_time_queue.get_nowait()
+                idle_count = 0  # Reset idle counter
             except queue.Empty:
                 try:
                     item = backfill_queue.get(timeout=5)
                     is_backfill = True
+                    idle_count = 0  # Reset idle counter
                 except queue.Empty:
+                    idle_count += 1
+                    
+                    # Log idle status every 60 seconds (12 cycles * 5s timeout)
+                    if idle_count >= 12 and time.time() - last_status_log > 60:
+                        logger.info(f"{YELLOW}[SEGMENT:{device_folder}] 😴 Idle - waiting for 1min segments{RESET}")
+                        last_status_log = time.time()
                     continue
             
             tmp_audio = None
@@ -780,12 +790,12 @@ class InotifyTranscriptMonitor:
                 age_seconds = time.time() - latest_mtime
                 segment_filename = os.path.basename(latest_segment)
                 
-                # DEBUG: Log segment found every 12 checks
-                if check_count % 12 == 0:
+                # Only log segment found occasionally (every 60 checks = 5 minutes)
+                if check_count % 60 == 0:
                     logger.info(f"{BLUE}[AUDIO:{device_folder}] 📁 Found segment: {segment_filename} (age: {age_seconds:.1f}s){RESET}")
                 
                 if age_seconds > 300:
-                    if check_count % 12 == 0:
+                    if check_count % 60 == 0:
                         logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment too old (check #{check_count}): {age_seconds:.0f}s{RESET}")
                     time.sleep(5)
                     continue
@@ -795,7 +805,7 @@ class InotifyTranscriptMonitor:
                 cmd = [
                     'ffmpeg',
                     '-hide_banner',
-                    '-loglevel', 'info',  # Changed from 'error' to 'info' to get volumedetect output
+                    '-loglevel', 'info',  # Need info level to get volumedetect output
                     '-i', segment_path,
                     '-t', '0.5',
                     '-af', 'volumedetect',
@@ -817,17 +827,9 @@ class InotifyTranscriptMonitor:
                 has_audio = mean_volume > -50.0
                 status_icon = '🔊' if has_audio else '🔇'
                 
-                # Log every check (every 5s) with segment info
-                logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB from {segment_filename} (check #{check_count}){RESET}")
-                
-                # DEBUG: Log full ffmpeg output every 12 checks (1 minute) if no audio detected
-                if not has_audio and check_count % 12 == 0:
-                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 🔍 DEBUG: FFmpeg command: {' '.join(cmd)}{RESET}")
-                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 🔍 DEBUG: FFmpeg returncode: {result.returncode}{RESET}")
-                    logger.info(f"{BLUE}[AUDIO:{device_folder}] 🔍 DEBUG: FFmpeg stderr:{RESET}")
-                    for line in result.stderr.split('\n'):
-                        if line.strip():
-                            logger.info(f"{BLUE}[AUDIO:{device_folder}]   {line}{RESET}")
+                # Only log audio status occasionally or when audio is detected
+                if has_audio or check_count % 60 == 0:
+                    logger.info(f"{BLUE}[AUDIO:{device_folder}] {status_icon} {mean_volume:.1f}dB from {segment_filename} (check #{check_count}){RESET}")
                 
                 detection_result = {
                     'audio': has_audio,
@@ -1137,6 +1139,8 @@ class InotifyTranscriptMonitor:
         RESET = '\033[0m'
         
         device_index = 0
+        idle_cycles = 0
+        last_status_log = time.time()
         
         while self.worker_running:
             if not self.monitored_devices:
@@ -1151,7 +1155,7 @@ class InotifyTranscriptMonitor:
             try:
                 mtime, hour, filename = work_queue.get_nowait()
                 
-                logger.info(f"{GREEN}[WHISPER:{device_folder}] Processing: {filename}{RESET}")
+                logger.info(f"{GREEN}[WHISPER:{device_folder}] 🎬 Processing: {filename}{RESET}")
                 
                 mp3_path = os.path.join(audio_base, str(hour), filename)
                 chunk_index = int(filename.split('_')[-1].replace('.mp3', ''))
@@ -1165,6 +1169,7 @@ class InotifyTranscriptMonitor:
                     logger.info(f"{GREEN}[WHISPER:{device_folder}] 💾 Saved minute {minute_data['minute_offset']}/10 in {merge_time:.3f}s{RESET}")
                 
                 work_queue.task_done()
+                idle_cycles = 0  # Reset idle counter on work
                 
                 if work_queue.empty():
                     self._refill_from_history(device_folder)
@@ -1175,7 +1180,12 @@ class InotifyTranscriptMonitor:
                 time.sleep(10)
                 
             except queue.Empty:
-                pass
+                idle_cycles += 1
+                
+                # Log idle status every 60 seconds (120 cycles * 0.5s)
+                if time.time() - last_status_log > 60:
+                    self._log_whisper_idle_status()
+                    last_status_log = time.time()
             
             device_index = (device_index + 1) % len(self.monitored_devices)
             time.sleep(0.5)
@@ -1206,6 +1216,19 @@ class InotifyTranscriptMonitor:
                 break
         
         logger.info(f"{GREEN}[WHISPER:{device_folder}] Refilled with 3 newest ({len(self.history_queues[device_folder])} remaining){RESET}")
+    
+    def _log_whisper_idle_status(self):
+        """Log idle status when no work to do"""
+        GREEN = '\033[92m'
+        RESET = '\033[0m'
+        
+        total_active = sum(self.active_queues[d['device_folder']].qsize() for d in self.monitored_devices)
+        total_history = sum(len(self.history_queues[d['device_folder']]) for d in self.monitored_devices)
+        
+        if total_active == 0 and total_history == 0:
+            logger.info(f"{GREEN}[WHISPER] 😴 Idle - all caught up (no MP3s to transcribe){RESET}")
+        else:
+            logger.info(f"{GREEN}[WHISPER] 🔄 Waiting for next chunk (active={total_active}, history={total_history}){RESET}")
     
     def _log_queue_status(self):
         """Log queue status for all devices"""
@@ -1280,6 +1303,8 @@ class InotifyTranscriptMonitor:
         RESET = '\033[0m'
         
         work_queue = self.mp4_queues[device_folder]
+        last_status_log = time.time()
+        idle_count = 0
         
         logger.info(f"{CYAN}[MP4:{device_folder}] Worker ready (audio extraction pipeline){RESET}")
         
@@ -1287,13 +1312,22 @@ class InotifyTranscriptMonitor:
             try:
                 # Try to get work with timeout for idle detection
                 path, filename = work_queue.get(timeout=5)
+                idle_count = 0  # Reset idle counter
             except queue.Empty:
+                idle_count += 1
+                
+                # Log idle status every 60 seconds (12 cycles * 5s timeout)
+                if idle_count >= 12 and time.time() - last_status_log > 60:
+                    logger.info(f"{CYAN}[MP4:{device_folder}] 😴 Idle - waiting for MP4 chunks{RESET}")
+                    last_status_log = time.time()
+                
                 # Queue is empty - check backlog
                 if self._process_mp4_backlog_batch(device_folder) == 0:
                     # No backlog either - truly idle
                     continue
                 else:
                     # Added backlog items, get next item
+                    idle_count = 0
                     continue
             
             try:
