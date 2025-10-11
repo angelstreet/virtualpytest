@@ -1286,6 +1286,8 @@ class InotifyTranscriptMonitor:
                     self.backfill_scanned[device_folder][item_key] = now
                     continue
                 
+                # Queue if no transcript for this minute
+                # No need to check timestamps - inotify catches all MP3 updates now
                 if not self._has_transcript_for_minute(transcript_path, minute_offset):
                     if item_key in self.backfill_queued[device_folder]:
                         continue
@@ -1378,6 +1380,8 @@ class InotifyTranscriptMonitor:
                     chunk_index = int(mp3_file.stem.split('_')[-1])
                     chunk_file = Path(transcript_dir) / f'chunk_10min_{chunk_index}.json'
                     
+                    # Only queue if transcript doesn't exist or is stale
+                    # No need to check MP3 vs transcript mtime - inotify catches all updates now
                     if not chunk_file.exists() or chunk_file.stat().st_mtime < cutoff:
                         pending.append((mtime, hour, mp3_file.name))
             

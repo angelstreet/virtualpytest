@@ -1001,20 +1001,31 @@ def process_capture_directory(capture_dir: str):
         audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
         os.makedirs(audio_hour_dir, exist_ok=True)
         audio_path = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
+        audio_temp_path = f'{audio_path}.tmp'
         
         try:
             import subprocess
-            # Extract audio using FFmpeg: MP4 → MP3 (direct to COLD)
+            # Extract audio using FFmpeg: MP4 → MP3 (write to .tmp, then atomic rename)
+            # This ensures transcript_accumulator sees IN_MOVED_TO inotify event
             subprocess.run(
-                ['ffmpeg', '-i', mp4_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', audio_path, '-y'],
+                ['ffmpeg', '-i', mp4_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', audio_temp_path, '-y'],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=True,
                 timeout=30
             )
+            
+            # Atomic rename → triggers IN_MOVED_TO event for transcript_accumulator
+            os.rename(audio_temp_path, audio_path)
             logger.info(f"Extracted audio to COLD: /audio/{hour}/chunk_10min_{chunk_index}.mp3")
         except Exception as e:
             logger.warning(f"Failed to extract audio from chunk {chunk_index}: {e}")
+            # Clean up temp file if extraction failed
+            if os.path.exists(audio_temp_path):
+                try:
+                    os.remove(audio_temp_path)
+                except:
+                    pass
     
     # SAFETY CLEANUP: Delete orphaned 1min files older than 2 hours from temp/
     # These are files that failed to merge into 10min chunks (e.g., due to errors)
