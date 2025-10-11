@@ -1154,19 +1154,22 @@ def process_capture_directory(capture_dir: str):
                     logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {original_size/1024/1024:.2f}MB → {final_size/1024/1024:.2f}MB, +{(final_size-original_size)/1024/1024:.2f}MB)\033[0m")
                     mp4_10min = mp4_path  # Mark success
             else:
-                logger.error(f"\033[31m✗ Failed to append 1min MP4 to 10min chunk (likely corrupted)\033[0m")
+                logger.error(f"\033[31m✗ Failed to append (likely corrupted), recreating from scratch\033[0m")
                 # Clean up temp file
                 if os.path.exists(temp_output):
                     try:
                         os.remove(temp_output)
                     except:
                         pass
-                # Delete corrupted original - will recreate from 1min on next cycle
+                # Delete corrupted original and immediately start fresh with current 1min MP4
                 try:
                     os.remove(mp4_path)
-                    logger.warning(f"\033[33m⚠ Deleted corrupted chunk, will recreate from scratch\033[0m")
-                except:
-                    pass
+                    shutil.copy(mp4_1min, mp4_path)
+                    created_size = os.path.getsize(mp4_path)
+                    logger.info(f"\033[34m✓ Recreated 10min MP4 from scratch:\033[0m {mp4_path} \033[90m({created_size/1024/1024:.2f}MB)\033[0m")
+                    mp4_10min = mp4_path  # Mark success
+                except Exception as e:
+                    logger.error(f"Recovery failed: {e}")
         else:
             shutil.copy(mp4_1min, mp4_path)
             mp4_append_elapsed = time.time() - mp4_append_start
