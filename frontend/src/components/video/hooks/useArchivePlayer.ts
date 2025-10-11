@@ -35,6 +35,7 @@ export const useArchivePlayer = ({
   const [continuousStartTime, setContinuousStartTime] = useState<number>(0);
   const [continuousEndTime, setContinuousEndTime] = useState<number>(0);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const [isManualSeeking, setIsManualSeeking] = useState(false);
 
   const loadArchiveManifest = useCallback(async (baseUrl: string): Promise<ArchiveMetadata | null> => {
     setIsCheckingAvailability(true);
@@ -184,39 +185,25 @@ export const useArchivePlayer = ({
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
+    const currentTimeInSeconds = currentMinute * 60 + currentSecond;
     
-    // Generate marks for the last 24 hours in INVERTED order (now at right)
-    // Timeline goes from 24h ago (left, 0 seconds) to now (right, 86400 seconds)
+    // Simple: Generate 25 marks from 24h ago (left) to now (right)
+    // Each mark represents an hour boundary in the rolling 24h window
     for (let hoursAgo = 0; hoursAgo <= 24; hoursAgo++) {
-      // Skip 24h ago mark (redundant)
-      if (hoursAgo === 24) continue;
-      
-      // Calculate the actual hour for this position
       const actualHour = (currentHour - hoursAgo + 24) % 24;
+      const positionSeconds = 86400 - (hoursAgo * 3600) + currentTimeInSeconds;
       
-      // Position in seconds: hoursAgo=0 (now) = 86400s, hoursAgo=24 = 0s
-      const timeValue = (24 - hoursAgo) * 3600;
-      
-      // Check if this hour is available
-      const isAvailable = availableHours.includes(actualHour);
-      
-      // Generate label
-      let label = '';
-      if (hoursAgo === 0) {
-        label = 'Now';
-      } else {
-        // Show hour label
-        const hourLabel = `${actualHour}h`;
-        if (hoursAgo > currentHour) {
-          // This is yesterday
-          label = `${hourLabel}`;
-        } else {
-          label = hourLabel;
-        }
+      // Skip if too close to "Now" (within 30 minutes to prevent overlap)
+      const distanceFromNow = 86400 - positionSeconds;
+      if (distanceFromNow < 1800 && hoursAgo > 0) {
+        continue;
       }
       
+      const isAvailable = availableHours.includes(actualHour);
+      const label = hoursAgo === 0 ? 'Now' : `${actualHour}h`;
+      
       marks.push({
-        value: timeValue,
+        value: positionSeconds,
         label: label,
         style: isAvailable ? {} : {
           color: 'rgba(255, 255, 255, 0.3)',
@@ -225,33 +212,7 @@ export const useArchivePlayer = ({
       });
     }
     
-    // Add current hour start mark ONLY if we're past the hour AND it's not already in the marks
-    // This ensures "16h" shows before "Now" when it's 16:30, but avoids duplicates
-    if (currentMinute > 0 || currentSecond > 0) {
-      const currentHourStartPosition = 86400 - (currentMinute * 60 + currentSecond);
-      const nowPosition = 86400;
-      const distanceToNow = nowPosition - currentHourStartPosition;
-      
-      // Only show if at least 30 minutes away from "Now" to prevent overlap
-      if (distanceToNow >= 1800) { // 1800 seconds = 30 minutes
-        // Check if this position already has a mark (avoid duplicates)
-        const hasExistingMark = marks.some(mark => Math.abs(mark.value - currentHourStartPosition) < 60);
-        
-        if (!hasExistingMark) {
-          const isAvailable = availableHours.includes(currentHour);
-          marks.push({
-            value: currentHourStartPosition,
-            label: `${currentHour}h`,
-            style: isAvailable ? {} : {
-              color: 'rgba(255, 255, 255, 0.3)',
-              opacity: 0.5
-            }
-          });
-        }
-      }
-    }
-    
-    // Sort marks by value for proper display
+    // Sort marks by position (left to right)
     marks.sort((a, b) => a.value - b.value);
     
     return marks;
@@ -350,6 +311,7 @@ export const useArchivePlayer = ({
         console.log(`[@EnhancedHLSPlayer] Switching from manifest ${currentManifestIndex + 1} to ${targetManifestIndex + 1}`);
         
         video.pause();
+        setIsManualSeeking(true);
         
         setCurrentManifestIndex(targetManifestIndex);
         setPreloadedNextManifest(false);
@@ -363,6 +325,11 @@ export const useArchivePlayer = ({
                 console.warn('[@EnhancedHLSPlayer] Failed to resume playback after manifest switch:', err);
               });
             }
+            
+            // Clear the manual seeking flag after seek completes
+            setTimeout(() => {
+              setIsManualSeeking(false);
+            }, 100);
           }
         }, 1000);
       } else {
@@ -385,28 +352,31 @@ export const useArchivePlayer = ({
           onVideoTimeUpdate(globalTime);
         }
         
-        const progressRatio = video.currentTime / video.duration;
-        if (progressRatio > 0.9 && !preloadedNextManifest) {
-          const nextIndex = currentManifestIndex + 1;
-          if (nextIndex < archiveMetadata.manifests.length) {
-            console.log(`[@EnhancedHLSPlayer] Pre-loading next manifest (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
-            setPreloadedNextManifest(true);
+        // Skip automatic chunk switching during manual seeks to prevent multiple jumps
+        if (!isManualSeeking) {
+          const progressRatio = video.currentTime / video.duration;
+          if (progressRatio > 0.9 && !preloadedNextManifest) {
+            const nextIndex = currentManifestIndex + 1;
+            if (nextIndex < archiveMetadata.manifests.length) {
+              console.log(`[@EnhancedHLSPlayer] Pre-loading next manifest (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
+              setPreloadedNextManifest(true);
+            }
           }
-        }
-        
-        if (video.currentTime >= video.duration - 1) {
-          const nextIndex = currentManifestIndex + 1;
-          if (nextIndex < archiveMetadata.manifests.length) {
-            console.log(`[@EnhancedHLSPlayer] Switching to manifest ${nextIndex + 1}`);
-            setCurrentManifestIndex(nextIndex);
-            setPreloadedNextManifest(false);
+          
+          if (video.currentTime >= video.duration - 1) {
+            const nextIndex = currentManifestIndex + 1;
+            if (nextIndex < archiveMetadata.manifests.length) {
+              console.log(`[@EnhancedHLSPlayer] Switching to manifest ${nextIndex + 1}`);
+              setCurrentManifestIndex(nextIndex);
+              setPreloadedNextManifest(false);
+            }
           }
         }
       }
     } else {
       setGlobalCurrentTime(video.currentTime);
     }
-  }, [archiveMetadata, currentManifestIndex, preloadedNextManifest, onVideoTimeUpdate]);
+  }, [archiveMetadata, currentManifestIndex, preloadedNextManifest, onVideoTimeUpdate, isManualSeeking]);
 
   const clearArchiveData = useCallback(() => {
     console.log('[@EnhancedHLSPlayer] Clearing archive metadata (switching to live)');
@@ -417,6 +387,7 @@ export const useArchivePlayer = ({
     setContinuousStartTime(0);
     setContinuousEndTime(0);
     setHasAttemptedLoad(false);
+    setIsManualSeeking(false);
   }, []);
 
   return useMemo(() => ({
