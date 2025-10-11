@@ -648,16 +648,9 @@ class InotifyTranscriptMonitor:
             device_pending = []
             
             # Scan 1min MP3s in temp/
-            audio_temp = os.path.join(audio_cold, 'temp')
-            if os.path.exists(audio_temp):
-                for mp3_file in os.listdir(audio_temp):
-                    if mp3_file.startswith('1min_') and mp3_file.endswith('.mp3'):
-                        mp3_path = os.path.join(audio_temp, mp3_file)
-                        timestamp = int(mp3_file.replace('1min_', '').replace('.mp3', ''))
-                        hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
-                        mtime = os.path.getmtime(mp3_path)
-                        device_pending.append((mtime, '1min', device_folder, mp3_path, hour, chunk_index, mp3_file))
-                        device_1min_count += 1
+            # NOTE: 1min MP3s now use rotating slots (1min_0.mp3 - 1min_9.mp3) without timestamps
+            # Skip scanning 1min files - they're ephemeral and handled via inotify in real-time
+            # Backlog recovery uses 10min chunks instead
             
             # Scan 10min MP3s in hour folders
             for hour in range(24):
@@ -784,8 +777,10 @@ class InotifyTranscriptMonitor:
                     logger.info(f"[{device_folder}] 📋 Processing 1min MP3: {mp3_path}")
                     
                     if os.path.exists(mp3_path):
-                        minute_offset = (datetime.fromtimestamp(int(Path(mp3_path).stem.replace('1min_', ''))).minute % 60) % 10
-                        logger.info(f"[{device_folder}] 🎵 Transcribing 1min: {hour}h{minute_offset:02d}min (source={source_queue}, {queue_status})")
+                        # Extract slot number from filename (1min_0.mp3 → slot 0)
+                        slot = int(Path(mp3_path).stem.replace('1min_', ''))
+                        minute_offset = slot  # Slot number IS the minute offset within the 10min chunk
+                        logger.info(f"[{device_folder}] 🎵 Transcribing 1min: {hour}h/chunk_{chunk_index}/minute_{minute_offset} (source={source_queue}, {queue_status})")
                         
                         result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=True, device_id=device_folder)
                         segments = result.get('segments', [])
@@ -1122,15 +1117,18 @@ class InotifyTranscriptMonitor:
                     device_folder = self.audio_path_to_device.get(path)
                     if device_folder:
                         mp3_path = os.path.join(path, filename)
-                        timestamp = int(filename.replace('1min_', '').replace('.mp3', ''))
+                        
+                        # Slot-based naming (1min_0.mp3 through 1min_9.mp3) - use current time for chunk location
+                        # File is created in real-time, so current time is accurate (within 1 minute)
                         from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
-                        hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
+                        now = datetime.now()
+                        hour, chunk_index = calculate_chunk_location(now)
                         
                         mp3_count += 1
                         self.inotify_queue.put((device_folder, mp3_path, hour, chunk_index))
                         inotify_size = self.inotify_queue.qsize()
                         scan_size = self.scan_queue.qsize()
-                        logger.info(f"[INOTIFY] 🆕 1min MP3 detected: {device_folder}/{filename} → queues[inotify={inotify_size}, scan={scan_size}]")
+                        logger.info(f"[INOTIFY] 🆕 1min MP3 detected: {device_folder}/{filename} (slot {filename.replace('1min_', '').replace('.mp3', '')}) → queues[inotify={inotify_size}, scan={scan_size}]")
         
         except KeyboardInterrupt:
             logger.info("Shutting down...")

@@ -885,23 +885,25 @@ def update_transcript_manifest(capture_dir: str, hour: int, chunk_index: int, tr
     update_manifest(capture_dir, hour, chunk_index, transcript_path, 'transcript', has_mp3=has_mp3)
 
 
-def cleanup_temp_files(capture_dir: str) -> Tuple[int, int]:
+def cleanup_temp_files(capture_dir: str) -> Tuple[int, int, int]:
     """
-    Safety cleanup for temp/ directories - delete orphaned 1min files older than 2 hours.
+    Safety cleanup for temp/ directories - delete orphaned 1min files.
     
     Why this is needed:
-    - If 10min merging fails repeatedly, 1min files accumulate forever
+    - 1min MP4/JSON: Delete after 2 hours (if 10min merging fails repeatedly)
+    - 1min MP3: Delete after 15 minutes (rotating slots should auto-delete @ 10min, this is safety net)
     - Prevents disk exhaustion from orphaned temp files
-    - 2 hour buffer ensures we don't delete files being actively processed
     
-    Returns: (segments_deleted, metadata_deleted)
+    Returns: (segments_deleted, metadata_deleted, mp3_deleted)
     """
     import time
     
     segments_deleted = 0
     metadata_deleted = 0
+    mp3_deleted = 0
     now = time.time()
-    max_age_seconds = 7200  # 2 hours
+    max_age_seconds = 7200  # 2 hours for MP4/JSON
+    max_age_mp3_seconds = 900  # 15 minutes for MP3 (rotating slots should handle @ 10min)
     
     # Cleanup segments temp directory
     segments_temp = os.path.join(capture_dir, 'segments', 'temp')
@@ -931,10 +933,32 @@ def cleanup_temp_files(capture_dir: str) -> Tuple[int, int]:
         except Exception as e:
             logger.error(f"Error scanning metadata temp directory: {e}")
     
-    if segments_deleted > 0 or metadata_deleted > 0:
-        logger.info(f"Temp cleanup: Deleted {segments_deleted} old segment files, {metadata_deleted} old metadata files (>2h old)")
+    # Cleanup audio temp directory (1min MP3s with rotating slots)
+    # Rotating slots (0-9) should auto-delete old files, but this is a safety net
+    device_folder = os.path.basename(capture_dir)
+    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+    audio_cold = get_cold_storage_path(device_folder, 'audio')
+    audio_temp = os.path.join(audio_cold, 'temp')
     
-    return segments_deleted, metadata_deleted
+    if os.path.isdir(audio_temp):
+        try:
+            for f in Path(audio_temp).glob('1min_*.mp3'):
+                if f.is_file():
+                    file_age = now - f.stat().st_mtime
+                    if file_age > max_age_mp3_seconds:
+                        try:
+                            os.remove(str(f))
+                            mp3_deleted += 1
+                            logger.warning(f"Safety cleanup: Deleted stuck 1min MP3 ({file_age:.0f}s old): {f.name}")
+                        except Exception as e:
+                            logger.error(f"Error deleting old temp MP3 {f}: {e}")
+        except Exception as e:
+            logger.error(f"Error scanning audio temp directory: {e}")
+    
+    if segments_deleted > 0 or metadata_deleted > 0 or mp3_deleted > 0:
+        logger.info(f"Temp cleanup: Deleted {segments_deleted} old segments (>2h), {metadata_deleted} old metadata (>2h), {mp3_deleted} old MP3s (>15min)")
+    
+    return segments_deleted, metadata_deleted, mp3_deleted
 
 
 def process_capture_directory(capture_dir: str):
@@ -984,16 +1008,19 @@ def process_capture_directory(capture_dir: str):
     
     mp4_10min = None
     if mp4_1min:
-        from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+        # Create 1min MP3 in audio temp dir (hot/cold aware for inotify + instant transcription)
+        # Use rotating slot naming (0-9) instead of timestamps to avoid cleanup
+        from shared.src.lib.utils.storage_path_utils import calculate_chunk_location, get_audio_path, get_device_info_from_capture_folder
+        from pathlib import Path as PathLib
+        
+        # Get device folder and calculate chunk location
+        device_folder = os.path.basename(capture_dir)
         timestamp = int(Path(mp4_1min).stem.replace('1min_', ''))
         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
         
-        # Create 1min MP3 in audio temp dir (hot/cold aware for inotify + instant transcription)
-        from shared.src.lib.utils.storage_path_utils import get_audio_path, get_device_info_from_capture_folder
-        from pathlib import Path as PathLib
-        
-        # Get device folder from capture_dir path
-        device_folder = os.path.basename(capture_dir)
+        # Calculate which minute slot (0-9) this belongs to for rotating filenames
+        minute_in_hour = datetime.fromtimestamp(timestamp).minute
+        minute_slot = minute_in_hour % 10  # 0-9 rotating slot
         
         # Check if device has audio (skip host/VNC devices without audio)
         device_info = get_device_info_from_capture_folder(device_folder)
@@ -1032,7 +1059,18 @@ def process_capture_directory(capture_dir: str):
             audio_cold = get_cold_storage_path(device_folder, 'audio')
             audio_temp_dir = os.path.join(audio_cold, 'temp')
             os.makedirs(audio_temp_dir, exist_ok=True)
-            mp3_1min = os.path.join(audio_temp_dir, f'1min_{timestamp}.mp3')
+            
+            # Use rotating slot naming: 1min_0.mp3 through 1min_9.mp3
+            # Delete old file in this slot BEFORE creating new one (prevents race condition)
+            mp3_1min = os.path.join(audio_temp_dir, f'1min_{minute_slot}.mp3')
+            
+            # Delete old file in this slot first (if exists)
+            if os.path.exists(mp3_1min):
+                try:
+                    os.remove(mp3_1min)
+                    logger.debug(f"[{device_folder}] Deleted old 1min_{minute_slot}.mp3 (rotating slot)")
+                except Exception as e:
+                    logger.warning(f"[{device_folder}] Failed to delete old MP3 slot: {e}")
             
             try:
                 import subprocess
@@ -1043,7 +1081,7 @@ def process_capture_directory(capture_dir: str):
                 )
                 os.rename(f'{mp3_1min}.tmp', mp3_1min)
                 mp3_elapsed = time.time() - mp3_start
-                logger.info(f"\033[32m🎵 Created 1min MP3:\033[0m {mp3_1min} \033[90m({mp3_elapsed:.2f}s)\033[0m")
+                logger.info(f"\033[32m🎵 Created 1min MP3 (slot {minute_slot}):\033[0m {mp3_1min} \033[90m({mp3_elapsed:.2f}s)\033[0m")
             except subprocess.CalledProcessError as e:
                 # MP4 has no audio track (VNC/silent source) - this is expected
                 logger.info(f"⊗ Skipped MP3 (no audio in source): {mp4_1min}")
@@ -1092,19 +1130,16 @@ def process_capture_directory(capture_dir: str):
                 mp3_append_elapsed = time.time() - mp3_append_start
                 logger.info(f"\033[32m✓ Created 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s)\033[0m")
             
-            try:
-                os.remove(mp3_1min)
-                logger.debug(f"Deleted 1min MP3 temp: {mp3_1min}")
-            except:
-                pass
+            # No deletion needed - rotating slot system automatically manages old files
+            # File will be overwritten in ~10 minutes when slot rotates
+            logger.debug(f"1min MP3 appended to 10min chunk (slot {minute_slot} will auto-rotate)")
         
         mp4_10min = mp4_path
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
     
-    # SAFETY CLEANUP: Delete orphaned 1min files older than 2 hours from temp/
-    # These are files that failed to merge into 10min chunks (e.g., due to errors)
-    # Keep 2h buffer to avoid deleting files currently being processed
-    cleanup_temp_files(capture_dir)
+    # SAFETY CLEANUP: Delete orphaned 1min files from temp/
+    # MP4/JSON: 2h timeout (failed merges), MP3: 5min timeout (after transcription)
+    deleted_temp_segments, deleted_temp_metadata, deleted_temp_mp3 = cleanup_temp_files(capture_dir)
     
     elapsed = time.time() - start_time
     
@@ -1125,6 +1160,12 @@ def process_capture_directory(capture_dir: str):
         safety_deletes.append(f"{deleted_cold_captures} cold_cap")
     if deleted_cold_thumbnails > 0:
         safety_deletes.append(f"{deleted_cold_thumbnails} cold_thumb")
+    if deleted_temp_segments > 0:
+        safety_deletes.append(f"{deleted_temp_segments} temp_seg")
+    if deleted_temp_metadata > 0:
+        safety_deletes.append(f"{deleted_temp_metadata} temp_meta")
+    if deleted_temp_mp3 > 0:
+        safety_deletes.append(f"{deleted_temp_mp3} temp_mp3")
     
     cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
     
