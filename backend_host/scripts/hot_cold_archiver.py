@@ -975,7 +975,10 @@ def process_capture_directory(capture_dir: str):
     os.makedirs(temp_dir, exist_ok=True)
     
     # Step 1: Merge 60 TS → 1min MP4, Step 2: Append to 10min chunk (grows 1→10min)
-    mp4_1min = merge_progressive_batch(hot_segments, 'segment_*.ts', os.path.join(temp_dir, f'1min_{int(time.time())}.mp4'), 60, True, 20)
+    mp4_1min_path = os.path.join(temp_dir, f'1min_{int(time.time())}.mp4')
+    mp4_1min = merge_progressive_batch(hot_segments, 'segment_*.ts', mp4_1min_path, 60, True, 20)
+    if mp4_1min:
+        logger.info(f"✓ Created 1min MP4: {mp4_1min}")
     
     mp4_10min = None
     if mp4_1min:
@@ -1011,10 +1014,10 @@ def process_capture_directory(capture_dir: str):
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
                 )
                 os.rename(f'{mp3_1min}.tmp', mp3_1min)
-                logger.debug(f"✓ Created 1min MP3: {os.path.basename(mp3_1min)}")
+                logger.info(f"✓ Created 1min MP3: {mp3_1min}")
             except subprocess.CalledProcessError:
                 # MP4 has no audio track (VNC/silent source) - this is expected
-                logger.debug(f"⊗ Skipped MP3 (no audio in source)")
+                logger.debug(f"⊗ Skipped MP3 (no audio in source): {mp4_1min}")
                 mp3_1min = None
             except Exception as e:
                 logger.warning(f"MP3 extraction error: {e}")
@@ -1028,35 +1031,41 @@ def process_capture_directory(capture_dir: str):
         if os.path.exists(mp4_path):
             from shared.src.lib.utils.video_utils import merge_video_files
             merge_video_files([mp4_path, mp4_1min], mp4_path, 'mp4', False, 10)
+            logger.info(f"✓ Appended to 10min MP4: {mp4_path}")
         else:
             shutil.copy(mp4_1min, mp4_path)
+            logger.info(f"✓ Created 10min MP4: {mp4_path}")
         
         # Progressive append MP3 to 10min chunk (after transcription happens via inotify)
+        mp3_10min_path = None
         if mp3_1min and os.path.exists(mp3_1min):
-            # Use same audio_base from above (hot/cold aware)
-            audio_hour_dir = os.path.join(audio_base, str(hour))
+            # Use same audio_cold from above
+            audio_hour_dir = os.path.join(audio_cold, str(hour))
             os.makedirs(audio_hour_dir, exist_ok=True)
-            mp3_10min = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
+            mp3_10min_path = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
             
-            if os.path.exists(mp3_10min):
+            if os.path.exists(mp3_10min_path):
                 try:
                     subprocess.run(
-                        ['ffmpeg', '-i', f'concat:{mp3_10min}|{mp3_1min}', '-acodec', 'copy', f'{mp3_10min}.tmp', '-y'],
+                        ['ffmpeg', '-i', f'concat:{mp3_10min_path}|{mp3_1min}', '-acodec', 'copy', f'{mp3_10min_path}.tmp', '-y'],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
                     )
-                    os.rename(f'{mp3_10min}.tmp', mp3_10min)
+                    os.rename(f'{mp3_10min_path}.tmp', mp3_10min_path)
+                    logger.info(f"✓ Appended to 10min MP3: {mp3_10min_path}")
                 except Exception as e:
                     logger.warning(f"Failed to append MP3: {e}")
             else:
-                shutil.copy(mp3_1min, mp3_10min)
+                shutil.copy(mp3_1min, mp3_10min_path)
+                logger.info(f"✓ Created 10min MP3: {mp3_10min_path}")
             
             try:
                 os.remove(mp3_1min)
+                logger.debug(f"Deleted 1min MP3 temp: {mp3_1min}")
             except:
                 pass
         
         mp4_10min = mp4_path
-        logger.info(f"Progressive append: {hour}/chunk_10min_{chunk_index}.mp4 + .mp3")
+        logger.info(f"✓ Progressive append complete: MP4={mp4_path}" + (f", MP3={mp3_10min_path}" if mp3_10min_path else ""))
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
     
     # SAFETY CLEANUP: Delete orphaned 1min files older than 2 hours from temp/
