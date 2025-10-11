@@ -993,13 +993,38 @@ def process_capture_directory(capture_dir: str):
         # Get device folder from capture_dir path
         device_folder = os.path.basename(capture_dir)
         
-        # Check if device has audio (skip host/VNC devices)
+        # Check if device has audio (skip host/VNC devices without audio)
         device_info = get_device_info_from_capture_folder(device_folder)
         device_id = device_info.get('device_id', device_folder)
         is_host = (device_id == 'host')
         
-        mp3_1min = None
+        # Check if device has shown audio activity (from recent metadata)
+        has_audio = False
         if not is_host:
+            try:
+                # Check last few metadata files to see if device has audio
+                import json
+                metadata_dir = os.path.join(capture_dir, 'hot', 'metadata') if ram_mode else os.path.join(capture_dir, 'metadata')
+                if os.path.isdir(metadata_dir):
+                    metadata_files = sorted(Path(metadata_dir).glob('capture_*.json'), key=os.path.getmtime, reverse=True)[:10]
+                    for mf in metadata_files:
+                        try:
+                            with open(mf) as f:
+                                data = json.load(f)
+                                if data.get('audio', False):
+                                    has_audio = True
+                                    break
+                        except:
+                            pass
+            except:
+                pass
+        
+        mp3_1min = None
+        if is_host:
+            logger.debug(f"[{device_folder}] Skipped MP3 (host device)")
+        elif not has_audio:
+            logger.debug(f"[{device_folder}] Skipped MP3 (no audio activity detected)")
+        else:
             # Use COLD storage for temp (same as segments/temp)
             from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
             audio_cold = get_cold_storage_path(device_folder, 'audio')
@@ -1047,11 +1072,10 @@ def process_capture_directory(capture_dir: str):
             
             if os.path.exists(mp3_10min_path):
                 try:
-                    subprocess.run(
-                        ['ffmpeg', '-i', f'concat:{mp3_10min_path}|{mp3_1min}', '-acodec', 'copy', f'{mp3_10min_path}.tmp', '-y'],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
-                    )
-                    os.rename(f'{mp3_10min_path}.tmp', mp3_10min_path)
+                    # MP3 is a streaming format - binary concatenation works perfectly
+                    with open(mp3_10min_path, 'ab') as dest:
+                        with open(mp3_1min, 'rb') as src:
+                            dest.write(src.read())
                     logger.info(f"✓ Appended to 10min MP3: {mp3_10min_path}")
                 except Exception as e:
                     logger.warning(f"Failed to append MP3: {e}")
