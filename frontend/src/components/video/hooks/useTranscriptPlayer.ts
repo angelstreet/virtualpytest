@@ -251,27 +251,15 @@ export const useTranscriptPlayer = ({
     }
   }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
 
-  // Track translation progress
-  const [translationProgress, setTranslationProgress] = useState<{
-    language: string;
-    translatedCount: number;
-    totalCount: number;
-  } | null>(null);
+  // Translation progress removed - we now translate the full transcript as ONE block (fast!)
   
-  // Helper: Translate a batch of segments (by index range)
-  const translateSegmentBatch = useCallback(async (
-    startIndex: number, 
-    endIndex: number, 
-    language: string
-  ): Promise<boolean> => {
-    if (!rawTranscriptData?.segments) return false;
+  // Helper: Translate entire transcript as ONE block (fast!)
+  const translateFullTranscript = useCallback(async (language: string): Promise<boolean> => {
+    if (!rawTranscriptData) return false;
     
     const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
     const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
     const captureFolder = captureMatch ? captureMatch[1] : 'capture1';
-    
-    const segmentBatch = rawTranscriptData.segments.slice(startIndex, endIndex);
-    const segmentTexts = segmentBatch.map(seg => seg.text);
     
     try {
       const response = await fetch(`/host/${captureFolder}/translate-segments`, {
@@ -280,16 +268,15 @@ export const useTranscriptPlayer = ({
         body: JSON.stringify({
           hour: rawTranscriptData.hour,
           chunk_index: rawTranscriptData.chunk_index,
-          segments: segmentTexts,
           target_language: language,
-          source_language: rawTranscriptData.language
+          source_language: rawTranscriptData.language || 'en'
         })
       });
 
       const data = await response.json();
       return data.success;
     } catch (error) {
-      console.error('[@useTranscriptPlayer] Translation batch failed:', error);
+      console.error('[@useTranscriptPlayer] Translation failed:', error);
       return false;
     }
   }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
@@ -339,7 +326,7 @@ export const useTranscriptPlayer = ({
     
     if (language === 'original') {
       console.log('[@useTranscriptPlayer] Switched to original language');
-      setTranslationProgress(null);
+      setIsTranslating(false);
       return;
     }
 
@@ -350,79 +337,31 @@ export const useTranscriptPlayer = ({
     
     if (hasTranslations) {
       console.log(`[@useTranscriptPlayer] Using cached translations for ${language}`);
-      setTranslationProgress(null);
+      setIsTranslating(false);
       return;
     }
 
-    // Need to translate - use smart lazy loading
-    if (!rawTranscriptData?.segments || rawTranscriptData.segments.length === 0) {
-      console.log('[@useTranscriptPlayer] No segments to translate');
+    // Need to translate
+    if (!rawTranscriptData) {
+      console.log('[@useTranscriptPlayer] No transcript data to translate');
       return;
     }
 
-    const totalSegments = rawTranscriptData.segments.length;
-    console.log(`[@useTranscriptPlayer] 🌐 Starting smart translation to ${language} (${totalSegments} segments)`);
-    
-    // Find current segment index based on playback time
-    const currentManifest = archiveMetadata?.manifests[currentManifestIndex];
-    const localTime = currentManifest ? globalCurrentTime - currentManifest.start_time_seconds : 0;
-    const currentSegmentIndex = Math.floor(localTime);
-    
-    // PHASE 1: Translate current + next 10 segments immediately (priority buffer)
-    const initialBatchSize = 10;
-    const initialEnd = Math.min(currentSegmentIndex + initialBatchSize, totalSegments);
+    console.log(`[@useTranscriptPlayer] 🌐 Translating FULL transcript to ${language}...`);
     
     setIsTranslating(true);
-    setTranslationProgress({ language, translatedCount: 0, totalCount: totalSegments });
     
-    console.log(`[@useTranscriptPlayer] 🚀 Phase 1: Translating segments ${currentSegmentIndex}-${initialEnd} (immediate)`);
+    const success = await translateFullTranscript(language);
     
-    const phase1Success = await translateSegmentBatch(currentSegmentIndex, initialEnd, language);
-    
-    if (phase1Success) {
+    if (success) {
       await reloadTranscriptData();
-      setTranslationProgress({ language, translatedCount: initialEnd - currentSegmentIndex, totalCount: totalSegments });
-      console.log(`[@useTranscriptPlayer] ✅ Phase 1 complete - translations available!`);
+      console.log(`[@useTranscriptPlayer] ✅ Translation complete!`);
+    } else {
+      console.error(`[@useTranscriptPlayer] ❌ Translation failed`);
     }
     
     setIsTranslating(false);
-    
-    // PHASE 2: Background translation of remaining segments (non-blocking)
-    if (initialEnd < totalSegments) {
-      console.log(`[@useTranscriptPlayer] 🔄 Phase 2: Background translation of remaining ${totalSegments - initialEnd} segments`);
-      
-      // Translate in batches of 20 segments
-      const batchSize = 20;
-      let currentIndex = initialEnd;
-      
-      const translateRemainingSegments = async () => {
-        while (currentIndex < totalSegments) {
-          const batchEnd = Math.min(currentIndex + batchSize, totalSegments);
-          
-          const success = await translateSegmentBatch(currentIndex, batchEnd, language);
-          
-          if (success) {
-            await reloadTranscriptData();
-            setTranslationProgress({ language, translatedCount: batchEnd, totalCount: totalSegments });
-            console.log(`[@useTranscriptPlayer] ⚡ Translated segments ${currentIndex}-${batchEnd} (${Math.round(batchEnd / totalSegments * 100)}%)`);
-          }
-          
-          currentIndex = batchEnd;
-          
-          // Small delay between batches to avoid overwhelming the backend
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        console.log(`[@useTranscriptPlayer] ✅ Full translation complete for ${language}`);
-        setTranslationProgress(null);
-      };
-      
-      // Run background translation (non-blocking)
-      translateRemainingSegments();
-    } else {
-      setTranslationProgress(null);
-    }
-  }, [rawTranscriptData, archiveMetadata, currentManifestIndex, globalCurrentTime, translateSegmentBatch, reloadTranscriptData]);
+  }, [rawTranscriptData, translateFullTranscript, reloadTranscriptData]);
 
   const getCurrentTranscriptText = useCallback(() => {
     // For new 10-min format with timed segments, ONLY use timed segments (no fallback)
@@ -457,7 +396,6 @@ export const useTranscriptPlayer = ({
     currentTranscript,
     selectedLanguage,
     isTranslating,
-    translationProgress,
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
@@ -468,7 +406,6 @@ export const useTranscriptPlayer = ({
     currentTranscript,
     selectedLanguage,
     isTranslating,
-    translationProgress,
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,

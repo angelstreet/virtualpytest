@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Select, MenuItem, CircularProgress, Typography, LinearProgress } from '@mui/material';
+import { Box, Select, MenuItem, CircularProgress } from '@mui/material';
 import { Translate } from '@mui/icons-material';
 import { TranscriptDataLegacy } from '../EnhancedHLSPlayer.types';
 
@@ -7,11 +7,6 @@ interface LanguageSelectorProps {
   transcriptData: TranscriptDataLegacy | null;
   selectedLanguage: string;
   isTranslating: boolean;
-  translationProgress?: {
-    language: string;
-    translatedCount: number;
-    totalCount: number;
-  } | null;
   onLanguageChange: (language: string) => void;
   show: boolean;
   detectedLanguage?: string;
@@ -21,7 +16,6 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   transcriptData,
   selectedLanguage,
   isTranslating,
-  translationProgress,
   onLanguageChange,
   show,
   detectedLanguage,
@@ -38,11 +32,6 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   };
 
   const originalLabel = detectedLanguage ? formatLanguageName(detectedLanguage) : 'Original';
-  
-  // Calculate progress percentage
-  const progressPercent = translationProgress 
-    ? Math.round((translationProgress.translatedCount / translationProgress.totalCount) * 100)
-    : 0;
 
   return (
     <Box
@@ -94,34 +83,6 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         </Select>
         {isTranslating && <CircularProgress size={20} sx={{ color: 'white' }} />}
       </Box>
-      
-      {/* Background translation progress */}
-      {translationProgress && !isTranslating && progressPercent < 100 && (
-        <Box
-          sx={{
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: 1,
-            p: 1,
-            minWidth: 200,
-          }}
-        >
-          <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem', mb: 0.5, display: 'block' }}>
-            Loading translations... {progressPercent}%
-          </Typography>
-          <LinearProgress 
-            variant="determinate" 
-            value={progressPercent} 
-            sx={{
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              '& .MuiLinearProgress-bar': {
-                backgroundColor: '#2196f3',
-              },
-            }}
-          />
-        </Box>
-      )}
     </Box>
   );
 };

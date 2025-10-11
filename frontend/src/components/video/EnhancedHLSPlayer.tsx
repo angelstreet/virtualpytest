@@ -390,7 +390,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           transcriptData={transcript.transcriptData}
           selectedLanguage={transcript.selectedLanguage}
           isTranslating={transcript.isTranslating}
-          translationProgress={transcript.translationProgress}
           onLanguageChange={transcript.handleLanguageChange}
           show={!isLiveMode}
           detectedLanguage={transcript.currentTranscript?.language}

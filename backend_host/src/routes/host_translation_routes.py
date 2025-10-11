@@ -127,22 +127,19 @@ def detect_text_language():
 @host_translation_bp.route('/host/<capture_folder>/translate-segments', methods=['POST'])
 def translate_segments(capture_folder):
     """
-    Translate transcript segments on-demand (Simple & Clean)
-    Translates what's already displayed, caches in JSON for reuse
+    Translate transcript using BATCH translation (full text as ONE block)
+    Much faster than translating segment-by-segment!
     """
     try:
         data = request.get_json()
         
         hour = data.get('hour')
         chunk_index = data.get('chunk_index')
-        segments = data.get('segments', [])  # Texts already displayed
         target_language = data.get('target_language')
         source_language = data.get('source_language', 'en')
         
         if hour is None or chunk_index is None or not target_language:
             return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-        
-        print(f"[HOST_TRANSLATION] 🌐 Translating {len(segments)} segments to {target_language}")
         
         # Use centralized path utility
         from shared.src.lib.utils.storage_path_utils import get_transcript_chunk_path
@@ -155,16 +152,74 @@ def translate_segments(capture_folder):
         with open(transcript_file, 'r', encoding='utf-8') as f:
             transcript_data = json.load(f)
         
-        # Translate segments (reuse displayed text)
-        translated_segments = []
-        for text in segments:
-            if text.strip():
-                result = translate_text(text, source_language, target_language, 'google')
-                translated_segments.append(result.get('translated_text', text))
-            else:
-                translated_segments.append('')
+        # Check if already translated and cached
+        if 'segments' in transcript_data and transcript_data['segments']:
+            first_seg = transcript_data['segments'][0]
+            if 'translations' in first_seg and target_language in first_seg['translations']:
+                print(f"[HOST_TRANSLATION] ✨ Using cached translations for hour {hour}, chunk {chunk_index}")
+                cached_translations = [
+                    seg.get('translations', {}).get(target_language, seg.get('text', ''))
+                    for seg in transcript_data['segments']
+                ]
+                return jsonify({
+                    'success': True,
+                    'translated_segments': cached_translations,
+                    'cached': True
+                })
         
-        # Cache translations in JSON
+        # NEW: Use FULL TRANSCRIPT for single batch translation (FAST!)
+        full_transcript = transcript_data.get('transcript', '')
+        
+        if not full_transcript:
+            # Fallback: reconstruct from segments
+            full_transcript = ' '.join([seg.get('text', '') for seg in transcript_data.get('segments', [])])
+        
+        if not full_transcript.strip():
+            return jsonify({'success': True, 'translated_segments': [], 'cached': False})
+        
+        print(f"[HOST_TRANSLATION] 🌐 Translating FULL transcript (hour {hour}, chunk {chunk_index}) to {target_language}")
+        print(f"[HOST_TRANSLATION] 📝 Text length: {len(full_transcript)} chars")
+        
+        # Translate ENTIRE transcript as ONE block (single API call!)
+        import time
+        start = time.time()
+        result = translate_text(full_transcript, source_language, target_language, 'google')
+        elapsed = time.time() - start
+        
+        if not result.get('success'):
+            return jsonify({'success': False, 'error': 'Translation failed'}), 500
+        
+        translated_full_text = result.get('translated_text', '')
+        print(f"[HOST_TRANSLATION] ⚡ Translated in {elapsed:.2f}s")
+        
+        # Map translated text back to segments by matching sentence boundaries
+        segments = transcript_data.get('segments', [])
+        translated_segments = []
+        
+        if segments:
+            # Use sentence splitting for better accuracy
+            import re
+            # Split on sentence boundaries
+            original_sentences = [seg.get('text', '').strip() for seg in segments]
+            translated_sentences = re.split(r'([.!?]+\s+)', translated_full_text)
+            
+            # Recombine punctuation with sentences
+            combined = []
+            for i in range(0, len(translated_sentences), 2):
+                sentence = translated_sentences[i]
+                if i + 1 < len(translated_sentences):
+                    sentence += translated_sentences[i + 1]
+                if sentence.strip():
+                    combined.append(sentence.strip())
+            
+            # Match translated to original segments
+            if len(combined) >= len(original_sentences):
+                translated_segments = combined[:len(original_sentences)]
+            else:
+                # Fallback: pad with remaining text
+                translated_segments = combined + [''] * (len(original_sentences) - len(combined))
+        
+        # Cache translations in JSON for all segments
         if 'segments' in transcript_data:
             for i, translation in enumerate(translated_segments):
                 if i < len(transcript_data['segments']):
@@ -172,18 +227,25 @@ def translate_segments(capture_folder):
                         transcript_data['segments'][i]['translations'] = {}
                     transcript_data['segments'][i]['translations'][target_language] = translation
         
+        # Also cache the full translated transcript
+        if 'full_translations' not in transcript_data:
+            transcript_data['full_translations'] = {}
+        transcript_data['full_translations'][target_language] = translated_full_text
+        
         # Save atomically
         temp_file = transcript_file + '.tmp'
         with open(temp_file, 'w', encoding='utf-8') as f:
             json.dump(transcript_data, f, indent=2, ensure_ascii=False)
         os.replace(temp_file, transcript_file)
         
-        print(f"[HOST_TRANSLATION] ✅ Translated and cached {len(translated_segments)} segments")
+        print(f"[HOST_TRANSLATION] ✅ Translated and cached full transcript + {len(translated_segments)} segments")
         
         return jsonify({
             'success': True,
             'translated_segments': translated_segments,
-            'cached': True
+            'translated_full_text': translated_full_text,
+            'cached': False,
+            'translation_time': elapsed
         })
         
     except Exception as e:

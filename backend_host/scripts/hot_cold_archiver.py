@@ -7,9 +7,11 @@ Responsibilities:
 1. SAFETY CLEANUP: Enforce hot storage limits on ALL file types (prevent RAM exhaustion)
 2. Progressive MP4 building: HOT TS → 1min MP4 → append to growing 10min chunk in COLD
 3. Audio extraction: 10min MP4 → MP3 saved directly to COLD /audio/{hour}/
+4. KEEP 1min MP4s: Rotating slots (0-9) for individual playback until overwritten
 
 Progressive append: Each minute appends 1min to the growing chunk (same URL, grows 1→10min)
 Result: Frontend timeline has NO CHANGES - same chunk URL just grows in duration
+1min MP4s: Kept in temp/ using rotating slots, playable individually for ~10 minutes
 
 Note: Metadata archival is handled by capture_monitor.py (incremental append to chunks)
 
@@ -890,8 +892,9 @@ def cleanup_temp_files(capture_dir: str) -> Tuple[int, int, int]:
     Safety cleanup for temp/ directories - delete orphaned 1min files.
     
     Why this is needed:
-    - 1min MP4/JSON: Delete after 2 hours (if 10min merging fails repeatedly)
-    - 1min MP3: Delete after 15 minutes (rotating slots should auto-delete @ 10min, this is safety net)
+    - 1min MP4: Rotating slots (0-9) auto-overwrite, NO cleanup needed!
+    - 1min JSON: Delete after 2 hours (if 10min merging fails repeatedly)
+    - 1min MP3: Rotating slots (0-9) auto-overwrite, light cleanup as safety net
     - Prevents disk exhaustion from orphaned temp files
     
     Returns: (segments_deleted, metadata_deleted, mp3_deleted)
@@ -902,20 +905,20 @@ def cleanup_temp_files(capture_dir: str) -> Tuple[int, int, int]:
     metadata_deleted = 0
     mp3_deleted = 0
     now = time.time()
-    max_age_seconds = 7200  # 2 hours for MP4/JSON
+    max_age_seconds = 7200  # 2 hours for JSON
     max_age_mp3_seconds = 900  # 15 minutes for MP3 (rotating slots should handle @ 10min)
     
     # Cleanup segments temp directory
+    # NOTE: 1min MP4s use rotating slots (0-9) and auto-overwrite - NO cleanup needed!
+    # They remain playable individually until overwritten (~10 minutes)
     segments_temp = os.path.join(capture_dir, 'segments', 'temp')
     if os.path.isdir(segments_temp):
+        # SKIP 1min_*.mp4 files - they use rotating slots and shouldn't be deleted
+        logger.debug(f"Skipping cleanup of 1min MP4s (rotating slot system - last 10 files kept)")
+        
+        # Only cleanup if there are non-rotating files (shouldn't happen, but safety net)
         try:
-            for f in Path(segments_temp).glob('1min_*.mp4'):
-                if f.is_file() and now - f.stat().st_mtime > max_age_seconds:
-                    try:
-                        os.remove(str(f))
-                        segments_deleted += 1
-                    except Exception as e:
-                        logger.error(f"Error deleting old temp segment {f}: {e}")
+            pass  # No cleanup needed for rotating slot MP4s
         except Exception as e:
             logger.error(f"Error scanning segments temp directory: {e}")
     
@@ -998,13 +1001,27 @@ def process_capture_directory(capture_dir: str):
     temp_dir = os.path.join(capture_dir, 'segments', 'temp')
     os.makedirs(temp_dir, exist_ok=True)
     
-    # Step 1: Merge 60 TS → 1min MP4, Step 2: Append to 10min chunk (grows 1→10min)
-    mp4_1min_path = os.path.join(temp_dir, f'1min_{int(time.time())}.mp4')
+    # Step 1: Merge 60 TS → 1min MP4 (with rotating slot naming for individual playback)
+    # Calculate minute slot (0-9) for rotating filenames - same as MP3
+    current_minute = datetime.now().minute
+    minute_slot = current_minute % 10  # 0-9 rotating slot
+    
+    # Use rotating slot naming instead of timestamp - keeps last 10 files playable
+    mp4_1min_path = os.path.join(temp_dir, f'1min_{minute_slot}.mp4')
+    
+    # Delete old file in this slot BEFORE creating new one (prevents race condition)
+    if os.path.exists(mp4_1min_path):
+        try:
+            os.remove(mp4_1min_path)
+            logger.debug(f"Deleted old 1min_{minute_slot}.mp4 (rotating slot)")
+        except Exception as e:
+            logger.warning(f"Failed to delete old 1min MP4 slot: {e}")
+    
     mp4_start = time.time()
     mp4_1min = merge_progressive_batch(hot_segments, 'segment_*.ts', mp4_1min_path, 60, True, 20)
     if mp4_1min:
         mp4_elapsed = time.time() - mp4_start
-        logger.info(f"\033[34m🎬 Created 1min MP4:\033[0m {mp4_1min} \033[90m({mp4_elapsed:.2f}s)\033[0m")
+        logger.info(f"\033[34m🎬 Created 1min MP4 (slot {minute_slot}):\033[0m {mp4_1min} \033[90m({mp4_elapsed:.2f}s)\033[0m")
     
     mp4_10min = None
     if mp4_1min:
@@ -1013,14 +1030,12 @@ def process_capture_directory(capture_dir: str):
         from shared.src.lib.utils.storage_path_utils import calculate_chunk_location, get_audio_path, get_device_info_from_capture_folder
         from pathlib import Path as PathLib
         
-        # Get device folder and calculate chunk location
+        # Get device folder and calculate chunk location from current time
         device_folder = os.path.basename(capture_dir)
-        timestamp = int(Path(mp4_1min).stem.replace('1min_', ''))
-        hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
+        now = datetime.now()
+        hour, chunk_index = calculate_chunk_location(now)
         
-        # Calculate which minute slot (0-9) this belongs to for rotating filenames
-        minute_in_hour = datetime.fromtimestamp(timestamp).minute
-        minute_slot = minute_in_hour % 10  # 0-9 rotating slot
+        # minute_slot already calculated above at line 1004 - reuse it
         
         # Check if device has audio (skip host/VNC devices without audio)
         device_info = get_device_info_from_capture_folder(device_folder)
@@ -1142,11 +1157,17 @@ def process_capture_directory(capture_dir: str):
             # File will be overwritten in ~10 minutes when slot rotates
             logger.debug(f"1min MP3 appended to 10min chunk (slot {minute_slot} will auto-rotate)")
         
+        # No deletion of 1min MP4 - rotating slot system keeps last 10 files playable
+        # File will be overwritten in ~10 minutes when slot rotates
+        logger.debug(f"1min MP4 kept in temp/ for individual playback (slot {minute_slot} will auto-rotate)")
+        
         mp4_10min = mp4_path
         update_archive_manifest(capture_dir, hour, chunk_index, mp4_path)
     
     # SAFETY CLEANUP: Delete orphaned 1min files from temp/
-    # MP4/JSON: 2h timeout (failed merges), MP3: 5min timeout (after transcription)
+    # MP4: Rotating slots (no cleanup - kept for playback)
+    # JSON: 2h timeout (failed merges)
+    # MP3: Rotating slots (15min safety net)
     deleted_temp_segments, deleted_temp_metadata, deleted_temp_mp3 = cleanup_temp_files(capture_dir)
     
     elapsed = time.time() - start_time
