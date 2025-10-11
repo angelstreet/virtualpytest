@@ -67,11 +67,11 @@ def create_themed_html_template() -> str:
                     <span class="value neutral">{{host_name}}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="label">Steps:</span>
-                    <span class="value success">{{passed_steps}}</span><span class="value neutral">/{{total_steps}}</span>
+                    <span class="label">Success:</span>
+                    <span class="value success">{{passed_steps}}/{{total_steps}}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="label">Failed:</span>
+                    <span class="label">Failure:</span>
                     <span class="value failure">{{failed_steps}}/{{total_steps}}</span>
                 </div>
             </div>
