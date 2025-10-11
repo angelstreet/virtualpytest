@@ -261,14 +261,47 @@ class ChromeManager:
         return process
     
     @staticmethod
-    def _wait_for_chrome_ready(debug_port: int, max_wait: int = 30):
-        """Wait for Chrome to be ready on the debug port."""
+    def _wait_for_chrome_ready(debug_port: int, process: subprocess.Popen = None, max_wait: int = 30):
+        """
+        Wait for Chrome to be ready on the debug port.
+        
+        Args:
+            debug_port: Port to check
+            process: Chrome process to monitor for early failures
+            max_wait: Maximum seconds to wait
+            
+        Raises:
+            RuntimeError: If Chrome process fails to start
+        """
         print(f'[ChromeManager] Waiting up to {max_wait} seconds for Chrome on port {debug_port}...')
         
         start_time = time.time()
         port_open = False
         
         while time.time() - start_time < max_wait:
+            # Check if process has exited early (indicates failure)
+            if process:
+                poll_result = process.poll()
+                if poll_result is not None:
+                    # Process has exited - get stderr output
+                    try:
+                        _, stderr = process.communicate(timeout=1)
+                        stderr_text = stderr.decode('utf-8', errors='replace').strip() if stderr else ''
+                    except Exception as e:
+                        stderr_text = f'(failed to read stderr: {e})'
+                    
+                    error_msg = f'Chrome process exited prematurely with code {poll_result}'
+                    if stderr_text:
+                        error_msg += f'\nStderr: {stderr_text}'
+                    
+                    # Check for common errors
+                    if 'not found' in stderr_text.lower():
+                        error_msg += '\n\nChromium executable not found. Please install chromium-browser.'
+                    
+                    print(f'[ChromeManager] ERROR: {error_msg}')
+                    raise RuntimeError(error_msg)
+            
+            # Try to connect to debug port
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(1)
@@ -283,7 +316,14 @@ class ChromeManager:
                 time.sleep(1)
         
         if not port_open:
-            print(f'[ChromeManager] WARNING: Timed out waiting for Chrome port {debug_port}')
+            error_msg = f'Timed out waiting for Chrome port {debug_port} after {max_wait} seconds'
+            
+            # If process is still running but port never opened
+            if process and process.poll() is None:
+                error_msg += '\nChrome process is still running but debug port is not accessible.'
+            
+            print(f'[ChromeManager] ERROR: {error_msg}')
+            raise RuntimeError(error_msg)
 
 
 class AsyncExecutor:

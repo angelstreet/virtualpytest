@@ -18,7 +18,8 @@ def merge_video_files(
     output_format: str = 'mp4',
     delete_source: bool = False,
     timeout: int = 30,
-    compression_settings: Dict[str, Any] = None
+    compression_settings: Dict[str, Any] = None,
+    skip_faststart: bool = False
 ) -> Optional[str]:
     """
     Generic video file merger using FFmpeg concat demuxer
@@ -30,6 +31,7 @@ def merge_video_files(
         delete_source: Delete source files after successful merge
         timeout: FFmpeg timeout in seconds
         compression_settings: Optional compression settings (preset, crf, maxrate, etc.)
+        skip_faststart: Skip -movflags +faststart (faster on slow disks like SD cards)
         
     Returns:
         Output path if successful, None otherwise
@@ -62,7 +64,7 @@ def merge_video_files(
             # Copy all streams (video + audio) without re-encoding
             cmd.extend(['-c:v', 'copy', '-c:a', 'copy'])
         
-        if output_format == 'mp4':
+        if output_format == 'mp4' and not skip_faststart:
             cmd.extend(['-movflags', '+faststart'])
         
         cmd.append(output_path)
