@@ -557,15 +557,29 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
                     json.dump(translated_data, f, indent=2)
                 os.rename(lang_file_path + '.tmp', lang_file_path)
                 
+                file_size = os.path.getsize(lang_file_path)
                 translated_count += 1
-                logger.info(f"{GREEN}[TRANSLATE:{capture_folder}] ✓ {lang_code}: {len(translated_text)} chars ({lang_elapsed:.2f}s){RESET}")
+                
+                # Detailed subtitle creation log
+                logger.info(f"{GREEN}[SUBTITLE:{capture_folder}] ✅ Created {TRANSLATION_LANGUAGES[lang_code]} subtitle:{RESET}")
+                logger.info(f"{GREEN}  • File: {lang_file_path}{RESET}")
+                logger.info(f"{GREEN}  • Size: {file_size/1024:.1f}KB, Characters: {len(translated_text)}, Time: {lang_elapsed:.2f}s{RESET}")
+                logger.info(f"{GREEN}  • Translated from: {source_language} → {TRANSLATION_LANGUAGES[lang_code]}{RESET}")
+                
+                # Show preview of translated text
+                preview_text = translated_text[:100] + '...' if len(translated_text) > 100 else translated_text
+                logger.info(f"{GREEN}  • Preview: \"{preview_text}\"{RESET}")
                 
             except Exception as e:
                 logger.error(f"[TRANSLATE:{capture_folder}] ❌ Error translating to {lang_code}: {e}")
                 continue
         
         total_elapsed = time.time() - translation_start
-        logger.info(f"{GREEN}[TRANSLATE:{capture_folder}] 🎉 Completed {translated_count}/{len(TRANSLATION_LANGUAGES)} translations in {total_elapsed:.2f}s{RESET}")
+        logger.info(f"{GREEN}[SUBTITLE-BATCH:{capture_folder}] 🎉 Completed {translated_count}/{len(TRANSLATION_LANGUAGES)} subtitle files in {total_elapsed:.2f}s{RESET}")
+        
+        if translated_count > 0:
+            avg_time = total_elapsed / translated_count
+            logger.info(f"{GREEN}[SUBTITLE-BATCH:{capture_folder}] 📊 Average time per subtitle: {avg_time:.2f}s{RESET}")
         
         # Generate dubbed audio for translated languages (reuse restart Edge-TTS!)
         if translated_count > 0:
@@ -654,7 +668,14 @@ def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_tex
                     audio_size = os.path.getsize(output_mp3)
                     dubbed_count += 1
                     lang_elapsed = time.time() - lang_start
-                    logger.info(f"{GREEN}[1MIN-DUB:{device_folder}] ✓ {lang_code}: {audio_size/1024:.1f}KB ({lang_elapsed:.2f}s) → {output_mp3}{RESET}")
+                    
+                    # Detailed 1min dubbed audio log
+                    logger.info(f"{GREEN}[1MIN-DUB:{device_folder}] ✅ Created 1-minute dubbed audio:{RESET}")
+                    logger.info(f"{GREEN}  • Language: {TRANSLATION_LANGUAGES[lang_code]} ({lang_code}){RESET}")
+                    logger.info(f"{GREEN}  • File: {output_mp3}{RESET}")
+                    logger.info(f"{GREEN}  • Size: {audio_size/1024:.1f}KB, Duration: ~1min, Time: {lang_elapsed:.2f}s{RESET}")
+                    logger.info(f"{GREEN}  • Slot: {slot}, Hour: {hour}, Chunk: {chunk_index}{RESET}")
+                    logger.info(f"{GREEN}  • Text: \"{translated_text[:80]}...\"{RESET}")
                 else:
                     logger.warning(f"[1MIN-DUB:{device_folder}] ⚠️  Failed to generate {lang_code} audio")
                 
@@ -663,7 +684,11 @@ def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_tex
                 continue
         
         total_elapsed = time.time() - dub_start
-        logger.info(f"{GREEN}[1MIN-DUB:{device_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} 1min dubbed files in {total_elapsed:.2f}s{RESET}")
+        logger.info(f"{GREEN}[1MIN-DUB-BATCH:{device_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} 1-minute dubbed audio files in {total_elapsed:.2f}s{RESET}")
+        
+        if dubbed_count > 0:
+            avg_time = total_elapsed / dubbed_count
+            logger.info(f"{GREEN}[1MIN-DUB-BATCH:{device_folder}] 📊 Average time per dubbed audio: {avg_time:.2f}s{RESET}")
         
     except Exception as e:
         logger.error(f"[1MIN-DUB:{device_folder}] ❌ Dubbing error: {e}")
@@ -742,16 +767,30 @@ def generate_dubbed_audio_for_chunk(capture_folder: str, hour: int, chunk_index:
                 if success and os.path.exists(output_mp3):
                     audio_size = os.path.getsize(output_mp3)
                     dubbed_count += 1
-                    logger.info(f"{GREEN}[DUBBING:{capture_folder}] ✓ {lang_code}: {audio_size/1024:.1f}KB ({lang_elapsed:.2f}s){RESET}")
+                    
+                    # Detailed 10min dubbed audio log
+                    logger.info(f"{GREEN}[10MIN-DUB:{capture_folder}] ✅ Created 10-minute dubbed audio:{RESET}")
+                    logger.info(f"{GREEN}  • Language: {TRANSLATION_LANGUAGES[lang_code]} ({lang_code}){RESET}")
+                    logger.info(f"{GREEN}  • File: {output_mp3}{RESET}")
+                    logger.info(f"{GREEN}  • Size: {audio_size/1024:.1f}KB, Duration: ~10min, Time: {lang_elapsed:.2f}s{RESET}")
+                    logger.info(f"{GREEN}  • Hour: {hour}, Chunk: {chunk_index}{RESET}")
+                    
+                    # Show preview of dubbed text
+                    preview = translated_text[:100] + '...' if len(translated_text) > 100 else translated_text
+                    logger.info(f"{GREEN}  • Text: \"{preview}\"{RESET}")
                 else:
-                    logger.warning(f"[DUBBING:{capture_folder}] ⚠️  Failed to generate {lang_code} audio")
+                    logger.warning(f"[10MIN-DUB:{capture_folder}] ⚠️  Failed to generate {lang_code} audio")
                 
             except Exception as e:
                 logger.error(f"[DUBBING:{capture_folder}] ❌ Error generating {lang_code} audio: {e}")
                 continue
         
         total_elapsed = time.time() - dubbing_start
-        logger.info(f"{GREEN}[DUBBING:{capture_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} dubbed audio files in {total_elapsed:.2f}s{RESET}")
+        logger.info(f"{GREEN}[10MIN-DUB-BATCH:{capture_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} 10-minute dubbed audio files in {total_elapsed:.2f}s{RESET}")
+        
+        if dubbed_count > 0:
+            avg_time = total_elapsed / dubbed_count
+            logger.info(f"{GREEN}[10MIN-DUB-BATCH:{capture_folder}] 📊 Average time per dubbed audio: {avg_time:.2f}s{RESET}")
         
     except Exception as e:
         logger.error(f"[DUBBING:{capture_folder}] ❌ Dubbing error: {e}")
