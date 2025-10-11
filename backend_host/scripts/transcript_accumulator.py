@@ -372,6 +372,8 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                     chunk_data = json.load(f)
                 if 'segments' not in chunk_data:
                     chunk_data['segments'] = []
+                if 'minute_statuses' not in chunk_data:
+                    chunk_data['minute_statuses'] = {}
             else:
                 chunk_data = {
                     'capture_folder': capture_folder,
@@ -384,11 +386,24 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                     'transcription_time_seconds': 0.0,
                     'timestamp': datetime.now().isoformat(),
                     'mp3_file': f'chunk_10min_{chunk_index}.mp3' if has_mp3 else None,
-                    'segments': []
+                    'segments': [],
+                    'minute_statuses': {}  # Track processing status per minute
                 }
             
             minute_segments = minute_data.get('segments', [])
             minute_offset = minute_data.get('minute_offset')
+            
+            # Mark minute as processed (even if no segments - could be silent or skipped)
+            processed_day = datetime.now().strftime('%Y-%m-%d')
+            has_audio = len(minute_segments) > 0
+            skip_reason = minute_data.get('skip_reason')
+            
+            chunk_data['minute_statuses'][str(minute_offset)] = {
+                'processed': True,
+                'processed_day': processed_day,
+                'has_audio': has_audio,
+                'skip_reason': skip_reason
+            }
             
             existing_starts = {s.get('start') for s in chunk_data['segments']}
             new_segments = [s for s in minute_segments if s.get('start') not in existing_starts]
@@ -450,6 +465,159 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
         update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=has_mp3)
     except Exception as e:
         logger.warning(f"Failed to update transcript manifest: {e}")
+
+def should_skip_minute_by_metadata(capture_folder: str, hour: int, minute_in_hour: int) -> tuple[bool, str]:
+    """
+    Check metadata JSONs for a 1-minute period to determine if transcription should be skipped
+    
+    Args:
+        capture_folder: Device folder (e.g., 'capture1')
+        hour: Hour (0-23)
+        minute_in_hour: Minute within hour (0-59)
+    
+    Returns:
+        (should_skip: bool, reason: str)
+    """
+    try:
+        metadata_path = get_metadata_path(capture_folder)
+        
+        # Calculate sequence range for this minute (5 fps = ~300 frames per minute)
+        # But we only check sampled frames (every 5th frame = 1fps in metadata)
+        # So ~60 frames per minute to check
+        
+        # Heuristic: Check 10 sample frames across the minute (every 6 seconds)
+        has_good_frames = 0
+        has_incidents = 0
+        has_no_audio = 0
+        checked = 0
+        
+        # We need to map hour+minute to sequence numbers
+        # Sequences are continuous, but we don't know the start sequence for this device
+        # Better approach: scan metadata dir for JSONs with matching timestamps
+        
+        # Get all JSONs from metadata directory
+        if not os.path.exists(metadata_path):
+            return False, None
+        
+        target_hour = hour
+        target_minute = minute_in_hour
+        
+        # Sample up to 10 files from this minute
+        sample_count = 0
+        max_samples = 10
+        
+        try:
+            # Get all capture JSONs sorted by name (sequence order)
+            json_files = sorted([f for f in os.listdir(metadata_path) if f.startswith('capture_') and f.endswith('.json')])
+            
+            for json_file in json_files:
+                if sample_count >= max_samples:
+                    break
+                
+                json_path = os.path.join(metadata_path, json_file)
+                
+                try:
+                    with open(json_path, 'r') as f:
+                        data = json.load(f)
+                    
+                    # Check timestamp
+                    timestamp = data.get('timestamp')
+                    if not timestamp:
+                        continue
+                    
+                    # Parse timestamp to get hour and minute
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    if dt.hour != target_hour or dt.minute != target_minute:
+                        continue
+                    
+                    # This frame is in our target minute
+                    checked += 1
+                    sample_count += 1
+                    
+                    # Check for incidents
+                    freeze = data.get('freeze', False)
+                    blackscreen = data.get('blackscreen', False)
+                    has_audio = data.get('audio', True)
+                    
+                    if freeze or blackscreen:
+                        has_incidents += 1
+                    
+                    if not has_audio:
+                        has_no_audio += 1
+                    
+                    if not freeze and not blackscreen and has_audio:
+                        has_good_frames += 1
+                
+                except Exception as e:
+                    continue
+        
+        except Exception as e:
+            logger.debug(f"[{capture_folder}] Metadata check failed: {e}")
+            return False, None
+        
+        if checked == 0:
+            # No metadata found for this minute - don't skip (might be legitimate audio)
+            return False, None
+        
+        # Decision logic:
+        # - If ALL checked frames have incidents or no audio → skip
+        # - If MAJORITY (>80%) have issues → skip
+        # - Otherwise → process
+        
+        incident_ratio = (has_incidents + has_no_audio) / checked if checked > 0 else 0
+        
+        if incident_ratio >= 0.8:
+            # Skip this minute
+            if has_no_audio >= checked * 0.8:
+                return True, "no_audio"
+            elif has_incidents >= checked * 0.8:
+                return True, "incidents"
+            else:
+                return True, "mixed_issues"
+        
+        return False, None
+        
+    except Exception as e:
+        logger.warning(f"[{capture_folder}] Error checking metadata: {e}")
+        return False, None
+
+def check_minute_already_processed(capture_folder: str, hour: int, chunk_index: int, minute_offset: int) -> bool:
+    """
+    Check if minute was already processed today (persistent across restarts)
+    
+    Args:
+        capture_folder: Device folder
+        hour: Hour (0-23)
+        chunk_index: Chunk index (0-5)
+        minute_offset: Minute within chunk (0-9)
+    
+    Returns:
+        bool: True if processed today
+    """
+    try:
+        transcript_base = get_transcript_path(capture_folder)
+        chunk_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+        
+        if not os.path.exists(chunk_path):
+            return False
+        
+        with open(chunk_path, 'r') as f:
+            chunk_data = json.load(f)
+        
+        minute_statuses = chunk_data.get('minute_statuses', {})
+        minute_status = minute_statuses.get(str(minute_offset))
+        
+        if not minute_status:
+            return False
+        
+        # Check if processed today
+        processed_day = minute_status.get('processed_day')
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        return processed_day == today
+        
+    except Exception as e:
+        return False
 
 class InotifyTranscriptMonitor:
     """Single Whisper worker with round-robin device processing"""
@@ -617,6 +785,51 @@ class InotifyTranscriptMonitor:
                 
                 if is_backfill:
                     mp3_path, hour, chunk_index, minute_offset = item
+                    color = MAGENTA
+                    prefix = "BACKFILL"
+                else:
+                    segment_path, hour, chunk_index, minute_offset = item
+                    color = YELLOW
+                    prefix = "SEGMENT"
+                
+                # CRITICAL: Check if already processed today
+                if check_minute_already_processed(device_folder, hour, chunk_index, minute_offset):
+                    logger.debug(f"{color}[{prefix}:{device_folder}] ⏭️  Already processed today: {hour}h{minute_offset:02d}min{RESET}")
+                    if is_backfill:
+                        item_key = (hour, chunk_index, minute_offset)
+                        self.backfill_queued[device_folder].discard(item_key)
+                        backfill_queue.task_done()
+                    else:
+                        real_time_queue.task_done()
+                    continue
+                
+                # CRITICAL: Check metadata to see if this minute should be skipped
+                minute_in_hour = (chunk_index * 10) + minute_offset
+                should_skip, skip_reason = should_skip_minute_by_metadata(device_folder, hour, minute_in_hour)
+                
+                if should_skip:
+                    logger.info(f"{color}[{prefix}:{device_folder}] ⏭️  SKIP {hour}h{minute_offset:02d}min (reason: {skip_reason}){RESET}")
+                    
+                    # Mark as processed with skip reason
+                    minute_data = {
+                        'minute_offset': minute_offset,
+                        'language': 'unknown',
+                        'transcript': '',
+                        'segments': [],
+                        'skip_reason': skip_reason
+                    }
+                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                    
+                    if is_backfill:
+                        item_key = (hour, chunk_index, minute_offset)
+                        self.backfill_queued[device_folder].discard(item_key)
+                        backfill_queue.task_done()
+                    else:
+                        real_time_queue.task_done()
+                    continue
+                
+                # Proceed with FFmpeg extraction
+                if is_backfill:
                     start_sec = minute_offset * 60
                     cmd = [
                         'ffmpeg', '-ss', str(start_sec), '-t', '60',
@@ -624,17 +837,12 @@ class InotifyTranscriptMonitor:
                         '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
                         '-y', tmp_audio
                     ]
-                    color = MAGENTA
-                    prefix = "BACKFILL"
                 else:
-                    segment_path, hour, chunk_index, minute_offset = item
                     cmd = [
                         'ffmpeg', '-i', segment_path, '-vn',
                         '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '24k',
                         '-y', tmp_audio
                     ]
-                    color = YELLOW
-                    prefix = "SEGMENT"
                 
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 if result.returncode != 0:
@@ -649,7 +857,19 @@ class InotifyTranscriptMonitor:
                 
                 # Verify extracted MP3 is valid (not empty/corrupt)
                 if not os.path.exists(tmp_audio) or os.path.getsize(tmp_audio) < 1024:
-                    logger.error(f"{color}[{prefix}:{device_folder}] Invalid MP3 file (size={os.path.getsize(tmp_audio) if os.path.exists(tmp_audio) else 0}){RESET}")
+                    file_size = os.path.getsize(tmp_audio) if os.path.exists(tmp_audio) else 0
+                    logger.info(f"{color}[{prefix}:{device_folder}] ⏭️  SKIP - Invalid MP3 (size={file_size}B, likely silent source){RESET}")
+                    
+                    # Mark as processed so we don't retry infinitely
+                    minute_data = {
+                        'minute_offset': minute_offset,
+                        'language': 'unknown',
+                        'transcript': '',
+                        'segments': [],
+                        'skip_reason': 'invalid_extraction'
+                    }
+                    merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                    
                     if is_backfill:
                         item_key = (hour, chunk_index, minute_offset)
                         self.backfill_queued[device_folder].discard(item_key)
@@ -1039,6 +1259,31 @@ class InotifyTranscriptMonitor:
                 
                 last_scan = self.backfill_scanned[device_folder].get(item_key, 0)
                 if now - last_scan < scan_ttl:
+                    continue
+                
+                # Check if already processed today
+                if check_minute_already_processed(device_folder, hour, chunk_index, minute_offset):
+                    self.backfill_scanned[device_folder][item_key] = now
+                    continue
+                
+                # Check metadata to see if should skip
+                minute_in_hour = (chunk_index * 10) + minute_offset
+                should_skip, skip_reason = should_skip_minute_by_metadata(device_folder, hour, minute_in_hour)
+                
+                if should_skip:
+                    # Mark as processed with skip reason (don't queue)
+                    minute_data = {
+                        'minute_offset': minute_offset,
+                        'language': 'unknown',
+                        'transcript': '',
+                        'segments': [],
+                        'skip_reason': skip_reason
+                    }
+                    try:
+                        merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
+                    except Exception as e:
+                        logger.warning(f"[{device_folder}] Failed to mark minute as skipped: {e}")
+                    self.backfill_scanned[device_folder][item_key] = now
                     continue
                 
                 if not self._has_transcript_for_minute(transcript_path, minute_offset):

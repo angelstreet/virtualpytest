@@ -579,15 +579,16 @@ body {{
     align-items: center;
 }}
 
-.modal-content {{
+.modal-content {
     position: relative;
-    max-width: 95%;
-    max-height: 95%;
+    min-width: 800px;
+    max-width: 98%;
+    max-height: 98%;
     background: var(--bg-secondary);
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}}
+}
 
 .modal-header {{
     text-align: center;

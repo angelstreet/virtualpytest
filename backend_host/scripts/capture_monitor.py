@@ -548,9 +548,28 @@ class InotifyFrameMonitor:
                     logger.debug(f"[{capture_folder}] 📋 Using cached audio for {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
                 
                 if detection_result:
+                    # Determine if transcription is worthwhile (skip if incidents present or no audio)
+                    freeze = detection_result.get('freeze', False)
+                    blackscreen = detection_result.get('blackscreen', False)
+                    has_audio = existing_data.get('audio', True)  # Default to True if not yet checked
+                    
+                    # Skip transcription if freeze, blackscreen, or no audio
+                    transcription_needed = not (freeze or blackscreen or not has_audio)
+                    
+                    # Determine skip reason for logging
+                    skip_reason = None
+                    if freeze:
+                        skip_reason = "freeze"
+                    elif blackscreen:
+                        skip_reason = "blackscreen"
+                    elif not has_audio:
+                        skip_reason = "no_audio"
+                    
                     analysis_data = {
                         "analyzed": True,
                         "subtitle_ocr_pending": True,
+                        "transcription_needed": transcription_needed,
+                        "skip_reason": skip_reason,
                         **existing_data,  # Includes audio from cache or JSON
                         **detection_result  # Merge detection results (overwrites if keys conflict)
                     }
