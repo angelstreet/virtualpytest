@@ -8,7 +8,7 @@ import { useToast } from '../../hooks/useToast';
 import { useMonitoring } from '../../hooks/monitoring/useMonitoring';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
-import { buildServerUrl, buildCaptureUrl, pollForFreshStream, getCaptureUrlFromStream } from '../../utils/buildUrlUtils';
+import { buildServerUrl, pollForFreshStream, getCaptureUrlFromStream } from '../../utils/buildUrlUtils';
 import { calculateVncScaling } from '../../utils/vncUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
@@ -531,20 +531,6 @@ const RecHostStreamModalContent: React.FC<{
     setCurrentVideoTime(time);
   }, [isLiveMode, monitoringMode]);
 
-  // Handle video pause - trigger AI analysis (called ONLY when video pauses)
-  const handleVideoPause = useCallback(() => {
-    // Only trigger AI analysis in live mode with monitoring ON
-    if (isLiveMode && monitoringMode && monitoringData.latestAnalysis) {
-      const sequence = monitoringData.analysisTimestamp || '000000';
-      const imageUrl = buildCaptureUrl(host, sequence, device?.device_id || 'device1');
-      console.log(`[@component:RecHostStreamModal] 🎬 Video paused in live mode - triggering AI analysis for sequence: ${sequence}`);
-      monitoringData.requestAIAnalysisForFrame(imageUrl, sequence);
-    } else if (!isLiveMode) {
-      console.log(`[@component:RecHostStreamModal] 🎬 Video paused in archive mode - AI analysis handled by time change`);
-    } else {
-      console.log(`[@component:RecHostStreamModal] 🎬 Video paused but monitoring is OFF - skipping AI analysis`);
-    }
-  }, [isLiveMode, monitoringMode, monitoringData, host, device]);
 
   // Handle screenshot - calculate from current segment and open in new tab (live mode only)
   const handleScreenshot = useCallback(async () => {
@@ -771,7 +757,6 @@ const RecHostStreamModalContent: React.FC<{
             calculateVncScaling={calculateVncScaling}
             onPlayerReady={handlePlayerReady}
             onVideoTimeUpdate={handleVideoTimeUpdate}
-            onVideoPause={handleVideoPause}
             onCurrentSegmentChange={setCurrentSegmentUrl}
             // Monitoring data props
             monitoringAnalysis={monitoringData.latestAnalysis || undefined}

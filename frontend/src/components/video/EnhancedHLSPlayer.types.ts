@@ -102,7 +102,6 @@ export interface EnhancedHLSPlayerProps {
   shouldPause?: boolean;
   onPlayerReady?: () => void;
   onVideoTimeUpdate?: (time: number) => void;
-  onVideoPause?: () => void;
   onCurrentSegmentChange?: (segmentUrl: string) => void;
   
   monitoringMode?: boolean;

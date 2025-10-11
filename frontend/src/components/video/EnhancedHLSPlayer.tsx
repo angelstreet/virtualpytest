@@ -25,7 +25,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   shouldPause = false,
   onPlayerReady,
   onVideoTimeUpdate,
-  onVideoPause,
   onCurrentSegmentChange,
   
   monitoringMode = false,
@@ -127,10 +126,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [isLiveMode, archive, transcript]);
 
-  // Listen for pause event to trigger AI analysis (one call only)
+  // Track play/pause state for UI only (no AI analysis on pause)
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !onVideoPause) return;
+    if (!video) return;
 
     const handlePlay = () => {
       console.log('[@EnhancedHLSPlayer] Video playing');
@@ -138,9 +137,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     };
 
     const handlePause = () => {
-      console.log('[@EnhancedHLSPlayer] Video paused - triggering AI analysis callback');
+      console.log('[@EnhancedHLSPlayer] Video paused');
       setIsPlaying(false);
-      onVideoPause(); // Single call when paused (no parameters)
     };
 
     video.addEventListener('play', handlePlay);
@@ -150,7 +148,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
     };
-  }, [onVideoPause]);
+  }, []);
 
   const streamUrl = useMemo(() => {
     let url: string;

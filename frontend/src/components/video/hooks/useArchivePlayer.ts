@@ -256,8 +256,6 @@ export const useArchivePlayer = ({
     const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
     if (!isFinite(seekTime) || seekTime < 0) return;
     
-    const wasPlaying = !video.paused;
-    
     if (archiveMetadata && archiveMetadata.manifests.length > 0) {
       let targetManifestIndex = -1;
       let targetLocalTime = 0;
@@ -310,21 +308,15 @@ export const useArchivePlayer = ({
       if (targetManifestIndex !== currentManifestIndex) {
         console.log(`[@EnhancedHLSPlayer] Switching from manifest ${currentManifestIndex + 1} to ${targetManifestIndex + 1}`);
         
-        video.pause();
+        // Don't pause - just switch the chunk and the player will handle it
         setIsManualSeeking(true);
-        
         setCurrentManifestIndex(targetManifestIndex);
         setPreloadedNextManifest(false);
         
+        // Wait for new chunk to load, then seek to position
         setTimeout(() => {
           if (videoRef.current) {
             videoRef.current.currentTime = targetLocalTime;
-            
-            if (wasPlaying) {
-              videoRef.current.play().catch(err => {
-                console.warn('[@EnhancedHLSPlayer] Failed to resume playback after manifest switch:', err);
-              });
-            }
             
             // Clear the manual seeking flag after seek completes
             setTimeout(() => {
