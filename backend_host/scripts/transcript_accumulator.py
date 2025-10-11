@@ -309,6 +309,23 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             has_audio = len(minute_segments) > 0
             skip_reason = minute_data.get('skip_reason')
             
+            # ROLLING 24H: Check if existing chunk is from previous day - if so, clear it
+            should_clear_old_data = False
+            if chunk_data['minute_statuses']:
+                # Check if any existing minute is from a different day
+                existing_days = {status.get('processed_day') for status in chunk_data['minute_statuses'].values() if status.get('processed_day')}
+                if existing_days and processed_day not in existing_days:
+                    logger.info(f"[{capture_folder}] 🔄 New day detected for {hour}h/chunk_{chunk_index} (old: {existing_days}, new: {processed_day}) - clearing old segments")
+                    should_clear_old_data = True
+            
+            if should_clear_old_data:
+                # Clear old day's data completely
+                chunk_data['segments'] = []
+                chunk_data['minute_statuses'] = {}
+                chunk_data['transcript'] = ''
+                chunk_data['confidence'] = 0.0
+                chunk_data['timestamp'] = datetime.now().isoformat()
+            
             chunk_data['minute_statuses'][str(minute_offset)] = {
                 'processed': True,
                 'processed_day': processed_day,
