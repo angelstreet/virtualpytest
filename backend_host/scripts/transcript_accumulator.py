@@ -643,6 +643,10 @@ class InotifyTranscriptMonitor:
             audio_cold = get_cold_storage_path(device_folder, 'audio')
             transcript_base = get_transcript_path(device_folder)
             
+            device_1min_count = 0
+            device_10min_count = 0
+            device_pending = []
+            
             # Scan 1min MP3s in temp/
             audio_temp = os.path.join(audio_cold, 'temp')
             if os.path.exists(audio_temp):
@@ -652,7 +656,8 @@ class InotifyTranscriptMonitor:
                         timestamp = int(mp3_file.replace('1min_', '').replace('.mp3', ''))
                         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
                         mtime = os.path.getmtime(mp3_path)
-                        all_pending.append((mtime, '1min', device_folder, mp3_path, hour, chunk_index, mp3_file))
+                        device_pending.append((mtime, '1min', device_folder, mp3_path, hour, chunk_index, mp3_file))
+                        device_1min_count += 1
             
             # Scan 10min MP3s in hour folders
             for hour in range(24):
@@ -668,14 +673,24 @@ class InotifyTranscriptMonitor:
                         if not os.path.exists(transcript_path):
                             mp3_path = os.path.join(audio_dir, mp3_file)
                             mtime = os.path.getmtime(mp3_path)
-                            all_pending.append((mtime, '10min', device_folder, mp3_path, hour, chunk_index, mp3_file))
+                            device_pending.append((mtime, '10min', device_folder, mp3_path, hour, chunk_index, mp3_file))
+                            device_10min_count += 1
+            
+            # Log scan results per device
+            if device_pending:
+                logger.info(f"{CYAN}[SCAN] 📁 [{device_folder}] Found {device_1min_count} x 1min + {device_10min_count} x 10min = {len(device_pending)} backlog items{RESET}")
+            else:
+                logger.info(f"{CYAN}[SCAN] ✓ [{device_folder}] No backlog - all transcripts up to date{RESET}")
+            
+            all_pending.extend(device_pending)
         
         # Sort by modification time (oldest first) and limit to 10
         all_pending.sort(key=lambda x: x[0])
         limited_pending = all_pending[:10]
         
         if limited_pending:
-            logger.info(f"{CYAN}[SCAN] 📦 Found {len(all_pending)} backlog items, queuing oldest 10:{RESET}")
+            logger.info(f"{CYAN}[SCAN] {'─' * 80}{RESET}")
+            logger.info(f"{CYAN}[SCAN] 📦 Total {len(all_pending)} backlog items found, queuing oldest 10:{RESET}")
             for idx, (mtime, type_label, device_folder, mp3_path, hour, chunk_index, mp3_file) in enumerate(limited_pending, 1):
                 age_minutes = int((time.time() - mtime) / 60)
                 logger.info(f"{CYAN}[SCAN]   {idx:2d}. [{device_folder}] {type_label:5s} {mp3_file} (age: {age_minutes}min){RESET}")
@@ -686,9 +701,9 @@ class InotifyTranscriptMonitor:
                 else:  # 10min
                     self.scan_queue.put((device_folder, hour, chunk_index))
             
-            logger.info(f"{CYAN}[SCAN] ✓ Queued {len(limited_pending)} items to scan_queue{RESET}")
+            logger.info(f"{CYAN}[SCAN] ✓ Queued {len(limited_pending)} items to scan_queue (FIFO order){RESET}")
         else:
-            logger.info(f"{CYAN}[SCAN] ✓ No backlog found - all transcripts up to date{RESET}")
+            logger.info(f"{CYAN}[SCAN] ✓ No backlog across all devices - system fully up to date{RESET}")
         
         logger.info(f"{CYAN}{'=' * 80}{RESET}")
     
