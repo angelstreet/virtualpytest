@@ -1118,9 +1118,27 @@ def process_capture_directory(capture_dir: str):
             result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60)
             mp4_append_elapsed = time.time() - mp4_append_start
             if result and os.path.exists(temp_output):
-                # Atomic replace: only overwrite original if merge succeeded
-                os.rename(temp_output, mp4_path)
-                logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
+                # Verify output file size before replacing
+                temp_size = os.path.getsize(temp_output)
+                original_size = os.path.getsize(mp4_path)
+                new_chunk_size = os.path.getsize(mp4_1min)
+                
+                # Expected size should be roughly original + new chunk (allow 5% variance for MP4 overhead)
+                expected_min_size = original_size + (new_chunk_size * 0.95)
+                
+                if temp_size < expected_min_size:
+                    logger.error(f"\033[31m✗ MP4 concat produced suspiciously small file:\033[0m {temp_size/1024/1024:.2f}MB (expected ≥{expected_min_size/1024/1024:.2f}MB, original={original_size/1024/1024:.2f}MB + new={new_chunk_size/1024/1024:.2f}MB)")
+                    os.remove(temp_output)
+                    logger.warning(f"Discarded corrupted output, original file preserved")
+                elif temp_size < 100000:  # Less than 100KB is definitely wrong
+                    logger.error(f"\033[31m✗ MP4 concat produced tiny file:\033[0m {temp_size} bytes (likely corrupted)")
+                    os.remove(temp_output)
+                    logger.warning(f"Discarded corrupted output, original file preserved")
+                else:
+                    # Atomic replace: only overwrite original if merge succeeded and size is valid
+                    os.rename(temp_output, mp4_path)
+                    final_size = os.path.getsize(mp4_path)
+                    logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {original_size/1024/1024:.2f}MB → {final_size/1024/1024:.2f}MB, +{(final_size-original_size)/1024/1024:.2f}MB)\033[0m")
             else:
                 logger.error(f"\033[31m✗ Failed to append 1min MP4 to 10min chunk (timeout or FFmpeg error)\033[0m")
                 # Clean up temporary file on failure (original file remains intact)
@@ -1133,7 +1151,8 @@ def process_capture_directory(capture_dir: str):
         else:
             shutil.copy(mp4_1min, mp4_path)
             mp4_append_elapsed = time.time() - mp4_append_start
-            logger.info(f"\033[34m✓ Created 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
+            created_size = os.path.getsize(mp4_path)
+            logger.info(f"\033[34m✓ Created 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {created_size/1024/1024:.2f}MB)\033[0m")
         
         # Progressive append MP3 to 10min chunk (after transcription happens via inotify)
         mp3_10min_path = None
@@ -1148,13 +1167,31 @@ def process_capture_directory(capture_dir: str):
                 try:
                     # Use temp file for atomic append (prevents corruption if process killed mid-write)
                     temp_output = mp3_10min_path + '.tmp'
+                    original_size = os.path.getsize(mp3_10min_path)
+                    new_chunk_size = os.path.getsize(mp3_1min)
+                    
                     shutil.copy(mp3_10min_path, temp_output)  # Copy existing file
                     with open(temp_output, 'ab') as dest:
                         with open(mp3_1min, 'rb') as src:
                             dest.write(src.read())
-                    os.rename(temp_output, mp3_10min_path)  # Atomic replace
-                    mp3_append_elapsed = time.time() - mp3_append_start
-                    logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s)\033[0m")
+                    
+                    # Verify output file size before replacing
+                    temp_size = os.path.getsize(temp_output)
+                    expected_size = original_size + new_chunk_size
+                    
+                    if temp_size < expected_size:
+                        logger.error(f"\033[31m✗ MP3 append produced wrong size:\033[0m {temp_size/1024:.1f}KB (expected {expected_size/1024:.1f}KB)")
+                        os.remove(temp_output)
+                        logger.warning(f"Discarded corrupted output, original file preserved")
+                    elif temp_size < 10000:  # Less than 10KB is definitely wrong
+                        logger.error(f"\033[31m✗ MP3 append produced tiny file:\033[0m {temp_size} bytes (likely corrupted)")
+                        os.remove(temp_output)
+                        logger.warning(f"Discarded corrupted output, original file preserved")
+                    else:
+                        os.rename(temp_output, mp3_10min_path)  # Atomic replace
+                        final_size = os.path.getsize(mp3_10min_path)
+                        mp3_append_elapsed = time.time() - mp3_append_start
+                        logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s, {original_size/1024:.1f}KB → {final_size/1024:.1f}KB, +{new_chunk_size/1024:.1f}KB)\033[0m")
                 except Exception as e:
                     logger.warning(f"Failed to append MP3: {e}")
                     # Clean up temp file on failure (original file remains intact)
@@ -1168,7 +1205,8 @@ def process_capture_directory(capture_dir: str):
             else:
                 shutil.copy(mp3_1min, mp3_10min_path)
                 mp3_append_elapsed = time.time() - mp3_append_start
-                logger.info(f"\033[32m✓ Created 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s)\033[0m")
+                created_size = os.path.getsize(mp3_10min_path)
+                logger.info(f"\033[32m✓ Created 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s, {created_size/1024:.1f}KB)\033[0m")
             
             # No deletion needed - rotating slot system automatically manages old files
             # File will be overwritten in ~10 minutes when slot rotates
