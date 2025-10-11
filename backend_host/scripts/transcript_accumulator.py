@@ -540,7 +540,7 @@ class InotifyTranscriptMonitor:
         self.monitored_devices = monitored_devices
         self.inotify = inotify.adapters.Inotify()
         self.audio_path_to_device = {}
-        self.mp3_queue = queue.Queue()
+        self.mp3_queue = LifoQueue(maxsize=500)
         self.audio_workers = {}
         self.incident_manager = None
         
@@ -610,15 +610,15 @@ class InotifyTranscriptMonitor:
         """Scan existing 10min MP3s and queue missing transcripts"""
         logger.info("Scanning existing 10min MP3s...")
         
+        total_queued = 0
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
             
-            # Scan COLD audio hour directories for 10min chunks
             from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
             audio_cold = get_cold_storage_path(device_folder, 'audio')
             transcript_base = get_transcript_path(device_folder)
             
-            found = 0
+            pending = []
             for hour in range(24):
                 audio_dir = os.path.join(audio_cold, str(hour))
                 if not os.path.exists(audio_dir):
@@ -630,11 +630,25 @@ class InotifyTranscriptMonitor:
                         transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
                         
                         if not os.path.exists(transcript_path):
-                            self.mp3_queue.put((device_folder, hour, chunk_index))
-                            found += 1
+                            mp3_path = os.path.join(audio_dir, mp3_file)
+                            pending.append((os.path.getmtime(mp3_path), device_folder, hour, chunk_index))
             
-            if found > 0:
-                logger.info(f"[{device_folder}] Queued {found} MP3s for transcription")
+            pending.sort(key=lambda x: x[0])
+            
+            for mtime, device_folder, hour, chunk_index in pending:
+                try:
+                    self.mp3_queue.put_nowait((device_folder, hour, chunk_index))
+                    logger.info(f"[{device_folder}] 📥 Queued: {hour}h/chunk_{chunk_index}")
+                    total_queued += 1
+                except queue.Full:
+                    logger.warning(f"[{device_folder}] Queue full, skipping remaining backlog")
+                    break
+            
+            if pending:
+                logger.info(f"[{device_folder}] Queued {len(pending)} MP3s for transcription")
+        
+        if total_queued > 0:
+            logger.info(f"Scan complete - queued {total_queued} chunks (processing newest first)")
     
     def _start_transcription_worker(self):
         """Start single transcription worker"""
@@ -645,38 +659,41 @@ class InotifyTranscriptMonitor:
     def _transcription_worker(self):
         """Process MP3 transcription queue (1min or 10min)"""
         last_heartbeat = time.time()
-        heartbeat_interval = 60  # Log heartbeat every 60s when idle
+        heartbeat_interval = 60
         
         while True:
             try:
                 item = self.mp3_queue.get(timeout=5)
                 
-                # Reset heartbeat on work
                 last_heartbeat = time.time()
                 
-                # Handle both 1min (from inotify) and 10min (from scan)
+                queue_size = self.mp3_queue.qsize()
+                
                 if len(item) == 3:
-                    # 10min scan: (device_folder, hour, chunk_index)
                     device_folder, hour, chunk_index = item
                     
-                    # Build path to 10min chunk in COLD storage
                     from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
                     audio_cold = get_cold_storage_path(device_folder, 'audio')
                     mp3_path = os.path.join(audio_cold, str(hour), f'chunk_10min_{chunk_index}.mp3')
                     
                     if os.path.exists(mp3_path):
-                        logger.info(f"[{device_folder}] Transcribing 10min: {hour}/chunk_10min_{chunk_index}.mp3")
+                        if queue_size > 0:
+                            logger.info(f"[{device_folder}] Transcribing 10min: {hour}/chunk_{chunk_index} (queue={queue_size})")
+                        else:
+                            logger.info(f"[{device_folder}] Transcribing 10min: {hour}/chunk_{chunk_index}")
                         minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
                         for minute_data in minute_results:
                             merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
                 
                 elif len(item) == 4:
-                    # 1min inotify: (device_folder, mp3_path, hour, chunk_index)
                     device_folder, mp3_path, hour, chunk_index = item
                     
                     if os.path.exists(mp3_path):
                         minute_offset = (datetime.fromtimestamp(int(Path(mp3_path).stem.replace('1min_', ''))).minute % 60) % 10
-                        logger.info(f"[{device_folder}] Transcribing 1min: {hour}h{minute_offset:02d}min")
+                        if queue_size > 0:
+                            logger.info(f"[{device_folder}] Transcribing 1min: {hour}h{minute_offset:02d}min (queue={queue_size})")
+                        else:
+                            logger.info(f"[{device_folder}] Transcribing 1min: {hour}h{minute_offset:02d}min")
                         
                         result = transcribe_audio(mp3_path, model_name='tiny', skip_silence_check=True, device_id=device_folder)
                         segments = result.get('segments', [])
@@ -698,10 +715,12 @@ class InotifyTranscriptMonitor:
                 self.mp3_queue.task_done()
                 
             except queue.Empty:
-                # Heartbeat: log status every 60s when idle
                 if time.time() - last_heartbeat > heartbeat_interval:
                     queue_size = self.mp3_queue.qsize()
-                    logger.info(f"[TRANSCRIPTION] ❤️  Heartbeat: Idle, queue={queue_size}, waiting for 1min MP3s...")
+                    if queue_size > 0:
+                        logger.info(f"[TRANSCRIPTION] ❤️  Heartbeat: queue={queue_size} backlog items pending")
+                    else:
+                        logger.info(f"[TRANSCRIPTION] ❤️  Heartbeat: Idle, waiting for MP3s...")
                     last_heartbeat = time.time()
                 continue
             except Exception as e:
@@ -982,9 +1001,9 @@ class InotifyTranscriptMonitor:
         
         try:
             for event in self.inotify.event_gen(yield_nones=True):
-                # Heartbeat: log status periodically
                 if time.time() - last_heartbeat > heartbeat_interval:
-                    logger.info(f"[INOTIFY] ❤️  Heartbeat: Listening, events={event_count}, MP3s={mp3_count}, queue={self.mp3_queue.qsize()}")
+                    queue_size = self.mp3_queue.qsize()
+                    logger.info(f"[INOTIFY] ❤️  Heartbeat: events={event_count}, MP3s={mp3_count}, queue={queue_size}")
                     last_heartbeat = time.time()
                 
                 if event is None:
@@ -993,7 +1012,6 @@ class InotifyTranscriptMonitor:
                 event_count += 1
                 (_, type_names, path, filename) = event
                 
-                # Watch for 1min MP3 files (IN_MOVED_TO = atomic rename after creation)
                 if 'IN_MOVED_TO' in type_names and filename.endswith('.mp3') and filename.startswith('1min_'):
                     device_folder = self.audio_path_to_device.get(path)
                     if device_folder:
@@ -1003,8 +1021,9 @@ class InotifyTranscriptMonitor:
                         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
                         
                         mp3_count += 1
-                        logger.info(f"[INOTIFY] 🆕 1min MP3 detected: {device_folder}/{filename}")
                         self.mp3_queue.put((device_folder, mp3_path, hour, chunk_index))
+                        queue_size = self.mp3_queue.qsize()
+                        logger.info(f"[INOTIFY] 🆕 1min MP3 detected: {device_folder}/{filename} (queue={queue_size})")
         
         except KeyboardInterrupt:
             logger.info("Shutting down...")
