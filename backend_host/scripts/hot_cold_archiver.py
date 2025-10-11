@@ -1098,9 +1098,17 @@ def process_capture_directory(capture_dir: str):
         mp4_append_start = time.time()
         if os.path.exists(mp4_path):
             from shared.src.lib.utils.video_utils import merge_video_files
-            merge_video_files([mp4_path, mp4_1min], mp4_path, 'mp4', False, 10)
+            # Use 60s timeout for concat (was 10s which caused corrupted files when FFmpeg was killed)
+            result = merge_video_files([mp4_path, mp4_1min], mp4_path, 'mp4', False, 60)
             mp4_append_elapsed = time.time() - mp4_append_start
-            logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
+            if result:
+                logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s)\033[0m")
+            else:
+                logger.error(f"\033[31m✗ Failed to append 1min MP4 to 10min chunk (timeout or FFmpeg error)\033[0m")
+                # Clean up potentially corrupted file
+                if os.path.exists(mp4_path) and os.path.getsize(mp4_path) < 100000:  # Less than 100KB is likely corrupted
+                    logger.warning(f"\033[33m⚠ Removing corrupted chunk (size={os.path.getsize(mp4_path)} bytes)\033[0m")
+                    os.remove(mp4_path)
         else:
             shutil.copy(mp4_1min, mp4_path)
             mp4_append_elapsed = time.time() - mp4_append_start
