@@ -21,6 +21,7 @@ interface TimelineOverlayProps {
   continuousStartTime: number;
   continuousEndTime: number;
   hourMarks: Array<{ value: number; label: string; style?: React.CSSProperties }>;
+  errorChunkIndices: Set<number>;
   videoRef: React.RefObject<HTMLVideoElement>;
   onTogglePlayPause: () => void;
   onSliderChange: (_event: Event | React.SyntheticEvent, newValue: number | number[]) => void;
@@ -71,6 +72,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
   continuousStartTime: _continuousStartTime,
   continuousEndTime: _continuousEndTime,
   hourMarks,
+  errorChunkIndices,
   videoRef: _videoRef,
   onTogglePlayPause,
   onSliderChange,
@@ -101,9 +103,12 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
 
     const roundedNow = getRoundedNow();
     const allChunks: { [key: string]: boolean } = {};
-    archiveMetadata.manifests.forEach(manifest => {
+    const chunkIndexMap: { [key: string]: number } = {}; // Map chunk key to manifest index
+    
+    archiveMetadata.manifests.forEach((manifest, index) => {
       const key = `${manifest.window_index}-${manifest.chunk_index}`;
       allChunks[key] = true;
+      chunkIndexMap[key] = index;
     });
 
     // Mark current building chunk as available (progressive build)
@@ -124,7 +129,20 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
       const chunk = Math.floor((chunkClockTime % 3600) / 600);
       const key = `${hour}-${chunk}`;
       
-      const color = allChunks[key] ? 'rgb(104, 177, 255)' : 'rgb(207, 207, 207)';
+      const isAvailable = allChunks[key];
+      const manifestIndex = chunkIndexMap[key];
+      const hasError = manifestIndex !== undefined && errorChunkIndices.has(manifestIndex);
+      
+      // Color priority: Error > Available > Unavailable
+      let color: string;
+      if (hasError) {
+        color = 'rgb(244, 67, 54)'; // Red for error chunks
+      } else if (isAvailable) {
+        color = 'rgb(104, 177, 255)'; // Blue for available
+      } else {
+        color = 'rgb(207, 207, 207)'; // Gray for unavailable
+      }
+      
       const startPercent = (chunkStartPosition / 86400) * 100;
       const endPercent = (chunkEndPosition / 86400) * 100;
       
@@ -134,7 +152,7 @@ export const TimelineOverlay: React.FC<TimelineOverlayProps> = ({
 
     const gradientParts = colorStops.map(stop => `${stop.color} ${stop.percent.toFixed(2)}%`);
     return `linear-gradient(to right, ${gradientParts.join(', ')})`;
-  }, [isLiveMode, archiveMetadata]);
+  }, [isLiveMode, archiveMetadata, errorChunkIndices]);
 
   const isTimeAvailable = (timeSeconds: number): boolean => {
     if (!archiveMetadata || archiveMetadata.manifests.length === 0) return false;

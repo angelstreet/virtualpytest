@@ -190,10 +190,6 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         confidence = result.get('confidence', 0.0)
         audio_duration = result.get('duration', 0.0)
         
-        # Calculate real-time factor (RTF): processing_time / audio_duration
-        # RTF < 1.0 means faster than real-time (good!)
-        # RTF = 1.0 means processing at real-time speed
-        # RTF > 1.0 means slower than real-time (problematic for live transcription)
         GREEN = '\033[92m'
         YELLOW = '\033[93m'
         RESET = '\033[0m'
@@ -207,9 +203,15 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         # Duration 0.0s = Whisper detected silence/no speech (normal for silent sources)
         duration_note = " (silent audio)" if audio_duration == 0 else ""
         
+        # Calculate Real-Time Factor (RTF): how fast Whisper processes vs real-time
+        # RTF < 1.0 = faster than real-time (good!)
+        # RTF = 1.0 = real-time speed
+        # RTF > 1.0 = slower than real-time (problematic)
+        rtf = elapsed / audio_duration if audio_duration > 0 else 0.0
+        rtf_note = f" (RTF={rtf:.2f}x)"
+        
         logger.info(f"{GREEN}[WHISPER:{capture_folder}] ✅ TRANSCRIPTION COMPLETE:{RESET}")
-        logger.info(f"{GREEN}  • Processing time: {elapsed:.1f}s{RESET}")
-        logger.info(f"{GREEN}  • Audio duration: {audio_duration:.1f}s{duration_note}{RESET}")
+        logger.info(f"{GREEN}  • Whisper processing time: {elapsed:.1f}s for {audio_duration:.1f}s audio{rtf_note}{duration_note}{RESET}")
         logger.info(f"{GREEN}  • Language: {language} ({language_code}), Confidence: {confidence:.2f}{RESET}")
         logger.info(f"{GREEN}  • Segments: {len(segments)}, CPU: {cpu_before:.1f}%→{cpu_after:.1f}%{text_preview}{RESET}")
         
@@ -365,13 +367,28 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                     mp3_full_path = "None"
                 
                 logger.info(f"{GREEN}[{capture_folder}] 💾 Merged transcript to→ {hour}h/chunk_{chunk_index}: {len(chunk_data['segments'])} total segments, {len(chunk_data['transcript'])} chars{RESET}")
-                logger.info(f"{GREEN}[{capture_folder}] 📄 language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📄 language={chunk_data.get('language')}, confidence={chunk_data.get('confidence', 0):.2f}, audio_duration={chunk_data.get('chunk_duration_seconds', 0):.1f}s{RESET}")
                 logger.info(f"{GREEN}[{capture_folder}] 🎵 mp3_file={mp3_full_path}{RESET}")
-                # Show sample from NEWLY ADDED segments
+                
+                # Show newly added minute's transcript (full text for this minute)
+                minute_transcript = ' '.join([s.get('text', '').strip() for s in new_segments])
+                if len(minute_transcript) > 500:
+                    logger.info(f"{GREEN}[{capture_folder}] 📋 (minute {minute_offset}) Transcript: \"{minute_transcript[:500]}...\" (truncated, {len(minute_transcript)} chars total){RESET}")
+                else:
+                    logger.info(f"{GREEN}[{capture_folder}] 📋 (minute {minute_offset}) Transcript: \"{minute_transcript}\"{RESET}")
+                
+                # Show segment statistics
                 sample_seg = new_segments[0]
                 seg_duration = sample_seg.get('duration', sample_seg.get('end', 0) - sample_seg.get('start', 0))
-                logger.info(f"{GREEN}[{capture_folder}] 📋 (minute {minute_offset}): start={sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}{RESET}")
-                logger.info(f"{GREEN}[{capture_folder}] text=\"{sample_seg.get('text', '')[:200]}...\"{RESET}")
+                logger.info(f"{GREEN}[{capture_folder}] 📊 Added {len(new_segments)} segments: first segment at {sample_seg.get('start', 0):.2f}s, duration={seg_duration:.2f}s, confidence={sample_seg.get('confidence', 0):.2f}{RESET}")
+                
+                # Show full chunk transcript if it's substantial (e.g., > 200 chars)
+                full_transcript = chunk_data['transcript']
+                if len(full_transcript) >= 200:
+                    if len(full_transcript) > 1000:
+                        logger.info(f"{GREEN}[{capture_folder}] 📝 FULL CHUNK TRANSCRIPT: \"{full_transcript[:1000]}...\" (truncated, {len(full_transcript)} chars total){RESET}")
+                    else:
+                        logger.info(f"{GREEN}[{capture_folder}] 📝 FULL CHUNK TRANSCRIPT: \"{full_transcript}\"{RESET}")
             else:
                 # No audio merged - just status tracking (silent minute)
                 logger.debug(f"[{capture_folder}] ✓ Updated chunk {hour}h/chunk_{chunk_index} status: minute {minute_offset} processed (skip_reason: {skip_reason or 'no_audio'})")
@@ -540,7 +557,9 @@ class InotifyTranscriptMonitor:
         self.monitored_devices = monitored_devices
         self.inotify = inotify.adapters.Inotify()
         self.audio_path_to_device = {}
-        self.mp3_queue = LifoQueue(maxsize=500)
+        # Two separate queues: inotify (real-time) and scan (backlog)
+        self.inotify_queue = LifoQueue(maxsize=500)  # Real-time events (priority)
+        self.scan_queue = queue.Queue(maxsize=10)    # Backlog/history (max 10)
         self.audio_workers = {}
         self.incident_manager = None
         
@@ -608,9 +627,8 @@ class InotifyTranscriptMonitor:
     
     def _scan_existing_mp3s(self):
         """Scan existing MP3s and queue missing transcripts"""
-        logger.info("Scanning existing MP3s (temp + hour directories)...")
+        logger.info("Scanning for existing backlog...")
         
-        total_queued = 0
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
             
@@ -650,26 +668,19 @@ class InotifyTranscriptMonitor:
             for mtime, device_folder, mp3_path, hour, chunk_index in pending_1min:
                 try:
                     self.mp3_queue.put_nowait((device_folder, mp3_path, hour, chunk_index))
-                    logger.info(f"[{device_folder}] 📥 Queued: temp/1min_{os.path.basename(mp3_path)}")
-                    total_queued += 1
                 except queue.Full:
-                    logger.warning(f"[{device_folder}] Queue full, skipping remaining backlog")
                     break
             
             for mtime, device_folder, hour, chunk_index in pending_10min:
                 try:
                     self.mp3_queue.put_nowait((device_folder, hour, chunk_index))
-                    logger.info(f"[{device_folder}] 📥 Queued: {hour}h/chunk_{chunk_index}")
-                    total_queued += 1
                 except queue.Full:
-                    logger.warning(f"[{device_folder}] Queue full, skipping remaining backlog")
                     break
             
             if pending_1min or pending_10min:
-                logger.info(f"[{device_folder}] Queued {len(pending_1min)} x 1min + {len(pending_10min)} x 10min")
+                logger.info(f"[{device_folder}] Enqueued {len(pending_1min)} x 1min, {len(pending_10min)} x 10min")
         
-        if total_queued > 0:
-            logger.info(f"Scan complete - queued {total_queued} chunks (processing newest first)")
+        logger.info("Backlog scan complete - workers processing (newest first)")
     
     def _start_transcription_worker(self):
         """Start single transcription worker"""
@@ -959,7 +970,11 @@ class InotifyTranscriptMonitor:
                 
                 # Upload R2 image for audio_loss incidents (once per incident)
                 if not has_audio and self.incident_manager:
-                    device_state = self.incident_manager.get_device_state(device_folder)
+                    # Get device_id (not device_folder) for state consistency
+                    device_info = get_device_info_from_capture_folder(device_folder)
+                    device_id = device_info.get('device_id', device_folder)
+                    
+                    device_state = self.incident_manager.get_device_state(device_id)
                     cached_audio_r2_urls = device_state.get('audio_loss_r2_urls')
                     
                     # Upload new image if we don't have cached URLs and have a frame
@@ -987,10 +1002,15 @@ class InotifyTranscriptMonitor:
                     # ALWAYS add cached R2 images to detection_result (for DB insert after 5min)
                     if cached_audio_r2_urls:
                         detection_result['r2_images'] = device_state.get('audio_loss_r2_images', {'thumbnail_urls': cached_audio_r2_urls})
+                        logger.info(f"{BLUE}[AUDIO:{device_folder}] 📌 Added {len(cached_audio_r2_urls)} cached R2 URLs to detection_result (for 5min DB report){RESET}")
                 
                 # Clear audio_loss R2 cache when audio returns
                 if has_audio and self.incident_manager:
-                    device_state = self.incident_manager.get_device_state(device_folder)
+                    # Get device_id (not device_folder) for state consistency
+                    device_info = get_device_info_from_capture_folder(device_folder)
+                    device_id = device_info.get('device_id', device_folder)
+                    
+                    device_state = self.incident_manager.get_device_state(device_id)
                     if device_state.get('audio_loss_r2_urls'):
                         device_state['audio_loss_r2_urls'] = None
                         device_state['audio_loss_r2_images'] = None

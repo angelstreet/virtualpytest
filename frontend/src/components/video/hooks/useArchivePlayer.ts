@@ -36,6 +36,8 @@ export const useArchivePlayer = ({
   const [continuousEndTime, setContinuousEndTime] = useState<number>(0);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [isManualSeeking, setIsManualSeeking] = useState(false);
+  const [lastErrorTime, setLastErrorTime] = useState<number>(0);
+  const [errorChunkIndices, setErrorChunkIndices] = useState<Set<number>>(new Set());
 
   const loadArchiveManifest = useCallback(async (baseUrl: string): Promise<ArchiveMetadata | null> => {
     setIsCheckingAvailability(true);
@@ -225,18 +227,40 @@ export const useArchivePlayer = ({
     const error = video.error;
     
     if (error && archiveMetadata && archiveMetadata.manifests.length > 0) {
-      console.warn(`[@EnhancedHLSPlayer] Video error (${error.code}): ${error.message}`);
+      const now = Date.now();
+      const timeSinceLastError = now - lastErrorTime;
       
+      // Mark current chunk as having errors
+      setErrorChunkIndices(prev => new Set(prev).add(currentManifestIndex));
+      
+      console.warn(`[@EnhancedHLSPlayer] Video error (${error.code}): ${error.message}`);
+      console.warn(`[@EnhancedHLSPlayer] Problematic chunk marked: ${currentManifestIndex + 1}/${archiveMetadata.manifests.length}`);
+      
+      // ANTI-CASCADE: If errors happening too frequently (< 2 seconds apart), stop auto-skipping
+      if (timeSinceLastError < 2000) {
+        console.error(`[@EnhancedHLSPlayer] ⚠️ Error cascade detected! Stopping auto-skip. Please seek to a different position.`);
+        return;
+      }
+      
+      // DON'T auto-skip during manual seeking - let user choose where to go
+      if (isManualSeeking) {
+        console.warn(`[@EnhancedHLSPlayer] Error during manual seek - NOT auto-skipping. User controls navigation.`);
+        return;
+      }
+      
+      // Only auto-skip during normal playback
+      setLastErrorTime(now);
       const nextIndex = currentManifestIndex + 1;
+      
       if (nextIndex < archiveMetadata.manifests.length) {
-        console.log(`[@EnhancedHLSPlayer] Skipping to next available chunk (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
+        console.log(`[@EnhancedHLSPlayer] Auto-skipping to next chunk during playback (${nextIndex + 1}/${archiveMetadata.manifests.length})`);
         setCurrentManifestIndex(nextIndex);
         setPreloadedNextManifest(false);
       } else {
         console.warn('[@EnhancedHLSPlayer] No more chunks available');
       }
     }
-  }, [isLiveMode, archiveMetadata, currentManifestIndex, videoRef]);
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, videoRef, lastErrorTime, isManualSeeking]);
 
   const handleSliderChange = useCallback((_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
@@ -385,6 +409,8 @@ export const useArchivePlayer = ({
     setContinuousEndTime(0);
     setHasAttemptedLoad(false);
     setIsManualSeeking(false);
+    setLastErrorTime(0);
+    setErrorChunkIndices(new Set());
   }, []);
 
   return useMemo(() => ({
@@ -399,6 +425,7 @@ export const useArchivePlayer = ({
     continuousStartTime,
     continuousEndTime,
     hourMarks,
+    errorChunkIndices,
     handleVideoError,
     handleSliderChange,
     handleSeek,
@@ -418,6 +445,7 @@ export const useArchivePlayer = ({
     continuousStartTime,
     continuousEndTime,
     hourMarks,
+    errorChunkIndices,
     handleVideoError,
     handleSliderChange,
     handleSeek,

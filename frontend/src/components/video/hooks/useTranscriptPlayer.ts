@@ -251,42 +251,29 @@ export const useTranscriptPlayer = ({
     }
   }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
 
-  const handleLanguageChange = useCallback(async (language: string) => {
-    setSelectedLanguage(language);
+  // Track translation progress
+  const [translationProgress, setTranslationProgress] = useState<{
+    language: string;
+    translatedCount: number;
+    totalCount: number;
+  } | null>(null);
+  
+  // Helper: Translate a batch of segments (by index range)
+  const translateSegmentBatch = useCallback(async (
+    startIndex: number, 
+    endIndex: number, 
+    language: string
+  ): Promise<boolean> => {
+    if (!rawTranscriptData?.segments) return false;
     
-    if (language === 'original') {
-      console.log('[@useTranscriptPlayer] Switched to original language');
-      return;
-    }
-
-    // Check if translations already cached
-    const hasTranslations = rawTranscriptData?.segments?.some(
-      seg => seg.translations && seg.translations[language]
-    );
+    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+    const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
+    const captureFolder = captureMatch ? captureMatch[1] : 'capture1';
     
-    if (hasTranslations) {
-      console.log(`[@useTranscriptPlayer] Using cached translations for ${language}`);
-      return;
-    }
-
-    // Need to translate - use what's already loaded
-    if (!rawTranscriptData?.segments) {
-      console.log('[@useTranscriptPlayer] No segments to translate');
-      return;
-    }
-
-    setIsTranslating(true);
-    console.log(`[@useTranscriptPlayer] Translating ${rawTranscriptData.segments.length} segments to ${language}...`);
+    const segmentBatch = rawTranscriptData.segments.slice(startIndex, endIndex);
+    const segmentTexts = segmentBatch.map(seg => seg.text);
     
     try {
-      const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-      const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
-      const captureFolder = captureMatch ? captureMatch[1] : 'capture1';
-      
-      // Extract texts from loaded segments (what's already displayed)
-      const segmentTexts = rawTranscriptData.segments.map(seg => seg.text);
-      
-      // Call backend to translate and cache
       const response = await fetch(`/host/${captureFolder}/translate-segments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -300,45 +287,142 @@ export const useTranscriptPlayer = ({
       });
 
       const data = await response.json();
+      return data.success;
+    } catch (error) {
+      console.error('[@useTranscriptPlayer] Translation batch failed:', error);
+      return false;
+    }
+  }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
+  
+  // Helper: Reload transcript data from manifest
+  const reloadTranscriptData = useCallback(async () => {
+    if (!rawTranscriptData) return;
+    
+    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+    const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
+    
+    try {
+      const manifest = await fetch(manifestUrl).then(res => res.json());
       
-      if (data.success) {
-        console.log(`[@useTranscriptPlayer] ✅ Translation complete and cached`);
+      if (manifest && manifest.chunks) {
+        const chunkInfo = manifest.chunks.find(
+          (chunk: any) => chunk.hour === rawTranscriptData.hour && chunk.chunk_index === rawTranscriptData.chunk_index
+        );
         
-        // Reload transcript from manifest to get updated data with cached translations
-        const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
-        const manifest = await fetch(manifestUrl).then(res => res.json());
-        
-        if (manifest && manifest.chunks) {
-          const chunkInfo = manifest.chunks.find(
-            (chunk: any) => chunk.hour === rawTranscriptData.hour && chunk.chunk_index === rawTranscriptData.chunk_index
-          );
+        if (chunkInfo && chunkInfo.transcript) {
+          const updatedTranscript: TranscriptData10Min = {
+            capture_folder: chunkInfo.capture_folder || deviceId,
+            hour: rawTranscriptData.hour,
+            chunk_index: rawTranscriptData.chunk_index,
+            chunk_duration_minutes: 10,
+            language: chunkInfo.language || 'unknown',
+            transcript: chunkInfo.transcript || '',
+            confidence: chunkInfo.confidence || 0.0,
+            transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
+            timestamp: chunkInfo.timestamp || new Date().toISOString(),
+            mp3_file: chunkInfo.mp3_file || '',
+            segments: chunkInfo.segments || [],
+            minute_metadata: chunkInfo.minute_metadata || []
+          };
           
-          if (chunkInfo && chunkInfo.transcript) {
-            const updatedTranscript: TranscriptData10Min = {
-              capture_folder: chunkInfo.capture_folder || deviceId,
-              hour: rawTranscriptData.hour,
-              chunk_index: rawTranscriptData.chunk_index,
-              chunk_duration_minutes: 10,
-              language: chunkInfo.language || 'unknown',
-              transcript: chunkInfo.transcript || '',
-              confidence: chunkInfo.confidence || 0.0,
-              transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
-              timestamp: chunkInfo.timestamp || new Date().toISOString(),
-              mp3_file: chunkInfo.mp3_file || '',
-              segments: chunkInfo.segments || []
-            };
-            
-            setRawTranscriptData(updatedTranscript);
-            setTranscriptData(normalizeTranscriptData(updatedTranscript));
-          }
+          setRawTranscriptData(updatedTranscript);
+          setTranscriptData(normalizeTranscriptData(updatedTranscript));
         }
       }
     } catch (error) {
-      console.error('[@useTranscriptPlayer] Translation failed:', error);
-    } finally {
-      setIsTranslating(false);
+      console.error('[@useTranscriptPlayer] Failed to reload transcript:', error);
     }
-  }, [rawTranscriptData, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, deviceId, host]);
+  }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
+
+  const handleLanguageChange = useCallback(async (language: string) => {
+    setSelectedLanguage(language);
+    
+    if (language === 'original') {
+      console.log('[@useTranscriptPlayer] Switched to original language');
+      setTranslationProgress(null);
+      return;
+    }
+
+    // Check if translations already cached
+    const hasTranslations = rawTranscriptData?.segments?.some(
+      seg => seg.translations && seg.translations[language]
+    );
+    
+    if (hasTranslations) {
+      console.log(`[@useTranscriptPlayer] Using cached translations for ${language}`);
+      setTranslationProgress(null);
+      return;
+    }
+
+    // Need to translate - use smart lazy loading
+    if (!rawTranscriptData?.segments || rawTranscriptData.segments.length === 0) {
+      console.log('[@useTranscriptPlayer] No segments to translate');
+      return;
+    }
+
+    const totalSegments = rawTranscriptData.segments.length;
+    console.log(`[@useTranscriptPlayer] 🌐 Starting smart translation to ${language} (${totalSegments} segments)`);
+    
+    // Find current segment index based on playback time
+    const currentManifest = archiveMetadata?.manifests[currentManifestIndex];
+    const localTime = currentManifest ? globalCurrentTime - currentManifest.start_time_seconds : 0;
+    const currentSegmentIndex = Math.floor(localTime);
+    
+    // PHASE 1: Translate current + next 10 segments immediately (priority buffer)
+    const initialBatchSize = 10;
+    const initialEnd = Math.min(currentSegmentIndex + initialBatchSize, totalSegments);
+    
+    setIsTranslating(true);
+    setTranslationProgress({ language, translatedCount: 0, totalCount: totalSegments });
+    
+    console.log(`[@useTranscriptPlayer] 🚀 Phase 1: Translating segments ${currentSegmentIndex}-${initialEnd} (immediate)`);
+    
+    const phase1Success = await translateSegmentBatch(currentSegmentIndex, initialEnd, language);
+    
+    if (phase1Success) {
+      await reloadTranscriptData();
+      setTranslationProgress({ language, translatedCount: initialEnd - currentSegmentIndex, totalCount: totalSegments });
+      console.log(`[@useTranscriptPlayer] ✅ Phase 1 complete - translations available!`);
+    }
+    
+    setIsTranslating(false);
+    
+    // PHASE 2: Background translation of remaining segments (non-blocking)
+    if (initialEnd < totalSegments) {
+      console.log(`[@useTranscriptPlayer] 🔄 Phase 2: Background translation of remaining ${totalSegments - initialEnd} segments`);
+      
+      // Translate in batches of 20 segments
+      const batchSize = 20;
+      let currentIndex = initialEnd;
+      
+      const translateRemainingSegments = async () => {
+        while (currentIndex < totalSegments) {
+          const batchEnd = Math.min(currentIndex + batchSize, totalSegments);
+          
+          const success = await translateSegmentBatch(currentIndex, batchEnd, language);
+          
+          if (success) {
+            await reloadTranscriptData();
+            setTranslationProgress({ language, translatedCount: batchEnd, totalCount: totalSegments });
+            console.log(`[@useTranscriptPlayer] ⚡ Translated segments ${currentIndex}-${batchEnd} (${Math.round(batchEnd / totalSegments * 100)}%)`);
+          }
+          
+          currentIndex = batchEnd;
+          
+          // Small delay between batches to avoid overwhelming the backend
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        console.log(`[@useTranscriptPlayer] ✅ Full translation complete for ${language}`);
+        setTranslationProgress(null);
+      };
+      
+      // Run background translation (non-blocking)
+      translateRemainingSegments();
+    } else {
+      setTranslationProgress(null);
+    }
+  }, [rawTranscriptData, archiveMetadata, currentManifestIndex, globalCurrentTime, translateSegmentBatch, reloadTranscriptData]);
 
   const getCurrentTranscriptText = useCallback(() => {
     // For new 10-min format with timed segments, ONLY use timed segments (no fallback)
@@ -373,6 +457,7 @@ export const useTranscriptPlayer = ({
     currentTranscript,
     selectedLanguage,
     isTranslating,
+    translationProgress,
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
@@ -383,6 +468,7 @@ export const useTranscriptPlayer = ({
     currentTranscript,
     selectedLanguage,
     isTranslating,
+    translationProgress,
     handleLanguageChange,
     getCurrentTranscriptText,
     clearTranscriptData,
