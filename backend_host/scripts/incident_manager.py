@@ -422,14 +422,14 @@ class IncidentManager:
                     # Issue was pending but cleared before reaching 5min threshold
                     elapsed_time = current_time - pending_incidents[issue_type]
                     transitions[issue_type] = 'cleared'  # Mark transition
-                    if elapsed_time >= 60:
-                        logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time/60:.1f}min (never reported to DB)")
-                    else:
-                        logger.info(f"[{capture_folder}] {issue_type} cleared after {elapsed_time:.1f}s (never reported to DB)")
+                    # Skip logging (already logged in capture_monitor with event duration)
                     del pending_incidents[issue_type]
                     
-                    # Clear cached R2 URLs for freeze when it ends
+                    # Clear cached R2 URLs for freeze when it ends + DELETE orphaned images
                     if issue_type == 'freeze':
+                        freeze_r2_images = device_state.get('freeze_r2_images')
+                        if freeze_r2_images:
+                            self._delete_r2_freeze_images(freeze_r2_images, capture_folder)
                         device_state.pop('freeze_r2_urls', None)
                         device_state.pop('freeze_r2_images', None)
                         logger.debug(f"[{capture_folder}] Cleared freeze R2 URL cache")
@@ -541,3 +541,48 @@ class IncidentManager:
         except Exception as e:
             logger.error(f"[{device_id}] Error in R2 upload: {e}")
             return None
+    
+    def _delete_r2_freeze_images(self, freeze_r2_images, capture_folder):
+        """
+        Delete orphaned freeze images from R2 when freeze is discarded (< 5min).
+        Called when freeze ends before reaching the 5-minute reporting threshold.
+        
+        Args:
+            freeze_r2_images: Dict with 'original_r2_paths' and 'thumbnail_r2_paths'
+            capture_folder: Device capture folder name for logging
+        """
+        try:
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            
+            uploader = get_cloudflare_utils()
+            if not uploader:
+                logger.warning(f"[{capture_folder}] R2 uploader not available, cannot delete orphaned images")
+                return
+            
+            # Collect all R2 paths to delete
+            paths_to_delete = []
+            if 'original_r2_paths' in freeze_r2_images:
+                paths_to_delete.extend(freeze_r2_images['original_r2_paths'])
+            if 'thumbnail_r2_paths' in freeze_r2_images:
+                paths_to_delete.extend(freeze_r2_images['thumbnail_r2_paths'])
+            
+            if not paths_to_delete:
+                logger.debug(f"[{capture_folder}] No R2 paths to delete for discarded freeze")
+                return
+            
+            # Delete each file from R2
+            deleted_count = 0
+            failed_count = 0
+            for r2_path in paths_to_delete:
+                if uploader.delete_file(r2_path):
+                    deleted_count += 1
+                else:
+                    failed_count += 1
+            
+            if deleted_count > 0:
+                logger.info(f"[{capture_folder}] 🗑️  Deleted {deleted_count} orphaned R2 images (freeze < 5min)")
+            if failed_count > 0:
+                logger.warning(f"[{capture_folder}] Failed to delete {failed_count} R2 images")
+                
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Error deleting R2 freeze images: {e}")

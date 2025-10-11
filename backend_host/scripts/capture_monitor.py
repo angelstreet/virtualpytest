@@ -259,6 +259,10 @@ class InotifyFrameMonitor:
                     if event_type == 'audio':
                         volume = detection_result.get('mean_volume_db', -100)
                         logger.info(f"[{capture_folder}] 🔇 AUDIO LOSS started (volume={volume:.1f}dB)")
+                    elif event_type == 'freeze':
+                        freeze_diffs = detection_result.get('freeze_diffs', [])
+                        diffs_str = f"diffs={freeze_diffs}" if freeze_diffs else "diffs=[]"
+                        logger.info(f"[{capture_folder}] ⚠️  FREEZE started ({diffs_str})")
                     else:
                         logger.info(f"[{capture_folder}] ⚠️  {event_type.upper()} started")
                 else:
@@ -287,6 +291,10 @@ class InotifyFrameMonitor:
                 if event_type == 'audio':
                     volume = detection_result.get('mean_volume_db', -100)
                     logger.info(f"[{capture_folder}] 🔊 AUDIO RESTORED after {total_duration_ms/1000:.1f}s (volume={volume:.1f}dB)")
+                elif event_type == 'freeze':
+                    freeze_diffs = detection_result.get('freeze_diffs', [])
+                    diffs_str = f"diffs={freeze_diffs}" if freeze_diffs else "diffs=[]"
+                    logger.info(f"[{capture_folder}] ✅ FREEZE ended after {total_duration_ms/1000:.1f}s ({diffs_str})")
                 else:
                     logger.info(f"[{capture_folder}] ✅ {event_type.upper()} ended after {total_duration_ms/1000:.1f}s")
                 
@@ -485,10 +493,14 @@ class InotifyFrameMonitor:
                         # Use last_3_thumbnails from detector (already validated to exist)
                         last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                         
+                        # Get freeze diff values for logging
+                        freeze_diffs = detection_result.get('freeze_diffs', [])
+                        diffs_str = f" diffs={freeze_diffs}" if freeze_diffs else ""
+                        
                         if last_3_thumbnails:
-                            logger.info(f"[{capture_folder}] 🆕 NEW freeze detected - uploading {len(last_3_thumbnails)} thumbnails to R2 (time_key={time_key})")
+                            logger.info(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} - uploading {len(last_3_thumbnails)} thumbnails to R2 (time_key={time_key})")
                         else:
-                            logger.warning(f"[{capture_folder}] 🆕 NEW freeze detected but no thumbnails available (detector returned {len(last_3_captures)} captures)")
+                            logger.warning(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} but no thumbnails available (detector returned {len(last_3_captures)} captures)")
                         r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
                             last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
                         )
@@ -539,13 +551,13 @@ class InotifyFrameMonitor:
                     }
                     audio_val = "✅ YES" if existing_data['audio'] else "❌ NO"
                     volume = existing_data.get('mean_volume_db', -100)
-                    logger.info(f"[{capture_folder}] 🔄 Updated audio cache from {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
+                    logger.info(f"[{capture_folder}] 🔄 Updated audio cache from {json_file}: audio={audio_val}, volume={volume:.1f}dB")
                 elif capture_folder in self.audio_cache:
                     # No audio in JSON but we have cached value - use it
                     existing_data.update(self.audio_cache[capture_folder])
                     audio_val = "✅ YES" if self.audio_cache[capture_folder]['audio'] else "❌ NO"
                     volume = self.audio_cache[capture_folder].get('mean_volume_db', -100)
-                    logger.debug(f"[{capture_folder}] 📋 Using cached audio for {os.path.basename(json_file)}: audio={audio_val}, volume={volume:.1f}dB")
+                    logger.debug(f"[{capture_folder}] 📋 Using cached audio for {json_file}: audio={audio_val}, volume={volume:.1f}dB")
                 
                 if detection_result:
                     # Determine if transcription is worthwhile (skip if incidents present or no audio)
@@ -589,9 +601,9 @@ class InotifyFrameMonitor:
                 has_r2_images = 'r2_images' in analysis_data and analysis_data['r2_images']
                 if has_r2_images:
                     r2_count = len(analysis_data.get('r2_images', {}).get('thumbnail_urls', []))
-                    logger.info(f"[{capture_folder}] ✓ Created JSON → {os.path.basename(json_file)} (seq={sequence}, r2_urls={r2_count})")
+                    logger.info(f"[{capture_folder}] ✓ Created JSON → {json_file} (seq={sequence}, r2_urls={r2_count})")
                 else:
-                    logger.debug(f"[{capture_folder}] ✓ Created JSON → {os.path.basename(json_file)} (seq={sequence})")
+                    logger.debug(f"[{capture_folder}] ✓ Created JSON → {json_file} (seq={sequence})")
                 
                 # Append to chunk: 1 frame per second only (HLS displays at 1-second granularity)
                 if sequence % 5 == 0:

@@ -36,6 +36,9 @@ from contextlib import contextmanager
 # === CONFIGURATION ===
 # OCR is handled by subtitle_monitor.py - removed from detector.py
 
+# Freeze detection threshold (percentage of pixels that must differ)
+FREEZE_THRESHOLD = 1.0  # 1.0% pixel difference = frozen (increased from 0.5% for better tolerance)
+
 from shared.src.lib.utils.storage_path_utils import (
     is_ram_mode,
     get_segments_path,
@@ -179,8 +182,7 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     if len(cache) > 3:
         cache.pop(0)
     
-    # Frozen if ALL checked frames have < 0.5% difference (VERY STRICT)
-    FREEZE_THRESHOLD = 0.5  # 0.5% pixel difference = frozen
+    # Frozen if ALL checked frames have < threshold difference (VERY STRICT)
     frozen = len(pixel_diffs) >= 2 and all(diff < FREEZE_THRESHOLD for diff in pixel_diffs)
     
     return frozen, {
