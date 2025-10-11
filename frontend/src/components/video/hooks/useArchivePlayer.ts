@@ -357,7 +357,12 @@ export const useArchivePlayer = ({
           
           if (video.currentTime >= video.duration - 1) {
             const nextIndex = currentManifestIndex + 1;
-            if (nextIndex < archiveMetadata.manifests.length) {
+            
+            // If we've reached the last manifest (closest to "now"), pause instead of looping
+            if (nextIndex >= archiveMetadata.manifests.length) {
+              console.log(`[@EnhancedHLSPlayer] Reached the end of archive (now) - pausing playback`);
+              video.pause();
+            } else {
               console.log(`[@EnhancedHLSPlayer] Switching to manifest ${nextIndex + 1}`);
               setCurrentManifestIndex(nextIndex);
               setPreloadedNextManifest(false);

@@ -607,18 +607,29 @@ class InotifyTranscriptMonitor:
         logger.info(f"inotify validation: {', '.join(test_results)}")
     
     def _scan_existing_mp3s(self):
-        """Scan existing 10min MP3s and queue missing transcripts"""
-        logger.info("Scanning existing 10min MP3s...")
+        """Scan existing MP3s and queue missing transcripts"""
+        logger.info("Scanning existing MP3s (temp + hour directories)...")
         
         total_queued = 0
         for device_info in self.monitored_devices:
             device_folder = device_info['device_folder']
             
-            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, calculate_chunk_location
             audio_cold = get_cold_storage_path(device_folder, 'audio')
             transcript_base = get_transcript_path(device_folder)
             
-            pending = []
+            pending_1min = []
+            pending_10min = []
+            
+            audio_temp = os.path.join(audio_cold, 'temp')
+            if os.path.exists(audio_temp):
+                for mp3_file in os.listdir(audio_temp):
+                    if mp3_file.startswith('1min_') and mp3_file.endswith('.mp3'):
+                        mp3_path = os.path.join(audio_temp, mp3_file)
+                        timestamp = int(mp3_file.replace('1min_', '').replace('.mp3', ''))
+                        hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
+                        pending_1min.append((os.path.getmtime(mp3_path), device_folder, mp3_path, hour, chunk_index))
+            
             for hour in range(24):
                 audio_dir = os.path.join(audio_cold, str(hour))
                 if not os.path.exists(audio_dir):
@@ -631,11 +642,21 @@ class InotifyTranscriptMonitor:
                         
                         if not os.path.exists(transcript_path):
                             mp3_path = os.path.join(audio_dir, mp3_file)
-                            pending.append((os.path.getmtime(mp3_path), device_folder, hour, chunk_index))
+                            pending_10min.append((os.path.getmtime(mp3_path), device_folder, hour, chunk_index))
             
-            pending.sort(key=lambda x: x[0])
+            pending_1min.sort(key=lambda x: x[0])
+            pending_10min.sort(key=lambda x: x[0])
             
-            for mtime, device_folder, hour, chunk_index in pending:
+            for mtime, device_folder, mp3_path, hour, chunk_index in pending_1min:
+                try:
+                    self.mp3_queue.put_nowait((device_folder, mp3_path, hour, chunk_index))
+                    logger.info(f"[{device_folder}] 📥 Queued: temp/1min_{os.path.basename(mp3_path)}")
+                    total_queued += 1
+                except queue.Full:
+                    logger.warning(f"[{device_folder}] Queue full, skipping remaining backlog")
+                    break
+            
+            for mtime, device_folder, hour, chunk_index in pending_10min:
                 try:
                     self.mp3_queue.put_nowait((device_folder, hour, chunk_index))
                     logger.info(f"[{device_folder}] 📥 Queued: {hour}h/chunk_{chunk_index}")
@@ -644,8 +665,8 @@ class InotifyTranscriptMonitor:
                     logger.warning(f"[{device_folder}] Queue full, skipping remaining backlog")
                     break
             
-            if pending:
-                logger.info(f"[{device_folder}] Queued {len(pending)} MP3s for transcription")
+            if pending_1min or pending_10min:
+                logger.info(f"[{device_folder}] Queued {len(pending_1min)} x 1min + {len(pending_10min)} x 10min")
         
         if total_queued > 0:
             logger.info(f"Scan complete - queued {total_queued} chunks (processing newest first)")
@@ -1064,7 +1085,7 @@ def main():
     logger.info("=" * 80)
     logger.info("Architecture: inotify event-driven (zero CPU when idle)")
     logger.info("Watches: 1min MP3 files in COLD /audio/temp/ (instant transcription)")
-    logger.info("Scans: 10min MP3 chunks in COLD /audio/{hour}/ (backfill/recovery)")
+    logger.info("Scans: 1min /audio/temp/ + 10min /audio/{hour}/ (backfill/recovery)")
     logger.info("Processing: MP3 → JSON transcript (Whisper tiny model)")
     logger.info("=" * 80)
     
