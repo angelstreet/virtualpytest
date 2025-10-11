@@ -48,10 +48,16 @@ def get_compatible_interfaces():
         # Get all interfaces for the team
         all_interfaces = get_all_userinterfaces(team_id)
         
-        # Filter to compatible ones (where device_model is in the models array)
+        # Map host_vnc to also be compatible with web and desktop interfaces
+        compatible_models = [device_model]
+        if device_model == 'host_vnc':
+            compatible_models.extend(['web', 'desktop'])
+            print(f"[@server_userinterface] host_vnc device - also checking for web and desktop interfaces")
+        
+        # Filter to compatible ones (where device_model OR mapped models are in the models array)
         compatible_interfaces = [
             interface for interface in all_interfaces
-            if device_model in (interface.get('models') or [])
+            if any(model in (interface.get('models') or []) for model in compatible_models)
         ]
         
         return jsonify({
