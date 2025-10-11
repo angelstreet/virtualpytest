@@ -579,7 +579,7 @@ body {{
     align-items: center;
 }}
 
-.modal-content {
+.modal-content {{
     position: relative;
     min-width: 800px;
     max-width: 98%;
@@ -588,7 +588,7 @@ body {{
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
+}}
 
 .modal-header {{
     text-align: center;
