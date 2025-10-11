@@ -9,6 +9,7 @@ interface LanguageSelectorProps {
   isTranslating: boolean;
   onLanguageChange: (language: string) => void;
   show: boolean;
+  detectedLanguage?: string;
 }
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
@@ -17,10 +18,20 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   isTranslating,
   onLanguageChange,
   show,
+  detectedLanguage,
 }) => {
   if (!show || !transcriptData || !transcriptData.segments || transcriptData.segments.length === 0) {
     return null;
   }
+
+  // Format detected language name for display
+  const formatLanguageName = (lang?: string): string => {
+    if (!lang) return 'Original';
+    // Capitalize first letter
+    return lang.charAt(0).toUpperCase() + lang.slice(1).toLowerCase();
+  };
+
+  const originalLabel = detectedLanguage ? formatLanguageName(detectedLanguage) : 'Original';
 
   return (
     <Box
@@ -56,7 +67,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
           },
         }}
       >
-        <MenuItem value="original">Original</MenuItem>
+        <MenuItem value="original">{originalLabel}</MenuItem>
         <MenuItem value="French">French</MenuItem>
         <MenuItem value="Spanish">Spanish</MenuItem>
         <MenuItem value="German">German</MenuItem>

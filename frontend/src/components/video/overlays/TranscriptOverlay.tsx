@@ -81,7 +81,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
             }}
           >
             {selectedLanguage === 'original' 
-              ? `${currentTranscript.language} • ${Math.round(currentTranscript.confidence * 100)}%`
+              ? `${currentTranscript.language.charAt(0).toUpperCase() + currentTranscript.language.slice(1).toLowerCase()} • ${Math.round(currentTranscript.confidence * 100)}%`
               : `Translated to ${selectedLanguage}`
             }
           </Typography>
