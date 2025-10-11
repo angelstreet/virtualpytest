@@ -353,8 +353,6 @@ class IncidentManager:
                     first_detected_time = pending_incidents[issue_type]
                     elapsed_time = current_time - first_detected_time
                     
-                    logger.info(f"[{capture_folder}] {issue_type} still pending: elapsed={elapsed_time:.1f}s, threshold={self.INCIDENT_REPORT_DELAY}s, will_report={elapsed_time >= self.INCIDENT_REPORT_DELAY}")
-                    
                     if elapsed_time >= self.INCIDENT_REPORT_DELAY:
                         # Issue has persisted for 5+ minutes, report to DB
                         logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB NOW")
@@ -389,9 +387,9 @@ class IncidentManager:
                         # Still waiting for 5 minutes
                         remaining_time = self.INCIDENT_REPORT_DELAY - elapsed_time
                         if elapsed_time > 60:
-                            logger.info(f"[{capture_folder}] {issue_type} detected, waiting {remaining_time/60:.1f}min more before reporting")
+                            logger.info(f"[{capture_folder}] {issue_type} still pending (elapsed={elapsed_time:.1f}s), waiting {remaining_time/60:.1f}min more before reporting")
                         else:
-                            logger.debug(f"[{capture_folder}] {issue_type} detected, waiting {remaining_time:.0f}s more before reporting")
+                            logger.debug(f"[{capture_folder}] {issue_type} still pending (elapsed={elapsed_time:.0f}s), waiting {remaining_time:.0f}s more before reporting")
                         
                 else:
                     # First detection of this issue, add to pending

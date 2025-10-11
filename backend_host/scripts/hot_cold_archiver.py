@@ -13,11 +13,11 @@ Result: Frontend timeline has NO CHANGES - same chunk URL just grows in duration
 
 Note: Metadata archival is handled by capture_monitor.py (incremental append to chunks)
 
-What goes to COLD storage:
+What goes to COLD storage (SD mode) or HOT storage (RAM mode):
 - Segments (as 10min MP4 chunks in /segments/{hour}/)
 - Metadata (as 10min JSON chunks in /metadata/{hour}/)
-- Audio (as 10min MP3 chunks in /audio/{hour}/)
-- Transcripts (saved directly by transcript_accumulator.py in /transcript/{hour}/)
+- Audio (as 10min MP3 chunks in /audio/{hour}/ - HOT in RAM mode!)
+- Transcripts (saved directly by transcript_accumulator.py in /transcript/{hour}/ - always COLD)
 
 What stays HOT-only (deleted):
 - Captures (uploaded to R2 cloud when needed)
@@ -983,18 +983,26 @@ def process_capture_directory(capture_dir: str):
         timestamp = int(Path(mp4_1min).stem.replace('1min_', ''))
         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
         
-        # Create 1min MP3 in audio temp dir (for inotify + instant transcription)
-        audio_temp_dir = os.path.join(capture_dir, 'audio', 'temp')
+        # Create 1min MP3 in audio temp dir (hot/cold aware for inotify + instant transcription)
+        from shared.src.lib.utils.storage_path_utils import get_audio_path
+        from pathlib import Path as PathLib
+        
+        # Get device folder from capture_dir path
+        device_folder = os.path.basename(capture_dir)
+        audio_base = get_audio_path(device_folder)
+        audio_temp_dir = os.path.join(audio_base, 'temp')
         os.makedirs(audio_temp_dir, exist_ok=True)
         mp3_1min = os.path.join(audio_temp_dir, f'1min_{timestamp}.mp3')
         
         try:
             import subprocess
+            logger.info(f"Creating 1min MP3: {mp3_1min}")
             subprocess.run(
                 ['ffmpeg', '-i', mp4_1min, '-vn', '-acodec', 'libmp3lame', '-q:a', '4', f'{mp3_1min}.tmp', '-y'],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=15
             )
             os.rename(f'{mp3_1min}.tmp', mp3_1min)
+            logger.info(f"✓ Created 1min MP3 (triggers inotify): {os.path.basename(mp3_1min)}")
         except Exception as e:
             logger.warning(f"Failed to create 1min MP3: {e}")
             mp3_1min = None
@@ -1012,7 +1020,8 @@ def process_capture_directory(capture_dir: str):
         
         # Progressive append MP3 to 10min chunk (after transcription happens via inotify)
         if mp3_1min and os.path.exists(mp3_1min):
-            audio_hour_dir = os.path.join(capture_dir, 'audio', str(hour))
+            # Use same audio_base from above (hot/cold aware)
+            audio_hour_dir = os.path.join(audio_base, str(hour))
             os.makedirs(audio_hour_dir, exist_ok=True)
             mp3_10min = os.path.join(audio_hour_dir, f'chunk_10min_{chunk_index}.mp3')
             

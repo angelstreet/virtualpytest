@@ -343,17 +343,20 @@ def get_cold_storage_path(device_folder_or_path, subfolder):
 
 def get_audio_path(device_folder):
     """
-    Get audio storage path (ALWAYS COLD).
+    Get audio storage path (HOT or COLD depending on mode).
     
-    Audio MP3 chunks are extracted directly to cold storage by hot_cold_archiver.
+    - HOT: Live MP3 chunks being created/appended in RAM
+    - COLD: Final archived audio (SD mode only)
     
     Args:
         device_folder: Device folder name (e.g., 'capture1')
         
     Returns:
-        Path to audio directory (e.g., '/var/www/html/stream/capture1/audio')
+        Path to audio directory:
+        - RAM mode: '/var/www/html/stream/capture1/hot/audio'
+        - SD mode: '/var/www/html/stream/capture1/audio'
     """
-    return get_cold_storage_path(device_folder, 'audio')
+    return get_capture_storage_path(device_folder, 'audio')
 
 
 def get_transcript_path(device_folder):

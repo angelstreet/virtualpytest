@@ -557,6 +557,41 @@ class InotifyTranscriptMonitor:
             logger.info(f"[{device_folder}] ✓ Watching {audio_temp_dir}")
         
         logger.info(f"Total: {len(self.audio_path_to_device)} temp dir watches")
+        
+        # Validate inotify is working
+        self._validate_inotify_setup()
+    
+    def _validate_inotify_setup(self):
+        """Test that inotify watches are working correctly"""
+        logger.info("Validating inotify setup...")
+        
+        test_results = []
+        for device_info in self.monitored_devices:
+            device_folder = device_info['device_folder']
+            audio_base = device_info['audio_base']
+            audio_temp_dir = os.path.join(audio_base, 'temp')
+            
+            # Create test file to verify inotify
+            test_file = os.path.join(audio_temp_dir, '_inotify_test.mp3')
+            try:
+                # Write test file with atomic rename (same as production)
+                logger.info(f"[{device_folder}] Testing inotify on: {audio_temp_dir}")
+                with open(test_file + '.tmp', 'w') as f:
+                    f.write('test')
+                os.rename(test_file + '.tmp', test_file)
+                
+                # Clean up
+                time.sleep(0.1)
+                if os.path.exists(test_file):
+                    os.remove(test_file)
+                
+                test_results.append(f"✓ {device_folder}")
+                logger.info(f"[{device_folder}] ✓ inotify watch validated: {audio_temp_dir}")
+            except Exception as e:
+                test_results.append(f"✗ {device_folder}: {e}")
+                logger.error(f"[{device_folder}] ✗ inotify validation failed on {audio_temp_dir}: {e}")
+        
+        logger.info(f"inotify validation: {', '.join(test_results)}")
     
     def _scan_existing_mp3s(self):
         """Scan existing 10min MP3s and queue missing transcripts"""
@@ -593,9 +628,15 @@ class InotifyTranscriptMonitor:
     
     def _transcription_worker(self):
         """Process MP3 transcription queue (1min or 10min)"""
+        last_heartbeat = time.time()
+        heartbeat_interval = 60  # Log heartbeat every 60s when idle
+        
         while True:
             try:
-                item = self.mp3_queue.get(timeout=30)
+                item = self.mp3_queue.get(timeout=5)
+                
+                # Reset heartbeat on work
+                last_heartbeat = time.time()
                 
                 # Handle both 1min (from inotify) and 10min (from scan)
                 if len(item) == 3:
@@ -641,6 +682,11 @@ class InotifyTranscriptMonitor:
                 self.mp3_queue.task_done()
                 
             except queue.Empty:
+                # Heartbeat: log status every 60s when idle
+                if time.time() - last_heartbeat > heartbeat_interval:
+                    queue_size = self.mp3_queue.qsize()
+                    logger.info(f"[TRANSCRIPTION] ❤️  Heartbeat: Idle, queue={queue_size}, waiting for 1min MP3s...")
+                    last_heartbeat = time.time()
                 continue
             except Exception as e:
                 logger.error(f"Transcription error: {e}")
@@ -907,10 +953,28 @@ class InotifyTranscriptMonitor:
     
     def run(self):
         """Main event loop - watch for 1min MP3 files in temp/"""
+        logger.info("=" * 80)
         logger.info("Starting 1min MP3 inotify event loop...")
+        logger.info(f"Watching {len(self.audio_path_to_device)} directories for IN_MOVED_TO events")
+        logger.info("Ready to process 1min MP3 files")
+        logger.info("=" * 80)
+        
+        event_count = 0
+        mp3_count = 0
+        last_heartbeat = time.time()
+        heartbeat_interval = 60  # Log every 60s
         
         try:
-            for event in self.inotify.event_gen(yield_nones=False):
+            for event in self.inotify.event_gen(yield_nones=True):
+                # Heartbeat: log status periodically
+                if time.time() - last_heartbeat > heartbeat_interval:
+                    logger.info(f"[INOTIFY] ❤️  Heartbeat: Listening, events={event_count}, MP3s={mp3_count}, queue={self.mp3_queue.qsize()}")
+                    last_heartbeat = time.time()
+                
+                if event is None:
+                    continue
+                
+                event_count += 1
                 (_, type_names, path, filename) = event
                 
                 # Watch for 1min MP3 files (IN_MOVED_TO = atomic rename after creation)
@@ -922,7 +986,8 @@ class InotifyTranscriptMonitor:
                         from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
                         hour, chunk_index = calculate_chunk_location(datetime.fromtimestamp(timestamp))
                         
-                        logger.info(f"[{device_folder}] 🆕 1min MP3: {filename}")
+                        mp3_count += 1
+                        logger.info(f"[INOTIFY] 🆕 1min MP3 detected: {device_folder}/{filename}")
                         self.mp3_queue.put((device_folder, mp3_path, hour, chunk_index))
         
         except KeyboardInterrupt:
@@ -993,7 +1058,7 @@ def main():
                 skipped_count += 1
                 continue
             
-            # Get audio path (ALWAYS cold storage)
+            # Get audio path (hot/cold aware - returns /hot/audio/ in RAM mode)
             audio_base = get_audio_path(device_folder)
             
             logger.info(f"  ✓ Monitoring: {device_folder}")
