@@ -67,6 +67,8 @@ def merge_video_files(
         if output_format == 'mp4' and not skip_faststart:
             cmd.extend(['-movflags', '+faststart'])
         
+        # Explicitly specify output format to avoid issues with .tmp or non-standard extensions
+        cmd.extend(['-f', output_format])
         cmd.append(output_path)
         
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
