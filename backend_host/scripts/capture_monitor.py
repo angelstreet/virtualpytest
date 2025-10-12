@@ -288,13 +288,42 @@ class InotifyFrameMonitor:
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
                 
-                # DEBOUNCE: For freeze, keep R2 cache for 30s after freeze ends
-                # This prevents re-uploading if freeze flaps (ends/starts rapidly)
-                # Note: blackscreen/macroblocks don't need this since they don't have R2 uploads
+                # DEBOUNCE: Keep R2 cache for 30s after event ends
+                # This prevents re-uploading if event flaps (ends/starts rapidly)
+                from datetime import timedelta
+                cache_clear_time = current_time + timedelta(seconds=30)
+                
                 if event_type == 'freeze':
-                    from datetime import timedelta
-                    cache_clear_time = current_time + timedelta(seconds=30)
                     device_state['freeze_cache_clear_at'] = cache_clear_time.isoformat()
+                elif event_type == 'blackscreen':
+                    device_state['blackscreen_cache_clear_at'] = cache_clear_time.isoformat()
+                elif event_type == 'macroblocks':
+                    device_state['macroblocks_cache_clear_at'] = cache_clear_time.isoformat()
+                
+                # Upload closure image to R2 (only if event lasted > 5s and we have cached start image)
+                if total_duration_ms > 5000:
+                    if event_type in ['blackscreen', 'macroblocks'] and device_state.get(f'{event_type}_r2_images'):
+                        # Get current frame thumbnail for closure
+                        metadata_path = get_metadata_path(capture_folder)
+                        current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
+                        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
+                        thumbnails_dir = get_thumbnails_path(capture_folder)
+                        current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
+                        
+                        if os.path.exists(current_thumbnail_path):
+                            # Upload closure image with same time_key as start image
+                            r2_images = device_state.get(f'{event_type}_r2_images', {})
+                            time_key = r2_images.get('time_key', f"{current_time.hour:02d}{current_time.minute:02d}")
+                            
+                            logger.info(f"[{capture_folder}] 📤 Uploading {event_type.upper()} closure image to R2...")
+                            closure_r2 = self.incident_manager.upload_incident_frame_to_r2(
+                                current_thumbnail_path, capture_folder, time_key, event_type, 'end'
+                            )
+                            if closure_r2 and closure_r2.get('thumbnail_url'):
+                                # Add closure URL to device state (will be included in DB incident)
+                                device_state[f'{event_type}_r2_images']['closure_url'] = closure_r2['thumbnail_url']
+                                device_state[f'{event_type}_r2_images']['closure_r2_path'] = closure_r2.get('thumbnail_r2_path')
+                                logger.info(f"[{capture_folder}] ✅ {event_type.upper()} closure image uploaded: {closure_r2['thumbnail_url']}")
                 
                 # Log event end
                 if event_type == 'audio':

@@ -282,15 +282,20 @@ def create_alert(
             'error': str(e)
         }
 
-def resolve_alert(alert_id: str) -> Dict:
-    """Resolve an alert by setting status to resolved and end_time."""
+def resolve_alert(alert_id: str, closure_metadata: Dict = None) -> Dict:
+    """Resolve an alert by setting status to resolved and end_time.
+    
+    Args:
+        alert_id: Alert ID to resolve
+        closure_metadata: Optional dict with closure data (e.g., closure image URLs)
+    """
     try:
         print(f"[@db:alerts:resolve_alert] Resolving alert: {alert_id}")
         
         supabase = get_supabase()
         
-        # First get the alert to check start_time
-        alert_result = supabase.table('alerts').select('start_time').eq('id', alert_id).execute()
+        # First get the alert to check start_time and metadata
+        alert_result = supabase.table('alerts').select('start_time, metadata').eq('id', alert_id).execute()
         if not alert_result.data:
             return {
                 'success': False,
@@ -298,6 +303,7 @@ def resolve_alert(alert_id: str) -> Dict:
             }
         
         start_time = alert_result.data[0]['start_time']
+        existing_metadata = alert_result.data[0].get('metadata', {})
         end_time = datetime.now(timezone.utc).isoformat()
         
         # Ensure end_time is not before start_time
@@ -308,10 +314,25 @@ def resolve_alert(alert_id: str) -> Dict:
             print(f"[@db:alerts:resolve_alert] Warning: end_time would be before start_time, using start_time + 1 second")
             end_time = (start_dt + timedelta(seconds=1)).isoformat()
         
-        result = supabase.table('alerts').update({
+        # Merge closure metadata into existing metadata
+        update_data = {
             'status': 'resolved',
             'end_time': end_time
-        }).eq('id', alert_id).execute()
+        }
+        
+        if closure_metadata:
+            # Merge r2_images if provided
+            if 'r2_images' in closure_metadata:
+                if 'r2_images' in existing_metadata:
+                    # Merge with existing r2_images
+                    existing_metadata['r2_images'].update(closure_metadata['r2_images'])
+                else:
+                    existing_metadata['r2_images'] = closure_metadata['r2_images']
+            
+            update_data['metadata'] = existing_metadata
+            print(f"[@db:alerts:resolve_alert] Updated metadata with closure data")
+        
+        result = supabase.table('alerts').update(update_data).eq('id', alert_id).execute()
         
         if result.data:
             print(f"[@db:alerts:resolve_alert] Success: {alert_id}")

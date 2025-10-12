@@ -241,12 +241,24 @@ class IncidentManager:
                     
                 if 'r2_images' in analysis_result:
                     enhanced_metadata['r2_images'] = analysis_result['r2_images']
-                    r2_count = len(analysis_result['r2_images'].get('thumbnail_urls', []))
-                    logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with {r2_count} R2 image URLs:")
-                    for i, url in enumerate(analysis_result['r2_images'].get('thumbnail_urls', [])):
-                        logger.info(f"[{capture_folder}]     🖼️  R2 Image {i+1}: {url}")
+                    
+                    # Handle both freeze (multiple thumbnails) and blackscreen/macroblocks (single thumbnail)
+                    if 'thumbnail_urls' in analysis_result['r2_images']:
+                        # Freeze incident - multiple thumbnails
+                        r2_count = len(analysis_result['r2_images']['thumbnail_urls'])
+                        logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with {r2_count} R2 image URLs:")
+                        for i, url in enumerate(analysis_result['r2_images']['thumbnail_urls']):
+                            logger.info(f"[{capture_folder}]     🖼️  R2 Image {i+1}: {url}")
+                    elif 'thumbnail_url' in analysis_result['r2_images']:
+                        # Blackscreen/Macroblocks - single thumbnail with optional closure
+                        logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with R2 images:")
+                        logger.info(f"[{capture_folder}]     🖼️  Start: {analysis_result['r2_images']['thumbnail_url']}")
+                        if 'closure_url' in analysis_result['r2_images']:
+                            logger.info(f"[{capture_folder}]     🖼️  End: {analysis_result['r2_images']['closure_url']}")
                 else:
-                    logger.warning(f"[{capture_folder}] ⚠️  NO r2_images in analysis_result for {issue_type} incident!")
+                    # Only warn for freeze - blackscreen/macroblocks may not have images if < 5s
+                    if issue_type == 'freeze':
+                        logger.warning(f"[{capture_folder}] ⚠️  NO r2_images in analysis_result for {issue_type} incident!")
             
             # Call database exactly as before
             result = create_alert_safe(
@@ -270,8 +282,8 @@ class IncidentManager:
             logger.error(f"[{capture_folder}] DB ERROR: Failed to create {issue_type} incident: {e}")
             return None
     
-    def resolve_incident(self, device_id, incident_id, issue_type):
-        """Resolve incident in DB using original working method"""
+    def resolve_incident(self, device_id, incident_id, issue_type, closure_metadata=None):
+        """Resolve incident in DB with optional closure metadata (e.g., closure image URL)"""
         try:
             logger.info(f"[{device_id}] DB UPDATE: Resolving incident {incident_id}")
             
@@ -281,11 +293,14 @@ class IncidentManager:
                 logger.warning(f"[{device_id}] Database module not available, skipping alert resolution")
                 return False
             
-            # Call database exactly as before
-            result = resolve_alert(incident_id)
+            # Call database with closure metadata if provided
+            result = resolve_alert(incident_id, closure_metadata=closure_metadata)
             
             if result.get('success'):
-                logger.info(f"[{device_id}] DB UPDATE SUCCESS: Resolved alert {incident_id}")
+                if closure_metadata:
+                    logger.info(f"[{device_id}] DB UPDATE SUCCESS: Resolved alert {incident_id} with closure data")
+                else:
+                    logger.info(f"[{device_id}] DB UPDATE SUCCESS: Resolved alert {incident_id}")
                 return True
             else:
                 logger.error(f"[{device_id}] DB UPDATE FAILED: {result.get('error')}")
@@ -415,7 +430,17 @@ class IncidentManager:
                     incident_id = active_incidents[issue_type]
                     transitions[issue_type] = 'cleared'  # Mark transition
                     logger.info(f"[{capture_folder}] {issue_type} cleared, resolving DB incident")
-                    self.resolve_incident(device_id, incident_id, issue_type)
+                    
+                    # Get closure metadata from device_state (if closure image was uploaded)
+                    closure_metadata = None
+                    r2_images_key = f'{issue_type}_r2_images'
+                    if r2_images_key in device_state and device_state[r2_images_key]:
+                        r2_images = device_state[r2_images_key]
+                        if 'closure_url' in r2_images:
+                            closure_metadata = {'r2_images': r2_images}
+                            logger.info(f"[{capture_folder}] Including closure image in DB resolution: {r2_images['closure_url']}")
+                    
+                    self.resolve_incident(device_id, incident_id, issue_type, closure_metadata=closure_metadata)
                     del active_incidents[issue_type]
                     
                     # NOTE: R2 URL cache clearing is handled by capture_monitor with 30s debounce
@@ -589,3 +614,99 @@ class IncidentManager:
                 
         except Exception as e:
             logger.error(f"[{capture_folder}] Error deleting R2 freeze images: {e}")
+    
+    def upload_incident_frame_to_r2(self, thumbnail_path, device_id, time_key, incident_type, stage='start'):
+        """Upload single incident frame to R2 storage (for blackscreen/macroblocks)
+        
+        Args:
+            thumbnail_path: Path to thumbnail image
+            device_id: Device identifier (capture folder name)
+            time_key: HHMM time key (e.g., "1300" for 13:00)
+            incident_type: Type of incident ('blackscreen', 'macroblocks')
+            stage: 'start' or 'end' for naming
+        
+        Returns:
+            Dict with thumbnail_url and r2_path, or None if failed
+        """
+        try:
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            
+            uploader = get_cloudflare_utils()
+            if not uploader:
+                logger.warning(f"[{device_id}] R2 uploader not available, skipping {incident_type} frame upload")
+                return None
+            
+            # R2 path: alerts/{incident_type}/{capture_folder}/{HHMM}_{stage}.jpg
+            # e.g., alerts/blackscreen/capture1/1300_start.jpg, alerts/blackscreen/capture1/1300_end.jpg
+            r2_path = f"alerts/{incident_type}/{device_id}/{time_key}_{stage}.jpg"
+            
+            if not os.path.exists(thumbnail_path):
+                logger.warning(f"[{device_id}] Thumbnail not found: {thumbnail_path}")
+                return None
+            
+            file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                thumbnail_url = upload_result['uploaded_files'][0]['url']
+                return {
+                    'thumbnail_url': thumbnail_url,
+                    'thumbnail_r2_path': r2_path,
+                    'time_key': time_key,
+                    'stage': stage
+                }
+            else:
+                logger.error(f"[{device_id}] Failed to upload {incident_type} {stage} thumbnail")
+                return None
+                
+        except Exception as e:
+            logger.error(f"[{device_id}] Error uploading {incident_type} frame to R2: {e}")
+            return None
+    
+    def _delete_r2_incident_images(self, r2_images, capture_folder, incident_type):
+        """Delete orphaned incident images from R2 (generic for any incident type)
+        
+        Args:
+            r2_images: Dict with R2 paths (thumbnail_r2_path, closure_r2_path, etc)
+            capture_folder: Device capture folder name for logging
+            incident_type: Type of incident for logging
+        """
+        try:
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            
+            uploader = get_cloudflare_utils()
+            if not uploader:
+                logger.warning(f"[{capture_folder}] R2 uploader not available, cannot delete orphaned {incident_type} images")
+                return
+            
+            # Collect all R2 paths to delete
+            paths_to_delete = []
+            if 'thumbnail_r2_path' in r2_images:
+                paths_to_delete.append(r2_images['thumbnail_r2_path'])
+            if 'closure_r2_path' in r2_images:
+                paths_to_delete.append(r2_images['closure_r2_path'])
+            
+            if not paths_to_delete:
+                logger.debug(f"[{capture_folder}] No R2 paths to delete for discarded {incident_type}")
+                return
+            
+            # Delete each file from R2
+            deleted_count = 0
+            failed_count = 0
+            deleted_files = []
+            for r2_path in paths_to_delete:
+                if uploader.delete_file(r2_path):
+                    deleted_count += 1
+                    deleted_files.append(os.path.basename(r2_path))
+                else:
+                    failed_count += 1
+            
+            # Single-line log with file names
+            if deleted_count > 0 or failed_count > 0:
+                files_str = ', '.join(deleted_files) if deleted_files else 'none'
+                status = f"✅ {deleted_count}" if failed_count == 0 else f"✅ {deleted_count}, ❌ {failed_count}"
+                logger.info(f"[{capture_folder}] 🗑️  R2 cleanup ({incident_type} < 5min): {status} | Files: {files_str}")
+                
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Error deleting R2 {incident_type} images: {e}")
