@@ -948,18 +948,35 @@ class PlaywrightWebController(WebControllerInterface):
         """Activate semantic placeholder for Flutter web apps."""
         script = """
         (() => {
+            // Try new structure first (Flutter 3.x+): direct DOM element
+            let element = document.querySelector('flt-semantics-placeholder');
+            if (element) {
+                console.log('[Flutter] Found flt-semantics-placeholder in direct DOM (new structure)');
+                element.click();
+                return {success: true, structure: 'direct-dom'};
+            }
+            
+            // Try old structure: inside shadow DOM
             const shadowHost = document.querySelector('body > flutter-view > flt-glass-pane');
-            if (shadowHost) {
-                const shadowRoot = shadowHost.shadowRoot;
-                if (shadowRoot) {
-                    const element = shadowRoot.querySelector('flt-semantics-placeholder');
-                    if (element) {
-                        element.click();
-                        return true;
-                    }
+            if (shadowHost && shadowHost.shadowRoot) {
+                element = shadowHost.shadowRoot.querySelector('flt-semantics-placeholder');
+                if (element) {
+                    console.log('[Flutter] Found flt-semantics-placeholder in shadow DOM (old structure)');
+                    element.click();
+                    return {success: true, structure: 'shadow-dom'};
                 }
             }
-            return false;
+            
+            // Try alternative direct selector
+            element = document.querySelector('body > flt-semantics-placeholder');
+            if (element) {
+                console.log('[Flutter] Found flt-semantics-placeholder as body child');
+                element.click();
+                return {success: true, structure: 'body-child'};
+            }
+            
+            console.log('[Flutter] flt-semantics-placeholder not found in any structure');
+            return {success: false, structure: 'not-found'};
         })()
         """
         
@@ -973,6 +990,14 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Connection issue detected, attempting recovery...")
                 self._browser_connected = False  # Force reconnection
             result = self.execute_javascript(script)
+        
+        # Log the structure found
+        if result.get('success') and result.get('result'):
+            js_result = result.get('result', {})
+            if isinstance(js_result, dict):
+                structure = js_result.get('structure', 'unknown')
+                print(f"[PLAYWRIGHT]: Semantic activated using {structure} structure")
+        
         result['success'] = True  # Always succeed since this is optional
         return result
     
