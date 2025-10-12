@@ -631,30 +631,54 @@ class PlaywrightWebController(WebControllerInterface):
             }
     
     def _search_dumped_elements(self, search_term: str, elements: list) -> list:
-        """Search within dumped elements (same logic as Android mobile smart_element_search)."""
+        """Search within dumped elements with smart prioritization (exact matches first)."""
         search_lower = search_term.strip().lower()
-        matches = []
+        exact_matches = []
+        partial_matches = []
         
         for element in elements:
             element_matches = []
+            is_exact = False
             
             # Check textContent (like Android mobile text attribute)
             text_content = element.get('textContent', '').strip()
-            if text_content and search_lower in text_content.lower():
-                element_matches.append({
-                    "attribute": "textContent",
-                    "value": text_content,
-                    "reason": f"Contains '{search_term}' in text content"
-                })
+            if text_content:
+                if text_content.lower() == search_lower:
+                    # Exact match - highest priority
+                    element_matches.append({
+                        "attribute": "textContent",
+                        "value": text_content,
+                        "reason": f"Exact match '{search_term}' in text content",
+                        "priority": 1
+                    })
+                    is_exact = True
+                elif search_lower in text_content.lower():
+                    # Partial match - lower priority
+                    element_matches.append({
+                        "attribute": "textContent",
+                        "value": text_content,
+                        "reason": f"Contains '{search_term}' in text content",
+                        "priority": 2
+                    })
             
             # Check aria-label (like Android mobile content_desc)
             aria_label = element.get('attributes', {}).get('aria-label', '').strip()
-            if aria_label and search_lower in aria_label.lower():
-                element_matches.append({
-                    "attribute": "aria-label", 
-                    "value": aria_label,
-                    "reason": f"Contains '{search_term}' in aria-label"
-                })
+            if aria_label:
+                if aria_label.lower() == search_lower:
+                    element_matches.append({
+                        "attribute": "aria-label", 
+                        "value": aria_label,
+                        "reason": f"Exact match '{search_term}' in aria-label",
+                        "priority": 1
+                    })
+                    is_exact = True
+                elif search_lower in aria_label.lower():
+                    element_matches.append({
+                        "attribute": "aria-label", 
+                        "value": aria_label,
+                        "reason": f"Contains '{search_term}' in aria-label",
+                        "priority": 2
+                    })
             
             # Check selector/id (like Android mobile resource_id)
             selector = element.get('selector', '').strip()
@@ -662,7 +686,8 @@ class PlaywrightWebController(WebControllerInterface):
                 element_matches.append({
                     "attribute": "selector",
                     "value": selector,
-                    "reason": f"Contains '{search_term}' in selector"
+                    "reason": f"Contains '{search_term}' in selector",
+                    "priority": 3
                 })
             
             # Check className (like Android mobile class_name)
@@ -671,10 +696,11 @@ class PlaywrightWebController(WebControllerInterface):
                 element_matches.append({
                     "attribute": "className",
                     "value": class_name,
-                    "reason": f"Contains '{search_term}' in class name"
+                    "reason": f"Contains '{search_term}' in class name",
+                    "priority": 3
                 })
             
-            # If matches found, add to results (same as Android mobile)
+            # If matches found, add to results with prioritization
             if element_matches:
                 primary_match = element_matches[0]
                 
@@ -686,12 +712,22 @@ class PlaywrightWebController(WebControllerInterface):
                     "search_term": search_term,
                     "position": element.get('position', {}),
                     "selector": element.get('selector', ''),
-                    "full_element": element
+                    "full_element": element,
+                    "priority": primary_match["priority"]
                 }
                 
-                matches.append(match_info)
+                # Separate exact and partial matches
+                if is_exact:
+                    exact_matches.append(match_info)
+                else:
+                    partial_matches.append(match_info)
         
-        return matches
+        # Return exact matches first, then partial matches
+        # Also sort by text length (shorter = more specific) within each category
+        exact_matches.sort(key=lambda x: len(x["matched_value"]))
+        partial_matches.sort(key=lambda x: len(x["matched_value"]))
+        
+        return exact_matches + partial_matches
     
     def input_text(self, selector: str, text: str, timeout: int = 30000) -> Dict[str, Any]:
         """Input text into an element using async CDP connection."""
