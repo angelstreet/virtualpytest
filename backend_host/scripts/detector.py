@@ -535,10 +535,11 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         timings['macroblocks'] = (time.perf_counter() - start) * 1000
     
     # Build freeze comparison list showing current vs previous frames
+    # ALWAYS populate these fields (even when not frozen) so images are available for display
     freeze_comparisons = []
     freeze_debug_info = {}
-    last_3_filenames = []  # For R2 upload (RESTORED - was removed in refactoring)
-    last_3_thumbnails = []  # For R2 upload (RESTORED - was removed in refactoring)
+    last_3_filenames = []  # For display/R2 upload - ALWAYS populated when comparison data exists
+    last_3_thumbnails = []  # For display/R2 upload - ALWAYS populated when comparison data exists
     
     if freeze_details and 'frames_compared' in freeze_details:
         captures_dir = os.path.dirname(image_path)
@@ -548,7 +549,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         current_thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
         current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
         
-        # Build comparison for each previous frame checked
+        # Build comparison for each previous frame checked (ALWAYS, not just when frozen)
         for idx, frame_compared in enumerate(freeze_details['frames_compared']):
             # frame_compared is like "frame_12345" - extract number and build proper filename
             prev_frame_num = int(frame_compared.split('_')[1])
@@ -565,13 +566,13 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             # Get difference percentage for this comparison
             diff_percentage = freeze_details['frame_differences'][idx] if idx < len(freeze_details['frame_differences']) else None
             
-            # For R2 upload - collect paths (RESTORED) - only if files exist
+            # Collect paths for display - only if files exist
             if os.path.exists(prev_capture_path):
                 last_3_filenames.append(prev_capture_path)
             if os.path.exists(prev_thumbnail_path):
                 last_3_thumbnails.append(prev_thumbnail_path)
             
-            # Add structured comparison
+            # Add structured comparison (for all frames, not just frozen)
             freeze_comparisons.append({
                 'current_frame': filename,
                 'previous_frame': capture_filename,
@@ -617,10 +618,10 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         
         # Freeze (with detailed comparisons)
         'freeze': bool(frozen),
-        'freeze_comparisons': freeze_comparisons,
+        'freeze_comparisons': freeze_comparisons,  # ALWAYS populated (even when not frozen)
         'freeze_debug': freeze_debug_info if freeze_debug_info else None,
-        'last_3_filenames': last_3_filenames,  # RESTORED - needed for R2 upload
-        'last_3_thumbnails': last_3_thumbnails,  # RESTORED - needed for R2 upload
+        'last_3_filenames': last_3_filenames,  # ALWAYS populated - for display even when not frozen
+        'last_3_thumbnails': last_3_thumbnails,  # ALWAYS populated - for display even when not frozen
         
         # Macroblocks (unchanged)
         'macroblocks': bool(macroblocks),
