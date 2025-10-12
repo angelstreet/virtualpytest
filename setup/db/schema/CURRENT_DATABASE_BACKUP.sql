@@ -196,7 +196,7 @@ CREATE TABLE alerts (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     host_name text NOT NULL,
     device_id text NOT NULL,
-    incident_type text NOT NULL CHECK (incident_type = ANY (ARRAY['blackscreen'::text, 'freeze'::text, 'errors'::text, 'audio_loss'::text])),
+    incident_type text NOT NULL CHECK (incident_type = ANY (ARRAY['blackscreen'::text, 'freeze'::text, 'errors'::text, 'audio_loss'::text, 'macroblocks'::text])),
     status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'resolved'::text])),
     consecutive_count integer NOT NULL DEFAULT 1 CHECK (consecutive_count > 0),
     start_time timestamp with time zone NOT NULL DEFAULT now(),
@@ -1072,7 +1072,7 @@ COMMENT ON COLUMN zap_results.detection_method IS 'Detection method: automatic (
 
 -- Column comments
 COMMENT ON COLUMN alerts.device_id IS 'device1, device2, device3';
-COMMENT ON COLUMN alerts.incident_type IS 'Type of incident: blackscreen, freeze, errors, or audio_loss';
+COMMENT ON COLUMN alerts.incident_type IS 'Type of incident: blackscreen, freeze, errors, audio_loss, or macroblocks';
 COMMENT ON COLUMN alerts.status IS 'Current status: active or resolved';
 COMMENT ON COLUMN alerts.consecutive_count IS 'Number of consecutive detections that triggered this alert';
 COMMENT ON COLUMN alerts.start_time IS 'When the incident was first detected';

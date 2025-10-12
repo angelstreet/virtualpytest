@@ -13,7 +13,7 @@ CREATE TABLE alerts (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     host_name text NOT NULL,
     device_id text NOT NULL,
-    incident_type text NOT NULL CHECK (incident_type = ANY (ARRAY['blackscreen'::text, 'freeze'::text, 'errors'::text, 'audio_loss'::text])),
+    incident_type text NOT NULL CHECK (incident_type = ANY (ARRAY['blackscreen'::text, 'freeze'::text, 'errors'::text, 'audio_loss'::text, 'macroblocks'::text])),
     status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'resolved'::text])),
     consecutive_count integer NOT NULL DEFAULT 1 CHECK (consecutive_count > 0),
     start_time timestamp with time zone NOT NULL DEFAULT now(),
