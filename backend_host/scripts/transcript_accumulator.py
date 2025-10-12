@@ -74,6 +74,7 @@ TRANSLATION_LANGUAGES = {
 # Configuration
 CHUNK_DURATION_MINUTES = 10
 SEGMENT_DURATION_MINUTES = 1
+ENABLE_DUBBED_AUDIO = False  # Set to True to enable automatic dubbed audio generation
 
 _chunk_languages = {}
 
@@ -526,7 +527,8 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
             merge_elapsed = time.time() - merge_start
             logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] 🎉 Merged {merged_count} languages in {merge_elapsed:.2f}s (from 1min AI translations){RESET}")
         
-        generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
+        if ENABLE_DUBBED_AUDIO:
+            generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
         
         from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
         update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=original_data.get('mp3_file') is not None)
@@ -587,21 +589,23 @@ def enhance_and_dub_1min(device_folder: str, hour: int, chunk_index: int, slot: 
             file_size = os.path.getsize(lang_file)
             logger.info(f"{GREEN}[AI-1MIN:{device_folder}] ✅ {TRANSLATION_LANGUAGES[lang_code]} subtitle: {file_size/1024:.1f}KB, {len(translated_text)} chars{RESET}")
             
-            voice_name = EDGE_TTS_VOICE_MAP.get(lang_code)
-            if voice_name:
-                output_mp3 = os.path.join(audio_temp_dir, f'1min_{slot}_{lang_code}.mp3')
-                if os.path.exists(output_mp3):
-                    os.remove(output_mp3)
-                
-                tts_start = time.time()
-                success = generate_edge_tts_audio(translated_text, lang_code, output_mp3, voice_name)
-                tts_elapsed = time.time() - tts_start
-                
-                if success and os.path.exists(output_mp3):
-                    audio_size = os.path.getsize(output_mp3)
-                    logger.info(f"{GREEN}[AI-1MIN:{device_folder}] ✅ {TRANSLATION_LANGUAGES[lang_code]} dub: {audio_size/1024:.1f}KB, {tts_elapsed:.2f}s{RESET}")
+            if ENABLE_DUBBED_AUDIO:
+                voice_name = EDGE_TTS_VOICE_MAP.get(lang_code)
+                if voice_name:
+                    output_mp3 = os.path.join(audio_temp_dir, f'1min_{slot}_{lang_code}.mp3')
+                    if os.path.exists(output_mp3):
+                        os.remove(output_mp3)
+                    
+                    tts_start = time.time()
+                    success = generate_edge_tts_audio(translated_text, lang_code, output_mp3, voice_name)
+                    tts_elapsed = time.time() - tts_start
+                    
+                    if success and os.path.exists(output_mp3):
+                        audio_size = os.path.getsize(output_mp3)
+                        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] ✅ {TRANSLATION_LANGUAGES[lang_code]} dub: {audio_size/1024:.1f}KB, {tts_elapsed:.2f}s{RESET}")
         
-        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] 🎉 Completed {len(translations)} translations + dubs in {ai_result['processing_time']:.2f}s{RESET}")
+        status = "translations + dubs" if ENABLE_DUBBED_AUDIO else "subtitles only"
+        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] 🎉 Completed {len(translations)} {status} in {ai_result['processing_time']:.2f}s{RESET}")
         
     except Exception as e:
         logger.error(f"[AI-1MIN:{device_folder}] ❌ Error: {e}")

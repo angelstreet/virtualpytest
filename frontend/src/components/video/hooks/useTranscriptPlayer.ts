@@ -390,9 +390,48 @@ export const useTranscriptPlayer = ({
         console.debug(`[@useTranscriptPlayer] 1min dubbed audio not available, trying 10min...`);
       }
       
-      // Fallback to 10-minute dubbed audio
-      setDubbedAudioUrl(url10min);
-      console.log(`[@useTranscriptPlayer] 🎤 Using 10min dubbed audio (${language}):`, url10min);
+      // Check if 10-minute dubbed audio exists
+      try {
+        const response10 = await fetch(url10min, { method: 'HEAD' });
+        if (response10.ok) {
+          setDubbedAudioUrl(url10min);
+          console.log(`[@useTranscriptPlayer] 🎤 Using 10min dubbed audio (${language}):`, url10min);
+          return;
+        }
+      } catch (e) {
+        console.debug(`[@useTranscriptPlayer] 10min dubbed audio not found, generating on-demand...`);
+      }
+      
+      // Generate on-demand
+      setIsTranslating(true);
+      try {
+        const response = await fetch(`${host}/host/transcript/generate-dubbed-audio`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            device_id: deviceId, 
+            hour, 
+            chunk_index: chunkIndex, 
+            language 
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.url) {
+          const fullUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, result.url);
+          setDubbedAudioUrl(fullUrl);
+          console.log(`[@useTranscriptPlayer] ✅ Generated dubbed audio (${language}):`, fullUrl);
+        } else {
+          console.error(`[@useTranscriptPlayer] Failed to generate dubbed audio:`, result.error);
+          setDubbedAudioUrl(null);
+        }
+      } catch (error) {
+        console.error(`[@useTranscriptPlayer] Error generating dubbed audio:`, error);
+        setDubbedAudioUrl(null);
+      } finally {
+        setIsTranslating(false);
+      }
     } else {
       setDubbedAudioUrl(null);
     }

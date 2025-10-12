@@ -25,5 +25,6 @@ from . import (
     host_navigation_routes,
     host_ai_routes,
     host_ai_disambiguation_routes,
-    host_campaign_routes
+    host_campaign_routes,
+    host_transcript_routes
 ) 

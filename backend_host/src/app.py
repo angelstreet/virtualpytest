@@ -107,7 +107,8 @@ def register_host_routes(app):
             host_navigation_routes,
             host_ai_routes,
             host_ai_disambiguation_routes,
-            host_campaign_routes
+            host_campaign_routes,
+            host_transcript_routes
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
@@ -143,7 +144,8 @@ def register_host_routes(app):
         (host_navigation_routes.host_navigation_bp, 'Navigation execution'),
         (host_ai_routes.host_ai_bp, 'AI execution'),
         (host_ai_disambiguation_routes.host_ai_disambiguation_bp, 'AI disambiguation'),
-        (host_campaign_routes.host_campaign_bp, 'Campaign execution')
+        (host_campaign_routes.host_campaign_bp, 'Campaign execution'),
+        (host_transcript_routes.host_transcript_bp, 'Transcript services')
     ]
     
     for blueprint, description in blueprints:

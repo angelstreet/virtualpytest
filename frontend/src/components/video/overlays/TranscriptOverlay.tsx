@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, Menu, MenuItem } from '@mui/material';
+import { Box, Typography, IconButton, Menu, MenuItem, CircularProgress } from '@mui/material';
 import { AutoAwesome, Headphones, Language } from '@mui/icons-material';
 import { TranscriptSegment } from '../EnhancedHLSPlayer.types';
 
@@ -92,6 +92,30 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
 
   return (
     <>
+      {/* Loading indicator for dubbed audio generation */}
+      {isTranslating && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 200,
+            right: 16,
+            zIndex: 1250,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            color: 'white',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <CircularProgress size={20} sx={{ color: '#2196f3' }} />
+          <Typography variant="caption" sx={{ fontSize: '13px', fontWeight: 500 }}>
+            Generating dubbed audio...
+          </Typography>
+        </Box>
+      )}
+      
       {/* Audio MP3 download button - top right */}
       {hasMp3 && mp3Url && (
         <IconButton
