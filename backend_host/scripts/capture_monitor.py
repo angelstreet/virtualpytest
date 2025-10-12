@@ -288,6 +288,13 @@ class InotifyFrameMonitor:
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
                 
+                # DEBOUNCE: For freeze, keep R2 cache for 30s after freeze ends
+                # This prevents re-uploading if freeze flaps (ends/starts rapidly)
+                if event_type == 'freeze':
+                    from datetime import timedelta
+                    cache_clear_time = current_time + timedelta(seconds=30)
+                    device_state['freeze_cache_clear_at'] = cache_clear_time.isoformat()
+                
                 # Log event end
                 if event_type == 'audio':
                     volume = detection_result.get('mean_volume_db', -100)
@@ -486,6 +493,16 @@ class InotifyFrameMonitor:
                     
                     # Get device state from incident manager (creates if doesn't exist)
                     device_state = self.incident_manager.get_device_state(device_id)
+                    
+                    # Check if cache has expired (30s debounce)
+                    cache_clear_at = device_state.get('freeze_cache_clear_at')
+                    if cache_clear_at:
+                        clear_time = datetime.fromisoformat(cache_clear_at)
+                        if datetime.now() >= clear_time:
+                            # Cache expired - clear it
+                            device_state['freeze_r2_urls'] = None
+                            device_state['freeze_r2_images'] = None
+                            device_state['freeze_cache_clear_at'] = None
                     
                     # Check if we already uploaded for this freeze event
                     cached_r2_urls = device_state.get('freeze_r2_urls')
