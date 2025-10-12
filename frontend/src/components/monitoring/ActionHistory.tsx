@@ -17,6 +17,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
   monitoringAnalysis,
 }) => {
   const [actions, setActions] = useState<ActionEntry[]>([]);
+  const [shownZappingIds, setShownZappingIds] = useState<Set<string>>(new Set());
 
   // ✅ Process monitoring analysis - includes both regular actions AND zapping detection from frame JSON
   useEffect(() => {
@@ -25,26 +26,32 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
     const currentActions: ActionEntry[] = [];
 
     // Check for zapping detection in frame JSON
-    if (monitoringAnalysis.zapping_detected) {
-      const zappingAction: ActionEntry = {
-        command: monitoringAnalysis.zapping_detection_type === 'automatic'
-          ? `📺 ZAP → ${monitoringAnalysis.zapping_channel_name || 'Unknown'} ${monitoringAnalysis.zapping_channel_number ? `(${monitoringAnalysis.zapping_channel_number})` : ''}`
-          : `📺 MANUAL ZAP → ${monitoringAnalysis.zapping_channel_name || 'Unknown'} ${monitoringAnalysis.zapping_channel_number ? `(${monitoringAnalysis.zapping_channel_number})` : ''}`,
-        timestamp: monitoringAnalysis.zapping_detected_at 
-          ? new Date(monitoringAnalysis.zapping_detected_at).getTime() / 1000
-          : Date.now() / 1000,
-        params: {
-          channel_name: monitoringAnalysis.zapping_channel_name,
-          channel_number: monitoringAnalysis.zapping_channel_number,
-          program_name: monitoringAnalysis.zapping_program_name,
-          program_start_time: monitoringAnalysis.zapping_program_start_time,
-          program_end_time: monitoringAnalysis.zapping_program_end_time,
-          blackscreen_duration_ms: monitoringAnalysis.zapping_blackscreen_duration_ms,
-          detection_type: monitoringAnalysis.zapping_detection_type,
-        },
-        id: `zap-${monitoringAnalysis.zapping_detected_at || Date.now()}`,
-      };
-      currentActions.push(zappingAction);
+    if (monitoringAnalysis.zapping_detected && monitoringAnalysis.zapping_id) {
+      // ✅ CACHE CHECK: Only show each zapping event once (prevents duplicates from multiple frames)
+      if (!shownZappingIds.has(monitoringAnalysis.zapping_id)) {
+        const zappingAction: ActionEntry = {
+          command: monitoringAnalysis.zapping_detection_type === 'automatic'
+            ? `📺 ZAP → ${monitoringAnalysis.zapping_channel_name || 'Unknown'} ${monitoringAnalysis.zapping_channel_number ? `(${monitoringAnalysis.zapping_channel_number})` : ''}`
+            : `📺 MANUAL ZAP → ${monitoringAnalysis.zapping_channel_name || 'Unknown'} ${monitoringAnalysis.zapping_channel_number ? `(${monitoringAnalysis.zapping_channel_number})` : ''}`,
+          timestamp: monitoringAnalysis.zapping_detected_at 
+            ? new Date(monitoringAnalysis.zapping_detected_at).getTime() / 1000
+            : Date.now() / 1000,
+          params: {
+            channel_name: monitoringAnalysis.zapping_channel_name,
+            channel_number: monitoringAnalysis.zapping_channel_number,
+            program_name: monitoringAnalysis.zapping_program_name,
+            program_start_time: monitoringAnalysis.zapping_program_start_time,
+            program_end_time: monitoringAnalysis.zapping_program_end_time,
+            blackscreen_duration_ms: monitoringAnalysis.zapping_blackscreen_duration_ms,
+            detection_type: monitoringAnalysis.zapping_detection_type,
+          },
+          id: monitoringAnalysis.zapping_id, // Use unique zapping_id
+        };
+        currentActions.push(zappingAction);
+        
+        // Mark as shown
+        setShownZappingIds(prev => new Set(prev).add(monitoringAnalysis.zapping_id!));
+      }
     }
 
     // Check for regular action in frame JSON

@@ -109,6 +109,7 @@ export const useMonitoring = ({
       action_params: data.action_params,
       // Zapping detection metadata (complete info for popup display)
       zapping_detected: data.zapping_detected,
+      zapping_id: data.zapping_id, // Unique ID for caching
       zapping_channel_name: data.zapping_channel_name,
       zapping_channel_number: data.zapping_channel_number,
       zapping_program_name: data.zapping_program_name,

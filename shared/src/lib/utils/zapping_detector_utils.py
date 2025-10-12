@@ -177,55 +177,88 @@ def _update_frame_json_with_zapping(
     blackscreen_duration_ms: int,
     is_automatic: bool
 ):
-    """Update frame JSON with zapping metadata (for archive/playback)"""
+    """
+    Update frame JSON with zapping metadata.
+    
+    ✅ RACE CONDITION FIX: Write to current frame + next 5 frames
+    This ensures frontend catches the zapping event even if AI analysis completes
+    after frontend has already read the original frame.
+    """
     try:
         from shared.src.lib.utils.storage_path_utils import get_metadata_path
         
         metadata_path = get_metadata_path(capture_folder)
-        json_filename = frame_filename.replace('.jpg', '.json')
-        json_file = os.path.join(metadata_path, json_filename)
         
-        if not os.path.exists(json_file):
-            logger.warning(f"[{capture_folder}] Frame JSON not found: {json_filename}")
+        # Extract sequence number from frame_filename
+        try:
+            sequence = int(frame_filename.split('_')[1].split('.')[0])
+        except:
+            logger.warning(f"[{capture_folder}] Could not extract sequence from {frame_filename}")
             return
         
-        # Atomic update with file locking
-        lock_path = json_file + '.lock'
-        with open(lock_path, 'w') as lock_file:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            
-            try:
-                # Read current JSON
-                with open(json_file, 'r') as f:
-                    data = json.load(f)
-                
-                # Add zapping metadata (complete info for live monitoring popup)
-                data['zapping_detected'] = True
-                data['zapping_channel_name'] = channel_info.get('channel_name', '')
-                data['zapping_channel_number'] = channel_info.get('channel_number', '')
-                data['zapping_program_name'] = channel_info.get('program_name', '')
-                data['zapping_program_start_time'] = channel_info.get('start_time', '')
-                data['zapping_program_end_time'] = channel_info.get('end_time', '')
-                data['zapping_confidence'] = channel_info.get('confidence', 0.0)
-                data['zapping_blackscreen_duration_ms'] = blackscreen_duration_ms
-                data['zapping_detection_type'] = 'automatic' if is_automatic else 'manual'
-                data['zapping_detected_at'] = datetime.now().isoformat()
-                
-                # Atomic write
-                with open(json_file + '.tmp', 'w') as f:
-                    json.dump(data, f, indent=2)
-                os.rename(json_file + '.tmp', json_file)
-                
-                logger.info(f"[{capture_folder}] ✅ Updated {json_filename} with zapping metadata")
-                
-            finally:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        # Prepare zapping metadata
+        zapping_id = f"zap_{sequence}_{int(datetime.now().timestamp())}"
+        detected_at = datetime.now().isoformat()
         
-        # Clean up lock file
-        try:
-            os.remove(lock_path)
-        except:
-            pass
+        zapping_metadata = {
+            'zapping_detected': True,
+            'zapping_id': zapping_id,  # Unique ID for frontend caching
+            'zapping_channel_name': channel_info.get('channel_name', ''),
+            'zapping_channel_number': channel_info.get('channel_number', ''),
+            'zapping_program_name': channel_info.get('program_name', ''),
+            'zapping_program_start_time': channel_info.get('start_time', ''),
+            'zapping_program_end_time': channel_info.get('end_time', ''),
+            'zapping_confidence': channel_info.get('confidence', 0.0),
+            'zapping_blackscreen_duration_ms': blackscreen_duration_ms,
+            'zapping_detection_type': 'automatic' if is_automatic else 'manual',
+            'zapping_detected_at': detected_at
+        }
+        
+        # Write to current frame + next 5 frames (ensures frontend catches it)
+        frames_written = 0
+        for offset in range(6):  # Current frame + next 5
+            target_sequence = sequence + offset
+            target_filename = f"capture_{target_sequence:09d}.json"
+            target_file = os.path.join(metadata_path, target_filename)
+            
+            if not os.path.exists(target_file):
+                continue  # Frame doesn't exist yet, skip
+            
+            # Atomic update with file locking
+            lock_path = target_file + '.lock'
+            try:
+                with open(lock_path, 'w') as lock_file:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                    
+                    try:
+                        # Read current JSON
+                        with open(target_file, 'r') as f:
+                            data = json.load(f)
+                        
+                        # Add zapping metadata
+                        data.update(zapping_metadata)
+                        
+                        # Atomic write
+                        with open(target_file + '.tmp', 'w') as f:
+                            json.dump(data, f, indent=2)
+                        os.rename(target_file + '.tmp', target_file)
+                        
+                        frames_written += 1
+                        
+                    finally:
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                
+                # Clean up lock file
+                try:
+                    os.remove(lock_path)
+                except:
+                    pass
+                    
+            except Exception as e:
+                logger.debug(f"[{capture_folder}] Failed to update {target_filename}: {e}")
+                continue
+        
+        logger.info(f"[{capture_folder}] ✅ Updated {frames_written}/6 frames with zapping metadata (ID: {zapping_id})")
             
     except Exception as e:
         logger.error(f"[{capture_folder}] ❌ Failed to update frame JSON: {e}")

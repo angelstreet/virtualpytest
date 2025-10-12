@@ -58,6 +58,7 @@ export interface MonitoringAnalysis {
   
   // Zapping detection metadata (from zapping_detector_utils.py)
   zapping_detected?: boolean;
+  zapping_id?: string; // Unique ID for caching (prevents duplicate display)
   zapping_channel_name?: string;
   zapping_channel_number?: string;
   zapping_program_name?: string;
