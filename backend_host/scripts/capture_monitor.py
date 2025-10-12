@@ -68,6 +68,11 @@ class InotifyFrameMonitor:
         # Audio cache: last known audio status per device (updated every 5s by transcript_accumulator)
         self.audio_cache = {}  # {capture_folder: {'audio': bool, 'mean_volume_db': float, 'timestamp': str}}
         
+        # Zapping detection thread pool (prevents blocking frame processing)
+        # AI banner analysis takes ~5s - run in background to avoid queue backlog
+        from concurrent.futures import ThreadPoolExecutor
+        self.zapping_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="zapping-worker")
+        
         for capture_dir in capture_dirs:
             # Use centralized path utilities (handles both hot and cold storage)
             capture_folder = get_capture_folder(capture_dir)
@@ -171,6 +176,12 @@ class InotifyFrameMonitor:
                 'freeze_diffs': analysis_data.get('freeze_diffs', [])
             }
             
+            # Add zapping marker if present (full data is in frame JSON)
+            if analysis_data.get('zapping_detected'):
+                frame_data['zapping'] = True
+                # Optional: channel name for quick timeline display
+                frame_data['zapping_channel'] = analysis_data.get('zapping_channel_name', '')
+            
             # Atomic append with file locking
             lock_path = chunk_path + '.lock'
             with open(lock_path, 'w') as lock_file:
@@ -205,13 +216,24 @@ class InotifyFrameMonitor:
                         # Sort by sequence (keep chronological order)
                         chunk_data['frames'].sort(key=lambda x: x.get('sequence', 0))
                         
+                        # Update zapping events summary (just count and references)
+                        zapping_frames = [f for f in chunk_data['frames'] if f.get('zapping')]
+                        chunk_data['zapping_count'] = len(zapping_frames)
+                        if zapping_frames:
+                            # Store sequence numbers for quick lookup (executor reads full frame JSON for details)
+                            chunk_data['zapping_sequences'] = [f['sequence'] for f in zapping_frames]
+                        
                         # Write back atomically
                         with open(chunk_path + '.tmp', 'w') as f:
                             json.dump(chunk_data, f, indent=2)
                         os.rename(chunk_path + '.tmp', chunk_path)
                         
-                        # Log success
-                        logger.info(f"[{capture_folder}] ✓ Merged JSON → {chunk_path} (seq={sequence}, frames={chunk_data['frames_count']})")
+                        # Log success with zapping indicator
+                        zap_indicator = ""
+                        if frame_data.get('zapping'):
+                            channel = frame_data.get('zapping_channel', 'Unknown')
+                            zap_indicator = f", 📺 ZAP→{channel}"
+                        logger.info(f"[{capture_folder}] ✓ Merged JSON → {chunk_path} (seq={sequence}, frames={chunk_data['frames_count']}{zap_indicator})")
                 
                 finally:
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
@@ -345,7 +367,10 @@ class InotifyFrameMonitor:
                     # Trigger for blackscreens up to 10s (zapping can take time depending on signal/TV)
                     # Blackscreens > 10s are likely real incidents, not channel changes
                     logger.info(f"[{capture_folder}] Blackscreen ended ({total_duration_ms}ms) - checking for zapping...")
-                    self._check_for_zapping(
+                    
+                    # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
+                    self.zapping_executor.submit(
+                        self._check_for_zapping_async,
                         capture_folder=capture_folder,
                         device_id=device_id,
                         device_model=device_model,
@@ -355,18 +380,24 @@ class InotifyFrameMonitor:
         
         return detection_result
     
-    def _check_for_zapping(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms):
+    def _check_for_zapping_async(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms):
         """
         Check if blackscreen was caused by zapping (channel change).
         This happens AFTER blackscreen ends, analyzing the first normal frame.
         
+        ✅ ASYNC: Runs in background thread pool to avoid blocking frame processing queue
+        (AI banner analysis takes ~5 seconds - would cause major queue backlog if synchronous)
+        
         Uses shared zapping detection utility (reuses existing banner detection AI).
         """
         try:
+            logger.debug(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
+            
             # Get action info from current frame JSON (with 10s timeout check)
             action_info = self._read_action_from_frame_json(capture_folder, current_filename)
             
             # Call shared zapping detection function (reuses existing video controller)
+            # This is the expensive operation (~5s for AI analysis)
             result = detect_and_record_zapping(
                 device_id=device_id,
                 device_model=device_model,

@@ -117,6 +117,72 @@ class ZapExecutor:
         paths = [f"{base}capture_{num-i}.jpg" for i in range(count)]
         return ','.join(paths)
     
+    def _detect_motion_from_json(self, context) -> Dict[str, Any]:
+        """
+        Simple motion detection: read last 3 JSON files, check freeze/blackscreen.
+        Motion = no freeze AND no blackscreen.
+        Reuses existing load_recent_analysis_data_from_path function.
+        
+        Returns:
+            Same format as verification for compatibility with _map_verification_result
+        """
+        try:
+            # Get AV controller
+            av_controller = self.device._get_controller('av')
+            if not av_controller:
+                return {'success': False, 'message': 'No AV controller'}
+            
+            # REUSE existing function (already imported elsewhere in this file)
+            from backend_host.src.lib.utils.analysis_utils import load_recent_analysis_data_from_path
+            data_result = load_recent_analysis_data_from_path(
+                av_controller.video_capture_path, 
+                timeframe_minutes=5, 
+                max_count=3
+            )
+            
+            if not data_result['success'] or not data_result['analysis_data']:
+                return {'success': False, 'message': 'No analysis data found'}
+            
+            # Reverse for chronological order (oldest first)
+            analysis_data = list(reversed(data_result['analysis_data']))
+            
+            # Check motion: if any frame has NO freeze AND NO blackscreen → motion!
+            motion_detected = False
+            frame_data = []
+            
+            for file_item in analysis_data:
+                analysis_json = file_item.get('analysis_json', {})
+                freeze = analysis_json.get('freeze', False)
+                blackscreen = analysis_json.get('blackscreen', False)
+                
+                # Simple: NOT frozen AND NOT blackscreen = motion
+                if not freeze and not blackscreen:
+                    motion_detected = True
+                
+                # Build frame data for thumbnail extraction (existing code expects this format)
+                frame_data.append({
+                    'filename': file_item['filename'],
+                    'timestamp': file_item['timestamp'],
+                    'freeze': freeze,
+                    'blackscreen': blackscreen,
+                    'audio': analysis_json.get('audio', True)
+                })
+            
+            # Return in same format as verification for compatibility
+            return {
+                'success': True,
+                'video_ok': motion_detected,
+                'audio_ok': any(f.get('audio', True) for f in frame_data),
+                'total_analyzed': len(frame_data),
+                'details': {
+                    'details': frame_data  # Nested for compatibility with _map_verification_result
+                }
+            }
+            
+        except Exception as e:
+            print(f"❌ [ZapExecutor] Motion detection error: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
     def analyze_after_zap(self, iteration: int, action_command: str, context, action_start_time: float = None) -> ZapAnalysisResult:
         """Perform comprehensive analysis after a zap action - CLEAN ARCHITECTURE"""
         result = ZapAnalysisResult()
@@ -124,18 +190,26 @@ class ZapExecutor:
         try:
             print(f"🔍 [ZapExecutor] Analyzing zap results for {action_command} (iteration {iteration})...")
             
-            # Get verification configurations
+            # 1. MOTION: Read from JSON directly (fast, no verification needed)
+            motion_result = self._detect_motion_from_json(context)
+            self._map_verification_result(result, 'motion', motion_result, context)
+            
+            # 2. Get verification configurations (subtitles, audio, zapping)
             verification_configs = self._get_zap_verification_configs(context, iteration, action_command, action_start_time)
             
-            # Execute all verifications in one batch
-            batch_result = self._execute_verification_batch(context, verification_configs)
+            # Remove motion from configs (already handled above)
+            verification_configs = [c for c in verification_configs if c.get('analysis_type') != 'motion']
             
-            # Map results to ZapAnalysisResult
-            if batch_result.get('results'):
-                for i, verification_result in enumerate(batch_result['results']):
-                    config = verification_configs[i]
-                    analysis_type = config.get('analysis_type')
-                    self._map_verification_result(result, analysis_type, verification_result, context)
+            # 3. Execute remaining verifications
+            if verification_configs:
+                batch_result = self._execute_verification_batch(context, verification_configs)
+                
+                # Map results to ZapAnalysisResult
+                if batch_result.get('results'):
+                    for i, verification_result in enumerate(batch_result['results']):
+                        config = verification_configs[i]
+                        analysis_type = config.get('analysis_type')
+                        self._map_verification_result(result, analysis_type, verification_result, context)
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"

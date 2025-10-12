@@ -483,3 +483,208 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
             'success': False,
             'error': f'Analysis error: {str(e)}'
         }
+
+
+def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str, int]] = None, context_name: str = "AI") -> Dict[str, Any]:
+    """
+    AI-powered channel banner detection using centralized AI utilities.
+    
+    Detects TV channel information including channel name, number, program name,
+    and timing from channel banners/overlays that appear during channel changes.
+    
+    Args:
+        image_path: Path to image file to analyze
+        banner_region: Optional region hint (metadata only, not used for cropping)
+                      Format: {'x': int, 'y': int, 'width': int, 'height': int}
+        context_name: Context name for logging
+    
+    Returns:
+        Dictionary with detection results:
+        {
+            'success': True/False,
+            'banner_detected': True/False,
+            'channel_info': {
+                'channel_name': 'BBC One',
+                'channel_number': '1',
+                'program_name': 'News at Six',
+                'start_time': '18:00',
+                'end_time': '18:30',
+                'confidence': 0.95
+            },
+            'confidence': 0.95,
+            'error': 'error message' (if failed)
+        }
+    """
+    try:
+        print(f"{context_name}: AI channel banner analysis")
+        print(f"{context_name}: Image: {image_path}")
+        
+        # Check if image exists
+        if not os.path.exists(image_path):
+            print(f"{context_name}: Image file not found: {image_path}")
+            return {'success': False, 'error': 'Image file not found'}
+        
+        # Create specialized prompt for banner analysis
+        prompt = _create_banner_analysis_prompt()
+        
+        # Call AI with image
+        result = call_vision_ai(prompt, image_path, max_tokens=400, temperature=0.0)
+        
+        print(f"{context_name}: AI call complete - success={result['success']}, provider={result.get('provider_used', 'unknown')}")
+        
+        if not result['success']:
+            error_msg = result.get('error', 'Unknown error')
+            provider_used = result.get('provider_used', 'none')
+            return {
+                'success': False,
+                'error': f'AI service error: {error_msg}',
+                'provider_used': provider_used
+            }
+        
+        # Parse AI response (JSON)
+        content = result['content'].strip()
+        
+        if not content:
+            return {
+                'success': False,
+                'error': 'Empty content from AI service',
+                'raw_content': content
+            }
+        
+        # Remove markdown code block markers if present
+        json_content = content.replace('```json', '').replace('```', '').strip()
+        
+        try:
+            ai_result = json.loads(json_content)
+        except json.JSONDecodeError as e:
+            print(f"{context_name}: JSON parsing error: {e}")
+            print(f"{context_name}: Raw AI response: {repr(content)}")
+            return {
+                'success': False,
+                'error': 'Invalid AI response format',
+                'raw_response': content,
+                'json_error': str(e)
+            }
+        
+        # Validate and normalize the result
+        banner_detected = ai_result.get('banner_detected', False)
+        channel_name = ai_result.get('channel_name', '')
+        channel_number = ai_result.get('channel_number', '')
+        program_name = ai_result.get('program_name', '')
+        start_time = ai_result.get('start_time', '')
+        end_time = ai_result.get('end_time', '')
+        confidence = float(ai_result.get('confidence', 0.0))
+        
+        print(f"{context_name}: Banner detected: {banner_detected}")
+        if banner_detected:
+            print(f"{context_name}:   Channel: {channel_name} ({channel_number})")
+            print(f"{context_name}:   Program: {program_name}")
+            print(f"{context_name}:   Time: {start_time} - {end_time}")
+            print(f"{context_name}:   Confidence: {confidence:.2f}")
+        
+        # Return standardized result
+        return {
+            'success': True,
+            'banner_detected': banner_detected,
+            'channel_info': {
+                'channel_name': channel_name,
+                'channel_number': channel_number,
+                'program_name': program_name,
+                'start_time': start_time,
+                'end_time': end_time,
+                'confidence': confidence
+            },
+            'confidence': confidence,
+            'banner_region': banner_region,
+            'image_path': os.path.basename(image_path)
+        }
+        
+    except Exception as e:
+        print(f"{context_name}: AI channel banner analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'error': f'Analysis error: {str(e)}'
+        }
+
+
+def _create_banner_analysis_prompt() -> str:
+    """
+    Create specialized prompt for channel banner analysis.
+    
+    This prompt is optimized for full image analysis to detect channel
+    information, logos, program names, and timing information.
+    
+    Returns:
+        Formatted prompt string for AI analysis
+    """
+    return """Analyze this full TV screen image for channel information banner/overlay. Look for channel names, program information, and time details anywhere in the image.
+
+CRITICAL INSTRUCTIONS:
+1. You MUST ALWAYS respond with valid JSON - never return empty content
+2. If you find a channel banner, extract the information
+3. If you find NO banner, you MUST still respond with the "banner_detected": false JSON format below
+4. ALWAYS provide a response - never return empty or null content
+
+Required JSON format:
+{
+  "banner_detected": true,
+  "channel_name": "BBC One",
+  "channel_number": "1",
+  "program_name": "News at Six",
+  "start_time": "18:00",
+  "end_time": "18:30",
+  "confidence": 0.95
+}
+
+If no channel banner found:
+{
+  "banner_detected": false,
+  "channel_name": "",
+  "channel_number": "",
+  "program_name": "",
+  "start_time": "",
+  "end_time": "",
+  "confidence": 0.1
+}
+
+FULL IMAGE ANALYSIS RULES:
+- Scan the ENTIRE image for channel information
+- Look for channel logos, channel names (BBC One, ITV, Channel 4, SRF, etc.)
+- Extract channel numbers (1, 2, 3, 101, 201, etc.) from banners or overlays
+- IMPORTANT: Channel numbers are typically located to the LEFT of the channel name
+- Extract program/show names (News, EastEnders, Music@SRF, etc.)
+- Find time information (start time, end time, duration) anywhere on screen
+- Look for text overlays, banners, or information bars in ANY location
+- Check ALL corners and edges of the image for channel info
+- Pay attention to typical TV UI elements (channel number, program guide info)
+- Look for semi-transparent overlays that may appear anywhere
+- Consider both horizontal bars (bottom/top) and vertical overlays (side)
+
+CONFIDENCE SCORING:
+- High (0.9+): Clear channel logo + name + program info + time visible
+- Medium (0.7-0.9): Channel name + some program info visible
+- Low (0.5-0.7): Only partial channel info visible
+- Very low (<0.5): Uncertain or no clear channel information
+
+RESPOND ONLY WITH THE JSON OBJECT - NO OTHER TEXT OR EXPLANATION."""
+
+
+def get_banner_region_for_device(device_model: str) -> Dict[str, int]:
+    """
+    Get device-specific banner region hint.
+    
+    Note: This is metadata only - not used for cropping.
+    The AI analyzes the full image regardless.
+    
+    Args:
+        device_model: Device model identifier
+    
+    Returns:
+        Banner region dictionary: {'x': int, 'y': int, 'width': int, 'height': int}
+    """
+    if 'android_mobile' in device_model.lower() or 'ios_mobile' in device_model.lower():
+        return {'x': 470, 'y': 230, 'width': 280, 'height': 70}
+    else:
+        return {'x': 245, 'y': 830, 'width': 1170, 'height': 120}

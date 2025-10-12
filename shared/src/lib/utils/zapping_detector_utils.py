@@ -70,26 +70,14 @@ def detect_and_record_zapping(
     try:
         logger.info(f"[{capture_folder}] 🔍 Analyzing frame for channel banner: {frame_filename}")
         
-        # ✅ REUSE: Get device instance and video controller
-        from backend_host.src.lib.utils.host_utils import get_device_by_id
+        # ✅ STANDALONE: Use AI utility (no controllers needed!)
+        from shared.src.lib.utils.ai_utils import analyze_channel_banner_ai, get_banner_region_for_device
+        from shared.src.lib.utils.storage_path_utils import get_captures_path
         
-        logger.debug(f"[{capture_folder}] Getting device instance for {device_id}...")
-        device = get_device_by_id(device_id)
-        if not device:
-            logger.warning(f"[{capture_folder}] ❌ Device not found: {device_id}")
-            return {'success': False, 'error': f'Device not found: {device_id}'}
-        
-        logger.debug(f"[{capture_folder}] Getting video verification controller...")
-        video_controller = device._get_controller('verification_video')
-        if not video_controller:
-            logger.warning(f"[{capture_folder}] ❌ No video verification controller for {device_id}")
-            return {'success': False, 'error': f'No video verification controller for {device_id}'}
-        
-        # ✅ REUSE: Get banner region (same as zap_executor.py)
-        banner_region = _get_banner_region(device_model)
+        # Get banner region for this device type
+        banner_region = get_banner_region_for_device(device_model)
         
         # Build full frame path
-        from shared.src.lib.utils.storage_path_utils import get_captures_path
         captures_path = get_captures_path(capture_folder)
         frame_path = os.path.join(captures_path, frame_filename)
         
@@ -98,11 +86,12 @@ def detect_and_record_zapping(
             logger.warning(f"[{capture_folder}] ❌ Frame not found: {frame_path}")
             return {'success': False, 'error': f'Frame not found: {frame_path}'}
         
-        # ✅ REUSE: Call existing banner detection AI (same as zap_executor.py)
-        logger.info(f"[{capture_folder}] 🤖 Calling AI banner analysis (region: {banner_region})...")
-        banner_result = video_controller.ai_helpers.analyze_channel_banner_ai(
+        # ✅ STANDALONE: Call AI banner detection (works from any process!)
+        logger.info(f"[{capture_folder}] 🤖 Calling AI banner analysis (region hint: {banner_region})...")
+        banner_result = analyze_channel_banner_ai(
             image_path=frame_path,
-            banner_region=banner_region
+            banner_region=banner_region,
+            context_name=capture_folder
         )
         logger.info(f"[{capture_folder}] 🤖 AI analysis complete: success={banner_result.get('success')}, banner_detected={banner_result.get('banner_detected')}")
         
@@ -179,15 +168,6 @@ def detect_and_record_zapping(
         return {'success': False, 'error': str(e)}
 
 
-def _get_banner_region(device_model: str) -> Dict[str, int]:
-    """
-    Get device-specific banner region for channel detection.
-    ✅ REUSED from zap_executor.py (lines 454-456)
-    """
-    if 'android_mobile' in device_model.lower() or 'ios_mobile' in device_model.lower():
-        return {'x': 470, 'y': 230, 'width': 280, 'height': 70}
-    else:
-        return {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
 
 
 def _update_frame_json_with_zapping(
