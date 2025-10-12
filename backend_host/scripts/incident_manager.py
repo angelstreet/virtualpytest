@@ -371,24 +371,60 @@ class IncidentManager:
                     elapsed_time = current_time - first_detected_time
                     
                     if elapsed_time >= self.INCIDENT_REPORT_DELAY:
-                        # Issue has persisted for 5+ minutes, report to DB
-                        logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time/60:.1f}min, reporting to DB NOW")
+                        # Issue has persisted for threshold duration, report to DB
+                        logger.info(f"[{capture_folder}] ⏰ {issue_type} persisted for {elapsed_time:.1f}s, reporting to DB NOW")
                         
-                        # Check what's in detection_result
+                        # ENSURE R2 images are uploaded BEFORE creating DB incident
+                        # This handles case where INCIDENT_REPORT_DELAY < 5s (testing) or = 5s edge case
                         has_r2_images = 'r2_images' in detection_result and detection_result['r2_images']
-                        has_thumbnails = 'last_3_thumbnails' in detection_result and detection_result['last_3_thumbnails']
                         
+                        if not has_r2_images and issue_type in ['blackscreen', 'freeze', 'macroblocks']:
+                            # Missing R2 images - upload them NOW before DB insert
+                            event_duration_ms = detection_result.get(f'{issue_type}_event_duration_ms', 0)
+                            
+                            if event_duration_ms > 5000:
+                                logger.info(f"[{capture_folder}] Uploading {issue_type} start images to R2 before DB insert...")
+                                from datetime import datetime
+                                now = datetime.now()
+                                # Use full timestamp to ensure uniqueness (YYYYMMDD_HHMMSS)
+                                time_key = f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}"
+                                
+                                if issue_type == 'freeze':
+                                    # Upload 3 thumbnails for freeze
+                                    last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
+                                    last_3_captures = detection_result.get('last_3_filenames', [])
+                                    if last_3_thumbnails:
+                                        r2_urls = self.upload_freeze_frames_to_r2(
+                                            last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
+                                        )
+                                        if r2_urls and r2_urls.get('thumbnail_urls'):
+                                            detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
+                                            detection_result['r2_images'] = r2_urls
+                                            has_r2_images = True
+                                            logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
+                                else:
+                                    # Upload single thumbnail for blackscreen/macroblocks
+                                    current_thumbnail = detection_result.get('last_3_thumbnails', [])
+                                    if current_thumbnail:
+                                        thumbnail_path = current_thumbnail[0] if isinstance(current_thumbnail, list) else current_thumbnail
+                                        r2_urls = self.upload_incident_frame_to_r2(
+                                            thumbnail_path, capture_folder, time_key, issue_type, 'start'
+                                        )
+                                        if r2_urls and r2_urls.get('thumbnail_url'):
+                                            detection_result[f'{issue_type}_thumbnail'] = r2_urls['thumbnail_url']
+                                            detection_result['r2_images'] = r2_urls
+                                            has_r2_images = True
+                                            logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail")
+                        
+                        # Log R2 image status
                         if has_r2_images:
-                            r2_count = len(detection_result.get('r2_images', {}).get('thumbnail_urls', []))
-                            logger.info(f"[{capture_folder}] ✅ {issue_type.upper()} incident has {r2_count} R2 thumbnail URLs")
-                            # Show the URLs
-                            for i, url in enumerate(detection_result.get('r2_images', {}).get('thumbnail_urls', [])):
-                                logger.info(f"[{capture_folder}]     🖼️  R2 URL {i+1}: {url}")
+                            if 'thumbnail_urls' in detection_result.get('r2_images', {}):
+                                r2_count = len(detection_result['r2_images']['thumbnail_urls'])
+                                logger.info(f"[{capture_folder}] ✅ {issue_type.upper()} incident has {r2_count} R2 thumbnail URLs")
+                            elif 'thumbnail_url' in detection_result.get('r2_images', {}):
+                                logger.info(f"[{capture_folder}] ✅ {issue_type.upper()} incident has start thumbnail: {detection_result['r2_images']['thumbnail_url']}")
                         else:
-                            if issue_type == 'freeze':
-                                logger.warning(f"[{capture_folder}] ⚠️  {issue_type.upper()} incident MISSING r2_images!")
-                            else:
-                                logger.debug(f"[{capture_folder}] {issue_type.upper()} incident (no images expected)")
+                            logger.debug(f"[{capture_folder}] {issue_type.upper()} incident has no R2 images (duration may be < 5s)")
                         
                         logger.info(f"[{capture_folder}] Calling create_incident for {issue_type}...")
                         incident_id = self.create_incident(capture_folder, issue_type, host_name, detection_result)
@@ -431,33 +467,59 @@ class IncidentManager:
                     transitions[issue_type] = 'cleared'  # Mark transition
                     logger.info(f"[{capture_folder}] {issue_type} cleared, resolving DB incident")
                     
-                    # Get closure metadata from device_state (if closure image was uploaded)
+                    # Get closure frame from device_state and upload it now
                     closure_metadata = None
-                    r2_images_key = f'{issue_type}_r2_images'
-                    if r2_images_key in device_state and device_state[r2_images_key]:
-                        r2_images = device_state[r2_images_key]
-                        if 'closure_url' in r2_images:
-                            closure_metadata = {'r2_images': r2_images}
-                            logger.info(f"[{capture_folder}] Including closure image in DB resolution: {r2_images['closure_url']}")
+                    closure_frame_key = f'{issue_type}_closure_frame'
+                    
+                    if closure_frame_key in device_state and device_state[closure_frame_key]:
+                        # We have a closure frame stored - upload it now
+                        closure_frame_path = device_state[closure_frame_key]
+                        
+                        # Get time_key from start image or use current timestamp (YYYYMMDD_HHMMSS)
+                        from datetime import datetime
+                        now = datetime.now()
+                        
+                        # Try to get time_key from existing r2_images (to match start image naming)
+                        existing_r2_images = device_state.get(f'{issue_type}_r2_images', {})
+                        time_key = existing_r2_images.get('time_key', f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}")
+                        
+                        logger.info(f"[{capture_folder}] 📤 Uploading {issue_type.upper()} closure image to R2...")
+                        
+                        if issue_type == 'freeze':
+                            # For freeze, we might want to upload the last 3 frames again as closure
+                            # For now, skip closure for freeze (already has 3 comparison images)
+                            logger.debug(f"[{capture_folder}] Freeze uses comparison images, skipping closure upload")
+                        else:
+                            # Upload closure for blackscreen/macroblocks
+                            closure_r2 = self.upload_incident_frame_to_r2(
+                                closure_frame_path, capture_folder, time_key, issue_type, 'end'
+                            )
+                            
+                            if closure_r2 and closure_r2.get('thumbnail_url'):
+                                # Merge closure into existing r2_images or create new
+                                existing_r2_images = device_state.get(f'{issue_type}_r2_images', {})
+                                existing_r2_images['closure_url'] = closure_r2['thumbnail_url']
+                                existing_r2_images['closure_r2_path'] = closure_r2.get('thumbnail_r2_path')
+                                closure_metadata = {'r2_images': existing_r2_images}
+                                logger.info(f"[{capture_folder}] ✅ {issue_type.upper()} closure uploaded: {closure_r2['thumbnail_url']}")
+                        
+                        # Clean up closure frame from device_state
+                        del device_state[closure_frame_key]
+                        if f'{issue_type}_closure_filename' in device_state:
+                            del device_state[f'{issue_type}_closure_filename']
                     
                     self.resolve_incident(device_id, incident_id, issue_type, closure_metadata=closure_metadata)
                     del active_incidents[issue_type]
-                    
-                    # NOTE: R2 URL cache clearing is handled by capture_monitor with 30s debounce
-                    # to prevent re-uploads during freeze flapping
                     
                     if not active_incidents:
                         device_state['state'] = NORMAL
                         
                 elif is_pending:
-                    # Issue was pending but cleared before reaching 5min threshold
+                    # Issue was pending but cleared before reaching threshold
                     elapsed_time = current_time - pending_incidents[issue_type]
                     transitions[issue_type] = 'cleared'  # Mark transition
                     # Skip logging (already logged in capture_monitor with event duration)
                     del pending_incidents[issue_type]
-                    
-                    # NOTE: R2 URL cache and image cleanup is handled by capture_monitor with 30s debounce
-                    # Images will be deleted when cache expires (prevents re-upload during freeze flapping)
         
         return transitions  # Return all transitions that occurred
 

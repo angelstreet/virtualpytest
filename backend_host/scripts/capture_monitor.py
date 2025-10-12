@@ -288,42 +288,20 @@ class InotifyFrameMonitor:
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
                 
-                # DEBOUNCE: Keep R2 cache for 30s after event ends
-                # This prevents re-uploading if event flaps (ends/starts rapidly)
-                from datetime import timedelta
-                cache_clear_time = current_time + timedelta(seconds=30)
-                
-                if event_type == 'freeze':
-                    device_state['freeze_cache_clear_at'] = cache_clear_time.isoformat()
-                elif event_type == 'blackscreen':
-                    device_state['blackscreen_cache_clear_at'] = cache_clear_time.isoformat()
-                elif event_type == 'macroblocks':
-                    device_state['macroblocks_cache_clear_at'] = cache_clear_time.isoformat()
-                
-                # Upload closure image to R2 (only if event lasted > 5s and we have cached start image)
-                if total_duration_ms > 5000:
-                    if event_type in ['blackscreen', 'macroblocks'] and device_state.get(f'{event_type}_r2_images'):
-                        # Get current frame thumbnail for closure
-                        metadata_path = get_metadata_path(capture_folder)
-                        current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
-                        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
-                        thumbnails_dir = get_thumbnails_path(capture_folder)
-                        current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
-                        
-                        if os.path.exists(current_thumbnail_path):
-                            # Upload closure image with same time_key as start image
-                            r2_images = device_state.get(f'{event_type}_r2_images', {})
-                            time_key = r2_images.get('time_key', f"{current_time.hour:02d}{current_time.minute:02d}")
-                            
-                            logger.info(f"[{capture_folder}] 📤 Uploading {event_type.upper()} closure image to R2...")
-                            closure_r2 = self.incident_manager.upload_incident_frame_to_r2(
-                                current_thumbnail_path, capture_folder, time_key, event_type, 'end'
-                            )
-                            if closure_r2 and closure_r2.get('thumbnail_url'):
-                                # Add closure URL to device state (will be included in DB incident)
-                                device_state[f'{event_type}_r2_images']['closure_url'] = closure_r2['thumbnail_url']
-                                device_state[f'{event_type}_r2_images']['closure_r2_path'] = closure_r2.get('thumbnail_r2_path')
-                                logger.info(f"[{capture_folder}] ✅ {event_type.upper()} closure image uploaded: {closure_r2['thumbnail_url']}")
+                # Store closure frame info for later upload by incident_manager (when resolving DB)
+                # Only for incidents with visual images (blackscreen, freeze, macroblocks)
+                if total_duration_ms > 5000 and event_type in ['blackscreen', 'freeze', 'macroblocks']:
+                    # Get current frame thumbnail path for closure
+                    current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
+                    from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
+                    thumbnails_dir = get_thumbnails_path(capture_folder)
+                    current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
+                    
+                    if os.path.exists(current_thumbnail_path):
+                        # Store closure frame info in device state for incident_manager to upload later
+                        device_state[f'{event_type}_closure_frame'] = current_thumbnail_path
+                        device_state[f'{event_type}_closure_filename'] = current_filename
+                        logger.debug(f"[{capture_folder}] Stored {event_type} closure frame for later upload")
                 
                 # Log event end
                 if event_type == 'audio':
@@ -511,200 +489,8 @@ class InotifyFrameMonitor:
             # NOTE: Comparison images (last_3_filenames, last_3_thumbnails) are ALWAYS in JSON
             # even when there's no freeze - this allows displaying them on demand later
             
-            # Upload freeze frames to R2 ONCE per freeze event (not every frame)
-            # Freeze is confirmed when detector returns 3 matching images
-            freeze_urls_newly_uploaded = False  # Track if URLs are new or cached
-            if detection_result and detection_result.get('freeze', False):
-                last_3_captures = detection_result.get('last_3_filenames', [])
-                if last_3_captures:
-                    # Get device_id (same key used by incident_manager.process_detection)
-                    device_info = get_device_info_from_capture_folder(capture_folder)
-                    device_id = device_info.get('device_id', capture_folder)
-                    
-                    # Get device state from incident manager (creates if doesn't exist)
-                    device_state = self.incident_manager.get_device_state(device_id)
-                    
-                    # Check if cache has expired (30s debounce)
-                    cache_clear_at = device_state.get('freeze_cache_clear_at')
-                    if cache_clear_at:
-                        clear_time = datetime.fromisoformat(cache_clear_at)
-                        if datetime.now() >= clear_time:
-                            # Cache expired - clear it and delete orphaned R2 images
-                            freeze_r2_images = device_state.get('freeze_r2_images')
-                            if freeze_r2_images:
-                                logger.info(f"[{capture_folder}] 🗑️  Cache expired, deleting orphaned R2 freeze images")
-                                self.incident_manager._delete_r2_freeze_images(freeze_r2_images, capture_folder)
-                            device_state['freeze_r2_urls'] = None
-                            device_state['freeze_r2_images'] = None
-                            device_state['freeze_cache_clear_at'] = None
-                            logger.debug(f"[{capture_folder}] Cleared expired freeze R2 URL cache")
-                    
-                    # Check if we already uploaded for this freeze event
-                    cached_r2_urls = device_state.get('freeze_r2_urls')
-                    
-                    # Only upload to R2 if freeze duration > 5 seconds
-                    # This prevents uploading for short freeze flaps/glitches
-                    freeze_duration_ms = detection_result.get('freeze_event_duration_ms', 0)
-                    should_upload = freeze_duration_ms > 5000
-                    
-                    # DEBUG: Log cache state
-                    logger.debug(f"[{capture_folder}] R2 cache check: cached_urls={'exists' if cached_r2_urls else 'None'}, freeze_duration={freeze_duration_ms/1000:.1f}s, should_upload={should_upload}")
-                    
-                    if not cached_r2_urls and should_upload:
-                        # First freeze frame (and duration > 5s) - upload to R2 with HHMM-based naming
-                        now = datetime.now()
-                        time_key = f"{now.hour:02d}{now.minute:02d}"  # "1300"
-                        
-                        # Use last_3_thumbnails from detector (already validated to exist)
-                        last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
-                        
-                        # Get freeze diff values for logging
-                        freeze_comparisons = detection_result.get('freeze_comparisons', [])
-                        freeze_diffs = [c.get('difference_percentage', 0) for c in freeze_comparisons]
-                        diffs_str = f" diffs={freeze_diffs}" if freeze_diffs else ""
-                        
-                        if last_3_thumbnails:
-                            logger.info(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} (duration={freeze_duration_ms/1000:.1f}s) - uploading {len(last_3_thumbnails)} thumbnails to R2 (time_key={time_key})")
-                        else:
-                            logger.warning(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} but no thumbnails available (detector returned {len(last_3_captures)} captures)")
-                        r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
-                            last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
-                        )
-                        if r2_urls and r2_urls.get('thumbnail_urls'):
-                            # Cache R2 URLs in device state for reuse during this freeze event
-                            device_state['freeze_r2_urls'] = r2_urls['thumbnail_urls']
-                            device_state['freeze_r2_images'] = r2_urls
-                            logger.info(f"[{capture_folder}] 💾 Cached {len(r2_urls['thumbnail_urls'])} R2 URLs to device_state (device_id={device_id})")
-                            # Replace last_3_thumbnails with R2 URLs (keep last_3_filenames as-is for reference)
-                            detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
-                            detection_result['r2_images'] = r2_urls
-                            freeze_urls_newly_uploaded = True
-                            logger.info(f"[{capture_folder}] 📤 Uploaded {len(r2_urls['thumbnail_urls'])} FREEZE thumbnails to R2:")
-                            for i, url in enumerate(r2_urls['thumbnail_urls']):
-                                logger.info(f"[{capture_folder}]   🖼️  R2 URL {i+1}: {url}")
-                        else:
-                            logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
-                    elif not cached_r2_urls and not should_upload:
-                        # Freeze detected but too short (< 5s) - skip R2 upload
-                        logger.debug(f"[{capture_folder}] Freeze too short ({freeze_duration_ms/1000:.1f}s < 5s), skipping R2 upload")
-                    
-                    else:
-                        # Freeze ongoing - reuse cached R2 URLs from first upload
-                        detection_result['last_3_thumbnails'] = cached_r2_urls
-                        detection_result['r2_images'] = device_state.get('freeze_r2_images', {
-                            'thumbnail_urls': cached_r2_urls
-                        })
-                        logger.debug(f"[{capture_folder}] Freeze ongoing")
-            
-            # Upload blackscreen frames to R2 ONCE per blackscreen event (not every frame)
-            if detection_result and detection_result.get('blackscreen', False):
-                # Get current frame thumbnail
-                current_thumbnail = detection_result.get('last_3_thumbnails', [])
-                if current_thumbnail:
-                    # Get device_id
-                    device_info = get_device_info_from_capture_folder(capture_folder)
-                    device_id = device_info.get('device_id', capture_folder)
-                    device_state = self.incident_manager.get_device_state(device_id)
-                    
-                    # Check if cache has expired (30s debounce)
-                    cache_clear_at = device_state.get('blackscreen_cache_clear_at')
-                    if cache_clear_at:
-                        clear_time = datetime.fromisoformat(cache_clear_at)
-                        if datetime.now() >= clear_time:
-                            blackscreen_r2_images = device_state.get('blackscreen_r2_images')
-                            if blackscreen_r2_images:
-                                logger.info(f"[{capture_folder}] 🗑️  Cache expired, deleting orphaned R2 blackscreen images")
-                                self.incident_manager._delete_r2_incident_images(blackscreen_r2_images, capture_folder, 'blackscreen')
-                            device_state['blackscreen_r2_urls'] = None
-                            device_state['blackscreen_r2_images'] = None
-                            device_state['blackscreen_cache_clear_at'] = None
-                    
-                    cached_r2_urls = device_state.get('blackscreen_r2_urls')
-                    blackscreen_duration_ms = detection_result.get('blackscreen_event_duration_ms', 0)
-                    should_upload = blackscreen_duration_ms > 5000
-                    
-                    if not cached_r2_urls and should_upload:
-                        # First blackscreen frame (duration > 5s) - upload to R2
-                        now = datetime.now()
-                        time_key = f"{now.hour:02d}{now.minute:02d}"
-                        
-                        # Upload current frame thumbnail (take first from list)
-                        thumbnail_path = current_thumbnail[0] if isinstance(current_thumbnail, list) else current_thumbnail
-                        
-                        logger.info(f"[{capture_folder}] ⚠️  NEW blackscreen detected (duration={blackscreen_duration_ms/1000:.1f}s) - uploading thumbnail to R2 (time_key={time_key})")
-                        r2_urls = self.incident_manager.upload_incident_frame_to_r2(
-                            thumbnail_path, capture_folder, time_key, 'blackscreen', 'start'
-                        )
-                        if r2_urls and r2_urls.get('thumbnail_url'):
-                            device_state['blackscreen_r2_urls'] = r2_urls['thumbnail_url']
-                            device_state['blackscreen_r2_images'] = r2_urls
-                            device_state['blackscreen_start_frame'] = filename
-                            detection_result['blackscreen_thumbnail'] = r2_urls['thumbnail_url']
-                            detection_result['r2_images'] = r2_urls
-                            logger.info(f"[{capture_folder}] 📤 Uploaded BLACKSCREEN thumbnail to R2: {r2_urls['thumbnail_url']}")
-                    elif not cached_r2_urls and not should_upload:
-                        logger.debug(f"[{capture_folder}] Blackscreen too short ({blackscreen_duration_ms/1000:.1f}s < 5s), skipping R2 upload")
-                    else:
-                        # Blackscreen ongoing - reuse cached R2 URL
-                        detection_result['blackscreen_thumbnail'] = cached_r2_urls
-                        detection_result['r2_images'] = device_state.get('blackscreen_r2_images', {
-                            'thumbnail_url': cached_r2_urls
-                        })
-            
-            # Upload macroblocks frames to R2 ONCE per macroblocks event (not every frame)
-            if detection_result and detection_result.get('macroblocks', False):
-                # Get current frame thumbnail
-                current_thumbnail = detection_result.get('last_3_thumbnails', [])
-                if current_thumbnail:
-                    # Get device_id
-                    device_info = get_device_info_from_capture_folder(capture_folder)
-                    device_id = device_info.get('device_id', capture_folder)
-                    device_state = self.incident_manager.get_device_state(device_id)
-                    
-                    # Check if cache has expired (30s debounce)
-                    cache_clear_at = device_state.get('macroblocks_cache_clear_at')
-                    if cache_clear_at:
-                        clear_time = datetime.fromisoformat(cache_clear_at)
-                        if datetime.now() >= clear_time:
-                            macroblocks_r2_images = device_state.get('macroblocks_r2_images')
-                            if macroblocks_r2_images:
-                                logger.info(f"[{capture_folder}] 🗑️  Cache expired, deleting orphaned R2 macroblocks images")
-                                self.incident_manager._delete_r2_incident_images(macroblocks_r2_images, capture_folder, 'macroblocks')
-                            device_state['macroblocks_r2_urls'] = None
-                            device_state['macroblocks_r2_images'] = None
-                            device_state['macroblocks_cache_clear_at'] = None
-                    
-                    cached_r2_urls = device_state.get('macroblocks_r2_urls')
-                    macroblocks_duration_ms = detection_result.get('macroblocks_event_duration_ms', 0)
-                    should_upload = macroblocks_duration_ms > 5000
-                    
-                    if not cached_r2_urls and should_upload:
-                        # First macroblocks frame (duration > 5s) - upload to R2
-                        now = datetime.now()
-                        time_key = f"{now.hour:02d}{now.minute:02d}"
-                        
-                        # Upload current frame thumbnail (take first from list)
-                        thumbnail_path = current_thumbnail[0] if isinstance(current_thumbnail, list) else current_thumbnail
-                        
-                        logger.info(f"[{capture_folder}] ⚠️  NEW macroblocks detected (duration={macroblocks_duration_ms/1000:.1f}s) - uploading thumbnail to R2 (time_key={time_key})")
-                        r2_urls = self.incident_manager.upload_incident_frame_to_r2(
-                            thumbnail_path, capture_folder, time_key, 'macroblocks', 'start'
-                        )
-                        if r2_urls and r2_urls.get('thumbnail_url'):
-                            device_state['macroblocks_r2_urls'] = r2_urls['thumbnail_url']
-                            device_state['macroblocks_r2_images'] = r2_urls
-                            device_state['macroblocks_start_frame'] = filename
-                            detection_result['macroblocks_thumbnail'] = r2_urls['thumbnail_url']
-                            detection_result['r2_images'] = r2_urls
-                            logger.info(f"[{capture_folder}] 📤 Uploaded MACROBLOCKS thumbnail to R2: {r2_urls['thumbnail_url']}")
-                    elif not cached_r2_urls and not should_upload:
-                        logger.debug(f"[{capture_folder}] Macroblocks too short ({macroblocks_duration_ms/1000:.1f}s < 5s), skipping R2 upload")
-                    else:
-                        # Macroblocks ongoing - reuse cached R2 URL
-                        detection_result['macroblocks_thumbnail'] = cached_r2_urls
-                        detection_result['r2_images'] = device_state.get('macroblocks_r2_images', {
-                            'thumbnail_url': cached_r2_urls
-                        })
+            # R2 upload is now handled ONLY by incident_manager when creating/resolving DB incidents
+            # This simplifies the flow and ensures timing is correct
             
             # Process incident logic (5-minute debounce, DB operations)
             # Thumbnails are uploaded inside process_detection after 5min confirmation
