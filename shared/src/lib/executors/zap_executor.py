@@ -701,15 +701,19 @@ class ZapExecutor:
         """
         Read zapping detection using action timestamp as unique identifier.
         
-        ✅ OPTIMIZED: Read from 10-minute chunk JSON (1 file) instead of 100 individual frame JSONs.
-        Complete zapping metadata is now included in chunks by capture_monitor.
+        ✅ INSTANT ACCESS: Read from last_zapping.json (single file, instant!) → fallback to chunk if needed.
+        Eliminates race conditions where newest frames aren't in chunks yet.
+        
+        Strategy:
+        1. Try last_zapping.json first (instant single-file read, written immediately by capture_monitor)
+        2. Fallback to 10-minute chunk JSON if last_zapping.json doesn't match
         
         Args:
             action_timestamp: Unix timestamp when action was executed (unique ID)
             capture_folder: Device capture folder name (e.g., 'capture4')
         
         Returns:
-            Complete zapping data from chunk JSON
+            Complete zapping data
         """
         try:
             print(f"📺 [ZapExecutor] Reading zapping detection for action timestamp: {action_timestamp}")
@@ -718,7 +722,63 @@ class ZapExecutor:
             print(f"⏳ [ZapExecutor] Waiting 10s for capture_monitor to detect and analyze zapping...")
             time.sleep(10)
             
-            # 2. Calculate which chunk to read (based on current time)
+            # 2. INSTANT ACCESS: Try last_zapping.json first (single file, instant read!)
+            base_path = f"/var/www/html/stream/{capture_folder}"
+            last_zapping_path = os.path.join(base_path, 'last_zapping.json')
+            
+            if os.path.exists(last_zapping_path):
+                try:
+                    with open(last_zapping_path, 'r') as f:
+                        zapping_data = json.load(f)
+                    
+                    # Check if this is the zapping event we're looking for
+                    zapping_action_ts = zapping_data.get('action_timestamp')
+                    if zapping_action_ts and abs(zapping_action_ts - action_timestamp) < 0.1:
+                        print(f"✅ [ZapExecutor] Found zapping in last_zapping.json (instant access!)")
+                        print(f"   Action timestamp match: {zapping_action_ts} ≈ {action_timestamp}")
+                        
+                        zapping_detected = zapping_data.get('zapping_detected', False)
+                        
+                        if zapping_detected:
+                            channel_name = zapping_data.get('channel_name', '')
+                            channel_number = zapping_data.get('channel_number', '')
+                            program_name = zapping_data.get('program_name', '')
+                            print(f"   📺 Zapping detected: {channel_name} ({channel_number}) - {program_name}")
+                        
+                        # Extract sequence from frame filename
+                        frame_filename = zapping_data.get('frame_filename', '')
+                        try:
+                            sequence = int(frame_filename.split('_')[1].split('.')[0])
+                        except:
+                            sequence = 0
+                        
+                        return {
+                            'success': True,
+                            'zapping_detected': zapping_detected,
+                            'channel_name': channel_name,
+                            'channel_number': channel_number,
+                            'program_name': zapping_data.get('program_name', ''),
+                            'blackscreen_duration': zapping_data.get('blackscreen_duration_ms', 0) / 1000.0,
+                            'detection_type': zapping_data.get('detection_type', 'unknown'),
+                            'confidence': zapping_data.get('confidence', 0.0),
+                            'detected_at': zapping_data.get('detected_at'),
+                            'frame_filename': frame_filename,
+                            'frame_sequence': sequence,
+                            'action_timestamp': zapping_action_ts,
+                            'details': {
+                                'start_time': zapping_data.get('program_start_time', ''),
+                                'end_time': zapping_data.get('program_end_time', '')
+                            }
+                        }
+                    else:
+                        print(f"ℹ️ [ZapExecutor] last_zapping.json exists but timestamp mismatch (different zapping event)")
+                
+                except Exception as e:
+                    print(f"⚠️ [ZapExecutor] Error reading last_zapping.json: {e}")
+            else:
+                print(f"ℹ️ [ZapExecutor] last_zapping.json not found, trying chunk fallback...")
+            
+            # 3. FALLBACK: Search chunk JSON if last_zapping.json not found or mismatched
             from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
             from datetime import datetime
             
@@ -726,7 +786,6 @@ class ZapExecutor:
             hour, chunk_index = calculate_chunk_location(action_dt)
             
             # Get chunk path
-            base_path = f"/var/www/html/stream/{capture_folder}"
             chunk_path = os.path.join(base_path, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
             
             if not os.path.exists(chunk_path):

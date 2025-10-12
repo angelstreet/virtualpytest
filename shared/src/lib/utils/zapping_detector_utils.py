@@ -141,7 +141,17 @@ def detect_and_record_zapping(
         # ❌ REMOVED: Live events queue - redundant! Frame JSON is single source of truth
         # Frontend polls frame JSON directly (1s interval) which already has zapping + action data
         
-        # 2️⃣ Store in database
+        # 2️⃣ Write last_zapping.json (instant read for zap_executor - no searching needed!)
+        _write_last_zapping_json(
+            capture_folder=capture_folder,
+            frame_filename=frame_filename,
+            channel_info=channel_info,
+            blackscreen_duration_ms=blackscreen_duration_ms,
+            is_automatic=is_automatic,
+            action_info=action_info
+        )
+        
+        # 3️⃣ Store in database
         _store_zapping_event(
             device_id=device_id,
             blackscreen_duration_ms=blackscreen_duration_ms,
@@ -262,6 +272,64 @@ def _update_frame_json_with_zapping(
             
     except Exception as e:
         logger.error(f"[{capture_folder}] ❌ Failed to update frame JSON: {e}")
+
+
+def _write_last_zapping_json(
+    capture_folder: str,
+    frame_filename: str,
+    channel_info: Dict[str, Any],
+    blackscreen_duration_ms: int,
+    is_automatic: bool,
+    action_info: Optional[Dict[str, Any]]
+):
+    """
+    Write last_zapping.json for instant read by zap_executor.
+    
+    ✅ INSTANT ACCESS: zap_executor reads this single file instead of searching 100+ JSONs.
+    This eliminates race conditions where newest frames aren't in chunks yet.
+    """
+    try:
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
+        base_path = get_capture_storage_path(capture_folder)
+        
+        # Path: /var/www/html/stream/capture1/last_zapping.json
+        last_zapping_path = os.path.join(base_path, 'last_zapping.json')
+        
+        # Prepare complete zapping data
+        detected_at = datetime.now().isoformat()
+        
+        zapping_data = {
+            'zapping_detected': True,
+            'detected_at': detected_at,
+            'frame_filename': frame_filename,
+            
+            # Channel info
+            'channel_name': channel_info.get('channel_name', ''),
+            'channel_number': channel_info.get('channel_number', ''),
+            'program_name': channel_info.get('program_name', ''),
+            'program_start_time': channel_info.get('start_time', ''),
+            'program_end_time': channel_info.get('end_time', ''),
+            'confidence': channel_info.get('confidence', 0.0),
+            
+            # Zapping details
+            'blackscreen_duration_ms': blackscreen_duration_ms,
+            'detection_type': 'automatic' if is_automatic else 'manual',
+            
+            # Action info (for matching by zap_executor)
+            'action_timestamp': action_info.get('last_action_timestamp') if action_info else None,
+            'action_command': action_info.get('last_action_executed') if action_info else None,
+            'time_since_action_ms': action_info.get('time_since_action_ms') if action_info else None,
+        }
+        
+        # Atomic write
+        with open(last_zapping_path + '.tmp', 'w') as f:
+            json.dump(zapping_data, f, indent=2)
+        os.rename(last_zapping_path + '.tmp', last_zapping_path)
+        
+        logger.info(f"[{capture_folder}] ✅ Updated last_zapping.json (instant access for zap_executor)")
+        
+    except Exception as e:
+        logger.error(f"[{capture_folder}] ❌ Failed to write last_zapping.json: {e}")
 
 
 # ❌ REMOVED: _write_to_live_events_queue() - No longer needed!
