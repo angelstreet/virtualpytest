@@ -345,6 +345,26 @@ class IncidentManager:
         if 'audio' in detection_result and not is_host:
             issue_types.append('audio_loss')
         
+        # PRIORITY HANDLING: Blackscreen takes priority over freeze and macroblocks
+        # If blackscreen is detected, automatically clear any freeze/macroblocks incidents
+        if detection_result.get('blackscreen', False):
+            for suppressed_type in ['freeze', 'macroblocks']:
+                if suppressed_type in active_incidents:
+                    # Clear active incident (blackscreen is more severe)
+                    incident_id = active_incidents[suppressed_type]
+                    logger.info(f"[{capture_folder}] 🔄 Blackscreen detected - auto-resolving active {suppressed_type} incident {incident_id}")
+                    self.resolve_incident(device_id, incident_id, suppressed_type)
+                    del active_incidents[suppressed_type]
+                    if not active_incidents:
+                        device_state['state'] = NORMAL
+                    transitions[suppressed_type] = 'cleared_by_blackscreen'
+                
+                if suppressed_type in pending_incidents:
+                    # Clear pending incident (blackscreen is more severe)
+                    logger.debug(f"[{capture_folder}] Blackscreen detected - clearing pending {suppressed_type} incident")
+                    del pending_incidents[suppressed_type]
+                    transitions[suppressed_type] = 'cleared_by_blackscreen'
+        
         # Check each issue type
         logger.debug(f"[{capture_folder}] Checking issue types: {issue_types}")
         
@@ -380,49 +400,45 @@ class IncidentManager:
                         
                         if not has_r2_images and issue_type in ['blackscreen', 'freeze', 'macroblocks']:
                             # Missing R2 images - upload them NOW before DB insert
-                            # We're creating a DB incident, so we ALWAYS upload images (incident confirmed > INCIDENT_REPORT_DELAY)
                             logger.info(f"[{capture_folder}] Uploading {issue_type} start images to R2 before DB insert...")
                             from datetime import datetime
                             now = datetime.now()
-                            # Use full timestamp to ensure uniqueness (YYYYMMDD_HHMMSS)
                             time_key = f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}"
                             
                             if issue_type == 'freeze':
-                                # Upload 3 thumbnails for freeze
+                                # Upload 3 thumbnails for freeze (paths already in detection_result)
                                 last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
                                 last_3_captures = detection_result.get('last_3_filenames', [])
                                 if last_3_thumbnails:
-                                    r2_urls = self.upload_freeze_frames_to_r2(
-                                        last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
-                                    )
-                                    if r2_urls and r2_urls.get('thumbnail_urls'):
-                                        detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
-                                        detection_result['r2_images'] = r2_urls
-                                        has_r2_images = True
-                                        logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
-                            else:
-                                # Upload single thumbnail for blackscreen/macroblocks
-                                # Construct thumbnail path from current filename (last_3_thumbnails is empty for non-freeze)
-                                filename = detection_result.get('filename', '')
-                                if filename:
-                                    thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
-                                    from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
-                                    thumbnails_dir = get_thumbnails_path(capture_folder)
-                                    thumbnail_path = os.path.join(thumbnails_dir, thumbnail_filename)
+                                    # Copy to cold first (freeze thumbnails may be in hot storage)
+                                    from shared.src.lib.utils.storage_path_utils import copy_to_cold_storage
+                                    cold_thumbnails = [copy_to_cold_storage(t) for t in last_3_thumbnails if t]
+                                    cold_thumbnails = [t for t in cold_thumbnails if t]  # Remove None
                                     
-                                    if os.path.exists(thumbnail_path):
-                                        r2_urls = self.upload_incident_frame_to_r2(
-                                            thumbnail_path, capture_folder, time_key, issue_type, 'start'
+                                    if cold_thumbnails:
+                                        r2_urls = self.upload_freeze_frames_to_r2(
+                                            last_3_captures, cold_thumbnails, capture_folder, time_key, thumbnails_only=True
                                         )
-                                        if r2_urls and r2_urls.get('thumbnail_url'):
-                                            detection_result[f'{issue_type}_thumbnail'] = r2_urls['thumbnail_url']
+                                        if r2_urls and r2_urls.get('thumbnail_urls'):
                                             detection_result['r2_images'] = r2_urls
                                             has_r2_images = True
-                                            logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail")
-                                    else:
-                                        logger.warning(f"[{capture_folder}] ⚠️  Thumbnail not found for {issue_type}: {thumbnail_path}")
+                                            logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
+                            else:
+                                # Upload single thumbnail for blackscreen/macroblocks from cold path
+                                device_id = get_device_info_from_capture_folder(capture_folder).get('device_id', capture_folder)
+                                device_state = self.get_device_state(device_id)
+                                cold_thumbnail_path = device_state.get(f'{issue_type}_start_thumbnail_cold')
+                                
+                                if cold_thumbnail_path and os.path.exists(cold_thumbnail_path):
+                                    r2_urls = self.upload_incident_frame_to_r2(
+                                        cold_thumbnail_path, capture_folder, time_key, issue_type, 'start'
+                                    )
+                                    if r2_urls and r2_urls.get('thumbnail_url'):
+                                        detection_result['r2_images'] = r2_urls
+                                        has_r2_images = True
+                                        logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail from cold")
                                 else:
-                                    logger.warning(f"[{capture_folder}] ⚠️  No filename in detection_result for {issue_type}")
+                                    logger.warning(f"[{capture_folder}] ⚠️  Cold thumbnail not found for {issue_type}: {cold_thumbnail_path}")
                         
                         # Log R2 image status
                         if has_r2_images:
@@ -526,7 +542,20 @@ class IncidentManager:
                     # Issue was pending but cleared before reaching threshold
                     elapsed_time = current_time - pending_incidents[issue_type]
                     transitions[issue_type] = 'cleared'  # Mark transition
-                    # Skip logging (already logged in capture_monitor with event duration)
+                    
+                    # Cleanup: Remove cold copy for blackscreen/macroblocks (won't be uploaded to R2)
+                    if issue_type in ['blackscreen', 'macroblocks']:
+                        cold_path_key = f'{issue_type}_start_thumbnail_cold'
+                        if cold_path_key in device_state:
+                            cold_path = device_state[cold_path_key]
+                            if cold_path and os.path.exists(cold_path):
+                                try:
+                                    os.remove(cold_path)
+                                    logger.debug(f"[{capture_folder}] Cleaned up {issue_type} cold thumbnail (cleared before {self.INCIDENT_REPORT_DELAY}s)")
+                                except:
+                                    pass
+                            del device_state[cold_path_key]
+                    
                     del pending_incidents[issue_type]
         
         return transitions  # Return all transitions that occurred

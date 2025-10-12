@@ -255,6 +255,25 @@ class InotifyFrameMonitor:
                     detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
                     detection_result[f'{event_type}_event_duration_ms'] = 0
                     
+                    # Copy START frame to COLD immediately for blackscreen/macroblocks (hot storage frames expire)
+                    if event_type in ['blackscreen', 'macroblocks']:
+                        current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
+                        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
+                        thumbnails_dir = get_thumbnails_path(capture_folder)
+                        start_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
+                        
+                        if os.path.exists(start_thumbnail_path):
+                            # Copy to cold storage NOW (safe for 1+ hour, will upload to R2 later if incident persists)
+                            cold_path = copy_to_cold_storage(start_thumbnail_path)
+                            if cold_path:
+                                device_state[f'{event_type}_start_thumbnail_cold'] = cold_path
+                                device_state[f'{event_type}_start_filename'] = current_filename
+                                logger.debug(f"[{capture_folder}] Copied {event_type} START to cold storage")
+                            else:
+                                logger.warning(f"[{capture_folder}] ⚠️  Failed to copy {event_type} START to cold")
+                        else:
+                            logger.warning(f"[{capture_folder}] ⚠️  {event_type} START thumbnail not found: {start_thumbnail_path}")
+                    
                     # Log event start
                     if event_type == 'audio':
                         volume = detection_result.get('mean_volume_db', -100)
@@ -479,10 +498,25 @@ class InotifyFrameMonitor:
                 detection_result = {}  # Empty dict to merge with existing data
             
             issues = []
-            if detection_result and detection_result.get('blackscreen', False):
+            has_blackscreen = detection_result and detection_result.get('blackscreen', False)
+            has_freeze = detection_result and detection_result.get('freeze', False)
+            has_macroblocks = detection_result and detection_result.get('macroblocks', False)
+            
+            if has_blackscreen:
                 issues.append('blackscreen')
-            if detection_result and detection_result.get('freeze', False):
-                issues.append('freeze')
+                # Blackscreen has priority - suppress freeze and macroblocks detection
+                if has_freeze:
+                    detection_result['freeze'] = False
+                    logger.debug(f"[{capture_folder}] Suppressing freeze (blackscreen has priority)")
+                if has_macroblocks:
+                    detection_result['macroblocks'] = False
+                    logger.debug(f"[{capture_folder}] Suppressing macroblocks (blackscreen has priority)")
+            else:
+                # Only report freeze/macroblocks if no blackscreen
+                if has_freeze:
+                    issues.append('freeze')
+                if has_macroblocks:
+                    issues.append('macroblocks')
             
             if issues:
                 logger.info(f"[{capture_folder}] Issues: {issues}")

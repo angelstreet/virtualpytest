@@ -564,3 +564,28 @@ def calculate_chunk_location(timestamp):
     chunk_index = timestamp.minute // 10  # 0-5 for 10-minute windows
     
     return hour, chunk_index
+
+
+def copy_to_cold_storage(hot_or_cold_path):
+    """
+    Copy file from hot to cold storage if needed. If already in cold, return as-is.
+    
+    Args:
+        hot_or_cold_path: File path (hot or cold storage)
+        
+    Returns:
+        Cold storage path, or None if copy failed
+    """
+    import shutil
+    
+    if '/hot/' not in hot_or_cold_path:
+        return hot_or_cold_path  # Already in cold
+    
+    cold_path = hot_or_cold_path.replace('/hot/', '/')
+    os.makedirs(os.path.dirname(cold_path), exist_ok=True)
+    
+    if os.path.exists(hot_or_cold_path):
+        shutil.copy2(hot_or_cold_path, cold_path)
+        return cold_path
+    
+    return None
