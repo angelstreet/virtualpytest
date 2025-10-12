@@ -865,8 +865,24 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
             except:
                 pass
     elif manifest_type == 'transcript':
-        chunk_info["has_mp3"] = has_mp3
-        if not has_mp3:
+        # Validate MP3 existence and timestamp instead of blindly trusting has_mp3 parameter
+        device_folder = os.path.basename(capture_dir)
+        from shared.src.lib.utils.storage_path_utils import get_audio_path
+        audio_path = get_audio_path(device_folder, f'chunk_10min_{chunk_index}.mp3', hour)
+        
+        has_mp3_validated = False
+        if os.path.exists(audio_path):
+            mp3_stat = os.stat(audio_path)
+            # Check if MP3 timestamp is within 2 hours of transcript timestamp
+            # (allows for same-day files, rejects 24h old files from yesterday)
+            time_diff = abs(mp3_stat.st_mtime - file_stat.st_mtime)
+            if time_diff < 7200:  # 2 hours tolerance
+                has_mp3_validated = True
+            else:
+                logger.debug(f"MP3 exists but timestamp mismatch (hour={hour}, chunk={chunk_index}): {time_diff/3600:.1f}h difference - likely old file from yesterday")
+        
+        chunk_info["has_mp3"] = has_mp3_validated
+        if not has_mp3_validated:
             chunk_info["unavailable_since"] = datetime.now().isoformat()
         
         try:
