@@ -394,20 +394,20 @@ export function HLSVideoPlayer({
         liveBackBufferLength: 30,      // Keep back buffer
         liveDurationInfinity: false,   // Finite duration for archive
       } : {
-        // Live mode - low latency with scrubbing capability
+        // Live mode - aggressive live edge with background buffering for 150s scrubbing
         enableWorker: false,
-        lowLatencyMode: false,         // Disable low latency mode to prevent auto-seeking to live
-        liveSyncDuration: 1,           // Target sync position
-        liveMaxLatencyDuration: 180,   // Allow full buffer scrubbing (150s + margin) without forcing back to live
-        maxBufferLength: 150,          // Load ALL 150s ahead immediately (full manifest)
-        maxMaxBufferLength: 150,       // Allow up to full 150s buffer (matches FFmpeg hls_list_size)
-        backBufferLength: 150,         // Keep 2.5min for scrubbing
-        maxBufferSize: 15 * 1000 * 1000, // Increased for full 150s buffer (15MB)
+        lowLatencyMode: true,          // ✅ Enable aggressive live edge targeting
+        liveSyncDuration: 1,           // Target 1s behind live edge
+        liveMaxLatencyDuration: 5,     // ✅ Force back to live if drift >5s (was 180s)
+        maxBufferLength: 10,           // ✅ Load only 10s initially for fast startup (was 150s)
+        maxMaxBufferLength: 150,       // But ALLOW up to 150s total as buffer fills
+        backBufferLength: 150,         // Keep 150s for scrubbing (fills backward in background)
+        maxBufferSize: 15 * 1000 * 1000, // 15MB for full 150s buffer
         maxBufferHole: 0.1,            // Fill gaps faster
         fragLoadingTimeOut: 5000,      // Fail faster
         manifestLoadingTimeOut: 3000,  // Fail faster
         levelLoadingTimeOut: 3000,     // Fail faster
-        liveBackBufferLength: 150,     // Allow scrubbing back 2.5min
+        liveBackBufferLength: 150,     // ✅ Continue loading old segments backward (150s scrubbing)
         liveDurationInfinity: true,    // Allow infinite live duration
       };
 

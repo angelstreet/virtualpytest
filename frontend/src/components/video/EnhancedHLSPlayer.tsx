@@ -235,7 +235,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       setLiveSliderPosition(value);
       
       if (value >= 145) {
-        video.currentTime = bufferEnd - 1;
+        video.currentTime = bufferEnd - 0.5;  // ✅ More aggressive live edge (was 1s)
         setLiveSliderPosition(150);
       }
     }
@@ -256,7 +256,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         const bufferStart = buffered.start(0);
         const totalBuffer = bufferEnd - bufferStart;
         const latency = bufferEnd - video.currentTime;
-        const atLiveEdge = latency < 3;
+        const atLiveEdge = latency < 2;  // ✅ Tighter live edge detection (was 3s)
         
         // Track maximum buffer size (DVR window) - only increase, never decrease
         // This represents the maximum seekable range, not the instantaneous buffered range
