@@ -496,6 +496,9 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # ADAPTIVE: When overloaded, only detect every N frames (1 second)
     start = time.perf_counter()
     
+    # Threshold = 10 (matches production - accounts for compression artifacts)
+    threshold = 10
+    
     # Check if we should use cached result (adaptive sampling when overloaded)
     if queue_size > 50 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
         # Return cached blackscreen result
@@ -517,8 +520,6 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         top_region = img[header_y:split_y, :]
         
         # Sample every 4th pixel (6.25% sample) - OPTIMIZED from every 3rd (11%)
-        # Threshold = 10 (matches production - accounts for compression artifacts)
-        threshold = 10
         sample = top_region[::4, ::4]
         sample_dark = np.sum(sample <= threshold)
         sample_total = sample.shape[0] * sample.shape[1]

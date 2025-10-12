@@ -493,14 +493,40 @@ class InotifyFrameMonitor:
                             logger.info(f"[{capture_folder}] 🔍 Cached audio from frame-{i}: audio={'✅' if prev_data['audio'] else '❌'}, volume={prev_data.get('mean_volume_db', -100):.1f}dB")
                             break
             
+            # Check if JSON already exists and extract audio data early (needed for event tracking)
+            existing_audio_data = {}
+            if os.path.exists(json_file):
+                try:
+                    with open(json_file, 'r') as f:
+                        existing_json = json.load(f)
+                    if 'audio' in existing_json:
+                        existing_audio_data = {
+                            'audio': existing_json['audio'],
+                            'mean_volume_db': existing_json.get('mean_volume_db', -100),
+                            'audio_check_timestamp': existing_json.get('audio_check_timestamp'),
+                            'audio_segment_file': existing_json.get('audio_segment_file')
+                        }
+                except:
+                    pass
+            
+            # Use cached audio if JSON doesn't have it yet
+            if not existing_audio_data and capture_folder in self.audio_cache:
+                existing_audio_data = self.audio_cache[capture_folder]
+            
             # Run expensive detection only if needed
             if needs_detection:
                 detection_result = detect_issues(frame_path, queue_size=queue_size)
-                # Add event duration tracking metadata
-                detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename)
             else:
                 # JSON exists without audio - just add audio from cache (no detection needed)
                 detection_result = {}  # Empty dict to merge with existing data
+            
+            # Merge audio data into detection_result BEFORE event tracking
+            if existing_audio_data:
+                detection_result.update(existing_audio_data)
+            
+            # ALWAYS add event duration tracking (needed for audio_loss even when skipping detection)
+            if detection_result is not None:
+                detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename)
             
             issues = []
             has_blackscreen = detection_result and detection_result.get('blackscreen', False)
@@ -542,27 +568,26 @@ class InotifyFrameMonitor:
             transitions = self.incident_manager.process_detection(capture_folder, detection_result, self.host_name)
             
             try:
-                # Check if JSON already exists (transcript_accumulator might have written audio data)
+                # Reuse existing_json if we read it earlier, otherwise read now
                 existing_data = {}
-                if os.path.exists(json_file):
+                if 'existing_json' in locals() and existing_json:
+                    existing_data = existing_json
+                elif os.path.exists(json_file):
                     try:
                         with open(json_file, 'r') as f:
                             existing_data = json.load(f)
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] Failed to read existing JSON: {e}")
                 
-                # Audio handling: Update cache if JSON has fresh audio data, otherwise use cached value
-                if 'audio' in existing_data:
-                    # JSON has audio data from transcript_accumulator - update cache
-                    self.audio_cache[capture_folder] = {
-                        'audio': existing_data['audio'],
-                        'mean_volume_db': existing_data.get('mean_volume_db', -100),
-                        'audio_check_timestamp': existing_data.get('audio_check_timestamp'),
-                        'audio_segment_file': existing_data.get('audio_segment_file')
-                    }
-                    audio_val = "✅ YES" if existing_data['audio'] else "❌ NO"
-                    volume = existing_data.get('mean_volume_db', -100)
+                # Audio handling: Update cache if JSON has fresh audio data
+                if existing_audio_data and 'audio' in existing_audio_data:
+                    # Already extracted audio earlier - update cache
+                    self.audio_cache[capture_folder] = existing_audio_data
+                    audio_val = "✅ YES" if existing_audio_data['audio'] else "❌ NO"
+                    volume = existing_audio_data.get('mean_volume_db', -100)
                     logger.info(f"[{capture_folder}] 🔄 Updated audio cache from {json_file}: audio={audio_val}, volume={volume:.1f}dB")
+                    # Make sure existing_data has audio
+                    existing_data.update(existing_audio_data)
                 elif capture_folder in self.audio_cache:
                     # No audio in JSON but we have cached value - use it
                     existing_data.update(self.audio_cache[capture_folder])
