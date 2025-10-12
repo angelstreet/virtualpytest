@@ -491,6 +491,9 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
             else:
                 logger.warning(f"[10MIN-AI:{capture_folder}] AI translation failed: {ai_result.get('error')}")
         else:
+            merge_start = time.time()
+            merged_count = 0
+            
             for lang_code, lang_name in TRANSLATION_LANGUAGES.items():
                 translations = []
                 
@@ -502,11 +505,7 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
                             translations.append(data.get('transcript', ''))
                 
                 if not translations:
-                    logger.debug(f"[10MIN-MERGE:{capture_folder}] Skipping {lang_code} (no 1min files)")
                     continue
-                
-                if len(translations) < 10:
-                    logger.info(f"[10MIN-MERGE:{capture_folder}] ⚠️  {lang_code}: {len(translations)}/10 minutes")
                 
                 merged_text = ' '.join(translations)
                 
@@ -521,7 +520,11 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
                     json.dump(translated_data, f, indent=2)
                 os.rename(lang_file_path + '.tmp', lang_file_path)
                 
-                logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] ✅ {lang_code}: {len(merged_text)} chars{RESET}")
+                merged_count += 1
+                logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] ✅ {lang_code}: {len(translations)}/10 min, {len(merged_text)} chars{RESET}")
+            
+            merge_elapsed = time.time() - merge_start
+            logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] 🎉 Merged {merged_count} languages in {merge_elapsed:.2f}s (from 1min AI translations){RESET}")
         
         generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
         
