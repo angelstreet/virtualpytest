@@ -140,7 +140,7 @@ useEffect(() => {
     currentActions.push({
       command: monitoringAnalysis.zapping_detection_type === 'automatic'
         ? `📺 ZAP → ${monitoringAnalysis.zapping_channel_name} (${monitoringAnalysis.zapping_channel_number})`
-        : `📺 MANUAL ZAP → ${monitoringAnalysis.zapping_channel_name}`,
+        : `📺 ZAP → ${monitoringAnalysis.zapping_channel_name}`,
       timestamp: ...,
       params: { ... }
     });

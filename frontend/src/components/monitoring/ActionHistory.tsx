@@ -139,10 +139,10 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
               {action.command}
             </Typography>
             
-            {/* Show detailed info for zapping events (same as report) */}
+            {/* Show detailed info for zapping events - CLEAN 2-LINE FORMAT */}
             {isZapping && (
               <>
-                {/* Program name */}
+                {/* Program name (italic, white) */}
                 {action.params?.program_name && (
                   <Typography
                     variant="caption"
@@ -158,33 +158,33 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
                   </Typography>
                 )}
                 
-                {/* Program time */}
+                {/* Line 1: Program time - WHITE, single line with labels */}
                 {action.params?.program_start_time && action.params?.program_end_time && (
                   <Typography
                     variant="caption"
                     sx={{
-                      color: '#cccccc',
+                      color: '#ffffff',
                       display: 'block',
                       fontSize: index === 0 ? '0.68rem' : '0.65rem',
                       mt: 0.2,
                     }}
                   >
-                    {action.params.program_start_time}-{action.params.program_end_time}
+                    start: {action.params.program_start_time} - end: {action.params.program_end_time}
                   </Typography>
                 )}
                 
-                {/* Zap duration */}
+                {/* Line 2: Zap duration - WHITE, single line with explicit labels */}
                 {action.params?.blackscreen_duration_ms && (
                   <Typography
                     variant="caption"
                     sx={{
-                      color: '#cccccc',
+                      color: '#ffffff',
                       display: 'block',
                       fontSize: index === 0 ? '0.68rem' : '0.65rem',
                       mt: 0.2,
                     }}
                   >
-                    Zap: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s
+                    Zap duration: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s - Blackscreen duration: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s
                   </Typography>
                 )}
               </>

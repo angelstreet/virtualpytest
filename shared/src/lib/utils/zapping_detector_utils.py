@@ -297,6 +297,11 @@ def _write_last_zapping_json(
         base_path = get_device_base_path(capture_folder)
         last_zapping_path = os.path.join(base_path, 'last_zapping.json')
         
+        logger.info(f"[{capture_folder}] 📝 Writing last_zapping.json to: {last_zapping_path}")
+        
+        # Ensure directory exists
+        os.makedirs(base_path, exist_ok=True)
+        
         # Prepare complete zapping data
         detected_at = datetime.now().isoformat()
         
@@ -328,10 +333,17 @@ def _write_last_zapping_json(
             json.dump(zapping_data, f, indent=2)
         os.rename(last_zapping_path + '.tmp', last_zapping_path)
         
-        logger.info(f"[{capture_folder}] ✅ Updated last_zapping.json (instant access for zap_executor)")
+        # Verify file exists
+        if os.path.exists(last_zapping_path):
+            file_size = os.path.getsize(last_zapping_path)
+            logger.info(f"[{capture_folder}] ✅ last_zapping.json written successfully: {last_zapping_path} ({file_size} bytes)")
+        else:
+            logger.error(f"[{capture_folder}] ❌ last_zapping.json write failed - file doesn't exist after write!")
         
     except Exception as e:
         logger.error(f"[{capture_folder}] ❌ Failed to write last_zapping.json: {e}")
+        import traceback
+        logger.error(f"[{capture_folder}] Traceback: {traceback.format_exc()}")
 
 
 # ❌ REMOVED: _write_to_live_events_queue() - No longer needed!

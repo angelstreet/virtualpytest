@@ -727,6 +727,8 @@ class ZapExecutor:
             base_path = get_device_base_path(capture_folder)
             last_zapping_path = os.path.join(base_path, 'last_zapping.json')
             
+            print(f"🔍 [ZapExecutor] Looking for last_zapping.json at: {last_zapping_path}")
+            
             if os.path.exists(last_zapping_path):
                 try:
                     with open(last_zapping_path, 'r') as f:
