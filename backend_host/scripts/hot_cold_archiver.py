@@ -1155,8 +1155,8 @@ def process_capture_directory(capture_dir: str):
             input2_size = os.path.getsize(mp4_1min)
             logger.debug(f"MP4 merge inputs: {mp4_path} ({input1_size/1024/1024:.2f}MB) + {mp4_1min} ({input2_size/1024/1024:.2f}MB)")
             
-            # Skip faststart flag for progressive chunks (MUCH faster on SD cards - no file rewrite)
-            result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60, None, True)
+            # Enable faststart flag for progressive chunks (prevents corruption from broken moov atoms)
+            result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60, None, False)
             mp4_append_elapsed = time.time() - mp4_append_start
             
             # Enhanced diagnostics

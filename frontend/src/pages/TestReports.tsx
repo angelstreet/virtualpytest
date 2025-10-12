@@ -26,7 +26,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
   CircularProgress,
   Alert,
   Dialog,
@@ -197,26 +196,27 @@ const TestReports: React.FC = () => {
   const getCheckedStatus = (result: ScriptResult) => {
     if (result.checked === undefined || result.checked === null) {
       return (
-        <Chip
-          icon={<UnknownIcon />}
-          label="Pending"
-          color="default"
-          size="small"
-          variant="outlined"
-          clickable
-          onClick={() => handleCheckedToggle(result)}
-        />
+        <Tooltip title="Mark as checked">
+          <IconButton
+            size="small"
+            onClick={() => handleCheckedToggle(result)}
+            sx={{ p: 0.5 }}
+          >
+            <UnknownIcon fontSize="small" color="disabled" />
+          </IconButton>
+        </Tooltip>
       );
     }
     return (
-      <Chip
-        icon={<CheckedIcon />}
-        label={result.checked ? 'Checked' : 'Unchecked'}
-        color={result.checked ? 'success' : 'default'}
-        size="small"
-        clickable
-        onClick={() => handleCheckedToggle(result)}
-      />
+      <Tooltip title={result.checked ? 'Checked' : 'Not checked'}>
+        <IconButton
+          size="small"
+          onClick={() => handleCheckedToggle(result)}
+          sx={{ p: 0.5 }}
+        >
+          <CheckedIcon fontSize="small" color={result.checked ? 'success' : 'disabled'} />
+        </IconButton>
+      </Tooltip>
     );
   };
 
@@ -229,14 +229,19 @@ const TestReports: React.FC = () => {
       );
     }
     return (
-      <Chip
-        icon={result.discard ? <DiscardedIcon /> : <ValidIcon />}
-        label={result.discard ? 'Discarded' : 'Valid'}
-        color={result.discard ? 'warning' : 'success'}
-        size="small"
-        clickable
-        onClick={() => handleDiscardToggle(result)}
-      />
+      <Tooltip title={result.discard ? 'Discarded' : 'Valid'}>
+        <IconButton
+          size="small"
+          onClick={() => handleDiscardToggle(result)}
+          sx={{ p: 0.5 }}
+        >
+          {result.discard ? (
+            <DiscardedIcon fontSize="small" color="warning" />
+          ) : (
+            <ValidIcon fontSize="small" color="success" />
+          )}
+        </IconButton>
+      </Tooltip>
     );
   };
 
@@ -248,15 +253,15 @@ const TestReports: React.FC = () => {
         </Typography>
       );
     }
-    const isAI = result.check_type === 'ai';
+    const isAI = result.check_type === 'ai' || result.check_type === 'ai_and_human';
+    const isHuman = result.check_type === 'ai_and_human';
     return (
-      <Chip
-        icon={isAI ? <AiIcon /> : <ManualIcon />}
-        label={isAI ? 'AI' : 'Manual'}
-        color="primary"
-        size="small"
-        variant="outlined"
-      />
+      <Tooltip title={isHuman ? 'AI & Human' : isAI ? 'AI' : 'Manual'}>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          {isAI && <AiIcon fontSize="small" color="primary" />}
+          {(result.check_type === 'manual' || isHuman) && <ManualIcon fontSize="small" color="primary" />}
+        </Box>
+      </Tooltip>
     );
   };
 
@@ -373,7 +378,15 @@ const TestReports: React.FC = () => {
           </Box>
 
           <TableContainer component={Paper} variant="outlined">
-            <Table size="small" sx={{ '& .MuiTableRow-root': { height: '40px' }, minWidth: '1400px' }}>
+            <Table size="small" sx={{ 
+              '& .MuiTableRow-root': { height: '40px' },
+              '& .MuiTableCell-root': { 
+                px: 1, 
+                py: 0.5,
+                fontSize: '0.875rem',
+                whiteSpace: 'nowrap',
+              }
+            }}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ py: 1 }}>
@@ -457,39 +470,27 @@ const TestReports: React.FC = () => {
                           switch (status) {
                             case 'running':
                               return (
-                                <Chip
-                                  icon={<RunningIcon />}
-                                  label="RUNNING"
-                                  color="warning"
-                                  size="small"
-                                />
+                                <Tooltip title="Running">
+                                  <RunningIcon color="warning" fontSize="small" />
+                                </Tooltip>
                               );
                             case 'passed':
                               return (
-                                <Chip
-                                  icon={<PassIcon />}
-                                  label="PASS"
-                                  color="success"
-                                  size="small"
-                                />
+                                <Tooltip title="Pass">
+                                  <PassIcon color="success" fontSize="small" />
+                                </Tooltip>
                               );
                             case 'failed':
                               return (
-                                <Chip
-                                  icon={<FailIcon />}
-                                  label="FAIL"
-                                  color="error"
-                                  size="small"
-                                />
+                                <Tooltip title="Fail">
+                                  <FailIcon color="error" fontSize="small" />
+                                </Tooltip>
                               );
                             default:
                               return (
-                                <Chip
-                                  icon={<UnknownIcon />}
-                                  label="UNKNOWN"
-                                  color="default"
-                                  size="small"
-                                />
+                                <Tooltip title="Unknown">
+                                  <UnknownIcon color="disabled" fontSize="small" />
+                                </Tooltip>
                               );
                           }
                         })()}
@@ -502,32 +503,34 @@ const TestReports: React.FC = () => {
                       <TableCell sx={{ py: 0.5 }}>{formatDate(result.started_at)}</TableCell>
                       <TableCell sx={{ py: 0.5 }}>
                         {result.html_report_r2_url ? (
-                          <Chip
-                            icon={<LinkIcon />}
-                            label="Report"
-                            size="small"
-                            clickable
-                            onClick={() => window.open(result.html_report_r2_url!, '_blank')}
-                            color="primary"
-                            variant="outlined"
-                          />
+                          <Tooltip title="Open Report">
+                            <IconButton
+                              size="small"
+                              onClick={() => window.open(result.html_report_r2_url!, '_blank')}
+                              color="primary"
+                              sx={{ p: 0.5 }}
+                            >
+                              <LinkIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         ) : (
-                          <Chip label="No Report" size="small" variant="outlined" disabled />
+                          <Typography variant="body2" color="text.disabled">-</Typography>
                         )}
                       </TableCell>
                       <TableCell sx={{ py: 0.5 }}>
                         {result.html_report_r2_url ? (
-                          <Chip
-                            icon={<LinkIcon />}
-                            label="Logs"
-                            size="small"
-                            clickable
-                            onClick={() => window.open(getLogsUrl(result.html_report_r2_url!), '_blank')}
-                            color="secondary"
-                            variant="outlined"
-                          />
+                          <Tooltip title="Open Logs">
+                            <IconButton
+                              size="small"
+                              onClick={() => window.open(getLogsUrl(result.html_report_r2_url!), '_blank')}
+                              color="secondary"
+                              sx={{ p: 0.5 }}
+                            >
+                              <LinkIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         ) : (
-                          <Chip label="No Logs" size="small" variant="outlined" disabled />
+                          <Typography variant="body2" color="text.disabled">-</Typography>
                         )}
                       </TableCell>
                       {showDetailedColumns && (

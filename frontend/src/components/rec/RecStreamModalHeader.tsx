@@ -259,20 +259,28 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           </ToggleButtonGroup>
         )}
 
-        {/* Monitoring Toggle Button - Works independently from control (passive observation) */}
+        {/* Monitoring Toggle Button - Only available in Live mode */}
         {!restartMode && (
           <Button
             variant={monitoringMode ? 'contained' : 'outlined'}
             size="small"
             onClick={onToggleMonitoring}
+            disabled={!isLiveMode}
             startIcon={monitoringMode ? <VisibilityIcon /> : <VisibilityOffIcon />}
             color={monitoringMode ? 'primary' : 'inherit'}
             sx={{
               fontSize: '0.75rem',
               minWidth: 120,
               color: monitoringMode ? 'white' : 'inherit',
+              opacity: !isLiveMode ? 0.5 : 1,
             }}
-            title={monitoringMode ? 'Hide Monitoring Overlay' : 'Show Monitoring Overlay (Freeze, Blackscreen, Audio, Subtitles, AI)'}
+            title={
+              !isLiveMode
+                ? 'Monitoring only available in Live mode'
+                : monitoringMode 
+                  ? 'Hide Monitoring Overlay' 
+                  : 'Show Monitoring Overlay (Freeze, Blackscreen, Audio, Subtitles, AI)'
+            }
           >
             Monitoring
           </Button>

@@ -306,12 +306,13 @@ const RecHostStreamModalContent: React.FC<{
       const newMode = !prev;
       console.log(`[@component:RecHostStreamModal] Live mode toggled: ${newMode ? 'Live' : 'Last 24h'}`);
       
-      // When switching to Last 24h mode (newMode = false), automatically disable control-dependent features
+      // When switching to Last 24h mode (newMode = false), automatically disable control-dependent features AND monitoring
       if (!newMode) {
-        console.log(`[@component:RecHostStreamModal] Switching to Last 24h - disabling remote, AI agent, and restart mode`);
+        console.log(`[@component:RecHostStreamModal] Switching to Last 24h - disabling remote, AI agent, restart, and monitoring`);
         setShowRemote(false);
         setAiAgentMode(false);
         setRestartMode(false);
+        setMonitoringMode(false); // Disable monitoring in archive mode
       }
       
       return newMode;

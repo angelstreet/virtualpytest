@@ -462,9 +462,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           </Box>
         )}
 
-        {/* Language selectors now integrated into TranscriptOverlay */}
-
-        {monitoringMode && (
+        {/* Monitoring overlay - only available in Live mode */}
+        {monitoringMode && isLiveMode && (
           <Box
             sx={{
               position: 'absolute',

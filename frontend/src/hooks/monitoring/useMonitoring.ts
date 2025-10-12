@@ -326,7 +326,8 @@ export const useMonitoring = ({
 
   // Poll live data OR fetch archive data based on mode
   useEffect(() => {
-    if (!enabled) {
+    // Monitoring is disabled in archive mode (archive = pure playback, no monitoring)
+    if (!enabled || archiveMode) {
       setAnalysisHistory([]);
       setIsLoading(true);
       setLastProcessedSequence('');
@@ -341,24 +342,7 @@ export const useMonitoring = ({
       return;
     }
 
-    // Archive mode: debounced fetch on video time change
-    if (archiveMode && currentVideoTime !== undefined) {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-      fetchTimeoutRef.current = setTimeout(() => {
-        fetchArchiveData(currentVideoTime);
-      }, 300);
-      
-      return () => {
-        if (fetchTimeoutRef.current) {
-          clearTimeout(fetchTimeoutRef.current);
-          fetchTimeoutRef.current = null;
-        }
-      };
-    }
-
-    // Live mode: 500ms polling
+    // Live mode only: 500ms polling
     let isMounted = true;
     
     const pollLatestData = async () => {
