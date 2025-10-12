@@ -344,10 +344,10 @@ class IncidentManager:
         if 'audio' in detection_result and not is_host:
             issue_types.append('audio_loss')
         
-        # PRIORITY HANDLING: Blackscreen > Freeze > Macroblocks
-        # Priority 1: Blackscreen clears freeze and macroblocks
+        # PRIORITY HANDLING: Blackscreen > Freeze > Macroblocks > Audio Loss
+        # Priority 1: Blackscreen clears freeze, macroblocks, and audio_loss
         if detection_result.get('blackscreen', False):
-            for suppressed_type in ['freeze', 'macroblocks']:
+            for suppressed_type in ['freeze', 'macroblocks', 'audio_loss']:
                 if suppressed_type in active_incidents:
                     incident_id = active_incidents[suppressed_type]
                     logger.info(f"[{capture_folder}] 🔄 Blackscreen detected - auto-resolving active {suppressed_type} incident {incident_id}")
@@ -362,21 +362,22 @@ class IncidentManager:
                     del pending_incidents[suppressed_type]
                     transitions[suppressed_type] = 'cleared_by_blackscreen'
         
-        # Priority 2: Freeze clears macroblocks
+        # Priority 2: Freeze clears macroblocks and audio_loss
         if detection_result.get('freeze', False):
-            if 'macroblocks' in active_incidents:
-                incident_id = active_incidents['macroblocks']
-                logger.info(f"[{capture_folder}] 🔄 Freeze detected - auto-resolving active macroblocks incident {incident_id}")
-                self.resolve_incident(device_id, incident_id, 'macroblocks')
-                del active_incidents['macroblocks']
-                if not active_incidents:
-                    device_state['state'] = NORMAL
-                transitions['macroblocks'] = 'cleared_by_freeze'
-            
-            if 'macroblocks' in pending_incidents:
-                logger.debug(f"[{capture_folder}] Freeze detected - clearing pending macroblocks incident")
-                del pending_incidents['macroblocks']
-                transitions['macroblocks'] = 'cleared_by_freeze'
+            for suppressed_type in ['macroblocks', 'audio_loss']:
+                if suppressed_type in active_incidents:
+                    incident_id = active_incidents[suppressed_type]
+                    logger.info(f"[{capture_folder}] 🔄 Freeze detected - auto-resolving active {suppressed_type} incident {incident_id}")
+                    self.resolve_incident(device_id, incident_id, suppressed_type)
+                    del active_incidents[suppressed_type]
+                    if not active_incidents:
+                        device_state['state'] = NORMAL
+                    transitions[suppressed_type] = 'cleared_by_freeze'
+                
+                if suppressed_type in pending_incidents:
+                    logger.debug(f"[{capture_folder}] Freeze detected - clearing pending {suppressed_type} incident")
+                    del pending_incidents[suppressed_type]
+                    transitions[suppressed_type] = 'cleared_by_freeze'
         
         # Check each issue type
         logger.debug(f"[{capture_folder}] Checking issue types: {issue_types}")
@@ -386,6 +387,14 @@ class IncidentManager:
                 is_detected = not detection_result.get('audio', True)
             else:
                 is_detected = detection_result.get(issue_type, False)
+            
+            # SUPPRESSION: Don't create audio_loss if blackscreen or freeze is present
+            if issue_type == 'audio_loss' and is_detected:
+                has_blackscreen = detection_result.get('blackscreen', False)
+                has_freeze = detection_result.get('freeze', False)
+                if has_blackscreen or has_freeze:
+                    logger.debug(f"[{capture_folder}] Suppressing audio_loss (blackscreen={has_blackscreen}, freeze={has_freeze})")
+                    is_detected = False  # Override - don't create audio_loss incident
             
             is_in_db = issue_type in active_incidents
             is_pending = issue_type in pending_incidents
