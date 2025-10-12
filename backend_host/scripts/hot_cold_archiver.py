@@ -717,7 +717,14 @@ def rebuild_manifest_from_disk(capture_dir: str, manifest_type: str) -> dict:
         
         for chunk_file in Path(hour_dir).glob(file_pattern):
             try:
-                chunk_index = int(chunk_file.stem.replace('chunk_10min_', ''))
+                # Skip language-specific files (chunk_10min_0_fr.json, chunk_10min_0_de.json, etc.)
+                # Only process base chunk files (chunk_10min_0.json)
+                stem = chunk_file.stem.replace('chunk_10min_', '')
+                if '_' in stem:
+                    # This is a language-specific file (e.g., "0_fr"), skip it
+                    continue
+                
+                chunk_index = int(stem)
                 file_stat = chunk_file.stat()
                 
                 chunk_info = {
