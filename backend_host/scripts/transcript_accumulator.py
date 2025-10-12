@@ -464,7 +464,11 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
                         translations.append(data.get('transcript', ''))
             
             if not translations:
+                logger.debug(f"[10MIN-MERGE:{capture_folder}] Skipping {lang_code} (no 1min files found)")
                 continue
+            
+            if len(translations) < 10:
+                logger.info(f"[10MIN-MERGE:{capture_folder}] ⚠️  {lang_code}: Only {len(translations)}/10 minutes available, merging partial")
             
             merged_text = ' '.join(translations)
             
