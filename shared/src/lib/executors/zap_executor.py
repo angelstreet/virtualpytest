@@ -194,7 +194,7 @@ class ZapExecutor:
             motion_result = self._detect_motion_from_json(context)
             self._map_verification_result(result, 'motion', motion_result, context)
             
-            # 2. Get verification configurations (subtitles, audio, zapping)
+            # 2. Get verification configurations (subtitles, audio)
             verification_configs = self._get_zap_verification_configs(context, iteration, action_command, action_start_time)
             
             # Remove motion from configs (already handled above)
@@ -210,6 +210,14 @@ class ZapExecutor:
                         config = verification_configs[i]
                         analysis_type = config.get('analysis_type')
                         self._map_verification_result(result, analysis_type, verification_result, context)
+            
+            # 4. ZAPPING: Read from JSON using action timestamp (capture_monitor already detected it)
+            if 'chup' in action_command.lower() and action_start_time:
+                av_controller = self.device._get_controller('av')
+                if av_controller:
+                    capture_folder = os.path.basename(av_controller.video_capture_path)
+                    zapping_data = self._read_zapping_by_action_timestamp(action_start_time, capture_folder)
+                    self._map_zapping_from_json(result, zapping_data, context)
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"
@@ -521,25 +529,8 @@ class ZapExecutor:
         # Skip macroblock detection for now - no valid command available
         # TODO: Implement macroblock detection command if needed
         
-        # Zapping detection (only for channel up actions)
-        if 'chup' in action_command.lower():
-            # Banner region for channel analysis (same as main branch)
-            if 'android_mobile' in device_model:
-                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
-            else:
-                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
-            
-            configs.append({
-                'command': 'DetectZapping',
-                'verification_type': 'video',
-                'params': {
-                    'key_release_timestamp': action_start_time or time.time(),
-                    'analysis_rectangle': {'x': 200, 'y': 0, 'width': 400, 'height': 200},
-                    'banner_region': banner_region,
-                    'max_images': self._get_max_images_for_device(device_model)
-                },
-                'analysis_type': 'zapping'
-            })
+        # Zapping detection removed - now reads from JSON using action timestamp
+        # capture_monitor detects zapping asynchronously and writes to frame JSON
         
         return configs
     
@@ -705,501 +696,154 @@ class ZapExecutor:
             result.quality_score = verification_result.get('quality_score', 0.0)
             result.macroblock_details = verification_result
             
-        elif analysis_type == 'zapping':
-            # Zapping results are in details, but also check direct fields for compatibility
-            zapping_details = verification_result.get('details', {})
+        # Zapping case removed - now handled by _read_zapping_by_action_timestamp    
+    def _read_zapping_by_action_timestamp(self, action_timestamp: float, capture_folder: str) -> Dict[str, Any]:
+        """
+        Read zapping detection using action timestamp as unique identifier.
+        
+        Both zap_executor and capture_monitor use the same action_timestamp,
+        so we can find the exact frame that corresponds to this zap action.
+        
+        Args:
+            action_timestamp: Unix timestamp when action was executed (unique ID)
+            capture_folder: Device capture folder name (e.g., 'capture4')
+        
+        Returns:
+            Complete zapping data from frame JSON
+        """
+        try:
+            print(f"📺 [ZapExecutor] Reading zapping detection for action timestamp: {action_timestamp}")
             
-            # Extract duration first - check multiple possible field names
-            # Note: freeze detection returns 'freeze_duration', blackscreen returns 'blackscreen_duration'
-            # Use 'is not None' to properly handle 0.0 values
-            duration = None
-            for key in ['blackscreen_duration', 'freeze_duration', 'duration']:
-                if duration is None and zapping_details.get(key) is not None:
-                    duration = zapping_details.get(key)
-                    break
-            if duration is None:
-                for key in ['blackscreen_duration', 'freeze_duration', 'duration']:
-                    if verification_result.get(key) is not None:
-                        duration = verification_result.get(key)
-                        break
+            # 1. Wait for detection to complete (blackscreen + AI takes ~5s)
+            print(f"⏳ [ZapExecutor] Waiting 5s for capture_monitor to detect and analyze zapping...")
+            time.sleep(5)
             
-            result.blackscreen_duration = duration if duration is not None else 0.0
+            # 2. Calculate chunk location from action timestamp
+            from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+            from datetime import datetime
             
-            # Zapping is only detected if success=True AND duration > 0
-            # This ensures coherence: detected = True only when we have actual duration
-            result.zapping_detected = (
-                verification_result.get('success', False) and 
-                result.blackscreen_duration > 0.0
-            )
-            # Extract channel info from details - channel info is nested under 'channel_info' key
-            channel_info = zapping_details.get('channel_info', {}) if zapping_details else {}
-            result.channel_name = channel_info.get('channel_name', '')
-            result.channel_number = channel_info.get('channel_number', '')
-            result.program_name = channel_info.get('program_name', '')
-            result.program_start_time = channel_info.get('start_time', '')
-            result.program_end_time = channel_info.get('end_time', '')
+            timestamp_iso = datetime.fromtimestamp(action_timestamp).isoformat()
+            hour, chunk_index = calculate_chunk_location(timestamp_iso)
             
-            # Create flattened structure for main branch compatibility
-            result.zapping_details = {
-                'success': verification_result.get('success', False),
-                'zapping_detected': result.zapping_detected,
-                'blackscreen_duration': result.blackscreen_duration,
-                'zapping_duration': verification_result.get('zapping_duration', 0),
-                'analyzed_images': verification_result.get('analyzed_images', 0),
-                'channel_info': channel_info,
-                'message': verification_result.get('message', '')
-            }
+            # 3. Read chunk
+            chunk_path = f"/var/www/html/stream/{capture_folder}/metadata/{hour}/chunk_10min_{chunk_index}.json"
             
-            # Add zapping sequence images for main branch compatibility
-            if result.zapping_detected:
-                # Extract 4-image sequence from verification result details (nested structure)
-                details = verification_result.get('details', {})
-                result.zapping_details['first_image'] = details.get('first_image')
-                result.zapping_details['blackscreen_start_image'] = details.get('blackscreen_start_image')
-                result.zapping_details['blackscreen_end_image'] = details.get('blackscreen_end_image')
-                result.zapping_details['first_content_after_blackscreen'] = details.get('first_content_after_blackscreen')
+            print(f"🔍 [ZapExecutor] Reading chunk: {chunk_path}")
+            
+            if not os.path.exists(chunk_path):
+                print(f"⚠️ [ZapExecutor] Chunk not found: {chunk_path}")
+                return {'success': False, 'zapping_detected': False, 'error': 'Chunk not found'}
+            
+            with open(chunk_path, 'r') as f:
+                chunk = json.load(f)
+            
+            # 4. Check if chunk has any zapping events
+            zapping_count = chunk.get('zapping_count', 0)
+            print(f"📊 [ZapExecutor] Chunk has {zapping_count} zapping events")
+            
+            if zapping_count == 0:
+                print(f"ℹ️ [ZapExecutor] No zapping detected in this time window")
+                return {'success': True, 'zapping_detected': False}
+            
+            # 5. Search for frame with matching last_action_timestamp
+            metadata_path = f"/var/www/html/stream/{capture_folder}/hot/metadata"
+            
+            print(f"🔍 [ZapExecutor] Searching {len(chunk.get('zapping_sequences', []))} zapping frames for matching action timestamp...")
+            
+            for sequence in chunk.get('zapping_sequences', []):
+                frame_json_path = f"{metadata_path}/capture_{sequence:09d}.json"
                 
-                # Add zapping images to R2 upload queue with full paths
-                av_controller = self.device._get_controller('av')
-                if av_controller and hasattr(av_controller, 'video_capture_path'):
-                    capture_folder = f"{av_controller.video_capture_path}/captures"
+                if not os.path.exists(frame_json_path):
+                    print(f"⚠️ [ZapExecutor] Frame JSON not found: {frame_json_path}")
+                    continue
+                
+                with open(frame_json_path, 'r') as f:
+                    frame_data = json.load(f)
+                
+                # ✅ EXACT MATCH: Compare action timestamps
+                frame_action_ts = frame_data.get('last_action_timestamp')
+                
+                if frame_action_ts and abs(frame_action_ts - action_timestamp) < 0.1:
+                    # Found exact match! (0.1s tolerance for float precision)
+                    print(f"✅ [ZapExecutor] Found matching zapping frame: capture_{sequence:09d}.json")
+                    print(f"   Action timestamp match: {frame_action_ts} ≈ {action_timestamp}")
                     
-                    zapping_filenames = [
-                        details.get('first_image'),
-                        details.get('blackscreen_start_image'),
-                        details.get('blackscreen_end_image'),
-                        details.get('first_content_after_blackscreen')
-                    ]
+                    zapping_detected = frame_data.get('zapping_detected', False)
                     
-                    if not hasattr(context, 'screenshot_paths'):
-                        context.screenshot_paths = []
+                    if zapping_detected:
+                        channel_name = frame_data.get('zapping_channel_name', '')
+                        channel_number = frame_data.get('zapping_channel_number', '')
+                        print(f"   📺 Zapping detected: {channel_name} ({channel_number})")
+                    else:
+                        print(f"   ℹ️ Frame matched but no zapping detected (banner not found)")
                     
-                    for filename in zapping_filenames:
-                        if filename:
-                            full_path = f"{capture_folder}/{filename}"
-                            if full_path not in context.screenshot_paths:
-                                context.add_screenshot(full_path)  # Auto-copies to cold
-                                print(f"🔍 [ZapExecutor] DEBUG: Added zapping image: {filename}")
+                    return {
+                        'success': True,
+                        'zapping_detected': zapping_detected,
+                        'channel_name': frame_data.get('zapping_channel_name', ''),
+                        'channel_number': frame_data.get('zapping_channel_number', ''),
+                        'program_name': frame_data.get('zapping_program_name', ''),
+                        'blackscreen_duration': frame_data.get('zapping_blackscreen_duration_ms', 0) / 1000.0,
+                        'detection_type': frame_data.get('zapping_detection_type', 'unknown'),
+                        'confidence': frame_data.get('zapping_confidence', 0.0),
+                        'detected_at': frame_data.get('zapping_detected_at'),
+                        'frame_filename': f"capture_{sequence:09d}.jpg",
+                        'frame_sequence': sequence,
+                        'action_timestamp': frame_action_ts,
+                        'images': frame_data.get('r2_images', {}),
+                        'last_3_filenames': frame_data.get('last_3_filenames', []),
+                        'details': frame_data
+                    }
             
+            # No match found
+            print(f"⚠️ [ZapExecutor] No frame with matching action timestamp found")
+            return {'success': True, 'zapping_detected': False, 'error': 'No matching action timestamp'}
+            
+        except Exception as e:
+            print(f"❌ [ZapExecutor] Error reading zapping from JSON: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'zapping_detected': False, 'error': str(e)}
     
+    def _map_zapping_from_json(self, result: ZapAnalysisResult, zapping_data: Dict[str, Any], context):
+        """Map zapping data from JSON to ZapAnalysisResult"""
+        result.zapping_detected = zapping_data.get('zapping_detected', False)
+        result.channel_name = zapping_data.get('channel_name', '')
+        result.channel_number = zapping_data.get('channel_number', '')
+        result.program_name = zapping_data.get('program_name', '')
+        result.blackscreen_duration = zapping_data.get('blackscreen_duration', 0.0)
+        result.program_start_time = zapping_data.get('details', {}).get('start_time', '')
+        result.program_end_time = zapping_data.get('details', {}).get('end_time', '')
+        
+        # Create details structure for compatibility
+        result.zapping_details = {
+            'success': zapping_data.get('success', False),
+            'zapping_detected': result.zapping_detected,
+            'blackscreen_duration': result.blackscreen_duration,
+            'detection_type': zapping_data.get('detection_type', 'unknown'),
+            'confidence': zapping_data.get('confidence', 0.0),
+            'channel_info': {
+                'channel_name': result.channel_name,
+                'channel_number': result.channel_number,
+                'program_name': result.program_name,
+                'start_time': result.program_start_time,
+                'end_time': result.program_end_time,
+                'confidence': zapping_data.get('confidence', 0.0)
+            },
+            'frame_filename': zapping_data.get('frame_filename', ''),
+            'message': 'Zapping detected from capture_monitor' if result.zapping_detected else 'No zapping detected'
+        }
+        
+        # Add images if available (already in R2 from capture_monitor)
+        if zapping_data.get('images'):
+            result.zapping_details['r2_images'] = zapping_data['images']
 
     # Audio menu analysis integrated into ZapExecutor using VerificationExecutor
     
-    def _analyze_zapping(self, context, iteration: int, action_command: str, action_start_time: float = None) -> Dict[str, Any]:
-        """Smart zapping analysis - learn on first success, then stick with that method."""
-        
-        print(f"🔍 [ZapExecutor] Analyzing zapping sequence for {action_command} (iteration {iteration})...")
-        
-        # If we already learned the method, use it directly
-        if self.learned_detection_method:
-            print(f"🧠 [ZapExecutor] Using learned method: {self.learned_detection_method}")
-            if self.learned_detection_method == 'freeze':
-                zapping_result = self._try_freeze_detection(context, iteration, action_command, action_start_time)
-                if not zapping_result.get('zapping_detected', False):
-                    # Update error message to show which method failed
-                    zapping_result['message'] = "Zapping Detection: ❌ NOT DETECTED"
-                    zapping_result['details'] = "No freeze detected"
-                return zapping_result
-            else:
-                zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_start_time)
-                if not zapping_result.get('zapping_detected', False):
-                    # Update error message to show which method failed
-                    zapping_result['message'] = "Zapping Detection: ❌ NOT DETECTED"
-                    zapping_result['details'] = "No blackscreen detected"
-                return zapping_result
-        
-        # First time or no method learned yet - try blackscreen first
-        print(f"🔍 [ZapExecutor] Learning phase - trying blackscreen first...")
-        zapping_result = self._try_blackscreen_detection(context, iteration, action_command, action_start_time)
-        
-        # If blackscreen succeeds, learn it
-        if zapping_result.get('zapping_detected', False):
-            self.learned_detection_method = 'blackscreen'
-            print(f"✅ [ZapExecutor] Learned method: blackscreen (will use for all future zaps)")
-            return zapping_result
-        
-        # If blackscreen fails, try freeze as fallback
-        print(f"🔄 [ZapExecutor] Blackscreen failed, trying freeze...")
-        zapping_result = self._try_freeze_detection(context, iteration, action_command, action_start_time)
-        
-        # If freeze succeeds, learn it
-        if zapping_result.get('zapping_detected', False):
-            self.learned_detection_method = 'freeze'
-            print(f"✅ [ZapExecutor] Learned method: freeze (will use for all future zaps)")
-            return zapping_result
-        
-        # Both methods failed - provide detailed error message and verification images
-        print(f"❌ [ZapExecutor] Both blackscreen and freeze detection failed")
-        
-        # For both methods failed, we need to get the images ourselves since no detection method succeeded
-        av_controller = self.device._get_controller('av')
-        analyzed_screenshots = []
-        
-        if av_controller:
-            capture_folder = getattr(av_controller, 'video_capture_path', None)
-            if capture_folder:
-                # Get images using the same method as detection would use
-                device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-                max_images = self._get_max_images_for_device(device_model)
-                
-                from backend_host.src.controllers.verification.video_content_helpers import VideoContentHelpers
-                content_helpers = VideoContentHelpers(av_controller, "ZapExecutor")
-                
-                key_release_timestamp = action_start_time or time.time()
-                image_data = content_helpers._get_images_after_timestamp(capture_folder, key_release_timestamp, max_count=max_images)
-                
-                if image_data:
-                    analyzed_screenshots = [img['path'] for img in image_data]
-                    print(f"🔍 [ZapExecutor] Using {len(analyzed_screenshots)} images for both methods failed mosaic")
-                
-                # Create failure mosaic for both methods failed
-                mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "both_failed")
-                
-                # Create combined analysis log for both methods
-                analysis_log = create_combined_analysis_log(analyzed_screenshots, key_release_timestamp)
-        
-        return {
-            "success": False,
-            "zapping_detected": False,
-            "detection_method": "both_failed",
-            "transition_type": "none",
-            "blackscreen_duration": 0.0,
-            "message": "Zapping Detection: ❌ NOT DETECTED",
-            "error": "Both blackscreen and freeze detection failed",
-            "details": "No blackscreen or freeze transition detected",
-            "analyzed_images": len(analyzed_screenshots),
-            "failure_mosaic_path": mosaic_path,
-            "mosaic_images_count": len(analyzed_screenshots),
-            "analysis_log": analysis_log
-        }
+    # OLD ZAPPING DETECTION METHODS REMOVED - Now reads from JSON via _read_zapping_by_action_timestamp()
+    # Deleted methods: _analyze_zapping, _try_blackscreen_detection, _try_freeze_detection,
+    # _add_zapping_images_to_screenshots, _create_failure_mosaic
     
-    def _try_blackscreen_detection(self, context, iteration: int, action_command: str, action_start_time: float) -> Dict[str, Any]:
-        """Try blackscreen detection method - extracted existing logic."""
-        try:
-            print(f"⬛ [ZapExecutor] Trying blackscreen detection...")
-            
-            # Get video verification controller
-            video_controller = self.device._get_controller('verification_video')
-            if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {self.device.device_id}"}
-            
-            # Get the folder path where images are captured
-            av_controller = self.device._get_controller('av')
-            if not av_controller:
-                return {"success": False, "message": f"No AV controller found for device {self.device.device_id}"}
-            
-            capture_folder = getattr(av_controller, 'video_capture_path', None)
-            if not capture_folder:
-                return {"success": False, "message": "No capture folder available"}
-            
-            # Use action start time to catch blackscreen that happens during the action
-            key_release_timestamp = action_start_time or time.time()
-            
-            # Get analysis areas (same as original)
-            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-            
-            # Smaller uniform rectangle for all devices: 200,0, 400, 200 (80k pixels)
-            analysis_rectangle = {'x': 200, 'y': 0, 'width': 400, 'height': 200}
-            
-            if device_model in ['android_mobile', 'ios_mobile']:
-                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
-            else:
-                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
-            
-            # Device-specific timeout using helper method
-            max_images = self._get_max_images_for_device(device_model)
-            
-            # Call enhanced blackscreen zapping detection with device-specific timeout and threshold
-            zapping_result = video_controller.detect_zapping(
-                folder_path=capture_folder,
-                key_release_timestamp=key_release_timestamp,
-                analysis_rectangle=analysis_rectangle,
-                banner_region=banner_region,
-                max_images=max_images,
-                device_model=device_model
-            )
-            
-            if zapping_result.get('success', False) and zapping_result.get('zapping_detected', False):
-                blackscreen_duration = zapping_result.get('blackscreen_duration', 0.0)
-                print(f"✅ [ZapExecutor] Blackscreen zapping detected - Duration: {blackscreen_duration}s")
-                
-                # Add zapping images to context
-                self._add_zapping_images_to_screenshots(context, zapping_result, capture_folder)
-                
-                result = {
-                    "success": True,
-                    "zapping_detected": True,
-                    "detection_method": "blackscreen",
-                    "transition_type": "blackscreen",
-                    "blackscreen_duration": blackscreen_duration,
-                    "zapping_duration": zapping_result.get('zapping_duration', 0.0),
-                    "first_image": zapping_result.get('first_image'),
-                    "blackscreen_start_image": zapping_result.get('blackscreen_start_image'),
-                    "blackscreen_end_image": zapping_result.get('blackscreen_end_image'),
-                    "first_content_after_blackscreen": zapping_result.get('first_content_after_blackscreen'),
-                    "channel_detection_image": zapping_result.get('channel_detection_image'),
-                    "last_image": zapping_result.get('last_image'),
-                    "channel_info": zapping_result.get('channel_info', {}),
-                    "analyzed_images": zapping_result.get('analyzed_images', 0),
-                    "total_images_available": zapping_result.get('total_images_available', 0),
-                    "debug_images": zapping_result.get('debug_images', []),
-                    "early_stopped": zapping_result.get('early_stopped', False),
-                    "coverage_seconds": 6,
-                    "sub_second_precision": True,
-                    "message": f"Enhanced blackscreen zapping detected (analyzed {zapping_result.get('analyzed_images', 0)} images, early_stopped={zapping_result.get('early_stopped', False)})",
-                    "details": zapping_result
-                }
-                return result
-            else:
-                print(f"❌ [ZapExecutor] Blackscreen detection failed")
-                
-                # Use the debug_images from the detection result - these are the actual analyzed images
-                debug_images = zapping_result.get('debug_images', [])
-                captures_folder = os.path.join(capture_folder, 'captures')
-                analyzed_screenshots = []
-                
-                for filename in debug_images:
-                    image_path = os.path.join(captures_folder, filename)
-                    if os.path.exists(image_path):
-                        analyzed_screenshots.append(image_path)
-                
-                print(f"🔍 [ZapExecutor] Using {len(analyzed_screenshots)} actual analyzed images for blackscreen mosaic")
-                
-                # Create failure mosaic with blackscreen analysis data
-                mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "blackscreen", zapping_result)
-                
-                # Create detailed analysis log for modal display
-                analysis_log = create_blackscreen_analysis_log(analyzed_screenshots, zapping_result, key_release_timestamp)
-                
-                return {
-                    "success": False,
-                    "zapping_detected": False,
-                    "detection_method": "blackscreen",
-                    "transition_type": "none",
-                    "blackscreen_duration": 0.0,
-                    "analyzed_images": len(analyzed_screenshots),
-                    "message": "Blackscreen detection failed",
-                    "error": "No blackscreen detected",
-                    "details": f"No blackscreen transition detected (analyzed {len(analyzed_screenshots)} images)",
-                    "failure_mosaic_path": mosaic_path,
-                    "mosaic_images_count": len(analyzed_screenshots),
-                    "analysis_log": analysis_log
-                }
-                
-        except Exception as e:
-            return {
-                "success": False,
-                "zapping_detected": False,
-                "detection_method": "blackscreen",
-                "transition_type": "none",
-                "blackscreen_duration": 0.0,
-                "message": "Blackscreen detection failed",
-                "error": str(e),
-                "details": f"Blackscreen detection error: {str(e)}"
-            }
-    
-    def _try_freeze_detection(self, context, iteration: int, action_command: str, action_start_time: float) -> Dict[str, Any]:
-        """Try freeze detection method - SAME workflow as blackscreen detection."""
-        try:
-            print(f"🧊 [ZapExecutor] Trying freeze detection...")
-            
-            # Get video verification controller (same as blackscreen)
-            video_controller = self.device._get_controller('verification_video')
-            if not video_controller:
-                return {"success": False, "message": f"No video verification controller found for device {self.device.device_id}"}
-            
-            # Get AV controller for capture path (same as blackscreen)
-            av_controller = self.device._get_controller('av')
-            if not av_controller:
-                return {"success": False, "message": f"No AV controller found for device {self.device.device_id}"}
-            
-            # Get the capture folder path (same as blackscreen)
-            capture_folder = getattr(av_controller, 'video_capture_path', None)
-            if not capture_folder:
-                return {"success": False, "message": "No capture folder available"}
-            
-            # Use action start time (same as blackscreen)
-            key_release_timestamp = action_start_time or time.time()
-            
-            # Use same areas as blackscreen detection
-            device_model = context.selected_device.device_model if context.selected_device else 'unknown'
-            
-            # Smaller uniform rectangle for all devices: 200,0, 400, 200 (80k pixels)
-            analysis_rectangle = {'x': 200, 'y': 0, 'width': 400, 'height': 200}
-            
-            if device_model in ['android_mobile', 'ios_mobile']:
-                banner_region = {'x': 470, 'y': 230, 'width': 280, 'height': 70}
-            else:
-                banner_region = {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
-            
-            # Device-specific timeout using helper method
-            max_images = self._get_max_images_for_device(device_model)
-            
-            # Call freeze zapping detection using device-specific timeout
-            freeze_result = video_controller.content_helpers.detect_freeze_zapping_sequence(
-                folder_path=capture_folder,
-                key_release_timestamp=key_release_timestamp,
-                analysis_rectangle=analysis_rectangle,
-                max_images=max_images,
-                banner_region=banner_region
-            )
-            
-            if freeze_result.get('success', False) and freeze_result.get('freeze_zapping_detected', False):
-                freeze_duration = freeze_result.get('freeze_duration', 0.0)
-                print(f"✅ [ZapExecutor] Freeze zapping detected - Duration: {freeze_duration}s")
-                
-                # Add zapping images to context (same as blackscreen)
-                self._add_zapping_images_to_screenshots(context, freeze_result, capture_folder)
-                
-                result = {
-                    "success": True,
-                    "zapping_detected": True,
-                    "detection_method": "freeze",
-                    "transition_type": "freeze",
-                    "blackscreen_duration": freeze_duration,  # Keep same field name for compatibility
-                    "zapping_duration": freeze_result.get('zapping_duration', 0.0),
-                    "first_image": freeze_result.get('first_image'),
-                    # NOTE: freeze_result uses "blackscreen_*" field names for compatibility with reporting code
-                    "blackscreen_start_image": freeze_result.get('blackscreen_start_image'),  # Actually freeze start image
-                    "blackscreen_end_image": freeze_result.get('blackscreen_end_image'),      # Actually freeze end image
-                    "first_content_after_blackscreen": freeze_result.get('first_content_after_blackscreen'),  # Actually first content after freeze
-                    "channel_detection_image": freeze_result.get('channel_detection_image'),
-                    "last_image": freeze_result.get('last_image'),
-                    "channel_info": freeze_result.get('channel_info', {}),
-                    "analyzed_images": freeze_result.get('analyzed_images', 0),
-                    "total_images_available": freeze_result.get('total_images_available', 0),
-                    "debug_images": freeze_result.get('debug_images', []),
-                    "early_stopped": freeze_result.get('early_stopped', False),
-                    "coverage_seconds": 6,
-                    "sub_second_precision": True,
-                    "message": f"Enhanced freeze zapping detected (analyzed {freeze_result.get('analyzed_images', 0)} images, early_stopped={freeze_result.get('early_stopped', False)})",
-                    "details": freeze_result
-                }
-                return result
-            else:
-                print(f"❌ [ZapExecutor] Freeze detection failed")
-                
-                # Use the debug_images from the detection result - these are the actual analyzed images
-                debug_images = freeze_result.get('debug_images', [])
-                captures_folder = os.path.join(capture_folder, 'captures')
-                analyzed_screenshots = []
-                
-                for filename in debug_images:
-                    image_path = os.path.join(captures_folder, filename)
-                    if os.path.exists(image_path):
-                        analyzed_screenshots.append(image_path)
-                
-                print(f"🔍 [ZapExecutor] Using {len(analyzed_screenshots)} actual analyzed images for freeze mosaic")
-                
-                # Create failure mosaic with freeze analysis data (includes comparison results)
-                mosaic_path = self._create_failure_mosaic(context, analyzed_screenshots, "freeze", freeze_result)
-                
-                # Create detailed analysis log for modal display
-                analysis_log = create_freeze_analysis_log(analyzed_screenshots, freeze_result, key_release_timestamp)
-                
-                return {
-                    "success": False,
-                    "zapping_detected": False,
-                    "detection_method": "freeze",
-                    "transition_type": "none",
-                    "blackscreen_duration": 0.0,
-                    "analyzed_images": len(analyzed_screenshots),
-                    "message": "Freeze detection failed",
-                    "error": "No freeze detected",
-                    "details": f"No freeze transition detected (analyzed {len(analyzed_screenshots)} images)",
-                    "failure_mosaic_path": mosaic_path,
-                    "mosaic_images_count": len(analyzed_screenshots),
-                    "analysis_log": analysis_log
-                }
-                
-        except Exception as e:
-            return {
-                "success": False,
-                "zapping_detected": False,
-                "detection_method": "freeze",
-                "transition_type": "none",
-                "blackscreen_duration": 0.0,
-                "message": "Freeze detection failed",
-                "error": str(e),
-                "details": f"Freeze detection error: {str(e)}"
-            }
-
-    def _add_zapping_images_to_screenshots(self, context, zapping_result: Dict[str, Any], capture_folder: str):
-        """Add key zapping images to context screenshot collection for R2 upload"""
-        try:
-            if not hasattr(context, 'screenshot_paths'):
-                context.screenshot_paths = []
-            
-            # Get the captures subfolder where images are stored
-            captures_folder = f"{capture_folder}/captures"
-            
-            # List of key images to upload (in order of importance)
-            key_images = [
-                zapping_result.get('first_image'),
-                zapping_result.get('blackscreen_start_image'),
-                zapping_result.get('blackscreen_end_image'),
-                zapping_result.get('first_content_after_blackscreen'),
-                zapping_result.get('last_image')
-            ]
-            
-            # Add each key image to screenshot paths if it exists and has valid format
-            for image_filename in key_images:
-                if image_filename and validate_capture_filename(image_filename):
-                    image_path = f"{captures_folder}/{image_filename}"
-                    if image_path not in context.screenshot_paths:
-                        context.add_screenshot(image_path)  # Auto-copies to cold
-                        print(f"🖼️ [ZapExecutor] Added zapping image: {image_filename}")
-            
-            # Also add debug images for debugging failed zap detection
-            debug_images = zapping_result.get('debug_images', [])
-            if debug_images:
-                for debug_filename in debug_images:
-                    if debug_filename and validate_capture_filename(debug_filename):
-                        debug_path = f"{captures_folder}/{debug_filename}"
-                        if debug_path not in context.screenshot_paths:
-                            context.add_screenshot(debug_path)  # Auto-copies to cold
-                            print(f"🔧 [ZapExecutor] Added debug image: {debug_filename}")
-            
-        except Exception as e:
-            print(f"⚠️ [ZapExecutor] Failed to add zapping images to screenshot collection: {e}")
-
-    def _create_failure_mosaic(self, context, screenshots: List[str], detection_method: str, analysis_data: Dict[str, Any] = None) -> Optional[str]:
-        """Create a mosaic image for zapping failure analysis instead of individual images"""
-        try:
-            if not screenshots or len(screenshots) == 0:
-                print(f"❌ [ZapExecutor] No images available for {detection_method} failure mosaic")
-                return None
-            
-            # Import simple mosaic generator
-            from shared.src.lib.utils.image_mosaic_generator import create_zapping_failure_mosaic
-            
-            # Create mosaic with analysis data
-            mosaic_path = create_zapping_failure_mosaic(
-                image_paths=screenshots,
-                detection_method=detection_method,
-                analysis_info=analysis_data
-            )
-            
-            if mosaic_path:
-                print(f"🖼️ [ZapExecutor] Created {detection_method} failure mosaic: {os.path.basename(mosaic_path)}")
-                print(f"   📊 Mosaic contains {len(screenshots)} analyzed images")
-                
-                # Add mosaic to screenshot collection for R2 upload
-                if not hasattr(context, 'screenshot_paths'):
-                    context.screenshot_paths = []
-                
-                if mosaic_path not in context.screenshot_paths:
-                    context.add_screenshot(mosaic_path)  # Auto-copies to cold
-                
-                return mosaic_path
-            else:
-                print(f"❌ [ZapExecutor] Failed to create {detection_method} failure mosaic")
-                return None
-                
-        except Exception as e:
-            print(f"⚠️ [ZapExecutor] Exception creating {detection_method} failure mosaic: {e}")
-            return None
-
     def _add_motion_analysis_images_to_screenshots(self, context, iteration: int):
         """Add the 3 most recent motion analysis images to context screenshot collection for R2 upload"""
         motion_images = []
