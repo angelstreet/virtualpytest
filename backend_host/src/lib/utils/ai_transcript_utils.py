@@ -40,19 +40,18 @@ def enhance_and_translate_transcript(
         
         target_names = [lang_names.get(code, code) for code in target_languages]
         
-        prompt = f"""Fix transcription errors and translate this {source_language} text.
+        # Calculate needed tokens: input (~len(text)/4) + output (5 translations * len(text)/4)
+        # For safety, use 6x the input length in characters / 4 (rough token estimate)
+        estimated_tokens = max(3000, (len(text) * 6) // 4)
+        
+        prompt = f"""Translate this {source_language} text to {len(target_languages)} languages.
 
-Original text:
+Text:
 {text}
 
-Instructions:
-1. Fix spelling, grammar, and punctuation errors
-2. Correct misheard words using context
-3. Translate to: {', '.join(target_names)}
-
-Respond with JSON only:
+Respond with JSON only (no markdown):
 {{
-    "enhanced_original": "corrected original text",
+    "enhanced_original": "corrected text",
     "translations": {{
         "fr": "French translation",
         "en": "English translation",
@@ -62,7 +61,7 @@ Respond with JSON only:
     }}
 }}"""
 
-        result = call_text_ai(prompt, max_tokens=1500, temperature=0.1)
+        result = call_text_ai(prompt, max_tokens=estimated_tokens, temperature=0.0)
         
         if not result['success']:
             return {
