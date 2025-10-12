@@ -219,42 +219,41 @@ class IncidentManager:
                     enhanced_metadata[key] = value
             
             # Add specific metadata based on incident type (SAME AS ORIGINAL)
-            if analysis_result:
-                if issue_type == 'blackscreen':
-                    enhanced_metadata['blackscreen_percentage'] = analysis_result.get('blackscreen_percentage', 0)
-                elif issue_type == 'freeze':
-                    enhanced_metadata['freeze_diffs'] = analysis_result.get('freeze_diffs', [])
-                elif issue_type == 'macroblocks':
-                    enhanced_metadata['quality_score'] = analysis_result.get('quality_score', 0)
-                elif issue_type == 'audio_loss':
-                    enhanced_metadata['volume_percentage'] = analysis_result.get('volume_percentage', 0)
-                    enhanced_metadata['mean_volume_db'] = analysis_result.get('mean_volume_db', -100)
+            if issue_type == 'blackscreen':
+                enhanced_metadata['blackscreen_percentage'] = analysis_result.get('blackscreen_percentage', 0)
+            elif issue_type == 'freeze':
+                enhanced_metadata['freeze_diffs'] = analysis_result.get('freeze_diffs', [])
+            elif issue_type == 'macroblocks':
+                enhanced_metadata['quality_score'] = analysis_result.get('quality_score', 0)
+            elif issue_type == 'audio_loss':
+                enhanced_metadata['volume_percentage'] = analysis_result.get('volume_percentage', 0)
+                enhanced_metadata['mean_volume_db'] = analysis_result.get('mean_volume_db', -100)
+            
+            # Add frame information and R2 URLs (uploaded immediately by capture_monitor)
+            if 'last_3_filenames' in analysis_result:
+                enhanced_metadata['last_3_filenames'] = analysis_result['last_3_filenames']
+                logger.info(f"[{capture_folder}] 📋 Added last_3_filenames to metadata: {len(analysis_result['last_3_filenames'])} files")
                 
-                # Add frame information and R2 URLs (uploaded immediately by capture_monitor)
-                if 'last_3_filenames' in analysis_result:
-                    enhanced_metadata['last_3_filenames'] = analysis_result['last_3_filenames']
-                    logger.info(f"[{capture_folder}] 📋 Added last_3_filenames to metadata: {len(analysis_result['last_3_filenames'])} files")
-                    
-                if 'last_3_thumbnails' in analysis_result:
-                    enhanced_metadata['last_3_thumbnails'] = analysis_result['last_3_thumbnails']
-                    logger.info(f"[{capture_folder}] 📋 Added last_3_thumbnails to metadata: {len(analysis_result['last_3_thumbnails'])} items")
-                    
-                if 'r2_images' in analysis_result:
-                    enhanced_metadata['r2_images'] = analysis_result['r2_images']
-                    
-                    # Handle both freeze (multiple thumbnails) and blackscreen/macroblocks (single thumbnail)
-                    if 'thumbnail_urls' in analysis_result['r2_images']:
-                        # Freeze incident - multiple thumbnails
-                        r2_count = len(analysis_result['r2_images']['thumbnail_urls'])
-                        logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with {r2_count} R2 image URLs:")
-                        for i, url in enumerate(analysis_result['r2_images']['thumbnail_urls']):
-                            logger.info(f"[{capture_folder}]     🖼️  R2 Image {i+1}: {url}")
-                    elif 'thumbnail_url' in analysis_result['r2_images']:
-                        # Blackscreen/Macroblocks - single thumbnail with optional closure
-                        logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with R2 images:")
-                        logger.info(f"[{capture_folder}]     🖼️  Start: {analysis_result['r2_images']['thumbnail_url']}")
-                        if 'closure_url' in analysis_result['r2_images']:
-                            logger.info(f"[{capture_folder}]     🖼️  End: {analysis_result['r2_images']['closure_url']}")
+            if 'last_3_thumbnails' in analysis_result:
+                enhanced_metadata['last_3_thumbnails'] = analysis_result['last_3_thumbnails']
+                logger.info(f"[{capture_folder}] 📋 Added last_3_thumbnails to metadata: {len(analysis_result['last_3_thumbnails'])} items")
+                
+            if 'r2_images' in analysis_result:
+                enhanced_metadata['r2_images'] = analysis_result['r2_images']
+                
+                # Handle both freeze (multiple thumbnails) and blackscreen/macroblocks (single thumbnail)
+                if 'thumbnail_urls' in analysis_result['r2_images']:
+                    # Freeze incident - multiple thumbnails
+                    r2_count = len(analysis_result['r2_images']['thumbnail_urls'])
+                    logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with {r2_count} R2 image URLs:")
+                    for i, url in enumerate(analysis_result['r2_images']['thumbnail_urls']):
+                        logger.info(f"[{capture_folder}]     🖼️  R2 Image {i+1}: {url}")
+                elif 'thumbnail_url' in analysis_result['r2_images']:
+                    # Blackscreen/Macroblocks - single thumbnail with optional closure
+                    logger.info(f"[{capture_folder}] 📋 Creating {issue_type.upper()} incident with R2 images:")
+                    logger.info(f"[{capture_folder}]     🖼️  Start: {analysis_result['r2_images']['thumbnail_url']}")
+                    if 'closure_url' in analysis_result['r2_images']:
+                        logger.info(f"[{capture_folder}]     🖼️  End: {analysis_result['r2_images']['closure_url']}")
                 else:
                     # Only warn for freeze - blackscreen/macroblocks may not have images if < 5s
                     if issue_type == 'freeze':

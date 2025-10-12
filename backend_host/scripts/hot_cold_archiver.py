@@ -760,6 +760,26 @@ def rebuild_manifest_from_disk(capture_dir: str, manifest_type: str) -> dict:
                             "has_transcript": bool(data.get("transcript", "").strip()),
                             "timestamp": data.get("timestamp")
                         })
+                        
+                        # Check if corresponding MP3 exists and has matching timestamp
+                        device_folder = os.path.basename(capture_dir)
+                        from shared.src.lib.utils.storage_path_utils import get_audio_path
+                        audio_path = get_audio_path(device_folder, f'chunk_10min_{chunk_index}.mp3', hour)
+                        
+                        has_mp3 = False
+                        if os.path.exists(audio_path):
+                            mp3_stat = os.stat(audio_path)
+                            # Check if MP3 timestamp is within 2 hours of transcript timestamp
+                            # (allows for same-day files, rejects 24h old files from yesterday)
+                            time_diff = abs(mp3_stat.st_mtime - file_stat.st_mtime)
+                            if time_diff < 7200:  # 2 hours tolerance
+                                has_mp3 = True
+                            else:
+                                logger.debug(f"MP3 exists but timestamp mismatch (hour={hour}, chunk={chunk_index}): {time_diff/3600:.1f}h difference - likely old file from yesterday")
+                        
+                        chunk_info["has_mp3"] = has_mp3
+                        if not has_mp3:
+                            chunk_info["unavailable_since"] = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
                     except:
                         pass
                 
