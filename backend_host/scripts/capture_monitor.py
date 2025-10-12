@@ -58,7 +58,9 @@ class InotifyFrameMonitor:
     
     def __init__(self, capture_dirs, host_name):
         self.host_name = host_name
-        self.incident_manager = IncidentManager()
+        # ✅ Use global singleton to share device_state with action execution
+        from backend_host.scripts.incident_manager import get_global_incident_manager
+        self.incident_manager = get_global_incident_manager()
         self.inotify = inotify.adapters.Inotify()
         
         self.dir_to_info = {}

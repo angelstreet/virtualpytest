@@ -70,6 +70,23 @@ logger = logging.getLogger('capture_monitor')
 NORMAL = 0
 INCIDENT = 1
 
+# Global singleton instance for shared device_state between capture_monitor and action writes
+_global_incident_manager = None
+
+def get_global_incident_manager():
+    """Get or create the global incident_manager singleton.
+    
+    This ensures that capture_monitor and action execution (write_action_to_frame_json)
+    share the SAME incident_manager instance and device_state dictionary.
+    
+    ✅ Fixes action tracking bug where writes and reads used different instances!
+    """
+    global _global_incident_manager
+    if _global_incident_manager is None:
+        _global_incident_manager = IncidentManager(skip_startup_cleanup=False)
+        logger.info("[@incident_manager] Created global IncidentManager singleton")
+    return _global_incident_manager
+
 class IncidentManager:
     def __init__(self, skip_startup_cleanup=False):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}

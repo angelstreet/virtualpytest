@@ -48,12 +48,9 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
         device_id = device_info.get('device_id', capture_folder)
         
         # Store in global device state (same instance used by capture_monitor)
-        from backend_host.scripts.incident_manager import IncidentManager
-        # Get or create global incident_manager singleton
-        if not hasattr(write_action_to_frame_json, '_incident_manager'):
-            write_action_to_frame_json._incident_manager = IncidentManager(skip_startup_cleanup=True)
-        
-        incident_manager = write_action_to_frame_json._incident_manager
+        from backend_host.scripts.incident_manager import get_global_incident_manager
+        # Use the SAME incident_manager instance as capture_monitor (singleton)
+        incident_manager = get_global_incident_manager()
         device_state = incident_manager.get_device_state(device_id)
         
         # Store last action with timestamp
