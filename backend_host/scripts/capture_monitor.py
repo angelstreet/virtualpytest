@@ -404,10 +404,21 @@ class InotifyFrameMonitor:
         Uses shared zapping detection utility (reuses existing banner detection AI).
         """
         try:
-            logger.debug(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
+            logger.info(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
             
             # ✅ CLEAN: Read action from device_state (in-memory, instant lookup)
             action_info = self._get_action_from_device_state(device_id)
+            
+            # Log action info for debugging
+            if action_info:
+                logger.info(f"[{capture_folder}] 📋 Last action found:")
+                logger.info(f"[{capture_folder}]    ⚡ Command: {action_info.get('last_action_executed', 'unknown')}")
+                logger.info(f"[{capture_folder}]    ⏰ Timestamp: {action_info.get('last_action_timestamp', 0)}")
+                logger.info(f"[{capture_folder}]    ⏱️  Time since action: {action_info.get('time_since_action_ms', 0)}ms")
+                logger.info(f"[{capture_folder}]    🎯 Detection type: AUTOMATIC")
+            else:
+                logger.info(f"[{capture_folder}] 📋 No action found in device_state")
+                logger.info(f"[{capture_folder}]    🎯 Detection type: MANUAL")
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
@@ -454,7 +465,7 @@ class InotifyFrameMonitor:
         last_action = device_state.get('last_action')
         
         if not last_action:
-            logger.info(f"[{device_id}] No action found in device_state - manual zapping")
+            logger.debug(f"[{device_id}] No action found in device_state - manual zapping")
             return None
         
         # Check 10s timeout
@@ -463,7 +474,7 @@ class InotifyFrameMonitor:
         time_since_action = current_time - action_timestamp
         
         if time_since_action > 10.0:
-            logger.info(f"[{device_id}] Action too old ({time_since_action:.1f}s) - manual zapping")
+            logger.debug(f"[{device_id}] Action too old ({time_since_action:.1f}s) - manual zapping")
             return None
         
         # ✅ Action within 10s - associate with this blackscreen
@@ -473,7 +484,7 @@ class InotifyFrameMonitor:
             'action_params': last_action.get('params', {}),
             'time_since_action_ms': int(time_since_action * 1000)
         }
-        logger.info(f"[{device_id}] ✅ Found action in device_state: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
+        logger.debug(f"[{device_id}] ✅ Found action in device_state: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
         return action_info
     
     def process_frame(self, captures_path, filename, queue_size=0):
