@@ -764,7 +764,8 @@ def rebuild_manifest_from_disk(capture_dir: str, manifest_type: str) -> dict:
                         # Check if corresponding MP3 exists and has matching timestamp
                         device_folder = os.path.basename(capture_dir)
                         from shared.src.lib.utils.storage_path_utils import get_audio_path
-                        audio_path = get_audio_path(device_folder, f'chunk_10min_{chunk_index}.mp3', hour)
+                        audio_base = get_audio_path(device_folder)
+                        audio_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
                         
                         has_mp3 = False
                         if os.path.exists(audio_path):
@@ -868,7 +869,8 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
         # Validate MP3 existence and timestamp instead of blindly trusting has_mp3 parameter
         device_folder = os.path.basename(capture_dir)
         from shared.src.lib.utils.storage_path_utils import get_audio_path
-        audio_path = get_audio_path(device_folder, f'chunk_10min_{chunk_index}.mp3', hour)
+        audio_base = get_audio_path(device_folder)
+        audio_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
         
         has_mp3_validated = False
         if os.path.exists(audio_path):
