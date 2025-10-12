@@ -193,11 +193,15 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
             
             if response.status_code == 200:
                 result = response.json()
-                print(f"[AI_UTILS] Full OpenRouter response: {json.dumps(result, indent=2)}")
+                print(f"[AI_UTILS] OpenRouter response status: 200 OK")
+                print(f"[AI_UTILS] Response keys: {list(result.keys())}")
                 
                 # Extract content safely
                 try:
                     content = result['choices'][0]['message']['content']
+                    print(f"[AI_UTILS] Content extracted - length: {len(content) if content else 0}")
+                    print(f"[AI_UTILS] Content preview (first 200 chars): {repr(content[:200] if content else 'None')}")
+                    
                     # Handle None or empty content
                     if content is None or content == "" or result.get('usage', {}).get('completion_tokens', 0) == 0:
                         if retry < 3: 
@@ -534,8 +538,8 @@ def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict
         # Create specialized prompt for banner analysis
         prompt = _create_banner_analysis_prompt()
         
-        # Call AI with image
-        result = call_vision_ai(prompt, image_path, max_tokens=400, temperature=0.0)
+        # Call AI with image (increased max_tokens from 400 to 600 to avoid truncation)
+        result = call_vision_ai(prompt, image_path, max_tokens=600, temperature=0.0)
         
         logger.info(f"[{context_name}] AI call complete - success={result['success']}, provider={result.get('provider_used', 'unknown')}")
         
@@ -552,16 +556,28 @@ def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict
         # Parse AI response (JSON)
         content = result['content'].strip()
         
-        # 🔍 LOG RAW AI RESPONSE
-        logger.info(f"[{context_name}] 🤖 RAW AI RESPONSE (length={len(content)}):")
-        logger.info(f"[{context_name}] {'-'*80}")
-        logger.info(f"[{context_name}] {content}")
-        logger.info(f"[{context_name}] {'-'*80}")
+        # 🔍 LOG RAW AI RESPONSE (as single log entry to avoid splitting)
+        logger.info(f"[{context_name}] 🤖 RAW AI RESPONSE (length={len(content)}): {content}")
+        logger.info(f"[{context_name}] {'='*80}")
         
         if not content:
+            logger.error(f"[{context_name}] ❌ Empty content from AI service!")
             return {
                 'success': False,
                 'error': 'Empty content from AI service',
+                'raw_content': content
+            }
+        
+        # Check if content looks incomplete (just opening brace or very short)
+        if len(content) < 50:
+            logger.warning(f"[{context_name}] ⚠️  Suspiciously short AI response: {repr(content)}")
+        
+        # Check if response looks like incomplete JSON
+        if content.strip() == '{' or content.strip() == '[':
+            logger.error(f"[{context_name}] ❌ AI returned incomplete JSON (only opening brace)")
+            return {
+                'success': False,
+                'error': 'Incomplete JSON response from AI',
                 'raw_content': content
             }
         
