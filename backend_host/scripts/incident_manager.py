@@ -344,12 +344,11 @@ class IncidentManager:
         if 'audio' in detection_result and not is_host:
             issue_types.append('audio_loss')
         
-        # PRIORITY HANDLING: Blackscreen takes priority over freeze and macroblocks
-        # If blackscreen is detected, automatically clear any freeze/macroblocks incidents
+        # PRIORITY HANDLING: Blackscreen > Freeze > Macroblocks
+        # Priority 1: Blackscreen clears freeze and macroblocks
         if detection_result.get('blackscreen', False):
             for suppressed_type in ['freeze', 'macroblocks']:
                 if suppressed_type in active_incidents:
-                    # Clear active incident (blackscreen is more severe)
                     incident_id = active_incidents[suppressed_type]
                     logger.info(f"[{capture_folder}] 🔄 Blackscreen detected - auto-resolving active {suppressed_type} incident {incident_id}")
                     self.resolve_incident(device_id, incident_id, suppressed_type)
@@ -359,10 +358,25 @@ class IncidentManager:
                     transitions[suppressed_type] = 'cleared_by_blackscreen'
                 
                 if suppressed_type in pending_incidents:
-                    # Clear pending incident (blackscreen is more severe)
                     logger.debug(f"[{capture_folder}] Blackscreen detected - clearing pending {suppressed_type} incident")
                     del pending_incidents[suppressed_type]
                     transitions[suppressed_type] = 'cleared_by_blackscreen'
+        
+        # Priority 2: Freeze clears macroblocks
+        if detection_result.get('freeze', False):
+            if 'macroblocks' in active_incidents:
+                incident_id = active_incidents['macroblocks']
+                logger.info(f"[{capture_folder}] 🔄 Freeze detected - auto-resolving active macroblocks incident {incident_id}")
+                self.resolve_incident(device_id, incident_id, 'macroblocks')
+                del active_incidents['macroblocks']
+                if not active_incidents:
+                    device_state['state'] = NORMAL
+                transitions['macroblocks'] = 'cleared_by_freeze'
+            
+            if 'macroblocks' in pending_incidents:
+                logger.debug(f"[{capture_folder}] Freeze detected - clearing pending macroblocks incident")
+                del pending_incidents['macroblocks']
+                transitions['macroblocks'] = 'cleared_by_freeze'
         
         # Check each issue type
         logger.debug(f"[{capture_folder}] Checking issue types: {issue_types}")
@@ -397,7 +411,7 @@ class IncidentManager:
                         # This handles case where INCIDENT_REPORT_DELAY < 5s (testing) or = 5s edge case
                         has_r2_images = 'r2_images' in detection_result and detection_result['r2_images']
                         
-                        if not has_r2_images and issue_type in ['blackscreen', 'freeze', 'macroblocks']:
+                        if not has_r2_images and issue_type in ['blackscreen', 'freeze', 'macroblocks', 'audio_loss']:
                             # Missing R2 images - upload them NOW before DB insert
                             logger.info(f"[{capture_folder}] Uploading {issue_type} start images to R2 before DB insert...")
                             from datetime import datetime
@@ -423,7 +437,7 @@ class IncidentManager:
                                             has_r2_images = True
                                             logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
                             else:
-                                # Upload single thumbnail for blackscreen/macroblocks from cold path
+                                # Upload single thumbnail for blackscreen/macroblocks/audio_loss from cold path
                                 device_id = get_device_info_from_capture_folder(capture_folder).get('device_id', capture_folder)
                                 device_state = self.get_device_state(device_id)
                                 cold_thumbnail_path = device_state.get(f'{issue_type}_start_thumbnail_cold')
@@ -542,8 +556,8 @@ class IncidentManager:
                     elapsed_time = current_time - pending_incidents[issue_type]
                     transitions[issue_type] = 'cleared'  # Mark transition
                     
-                    # Cleanup: Remove cold copy for blackscreen/macroblocks (won't be uploaded to R2)
-                    if issue_type in ['blackscreen', 'macroblocks']:
+                    # Cleanup: Remove cold copy for visual incidents (won't be uploaded to R2)
+                    if issue_type in ['blackscreen', 'macroblocks', 'audio_loss']:
                         cold_path_key = f'{issue_type}_start_thumbnail_cold'
                         if cold_path_key in device_state:
                             cold_path = device_state[cold_path_key]

@@ -255,8 +255,8 @@ class InotifyFrameMonitor:
                     detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
                     detection_result[f'{event_type}_event_duration_ms'] = 0
                     
-                    # Copy START frame to COLD immediately for blackscreen/macroblocks (hot storage frames expire)
-                    if event_type in ['blackscreen', 'macroblocks']:
+                    # Copy START frame to COLD immediately for visual incidents (hot storage frames expire)
+                    if event_type in ['blackscreen', 'macroblocks', 'audio']:
                         current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
                         from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
                         thumbnails_dir = get_thumbnails_path(capture_folder)
@@ -266,9 +266,11 @@ class InotifyFrameMonitor:
                             # Copy to cold storage NOW (safe for 1+ hour, will upload to R2 later if incident persists)
                             cold_path = copy_to_cold_storage(start_thumbnail_path)
                             if cold_path:
-                                device_state[f'{event_type}_start_thumbnail_cold'] = cold_path
-                                device_state[f'{event_type}_start_filename'] = current_filename
-                                logger.debug(f"[{capture_folder}] Copied {event_type} START to cold storage")
+                                # For audio, store as audio_loss (not audio) for consistency with incident_type
+                                storage_key = 'audio_loss' if event_type == 'audio' else event_type
+                                device_state[f'{storage_key}_start_thumbnail_cold'] = cold_path
+                                device_state[f'{storage_key}_start_filename'] = current_filename
+                                logger.debug(f"[{capture_folder}] Copied {storage_key} START to cold storage")
                             else:
                                 logger.warning(f"[{capture_folder}] ⚠️  Failed to copy {event_type} START to cold")
                         else:
@@ -307,21 +309,24 @@ class InotifyFrameMonitor:
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
                 
-                # Store closure frame info for later upload by incident_manager (when resolving DB)
-                # Only for incidents with visual images (blackscreen, freeze, macroblocks)
-                # We store it for ALL events - incident_manager will only use it if incident was in DB
-                if event_type in ['blackscreen', 'freeze', 'macroblocks']:
+                # Store closure frame for later upload by incident_manager (when resolving DB)
+                # For all visual incidents: blackscreen, freeze, macroblocks, audio_loss
+                if event_type in ['blackscreen', 'freeze', 'macroblocks', 'audio']:
                     # Get current frame thumbnail path for closure
                     current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
-                    from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
+                    from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
                     thumbnails_dir = get_thumbnails_path(capture_folder)
                     current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
                     
                     if os.path.exists(current_thumbnail_path):
-                        # Store closure frame info in device state for incident_manager to upload later
-                        device_state[f'{event_type}_closure_frame'] = current_thumbnail_path
-                        device_state[f'{event_type}_closure_filename'] = current_filename
-                        logger.debug(f"[{capture_folder}] Stored {event_type} closure frame for later upload")
+                        # Copy closure frame to cold storage immediately
+                        cold_path = copy_to_cold_storage(current_thumbnail_path)
+                        if cold_path:
+                            # For audio, store as audio_loss (not audio) for consistency with incident_type
+                            storage_key = 'audio_loss' if event_type == 'audio' else event_type
+                            device_state[f'{storage_key}_closure_frame'] = cold_path
+                            device_state[f'{storage_key}_closure_filename'] = current_filename
+                            logger.debug(f"[{capture_folder}] Copied {storage_key} closure frame to cold storage")
                 
                 # Log event end
                 if event_type == 'audio':
@@ -502,6 +507,7 @@ class InotifyFrameMonitor:
             has_freeze = detection_result and detection_result.get('freeze', False)
             has_macroblocks = detection_result and detection_result.get('macroblocks', False)
             
+            # Priority: Blackscreen > Freeze > Macroblocks
             if has_blackscreen:
                 issues.append('blackscreen')
                 # Blackscreen has priority - suppress freeze and macroblocks detection
@@ -511,12 +517,15 @@ class InotifyFrameMonitor:
                 if has_macroblocks:
                     detection_result['macroblocks'] = False
                     logger.debug(f"[{capture_folder}] Suppressing macroblocks (blackscreen has priority)")
-            else:
-                # Only report freeze/macroblocks if no blackscreen
-                if has_freeze:
-                    issues.append('freeze')
+            elif has_freeze:
+                # Freeze has priority over macroblocks
+                issues.append('freeze')
                 if has_macroblocks:
-                    issues.append('macroblocks')
+                    detection_result['macroblocks'] = False
+                    logger.debug(f"[{capture_folder}] Suppressing macroblocks (freeze has priority)")
+            elif has_macroblocks:
+                # Only report macroblocks if no blackscreen or freeze
+                issues.append('macroblocks')
             
             if issues:
                 logger.info(f"[{capture_folder}] Issues: {issues}")

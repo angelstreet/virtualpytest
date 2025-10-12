@@ -1,11 +1,11 @@
 # Unified Incident Image Architecture
 
 ## Problem Solved
-Blackscreen and macroblocks incidents were missing thumbnails in database because START frame images were being referenced 3+ seconds after the event started, by which time they'd been archived/deleted from hot storage.
+Blackscreen, macroblocks, and audio_loss incidents were missing thumbnails in database because START frame images were being referenced 3+ seconds after the event started, by which time they'd been archived/deleted from hot storage.
 
 ## Unified Strategy (ALL Incident Types)
 
-### Flow for Freeze, Blackscreen, Macroblocks
+### Flow for Freeze, Blackscreen, Macroblocks, Audio Loss
 
 ```
 1. Event STARTS
@@ -51,10 +51,11 @@ def copy_to_cold_storage(hot_or_cold_path):
 ### 2. Event START - Copy to Cold
 **File:** `backend_host/scripts/capture_monitor.py`
 
-When blackscreen/macroblocks START:
+When blackscreen/macroblocks/audio_loss START:
 - Copy thumbnail to cold storage immediately
 - Store cold path in `device_state['{event_type}_start_thumbnail_cold']`
 - No R2 upload yet (wait for delay)
+- Note: Audio loss uses visual thumbnails to show screen state when audio was lost
 
 ### 3. After Delay - Upload to R2
 **File:** `backend_host/scripts/incident_manager.py`
@@ -71,11 +72,18 @@ If incident clears before INCIDENT_REPORT_DELAY:
 - Delete cold copy (won't be uploaded to R2)
 - Clean up device_state
 
-## Special Case: Freeze Incidents
+## Special Cases
 
+### Freeze Incidents
 Freeze already had paths in `last_3_thumbnails` but they could be in hot storage:
 - Copy all 3 thumbnails to cold before R2 upload
-- Same timing strategy as blackscreen/macroblocks
+- Same timing strategy as other incidents
+
+### Audio Loss Incidents
+Audio loss has no visual artifact but uses screen thumbnails:
+- Shows what was on screen when audio was lost/restored
+- Unified handling with other visual incidents
+- Previously had separate R2 upload logic in transcript_accumulator (now removed)
 
 ## Testing Scenarios
 
@@ -105,16 +113,23 @@ Freeze already had paths in `last_3_thumbnails` but they could be in hot storage
 
 ## Files Modified
 
-1. `shared/src/lib/utils/storage_path_utils.py`
-   - Added `copy_to_cold_storage()` utility function
+1. **`shared/src/lib/utils/storage_path_utils.py`**
+   - Added `copy_to_cold_storage()` utility function (13 lines)
 
-2. `backend_host/scripts/capture_monitor.py`
-   - Event START: Copy thumbnails to cold for blackscreen/macroblocks
+2. **`backend_host/scripts/capture_monitor.py`**
+   - Event START: Copy thumbnails to cold for blackscreen/macroblocks/audio
+   - Event END: Copy closure thumbnails to cold for all incident types
+   - Unified handling for all visual incidents
 
-3. `backend_host/scripts/incident_manager.py`
+3. **`backend_host/scripts/incident_manager.py`**
    - Upload from cold path (not current filename)
    - Added cold copy cleanup for early resolutions
    - Freeze: Copy to cold before R2 upload
+   - Audio loss: Same treatment as blackscreen/macroblocks
+
+4. **`backend_host/scripts/transcript_accumulator.py`**
+   - Removed duplicate R2 upload logic for audio_loss (40 lines removed)
+   - Now uses unified image handling from capture_monitor
 
 ## Configuration
 
