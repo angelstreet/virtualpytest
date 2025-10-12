@@ -71,11 +71,8 @@ def detect_and_record_zapping(
         logger.info(f"[{capture_folder}] 🔍 Analyzing frame for channel banner: {frame_filename}")
         
         # ✅ STANDALONE: Use AI utility (no controllers needed!)
-        from shared.src.lib.utils.ai_utils import analyze_channel_banner_ai, get_banner_region_for_device
+        from shared.src.lib.utils.ai_utils import analyze_channel_banner_ai
         from shared.src.lib.utils.storage_path_utils import get_captures_path
-        
-        # Get banner region for this device type
-        banner_region = get_banner_region_for_device(device_model)
         
         # Build full frame path
         captures_path = get_captures_path(capture_folder)
@@ -94,10 +91,9 @@ def detect_and_record_zapping(
             return {'success': False, 'error': f'Frame not found: {frame_path}'}
         
         # ✅ STANDALONE: Call AI banner detection (works from any process!)
-        logger.info(f"[{capture_folder}] 🤖 Calling AI banner analysis (region hint: {banner_region})...")
+        logger.info(f"[{capture_folder}] 🤖 Calling AI banner analysis...")
         banner_result = analyze_channel_banner_ai(
             image_path=frame_path,
-            banner_region=banner_region,
             context_name=capture_folder
         )
         logger.info(f"[{capture_folder}] 🤖 AI analysis complete: success={banner_result.get('success')}, banner_detected={banner_result.get('banner_detected')}")

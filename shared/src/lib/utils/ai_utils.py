@@ -11,9 +11,12 @@ import json
 import tempfile
 import cv2
 import requests
+import logging
 from datetime import datetime
 from typing import Dict, Any, Optional, Union
 from time import sleep
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # AI Configuration - Centralized Models and Providers
@@ -485,17 +488,17 @@ RESPOND WITH JSON ONLY - NO MARKDOWN - NO OTHER TEXT"""
         }
 
 
-def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str, int]] = None, context_name: str = "AI") -> Dict[str, Any]:
+def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict[str, Any]:
     """
     AI-powered channel banner detection using centralized AI utilities.
     
     Detects TV channel information including channel name, number, program name,
     and timing from channel banners/overlays that appear during channel changes.
     
+    Analyzes FULL TV screen image - AI scans entire image for channel information.
+    
     Args:
-        image_path: Path to image file to analyze
-        banner_region: Optional region hint (metadata only, not used for cropping)
-                      Format: {'x': int, 'y': int, 'width': int, 'height': int}
+        image_path: Path to image file to analyze (full TV screen)
         context_name: Context name for logging
     
     Returns:
@@ -516,16 +519,16 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         }
     """
     try:
-        print(f"{context_name}: AI channel banner analysis")
-        print(f"{context_name}: 📸 FULL IMAGE PATH: {image_path}")
-        print(f"{context_name}: 📂 Image exists: {os.path.exists(image_path)}")
+        logger.info(f"[{context_name}] AI channel banner analysis")
+        logger.info(f"[{context_name}] 📸 FULL IMAGE PATH: {image_path}")
+        logger.info(f"[{context_name}] 📂 Image exists: {os.path.exists(image_path)}")
         if os.path.exists(image_path):
             file_size = os.path.getsize(image_path)
-            print(f"{context_name}: 📏 Image size: {file_size} bytes ({file_size/1024:.1f} KB)")
+            logger.info(f"[{context_name}] 📏 Image size: {file_size} bytes ({file_size/1024:.1f} KB)")
         
         # Check if image exists
         if not os.path.exists(image_path):
-            print(f"{context_name}: ❌ Image file not found: {image_path}")
+            logger.warning(f"[{context_name}] ❌ Image file not found: {image_path}")
             return {'success': False, 'error': 'Image file not found'}
         
         # Create specialized prompt for banner analysis
@@ -534,12 +537,12 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         # Call AI with image
         result = call_vision_ai(prompt, image_path, max_tokens=400, temperature=0.0)
         
-        print(f"{context_name}: AI call complete - success={result['success']}, provider={result.get('provider_used', 'unknown')}")
+        logger.info(f"[{context_name}] AI call complete - success={result['success']}, provider={result.get('provider_used', 'unknown')}")
         
         if not result['success']:
             error_msg = result.get('error', 'Unknown error')
             provider_used = result.get('provider_used', 'none')
-            print(f"{context_name}: ❌ AI call failed - error: {error_msg}")
+            logger.error(f"[{context_name}] ❌ AI call failed - error: {error_msg}")
             return {
                 'success': False,
                 'error': f'AI service error: {error_msg}',
@@ -550,10 +553,10 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         content = result['content'].strip()
         
         # 🔍 LOG RAW AI RESPONSE
-        print(f"{context_name}: 🤖 RAW AI RESPONSE (length={len(content)}):")
-        print(f"{context_name}: {'-'*80}")
-        print(f"{context_name}: {content}")
-        print(f"{context_name}: {'-'*80}")
+        logger.info(f"[{context_name}] 🤖 RAW AI RESPONSE (length={len(content)}):")
+        logger.info(f"[{context_name}] {'-'*80}")
+        logger.info(f"[{context_name}] {content}")
+        logger.info(f"[{context_name}] {'-'*80}")
         
         if not content:
             return {
@@ -568,8 +571,8 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         try:
             ai_result = json.loads(json_content)
         except json.JSONDecodeError as e:
-            print(f"{context_name}: JSON parsing error: {e}")
-            print(f"{context_name}: Raw AI response: {repr(content)}")
+            logger.error(f"[{context_name}] JSON parsing error: {e}")
+            logger.error(f"[{context_name}] Raw AI response: {repr(content)}")
             return {
                 'success': False,
                 'error': 'Invalid AI response format',
@@ -586,19 +589,19 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         end_time = ai_result.get('end_time', '')
         confidence = float(ai_result.get('confidence', 0.0))
         
-        print(f"{context_name}: {'='*80}")
-        print(f"{context_name}: 🎯 AI ANALYSIS RESULT:")
-        print(f"{context_name}:    📸 Image analyzed: {image_path}")
-        print(f"{context_name}:    🔍 Banner detected: {banner_detected}")
+        logger.info(f"[{context_name}] {'='*80}")
+        logger.info(f"[{context_name}] 🎯 AI ANALYSIS RESULT:")
+        logger.info(f"[{context_name}]    📸 Image analyzed: {image_path}")
+        logger.info(f"[{context_name}]    🔍 Banner detected: {banner_detected}")
         if banner_detected:
-            print(f"{context_name}:    📺 Channel: {channel_name} ({channel_number})")
-            print(f"{context_name}:    📋 Program: {program_name}")
-            print(f"{context_name}:    ⏰ Time: {start_time} - {end_time}")
-            print(f"{context_name}:    ✅ Confidence: {confidence:.2f}")
+            logger.info(f"[{context_name}]    📺 Channel: {channel_name} ({channel_number})")
+            logger.info(f"[{context_name}]    📋 Program: {program_name}")
+            logger.info(f"[{context_name}]    ⏰ Time: {start_time} - {end_time}")
+            logger.info(f"[{context_name}]    ✅ Confidence: {confidence:.2f}")
         else:
-            print(f"{context_name}:    ❌ No banner found in image")
-            print(f"{context_name}:    📉 Confidence: {confidence:.2f}")
-        print(f"{context_name}: {'='*80}")
+            logger.info(f"[{context_name}]    ❌ No banner found in image")
+            logger.info(f"[{context_name}]    📉 Confidence: {confidence:.2f}")
+        logger.info(f"[{context_name}] {'='*80}")
         
         # Return standardized result
         return {
@@ -613,14 +616,13 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
                 'confidence': confidence
             },
             'confidence': confidence,
-            'banner_region': banner_region,
             'image_path': os.path.basename(image_path)
         }
         
     except Exception as e:
-        print(f"{context_name}: AI channel banner analysis error: {e}")
+        logger.error(f"[{context_name}] AI channel banner analysis error: {e}")
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
         return {
             'success': False,
             'error': f'Analysis error: {str(e)}'
@@ -687,22 +689,3 @@ CONFIDENCE SCORING:
 - Very low (<0.5): Uncertain or no clear channel information
 
 RESPOND ONLY WITH THE JSON OBJECT - NO OTHER TEXT OR EXPLANATION."""
-
-
-def get_banner_region_for_device(device_model: str) -> Dict[str, int]:
-    """
-    Get device-specific banner region hint.
-    
-    Note: This is metadata only - not used for cropping.
-    The AI analyzes the full image regardless.
-    
-    Args:
-        device_model: Device model identifier
-    
-    Returns:
-        Banner region dictionary: {'x': int, 'y': int, 'width': int, 'height': int}
-    """
-    if 'android_mobile' in device_model.lower() or 'ios_mobile' in device_model.lower():
-        return {'x': 470, 'y': 230, 'width': 280, 'height': 70}
-    else:
-        return {'x': 245, 'y': 830, 'width': 1170, 'height': 120}
