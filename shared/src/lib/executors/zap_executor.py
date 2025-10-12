@@ -701,29 +701,30 @@ class ZapExecutor:
         """
         Read zapping detection using action timestamp as unique identifier.
         
-        ✅ INSTANT ACCESS: Read from last_zapping.json (single file, instant!) → fallback to chunk if needed.
-        Eliminates race conditions where newest frames aren't in chunks yet.
+        ✅ INSTANT ACCESS: Read from last_zapping.json (single file, instant!).
+        ✅ FAIL FAST: Return error if file not found or timestamp mismatch.
+        ✅ CENTRALIZED PATHS: Uses storage_path_utils (no hardcoding).
         
-        Strategy:
-        1. Try last_zapping.json first (instant single-file read, written immediately by capture_monitor)
-        2. Fallback to 10-minute chunk JSON if last_zapping.json doesn't match
+        Path: /var/www/html/stream/{capture_folder}/last_zapping.json
+        Written by: zapping_detector_utils._write_last_zapping_json()
         
         Args:
             action_timestamp: Unix timestamp when action was executed (unique ID)
-            capture_folder: Device capture folder name (e.g., 'capture4')
+            capture_folder: Device capture folder name (e.g., 'capture1', 'capture4')
         
         Returns:
-            Complete zapping data
+            Complete zapping data dict, or error dict if not found
         """
         try:
             print(f"📺 [ZapExecutor] Reading zapping detection for action timestamp: {action_timestamp}")
             
-            # 1. Wait for detection to complete (blackscreen + AI takes ~5-10s)
+            # Wait for detection to complete (blackscreen + AI takes ~5-10s)
             print(f"⏳ [ZapExecutor] Waiting 10s for capture_monitor to detect and analyze zapping...")
             time.sleep(10)
             
-            # 2. INSTANT ACCESS: Try last_zapping.json first (single file, instant read!)
-            base_path = f"/var/www/html/stream/{capture_folder}"
+            # ✅ CENTRALIZED PATH: Use storage_path_utils (no hardcoding!)
+            from shared.src.lib.utils.storage_path_utils import get_device_base_path
+            base_path = get_device_base_path(capture_folder)
             last_zapping_path = os.path.join(base_path, 'last_zapping.json')
             
             if os.path.exists(last_zapping_path):
@@ -771,94 +772,20 @@ class ZapExecutor:
                             }
                         }
                     else:
-                        print(f"ℹ️ [ZapExecutor] last_zapping.json exists but timestamp mismatch (different zapping event)")
+                        print(f"❌ [ZapExecutor] Timestamp mismatch: {zapping_action_ts} != {action_timestamp}")
+                        return {'success': False, 'zapping_detected': False, 'error': 'Timestamp mismatch - different zapping event'}
                 
                 except Exception as e:
-                    print(f"⚠️ [ZapExecutor] Error reading last_zapping.json: {e}")
-            else:
-                print(f"ℹ️ [ZapExecutor] last_zapping.json not found, trying chunk fallback...")
+                    print(f"❌ [ZapExecutor] Error reading last_zapping.json: {e}")
+                    return {'success': False, 'zapping_detected': False, 'error': f'Failed to read last_zapping.json: {e}'}
             
-            # 3. FALLBACK: Search chunk JSON if last_zapping.json not found or mismatched
-            from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
-            from datetime import datetime
-            
-            action_dt = datetime.fromtimestamp(action_timestamp)
-            hour, chunk_index = calculate_chunk_location(action_dt)
-            
-            # Get chunk path
-            chunk_path = os.path.join(base_path, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
-            
-            if not os.path.exists(chunk_path):
-                print(f"⚠️ [ZapExecutor] Chunk not found: {chunk_path}")
-                return {'success': False, 'zapping_detected': False, 'error': 'Chunk not found'}
-            
-            print(f"🔍 [ZapExecutor] Reading chunk: {chunk_path}")
-            
-            # 3. Read chunk JSON (1 file read instead of 100!)
-            try:
-                with open(chunk_path, 'r') as f:
-                    chunk_data = json.load(f)
-            except Exception as e:
-                print(f"❌ [ZapExecutor] Failed to read chunk: {e}")
-                return {'success': False, 'zapping_detected': False, 'error': f'Failed to read chunk: {e}'}
-            
-            frames = chunk_data.get('frames', [])
-            if not frames:
-                print(f"⚠️ [ZapExecutor] Chunk has no frames")
-                return {'success': False, 'zapping_detected': False, 'error': 'Chunk has no frames'}
-            
-            print(f"🔍 [ZapExecutor] Searching {len(frames)} frames in chunk for matching action timestamp...")
-            
-            # 4. Search frames for matching action_timestamp (fast in-memory search)
-            for frame_data in frames:
-                frame_action_ts = frame_data.get('last_action_timestamp')
-                if not frame_action_ts:
-                    continue
-                
-                # ✅ EXACT MATCH: Compare action timestamps (0.1s tolerance)
-                if abs(frame_action_ts - action_timestamp) < 0.1:
-                    filename = frame_data.get('filename', '')
-                    print(f"✅ [ZapExecutor] Found matching frame: {filename}")
-                    print(f"   Action timestamp match: {frame_action_ts} ≈ {action_timestamp}")
-                    
-                    zapping_detected = frame_data.get('zapping_detected', False)
-                    
-                    if zapping_detected:
-                        channel_name = frame_data.get('zapping_channel_name', '')
-                        channel_number = frame_data.get('zapping_channel_number', '')
-                        program_name = frame_data.get('zapping_program_name', '')
-                        print(f"   📺 Zapping detected: {channel_name} ({channel_number}) - {program_name}")
-                    else:
-                        print(f"   ℹ️ Frame matched but no zapping detected (banner not found)")
-                    
-                    # Extract sequence from frame data
-                    sequence = frame_data.get('sequence', 0)
-                    
-                    return {
-                        'success': True,
-                        'zapping_detected': zapping_detected,
-                        'channel_name': frame_data.get('zapping_channel_name', ''),
-                        'channel_number': frame_data.get('zapping_channel_number', ''),
-                        'program_name': frame_data.get('zapping_program_name', ''),
-                        'blackscreen_duration': frame_data.get('zapping_blackscreen_duration_ms', 0) / 1000.0,
-                        'detection_type': frame_data.get('zapping_detection_type', 'unknown'),
-                        'confidence': frame_data.get('zapping_confidence', 0.0),
-                        'detected_at': frame_data.get('zapping_detected_at'),
-                        'frame_filename': filename,
-                        'frame_sequence': sequence,
-                        'action_timestamp': frame_action_ts,
-                        'details': {
-                            'start_time': frame_data.get('zapping_program_start_time', ''),
-                            'end_time': frame_data.get('zapping_program_end_time', '')
-                        }
-                    }
-            
-            # No match found in chunk
-            print(f"⚠️ [ZapExecutor] No frame with matching action timestamp found in chunk ({len(frames)} frames searched)")
-            return {'success': True, 'zapping_detected': False, 'error': 'No matching action timestamp in chunk'}
+            # ❌ FAIL EARLY: File not found
+            print(f"❌ [ZapExecutor] last_zapping.json not found at: {last_zapping_path}")
+            print(f"   This means capture_monitor has not detected zapping yet or zapping detection failed.")
+            return {'success': False, 'zapping_detected': False, 'error': 'last_zapping.json not found'}
             
         except Exception as e:
-            print(f"❌ [ZapExecutor] Error reading zapping from chunk: {e}")
+            print(f"❌ [ZapExecutor] Error reading zapping detection: {e}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'zapping_detected': False, 'error': str(e)}

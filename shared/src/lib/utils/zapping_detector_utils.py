@@ -289,10 +289,12 @@ def _write_last_zapping_json(
     This eliminates race conditions where newest frames aren't in chunks yet.
     """
     try:
-        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
-        base_path = get_capture_storage_path(capture_folder)
+        from shared.src.lib.utils.storage_path_utils import get_device_base_path
         
+        # ✅ CENTRALIZED PATH: Use storage_path_utils (no hardcoding!)
+        # Write to device base path (not hot/cold subfolder)
         # Path: /var/www/html/stream/capture1/last_zapping.json
+        base_path = get_device_base_path(capture_folder)
         last_zapping_path = os.path.join(base_path, 'last_zapping.json')
         
         # Prepare complete zapping data
