@@ -81,7 +81,14 @@ def detect_and_record_zapping(
         captures_path = get_captures_path(capture_folder)
         frame_path = os.path.join(captures_path, frame_filename)
         
-        logger.debug(f"[{capture_folder}] Frame path: {frame_path}")
+        logger.info(f"[{capture_folder}] 📸 FULL FRAME PATH: {frame_path}")
+        logger.info(f"[{capture_folder}] 📂 Captures directory: {captures_path}")
+        logger.info(f"[{capture_folder}] 📄 Frame filename: {frame_filename}")
+        logger.info(f"[{capture_folder}] ✓ Frame exists: {os.path.exists(frame_path)}")
+        if os.path.exists(frame_path):
+            file_size = os.path.getsize(frame_path)
+            logger.info(f"[{capture_folder}] 📏 Frame size: {file_size} bytes ({file_size/1024:.1f} KB)")
+        
         if not os.path.exists(frame_path):
             logger.warning(f"[{capture_folder}] ❌ Frame not found: {frame_path}")
             return {'success': False, 'error': f'Frame not found: {frame_path}'}

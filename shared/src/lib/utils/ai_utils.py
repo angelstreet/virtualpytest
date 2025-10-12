@@ -517,11 +517,15 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
     """
     try:
         print(f"{context_name}: AI channel banner analysis")
-        print(f"{context_name}: Image: {image_path}")
+        print(f"{context_name}: 📸 FULL IMAGE PATH: {image_path}")
+        print(f"{context_name}: 📂 Image exists: {os.path.exists(image_path)}")
+        if os.path.exists(image_path):
+            file_size = os.path.getsize(image_path)
+            print(f"{context_name}: 📏 Image size: {file_size} bytes ({file_size/1024:.1f} KB)")
         
         # Check if image exists
         if not os.path.exists(image_path):
-            print(f"{context_name}: Image file not found: {image_path}")
+            print(f"{context_name}: ❌ Image file not found: {image_path}")
             return {'success': False, 'error': 'Image file not found'}
         
         # Create specialized prompt for banner analysis
@@ -535,6 +539,7 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         if not result['success']:
             error_msg = result.get('error', 'Unknown error')
             provider_used = result.get('provider_used', 'none')
+            print(f"{context_name}: ❌ AI call failed - error: {error_msg}")
             return {
                 'success': False,
                 'error': f'AI service error: {error_msg}',
@@ -543,6 +548,12 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         
         # Parse AI response (JSON)
         content = result['content'].strip()
+        
+        # 🔍 LOG RAW AI RESPONSE
+        print(f"{context_name}: 🤖 RAW AI RESPONSE (length={len(content)}):")
+        print(f"{context_name}: {'-'*80}")
+        print(f"{context_name}: {content}")
+        print(f"{context_name}: {'-'*80}")
         
         if not content:
             return {
@@ -575,12 +586,19 @@ def analyze_channel_banner_ai(image_path: str, banner_region: Optional[Dict[str,
         end_time = ai_result.get('end_time', '')
         confidence = float(ai_result.get('confidence', 0.0))
         
-        print(f"{context_name}: Banner detected: {banner_detected}")
+        print(f"{context_name}: {'='*80}")
+        print(f"{context_name}: 🎯 AI ANALYSIS RESULT:")
+        print(f"{context_name}:    📸 Image analyzed: {image_path}")
+        print(f"{context_name}:    🔍 Banner detected: {banner_detected}")
         if banner_detected:
-            print(f"{context_name}:   Channel: {channel_name} ({channel_number})")
-            print(f"{context_name}:   Program: {program_name}")
-            print(f"{context_name}:   Time: {start_time} - {end_time}")
-            print(f"{context_name}:   Confidence: {confidence:.2f}")
+            print(f"{context_name}:    📺 Channel: {channel_name} ({channel_number})")
+            print(f"{context_name}:    📋 Program: {program_name}")
+            print(f"{context_name}:    ⏰ Time: {start_time} - {end_time}")
+            print(f"{context_name}:    ✅ Confidence: {confidence:.2f}")
+        else:
+            print(f"{context_name}:    ❌ No banner found in image")
+            print(f"{context_name}:    📉 Confidence: {confidence:.2f}")
+        print(f"{context_name}: {'='*80}")
         
         # Return standardized result
         return {
