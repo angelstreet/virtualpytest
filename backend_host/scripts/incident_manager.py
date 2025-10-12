@@ -73,7 +73,7 @@ INCIDENT = 1
 class IncidentManager:
     def __init__(self, skip_startup_cleanup=False):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
-        self.INCIDENT_REPORT_DELAY = 3  # Only report to DB after 5 minutes of continuous detection
+        self.INCIDENT_REPORT_DELAY = 30  # Only report to DB after 30 seconds of continuous detection
         # Start fresh on service restart - resolve any stale incidents from previous run
         # Skip cleanup if called from transcript_accumulator (only report audio, don't manage incident lifecycle)
         if not skip_startup_cleanup:

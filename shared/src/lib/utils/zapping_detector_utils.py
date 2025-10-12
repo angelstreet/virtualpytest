@@ -73,12 +73,16 @@ def detect_and_record_zapping(
         # ✅ REUSE: Get device instance and video controller
         from backend_host.src.lib.utils.host_utils import get_device_by_id
         
+        logger.debug(f"[{capture_folder}] Getting device instance for {device_id}...")
         device = get_device_by_id(device_id)
         if not device:
+            logger.warning(f"[{capture_folder}] ❌ Device not found: {device_id}")
             return {'success': False, 'error': f'Device not found: {device_id}'}
         
+        logger.debug(f"[{capture_folder}] Getting video verification controller...")
         video_controller = device._get_controller('verification_video')
         if not video_controller:
+            logger.warning(f"[{capture_folder}] ❌ No video verification controller for {device_id}")
             return {'success': False, 'error': f'No video verification controller for {device_id}'}
         
         # ✅ REUSE: Get banner region (same as zap_executor.py)
@@ -89,14 +93,18 @@ def detect_and_record_zapping(
         captures_path = get_captures_path(capture_folder)
         frame_path = os.path.join(captures_path, frame_filename)
         
+        logger.debug(f"[{capture_folder}] Frame path: {frame_path}")
         if not os.path.exists(frame_path):
+            logger.warning(f"[{capture_folder}] ❌ Frame not found: {frame_path}")
             return {'success': False, 'error': f'Frame not found: {frame_path}'}
         
         # ✅ REUSE: Call existing banner detection AI (same as zap_executor.py)
+        logger.info(f"[{capture_folder}] 🤖 Calling AI banner analysis (region: {banner_region})...")
         banner_result = video_controller.ai_helpers.analyze_channel_banner_ai(
             image_path=frame_path,
             banner_region=banner_region
         )
+        logger.info(f"[{capture_folder}] 🤖 AI analysis complete: success={banner_result.get('success')}, banner_detected={banner_result.get('banner_detected')}")
         
         if not banner_result.get('success'):
             logger.info(f"[{capture_folder}] ❌ No banner detected - regular blackscreen, not zapping")
