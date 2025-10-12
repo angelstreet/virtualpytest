@@ -524,13 +524,13 @@ class IncidentManager:
         return transitions  # Return all transitions that occurred
 
     def upload_freeze_frames_to_r2(self, last_3_filenames, last_3_thumbnails=None, device_id=None, time_key=None, thumbnails_only=False):
-        """Upload freeze incident frames to R2 storage with HHMM-based naming
+        """Upload freeze incident frames to R2 storage with unique timestamp-based naming
         
         Args:
             last_3_filenames: List of capture image paths
             last_3_thumbnails: List of pre-generated thumbnail paths (from FFmpeg)
             device_id: Device identifier (capture folder name)
-            time_key: HHMM time key (e.g., "1300" for 13:00)
+            time_key: Unique timestamp key (e.g., "20251012_183705" for 2025-10-12 18:37:05)
             thumbnails_only: If True, only upload thumbnails. Default False
         """
         try:
@@ -542,8 +542,8 @@ class IncidentManager:
                 logger.warning(f"[{device_id}] R2 uploader not available, skipping frame upload")
                 return None
             
-            # Create R2 folder path: alerts/freeze/{capture_folder}/{HHMM}_thumb_{i}.jpg
-            # Simple, predictable naming that frontend can construct from any timestamp
+            # Create R2 folder path: alerts/freeze/{capture_folder}/{YYYYMMDD_HHMMSS}_thumb_{i}.jpg
+            # Unique naming ensures no overwrites across different incidents
             base_r2_path = f"alerts/freeze/{device_id}"
             
             r2_results = {
@@ -563,7 +563,7 @@ class IncidentManager:
                         logger.warning(f"[{device_id}] Original frame file not found: {filename}")
                         continue
                     
-                    # R2 path: alerts/freeze/capture2/1300_frame_0.jpg
+                    # R2 path: alerts/freeze/capture2/20251012_183705_frame_0.jpg
                     r2_path = f"{base_r2_path}/{time_key}_frame_{i}.jpg"
                     
                     file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
@@ -593,7 +593,7 @@ class IncidentManager:
                         logger.warning(f"[{device_id}] Thumbnail file not found: {thumbnail_path}")
                         continue
                     
-                    # R2 path: alerts/freeze/capture2/1300_thumb_0.jpg
+                    # R2 path: alerts/freeze/capture2/20251012_183705_thumb_0.jpg
                     r2_path = f"{base_r2_path}/{time_key}_thumb_{i}.jpg"
                     
                     file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
@@ -683,7 +683,7 @@ class IncidentManager:
         Args:
             thumbnail_path: Path to thumbnail image
             device_id: Device identifier (capture folder name)
-            time_key: HHMM time key (e.g., "1300" for 13:00)
+            time_key: Unique timestamp key (e.g., "20251012_183705" for 2025-10-12 18:37:05)
             incident_type: Type of incident ('blackscreen', 'macroblocks')
             stage: 'start' or 'end' for naming
         
@@ -698,8 +698,8 @@ class IncidentManager:
                 logger.warning(f"[{device_id}] R2 uploader not available, skipping {incident_type} frame upload")
                 return None
             
-            # R2 path: alerts/{incident_type}/{capture_folder}/{HHMM}_{stage}.jpg
-            # e.g., alerts/blackscreen/capture1/1300_start.jpg, alerts/blackscreen/capture1/1300_end.jpg
+            # R2 path: alerts/{incident_type}/{capture_folder}/{YYYYMMDD_HHMMSS}_{stage}.jpg
+            # e.g., alerts/blackscreen/capture1/20251012_183705_start.jpg, alerts/blackscreen/capture1/20251012_183705_end.jpg
             r2_path = f"alerts/{incident_type}/{device_id}/{time_key}_{stage}.jpg"
             
             if not os.path.exists(thumbnail_path):
