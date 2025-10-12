@@ -325,6 +325,8 @@ class IncidentManager:
             issue_types.append('blackscreen')
         if 'freeze' in detection_result:
             issue_types.append('freeze')
+        if 'macroblocks' in detection_result:
+            issue_types.append('macroblocks')
         if 'audio' in detection_result and not is_host:
             issue_types.append('audio_loss')
         
@@ -392,7 +394,16 @@ class IncidentManager:
                             logger.debug(f"[{capture_folder}] {issue_type} still pending (elapsed={elapsed_time:.0f}s), waiting {remaining_time:.0f}s more before reporting")
                         
                 else:
-                    # First detection of this issue, add to pending
+                    # First detection of this issue - check if it meets minimum duration threshold
+                    # Only track incidents that last > 5 seconds (prevents false positives from glitches)
+                    event_duration_ms = detection_result.get(f'{issue_type}_event_duration_ms', 0)
+                    
+                    # Skip tracking if duration < 5 seconds (still ramping up or brief glitch)
+                    if event_duration_ms > 0 and event_duration_ms < 5000:
+                        logger.debug(f"[{capture_folder}] {issue_type} detected but too short ({event_duration_ms/1000:.1f}s < 5s), not tracking")
+                        continue
+                    
+                    # Add to pending for tracking
                     pending_incidents[issue_type] = current_time
                     transitions[issue_type] = 'first_detected'  # Mark transition
                     logger.info(f"[{capture_folder}] {issue_type} first detected, will report to DB if persists for {self.INCIDENT_REPORT_DELAY/60:.0f}min")

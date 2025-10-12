@@ -290,6 +290,7 @@ class InotifyFrameMonitor:
                 
                 # DEBOUNCE: For freeze, keep R2 cache for 30s after freeze ends
                 # This prevents re-uploading if freeze flaps (ends/starts rapidly)
+                # Note: blackscreen/macroblocks don't need this since they don't have R2 uploads
                 if event_type == 'freeze':
                     from datetime import timedelta
                     cache_clear_time = current_time + timedelta(seconds=30)
