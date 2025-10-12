@@ -402,17 +402,27 @@ class IncidentManager:
                                         logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
                             else:
                                 # Upload single thumbnail for blackscreen/macroblocks
-                                current_thumbnail = detection_result.get('last_3_thumbnails', [])
-                                if current_thumbnail:
-                                    thumbnail_path = current_thumbnail[0] if isinstance(current_thumbnail, list) else current_thumbnail
-                                    r2_urls = self.upload_incident_frame_to_r2(
-                                        thumbnail_path, capture_folder, time_key, issue_type, 'start'
-                                    )
-                                    if r2_urls and r2_urls.get('thumbnail_url'):
-                                        detection_result[f'{issue_type}_thumbnail'] = r2_urls['thumbnail_url']
-                                        detection_result['r2_images'] = r2_urls
-                                        has_r2_images = True
-                                        logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail")
+                                # Construct thumbnail path from current filename (last_3_thumbnails is empty for non-freeze)
+                                filename = detection_result.get('filename', '')
+                                if filename:
+                                    thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
+                                    from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
+                                    thumbnails_dir = get_thumbnails_path(capture_folder)
+                                    thumbnail_path = os.path.join(thumbnails_dir, thumbnail_filename)
+                                    
+                                    if os.path.exists(thumbnail_path):
+                                        r2_urls = self.upload_incident_frame_to_r2(
+                                            thumbnail_path, capture_folder, time_key, issue_type, 'start'
+                                        )
+                                        if r2_urls and r2_urls.get('thumbnail_url'):
+                                            detection_result[f'{issue_type}_thumbnail'] = r2_urls['thumbnail_url']
+                                            detection_result['r2_images'] = r2_urls
+                                            has_r2_images = True
+                                            logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail")
+                                    else:
+                                        logger.warning(f"[{capture_folder}] ⚠️  Thumbnail not found for {issue_type}: {thumbnail_path}")
+                                else:
+                                    logger.warning(f"[{capture_folder}] ⚠️  No filename in detection_result for {issue_type}")
                         
                         # Log R2 image status
                         if has_r2_images:
