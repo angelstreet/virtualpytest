@@ -499,10 +499,15 @@ class InotifyFrameMonitor:
                     if cache_clear_at:
                         clear_time = datetime.fromisoformat(cache_clear_at)
                         if datetime.now() >= clear_time:
-                            # Cache expired - clear it
+                            # Cache expired - clear it and delete orphaned R2 images
+                            freeze_r2_images = device_state.get('freeze_r2_images')
+                            if freeze_r2_images:
+                                logger.info(f"[{capture_folder}] 🗑️  Cache expired, deleting orphaned R2 freeze images")
+                                self.incident_manager._delete_r2_freeze_images(freeze_r2_images, capture_folder)
                             device_state['freeze_r2_urls'] = None
                             device_state['freeze_r2_images'] = None
                             device_state['freeze_cache_clear_at'] = None
+                            logger.debug(f"[{capture_folder}] Cleared expired freeze R2 URL cache")
                     
                     # Check if we already uploaded for this freeze event
                     cached_r2_urls = device_state.get('freeze_r2_urls')
@@ -511,6 +516,9 @@ class InotifyFrameMonitor:
                     # This prevents uploading for short freeze flaps/glitches
                     freeze_duration_ms = detection_result.get('freeze_event_duration_ms', 0)
                     should_upload = freeze_duration_ms > 5000
+                    
+                    # DEBUG: Log cache state
+                    logger.debug(f"[{capture_folder}] R2 cache check: cached_urls={'exists' if cached_r2_urls else 'None'}, freeze_duration={freeze_duration_ms/1000:.1f}s, should_upload={should_upload}")
                     
                     if not cached_r2_urls and should_upload:
                         # First freeze frame (and duration > 5s) - upload to R2 with HHMM-based naming
@@ -536,6 +544,7 @@ class InotifyFrameMonitor:
                             # Cache R2 URLs in device state for reuse during this freeze event
                             device_state['freeze_r2_urls'] = r2_urls['thumbnail_urls']
                             device_state['freeze_r2_images'] = r2_urls
+                            logger.info(f"[{capture_folder}] 💾 Cached {len(r2_urls['thumbnail_urls'])} R2 URLs to device_state (device_id={device_id})")
                             # Replace last_3_thumbnails with R2 URLs (keep last_3_filenames as-is for reference)
                             detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
                             detection_result['r2_images'] = r2_urls

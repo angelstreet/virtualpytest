@@ -89,6 +89,9 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
     'de': 'Deutsch',
     'it': 'Italiano'
   };
+  
+  // All supported transcript languages (always available on-demand)
+  const allTranscriptLanguages = ['original', 'fr', 'en', 'es', 'de', 'it'];
 
   return (
     <>
@@ -201,58 +204,58 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         </>
       )}
 
-      {/* Transcript/Subtitle language selector */}
-      {availableLanguages.length > 1 && (
-        <>
-          <IconButton
-            onClick={handleTranscriptClick}
-            disabled={isTranslating}
-            title="Subtitle Language"
-            sx={{
-              position: 'fixed',
-              top: hasMp3 && mp3Url ? (availableDubbedLanguages.length > 0 ? 162 : 106) : (availableDubbedLanguages.length > 0 ? 106 : 50),
-              right: 16,
-              backgroundColor: 'rgba(33, 150, 243, 0.8)',
-              color: 'white',
-              zIndex: 1250,
-              '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.95)' },
-              '&.Mui-disabled': { backgroundColor: 'rgba(33, 150, 243, 0.5)', color: 'rgba(255, 255, 255, 0.5)' },
-            }}
-          >
-            <Language />
-          </IconButton>
-          
-          <Menu
-            anchorEl={transcriptMenuAnchor}
-            open={Boolean(transcriptMenuAnchor)}
-            onClose={handleTranscriptClose}
-            sx={{
-              '& .MuiPaper-root': {
-                backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                color: 'white',
-              },
-            }}
-          >
-            {availableLanguages.map((lang) => (
-              <MenuItem
-                key={lang}
-                onClick={() => handleTranscriptSelect(lang)}
-                selected={lang === selectedTranscriptLanguage}
-                sx={{
-                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                  '&.Mui-selected': {
-                    backgroundColor: 'rgba(33, 150, 243, 0.3)',
-                    '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.4)' },
-                  },
-                }}
-              >
-                {languageNames[lang] || lang.toUpperCase()}
-                {lang === selectedTranscriptLanguage && ' ✓'}
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
-      )}
+      {/* Transcript/Subtitle language selector - always show (on-demand translation) */}
+      <IconButton
+        onClick={handleTranscriptClick}
+        disabled={isTranslating}
+        title="Subtitle Language"
+        sx={{
+          position: 'fixed',
+          top: hasMp3 && mp3Url ? (availableDubbedLanguages.length > 0 ? 162 : 106) : (availableDubbedLanguages.length > 0 ? 106 : 50),
+          right: 16,
+          backgroundColor: 'rgba(33, 150, 243, 0.8)',
+          color: 'white',
+          zIndex: 1250,
+          '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.95)' },
+          '&.Mui-disabled': { backgroundColor: 'rgba(33, 150, 243, 0.5)', color: 'rgba(255, 255, 255, 0.5)' },
+        }}
+      >
+        <Language />
+      </IconButton>
+      
+      <Menu
+        anchorEl={transcriptMenuAnchor}
+        open={Boolean(transcriptMenuAnchor)}
+        onClose={handleTranscriptClose}
+        sx={{
+          '& .MuiPaper-root': {
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            color: 'white',
+          },
+        }}
+      >
+        {allTranscriptLanguages.map((lang) => {
+          const isCached = availableLanguages.includes(lang);
+          return (
+            <MenuItem
+              key={lang}
+              onClick={() => handleTranscriptSelect(lang)}
+              selected={lang === selectedTranscriptLanguage}
+              sx={{
+                '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(33, 150, 243, 0.3)',
+                  '&:hover': { backgroundColor: 'rgba(33, 150, 243, 0.4)' },
+                },
+              }}
+            >
+              {languageNames[lang] || lang.toUpperCase()}
+              {lang === selectedTranscriptLanguage && ' ✓'}
+              {!isCached && lang !== 'original' && ' 🤖'}
+            </MenuItem>
+          );
+        })}
+      </Menu>
 
       {/* Language and confidence info - positioned above transcript box */}
       <Box

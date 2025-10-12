@@ -48,7 +48,9 @@ def enhance_and_translate_transcript(
         # Simplified: text_chars * 2, minimum 5000
         estimated_tokens = max(5000, len(text) * 2)
         
-        prompt = f"""Translate this {source_language} text to {len(target_languages)} languages.
+        prompt = f"""Translate this {source_language} text to EXACTLY these {len(target_languages)} languages: {', '.join(target_languages)}.
+
+IMPORTANT: Only include these language codes in your response, no others.
 
 Text:
 {text}

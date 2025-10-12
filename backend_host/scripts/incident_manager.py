@@ -407,11 +407,8 @@ class IncidentManager:
                     self.resolve_incident(device_id, incident_id, issue_type)
                     del active_incidents[issue_type]
                     
-                    # Clear cached R2 URLs for freeze when it ends
-                    if issue_type == 'freeze':
-                        device_state.pop('freeze_r2_urls', None)
-                        device_state.pop('freeze_r2_images', None)
-                        logger.debug(f"[{capture_folder}] Cleared freeze R2 URL cache")
+                    # NOTE: R2 URL cache clearing is handled by capture_monitor with 30s debounce
+                    # to prevent re-uploads during freeze flapping
                     
                     if not active_incidents:
                         device_state['state'] = NORMAL
@@ -423,14 +420,8 @@ class IncidentManager:
                     # Skip logging (already logged in capture_monitor with event duration)
                     del pending_incidents[issue_type]
                     
-                    # Clear cached R2 URLs for freeze when it ends + DELETE orphaned images
-                    if issue_type == 'freeze':
-                        freeze_r2_images = device_state.get('freeze_r2_images')
-                        if freeze_r2_images:
-                            self._delete_r2_freeze_images(freeze_r2_images, capture_folder)
-                        device_state.pop('freeze_r2_urls', None)
-                        device_state.pop('freeze_r2_images', None)
-                        logger.debug(f"[{capture_folder}] Cleared freeze R2 URL cache")
+                    # NOTE: R2 URL cache and image cleanup is handled by capture_monitor with 30s debounce
+                    # Images will be deleted when cache expires (prevents re-upload during freeze flapping)
         
         return transitions  # Return all transitions that occurred
 

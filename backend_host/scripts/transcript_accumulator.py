@@ -433,9 +433,10 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
         from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
         update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=has_mp3)
         
-        # Pre-translate chunk if it has substantial content
-        if new_segments and len(chunk_data.get('transcript', '')) > 20:
-            translate_chunk_to_languages(capture_folder, hour, chunk_index, chunk_path, device_base_path)
+        # NOTE: AI translation now on-demand via /host/transcript/translate-chunk endpoint
+        # No automatic 10-minute translation to reduce CPU load
+        # if new_segments and len(chunk_data.get('transcript', '')) > 20:
+        #     translate_chunk_to_languages(capture_folder, hour, chunk_index, chunk_path, device_base_path)
     except Exception as e:
         logger.warning(f"Failed to update transcript manifest: {e}")
 
@@ -570,6 +571,9 @@ def enhance_and_dub_1min(device_folder: str, hour: int, chunk_index: int, slot: 
         os.makedirs(audio_temp_dir, exist_ok=True)
         
         translations = ai_result.get('translations', {})
+        
+        # Filter to only requested languages (AI sometimes adds extras like pl, pt, ru, zh)
+        translations = {k: v for k, v in translations.items() if k in TRANSLATION_LANGUAGES}
         
         for lang_code, translated_text in translations.items():
             if not translated_text or len(translated_text) < 10:
@@ -1114,8 +1118,10 @@ class InotifyTranscriptMonitor:
                             }
                             merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
                             
-                            if len(transcript) > 20:
-                                enhance_and_dub_1min(device_folder, hour, chunk_index, slot, transcript, result.get('language', 'unknown'))
+                            # NOTE: AI translation now on-demand via /host/transcript/translate-chunk endpoint
+                            # No automatic 1-minute translation to reduce CPU load
+                            # if len(transcript) > 20:
+                            #     enhance_and_dub_1min(device_folder, hour, chunk_index, slot, transcript, result.get('language', 'unknown'))
                         else:
                             logger.info(f"[{device_folder}] ⏭️  1min MP3 returned no segments (Whisper detected silence)")
                     else:

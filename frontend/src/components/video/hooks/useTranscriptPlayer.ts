@@ -441,6 +441,12 @@ export const useTranscriptPlayer = ({
   const handleTranscriptLanguageChange = useCallback(async (language: string) => {
     setSelectedTranscriptLanguage(language);
     
+    if (language === 'original') {
+      // Just reload original
+      await reloadTranscriptData();
+      return;
+    }
+    
     if (!archiveMetadata?.manifests.length) return;
     const currentManifest = archiveMetadata.manifests[currentManifestIndex];
     if (!currentManifest) return;
@@ -449,17 +455,47 @@ export const useTranscriptPlayer = ({
     const chunkIndex = currentManifest.chunk_index;
 
     if (availableLanguages.includes(language)) {
+      // Translation already exists, just load it
       setIsTranslating(true);
       await loadTranscriptForLanguage(hour, chunkIndex, language);
       setIsTranslating(false);
-    } else if (language !== 'original') {
-      // Legacy: translate on-demand (slow)
+    } else {
+      // On-demand translation via AI
       setIsTranslating(true);
-      const success = await translateFullTranscript(language);
-      if (success) await reloadTranscriptData();
-      setIsTranslating(false);
+      console.log(`[@useTranscriptPlayer] 🤖 Requesting AI translation to ${language}...`);
+      
+      try {
+        const response = await fetch(`${host}/host/transcript/translate-chunk`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: deviceId,
+            hour,
+            chunk_index: chunkIndex,
+            language
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log(`[@useTranscriptPlayer] ✅ Translation complete (${result.cached ? 'cached' : 'fresh'}, ${result.processing_time?.toFixed(1) || '?'}s)`);
+          // Reload metadata to get updated available_languages
+          if (onMetadataUpdate) {
+            await onMetadataUpdate();
+          }
+          // Load the new translation
+          await loadTranscriptForLanguage(hour, chunkIndex, language);
+        } else {
+          console.error(`[@useTranscriptPlayer] Translation failed:`, result.error);
+        }
+      } catch (error) {
+        console.error(`[@useTranscriptPlayer] Translation error:`, error);
+      } finally {
+        setIsTranslating(false);
+      }
     }
-  }, [availableLanguages, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, translateFullTranscript, reloadTranscriptData]);
+  }, [availableLanguages, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, reloadTranscriptData, host, deviceId, onMetadataUpdate]);
 
   // Auto-update 1-minute dubbed audio as video progresses through minutes
   useEffect(() => {
