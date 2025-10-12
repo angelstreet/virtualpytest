@@ -701,15 +701,15 @@ class ZapExecutor:
         """
         Read zapping detection using action timestamp as unique identifier.
         
-        ✅ NEW: Search frame JSONs directly (not chunk) because zapping frames might not be
-        written to chunk (chunks only include every 5th frame, but zapping can happen on any frame).
+        ✅ OPTIMIZED: Read from 10-minute chunk JSON (1 file) instead of 100 individual frame JSONs.
+        Complete zapping metadata is now included in chunks by capture_monitor.
         
         Args:
             action_timestamp: Unix timestamp when action was executed (unique ID)
             capture_folder: Device capture folder name (e.g., 'capture4')
         
         Returns:
-            Complete zapping data from frame JSON
+            Complete zapping data from chunk JSON
         """
         try:
             print(f"📺 [ZapExecutor] Reading zapping detection for action timestamp: {action_timestamp}")
@@ -718,90 +718,88 @@ class ZapExecutor:
             print(f"⏳ [ZapExecutor] Waiting 10s for capture_monitor to detect and analyze zapping...")
             time.sleep(10)
             
-            # 2. Search frame JSONs directly (last 100 frames = ~20 seconds at 5fps)
-            from shared.src.lib.utils.storage_path_utils import get_metadata_path
-            metadata_path = get_metadata_path(capture_folder)
+            # 2. Calculate which chunk to read (based on current time)
+            from shared.src.lib.utils.storage_path_utils import calculate_chunk_location
+            from datetime import datetime
             
-            if not os.path.exists(metadata_path):
-                print(f"⚠️ [ZapExecutor] Metadata path not found: {metadata_path}")
-                return {'success': False, 'zapping_detected': False, 'error': 'Metadata path not found'}
+            action_dt = datetime.fromtimestamp(action_timestamp)
+            hour, chunk_index = calculate_chunk_location(action_dt)
             
-            print(f"🔍 [ZapExecutor] Searching frame JSONs in {metadata_path}...")
+            # Get chunk path
+            base_path = f"/var/www/html/stream/{capture_folder}"
+            chunk_path = os.path.join(base_path, 'metadata', str(hour), f'chunk_10min_{chunk_index}.json')
             
-            # Get last 100 JSONs by mtime (covers ~20 seconds, more than enough for zapping detection)
-            json_files = []
-            with os.scandir(metadata_path) as entries:
-                for entry in entries:
-                    if entry.name.startswith('capture_') and entry.name.endswith('.json'):
-                        json_files.append((entry.path, entry.stat().st_mtime, entry.name))
+            if not os.path.exists(chunk_path):
+                print(f"⚠️ [ZapExecutor] Chunk not found: {chunk_path}")
+                return {'success': False, 'zapping_detected': False, 'error': 'Chunk not found'}
             
-            if not json_files:
-                print(f"⚠️ [ZapExecutor] No JSON files found in {metadata_path}")
-                return {'success': False, 'zapping_detected': False, 'error': 'No JSON files found'}
+            print(f"🔍 [ZapExecutor] Reading chunk: {chunk_path}")
             
-            # Sort by mtime (newest first) and take last 100
-            json_files.sort(key=lambda x: x[1], reverse=True)
-            recent_files = json_files[:100]
+            # 3. Read chunk JSON (1 file read instead of 100!)
+            try:
+                with open(chunk_path, 'r') as f:
+                    chunk_data = json.load(f)
+            except Exception as e:
+                print(f"❌ [ZapExecutor] Failed to read chunk: {e}")
+                return {'success': False, 'zapping_detected': False, 'error': f'Failed to read chunk: {e}'}
             
-            print(f"🔍 [ZapExecutor] Searching {len(recent_files)} recent frame JSONs for matching action timestamp...")
+            frames = chunk_data.get('frames', [])
+            if not frames:
+                print(f"⚠️ [ZapExecutor] Chunk has no frames")
+                return {'success': False, 'zapping_detected': False, 'error': 'Chunk has no frames'}
             
-            # Search for frame with matching action_timestamp
-            for json_path, _, filename in recent_files:
-                try:
-                    with open(json_path, 'r') as f:
-                        frame_data = json.load(f)
-                    
-                    # Check if this frame has matching action timestamp
-                    frame_action_ts = frame_data.get('last_action_timestamp')
-                    if not frame_action_ts:
-                        continue
-                    
-                    # ✅ EXACT MATCH: Compare action timestamps (0.1s tolerance)
-                    if abs(frame_action_ts - action_timestamp) < 0.1:
-                        print(f"✅ [ZapExecutor] Found matching frame: {filename}")
-                        print(f"   Action timestamp match: {frame_action_ts} ≈ {action_timestamp}")
-                        
-                        zapping_detected = frame_data.get('zapping_detected', False)
-                        
-                        if zapping_detected:
-                            channel_name = frame_data.get('zapping_channel_name', '')
-                            channel_number = frame_data.get('zapping_channel_number', '')
-                            program_name = frame_data.get('zapping_program_name', '')
-                            print(f"   📺 Zapping detected: {channel_name} ({channel_number}) - {program_name}")
-                        else:
-                            print(f"   ℹ️ Frame matched but no zapping detected (banner not found)")
-                        
-                        # Extract sequence from filename
-                        sequence = int(filename.split('_')[1].split('.')[0])
-                        
-                        return {
-                            'success': True,
-                            'zapping_detected': zapping_detected,
-                            'channel_name': frame_data.get('zapping_channel_name', ''),
-                            'channel_number': frame_data.get('zapping_channel_number', ''),
-                            'program_name': frame_data.get('zapping_program_name', ''),
-                            'blackscreen_duration': frame_data.get('zapping_blackscreen_duration_ms', 0) / 1000.0,
-                            'detection_type': frame_data.get('zapping_detection_type', 'unknown'),
-                            'confidence': frame_data.get('zapping_confidence', 0.0),
-                            'detected_at': frame_data.get('zapping_detected_at'),
-                            'frame_filename': filename.replace('.json', '.jpg'),
-                            'frame_sequence': sequence,
-                            'action_timestamp': frame_action_ts,
-                            'images': frame_data.get('r2_images', {}),
-                            'last_3_filenames': frame_data.get('last_3_filenames', []),
-                            'details': frame_data
-                        }
-                
-                except Exception as e:
-                    # Skip files that can't be read
+            print(f"🔍 [ZapExecutor] Searching {len(frames)} frames in chunk for matching action timestamp...")
+            
+            # 4. Search frames for matching action_timestamp (fast in-memory search)
+            for frame_data in frames:
+                frame_action_ts = frame_data.get('last_action_timestamp')
+                if not frame_action_ts:
                     continue
+                
+                # ✅ EXACT MATCH: Compare action timestamps (0.1s tolerance)
+                if abs(frame_action_ts - action_timestamp) < 0.1:
+                    filename = frame_data.get('filename', '')
+                    print(f"✅ [ZapExecutor] Found matching frame: {filename}")
+                    print(f"   Action timestamp match: {frame_action_ts} ≈ {action_timestamp}")
+                    
+                    zapping_detected = frame_data.get('zapping_detected', False)
+                    
+                    if zapping_detected:
+                        channel_name = frame_data.get('zapping_channel_name', '')
+                        channel_number = frame_data.get('zapping_channel_number', '')
+                        program_name = frame_data.get('zapping_program_name', '')
+                        print(f"   📺 Zapping detected: {channel_name} ({channel_number}) - {program_name}")
+                    else:
+                        print(f"   ℹ️ Frame matched but no zapping detected (banner not found)")
+                    
+                    # Extract sequence from frame data
+                    sequence = frame_data.get('sequence', 0)
+                    
+                    return {
+                        'success': True,
+                        'zapping_detected': zapping_detected,
+                        'channel_name': frame_data.get('zapping_channel_name', ''),
+                        'channel_number': frame_data.get('zapping_channel_number', ''),
+                        'program_name': frame_data.get('zapping_program_name', ''),
+                        'blackscreen_duration': frame_data.get('zapping_blackscreen_duration_ms', 0) / 1000.0,
+                        'detection_type': frame_data.get('zapping_detection_type', 'unknown'),
+                        'confidence': frame_data.get('zapping_confidence', 0.0),
+                        'detected_at': frame_data.get('zapping_detected_at'),
+                        'frame_filename': filename,
+                        'frame_sequence': sequence,
+                        'action_timestamp': frame_action_ts,
+                        'details': {
+                            'start_time': frame_data.get('zapping_program_start_time', ''),
+                            'end_time': frame_data.get('zapping_program_end_time', '')
+                        }
+                    }
             
-            # No match found
-            print(f"⚠️ [ZapExecutor] No frame with matching action timestamp found in {len(recent_files)} files")
-            return {'success': True, 'zapping_detected': False, 'error': 'No matching action timestamp'}
+            # No match found in chunk
+            print(f"⚠️ [ZapExecutor] No frame with matching action timestamp found in chunk ({len(frames)} frames searched)")
+            return {'success': True, 'zapping_detected': False, 'error': 'No matching action timestamp in chunk'}
             
         except Exception as e:
-            print(f"❌ [ZapExecutor] Error reading zapping from JSON: {e}")
+            print(f"❌ [ZapExecutor] Error reading zapping from chunk: {e}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'zapping_detected': False, 'error': str(e)}

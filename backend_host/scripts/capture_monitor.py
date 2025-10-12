@@ -176,11 +176,24 @@ class InotifyFrameMonitor:
                 'freeze_diffs': analysis_data.get('freeze_diffs', [])
             }
             
-            # Add zapping marker if present (full data is in frame JSON)
+            # ✅ OPTIMIZATION: Add action timestamp for zap_executor matching (1 chunk read vs 100 frame JSONs)
+            if analysis_data.get('last_action_timestamp'):
+                frame_data['last_action_timestamp'] = analysis_data.get('last_action_timestamp')
+                frame_data['last_action_executed'] = analysis_data.get('last_action_executed')
+            
+            # ✅ OPTIMIZATION: Add complete zapping metadata for zap_executor (avoids reading 100 individual JSONs)
             if analysis_data.get('zapping_detected'):
-                frame_data['zapping'] = True
-                # Optional: channel name for quick timeline display
-                frame_data['zapping_channel'] = analysis_data.get('zapping_channel_name', '')
+                frame_data['zapping_detected'] = True
+                frame_data['zapping_id'] = analysis_data.get('zapping_id')
+                frame_data['zapping_channel_name'] = analysis_data.get('zapping_channel_name', '')
+                frame_data['zapping_channel_number'] = analysis_data.get('zapping_channel_number', '')
+                frame_data['zapping_program_name'] = analysis_data.get('zapping_program_name', '')
+                frame_data['zapping_program_start_time'] = analysis_data.get('zapping_program_start_time', '')
+                frame_data['zapping_program_end_time'] = analysis_data.get('zapping_program_end_time', '')
+                frame_data['zapping_blackscreen_duration_ms'] = analysis_data.get('zapping_blackscreen_duration_ms', 0)
+                frame_data['zapping_detection_type'] = analysis_data.get('zapping_detection_type', 'unknown')
+                frame_data['zapping_confidence'] = analysis_data.get('zapping_confidence', 0.0)
+                frame_data['zapping_detected_at'] = analysis_data.get('zapping_detected_at')
             
             # Atomic append with file locking
             lock_path = chunk_path + '.lock'
