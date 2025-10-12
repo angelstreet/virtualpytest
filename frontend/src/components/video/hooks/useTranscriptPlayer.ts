@@ -480,10 +480,6 @@ export const useTranscriptPlayer = ({
         
         if (result.success) {
           console.log(`[@useTranscriptPlayer] ✅ Translation complete (${result.cached ? 'cached' : 'fresh'}, ${result.processing_time?.toFixed(1) || '?'}s)`);
-          // Reload metadata to get updated available_languages
-          if (onMetadataUpdate) {
-            await onMetadataUpdate();
-          }
           // Load the new translation
           await loadTranscriptForLanguage(hour, chunkIndex, language);
         } else {
@@ -495,7 +491,7 @@ export const useTranscriptPlayer = ({
         setIsTranslating(false);
       }
     }
-  }, [availableLanguages, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, reloadTranscriptData, host, deviceId, onMetadataUpdate]);
+  }, [availableLanguages, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, reloadTranscriptData, host, deviceId]);
 
   // Auto-update 1-minute dubbed audio as video progresses through minutes
   useEffect(() => {
