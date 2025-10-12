@@ -226,7 +226,6 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     }
     
     # Cache result for adaptive sampling (when overloaded)
-    global _freeze_result_cache
     _freeze_result_cache[device_key] = {
         'frozen': frozen,
         'details': details,
@@ -363,9 +362,6 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         frame_number = int(filename.split('_')[1].split('.')[0])
     except:
         frame_number = 0
-    
-    # Global cache access
-    global _audio_result_cache
     
     # === CHECK: Is device currently zapping? ===
     zap_state = load_zap_state(capture_dir)
