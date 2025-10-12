@@ -40,9 +40,13 @@ def enhance_and_translate_transcript(
         
         target_names = [lang_names.get(code, code) for code in target_languages]
         
-        # Calculate needed tokens: input (~len(text)/4) + output (5 translations * len(text)/4)
-        # For safety, use 6x the input length in characters / 4 (rough token estimate)
-        estimated_tokens = max(3000, (len(text) * 6) // 4)
+        # Calculate needed tokens:
+        # - Enhanced original: ~len(text) 
+        # - 5 translations: 5 * len(text)
+        # - JSON overhead + AI verbosity: 1.3x
+        # Formula: (text_chars * 6.5) / 3.5 chars_per_token
+        # Simplified: text_chars * 2, minimum 5000
+        estimated_tokens = max(5000, len(text) * 2)
         
         prompt = f"""Translate this {source_language} text to {len(target_languages)} languages.
 

@@ -507,8 +507,13 @@ class InotifyFrameMonitor:
                     # Check if we already uploaded for this freeze event
                     cached_r2_urls = device_state.get('freeze_r2_urls')
                     
-                    if not cached_r2_urls:
-                        # First freeze frame - upload to R2 with HHMM-based naming
+                    # Only upload to R2 if freeze duration > 5 seconds
+                    # This prevents uploading for short freeze flaps/glitches
+                    freeze_duration_ms = detection_result.get('freeze_event_duration_ms', 0)
+                    should_upload = freeze_duration_ms > 5000
+                    
+                    if not cached_r2_urls and should_upload:
+                        # First freeze frame (and duration > 5s) - upload to R2 with HHMM-based naming
                         now = datetime.now()
                         time_key = f"{now.hour:02d}{now.minute:02d}"  # "1300"
                         
@@ -521,7 +526,7 @@ class InotifyFrameMonitor:
                         diffs_str = f" diffs={freeze_diffs}" if freeze_diffs else ""
                         
                         if last_3_thumbnails:
-                            logger.info(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} - uploading {len(last_3_thumbnails)} thumbnails to R2 (time_key={time_key})")
+                            logger.info(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} (duration={freeze_duration_ms/1000:.1f}s) - uploading {len(last_3_thumbnails)} thumbnails to R2 (time_key={time_key})")
                         else:
                             logger.warning(f"[{capture_folder}] ⚠️  NEW freeze detected{diffs_str} but no thumbnails available (detector returned {len(last_3_captures)} captures)")
                         r2_urls = self.incident_manager.upload_freeze_frames_to_r2(
@@ -540,6 +545,9 @@ class InotifyFrameMonitor:
                                 logger.info(f"[{capture_folder}]   🖼️  R2 URL {i+1}: {url}")
                         else:
                             logger.warning(f"[{capture_folder}] R2 upload failed, keeping local paths in JSON")
+                    elif not cached_r2_urls and not should_upload:
+                        # Freeze detected but too short (< 5s) - skip R2 upload
+                        logger.debug(f"[{capture_folder}] Freeze too short ({freeze_duration_ms/1000:.1f}s < 5s), skipping R2 upload")
                     
                     else:
                         # Freeze ongoing - reuse cached R2 URLs from first upload
