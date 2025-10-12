@@ -556,8 +556,9 @@ def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict
         # Parse AI response (JSON)
         content = result['content'].strip()
         
-        # 🔍 LOG RAW AI RESPONSE (as single log entry to avoid splitting)
-        logger.info(f"[{context_name}] 🤖 RAW AI RESPONSE (length={len(content)}): {content}")
+        # 🔍 LOG RAW AI RESPONSE (escape newlines to avoid truncation)
+        content_display = content.replace('\n', '\\n').replace('\r', '\\r')
+        logger.info(f"[{context_name}] 🤖 RAW AI RESPONSE (length={len(content)}): {content_display}")
         logger.info(f"[{context_name}] {'='*80}")
         
         if not content:
@@ -605,10 +606,25 @@ def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict
         end_time = ai_result.get('end_time', '')
         confidence = float(ai_result.get('confidence', 0.0))
         
+        # ✅ SMART DETECTION: Override AI's banner_detected if we have useful info
+        # Even if AI says "banner_detected: false", if we extracted meaningful channel/program info, count it as success
+        has_useful_info = any([
+            channel_name and len(channel_name.strip()) > 2,
+            program_name and len(program_name.strip()) > 2,
+            start_time and len(start_time.strip()) > 2,
+            end_time and len(end_time.strip()) > 2
+        ])
+        
+        if has_useful_info and not banner_detected:
+            logger.info(f"[{context_name}] 🔧 OVERRIDE: AI said banner_detected=false, but found useful info - setting to true")
+            banner_detected = True
+            # Increase confidence since we have actual data
+            confidence = max(confidence, 0.7)  # At least 70% confidence if we have useful info
+        
         logger.info(f"[{context_name}] {'='*80}")
         logger.info(f"[{context_name}] 🎯 AI ANALYSIS RESULT:")
         logger.info(f"[{context_name}]    📸 Image analyzed: {image_path}")
-        logger.info(f"[{context_name}]    🔍 Banner detected: {banner_detected}")
+        logger.info(f"[{context_name}]    🔍 Banner detected: {banner_detected} (AI said: {ai_result.get('banner_detected', False)})")
         if banner_detected:
             logger.info(f"[{context_name}]    📺 Channel: {channel_name} ({channel_number})")
             logger.info(f"[{context_name}]    📋 Program: {program_name}")
