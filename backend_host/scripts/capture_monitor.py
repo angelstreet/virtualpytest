@@ -508,6 +508,7 @@ class InotifyFrameMonitor:
             has_macroblocks = detection_result and detection_result.get('macroblocks', False)
             
             # Priority: Blackscreen > Freeze > Macroblocks
+            # NOTE: Macroblocks is disabled by default (ENABLE_MACROBLOCKS=False in detector.py)
             if has_blackscreen:
                 issues.append('blackscreen')
                 # Blackscreen has priority - suppress freeze and macroblocks detection

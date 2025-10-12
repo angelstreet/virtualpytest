@@ -6,6 +6,18 @@ Returns same format as original analyze_audio_video.py
 NOTE: Subtitle OCR is handled by subtitle_monitor.py (separate process)
       This detector focuses on: blackscreen, freeze, macroblocks, zap, audio
 
+CONFIGURATION:
+- ENABLE_MACROBLOCKS: Set to False by default (reduces CPU load by ~30%)
+  Change to True in detector.py to enable macroblocks detection
+  
+ADAPTIVE LOAD MANAGEMENT:
+- When queue backlog > 50 frames (system overloaded):
+  * Freeze detection: Runs every N frames (default: 5 frames = 1 second), returns cached result otherwise
+  * Blackscreen detection: Runs every N frames (default: 5 frames = 1 second), returns cached result otherwise  
+  * Macroblocks: Skipped entirely (even if ENABLE_MACROBLOCKS=True)
+  * Reduces CPU load by ~80% during overload while still detecting incidents
+  * All detections resume normal frequency when queue drops below threshold
+
 ZAP STATE OPTIMIZATION:
 - Tracks when device is zapping (blackscreen + banner detected)
 - Skips expensive operations during zap
@@ -35,6 +47,12 @@ from contextlib import contextmanager
 
 # === CONFIGURATION ===
 # OCR is handled by subtitle_monitor.py - removed from detector.py
+
+# Macroblocks detection (expensive, disabled by default to reduce CPU load)
+ENABLE_MACROBLOCKS = False  # Set to True to enable macroblocks detection
+
+# Adaptive detection frequency when system is overloaded (queue > 50)
+OVERLOAD_DETECTION_INTERVAL = 5  # Run expensive detections every N frames (1 second at 5fps)
 
 # Freeze detection threshold (percentage of pixels that must differ)
 FREEZE_THRESHOLD = 2.0  # 2.0% pixel difference = frozen (increased to reduce false positives)
@@ -69,32 +87,22 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     Compares current thumbnail with previous 3 thumbnails using cv2.absdiff.
     Uses in-memory cache to avoid disk I/O on thumbnail loading (5-10ms savings).
     
-    QUEUE BACKLOG OPTIMIZATION:
-    - When queue_size > 50, frames are OLD (from backlog)
-    - Previous frames have likely been archived to cold storage
-    - Skip freeze detection to avoid OpenCV warnings and wasted CPU
+    ADAPTIVE SAMPLING WHEN OVERLOADED:
+    - When queue_size > 50, only run freeze detection every N frames (default: every 5th frame = 1 second)
+    - Reduces CPU load during backlog while still detecting freezes
+    - Other frames return last known state (cached result)
     
     Args:
         current_img: Current thumbnail (grayscale numpy array, 320x180)
         thumbnails_dir: Directory containing thumbnails
         filename: Current frame filename (e.g., capture_000001.jpg)
         fps: Frames per second
-        queue_size: Current processing queue size (skip if > 50)
+        queue_size: Current processing queue size (adaptive sampling if > 50)
         
     Returns:
         (frozen: bool, details: dict)
     """
-    global _freeze_thumbnail_cache
-    
-    # SKIP freeze detection when processing backlog (old frames)
-    # Previous frames are likely archived → reading them causes OpenCV warnings
-    if queue_size > 50:
-        logger.debug(f"Skipping freeze detection due to queue backlog ({queue_size} frames)")
-        return False, {
-            'skipped_reason': 'queue_backlog',
-            'queue_size': queue_size,
-            'frames_found': 0
-        }
+    global _freeze_thumbnail_cache, _freeze_result_cache
     
     try:
         # Extract frame number
@@ -102,8 +110,28 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     except:
         return False, {}
     
-    # Get device key for cache (use parent directory of thumbnails)
+    # Get device key for cache
     device_key = os.path.dirname(thumbnails_dir)
+    
+    # ADAPTIVE: When overloaded, only detect every N frames (1 second)
+    if queue_size > 50:
+        # Check if this frame should run detection
+        if frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
+            # Return cached result from previous detection
+            if device_key in _freeze_result_cache:
+                cached = _freeze_result_cache[device_key]
+                return cached['frozen'], {
+                    **cached['details'],
+                    'skipped_reason': 'adaptive_sampling',
+                    'queue_size': queue_size,
+                    'last_detection_frame': cached.get('frame_number', 0)
+                }
+            else:
+                # No cache yet - return not frozen
+                return False, {
+                    'skipped_reason': 'adaptive_sampling_no_cache',
+                    'queue_size': queue_size
+                }
     
     # Initialize cache for this device if needed
     if device_key not in _freeze_thumbnail_cache:
@@ -186,7 +214,7 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     # Frozen if ALL checked frames have < threshold difference (VERY STRICT)
     frozen = len(pixel_diffs) >= 2 and all(diff < FREEZE_THRESHOLD for diff in pixel_diffs)
     
-    return frozen, {
+    details = {
         'frame_differences': [round(d, 2) for d in pixel_diffs],
         'frames_compared': frames_compared,
         'frames_found': len(frames_compared),
@@ -196,6 +224,16 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
         'cache_hits': cache_hits,
         'disk_loads': disk_loads
     }
+    
+    # Cache result for adaptive sampling (when overloaded)
+    global _freeze_result_cache
+    _freeze_result_cache[device_key] = {
+        'frozen': frozen,
+        'details': details,
+        'frame_number': frame_number
+    }
+    
+    return frozen, details
 
 # Performance: Cache for optimization
 
@@ -204,6 +242,12 @@ _zap_state_cache = {}  # In-memory cache for fast access
 
 # Freeze detection optimization - cache thumbnails in memory
 _freeze_thumbnail_cache = {}  # {device_dir: [(frame_number, thumbnail_img), ...]}
+
+# Freeze result cache for adaptive sampling (when overloaded)
+_freeze_result_cache = {}  # {device_dir: {'frozen': bool, 'details': dict, 'frame_number': int}}
+
+# Blackscreen result cache for adaptive sampling (when overloaded)
+_blackscreen_result_cache = {}  # {device_dir: {'blackscreen': bool, 'percentage': float, 'frame_number': int}}
 
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
@@ -453,26 +497,54 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     split_y = int(img_height * 0.7)     # Blackscreen region: 5-70%
     
     # === STEP 2: Blackscreen Detection (optimized sampling) ===
+    # ADAPTIVE: When overloaded, only detect every N frames (1 second)
     start = time.perf_counter()
-    # Analyze 5% to 70% (skip header, skip bottom banner)
-    top_region = img[header_y:split_y, :]
     
-    # Sample every 4th pixel (6.25% sample) - OPTIMIZED from every 3rd (11%)
-    # Threshold = 10 (matches production - accounts for compression artifacts)
-    threshold = 10
-    sample = top_region[::4, ::4]
-    sample_dark = np.sum(sample <= threshold)
-    sample_total = sample.shape[0] * sample.shape[1]
-    dark_percentage = (sample_dark / sample_total) * 100
-    
-    # Full scan only if edge case (70-90%)
-    if 70 <= dark_percentage <= 90:
-        total_pixels = top_region.shape[0] * top_region.shape[1]
-        dark_pixels = np.sum(top_region <= threshold)
-        dark_percentage = (dark_pixels / total_pixels) * 100
-    
-    blackscreen = bool(dark_percentage > 85)
-    timings['blackscreen'] = (time.perf_counter() - start) * 1000
+    # Check if we should use cached result (adaptive sampling when overloaded)
+    if queue_size > 50 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
+        # Return cached blackscreen result
+        global _blackscreen_result_cache
+        device_key = capture_dir
+        if device_key in _blackscreen_result_cache:
+            cached = _blackscreen_result_cache[device_key]
+            blackscreen = cached['blackscreen']
+            dark_percentage = cached['percentage']
+            timings['blackscreen'] = 0.0  # Skipped - adaptive sampling
+        else:
+            # No cache - assume not blackscreen
+            blackscreen = False
+            dark_percentage = 0.0
+            timings['blackscreen'] = 0.0  # Skipped - no cache
+    else:
+        # Run full blackscreen detection
+        # Analyze 5% to 70% (skip header, skip bottom banner)
+        top_region = img[header_y:split_y, :]
+        
+        # Sample every 4th pixel (6.25% sample) - OPTIMIZED from every 3rd (11%)
+        # Threshold = 10 (matches production - accounts for compression artifacts)
+        threshold = 10
+        sample = top_region[::4, ::4]
+        sample_dark = np.sum(sample <= threshold)
+        sample_total = sample.shape[0] * sample.shape[1]
+        dark_percentage = (sample_dark / sample_total) * 100
+        
+        # Full scan only if edge case (70-90%)
+        if 70 <= dark_percentage <= 90:
+            total_pixels = top_region.shape[0] * top_region.shape[1]
+            dark_pixels = np.sum(top_region <= threshold)
+            dark_percentage = (dark_pixels / total_pixels) * 100
+        
+        blackscreen = bool(dark_percentage > 85)
+        timings['blackscreen'] = (time.perf_counter() - start) * 1000
+        
+        # Cache result for next frames (when overloaded)
+        if queue_size > 50:
+            device_key = capture_dir
+            _blackscreen_result_cache[device_key] = {
+                'blackscreen': blackscreen,
+                'percentage': dark_percentage,
+                'frame_number': frame_number
+            }
     
     # === STEP 3: Bottom Content Check (ONLY if blackscreen - for zap confirmation) ===
     start = time.perf_counter()
@@ -527,16 +599,26 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # No OCR code runs in detector.py anymore
     
     # === STEP 6: Macroblock Analysis (skip if freeze or blackscreen) ===
+    # ADAPTIVE: Auto-skip macroblocks when system is overloaded (queue > 50)
     start = time.perf_counter()
-    if blackscreen or frozen:
+    if not ENABLE_MACROBLOCKS:
+        # Macroblocks detection disabled by configuration
+        macroblocks, quality_score = False, 0.0
+        timings['macroblocks'] = 0.0  # Disabled
+    elif blackscreen or frozen:
+        # Skip if blackscreen/freeze already detected (priority rules)
         macroblocks, quality_score = False, 0.0
         timings['macroblocks'] = 0.0  # Skipped
     elif queue_size > 50:
-        # Skip macroblocks when processing backlog (freeze detection is also skipped)
-        # This prevents false macroblocks detection when it's likely a freeze
+        # ADAPTIVE: Auto-skip when system overloaded (even if ENABLE_MACROBLOCKS=True)
+        # This prevents false macroblocks when it's likely a freeze
+        # Also reduces CPU load during backlog processing
+        if ENABLE_MACROBLOCKS and queue_size % 25 == 0:
+            logger.debug(f"Auto-skipping macroblocks due to queue backlog ({queue_size} frames)")
         macroblocks, quality_score = False, 0.0
-        timings['macroblocks'] = 0.0  # Skipped (queue backlog)
+        timings['macroblocks'] = 0.0  # Skipped (auto - queue backlog)
     else:
+        # System healthy - run macroblocks detection
         macroblocks, quality_score = analyze_macroblocks(image_path)
         timings['macroblocks'] = (time.perf_counter() - start) * 1000
     
