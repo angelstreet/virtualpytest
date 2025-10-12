@@ -884,8 +884,15 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
             
             chunk_info["available_languages"] = available_languages
             chunk_info["available_dubbed_languages"] = available_dubbed_languages
-        except:
-            pass
+            
+            logger.debug(f"Transcript manifest updated: {chunk_basename} - languages={available_languages}, dubbed={available_dubbed_languages}, transcript_chars={len(data.get('transcript', ''))}")
+        except Exception as e:
+            logger.error(f"Error updating transcript manifest for {chunk_path}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Set defaults on error
+            chunk_info["available_languages"] = ['original']
+            chunk_info["available_dubbed_languages"] = []
     
     # Update manifest
     manifest["chunks"] = [c for c in manifest["chunks"] if not (c["hour"] == hour and c["chunk_index"] == chunk_index)]

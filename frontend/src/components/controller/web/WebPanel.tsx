@@ -147,10 +147,10 @@ export const WebPanel = React.memo(
       switch (deviceModel) {
         case 'host_vnc':
           // Playwright Web Terminal for host_vnc devices with web capability
-          return <PlaywrightWebTerminal host={host} />;
+          return <PlaywrightWebTerminal host={host} isMinimized={isMinimized} />;
         case 'host_web':
           // Legacy case - redirect to host_vnc behavior
-          return <PlaywrightWebTerminal host={host} />;
+          return <PlaywrightWebTerminal host={host} isMinimized={isMinimized} />;
         default:
           return (
             <Box
@@ -176,6 +176,7 @@ export const WebPanel = React.memo(
       deviceModel,
       onReleaseControl,
       isCollapsed,
+      isMinimized,
       currentWidth,
       currentHeight,
       stableStreamContainerDimensions,
@@ -279,17 +280,16 @@ export const WebPanel = React.memo(
               </Box>
             </Box>
 
-            {/* Web Content - hidden when minimized */}
-            {!isMinimized && (
-              <Box
-                sx={{
-                  height: `calc(100% - ${headerHeight})`,
-                  overflow: 'hidden',
-                }}
-              >
-                {renderWebComponent}
-              </Box>
-            )}
+          {/* Web Content - hidden when minimized but kept mounted to preserve state */}
+          <Box
+            sx={{
+              height: `calc(100% - ${headerHeight})`,
+              overflow: 'hidden',
+              display: isMinimized ? 'none' : 'block',
+            }}
+          >
+            {renderWebComponent}
+          </Box>
           </Box>
         </Box>
       );

@@ -76,32 +76,25 @@ class AudioDubbingHelpers:
         start_time = time.time()
         
         try:
-            import edge_tts
-            import asyncio
-            
             paths = self.get_file_paths(language, original_video_dir)
             
             print(f"Dubbing[{self.device_name}]: Step 3 - Generating Edge-TTS speech for {language}...")
             
-            edge_lang_map = {
-                'es': 'es-ES-ElviraNeural', 'fr': 'fr-FR-DeniseNeural', 
-                'de': 'de-DE-KatjaNeural', 'it': 'it-IT-ElsaNeural', 
-                'pt': 'pt-BR-FranciscaNeural'
-            }
-            edge_voice = edge_lang_map.get(language, 'en-US-JennyNeural')
+            # Use shared utility (single source of truth)
+            from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
             
-            async def generate_edge_audio():
-                communicate = edge_tts.Communicate(text, edge_voice)
-                temp_mp3 = f"/tmp/{self.device_name}_{language}_edge_temp.mp3"
-                await communicate.save(temp_mp3)
-                
-                # Convert to WAV and copy MP3
-                subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_edge'], '-y'], 
-                              capture_output=True, check=True)
-                subprocess.run(['cp', temp_mp3, paths['dubbed_voice_edge_mp3']], check=True)
-                os.remove(temp_mp3)
+            # Generate MP3 using shared utility
+            temp_mp3 = f"/tmp/{self.device_name}_{language}_edge_temp.mp3"
+            success = generate_edge_tts_audio(text, language, temp_mp3)
             
-            asyncio.run(generate_edge_audio())
+            if not success:
+                raise Exception("Edge-TTS generation failed")
+            
+            # Convert to WAV and copy MP3
+            subprocess.run(['ffmpeg', '-i', temp_mp3, '-ar', '44100', '-ac', '2', paths['dubbed_voice_edge'], '-y'], 
+                          capture_output=True, check=True)
+            subprocess.run(['cp', temp_mp3, paths['dubbed_voice_edge_mp3']], check=True)
+            os.remove(temp_mp3)
             
             duration = time.time() - start_time
             print(f"Dubbing[{self.device_name}]: Step 3 completed in {duration:.1f}s")

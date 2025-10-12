@@ -611,7 +611,14 @@ def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_tex
         chunk_index: Chunk index (0-5)
     """
     try:
-        from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
+        # Import required utilities
+        try:
+            from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
+        except ImportError as e:
+            logger.error(f"[1MIN-DUB:{device_folder}] ❌ Failed to import audio_utils: {e}")
+            logger.error(f"[1MIN-DUB:{device_folder}] Make sure edge-tts is installed: pip install edge-tts")
+            return
+        
         from shared.src.lib.utils.translation_utils import translate_text
         from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
         
@@ -624,14 +631,9 @@ def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_tex
         audio_temp_dir = os.path.join(audio_cold, 'temp')
         os.makedirs(audio_temp_dir, exist_ok=True)
         
-        # Voice mapping (same as 10min dubbing)
-        voice_map = {
-            'fr': 'fr-FR-DeniseNeural',
-            'en': 'en-US-JennyNeural',
-            'es': 'es-ES-ElviraNeural',
-            'de': 'de-DE-KatjaNeural',
-            'it': 'it-IT-ElsaNeural'
-        }
+        # Import centralized voice mapping (single source of truth)
+        from backend_host.src.lib.utils.audio_utils import EDGE_TTS_VOICE_MAP
+        voice_map = EDGE_TTS_VOICE_MAP
         
         logger.info(f"{CYAN}[1MIN-DUB:{device_folder}] 🎤 Starting 1min dubbed audio for slot {slot} ({len(transcript_text)} chars)...{RESET}")
         dub_start = time.time()
@@ -709,7 +711,14 @@ def generate_dubbed_audio_for_chunk(capture_folder: str, hour: int, chunk_index:
         device_base_path: Base path for device
     """
     try:
-        from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
+        # Import required utilities
+        try:
+            from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
+        except ImportError as e:
+            logger.error(f"[10MIN-DUB:{capture_folder}] ❌ Failed to import audio_utils: {e}")
+            logger.error(f"[10MIN-DUB:{capture_folder}] Make sure edge-tts is installed: pip install edge-tts")
+            return
+        
         from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
         
         MAGENTA = '\033[95m'
@@ -725,14 +734,9 @@ def generate_dubbed_audio_for_chunk(capture_folder: str, hour: int, chunk_index:
         audio_hour_dir = os.path.join(audio_cold, str(hour))
         os.makedirs(audio_hour_dir, exist_ok=True)
         
-        # Voice mapping (reuse restart configuration)
-        voice_map = {
-            'fr': 'fr-FR-DeniseNeural',
-            'en': 'en-US-JennyNeural',
-            'es': 'es-ES-ElviraNeural',
-            'de': 'de-DE-KatjaNeural',
-            'it': 'it-IT-ElsaNeural'
-        }
+        # Import centralized voice mapping (single source of truth)
+        from backend_host.src.lib.utils.audio_utils import EDGE_TTS_VOICE_MAP
+        voice_map = EDGE_TTS_VOICE_MAP
         
         for lang_code, voice_name in voice_map.items():
             lang_transcript_file = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')

@@ -31,10 +31,12 @@ import { PlaywrightWebOverlay } from './PlaywrightWebOverlay';
 
 interface PlaywrightWebTerminalProps {
   host: Host;
+  isMinimized?: boolean;
 }
 
 export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   host,
+  isMinimized = false,
 }: PlaywrightWebTerminalProps) {
   // Get VNC state from context
   const { isVNCExpanded } = useVNCState();
@@ -650,9 +652,9 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const panelX = actualVncExpanded ? window.innerWidth - 20 - panelSize.width : 20;
     const panelY = window.innerHeight - 20 - panelSize.height;
     
-    // Overlay position: always left-aligned at 20px, matching VNC panel bottom position
-    const x = 20;
-    const y = window.innerHeight - overlayHeight + (actualVncExpanded ? 35 : 30);
+    // Overlay position: use actual panel position to align overlay correctly
+    const x = panelX;
+    const y = panelY + (actualVncExpanded ? 35 : 30);
     
     const panelInfo = {
       position: { x, y },
@@ -1295,11 +1297,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       )}
 
       {/* Web Element Overlay */}
-      {isElementsVisible && webElements.length > 0 && typeof document !== 'undefined' && 
+      {isElementsVisible && webElements.length > 0 && !isMinimized && typeof document !== 'undefined' && 
         createPortal(
           <PlaywrightWebOverlay
             elements={webElements}
-            isVisible={isElementsVisible}
+            isVisible={isElementsVisible && !isMinimized}
             onElementClick={handleElementClick}
             panelInfo={getVNCPanelInfo()}
           />,
