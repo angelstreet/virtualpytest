@@ -619,7 +619,7 @@ def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_tex
             logger.error(f"[1MIN-DUB:{device_folder}] Make sure edge-tts is installed: pip install edge-tts")
             return
         
-        from shared.src.lib.utils.translation_utils import translate_text
+        from backend_host.src.lib.utils.translation_utils import translate_text
         from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
         
         CYAN = '\033[96m'
@@ -643,8 +643,13 @@ def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_tex
             try:
                 lang_start = time.time()
                 
-                # Translate transcript
-                translated_text = translate_text(transcript_text, lang_code)
+                # Translate transcript (auto-detect source language)
+                result = translate_text(transcript_text, 'auto', lang_code, 'google')
+                if not result.get('success'):
+                    logger.debug(f"[1MIN-DUB:{device_folder}] Skipping {lang_code} (translation failed)")
+                    continue
+                
+                translated_text = result.get('translated_text', '')
                 if not translated_text or len(translated_text) < 10:
                     logger.debug(f"[1MIN-DUB:{device_folder}] Skipping {lang_code} (translation too short)")
                     continue

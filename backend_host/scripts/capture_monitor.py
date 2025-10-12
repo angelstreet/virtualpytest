@@ -471,6 +471,9 @@ class InotifyFrameMonitor:
             if issues:
                 logger.info(f"[{capture_folder}] Issues: {issues}")
             
+            # NOTE: Comparison images (last_3_filenames, last_3_thumbnails) are ALWAYS in JSON
+            # even when there's no freeze - this allows displaying them on demand later
+            
             # Upload freeze frames to R2 ONCE per freeze event (not every frame)
             # Freeze is confirmed when detector returns 3 matching images
             freeze_urls_newly_uploaded = False  # Track if URLs are new or cached
