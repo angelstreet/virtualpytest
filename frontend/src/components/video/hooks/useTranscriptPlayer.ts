@@ -268,34 +268,6 @@ export const useTranscriptPlayer = ({
 
   // Translation progress removed - we now translate the full transcript as ONE block (fast!)
   
-  // Helper: Translate entire transcript as ONE block (fast!)
-  const translateFullTranscript = useCallback(async (language: string): Promise<boolean> => {
-    if (!rawTranscriptData) return false;
-    
-    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-    const captureMatch = baseUrl.match(/\/stream\/(\w+)\//);
-    const captureFolder = captureMatch ? captureMatch[1] : 'capture1';
-    
-    try {
-      const response = await fetch(`/host/${captureFolder}/translate-segments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hour: rawTranscriptData.hour,
-          chunk_index: rawTranscriptData.chunk_index,
-          target_language: language,
-          source_language: rawTranscriptData.language || 'en'
-        })
-      });
-
-      const data = await response.json();
-      return data.success;
-    } catch (error) {
-      console.error('[@useTranscriptPlayer] Translation failed:', error);
-      return false;
-    }
-  }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
-  
   // Helper: Load transcript for a specific language (original or pre-translated)
   const loadTranscriptForLanguage = useCallback(async (hour: number, chunkIndex: number, language: string) => {
     const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
