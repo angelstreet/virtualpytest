@@ -380,41 +380,39 @@ class IncidentManager:
                         
                         if not has_r2_images and issue_type in ['blackscreen', 'freeze', 'macroblocks']:
                             # Missing R2 images - upload them NOW before DB insert
-                            event_duration_ms = detection_result.get(f'{issue_type}_event_duration_ms', 0)
+                            # We're creating a DB incident, so we ALWAYS upload images (incident confirmed > INCIDENT_REPORT_DELAY)
+                            logger.info(f"[{capture_folder}] Uploading {issue_type} start images to R2 before DB insert...")
+                            from datetime import datetime
+                            now = datetime.now()
+                            # Use full timestamp to ensure uniqueness (YYYYMMDD_HHMMSS)
+                            time_key = f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}"
                             
-                            if event_duration_ms > 5000:
-                                logger.info(f"[{capture_folder}] Uploading {issue_type} start images to R2 before DB insert...")
-                                from datetime import datetime
-                                now = datetime.now()
-                                # Use full timestamp to ensure uniqueness (YYYYMMDD_HHMMSS)
-                                time_key = f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}"
-                                
-                                if issue_type == 'freeze':
-                                    # Upload 3 thumbnails for freeze
-                                    last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
-                                    last_3_captures = detection_result.get('last_3_filenames', [])
-                                    if last_3_thumbnails:
-                                        r2_urls = self.upload_freeze_frames_to_r2(
-                                            last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
-                                        )
-                                        if r2_urls and r2_urls.get('thumbnail_urls'):
-                                            detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
-                                            detection_result['r2_images'] = r2_urls
-                                            has_r2_images = True
-                                            logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
-                                else:
-                                    # Upload single thumbnail for blackscreen/macroblocks
-                                    current_thumbnail = detection_result.get('last_3_thumbnails', [])
-                                    if current_thumbnail:
-                                        thumbnail_path = current_thumbnail[0] if isinstance(current_thumbnail, list) else current_thumbnail
-                                        r2_urls = self.upload_incident_frame_to_r2(
-                                            thumbnail_path, capture_folder, time_key, issue_type, 'start'
-                                        )
-                                        if r2_urls and r2_urls.get('thumbnail_url'):
-                                            detection_result[f'{issue_type}_thumbnail'] = r2_urls['thumbnail_url']
-                                            detection_result['r2_images'] = r2_urls
-                                            has_r2_images = True
-                                            logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail")
+                            if issue_type == 'freeze':
+                                # Upload 3 thumbnails for freeze
+                                last_3_thumbnails = detection_result.get('last_3_thumbnails', [])
+                                last_3_captures = detection_result.get('last_3_filenames', [])
+                                if last_3_thumbnails:
+                                    r2_urls = self.upload_freeze_frames_to_r2(
+                                        last_3_captures, last_3_thumbnails, capture_folder, time_key, thumbnails_only=True
+                                    )
+                                    if r2_urls and r2_urls.get('thumbnail_urls'):
+                                        detection_result['last_3_thumbnails'] = r2_urls['thumbnail_urls']
+                                        detection_result['r2_images'] = r2_urls
+                                        has_r2_images = True
+                                        logger.info(f"[{capture_folder}] ✅ Uploaded {len(r2_urls['thumbnail_urls'])} freeze thumbnails")
+                            else:
+                                # Upload single thumbnail for blackscreen/macroblocks
+                                current_thumbnail = detection_result.get('last_3_thumbnails', [])
+                                if current_thumbnail:
+                                    thumbnail_path = current_thumbnail[0] if isinstance(current_thumbnail, list) else current_thumbnail
+                                    r2_urls = self.upload_incident_frame_to_r2(
+                                        thumbnail_path, capture_folder, time_key, issue_type, 'start'
+                                    )
+                                    if r2_urls and r2_urls.get('thumbnail_url'):
+                                        detection_result[f'{issue_type}_thumbnail'] = r2_urls['thumbnail_url']
+                                        detection_result['r2_images'] = r2_urls
+                                        has_r2_images = True
+                                        logger.info(f"[{capture_folder}] ✅ Uploaded {issue_type} start thumbnail")
                         
                         # Log R2 image status
                         if has_r2_images:

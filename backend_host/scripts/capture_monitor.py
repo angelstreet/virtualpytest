@@ -290,7 +290,8 @@ class InotifyFrameMonitor:
                 
                 # Store closure frame info for later upload by incident_manager (when resolving DB)
                 # Only for incidents with visual images (blackscreen, freeze, macroblocks)
-                if total_duration_ms > 5000 and event_type in ['blackscreen', 'freeze', 'macroblocks']:
+                # We store it for ALL events - incident_manager will only use it if incident was in DB
+                if event_type in ['blackscreen', 'freeze', 'macroblocks']:
                     # Get current frame thumbnail path for closure
                     current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
                     from shared.src.lib.utils.storage_path_utils import get_thumbnails_path
