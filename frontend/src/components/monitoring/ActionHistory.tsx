@@ -37,6 +37,9 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
           channel_name: monitoringAnalysis.zapping_channel_name,
           channel_number: monitoringAnalysis.zapping_channel_number,
           program_name: monitoringAnalysis.zapping_program_name,
+          program_start_time: monitoringAnalysis.zapping_program_start_time,
+          program_end_time: monitoringAnalysis.zapping_program_end_time,
+          blackscreen_duration_ms: monitoringAnalysis.zapping_blackscreen_duration_ms,
           detection_type: monitoringAnalysis.zapping_detection_type,
         },
         id: `zap-${monitoringAnalysis.zapping_detected_at || Date.now()}`,
@@ -129,19 +132,55 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
               {action.command}
             </Typography>
             
-            {/* Show program name for zapping events */}
-            {isZapping && action.params?.program_name && (
-              <Typography
-                variant="caption"
-                sx={{
-                  color: '#ffffff',
-                  display: 'block',
-                  fontSize: index === 0 ? '0.75rem' : '0.7rem',
-                  fontStyle: 'italic',
-                }}
-              >
-                {action.params.program_name}
-              </Typography>
+            {/* Show detailed info for zapping events (same as report) */}
+            {isZapping && (
+              <>
+                {/* Program name */}
+                {action.params?.program_name && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#ffffff',
+                      display: 'block',
+                      fontSize: index === 0 ? '0.72rem' : '0.68rem',
+                      fontStyle: 'italic',
+                      mt: 0.3,
+                    }}
+                  >
+                    {action.params.program_name}
+                  </Typography>
+                )}
+                
+                {/* Program time */}
+                {action.params?.program_start_time && action.params?.program_end_time && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#cccccc',
+                      display: 'block',
+                      fontSize: index === 0 ? '0.68rem' : '0.65rem',
+                      mt: 0.2,
+                    }}
+                  >
+                    {action.params.program_start_time}-{action.params.program_end_time}
+                  </Typography>
+                )}
+                
+                {/* Zap duration */}
+                {action.params?.blackscreen_duration_ms && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#cccccc',
+                      display: 'block',
+                      fontSize: index === 0 ? '0.68rem' : '0.65rem',
+                      mt: 0.2,
+                    }}
+                  >
+                    Zap: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s
+                  </Typography>
+                )}
+              </>
             )}
             
             {/* Show key for regular actions */}

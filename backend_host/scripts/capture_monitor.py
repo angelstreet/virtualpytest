@@ -393,8 +393,8 @@ class InotifyFrameMonitor:
         try:
             logger.debug(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
             
-            # Get action info from current frame JSON (with 10s timeout check)
-            action_info = self._read_action_from_frame_json(capture_folder, current_filename)
+            # ✅ CLEAN: Read action from device_state (in-memory, instant lookup)
+            action_info = self._get_action_from_device_state(device_id)
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
@@ -423,58 +423,45 @@ class InotifyFrameMonitor:
             import traceback
             traceback.print_exc()
     
-    def _read_action_from_frame_json(self, capture_folder, frame_filename):
+    def _get_action_from_device_state(self, device_id):
         """
-        Read last_action info from frame JSON with 10s timeout check.
-        Returns None if no action found or action is too old (> 10s).
+        Get last action from device_state (in-memory, instant lookup).
+        
+        ✅ CLEAN ARCHITECTURE:
+        - Single source of truth (device_state)
+        - No file I/O (instant lookup)
+        - No race conditions (atomic memory operations)
+        - 10s timeout check
+        
+        Returns action_info if found within 10s, None otherwise.
         """
-        from datetime import datetime
+        import time
         
-        metadata_path = get_metadata_path(capture_folder)
-        json_file = os.path.join(metadata_path, frame_filename.replace('.jpg', '.json'))
+        device_state = self.incident_manager.get_device_state(device_id)
+        last_action = device_state.get('last_action')
         
-        if not os.path.exists(json_file):
-            logger.debug(f"[{capture_folder}] Frame JSON not found for action check: {json_file}")
+        if not last_action:
+            logger.info(f"[{device_id}] No action found in device_state - manual zapping")
             return None
         
-        try:
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-            
-            # Check if action exists
-            last_action_timestamp = data.get('last_action_timestamp')
-            if not last_action_timestamp:
-                logger.debug(f"[{capture_folder}] No last_action_timestamp in frame JSON - manual zapping")
-                return None  # No action found
-            
-            # ✅ 10-SECOND TIMEOUT CHECK
-            frame_timestamp_str = data.get('timestamp')
-            if not frame_timestamp_str:
-                logger.warning(f"[{capture_folder}] Frame JSON missing timestamp field")
-                return None
-            
-            frame_timestamp = datetime.fromisoformat(frame_timestamp_str.replace('Z', '+00:00')).timestamp()
-            time_since_action = frame_timestamp - last_action_timestamp
-            
-            if time_since_action > 10.0:
-                logger.info(f"[{capture_folder}] Action too old ({time_since_action:.1f}s) - manual zapping")
-                return None  # Action too old → manual zapping
-            
-            # ✅ Action within 10s - associate with this blackscreen
-            action_info = {
-                'last_action_executed': data.get('last_action_executed'),
-                'last_action_timestamp': last_action_timestamp,
-                'action_params': data.get('action_params', {}),
-                'time_since_action_ms': int(time_since_action * 1000)
-            }
-            logger.info(f"[{capture_folder}] ✅ Found action in frame JSON: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
-            return action_info
-            
-        except Exception as e:
-            logger.error(f"[{capture_folder}] Error reading action from JSON: {e}")
-            import traceback
-            traceback.print_exc()
+        # Check 10s timeout
+        current_time = time.time()
+        action_timestamp = last_action.get('timestamp', 0)
+        time_since_action = current_time - action_timestamp
+        
+        if time_since_action > 10.0:
+            logger.info(f"[{device_id}] Action too old ({time_since_action:.1f}s) - manual zapping")
             return None
+        
+        # ✅ Action within 10s - associate with this blackscreen
+        action_info = {
+            'last_action_executed': last_action.get('command'),
+            'last_action_timestamp': action_timestamp,
+            'action_params': last_action.get('params', {}),
+            'time_since_action_ms': int(time_since_action * 1000)
+        }
+        logger.info(f"[{device_id}] ✅ Found action in device_state: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
+        return action_info
     
     def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""

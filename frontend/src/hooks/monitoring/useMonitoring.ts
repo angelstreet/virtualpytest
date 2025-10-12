@@ -107,11 +107,13 @@ export const useMonitoring = ({
       last_action_executed: data.last_action_executed,
       last_action_timestamp: data.last_action_timestamp,
       action_params: data.action_params,
-      // Zapping detection metadata
+      // Zapping detection metadata (complete info for popup display)
       zapping_detected: data.zapping_detected,
       zapping_channel_name: data.zapping_channel_name,
       zapping_channel_number: data.zapping_channel_number,
       zapping_program_name: data.zapping_program_name,
+      zapping_program_start_time: data.zapping_program_start_time,
+      zapping_program_end_time: data.zapping_program_end_time,
       zapping_confidence: data.zapping_confidence,
       zapping_blackscreen_duration_ms: data.zapping_blackscreen_duration_ms,
       zapping_detection_type: data.zapping_detection_type,

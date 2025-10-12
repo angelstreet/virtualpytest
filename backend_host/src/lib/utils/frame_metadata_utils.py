@@ -22,6 +22,8 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
     """
     Write action metadata to the frame JSON with timestamp closest to action completion.
     This enables automatic zap measurement by correlating actions with frames.
+    
+    ✅ NEW: Also stores action in device_state (in-memory) for instant zapping detection.
     Non-blocking - failures are logged but don't affect action success.
     
     Args:
@@ -38,6 +40,31 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
         
         # Extract capture_folder name (e.g., 'capture1')
         capture_folder = get_capture_folder(capture_dir)
+        
+        # ✅ STORE ACTION IN DEVICE STATE (in-memory for fast zapping detection)
+        # Get device_id from capture_folder
+        from shared.src.lib.utils.storage_path_utils import get_device_info_from_capture_folder
+        device_info = get_device_info_from_capture_folder(capture_folder)
+        device_id = device_info.get('device_id', capture_folder)
+        
+        # Store in global device state (same instance used by capture_monitor)
+        from backend_host.scripts.incident_manager import IncidentManager
+        # Get or create global incident_manager singleton
+        if not hasattr(write_action_to_frame_json, '_incident_manager'):
+            write_action_to_frame_json._incident_manager = IncidentManager(skip_startup_cleanup=True)
+        
+        incident_manager = write_action_to_frame_json._incident_manager
+        device_state = incident_manager.get_device_state(device_id)
+        
+        # Store last action with timestamp
+        device_state['last_action'] = {
+            'command': action.get('command'),
+            'timestamp': action_completion_timestamp,
+            'params': action.get('params', {})
+        }
+        
+        logger.info(f"[@frame_metadata_utils] ✅ Stored action in device_state[{device_id}]: {action.get('command')} @ {action_completion_timestamp}")
+        
         metadata_path = get_metadata_path(capture_folder)
         
         if not os.path.exists(metadata_path):

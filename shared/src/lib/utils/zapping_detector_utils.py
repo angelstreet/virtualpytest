@@ -199,11 +199,13 @@ def _update_frame_json_with_zapping(
                 with open(json_file, 'r') as f:
                     data = json.load(f)
                 
-                # Add zapping metadata
+                # Add zapping metadata (complete info for live monitoring popup)
                 data['zapping_detected'] = True
                 data['zapping_channel_name'] = channel_info.get('channel_name', '')
                 data['zapping_channel_number'] = channel_info.get('channel_number', '')
                 data['zapping_program_name'] = channel_info.get('program_name', '')
+                data['zapping_program_start_time'] = channel_info.get('start_time', '')
+                data['zapping_program_end_time'] = channel_info.get('end_time', '')
                 data['zapping_confidence'] = channel_info.get('confidence', 0.0)
                 data['zapping_blackscreen_duration_ms'] = blackscreen_duration_ms
                 data['zapping_detection_type'] = 'automatic' if is_automatic else 'manual'

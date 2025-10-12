@@ -1170,65 +1170,85 @@ def process_capture_directory(capture_dir: str):
         
         mp4_append_start = time.time()
         if os.path.exists(mp4_path):
-            from shared.src.lib.utils.video_utils import merge_video_files
-            # Use temporary file to prevent corruption from in-place overwrite
-            temp_output = mp4_path + '.tmp'
+            # Check if existing chunk is from current 10-minute window (24h rolling buffer fix)
+            # If file is from yesterday's same time slot, OVERWRITE it instead of APPEND
+            file_mtime = os.path.getmtime(mp4_path)
+            file_dt = datetime.fromtimestamp(file_mtime)
+            file_hour, file_chunk = calculate_chunk_location(file_dt)
             
-            # Log input file details for diagnostics
-            input1_size = os.path.getsize(mp4_path)
-            input2_size = os.path.getsize(mp4_1min)
-            logger.debug(f"MP4 merge inputs: {mp4_path} ({input1_size/1024/1024:.2f}MB) + {mp4_1min} ({input2_size/1024/1024:.2f}MB)")
+            # Check if file is from current window (within last 10 minutes)
+            is_current_window = (file_hour == hour and file_chunk == chunk_index and 
+                                now.timestamp() - file_mtime < 600)  # 10 minutes
             
-            # Enable faststart flag for progressive chunks (prevents corruption from broken moov atoms)
-            result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60, None, False)
-            mp4_append_elapsed = time.time() - mp4_append_start
-            
-            # Enhanced diagnostics
-            if not result:
-                logger.error(f"merge_video_files returned False (FFmpeg process failed or timed out after 60s)")
-            if result and not os.path.exists(temp_output):
-                logger.error(f"merge_video_files returned True but temp file was not created: {temp_output}")
-            
-            if result and os.path.exists(temp_output):
-                # Verify output file size before replacing
-                temp_size = os.path.getsize(temp_output)
-                original_size = input1_size  # Reuse from above
-                new_chunk_size = input2_size  # Reuse from above
-                
-                # Expected size should be roughly original + new chunk (allow 5% variance for MP4 overhead)
-                expected_min_size = original_size + (new_chunk_size * 0.95)
-                
-                if temp_size < expected_min_size:
-                    logger.error(f"\033[31m✗ MP4 concat produced suspiciously small file:\033[0m {temp_size/1024/1024:.2f}MB (expected ≥{expected_min_size/1024/1024:.2f}MB, original={original_size/1024/1024:.2f}MB + new={new_chunk_size/1024/1024:.2f}MB)")
-                    os.remove(temp_output)
-                    logger.warning(f"Discarded corrupted output, original file preserved")
-                elif temp_size < 100000:  # Less than 100KB is definitely wrong
-                    logger.error(f"\033[31m✗ MP4 concat produced tiny file:\033[0m {temp_size} bytes (likely corrupted)")
-                    os.remove(temp_output)
-                    logger.warning(f"Discarded corrupted output, original file preserved")
-                else:
-                    # Atomic replace: only overwrite original if merge succeeded and size is valid
-                    os.rename(temp_output, mp4_path)
-                    final_size = os.path.getsize(mp4_path)
-                    logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {original_size/1024/1024:.2f}MB → {final_size/1024/1024:.2f}MB, +{(final_size-original_size)/1024/1024:.2f}MB)\033[0m")
-                    mp4_10min = mp4_path  # Mark success
+            if not is_current_window:
+                # File is old (from yesterday or earlier) - OVERWRITE instead of append
+                logger.info(f"🔄 Old chunk detected (age: {(now.timestamp() - file_mtime)/3600:.1f}h), overwriting: {mp4_path}")
+                shutil.copy(mp4_1min, mp4_path)
+                mp4_append_elapsed = time.time() - mp4_append_start
+                created_size = os.path.getsize(mp4_path)
+                logger.info(f"\033[34m✓ Overwritten 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {created_size/1024/1024:.2f}MB)\033[0m")
+                mp4_10min = mp4_path
             else:
-                logger.error(f"\033[31m✗ Failed to append (likely corrupted), recreating from scratch\033[0m")
-                # Clean up temp file
-                if os.path.exists(temp_output):
-                    try:
+                # File is current - APPEND as normal
+                from shared.src.lib.utils.video_utils import merge_video_files
+                # Use temporary file to prevent corruption from in-place overwrite
+                temp_output = mp4_path + '.tmp'
+                
+                # Log input file details for diagnostics
+                input1_size = os.path.getsize(mp4_path)
+                input2_size = os.path.getsize(mp4_1min)
+                logger.debug(f"MP4 merge inputs: {mp4_path} ({input1_size/1024/1024:.2f}MB) + {mp4_1min} ({input2_size/1024/1024:.2f}MB)")
+                
+                # Enable faststart flag for progressive chunks (prevents corruption from broken moov atoms)
+                result = merge_video_files([mp4_path, mp4_1min], temp_output, 'mp4', False, 60, None, False)
+                mp4_append_elapsed = time.time() - mp4_append_start
+                
+                # Enhanced diagnostics
+                if not result:
+                    logger.error(f"merge_video_files returned False (FFmpeg process failed or timed out after 60s)")
+                if result and not os.path.exists(temp_output):
+                    logger.error(f"merge_video_files returned True but temp file was not created: {temp_output}")
+                
+                if result and os.path.exists(temp_output):
+                    # Verify output file size before replacing
+                    temp_size = os.path.getsize(temp_output)
+                    original_size = input1_size  # Reuse from above
+                    new_chunk_size = input2_size  # Reuse from above
+                    
+                    # Expected size should be roughly original + new chunk (allow 5% variance for MP4 overhead)
+                    expected_min_size = original_size + (new_chunk_size * 0.95)
+                    
+                    if temp_size < expected_min_size:
+                        logger.error(f"\033[31m✗ MP4 concat produced suspiciously small file:\033[0m {temp_size/1024/1024:.2f}MB (expected ≥{expected_min_size/1024/1024:.2f}MB, original={original_size/1024/1024:.2f}MB + new={new_chunk_size/1024/1024:.2f}MB)")
                         os.remove(temp_output)
-                    except:
-                        pass
-                # Delete corrupted original and immediately start fresh with current 1min MP4
-                try:
-                    os.remove(mp4_path)
-                    shutil.copy(mp4_1min, mp4_path)
-                    created_size = os.path.getsize(mp4_path)
-                    logger.info(f"\033[34m✓ Recreated 10min MP4 from scratch:\033[0m {mp4_path} \033[90m({created_size/1024/1024:.2f}MB)\033[0m")
-                    mp4_10min = mp4_path  # Mark success
-                except Exception as e:
-                    logger.error(f"Recovery failed: {e}")
+                        logger.warning(f"Discarded corrupted output, original file preserved")
+                    elif temp_size < 100000:  # Less than 100KB is definitely wrong
+                        logger.error(f"\033[31m✗ MP4 concat produced tiny file:\033[0m {temp_size} bytes (likely corrupted)")
+                        os.remove(temp_output)
+                        logger.warning(f"Discarded corrupted output, original file preserved")
+                    else:
+                        # Atomic replace: only overwrite original if merge succeeded and size is valid
+                        os.rename(temp_output, mp4_path)
+                        final_size = os.path.getsize(mp4_path)
+                        logger.info(f"\033[34m✓ Appended to 10min MP4:\033[0m {mp4_path} \033[90m({mp4_append_elapsed:.2f}s, {original_size/1024/1024:.2f}MB → {final_size/1024/1024:.2f}MB, +{(final_size-original_size)/1024/1024:.2f}MB)\033[0m")
+                        mp4_10min = mp4_path  # Mark success
+                else:
+                    logger.error(f"\033[31m✗ Failed to append (likely corrupted), recreating from scratch\033[0m")
+                    # Clean up temp file
+                    if os.path.exists(temp_output):
+                        try:
+                            os.remove(temp_output)
+                        except:
+                            pass
+                    # Delete corrupted original and immediately start fresh with current 1min MP4
+                    try:
+                        os.remove(mp4_path)
+                        shutil.copy(mp4_1min, mp4_path)
+                        created_size = os.path.getsize(mp4_path)
+                        logger.info(f"\033[34m✓ Recreated 10min MP4 from scratch:\033[0m {mp4_path} \033[90m({created_size/1024/1024:.2f}MB)\033[0m")
+                        mp4_10min = mp4_path  # Mark success
+                    except Exception as e:
+                        logger.error(f"Recovery failed: {e}")
         else:
             shutil.copy(mp4_1min, mp4_path)
             mp4_append_elapsed = time.time() - mp4_append_start
@@ -1246,44 +1266,63 @@ def process_capture_directory(capture_dir: str):
             
             mp3_append_start = time.time()
             if os.path.exists(mp3_10min_path):
-                try:
-                    # Use temp file for atomic append (prevents corruption if process killed mid-write)
-                    temp_output = mp3_10min_path + '.tmp'
-                    original_size = os.path.getsize(mp3_10min_path)
-                    new_chunk_size = os.path.getsize(mp3_1min)
-                    
-                    shutil.copy(mp3_10min_path, temp_output)  # Copy existing file
-                    with open(temp_output, 'ab') as dest:
-                        with open(mp3_1min, 'rb') as src:
-                            dest.write(src.read())
-                    
-                    # Verify output file size before replacing
-                    temp_size = os.path.getsize(temp_output)
-                    expected_size = original_size + new_chunk_size
-                    
-                    if temp_size < expected_size:
-                        logger.error(f"\033[31m✗ MP3 append produced wrong size:\033[0m {temp_size/1024:.1f}KB (expected {expected_size/1024:.1f}KB)")
-                        os.remove(temp_output)
-                        logger.warning(f"Discarded corrupted output, original file preserved")
-                    elif temp_size < 10000:  # Less than 10KB is definitely wrong
-                        logger.error(f"\033[31m✗ MP3 append produced tiny file:\033[0m {temp_size} bytes (likely corrupted)")
-                        os.remove(temp_output)
-                        logger.warning(f"Discarded corrupted output, original file preserved")
-                    else:
-                        os.rename(temp_output, mp3_10min_path)  # Atomic replace
-                        final_size = os.path.getsize(mp3_10min_path)
-                        mp3_append_elapsed = time.time() - mp3_append_start
-                        logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s, {original_size/1024:.1f}KB → {final_size/1024:.1f}KB, +{new_chunk_size/1024:.1f}KB)\033[0m")
-                except Exception as e:
-                    logger.warning(f"Failed to append MP3: {e}")
-                    # Clean up temp file on failure (original file remains intact)
-                    temp_output = mp3_10min_path + '.tmp'
-                    if os.path.exists(temp_output):
-                        try:
+                # Check if existing MP3 chunk is from current 10-minute window (24h rolling buffer fix)
+                # If file is from yesterday's same time slot, OVERWRITE it instead of APPEND
+                file_mtime = os.path.getmtime(mp3_10min_path)
+                file_dt = datetime.fromtimestamp(file_mtime)
+                file_hour, file_chunk = calculate_chunk_location(file_dt)
+                
+                # Check if file is from current window (within last 10 minutes)
+                is_current_window = (file_hour == hour and file_chunk == chunk_index and 
+                                    now.timestamp() - file_mtime < 600)  # 10 minutes
+                
+                if not is_current_window:
+                    # File is old (from yesterday or earlier) - OVERWRITE instead of append
+                    logger.info(f"🔄 Old MP3 chunk detected (age: {(now.timestamp() - file_mtime)/3600:.1f}h), overwriting: {mp3_10min_path}")
+                    shutil.copy(mp3_1min, mp3_10min_path)
+                    mp3_append_elapsed = time.time() - mp3_append_start
+                    created_size = os.path.getsize(mp3_10min_path)
+                    logger.info(f"\033[32m✓ Overwritten 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s, {created_size/1024:.1f}KB)\033[0m")
+                else:
+                    # File is current - APPEND as normal
+                    try:
+                        # Use temp file for atomic append (prevents corruption if process killed mid-write)
+                        temp_output = mp3_10min_path + '.tmp'
+                        original_size = os.path.getsize(mp3_10min_path)
+                        new_chunk_size = os.path.getsize(mp3_1min)
+                        
+                        shutil.copy(mp3_10min_path, temp_output)  # Copy existing file
+                        with open(temp_output, 'ab') as dest:
+                            with open(mp3_1min, 'rb') as src:
+                                dest.write(src.read())
+                        
+                        # Verify output file size before replacing
+                        temp_size = os.path.getsize(temp_output)
+                        expected_size = original_size + new_chunk_size
+                        
+                        if temp_size < expected_size:
+                            logger.error(f"\033[31m✗ MP3 append produced wrong size:\033[0m {temp_size/1024:.1f}KB (expected {expected_size/1024:.1f}KB)")
                             os.remove(temp_output)
-                            logger.debug(f"Cleaned up failed MP3 temp file: {temp_output}")
-                        except Exception as cleanup_error:
-                            logger.warning(f"Failed to clean up MP3 temp file: {cleanup_error}")
+                            logger.warning(f"Discarded corrupted output, original file preserved")
+                        elif temp_size < 10000:  # Less than 10KB is definitely wrong
+                            logger.error(f"\033[31m✗ MP3 append produced tiny file:\033[0m {temp_size} bytes (likely corrupted)")
+                            os.remove(temp_output)
+                            logger.warning(f"Discarded corrupted output, original file preserved")
+                        else:
+                            os.rename(temp_output, mp3_10min_path)  # Atomic replace
+                            final_size = os.path.getsize(mp3_10min_path)
+                            mp3_append_elapsed = time.time() - mp3_append_start
+                            logger.info(f"\033[32m✓ Appended to 10min MP3:\033[0m {mp3_10min_path} \033[90m({mp3_append_elapsed:.3f}s, {original_size/1024:.1f}KB → {final_size/1024:.1f}KB, +{new_chunk_size/1024:.1f}KB)\033[0m")
+                    except Exception as e:
+                        logger.warning(f"Failed to append MP3: {e}")
+                        # Clean up temp file on failure (original file remains intact)
+                        temp_output = mp3_10min_path + '.tmp'
+                        if os.path.exists(temp_output):
+                            try:
+                                os.remove(temp_output)
+                                logger.debug(f"Cleaned up failed MP3 temp file: {temp_output}")
+                            except Exception as cleanup_error:
+                                logger.warning(f"Failed to clean up MP3 temp file: {cleanup_error}")
             else:
                 shutil.copy(mp3_1min, mp3_10min_path)
                 mp3_append_elapsed = time.time() - mp3_append_start

@@ -61,9 +61,11 @@ export interface MonitoringAnalysis {
   zapping_channel_name?: string;
   zapping_channel_number?: string;
   zapping_program_name?: string;
+  zapping_program_start_time?: string; // e.g., "18:00"
+  zapping_program_end_time?: string; // e.g., "18:30"
   zapping_confidence?: number;
   zapping_blackscreen_duration_ms?: number;
-  zapping_detection_type?: 'automatic' | 'manual';
+  zapping_detection_type?: 'automatic' | 'manual'; // 'automatic' = triggered by action, 'manual' = user change
   zapping_detected_at?: string; // ISO timestamp
 }
 
