@@ -89,6 +89,7 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     # SKIP freeze detection when processing backlog (old frames)
     # Previous frames are likely archived → reading them causes OpenCV warnings
     if queue_size > 50:
+        logger.debug(f"Skipping freeze detection due to queue backlog ({queue_size} frames)")
         return False, {
             'skipped_reason': 'queue_backlog',
             'queue_size': queue_size,
@@ -530,6 +531,11 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     if blackscreen or frozen:
         macroblocks, quality_score = False, 0.0
         timings['macroblocks'] = 0.0  # Skipped
+    elif queue_size > 50:
+        # Skip macroblocks when processing backlog (freeze detection is also skipped)
+        # This prevents false macroblocks detection when it's likely a freeze
+        macroblocks, quality_score = False, 0.0
+        timings['macroblocks'] = 0.0  # Skipped (queue backlog)
     else:
         macroblocks, quality_score = analyze_macroblocks(image_path)
         timings['macroblocks'] = (time.perf_counter() - start) * 1000
