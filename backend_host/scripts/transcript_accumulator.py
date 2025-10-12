@@ -327,6 +327,16 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 if existing_days and processed_day not in existing_days:
                     logger.info(f"[{capture_folder}] 🔄 New day detected for {hour}h/chunk_{chunk_index} (old: {existing_days}, new: {processed_day}) - clearing old segments")
                     should_clear_old_data = True
+            else:
+                # Fallback: If no minute_statuses data (empty or old format), check file age
+                # This prevents mixing transcripts from different days when minute_statuses is missing
+                if os.path.exists(chunk_path):
+                    file_age_seconds = time.time() - os.path.getmtime(chunk_path)
+                    # If file is older than 10 minutes, it's from a previous window - clear it
+                    if file_age_seconds > 600:  # 10 minutes (same as hot_cold_archiver logic)
+                        file_age_hours = file_age_seconds / 3600
+                        logger.info(f"[{capture_folder}] 🔄 Old transcript detected (age: {file_age_hours:.1f}h, no minute_statuses) for {hour}h/chunk_{chunk_index} - clearing old data")
+                        should_clear_old_data = True
             
             if should_clear_old_data:
                 # Clear old day's data completely
