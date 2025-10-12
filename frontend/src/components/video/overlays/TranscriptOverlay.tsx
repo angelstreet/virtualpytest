@@ -123,7 +123,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           title="Download MP3"
           sx={{
             position: 'fixed',
-            top: 16,
+            top: 50,
             right: 16,
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             color: 'white',
@@ -144,7 +144,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
             title="Audio Language"
             sx={{
               position: 'fixed',
-              top: hasMp3 && mp3Url ? 72 : 16,
+              top: hasMp3 && mp3Url ? 106 : 50,
               right: 16,
               backgroundColor: 'rgba(156, 39, 176, 0.8)',
               color: 'white',
@@ -210,7 +210,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
             title="Subtitle Language"
             sx={{
               position: 'fixed',
-              top: hasMp3 && mp3Url ? (availableDubbedLanguages.length > 0 ? 128 : 72) : (availableDubbedLanguages.length > 0 ? 72 : 16),
+              top: hasMp3 && mp3Url ? (availableDubbedLanguages.length > 0 ? 162 : 106) : (availableDubbedLanguages.length > 0 ? 106 : 50),
               right: 16,
               backgroundColor: 'rgba(33, 150, 243, 0.8)',
               color: 'white',

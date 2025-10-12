@@ -75,7 +75,14 @@ Respond with JSON only (no markdown):
         content = result['content'].strip()
         content = content.replace('```json', '').replace('```', '').strip()
         
-        data = json.loads(content)
+        # Try parsing, if it fails try cleaning control characters
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            import re
+            # Remove control characters (except newlines in context)
+            content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', content)
+            data = json.loads(content)
         
         return {
             'success': True,
