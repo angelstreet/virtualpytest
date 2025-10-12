@@ -330,11 +330,11 @@ class AudioAIHelpers:
                         all_transcripts.append(transcript)
                         print(f"AudioAI[{self.device_name}]: Segment {i+1} transcript: '{transcript[:50]}{'...' if len(transcript) > 50 else ''}' (lang: {language}, conf: {confidence:.2f})")
                         
-                        # Early stop optimization: if we found ANY speech, no need to process more segments
-                        if early_stop and transcript.strip():
+                        # Early stop optimization: if we found speech and language, no need to process more segments
+                        if early_stop and language != 'unknown' and confidence > 0.5:
                             remaining_segments = len(audio_files) - (i + 1)
                             if remaining_segments > 0:
-                                print(f"AudioAI[{self.device_name}]: ⚡ Early stop: Speech detected in first segment (lang: {language}), skipping {remaining_segments} remaining segment(s)")
+                                print(f"AudioAI[{self.device_name}]: ⚡ Early stop: Speech detected with language '{language}' (confidence: {confidence:.2f}), skipping {remaining_segments} remaining segment(s)")
                                 early_stopped = True
                                 break
                     else:
