@@ -539,15 +539,24 @@ def enhance_and_dub_1min(device_folder: str, hour: int, chunk_index: int, slot: 
                     'timestamp': datetime.now().isoformat()
                 }, f)
             
+            file_size = os.path.getsize(lang_file)
+            logger.info(f"{GREEN}[AI-1MIN:{device_folder}] ✅ {TRANSLATION_LANGUAGES[lang_code]} subtitle: {file_size/1024:.1f}KB, {len(translated_text)} chars{RESET}")
+            
             voice_name = EDGE_TTS_VOICE_MAP.get(lang_code)
             if voice_name:
                 output_mp3 = os.path.join(audio_temp_dir, f'1min_{slot}_{lang_code}.mp3')
                 if os.path.exists(output_mp3):
                     os.remove(output_mp3)
                 
-                generate_edge_tts_audio(translated_text, lang_code, output_mp3, voice_name)
+                tts_start = time.time()
+                success = generate_edge_tts_audio(translated_text, lang_code, output_mp3, voice_name)
+                tts_elapsed = time.time() - tts_start
+                
+                if success and os.path.exists(output_mp3):
+                    audio_size = os.path.getsize(output_mp3)
+                    logger.info(f"{GREEN}[AI-1MIN:{device_folder}] ✅ {TRANSLATION_LANGUAGES[lang_code]} dub: {audio_size/1024:.1f}KB, {tts_elapsed:.2f}s{RESET}")
         
-        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] 🎉 Completed 1min translations + dubbing{RESET}")
+        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] 🎉 Completed {len(translations)} translations + dubs in {ai_result['processing_time']:.2f}s{RESET}")
         
     except Exception as e:
         logger.error(f"[AI-1MIN:{device_folder}] ❌ Error: {e}")
