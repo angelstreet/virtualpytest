@@ -321,6 +321,22 @@ def execute_command():
         # Use controller-specific abstraction - single line!
         success = remote_controller.execute_command(command, params)
         
+        # Write action metadata to frame JSON for automatic zap measurement (if successful)
+        if success:
+            try:
+                from backend_host.src.lib.utils.frame_metadata_utils import write_action_to_frame_json
+                device = get_device_by_id(device_id)
+                if device:
+                    action_completion_timestamp = time.time()
+                    write_action_to_frame_json(
+                        device=device,
+                        action={'command': command, 'params': params},
+                        action_completion_timestamp=action_completion_timestamp
+                    )
+            except Exception as e:
+                # Non-blocking - log but don't fail the command
+                print(f"[@route:host_remote:execute_command] Frame JSON write failed (non-blocking): {e}")
+        
         return jsonify({
             'success': success,
             'message': f'Command {command} {"executed successfully" if success else "failed"}',
