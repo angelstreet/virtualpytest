@@ -439,7 +439,7 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
         logger.warning(f"Failed to update transcript manifest: {e}")
 
 def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: int, chunk_path: str, device_base_path: str):
-    """Merge 1-minute translations into 10-minute chunks (no AI call)"""
+    """Merge 1-minute translations OR translate 10-minute chunk directly (backlog fallback)"""
     try:
         with open(chunk_path, 'r') as f:
             original_data = json.load(f)
@@ -449,41 +449,79 @@ def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: in
             return
         
         GREEN = '\033[92m'
+        CYAN = '\033[96m'
         RESET = '\033[0m'
         
         transcript_dir = os.path.dirname(chunk_path)
         
-        for lang_code, lang_name in TRANSLATION_LANGUAGES.items():
-            translations = []
+        has_any_1min = False
+        for slot in range(10):
+            if os.path.exists(os.path.join(transcript_dir, f'1min_{slot}_en.json')):
+                has_any_1min = True
+                break
+        
+        if not has_any_1min:
+            logger.info(f"{CYAN}[10MIN-AI:{capture_folder}] No 1min files, translating 10min chunk directly...{RESET}")
+            from backend_host.src.lib.utils.ai_transcript_utils import enhance_and_translate_transcript
             
-            for slot in range(10):
-                slot_file = os.path.join(transcript_dir, f'1min_{slot}_{lang_code}.json')
-                if os.path.exists(slot_file):
-                    with open(slot_file, 'r') as f:
-                        data = json.load(f)
-                        translations.append(data.get('transcript', ''))
+            ai_result = enhance_and_translate_transcript(
+                full_transcript,
+                original_data.get('language', 'unknown'),
+                list(TRANSLATION_LANGUAGES.keys())
+            )
             
-            if not translations:
-                logger.debug(f"[10MIN-MERGE:{capture_folder}] Skipping {lang_code} (no 1min files found)")
-                continue
-            
-            if len(translations) < 10:
-                logger.info(f"[10MIN-MERGE:{capture_folder}] ⚠️  {lang_code}: Only {len(translations)}/10 minutes available, merging partial")
-            
-            merged_text = ' '.join(translations)
-            
-            translated_data = original_data.copy()
-            translated_data['transcript'] = merged_text
-            translated_data['source_language'] = original_data.get('language')
-            translated_data['translated_to'] = lang_code
-            translated_data['translation_timestamp'] = datetime.now().isoformat()
-            
-            lang_file_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')
-            with open(lang_file_path + '.tmp', 'w') as f:
-                json.dump(translated_data, f, indent=2)
-            os.rename(lang_file_path + '.tmp', lang_file_path)
-            
-            logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] ✅ Merged {lang_code}: {len(merged_text)} chars{RESET}")
+            if ai_result['success']:
+                translations_dict = ai_result.get('translations', {})
+                for lang_code, translated_text in translations_dict.items():
+                    if not translated_text:
+                        continue
+                    
+                    translated_data = original_data.copy()
+                    translated_data['transcript'] = translated_text
+                    translated_data['source_language'] = original_data.get('language')
+                    translated_data['translated_to'] = lang_code
+                    translated_data['translation_timestamp'] = datetime.now().isoformat()
+                    
+                    lang_file_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')
+                    with open(lang_file_path + '.tmp', 'w') as f:
+                        json.dump(translated_data, f, indent=2)
+                    os.rename(lang_file_path + '.tmp', lang_file_path)
+                    
+                    logger.info(f"{GREEN}[10MIN-AI:{capture_folder}] ✅ {lang_code}: {len(translated_text)} chars{RESET}")
+            else:
+                logger.warning(f"[10MIN-AI:{capture_folder}] AI translation failed: {ai_result.get('error')}")
+        else:
+            for lang_code, lang_name in TRANSLATION_LANGUAGES.items():
+                translations = []
+                
+                for slot in range(10):
+                    slot_file = os.path.join(transcript_dir, f'1min_{slot}_{lang_code}.json')
+                    if os.path.exists(slot_file):
+                        with open(slot_file, 'r') as f:
+                            data = json.load(f)
+                            translations.append(data.get('transcript', ''))
+                
+                if not translations:
+                    logger.debug(f"[10MIN-MERGE:{capture_folder}] Skipping {lang_code} (no 1min files)")
+                    continue
+                
+                if len(translations) < 10:
+                    logger.info(f"[10MIN-MERGE:{capture_folder}] ⚠️  {lang_code}: {len(translations)}/10 minutes")
+                
+                merged_text = ' '.join(translations)
+                
+                translated_data = original_data.copy()
+                translated_data['transcript'] = merged_text
+                translated_data['source_language'] = original_data.get('language')
+                translated_data['translated_to'] = lang_code
+                translated_data['translation_timestamp'] = datetime.now().isoformat()
+                
+                lang_file_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')
+                with open(lang_file_path + '.tmp', 'w') as f:
+                    json.dump(translated_data, f, indent=2)
+                os.rename(lang_file_path + '.tmp', lang_file_path)
+                
+                logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] ✅ {lang_code}: {len(merged_text)} chars{RESET}")
         
         generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
         
