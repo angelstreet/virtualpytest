@@ -338,41 +338,6 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           {transcriptText}
         </Typography>
       </Box>
-      
-      {/* Status indicators */}
-      <Box sx={{ position: 'fixed', bottom: 16, left: 16, zIndex: 1250, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {selectedAudioLanguage !== 'original' && (
-          <Box
-            sx={{
-              padding: '6px 12px',
-              backgroundColor: 'rgba(156, 39, 176, 0.8)',
-              color: 'white',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            🎤 Audio: {languageNames[selectedAudioLanguage] || selectedAudioLanguage.toUpperCase()}
-          </Box>
-        )}
-        {selectedTranscriptLanguage !== 'original' && (
-          <Box
-            sx={{
-              padding: '6px 12px',
-              backgroundColor: 'rgba(33, 150, 243, 0.8)',
-              color: 'white',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 500,
-            }}
-          >
-            💬 Subtitles: {languageNames[selectedTranscriptLanguage] || selectedTranscriptLanguage.toUpperCase()}
-          </Box>
-        )}
-      </Box>
     </>
   );
 };
