@@ -23,13 +23,22 @@ export interface MonitoringAnalysis {
   quality_score: number; // Image quality score (0-100)
   has_incidents: boolean; // Pre-calculated incident status
   
-  // R2 storage URLs (for freeze incidents - uploaded to R2 on detection)
+  // R2 storage URLs (uploaded to R2 on detection)
   r2_images?: {
-    original_urls: string[];
-    thumbnail_urls: string[];
-    original_r2_paths: string[];
-    thumbnail_r2_paths: string[];
-    timestamp: string;
+    // Freeze incidents (multiple comparison frames)
+    original_urls?: string[];
+    thumbnail_urls?: string[];
+    original_r2_paths?: string[];
+    thumbnail_r2_paths?: string[];
+    // Blackscreen/Macroblocks incidents (single start + optional end)
+    thumbnail_url?: string;
+    thumbnail_r2_path?: string;
+    closure_url?: string;
+    closure_r2_path?: string;
+    // Common fields
+    timestamp?: string;
+    time_key?: string;
+    stage?: string;
   };
 
   // Event duration tracking (from capture_monitor.py)
@@ -143,13 +152,22 @@ export interface AlertMetadata {
   last_3_filenames?: string[];
   last_3_thumbnails?: string[];
 
-  // R2 storage URLs (for freeze incidents)
+  // R2 storage URLs (uploaded to R2 on detection)
   r2_images?: {
-    original_urls: string[];
-    thumbnail_urls: string[];
-    original_r2_paths: string[];
-    thumbnail_r2_paths: string[];
-    timestamp: string;
+    // Freeze incidents (multiple comparison frames)
+    original_urls?: string[];
+    thumbnail_urls?: string[];
+    original_r2_paths?: string[];
+    thumbnail_r2_paths?: string[];
+    // Blackscreen/Macroblocks incidents (single start + optional end)
+    thumbnail_url?: string;
+    thumbnail_r2_path?: string;
+    closure_url?: string;
+    closure_r2_path?: string;
+    // Common fields
+    timestamp?: string;
+    time_key?: string;
+    stage?: string;
   };
 
   // Freeze detection details

@@ -448,16 +448,31 @@ const MonitoringIncidents: React.FC = () => {
   // Get image URLs from alert metadata
   const getAlertImageUrls = (alert: Alert) => {
     const r2Images = alert.metadata?.r2_images;
-    if (r2Images && r2Images.thumbnail_urls?.length > 0) {
+    
+    // Freeze incidents have thumbnail_urls (plural - array)
+    if (r2Images?.thumbnail_urls && r2Images.thumbnail_urls.length > 0) {
       return {
         originalUrl: r2Images.thumbnail_urls[0],
         thumbnailUrl: r2Images.thumbnail_urls[0],
+        closureUrl: null, // Freeze doesn't have separate closure
         hasR2Images: true,
       };
     }
+    
+    // Blackscreen/Macroblocks have thumbnail_url (singular) + optional closure_url
+    if (r2Images && r2Images.thumbnail_url) {
+      return {
+        originalUrl: r2Images.thumbnail_url,
+        thumbnailUrl: r2Images.thumbnail_url,
+        closureUrl: r2Images.closure_url || null,
+        hasR2Images: true,
+      };
+    }
+    
     return {
       originalUrl: null,
       thumbnailUrl: null,
+      closureUrl: null,
       hasR2Images: false,
     };
   };
@@ -557,8 +572,8 @@ const MonitoringIncidents: React.FC = () => {
                 );
               })}
 
-              {/* End Image (if resolved) */}
-              {alert.status === 'resolved' && imageUrls.hasR2Images && (
+              {/* End Image (if resolved and has closure) */}
+              {alert.status === 'resolved' && imageUrls.closureUrl && (
                 <Grid item>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="caption" display="block" sx={{ mb: 1, color: 'text.secondary' }}>
@@ -566,7 +581,7 @@ const MonitoringIncidents: React.FC = () => {
                     </Typography>
                     <Box
                       component="img"
-                      src={imageUrls.thumbnailUrl || ''}
+                      src={imageUrls.closureUrl}
                       alt="Alert end"
                       sx={{
                         width: 120,
@@ -578,8 +593,7 @@ const MonitoringIncidents: React.FC = () => {
                         '&:hover': { opacity: 0.8 },
                       }}
                       onClick={() => {
-                        const url = imageUrls.originalUrl || imageUrls.thumbnailUrl;
-                        if (url) window.open(url, '_blank');
+                        if (imageUrls.closureUrl) window.open(imageUrls.closureUrl, '_blank');
                       }}
                     />
                   </Box>
