@@ -95,7 +95,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
 
   return (
     <>
-      {/* Loading indicator for dubbed audio generation */}
+      {/* Loading indicator for translation/dubbing */}
       {isTranslating && (
         <Box
           sx={{
@@ -114,7 +114,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         >
           <CircularProgress size={20} sx={{ color: '#2196f3' }} />
           <Typography variant="caption" sx={{ fontSize: '13px', fontWeight: 500 }}>
-            Generating dubbed audio...
+            🤖 AI translating...
           </Typography>
         </Box>
       )}
