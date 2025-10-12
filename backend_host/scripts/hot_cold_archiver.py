@@ -761,22 +761,15 @@ def rebuild_manifest_from_disk(capture_dir: str, manifest_type: str) -> dict:
                             "timestamp": data.get("timestamp")
                         })
                         
-                        # Check if corresponding MP3 exists and has matching timestamp
+                        # Check if corresponding MP3 exists in same hour folder
+                        # No timestamp comparison needed - hour folder matching ensures they belong together
+                        # (24h rolling buffer automatically overwrites old files in same hour/chunk slot)
                         device_folder = os.path.basename(capture_dir)
                         from shared.src.lib.utils.storage_path_utils import get_audio_path
                         audio_base = get_audio_path(device_folder)
                         audio_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
                         
-                        has_mp3 = False
-                        if os.path.exists(audio_path):
-                            mp3_stat = os.stat(audio_path)
-                            # Check if MP3 timestamp is within 2 hours of transcript timestamp
-                            # (allows for same-day files, rejects 24h old files from yesterday)
-                            time_diff = abs(mp3_stat.st_mtime - file_stat.st_mtime)
-                            if time_diff < 7200:  # 2 hours tolerance
-                                has_mp3 = True
-                            else:
-                                logger.debug(f"MP3 exists but timestamp mismatch (hour={hour}, chunk={chunk_index}): {time_diff/3600:.1f}h difference - likely old file from yesterday")
+                        has_mp3 = os.path.exists(audio_path)
                         
                         chunk_info["has_mp3"] = has_mp3
                         if not has_mp3:
@@ -866,22 +859,15 @@ def update_manifest(capture_dir: str, hour: int, chunk_index: int, chunk_path: s
             except:
                 pass
     elif manifest_type == 'transcript':
-        # Validate MP3 existence and timestamp instead of blindly trusting has_mp3 parameter
+        # Validate MP3 existence in same hour folder
+        # No timestamp comparison needed - hour folder matching ensures they belong together
+        # (24h rolling buffer automatically overwrites old files in same hour/chunk slot)
         device_folder = os.path.basename(capture_dir)
         from shared.src.lib.utils.storage_path_utils import get_audio_path
         audio_base = get_audio_path(device_folder)
         audio_path = os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}.mp3')
         
-        has_mp3_validated = False
-        if os.path.exists(audio_path):
-            mp3_stat = os.stat(audio_path)
-            # Check if MP3 timestamp is within 2 hours of transcript timestamp
-            # (allows for same-day files, rejects 24h old files from yesterday)
-            time_diff = abs(mp3_stat.st_mtime - file_stat.st_mtime)
-            if time_diff < 7200:  # 2 hours tolerance
-                has_mp3_validated = True
-            else:
-                logger.debug(f"MP3 exists but timestamp mismatch (hour={hour}, chunk={chunk_index}): {time_diff/3600:.1f}h difference - likely old file from yesterday")
+        has_mp3_validated = os.path.exists(audio_path)
         
         chunk_info["has_mp3"] = has_mp3_validated
         if not has_mp3_validated:
