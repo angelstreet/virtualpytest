@@ -263,34 +263,22 @@ export const useTranscriptPlayer = ({
     // Local time within the 10-minute chunk (0-600 seconds)
     const localTime = globalCurrentTime - currentManifest.start_time_seconds;
     
-    // Validate localTime is within the chunk range
-    if (localTime < 0 || localTime > 600) {
-      console.warn(`[@useTranscriptPlayer] ⚠️ localTime out of range: ${localTime.toFixed(1)}s (globalTime=${globalCurrentTime.toFixed(1)}s, chunkStart=${currentManifest.start_time_seconds}s)`);
-      setCurrentTimedSegment(null);
-      return;
-    }
-    
     // Find current minute (0-9)
     const currentMinute = Math.floor(localTime / 60);
     
-    // Find active segment - search ALL segments, not just current minute (segments might span minute boundaries)
-    // Use a simple approach: find segment where localTime falls within [start, end)
+    // Filter segments for current minute only (60s window)
+    const minuteStart = currentMinute * 60;
+    const minuteEnd = minuteStart + 60;
+    
+    // Find active segment within current minute
     const activeSegment = rawTranscriptData.segments.find(
-      seg => localTime >= seg.start && localTime < seg.end
+      seg => seg.start >= minuteStart && seg.start < minuteEnd && localTime >= seg.start && localTime < seg.end
     );
     
     if (activeSegment) {
       setCurrentTimedSegment(activeSegment);
       console.log(`[@useTranscriptPlayer] Minute ${currentMinute} | ${localTime.toFixed(1)}s -> "${activeSegment.text.substring(0, 50)}..."`);
     } else {
-      // Log why no segment was found for debugging
-      const nearestSegment = rawTranscriptData.segments.reduce((nearest, seg) => {
-        const currentDist = Math.abs(seg.start - localTime);
-        const nearestDist = Math.abs(nearest.start - localTime);
-        return currentDist < nearestDist ? seg : nearest;
-      }, rawTranscriptData.segments[0]);
-      
-      console.log(`[@useTranscriptPlayer] ⚠️ No segment at ${localTime.toFixed(1)}s. Nearest: ${nearestSegment.start.toFixed(1)}s-${nearestSegment.end.toFixed(1)}s. Total segments: ${rawTranscriptData.segments.length}`);
       setCurrentTimedSegment(null);
     }
   }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
