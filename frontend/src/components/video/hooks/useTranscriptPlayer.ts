@@ -76,6 +76,23 @@ export const useTranscriptPlayer = ({
   const [mp3Url, setMp3Url] = useState<string | null>(null);
   const [dubbedAudioUrl, setDubbedAudioUrl] = useState<string | null>(null);
 
+  // CRITICAL: Clear transcript data immediately when switching chunks to prevent mixing old/new data
+  useEffect(() => {
+    console.log(`[@useTranscriptPlayer] 🧹 Chunk switched to index ${currentManifestIndex} - clearing old transcript data`);
+    setTranscriptData(null);
+    setRawTranscriptData(null);
+    setCurrentTranscript(null);
+    setCurrentTimedSegment(null);
+    setHasMp3(false);
+    setMp3Url(null);
+    setAvailableLanguages(['original']);
+    setAvailableDubbedLanguages([]);
+    setDubbedAudioUrl(null);
+    // Reset language selections when switching chunks
+    setSelectedAudioLanguage('original');
+    setSelectedTranscriptLanguage('original');
+  }, [currentManifestIndex]);
+
   useEffect(() => {
     if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];

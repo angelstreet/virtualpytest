@@ -285,22 +285,23 @@ def _write_last_zapping_json(
     """
     Write last_zapping.json for instant read by zap_executor.
     
-    ✅ INSTANT ACCESS: zap_executor reads this single file instead of searching 100+ JSONs.
-    This eliminates race conditions where newest frames aren't in chunks yet.
+    ✅ INSTANT ACCESS: Single file read instead of searching 100+ JSONs.
+    ✅ SAME PATH AS METADATA: Uses get_metadata_path() - hot or cold based on mode.
+    ✅ NO GUESSING: Write where metadata is written, read where metadata is read.
     """
     try:
-        from shared.src.lib.utils.storage_path_utils import get_device_base_path
+        from shared.src.lib.utils.storage_path_utils import get_metadata_path
         
-        # ✅ CENTRALIZED PATH: Use storage_path_utils (no hardcoding!)
-        # Write to device base path (not hot/cold subfolder)
-        # Path: /var/www/html/stream/capture1/last_zapping.json
-        base_path = get_device_base_path(capture_folder)
-        last_zapping_path = os.path.join(base_path, 'last_zapping.json')
+        # ✅ WRITE TO SAME LOCATION AS METADATA (hot or cold based on mode)
+        # RAM mode: /var/www/html/stream/capture1/hot/metadata/last_zapping.json
+        # SD mode:  /var/www/html/stream/capture1/metadata/last_zapping.json
+        metadata_path = get_metadata_path(capture_folder)
+        last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
         
         logger.info(f"[{capture_folder}] 📝 Writing last_zapping.json to: {last_zapping_path}")
         
         # Ensure directory exists
-        os.makedirs(base_path, exist_ok=True)
+        os.makedirs(metadata_path, exist_ok=True)
         
         # Prepare complete zapping data
         detected_at = datetime.now().isoformat()

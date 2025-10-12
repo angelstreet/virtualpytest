@@ -703,9 +703,10 @@ class ZapExecutor:
         
         ✅ INSTANT ACCESS: Read from last_zapping.json (single file, instant!).
         ✅ FAIL FAST: Return error if file not found or timestamp mismatch.
-        ✅ CENTRALIZED PATHS: Uses storage_path_utils (no hardcoding).
+        ✅ SAME PATH AS METADATA: Uses get_metadata_path() - hot or cold based on mode.
         
-        Path: /var/www/html/stream/{capture_folder}/last_zapping.json
+        Path (RAM mode): /var/www/html/stream/{capture_folder}/hot/metadata/last_zapping.json
+        Path (SD mode):  /var/www/html/stream/{capture_folder}/metadata/last_zapping.json
         Written by: zapping_detector_utils._write_last_zapping_json()
         
         Args:
@@ -722,10 +723,10 @@ class ZapExecutor:
             print(f"⏳ [ZapExecutor] Waiting 10s for capture_monitor to detect and analyze zapping...")
             time.sleep(10)
             
-            # ✅ CENTRALIZED PATH: Use storage_path_utils (no hardcoding!)
-            from shared.src.lib.utils.storage_path_utils import get_device_base_path
-            base_path = get_device_base_path(capture_folder)
-            last_zapping_path = os.path.join(base_path, 'last_zapping.json')
+            # ✅ READ FROM SAME LOCATION AS METADATA (hot or cold based on mode)
+            from shared.src.lib.utils.storage_path_utils import get_metadata_path
+            metadata_path = get_metadata_path(capture_folder)
+            last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
             
             print(f"🔍 [ZapExecutor] Looking for last_zapping.json at: {last_zapping_path}")
             
