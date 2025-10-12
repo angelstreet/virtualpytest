@@ -1053,7 +1053,14 @@ class InotifyTranscriptMonitor:
                 
                 for mp3_file in os.listdir(audio_dir):
                     if mp3_file.startswith('chunk_10min_') and mp3_file.endswith('.mp3'):
-                        chunk_index = int(mp3_file.replace('chunk_10min_', '').replace('.mp3', ''))
+                        # Skip language-specific dubbed audio files (chunk_10min_0_fr.mp3, etc.)
+                        # Only process base audio files (chunk_10min_0.mp3)
+                        stem = mp3_file.replace('chunk_10min_', '').replace('.mp3', '')
+                        if '_' in stem:
+                            # This is a dubbed audio file (e.g., "3_en"), skip it
+                            continue
+                        
+                        chunk_index = int(stem)
                         transcript_path = os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
                         
                         if not os.path.exists(transcript_path):
