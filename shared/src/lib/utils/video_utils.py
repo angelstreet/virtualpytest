@@ -72,7 +72,9 @@ def merge_video_files(
             cmd.extend(['-movflags', '+faststart'])
         
         # Explicitly specify output format to avoid issues with .tmp or non-standard extensions
-        cmd.extend(['-f', output_format])
+        # Map 'ts' to 'mpegts' for FFmpeg compatibility
+        ffmpeg_format = 'mpegts' if output_format == 'ts' else output_format
+        cmd.extend(['-f', ffmpeg_format])
         cmd.append(temp_output)
         
         result = subprocess.run(cmd, capture_output=True, timeout=timeout)
