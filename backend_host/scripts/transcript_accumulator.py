@@ -439,268 +439,120 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
         logger.warning(f"Failed to update transcript manifest: {e}")
 
 def translate_chunk_to_languages(capture_folder: str, hour: int, chunk_index: int, chunk_path: str, device_base_path: str):
-    """
-    Pre-translate transcript chunk to multiple languages in background.
-    Creates language-specific JSON files (e.g., chunk_10min_0_fr.json).
-    
-    Args:
-        capture_folder: Device folder (e.g., 'capture1')
-        hour: Hour (0-23)
-        chunk_index: Chunk index (0-5)
-        chunk_path: Path to original transcript JSON
-        device_base_path: Base path for device
-    """
+    """Merge 1-minute translations into 10-minute chunks (no AI call)"""
     try:
-        # Load original transcript
         with open(chunk_path, 'r') as f:
             original_data = json.load(f)
         
         full_transcript = original_data.get('transcript', '')
         if not full_transcript or len(full_transcript) < 20:
-            # Skip translation for very short or empty transcripts
             return
         
-        source_language = original_data.get('language', 'unknown')
-        if source_language == 'unknown':
-            logger.debug(f"[{capture_folder}] Skipping translation - unknown source language")
-            return
-        
-        # Map detected language to code
-        lang_code_map = {
-            'english': 'en', 'french': 'fr', 'spanish': 'es', 
-            'german': 'de', 'italian': 'it', 'portuguese': 'pt',
-            'russian': 'ru', 'japanese': 'ja', 'korean': 'ko',
-            'chinese': 'zh', 'arabic': 'ar', 'hindi': 'hi'
-        }
-        source_code = lang_code_map.get(source_language.lower(), 'en')
-        
-        CYAN = '\033[96m'
         GREEN = '\033[92m'
         RESET = '\033[0m'
-        
-        logger.info(f"{CYAN}[TRANSLATE:{capture_folder}] 🌐 Pre-translating {hour}h/chunk_{chunk_index} from {source_language} to {len(TRANSLATION_LANGUAGES)} languages...{RESET}")
-        
-        translation_start = time.time()
-        translated_count = 0
-        
-        # Import translation utils
-        from backend_host.src.lib.utils.translation_utils import translate_text
         
         transcript_dir = os.path.dirname(chunk_path)
         
         for lang_code, lang_name in TRANSLATION_LANGUAGES.items():
-            # Skip if same as source
-            if lang_code == source_code:
-                logger.debug(f"[TRANSLATE:{capture_folder}] Skipping {lang_code} (same as source)")
+            translations = []
+            
+            for slot in range(10):
+                slot_file = os.path.join(transcript_dir, f'1min_{slot}_{lang_code}.json')
+                if os.path.exists(slot_file):
+                    with open(slot_file, 'r') as f:
+                        data = json.load(f)
+                        translations.append(data.get('transcript', ''))
+            
+            if not translations:
                 continue
+            
+            merged_text = ' '.join(translations)
+            
+            translated_data = original_data.copy()
+            translated_data['transcript'] = merged_text
+            translated_data['source_language'] = original_data.get('language')
+            translated_data['translated_to'] = lang_code
+            translated_data['translation_timestamp'] = datetime.now().isoformat()
             
             lang_file_path = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{lang_code}.json')
+            with open(lang_file_path + '.tmp', 'w') as f:
+                json.dump(translated_data, f, indent=2)
+            os.rename(lang_file_path + '.tmp', lang_file_path)
             
-            try:
-                # Translate full transcript (single API call)
-                lang_start = time.time()
-                result = translate_text(full_transcript, source_code, lang_code, 'google')
-                lang_elapsed = time.time() - lang_start
-                
-                if not result.get('success'):
-                    logger.warning(f"[TRANSLATE:{capture_folder}] ⚠️  Failed to translate to {lang_code}")
-                    continue
-                
-                translated_text = result.get('translated_text', '')
-                
-                # Create translated version of the chunk
-                translated_data = original_data.copy()
-                translated_data['transcript'] = translated_text
-                translated_data['source_language'] = source_language
-                translated_data['translated_to'] = lang_code
-                translated_data['translation_timestamp'] = datetime.now().isoformat()
-                
-                # Translate segments (map translated text to segments by proportional splitting)
-                if original_data.get('segments'):
-                    original_segments = original_data['segments']
-                    translated_segments = []
-                    
-                    # Simple proportional split (better than nothing)
-                    words_original = full_transcript.split()
-                    words_translated = translated_text.split()
-                    ratio = len(words_translated) / len(words_original) if len(words_original) > 0 else 1.0
-                    
-                    for seg in original_segments:
-                        seg_copy = seg.copy()
-                        seg_text = seg.get('text', '').strip()
-                        
-                        # Find segment text in original transcript
-                        if seg_text in full_transcript:
-                            idx = full_transcript.find(seg_text)
-                            # Approximate position in translated text
-                            char_ratio = len(translated_text) / len(full_transcript) if len(full_transcript) > 0 else 1.0
-                            approx_idx = int(idx * char_ratio)
-                            approx_len = int(len(seg_text) * char_ratio)
-                            
-                            translated_seg_text = translated_text[approx_idx:approx_idx + approx_len].strip()
-                            if not translated_seg_text:
-                                # Fallback: use proportional chunk
-                                seg_word_count = len(seg_text.split())
-                                translated_seg_text = ' '.join(translated_text.split()[:seg_word_count])
-                            
-                            seg_copy['text'] = translated_seg_text
-                        else:
-                            # Fallback
-                            seg_copy['text'] = translated_text[:50]
-                        
-                        translated_segments.append(seg_copy)
-                    
-                    translated_data['segments'] = translated_segments
-                
-                # Save translated version atomically
-                with open(lang_file_path + '.tmp', 'w') as f:
-                    json.dump(translated_data, f, indent=2)
-                os.rename(lang_file_path + '.tmp', lang_file_path)
-                
-                file_size = os.path.getsize(lang_file_path)
-                translated_count += 1
-                
-                # Detailed subtitle creation log
-                logger.info(f"{GREEN}[SUBTITLE:{capture_folder}] ✅ Created {TRANSLATION_LANGUAGES[lang_code]} subtitle:{RESET}")
-                logger.info(f"{GREEN}  • File: {lang_file_path}{RESET}")
-                logger.info(f"{GREEN}  • Size: {file_size/1024:.1f}KB, Characters: {len(translated_text)}, Time: {lang_elapsed:.2f}s{RESET}")
-                logger.info(f"{GREEN}  • Translated from: {source_language} → {TRANSLATION_LANGUAGES[lang_code]}{RESET}")
-                
-                # Show preview of translated text
-                preview_text = translated_text[:100] + '...' if len(translated_text) > 100 else translated_text
-                logger.info(f"{GREEN}  • Preview: \"{preview_text}\"{RESET}")
-                
-            except Exception as e:
-                logger.error(f"[TRANSLATE:{capture_folder}] ❌ Error translating to {lang_code}: {e}")
-                continue
+            logger.info(f"{GREEN}[10MIN-MERGE:{capture_folder}] ✅ Merged {lang_code}: {len(merged_text)} chars{RESET}")
         
-        total_elapsed = time.time() - translation_start
-        logger.info(f"{GREEN}[SUBTITLE-BATCH:{capture_folder}] 🎉 Completed {translated_count}/{len(TRANSLATION_LANGUAGES)} subtitle files in {total_elapsed:.2f}s{RESET}")
+        generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
         
-        if translated_count > 0:
-            avg_time = total_elapsed / translated_count
-            logger.info(f"{GREEN}[SUBTITLE-BATCH:{capture_folder}] 📊 Average time per subtitle: {avg_time:.2f}s{RESET}")
-        
-        # Generate dubbed audio for translated languages (reuse restart Edge-TTS!)
-        if translated_count > 0:
-            generate_dubbed_audio_for_chunk(capture_folder, hour, chunk_index, transcript_dir, device_base_path)
-        
-        # Update manifest with available languages
-        try:
-            from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
-            update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=original_data.get('mp3_file') is not None)
-        except Exception as e:
-            logger.warning(f"[TRANSLATE:{capture_folder}] Failed to update manifest after translation: {e}")
+        from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
+        update_transcript_manifest(device_base_path, hour, chunk_index, chunk_path, has_mp3=original_data.get('mp3_file') is not None)
         
     except Exception as e:
-        logger.error(f"[TRANSLATE:{capture_folder}] ❌ Translation error: {e}")
-        import traceback
-        logger.error(f"[TRANSLATE:{capture_folder}] Traceback: {traceback.format_exc()}")
+        logger.error(f"[10MIN-MERGE:{capture_folder}] ❌ Error: {e}")
 
-def generate_1min_dubbed_audio(device_folder: str, mp3_path: str, transcript_text: str, slot: int, hour: int, chunk_index: int):
-    """
-    Generate 1-minute dubbed audio immediately after transcription (fast user access!)
-    Uses rotating slots like 1min MP3s: 1min_0_fr.mp3, 1min_1_en.mp3, etc.
-    
-    Args:
-        device_folder: Device folder (e.g., 'capture1')
-        mp3_path: Original 1min MP3 path (for timing reference)
-        transcript_text: Transcribed text to dub
-        slot: Minute slot (0-9)
-        hour: Hour (0-23)
-        chunk_index: Chunk index (0-5)
-    """
+def enhance_and_dub_1min(device_folder: str, hour: int, chunk_index: int, slot: int, transcript_text: str, detected_language: str):
+    """Single AI call to enhance + translate + dub 1-minute segment"""
     try:
-        # Import required utilities
-        try:
-            from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio
-        except ImportError as e:
-            logger.error(f"[1MIN-DUB:{device_folder}] ❌ Failed to import audio_utils: {e}")
-            logger.error(f"[1MIN-DUB:{device_folder}] Make sure edge-tts is installed: pip install edge-tts")
-            return
+        from backend_host.src.lib.utils.ai_transcript_utils import enhance_and_translate_transcript
+        from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio, EDGE_TTS_VOICE_MAP
+        from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_transcript_path
         
-        from backend_host.src.lib.utils.translation_utils import translate_text
-        from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
-        
-        CYAN = '\033[96m'
         GREEN = '\033[92m'
+        CYAN = '\033[96m'
         RESET = '\033[0m'
         
-        # Get audio temp directory (COLD storage, same as 1min MP3s)
+        logger.info(f"{CYAN}[AI-1MIN:{device_folder}] 🤖 Enhancing + translating slot {slot}...{RESET}")
+        
+        ai_result = enhance_and_translate_transcript(
+            transcript_text,
+            detected_language,
+            list(TRANSLATION_LANGUAGES.keys())
+        )
+        
+        if not ai_result['success']:
+            logger.warning(f"[AI-1MIN:{device_folder}] AI failed: {ai_result.get('error')}, skipping 1min translations")
+            return
+        
+        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] ✅ AI processed in {ai_result['processing_time']:.2f}s{RESET}")
+        
+        transcript_base = get_transcript_path(device_folder)
+        transcript_dir = os.path.join(transcript_base, str(hour))
+        os.makedirs(transcript_dir, exist_ok=True)
+        
         audio_cold = get_cold_storage_path(device_folder, 'audio')
         audio_temp_dir = os.path.join(audio_cold, 'temp')
         os.makedirs(audio_temp_dir, exist_ok=True)
         
-        # Import centralized voice mapping (single source of truth)
-        from backend_host.src.lib.utils.audio_utils import EDGE_TTS_VOICE_MAP
-        voice_map = EDGE_TTS_VOICE_MAP
+        translations = ai_result.get('translations', {})
         
-        logger.info(f"{CYAN}[1MIN-DUB:{device_folder}] 🎤 Starting 1min dubbed audio for slot {slot} ({len(transcript_text)} chars)...{RESET}")
-        dub_start = time.time()
-        dubbed_count = 0
-        
-        for lang_code, voice_name in voice_map.items():
-            try:
-                lang_start = time.time()
-                
-                # Translate transcript (auto-detect source language)
-                result = translate_text(transcript_text, 'auto', lang_code, 'google')
-                if not result.get('success'):
-                    logger.debug(f"[1MIN-DUB:{device_folder}] Skipping {lang_code} (translation failed)")
-                    continue
-                
-                translated_text = result.get('translated_text', '')
-                if not translated_text or len(translated_text) < 10:
-                    logger.debug(f"[1MIN-DUB:{device_folder}] Skipping {lang_code} (translation too short)")
-                    continue
-                
-                # Generate dubbed audio with rotating slot naming: 1min_0_fr.mp3
-                output_mp3 = os.path.join(audio_temp_dir, f'1min_{slot}_{lang_code}.mp3')
-                
-                # Delete old file in this slot (if exists) - rotating behavior
-                if os.path.exists(output_mp3):
-                    try:
-                        os.remove(output_mp3)
-                    except:
-                        pass
-                
-                success = generate_edge_tts_audio(
-                    text=translated_text,
-                    language_code=lang_code,
-                    output_path=output_mp3,
-                    voice_name=voice_name
-                )
-                
-                if success and os.path.exists(output_mp3):
-                    audio_size = os.path.getsize(output_mp3)
-                    dubbed_count += 1
-                    lang_elapsed = time.time() - lang_start
-                    
-                    # Detailed 1min dubbed audio log
-                    logger.info(f"{GREEN}[1MIN-DUB:{device_folder}] ✅ Created 1-minute dubbed audio:{RESET}")
-                    logger.info(f"{GREEN}  • Language: {TRANSLATION_LANGUAGES[lang_code]} ({lang_code}){RESET}")
-                    logger.info(f"{GREEN}  • File: {output_mp3}{RESET}")
-                    logger.info(f"{GREEN}  • Size: {audio_size/1024:.1f}KB, Duration: ~1min, Time: {lang_elapsed:.2f}s{RESET}")
-                    logger.info(f"{GREEN}  • Slot: {slot}, Hour: {hour}, Chunk: {chunk_index}{RESET}")
-                    logger.info(f"{GREEN}  • Text: \"{translated_text[:80]}...\"{RESET}")
-                else:
-                    logger.warning(f"[1MIN-DUB:{device_folder}] ⚠️  Failed to generate {lang_code} audio")
-                
-            except Exception as e:
-                logger.error(f"[1MIN-DUB:{device_folder}] ❌ Error dubbing {lang_code}: {e}")
+        for lang_code, translated_text in translations.items():
+            if not translated_text or len(translated_text) < 10:
                 continue
+            
+            lang_file = os.path.join(transcript_dir, f'1min_{slot}_{lang_code}.json')
+            with open(lang_file, 'w') as f:
+                json.dump({
+                    'slot': slot,
+                    'hour': hour,
+                    'chunk_index': chunk_index,
+                    'language': lang_code,
+                    'transcript': translated_text,
+                    'timestamp': datetime.now().isoformat()
+                }, f)
+            
+            voice_name = EDGE_TTS_VOICE_MAP.get(lang_code)
+            if voice_name:
+                output_mp3 = os.path.join(audio_temp_dir, f'1min_{slot}_{lang_code}.mp3')
+                if os.path.exists(output_mp3):
+                    os.remove(output_mp3)
+                
+                generate_edge_tts_audio(translated_text, lang_code, output_mp3, voice_name)
         
-        total_elapsed = time.time() - dub_start
-        logger.info(f"{GREEN}[1MIN-DUB-BATCH:{device_folder}] 🎉 Completed {dubbed_count}/{len(voice_map)} 1-minute dubbed audio files in {total_elapsed:.2f}s{RESET}")
-        
-        if dubbed_count > 0:
-            avg_time = total_elapsed / dubbed_count
-            logger.info(f"{GREEN}[1MIN-DUB-BATCH:{device_folder}] 📊 Average time per dubbed audio: {avg_time:.2f}s{RESET}")
+        logger.info(f"{GREEN}[AI-1MIN:{device_folder}] 🎉 Completed 1min translations + dubbing{RESET}")
         
     except Exception as e:
-        logger.error(f"[1MIN-DUB:{device_folder}] ❌ Dubbing error: {e}")
+        logger.error(f"[AI-1MIN:{device_folder}] ❌ Error: {e}")
         import traceback
-        logger.error(f"[1MIN-DUB:{device_folder}] Traceback: {traceback.format_exc()}")
+        logger.error(traceback.format_exc())
 
 
 def generate_dubbed_audio_for_chunk(capture_folder: str, hour: int, chunk_index: int, transcript_dir: str, device_base_path: str):
@@ -1204,9 +1056,8 @@ class InotifyTranscriptMonitor:
                             }
                             merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=False)
                             
-                            # Generate 1-minute dubbed audio immediately (fast accessibility!)
-                            if len(transcript) > 20:  # Only dub if substantial content
-                                generate_1min_dubbed_audio(device_folder, mp3_path, transcript, slot, hour, chunk_index)
+                            if len(transcript) > 20:
+                                enhance_and_dub_1min(device_folder, hour, chunk_index, slot, transcript, result.get('language', 'unknown'))
                         else:
                             logger.info(f"[{device_folder}] ⏭️  1min MP3 returned no segments (Whisper detected silence)")
                     else:
