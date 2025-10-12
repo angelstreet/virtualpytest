@@ -58,9 +58,7 @@ class InotifyFrameMonitor:
     
     def __init__(self, capture_dirs, host_name):
         self.host_name = host_name
-        # ✅ Use global singleton to share device_state with action execution
-        from backend_host.scripts.incident_manager import get_global_incident_manager
-        self.incident_manager = get_global_incident_manager()
+        self.incident_manager = IncidentManager()
         self.inotify = inotify.adapters.Inotify()
         
         self.dir_to_info = {}
@@ -451,43 +449,66 @@ class InotifyFrameMonitor:
     
     def _get_action_from_device_state(self, device_id):
         """
-        Get last action from device_state (in-memory, instant lookup).
+        Get last action from last_action.json (IPC between processes).
         
-        ✅ CLEAN ARCHITECTURE:
-        - Single source of truth (device_state)
-        - No file I/O (instant lookup)
-        - No race conditions (atomic memory operations)
+        ✅ INTER-PROCESS COMMUNICATION:
+        - Reads from single last_action.json file (written by Flask server)
+        - capture_monitor runs as SEPARATE PROCESS from Flask server
+        - Same pattern as last_zapping.json (instant read, no scanning!)
         - 10s timeout check
         
         Returns action_info if found within 10s, None otherwise.
         """
         import time
         
-        device_state = self.incident_manager.get_device_state(device_id)
-        last_action = device_state.get('last_action')
+        # Get metadata path for this device
+        capture_folder = device_id.replace('device', 'capture')
+        metadata_path = get_metadata_path(capture_folder)
         
-        if not last_action:
-            logger.debug(f"[{device_id}] No action found in device_state - manual zapping")
+        if not os.path.exists(metadata_path):
+            logger.debug(f"[{device_id}] Metadata path not found: {metadata_path}")
             return None
         
-        # Check 10s timeout
-        current_time = time.time()
-        action_timestamp = last_action.get('timestamp', 0)
-        time_since_action = current_time - action_timestamp
+        # ✅ Read from single last_action.json file (instant!)
+        last_action_path = os.path.join(metadata_path, 'last_action.json')
         
-        if time_since_action > 10.0:
-            logger.debug(f"[{device_id}] Action too old ({time_since_action:.1f}s) - manual zapping")
+        if not os.path.exists(last_action_path):
+            logger.debug(f"[{device_id}] No last_action.json found")
             return None
         
-        # ✅ Action within 10s - associate with this blackscreen
-        action_info = {
-            'last_action_executed': last_action.get('command'),
-            'last_action_timestamp': action_timestamp,
-            'action_params': last_action.get('params', {}),
-            'time_since_action_ms': int(time_since_action * 1000)
-        }
-        logger.debug(f"[{device_id}] ✅ Found action in device_state: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
-        return action_info
+        try:
+            with open(last_action_path, 'r') as f:
+                action_data = json.load(f)
+            
+            action_timestamp = action_data.get('timestamp')
+            if not action_timestamp:
+                logger.debug(f"[{device_id}] last_action.json missing timestamp")
+                return None
+            
+            # Check if action is within 10s window
+            current_time = time.time()
+            time_since_action = current_time - action_timestamp
+            
+            if time_since_action > 10.0:
+                logger.debug(f"[{device_id}] Action too old ({time_since_action:.1f}s) - manual zapping")
+                return None
+            
+            # ✅ Action within 10s - associate with this blackscreen
+            action_info = {
+                'last_action_executed': action_data.get('command'),
+                'last_action_timestamp': action_timestamp,
+                'action_params': action_data.get('params', {}),
+                'time_since_action_ms': int(time_since_action * 1000)
+            }
+            logger.debug(f"[{device_id}] ✅ Found action in last_action.json: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
+            return action_info
+            
+        except (json.JSONDecodeError, IOError, KeyError) as e:
+            logger.debug(f"[{device_id}] Error reading last_action.json: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"[{device_id}] Unexpected error reading last_action.json: {e}")
+            return None
     
     def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""

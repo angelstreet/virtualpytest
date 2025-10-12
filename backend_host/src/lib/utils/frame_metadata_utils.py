@@ -42,31 +42,34 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
         capture_folder = get_capture_folder(capture_dir)
         
         # ✅ STORE ACTION IN DEVICE STATE (in-memory for fast zapping detection)
-        # Get device_id from capture_folder
-        from shared.src.lib.utils.storage_path_utils import get_device_info_from_capture_folder
-        device_info = get_device_info_from_capture_folder(capture_folder)
-        device_id = device_info.get('device_id', capture_folder)
-        
-        # Store in global device state (same instance used by capture_monitor)
-        from backend_host.scripts.incident_manager import get_global_incident_manager
-        # Use the SAME incident_manager instance as capture_monitor (singleton)
-        incident_manager = get_global_incident_manager()
-        device_state = incident_manager.get_device_state(device_id)
-        
-        # Store last action with timestamp
-        device_state['last_action'] = {
-            'command': action.get('command'),
-            'timestamp': action_completion_timestamp,
-            'params': action.get('params', {})
-        }
-        
-        logger.info(f"[@frame_metadata_utils] ✅ Stored action in device_state[{device_id}]: {action.get('command')} @ {action_completion_timestamp}")
+        # ✅ INTER-PROCESS COMMUNICATION via last_action.json
+        # capture_monitor.py runs as SEPARATE PROCESS - can't share device_state memory
+        # Write to single last_action.json file (same pattern as last_zapping.json)
         
         metadata_path = get_metadata_path(capture_folder)
         
         if not os.path.exists(metadata_path):
             print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ Metadata path does not exist: {metadata_path}")
             return  # No metadata directory yet
+        
+        # ✅ WRITE last_action.json (instant read for capture_monitor)
+        try:
+            last_action_path = os.path.join(metadata_path, 'last_action.json')
+            last_action_data = {
+                'command': action.get('command'),
+                'timestamp': action_completion_timestamp,
+                'params': action.get('params', {}),
+                'written_at': datetime.utcnow().isoformat() + 'Z'
+            }
+            
+            with open(last_action_path, 'w') as f:
+                json.dump(last_action_data, f, indent=2)
+            
+            logger.info(f"[@frame_metadata_utils] ✅ Written last_action.json: {action.get('command')} @ {action_completion_timestamp}")
+            logger.info(f"[@frame_metadata_utils] 📂 Path: {last_action_path}")
+            
+        except Exception as e:
+            logger.error(f"[@frame_metadata_utils] ❌ Failed to write last_action.json: {e}")
         
         # Get last 5 JSON files by mtime (fastest approach - uses cached stat)
         json_files = []
