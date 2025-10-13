@@ -146,7 +146,8 @@ def detect_and_record_zapping(
             frame_filename=frame_filename,
             channel_info=channel_info,
             blackscreen_duration_ms=blackscreen_duration_ms,
-            is_automatic=is_automatic
+            is_automatic=is_automatic,
+            audio_info=audio_info
         )
         
         # ❌ REMOVED: Live events queue - redundant! Frame JSON is single source of truth
@@ -159,7 +160,8 @@ def detect_and_record_zapping(
             channel_info=channel_info,
             blackscreen_duration_ms=blackscreen_duration_ms,
             is_automatic=is_automatic,
-            action_info=action_info
+            action_info=action_info,
+            audio_info=audio_info
         )
         
         # 3️⃣ Store in database
@@ -197,7 +199,8 @@ def _update_frame_json_with_zapping(
     frame_filename: str,
     channel_info: Dict[str, Any],
     blackscreen_duration_ms: int,
-    is_automatic: bool
+    is_automatic: bool,
+    audio_info: Optional[Dict[str, Any]] = None
 ):
     """
     Update frame JSON with zapping metadata.
@@ -234,11 +237,8 @@ def _update_frame_json_with_zapping(
             'zapping_blackscreen_duration_ms': blackscreen_duration_ms,
             'zapping_detection_type': 'automatic' if is_automatic else 'manual',
             'zapping_detected_at': detected_at,
-            # Audio dropout analysis (used for zapping pre-check)
+            # Audio dropout analysis (silence duration only - used for zapping pre-check)
             'zapping_audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
-            'zapping_audio_mean_volume_db': audio_info.get('mean_volume_db', -100.0) if audio_info else -100.0,
-            'zapping_audio_segment_duration': audio_info.get('segment_duration', 0.0) if audio_info else 0.0,
-            'zapping_audio_segments_checked': audio_info.get('segments_checked', []) if audio_info else [],
         }
         
         # Write to current frame + next 5 frames (ensures frontend catches it)
@@ -297,7 +297,8 @@ def _write_last_zapping_json(
     channel_info: Dict[str, Any],
     blackscreen_duration_ms: int,
     is_automatic: bool,
-    action_info: Optional[Dict[str, Any]]
+    action_info: Optional[Dict[str, Any]],
+    audio_info: Optional[Dict[str, Any]] = None
 ):
     """
     Write last_zapping.json for instant read by zap_executor.
@@ -345,11 +346,8 @@ def _write_last_zapping_json(
             'action_command': action_info.get('last_action_executed') if action_info else None,
             'time_since_action_ms': action_info.get('time_since_action_ms') if action_info else None,
             
-            # Audio dropout analysis (used for zapping pre-check)
+            # Audio dropout analysis (silence duration only - used for zapping pre-check)
             'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
-            'audio_mean_volume_db': audio_info.get('mean_volume_db', -100.0) if audio_info else -100.0,
-            'audio_segment_duration': audio_info.get('segment_duration', 0.0) if audio_info else 0.0,
-            'audio_segments_checked': audio_info.get('segments_checked', []) if audio_info else [],
         }
         
         # Atomic write
@@ -411,14 +409,10 @@ def _store_zapping_event(
         
         duration_seconds = blackscreen_duration_ms / 1000.0
         
-        # Log audio dropout analysis (stored in frame JSON, logged here for visibility)
+        # Log audio dropout analysis (simplified - silence duration only)
         if audio_info:
-            segments_checked = audio_info.get('segments_checked', [])
-            logger.info(f"🔊 Audio dropout analysis:")
-            logger.info(f"   - Segments checked: {segments_checked} ({len(segments_checked)} total)")
-            logger.info(f"   - Silence duration: {audio_info.get('silence_duration', 0.0):.2f}s")
-            logger.info(f"   - Mean volume: {audio_info.get('mean_volume_db', -100.0):.1f}dB")
-            logger.info(f"   - Total analyzed: {audio_info.get('segment_duration', 0.0):.1f}s")
+            silence_duration = audio_info.get('silence_duration', 0.0)
+            logger.info(f"🔊 Audio silence: {silence_duration:.2f}s")
         
         # Record in zap_results table (reuses existing function)
         # Note: script_result_id is None for automatic zapping (not part of a script execution)

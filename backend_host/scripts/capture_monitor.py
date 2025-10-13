@@ -555,19 +555,17 @@ class InotifyFrameMonitor:
             
             logger.info(f"[{capture_folder}] Merging {len(segment_files)} segments: {segments_to_check}")
             
-            # Create temporary files for merge
-            import tempfile
-            concat_list_fd, concat_list_path = tempfile.mkstemp(suffix='.txt', prefix='concat_')
-            merged_fd, merged_path = tempfile.mkstemp(suffix='.ts', prefix=f'{capture_folder}_audio_check_')
-            os.close(merged_fd)
+            # ✅ Use FIXED filenames (overwrite each time - no space accumulation!)
+            concat_list_path = f'/tmp/{capture_folder}_concat_list.txt'
+            merged_path = f'/tmp/{capture_folder}_audio_check.ts'
             
             try:
-                # Write concat list
-                with os.fdopen(concat_list_fd, 'w') as f:
+                # Write concat list (overwrites previous file)
+                with open(concat_list_path, 'w') as f:
                     for seg_file in segment_files:
                         f.write(f"file '{seg_file}'\n")
                 
-                # Merge segments with ffmpeg
+                # Merge segments with ffmpeg (overwrites previous merged file)
                 merge_cmd = [
                     'ffmpeg',
                     '-hide_banner',
@@ -576,12 +574,15 @@ class InotifyFrameMonitor:
                     '-safe', '0',
                     '-i', concat_list_path,
                     '-c', 'copy',
-                    '-y',
+                    '-y',  # Overwrite without asking
                     merged_path
                 ]
                 
                 result = subprocess.run(merge_cmd, capture_output=True, text=True, timeout=10)
-                os.unlink(concat_list_path)
+                
+                # Clean up concat list (tiny file, but good practice)
+                if os.path.exists(concat_list_path):
+                    os.unlink(concat_list_path)
                 
                 if result.returncode != 0:
                     logger.warning(f"[{capture_folder}] Failed to merge segments: {result.stderr}")
@@ -623,7 +624,7 @@ class InotifyFrameMonitor:
                 }
                 
             finally:
-                # Clean up merged file
+                # Clean up merged file (frees space immediately instead of waiting for next overwrite)
                 if os.path.exists(merged_path):
                     os.unlink(merged_path)
             
