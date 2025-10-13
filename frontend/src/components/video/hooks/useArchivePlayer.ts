@@ -57,11 +57,10 @@ export const useArchivePlayer = ({
       
       setAvailableHours(manifest.available_hours);
       
-      // Sort chunks by time (oldest first) for proper playback order
+      // Sort chunks chronologically by creation timestamp (oldest first)
+      // This handles rolling 24h archives where clock time wraps around
       const sortedChunks = [...manifest.chunks].sort((a: any, b: any) => {
-        const aTime = a.hour * 3600 + a.chunk_index * 600;
-        const bTime = b.hour * 3600 + b.chunk_index * 600;
-        return aTime - bTime;
+        return a.created - b.created;
       });
       
       const metadata: ArchiveMetadata = {
@@ -75,9 +74,12 @@ export const useArchivePlayer = ({
           chunk_index: chunk.chunk_index,
           start_segment: index,
           end_segment: index,
+          // Use sequential playback time (index * 600) for archive navigation
+          // But keep clock time for reference
           start_time_seconds: chunk.hour * 3600 + chunk.chunk_index * 600,
           end_time_seconds: chunk.hour * 3600 + (chunk.chunk_index + 1) * 600,
-          duration_seconds: 600
+          duration_seconds: 600,
+          created: chunk.created  // Preserve creation timestamp
         }))
       };
       
@@ -111,64 +113,13 @@ export const useArchivePlayer = ({
           return;
         }
         
-        // Find chunk closest to current time, prioritizing current building chunk
-        const now = new Date();
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-        const currentTimeSeconds = currentHour * 3600 + currentMinute * 60;
-        const currentChunkIndex = Math.floor(currentMinute / 10);
-        
-        // First, try to find the current building chunk (highest priority)
-        let closestIndex = -1;
-        metadata.manifests.forEach((chunk, index) => {
-          if (chunk.window_index === currentHour && chunk.chunk_index === currentChunkIndex) {
-            closestIndex = index;
-          }
-        });
-        
-        // If current building chunk not found, find the most recent chunk before now
-        if (closestIndex === -1) {
-          let bestIndex = 0;
-          let minDistanceBack = Infinity;
-          
-          metadata.manifests.forEach((chunk, index) => {
-            const chunkStartTime = chunk.window_index * 3600 + chunk.chunk_index * 600;
-            
-            // Only consider chunks that started in the past (before or at current time)
-            // This prevents jumping to future chunks from yesterday
-            if (chunkStartTime <= currentTimeSeconds) {
-              const distanceBack = currentTimeSeconds - chunkStartTime;
-              if (distanceBack < minDistanceBack) {
-                minDistanceBack = distanceBack;
-                bestIndex = index;
-              }
-            }
-          });
-          
-          // If no chunks found before current time (all are from "future" yesterday),
-          // find the absolute closest chunk as fallback
-          if (minDistanceBack === Infinity) {
-            let minDistance = Infinity;
-            metadata.manifests.forEach((chunk, index) => {
-              const chunkStartTime = chunk.window_index * 3600 + chunk.chunk_index * 600;
-              const distance = Math.abs(currentTimeSeconds - chunkStartTime);
-              if (distance < minDistance) {
-                minDistance = distance;
-                bestIndex = index;
-              }
-            });
-          }
-          
-          closestIndex = bestIndex;
-        }
-        
+        // Start from the most recent chunk in the archive (last chunk in sorted array)
+        // This ensures we always start from available content, not theoretical "current" time
+        const closestIndex = metadata.manifests.length - 1;
         const newestChunk = metadata.manifests[closestIndex];
-        const isCurrentBuildingChunk = newestChunk.window_index === currentHour && newestChunk.chunk_index === currentChunkIndex;
-        const chunkDistance = Math.abs(currentTimeSeconds - (newestChunk.window_index * 3600 + newestChunk.chunk_index * 600));
         
         console.log(`[@EnhancedHLSPlayer] Archive initialized: ${metadata.manifests.length} chunks`);
-        console.log(`[@EnhancedHLSPlayer] Current time: ${currentHour}h${currentMinute}m`);
-        console.log(`[@EnhancedHLSPlayer] Starting from ${isCurrentBuildingChunk ? 'CURRENT BUILDING' : 'closest'} chunk: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index} (${chunkDistance}s away)${isCurrentBuildingChunk ? ' ⚡' : ''}`);
+        console.log(`[@EnhancedHLSPlayer] Starting from most recent chunk: hour ${newestChunk.window_index}, chunk ${newestChunk.chunk_index} (${newestChunk.start_time_seconds}s)`);
         
         setArchiveMetadata(metadata);
         setCurrentManifestIndex(closestIndex);

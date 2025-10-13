@@ -15,6 +15,7 @@ export interface ArchiveMetadata {
     start_time_seconds: number;
     end_time_seconds: number;
     duration_seconds: number;
+    created?: number;  // Unix timestamp of chunk creation
   }>;
 }
 

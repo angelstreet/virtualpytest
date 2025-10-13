@@ -811,6 +811,7 @@ class ZapExecutor:
                         'action_timestamp': zapping_data.get('action_timestamp'),
                         'audio_silence_duration': zapping_data.get('audio_silence_duration', 0.0),
                         'transition_images': zapping_data.get('transition_images', {}),  # ✅ NEW: Transition images
+                        'r2_images': zapping_data.get('r2_images', {}),  # ✅ NEW: R2 URLs for transition images
                         'details': {
                             'start_time': zapping_data.get('program_start_time', ''),
                             'end_time': zapping_data.get('program_end_time', '')
@@ -895,6 +896,7 @@ class ZapExecutor:
             'blackscreen_duration_ms': zapping_data.get('blackscreen_duration_ms', 0),  # ✅ Keep ms
             'total_zap_duration_ms': total_zap_duration_ms,  # ✅ NEW: Total duration
             'time_since_action_ms': time_since_action_ms,  # ✅ NEW: Action delay
+            'audio_silence_duration': result.audio_silence_duration,  # ✅ NEW: Audio silence duration for report
             'detection_type': zapping_data.get('detection_type', 'unknown'),
             'confidence': zapping_data.get('confidence', 0.0),
             'channel_info': {

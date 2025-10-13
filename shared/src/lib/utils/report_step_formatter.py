@@ -792,20 +792,37 @@ def format_analysis_results(step: Dict) -> str:
         
         if zapping_detected:
             blackscreen_duration = zapping_analysis.get('blackscreen_duration', 0)
-            zapping_duration = zapping_analysis.get('zapping_duration', 0)
+            blackscreen_duration_ms = zapping_analysis.get('blackscreen_duration_ms', 0)
+            total_zap_duration_ms = zapping_analysis.get('total_zap_duration_ms', 0)
+            audio_silence_duration = zapping_analysis.get('audio_silence_duration', 0)
+            zapping_duration = zapping_analysis.get('zapping_duration', 0)  # Legacy field
             channel_info = zapping_analysis.get('channel_info', {})
             analyzed_images = zapping_analysis.get('analyzed_images', 0)
             
-            # Combine zapping details in one line
+            # Combine zapping details with comprehensive timing information
             zap_details = []
-            zap_details.append(f"Blackscreen/Freeze Duration: {blackscreen_duration:.1f}s")
-            if zapping_duration > 0:
-                zap_details.append(f"Total Zapping Duration: {zapping_duration:.1f}s")
+            
+            # Show total zap duration (action → after blackscreen)
+            if total_zap_duration_ms > 0:
+                zap_details.append(f"Total Zap Duration: {total_zap_duration_ms/1000:.2f}s")
+            elif zapping_duration > 0:  # Legacy fallback
+                zap_details.append(f"Total Zap Duration: {zapping_duration:.1f}s")
+            
+            # Show blackscreen/freeze duration
+            if blackscreen_duration_ms > 0:
+                zap_details.append(f"Blackscreen Duration: {blackscreen_duration_ms/1000:.2f}s")
+            elif blackscreen_duration > 0:  # Legacy fallback
+                zap_details.append(f"Blackscreen Duration: {blackscreen_duration:.1f}s")
+            
+            # Show audio silence duration
+            if audio_silence_duration > 0:
+                zap_details.append(f"Audio Silence: {audio_silence_duration:.2f}s")
+            
             if analyzed_images > 0:
                 zap_details.append(f"Images Analyzed: {analyzed_images}")
             
             if zap_details:
-                analysis_html += f'<div class="analysis-detail" style="margin-bottom: 6px;">{" - ".join(zap_details)}</div>'
+                analysis_html += f'<div class="analysis-detail" style="margin-bottom: 6px;">{" | ".join(zap_details)}</div>'
                 
             # Channel information with spacing
             if channel_info.get('channel_name'):
