@@ -506,14 +506,18 @@ def _store_zapping_event(
         # For now, use device_id as device_name
         
         # Determine action command and timestamps
+        # Use high-precision timestamp to prevent 409 conflicts from duplicate entries
+        import time
+        current_timestamp = time.time()  # High precision (includes microseconds)
+        
         if action_info:
             action_command = action_info.get('last_action_executed', 'unknown')
             started_at = datetime.fromtimestamp(action_info.get('last_action_timestamp', 0))
-            completed_at = datetime.now()
+            completed_at = datetime.fromtimestamp(current_timestamp)
         else:
             action_command = 'manual_zap'  # Manual zapping (no action in system)
-            completed_at = datetime.now()
-            started_at = completed_at  # No action timestamp for manual
+            completed_at = datetime.fromtimestamp(current_timestamp)
+            started_at = datetime.fromtimestamp(current_timestamp - 0.001)  # 1ms before
         
         duration_seconds = blackscreen_duration_ms / 1000.0
         

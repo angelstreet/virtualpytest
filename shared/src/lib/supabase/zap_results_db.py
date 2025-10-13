@@ -4,7 +4,6 @@ Database operations for zap_results table
 
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
-from uuid import uuid4
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 
@@ -50,10 +49,9 @@ def record_zap_iteration(
         ... (other args)
     """
     try:
-        zap_result_id = str(uuid4())
-        
+        # Let Supabase auto-generate ID (gen_random_uuid() default)
+        # Don't include 'id' in insert - database will handle it
         zap_data = {
-            'id': zap_result_id,
             'script_result_id': script_result_id,
             'team_id': team_id,
             'host_name': host_name,
@@ -84,7 +82,6 @@ def record_zap_iteration(
         }
         
         print(f"[@db:zap_results:record_zap_iteration] Recording zap iteration:")
-        print(f"  - zap_result_id: {zap_result_id}")
         print(f"  - script_result_id: {script_result_id}")
         print(f"  - userinterface: {userinterface_name}")
         print(f"  - iteration: {iteration_index}")
@@ -99,9 +96,11 @@ def record_zap_iteration(
         supabase = get_supabase()
         result = supabase.table('zap_results').insert(zap_data).execute()
         
-        if result.data:
-            print(f"[@db:zap_results:record_zap_iteration] Success: {zap_result_id}")
-            return zap_result_id
+        if result.data and len(result.data) > 0:
+            # Get auto-generated ID from database response
+            generated_id = result.data[0].get('id')
+            print(f"[@db:zap_results:record_zap_iteration] Success: {generated_id}")
+            return generated_id
         else:
             print(f"[@db:zap_results:record_zap_iteration] Failed")
             return None
