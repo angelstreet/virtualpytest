@@ -1032,8 +1032,15 @@ class InotifyFrameMonitor:
                 # If already analyzed, skip detection (but continue to add audio if needed)
                 if check_json.get('analyzed'):
                     needs_detection = False
-                    # If already has audio, skip entirely
+                    # If already has audio, skip entirely BUT update cache first!
                     if 'audio' in check_json:
+                        # CRITICAL: Update cache before returning to propagate fresh audio data
+                        self.audio_cache[capture_folder] = {
+                            'audio': check_json['audio'],
+                            'mean_volume_db': check_json.get('mean_volume_db', -100),
+                            'audio_check_timestamp': check_json.get('audio_check_timestamp'),
+                            'audio_segment_file': check_json.get('audio_segment_file')
+                        }
                         return
             except:
                 pass  # If can't read, run detection
@@ -1065,6 +1072,12 @@ class InotifyFrameMonitor:
                             'audio_check_timestamp': existing_json.get('audio_check_timestamp'),
                             'audio_segment_file': existing_json.get('audio_segment_file')
                         }
+                        # CRITICAL FIX: Immediately update cache when reading JSON with audio data
+                        # This ensures transcript_accumulator's fresh audio data propagates to subsequent frames
+                        self.audio_cache[capture_folder] = existing_audio_data
+                        audio_val = "✅ YES" if existing_audio_data['audio'] else "❌ NO"
+                        volume = existing_audio_data.get('mean_volume_db', -100)
+                        logger.debug(f"[{capture_folder}] 🔄 Cache updated from existing JSON: audio={audio_val}, volume={volume:.1f}dB")
                 except:
                     pass
             
