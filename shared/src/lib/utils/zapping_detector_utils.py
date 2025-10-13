@@ -164,14 +164,9 @@ def detect_and_record_zapping(
             original_frame=None  # This IS the original
         )
         
-        # B) Frontend cache: Write to CURRENT frames as "zap_cache" (where AI completes)
-        _write_zapping_to_frames(
-            capture_folder=capture_folder,
-            frame_filename=None,  # None = find current frame
-            zapping_data=zapping_data,
-            key_prefix='zap_cache',  # Writes to "zap_cache" key
-            original_frame=frame_filename  # Reference to actual event
-        )
+        # B) Frontend cache: REMOVED - capture_monitor handles this!
+        # capture_monitor.py processes frames sequentially and will add zap_cache
+        # to the next N frames it processes (no race conditions)
         
         # ❌ REMOVED: Live events queue - redundant! Frame JSON is single source of truth
         # Frontend polls frame JSON directly (1s interval) which already has zapping + action data
