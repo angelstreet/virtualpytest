@@ -56,19 +56,52 @@ export interface MonitoringAnalysis {
   last_action_timestamp?: number;
   action_params?: Record<string, any>;
   
-  // Zapping detection metadata (from zapping_detector_utils.py)
+  // ✅ NEW: Zapping detection (nested structure) - from zapping_detector_utils.py
+  zap?: {
+    detected: boolean;
+    id: string;
+    channel_name: string;
+    channel_number: string;
+    program_name: string;
+    program_start_time: string;
+    program_end_time: string;
+    blackscreen_duration_ms: number;
+    detection_type: 'automatic' | 'manual';
+    confidence: number;
+    detected_at: string;
+    audio_silence_duration: number;
+  };
+  
+  // ✅ NEW: Zapping cache (for real-time frontend notification)
+  zap_cache?: {
+    detected: boolean;
+    id: string;
+    channel_name: string;
+    channel_number: string;
+    program_name: string;
+    program_start_time: string;
+    program_end_time: string;
+    blackscreen_duration_ms: number;
+    detection_type: 'automatic' | 'manual';
+    confidence: number;
+    detected_at: string;
+    audio_silence_duration: number;
+    original_frame: string; // Reference to actual event frame
+  };
+  
+  // @deprecated Old flat structure (kept for backward compatibility)
   zapping_detected?: boolean;
-  zapping_id?: string; // Unique ID for caching (prevents duplicate display)
+  zapping_id?: string;
   zapping_channel_name?: string;
   zapping_channel_number?: string;
   zapping_program_name?: string;
-  zapping_program_start_time?: string; // e.g., "18:00"
-  zapping_program_end_time?: string; // e.g., "18:30"
+  zapping_program_start_time?: string;
+  zapping_program_end_time?: string;
   zapping_confidence?: number;
   zapping_blackscreen_duration_ms?: number;
-  zapping_audio_silence_duration?: number; // Audio silence duration in seconds during zapping
-  zapping_detection_type?: 'automatic' | 'manual'; // 'automatic' = triggered by action, 'manual' = user change
-  zapping_detected_at?: string; // ISO timestamp
+  zapping_audio_silence_duration?: number;
+  zapping_detection_type?: 'automatic' | 'manual';
+  zapping_detected_at?: string;
 }
 
 // Subtitle analysis from backend detection (video.py) - EXACT field names
