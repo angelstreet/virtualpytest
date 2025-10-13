@@ -201,13 +201,21 @@ class ZapExecutor:
             motion_result = self._detect_motion_from_json(context)
             self._map_verification_result(result, 'motion', motion_result, context)
             
-            # 2. Get verification configurations (subtitles, audio)
+            # 2. ZAPPING: Read recent zapping from last_zapping.json (simple recency check)
+            if 'chup' in action_command.lower() and action_completion_time:
+                av_controller = self.device._get_controller('av')
+                if av_controller:
+                    capture_folder = os.path.basename(av_controller.video_capture_path)
+                    zapping_data = self._read_zapping_by_action_timestamp(action_completion_time, capture_folder)
+                    self._map_zapping_from_json(result, zapping_data, context)
+            
+            # 3. Get verification configurations (subtitles, audio)
             verification_configs = self._get_zap_verification_configs(context, iteration, action_command, action_completion_time)
             
             # Remove motion from configs (already handled above)
             verification_configs = [c for c in verification_configs if c.get('analysis_type') != 'motion']
             
-            # 3. Execute remaining verifications
+            # 4. Execute remaining verifications (subtitles, audio)
             if verification_configs:
                 batch_result = self._execute_verification_batch(context, verification_configs)
                 
@@ -217,14 +225,6 @@ class ZapExecutor:
                         config = verification_configs[i]
                         analysis_type = config.get('analysis_type')
                         self._map_verification_result(result, analysis_type, verification_result, context)
-            
-            # 4. ZAPPING: Read recent zapping from last_zapping.json (simple recency check)
-            if 'chup' in action_command.lower() and action_completion_time:
-                av_controller = self.device._get_controller('av')
-                if av_controller:
-                    capture_folder = os.path.basename(av_controller.video_capture_path)
-                    zapping_data = self._read_zapping_by_action_timestamp(action_completion_time, capture_folder)
-                    self._map_zapping_from_json(result, zapping_data, context)
             
             result.success = True
             result.message = f"Analysis completed for {action_command}"
