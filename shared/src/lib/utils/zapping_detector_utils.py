@@ -19,7 +19,7 @@ import os
 import json
 import fcntl
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -462,12 +462,14 @@ def _store_zapping_event(
         
         if action_info:
             action_command = action_info.get('last_action_executed', 'unknown')
-            started_at = datetime.fromtimestamp(action_info.get('last_action_timestamp', 0))
-            completed_at = datetime.fromtimestamp(current_timestamp)
+            # ✅ FIX: Use UTC timezone to match database expectations
+            started_at = datetime.fromtimestamp(action_info.get('last_action_timestamp', 0), tz=timezone.utc)
+            completed_at = datetime.fromtimestamp(current_timestamp, tz=timezone.utc)
         else:
             action_command = 'manual_zap'  # Manual zapping (no action in system)
-            completed_at = datetime.fromtimestamp(current_timestamp)
-            started_at = datetime.fromtimestamp(current_timestamp - 0.001)  # 1ms before
+            # ✅ FIX: Use UTC timezone to match database expectations
+            completed_at = datetime.fromtimestamp(current_timestamp, tz=timezone.utc)
+            started_at = datetime.fromtimestamp(current_timestamp - 0.001, tz=timezone.utc)  # 1ms before
         
         duration_seconds = blackscreen_duration_ms / 1000.0
         
