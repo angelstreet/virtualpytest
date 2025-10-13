@@ -26,7 +26,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
     const currentActions: ActionEntry[] = [];
 
     // ✅ NEW: Check for zapping detection (prioritize cache for real-time, fallback to truth for historical)
-    // Priority: zap_cache (real-time notification) > zap (historical truth) > old flat structure (backward compat)
+    // Priority: zap_cache (real-time notification) > zap (historical truth)
     const zapData = monitoringAnalysis.zap_cache?.detected 
       ? monitoringAnalysis.zap_cache 
       : monitoringAnalysis.zap?.detected 
@@ -41,40 +41,34 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
       console.log('[ActionHistory] zap found:', monitoringAnalysis.zap);
     }
     
-    // Backward compatibility: fallback to old flat structure
-    const legacyZapDetected = monitoringAnalysis.zapping_detected && monitoringAnalysis.zapping_id;
-    
-    if (zapData || legacyZapDetected) {
-      const zapId = zapData?.id || monitoringAnalysis.zapping_id!;
+    if (zapData) {
+      const zapId = zapData.id;
       
       console.log('[ActionHistory] Zap detected! ID:', zapId, 'Already shown:', shownZappingIds.has(zapId));
       
-      // ✅ CACHE CHECK: Only show each zapping event once (prevents duplicates from multiple frames)
+      // ✅ CRITICAL: Only show each zapping event once (prevents duplicates from multiple frames with same zap_cache)
       if (!shownZappingIds.has(zapId)) {
         console.log('[ActionHistory] Adding zap to actions:', zapId);
-        // Use new structure if available, fallback to old
-        const channelName = zapData?.channel_name || monitoringAnalysis.zapping_channel_name || 'Unknown';
-        const channelNumber = zapData?.channel_number || monitoringAnalysis.zapping_channel_number || '';
-        const detectionType = zapData?.detection_type || monitoringAnalysis.zapping_detection_type || 'manual';
+        const channelName = zapData.channel_name || 'Unknown';
+        const channelNumber = zapData.channel_number || '';
+        const detectionType = zapData.detection_type || 'manual';
         const isCache = monitoringAnalysis.zap_cache?.detected || false;
         
         const zappingAction: ActionEntry = {
           command: detectionType === 'automatic'
             ? `📺 ZAP${isCache ? ' 🔔' : ''} → ${channelName} ${channelNumber ? `(${channelNumber})` : ''}`
             : `📺 MANUAL ZAP${isCache ? ' 🔔' : ''} → ${channelName} ${channelNumber ? `(${channelNumber})` : ''}`,
-          timestamp: zapData?.detected_at 
+          timestamp: zapData.detected_at 
             ? new Date(zapData.detected_at).getTime() / 1000
-            : monitoringAnalysis.zapping_detected_at
-              ? new Date(monitoringAnalysis.zapping_detected_at).getTime() / 1000
-              : Date.now() / 1000,
+            : Date.now() / 1000,
           params: {
-            channel_name: zapData?.channel_name || monitoringAnalysis.zapping_channel_name,
-            channel_number: zapData?.channel_number || monitoringAnalysis.zapping_channel_number,
-            program_name: zapData?.program_name || monitoringAnalysis.zapping_program_name,
-            program_start_time: zapData?.program_start_time || monitoringAnalysis.zapping_program_start_time,
-            program_end_time: zapData?.program_end_time || monitoringAnalysis.zapping_program_end_time,
-            blackscreen_duration_ms: zapData?.blackscreen_duration_ms || monitoringAnalysis.zapping_blackscreen_duration_ms,
-            audio_silence_duration: zapData?.audio_silence_duration || monitoringAnalysis.zapping_audio_silence_duration,
+            channel_name: zapData.channel_name,
+            channel_number: zapData.channel_number,
+            program_name: zapData.program_name,
+            program_start_time: zapData.program_start_time,
+            program_end_time: zapData.program_end_time,
+            blackscreen_duration_ms: zapData.blackscreen_duration_ms,
+            audio_silence_duration: zapData.audio_silence_duration,
             detection_type: detectionType,
             is_cache: isCache,
             original_frame: monitoringAnalysis.zap_cache?.original_frame,
@@ -83,7 +77,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         };
         currentActions.push(zappingAction);
         
-        // Mark as shown
+        // Mark as shown immediately (synchronously update tracking)
         setShownZappingIds(prev => new Set(prev).add(zapId));
       } else {
         console.log('[ActionHistory] Zap already shown, skipping:', zapId);
@@ -115,7 +109,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         return sorted;
       });
     }
-  }, [monitoringAnalysis]);
+  }, [monitoringAnalysis, shownZappingIds]);
 
   // Auto-remove actions after 10 seconds (increased for zapping events)
   useEffect(() => {
