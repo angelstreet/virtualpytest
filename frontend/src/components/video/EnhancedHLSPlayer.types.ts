@@ -27,6 +27,7 @@ export interface TimedSegment {
   translations?: Record<string, string>;  // Optional translations
 }
 
+// Legacy transcript format (6-second segments)
 export interface TranscriptSegment {
   segment_num: number;
   relative_seconds: number;
@@ -38,7 +39,6 @@ export interface TranscriptSegment {
   translations?: Record<string, string>;
 }
 
-// OLD format (6-second segments)
 export interface TranscriptDataLegacy {
   capture_folder: string;
   sample_interval_seconds: number;
@@ -48,7 +48,7 @@ export interface TranscriptDataLegacy {
   total_samples: number;
 }
 
-// NEW format (10-minute single transcript per chunk with timed segments)
+// 10-minute transcript format with timed segments
 export interface MinuteMetadata {
   minute: number;
   time_range: string;
@@ -77,7 +77,6 @@ export interface TranscriptData10Min {
   minute_metadata?: MinuteMetadata[];
 }
 
-// Union type for backward compatibility
 export type TranscriptData = TranscriptDataLegacy | TranscriptData10Min;
 
 export interface ErrorTrendData {

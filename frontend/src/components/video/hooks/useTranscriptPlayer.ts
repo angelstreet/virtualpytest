@@ -135,56 +135,59 @@ export const useTranscriptPlayer = ({
             console.log(`[@useTranscriptPlayer] Available languages:`, languages);
             console.log(`[@useTranscriptPlayer] Available dubbed audio:`, dubbedLanguages);
             
-            // OPTIMIZATION: Transcript data is now included directly in manifest (1 API call instead of 2)
-            console.log(`[@useTranscriptPlayer] ⚡ Reading transcript directly from manifest (hour ${hour}, chunk ${chunkIndex})`);
+            // Manifest has metadata only - load actual chunk JSON for segments
+            console.log(`[@useTranscriptPlayer] Loading transcript chunk with segments (hour ${hour}, chunk ${chunkIndex})`);
+            const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
             
-            // Build transcript object from manifest data
-            const transcript: TranscriptData10Min = {
-              capture_folder: chunkInfo.capture_folder || deviceId,
-              hour: hour,
-              chunk_index: chunkIndex,
-              chunk_duration_minutes: 10,
-              language: chunkInfo.language || 'unknown',
-              transcript: chunkInfo.transcript || '',
-              confidence: chunkInfo.confidence || 0.0,
-              transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
-              timestamp: chunkInfo.timestamp || new Date().toISOString(),
-              mp3_file: chunkInfo.mp3_file || `chunk_10min_${chunkIndex}.mp3`,
-              segments: chunkInfo.segments || [],
-              minute_metadata: chunkInfo.minute_metadata || []
-            };
-            
-            if (!transcript.transcript) {
-              console.log(`[@useTranscriptPlayer] No transcript text in manifest for chunk ${chunkIndex}`);
-              setTranscriptData(null);
-              setRawTranscriptData(null);
-              return;
-            }
-            
-            // Store raw 10-min data for timed segment access
-            setRawTranscriptData(transcript);
-            
-            // Show segment summary
-            const segmentCount = transcript.segments?.length || 0;
-            if (segmentCount > 0 && transcript.segments) {
-              const firstSeg = transcript.segments[0];
-              const lastSeg = transcript.segments[segmentCount - 1];
-              console.log(`📚 Loaded ${segmentCount} segments: ${firstSeg.start.toFixed(1)}s-${lastSeg.end.toFixed(1)}s | First: "${firstSeg.text.substring(0, 30)}..."`);
-            } else {
-              console.log(`[@useTranscriptPlayer] 10-min transcript with ${segmentCount} timed segments`);
-            }
-            
-            const normalizedData = normalizeTranscriptData(transcript);
-            
-            console.log(`[@useTranscriptPlayer] 10-min transcript loaded from manifest:`, {
-              language: transcript.language,
-              confidence: transcript.confidence,
-              textLength: transcript.transcript.length,
-              segmentCount: transcript.segments?.length || 0,
-              preview: transcript.transcript.substring(0, 100)
-            });
-            
-            setTranscriptData(normalizedData);
+            fetch(transcriptUrl)
+              .then(res => {
+                if (!res.ok) throw new Error(`Transcript chunk not found`);
+                return res.json();
+              })
+              .then((data) => {
+                const transcript: TranscriptData10Min = {
+                  ...data,
+                  hour: hour,
+                  chunk_index: chunkIndex,
+                };
+                
+                if (!transcript.transcript) {
+                  console.log(`[@useTranscriptPlayer] No transcript text in chunk ${chunkIndex}`);
+                  setTranscriptData(null);
+                  setRawTranscriptData(null);
+                  return;
+                }
+                
+                // Store raw 10-min data for timed segment access
+                setRawTranscriptData(transcript);
+                
+                // Show segment summary
+                const segmentCount = transcript.segments?.length || 0;
+                if (segmentCount > 0 && transcript.segments) {
+                  const firstSeg = transcript.segments[0];
+                  const lastSeg = transcript.segments[segmentCount - 1];
+                  console.log(`📚 Loaded ${segmentCount} segments: ${firstSeg.start.toFixed(1)}s-${lastSeg.end.toFixed(1)}s | First: "${firstSeg.text.substring(0, 30)}..."`);
+                } else {
+                  console.log(`[@useTranscriptPlayer] ⚠️ Chunk has no timed segments`);
+                }
+                
+                const normalizedData = normalizeTranscriptData(transcript);
+                
+                console.log(`[@useTranscriptPlayer] ✅ Transcript loaded:`, {
+                  language: transcript.language,
+                  confidence: transcript.confidence,
+                  textLength: transcript.transcript.length,
+                  segmentCount: segmentCount,
+                  preview: transcript.transcript.substring(0, 100)
+                });
+                
+                setTranscriptData(normalizedData);
+              })
+              .catch((error) => {
+                console.error(`[@useTranscriptPlayer] Failed to load transcript:`, error.message);
+                setTranscriptData(null);
+                setRawTranscriptData(null);
+              });
           })
           .catch((error) => {
             console.log(`[@useTranscriptPlayer] Error loading transcript:`, error.message);
@@ -217,7 +220,7 @@ export const useTranscriptPlayer = ({
         }
       } else {
         // LEGACY format: Find closest 6-second segment
-        const closestSegment = transcriptData.segments.reduce((closest, segment) => {
+        const closestSegment = transcriptData.segments.reduce((closest: TranscriptSegment, segment: TranscriptSegment) => {
           const timeDiff = Math.abs(segment.relative_seconds - globalCurrentTime);
           const closestDiff = closest ? Math.abs(closest.relative_seconds - globalCurrentTime) : Infinity;
           return timeDiff < closestDiff ? segment : closest;

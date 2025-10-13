@@ -526,7 +526,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         )}
 
         <TranscriptOverlay
-          currentTranscript={transcript.currentTranscript}
           transcriptText={transcript.getCurrentTranscriptText()}
           selectedAudioLanguage={transcript.selectedAudioLanguage}
           selectedTranscriptLanguage={transcript.selectedTranscriptLanguage}

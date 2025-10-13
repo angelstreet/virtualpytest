@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, Menu, MenuItem, CircularProgress } from '@mui/material';
-import { AutoAwesome, Headphones, Language } from '@mui/icons-material';
-import { TranscriptSegment } from '../EnhancedHLSPlayer.types';
+import { Headphones, Language } from '@mui/icons-material';
 
 interface TranscriptOverlayProps {
-  currentTranscript: TranscriptSegment | null;
   transcriptText: string;
   
   // Separate language controls for audio and transcript
@@ -22,7 +20,6 @@ interface TranscriptOverlayProps {
 }
 
 export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
-  currentTranscript,
   transcriptText,
   selectedAudioLanguage = 'original',
   selectedTranscriptLanguage = 'original',
@@ -38,8 +35,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
   const [audioMenuAnchor, setAudioMenuAnchor] = useState<null | HTMLElement>(null);
   const [transcriptMenuAnchor, setTranscriptMenuAnchor] = useState<null | HTMLElement>(null);
   
-  // Show if we have either legacy currentTranscript OR new transcriptText
-  if (!show || (!currentTranscript && !transcriptText)) {
+  // Show only if we have transcript text
+  if (!show || !transcriptText) {
     return null;
   }
 
@@ -258,45 +255,6 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         })}
       </Menu>
 
-      {/* Language and confidence info - positioned above transcript box */}
-      <Box
-        sx={{
-          position: 'fixed',
-          bottom: 115,  // Position above the transcript box
-          left: '40px',  // Left aligned
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          zIndex: 1250,
-        }}
-      >
-        {currentTranscript?.enhanced_transcript && selectedTranscriptLanguage === 'original' && (
-          <Box sx={{ display: 'flex', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)', px: 1, py: 0.5, borderRadius: 1 }}>
-            <AutoAwesome sx={{ fontSize: 14, color: '#2196f3', mr: 0.5 }} />
-            <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 600, fontSize: '0.7rem' }}>
-              AI Enhanced
-            </Typography>
-          </Box>
-        )}
-        
-        {currentTranscript && (
-          <Box sx={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', px: 1.5, py: 0.5, borderRadius: 1 }}>
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: 'rgba(255,255,255,0.8)', 
-                fontSize: '0.7rem',
-                fontWeight: 500,
-              }}
-            >
-              {selectedTranscriptLanguage === 'original' 
-                ? `${currentTranscript.language.charAt(0).toUpperCase() + currentTranscript.language.slice(1).toLowerCase()} • ${Math.round(currentTranscript.confidence * 100)}%`
-                : `Translated to ${languageNames[selectedTranscriptLanguage] || selectedTranscriptLanguage}`
-              }
-            </Typography>
-          </Box>
-        )}
-      </Box>
 
       {/* Transcript box - only 2 lines */}
       <Box
@@ -313,12 +271,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           maxWidth: 'calc(100% - 80px)',  // Window width minus 80px
           width: 'calc(100% - 80px)',      // Use full available width
           textAlign: 'center',
-          border: currentTranscript?.enhanced_transcript && selectedTranscriptLanguage === 'original'
-            ? '2px solid rgba(33, 150, 243, 0.8)'
-            : '1px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: currentTranscript?.enhanced_transcript && selectedTranscriptLanguage === 'original'
-            ? '0 4px 12px rgba(33, 150, 243, 0.4)'
-            : '0 4px 12px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           zIndex: 1250,  // Below timeline (which is 1300) but above video
         }}
       >
