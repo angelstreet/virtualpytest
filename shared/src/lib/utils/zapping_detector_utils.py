@@ -247,7 +247,8 @@ def detect_and_record_zapping(
             'blackscreen_duration_ms': blackscreen_duration_ms,        # ✅ ADD: For frontend display
             'time_since_action_ms': time_since_action_ms,              # ✅ ADD: For total calculation
             'total_zap_duration_ms': total_zap_duration_ms,            # ✅ ADD: Backend calculated total
-            'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0  # ✅ ADD: Audio info
+            'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,  # ✅ ADD: Audio info
+            'r2_images': r2_images if r2_images else {}  # ✅ ADD: R2 URLs for capture_monitor logging
         }
         
     except Exception as e:

@@ -319,7 +319,7 @@ class InotifyFrameMonitor:
                                 if cold_path:
                                     device_state['blackscreen_before_thumbnail_cold'] = cold_path
                                     device_state['blackscreen_before_filename'] = before_filename
-                                    logger.debug(f"[{capture_folder}] Copied BEFORE blackscreen frame to cold: {before_filename}")
+                                    logger.info(f"[{capture_folder}] 📋 BLACKSCREEN START: Copied BEFORE frame to cold → {cold_path}")
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] ⚠️  Failed to capture BEFORE frame: {e}")
                     
@@ -338,7 +338,7 @@ class InotifyFrameMonitor:
                                 storage_key = 'audio_loss' if event_type == 'audio' else event_type
                                 device_state[f'{storage_key}_start_thumbnail_cold'] = cold_path
                                 device_state[f'{storage_key}_start_filename'] = current_filename
-                                logger.debug(f"[{capture_folder}] Copied {storage_key} START to cold storage")
+                                logger.info(f"[{capture_folder}] 📋 {storage_key.upper()} START: Copied FIRST frame to cold → {cold_path}")
                             else:
                                 logger.warning(f"[{capture_folder}] ⚠️  Failed to copy {event_type} START to cold")
                         else:
@@ -397,7 +397,7 @@ class InotifyFrameMonitor:
                             if cold_path:
                                 device_state['blackscreen_last_thumbnail_cold'] = cold_path
                                 device_state['blackscreen_last_filename'] = last_blackscreen_filename
-                                logger.debug(f"[{capture_folder}] Copied LAST blackscreen frame to cold: {last_blackscreen_filename}")
+                                logger.info(f"[{capture_folder}] 📋 BLACKSCREEN END: Copied LAST blackscreen frame to cold → {cold_path}")
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] ⚠️  Failed to capture LAST blackscreen frame: {e}")
                 
@@ -418,7 +418,7 @@ class InotifyFrameMonitor:
                             storage_key = 'audio_loss' if event_type == 'audio' else event_type
                             device_state[f'{storage_key}_closure_frame'] = cold_path
                             device_state[f'{storage_key}_closure_filename'] = current_filename
-                            logger.debug(f"[{capture_folder}] Copied {storage_key} closure frame to cold storage")
+                            logger.info(f"[{capture_folder}] 📋 {storage_key.upper()} END: Copied AFTER frame to cold → {cold_path}")
                 
                 # Log event end
                 if event_type == 'audio':
@@ -498,22 +498,47 @@ class InotifyFrameMonitor:
             # Get device_state to access transition images (same way as _add_event_duration_metadata)
             device_state = self.incident_manager.get_device_state(device_id)
             
+            # DEBUG: Log device_state blackscreen keys
+            logger.debug(f"[{capture_folder}] device_state blackscreen keys:")
+            logger.debug(f"  - before_thumbnail_cold: {device_state.get('blackscreen_before_thumbnail_cold')}")
+            logger.debug(f"  - start_thumbnail_cold: {device_state.get('blackscreen_start_thumbnail_cold')}")
+            logger.debug(f"  - last_thumbnail_cold: {device_state.get('blackscreen_last_thumbnail_cold')}")
+            logger.debug(f"  - closure_frame: {device_state.get('blackscreen_closure_frame')}")
+            
             # ✅ COLLECT transition images from device_state (same as freeze/blackscreen incident tracking)
+            before_path = device_state.get('blackscreen_before_thumbnail_cold')
+            first_path = device_state.get('blackscreen_start_thumbnail_cold')
+            last_path = device_state.get('blackscreen_last_thumbnail_cold')
+            after_path = device_state.get('blackscreen_closure_frame')
+            
+            # ✅ FALLBACK: For single-frame blackscreens, first and last are the same
+            # If first is missing but last exists, use last as first (they're the same frame anyway)
+            first_frame = device_state.get('blackscreen_start_filename')
+            last_frame = device_state.get('blackscreen_last_filename')
+            if not first_path and last_path and first_frame == last_frame:
+                logger.debug(f"[{capture_folder}] Single-frame blackscreen - using last as first (same frame: {first_frame})")
+                first_path = last_path
+            
             transition_images = {
                 'before_frame': device_state.get('blackscreen_before_filename'),
-                'before_thumbnail_path': device_state.get('blackscreen_before_thumbnail_cold'),
-                'first_blackscreen_frame': device_state.get('blackscreen_start_filename'),
-                'first_blackscreen_thumbnail_path': device_state.get('blackscreen_start_thumbnail_cold'),
-                'last_blackscreen_frame': device_state.get('blackscreen_last_filename'),
-                'last_blackscreen_thumbnail_path': device_state.get('blackscreen_last_thumbnail_cold'),
+                'before_thumbnail_path': before_path,
+                'first_blackscreen_frame': first_frame,
+                'first_blackscreen_thumbnail_path': first_path,
+                'last_blackscreen_frame': last_frame,
+                'last_blackscreen_thumbnail_path': last_path,
                 'after_frame': current_filename,  # Current frame (after blackscreen ended)
-                'after_thumbnail_path': device_state.get('blackscreen_closure_frame')  # Already stored by event tracking
+                'after_thumbnail_path': after_path  # Already stored by event tracking
             }
             
             # Log which images are available (debug R2 upload issues)
-            images_found = sum(1 for k, v in transition_images.items() if v and '_thumbnail_path' in k)
-            images_missing = [k.replace('_thumbnail_path', '') for k, v in transition_images.items() if not v and '_thumbnail_path' in k]
-            logger.info(f"[{capture_folder}] 📸 Transition images: {images_found}/4 found" + (f", missing: {images_missing}" if images_missing else ""))
+            images_found = sum(1 for path in [before_path, first_path, last_path, after_path] if path)
+            missing = []
+            if not before_path: missing.append('before')
+            if not first_path: missing.append('first')
+            if not last_path: missing.append('last')
+            if not after_path: missing.append('after')
+            
+            logger.info(f"[{capture_folder}] 📸 Transition images: {images_found}/4 found" + (f", missing: {missing}" if missing else ""))
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
@@ -535,11 +560,19 @@ class InotifyFrameMonitor:
                 detection_type = result.get('detection_type', 'unknown')
                 logger.info(f"[{capture_folder}] 📺 {detection_type.upper()} ZAPPING: {channel_name} {channel_number}")
                 
-                # Log R2 upload status for transition images
+                # Log R2 upload status for transition images with full URLs
                 r2_images = result.get('r2_images', {})
                 if r2_images:
                     uploaded = [k for k, v in r2_images.items() if v and k.endswith('_url')]
                     logger.info(f"[{capture_folder}] 📤 R2 upload: {len(uploaded)}/4 transition images uploaded to R2")
+                    
+                    # Log each URL (or None if missing)
+                    logger.info(f"[{capture_folder}] R2 URLs:")
+                    logger.info(f"  - before: {r2_images.get('before_url', 'MISSING')}")
+                    logger.info(f"  - first_blackscreen: {r2_images.get('first_blackscreen_url', 'MISSING')}")
+                    logger.info(f"  - last_blackscreen: {r2_images.get('last_blackscreen_url', 'MISSING')}")
+                    logger.info(f"  - after: {r2_images.get('after_url', 'MISSING')}")
+                    
                     if len(uploaded) < 4:
                         missing = [k.replace('_url', '') for k in ['before_url', 'first_blackscreen_url', 'last_blackscreen_url', 'after_url'] if not r2_images.get(k)]
                         logger.warning(f"[{capture_folder}] ⚠️  Missing R2 images: {missing}")
