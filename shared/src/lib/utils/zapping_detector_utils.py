@@ -104,7 +104,7 @@ def detect_and_record_zapping(
             image_path=frame_path,
             context_name=capture_folder
         )
-        logger.info(f"[{capture_folder}] 🤖 AI analysis complete: success={banner_result.get('success')}, banner_detected={banner_result.get('banner_detected')}")
+        # Result already logged by ai_utils.py
         
         if not banner_result.get('success'):
             logger.info(f"[{capture_folder}] ❌ No banner detected - regular blackscreen, not zapping")
@@ -126,19 +126,14 @@ def detect_and_record_zapping(
         channel_info = banner_result.get('channel_info', {})
         confidence = channel_info.get('confidence', 0.0)
         
-        logger.info(f"[{capture_folder}] ✅ Channel banner detected!")
-        logger.info(f"[{capture_folder}]    • Channel: {channel_info.get('channel_name', 'Unknown')} ({channel_info.get('channel_number', '')})")
-        logger.info(f"[{capture_folder}]    • Program: {channel_info.get('program_name', 'Unknown')}")
-        logger.info(f"[{capture_folder}]    • Confidence: {confidence:.2f}")
-        
-        # Determine if automatic or manual zapping
+        # Log action type only (channel info already logged by ai_utils.py)
         is_automatic = action_info is not None
         detection_type = 'automatic' if is_automatic else 'manual'
         
         if is_automatic:
-            logger.info(f"[{capture_folder}]    • Action: {action_info['last_action_executed']} ({action_info['time_since_action_ms']}ms before)")
+            logger.info(f"[{capture_folder}] ⚡ AUTOMATIC zapping: {action_info['last_action_executed']} ({action_info['time_since_action_ms']}ms before)")
         else:
-            logger.info(f"[{capture_folder}]    • Action: MANUAL (no action found within 10s)")
+            logger.info(f"[{capture_folder}] 👤 MANUAL zapping (no action found within 10s)")
         
         # 1️⃣ Update frame JSON (for archive/playback) - DUAL WRITE STRATEGY
         
