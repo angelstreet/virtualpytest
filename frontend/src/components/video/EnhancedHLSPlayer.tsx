@@ -315,20 +315,39 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         maxBufferSecondsRef.current = 0; // Reset buffer tracking for new live session
         seekToLive();
       } else {
-        if (videoRef.current) {
-          const video = videoRef.current;
-          console.log(`[@EnhancedHLSPlayer] Mode change to archive, starting playback from first chunk`);
-          video.currentTime = 0;
-          // Auto-play when entering archive mode
-          video.play().catch(err => {
-            console.warn('[@EnhancedHLSPlayer] Failed to auto-play in archive mode:', err);
-          });
-        }
+        console.log(`[@EnhancedHLSPlayer] Mode change to archive - will auto-play when video loads`);
       }
     }, 500);
     
     return () => clearTimeout(timer);
   }, [isLiveMode]);
+
+  // Auto-play archive mode after video loads
+  useEffect(() => {
+    if (!isLiveMode && videoRef.current && !isTransitioning) {
+      const video = videoRef.current;
+      
+      // Wait for video to be loaded and ready
+      const tryPlay = () => {
+        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+          console.log(`[@EnhancedHLSPlayer] Archive video loaded, starting auto-play`);
+          video.currentTime = 0;
+          video.play().catch(err => {
+            console.warn('[@EnhancedHLSPlayer] Failed to auto-play archive:', err);
+          });
+        }
+      };
+
+      // If already loaded, play immediately
+      if (video.readyState >= 2) {
+        tryPlay();
+      } else {
+        // Otherwise wait for loadeddata event
+        video.addEventListener('loadeddata', tryPlay, { once: true });
+        return () => video.removeEventListener('loadeddata', tryPlay);
+      }
+    }
+  }, [isLiveMode, streamUrl, isTransitioning]);
 
   // Dubbed audio sync and control (reuses restart pattern!)
   useEffect(() => {
