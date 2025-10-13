@@ -106,7 +106,28 @@ def record_zap_iteration(
             return None
             
     except Exception as e:
-        print(f"[@db:zap_results:record_zap_iteration] Error: {str(e)}")
+        print(f"[@db:zap_results:record_zap_iteration] ❌ ERROR: {str(e)}")
+        print(f"[@db:zap_results:record_zap_iteration] Error type: {type(e).__name__}")
+        
+        # Log full error details for debugging
+        if hasattr(e, 'code'):
+            print(f"[@db:zap_results:record_zap_iteration] Error code: {e.code}")
+        if hasattr(e, 'message'):
+            print(f"[@db:zap_results:record_zap_iteration] Error message: {e.message}")
+        if hasattr(e, 'details'):
+            print(f"[@db:zap_results:record_zap_iteration] Error details: {e.details}")
+        
+        # Log the data we tried to insert (for debugging conflicts)
+        print(f"[@db:zap_results:record_zap_iteration] Data attempted:")
+        print(f"  - device_name: {zap_data.get('device_name')}")
+        print(f"  - host_name: {zap_data.get('host_name')}")
+        print(f"  - started_at: {zap_data.get('started_at')}")
+        print(f"  - completed_at: {zap_data.get('completed_at')}")
+        print(f"  - action_command: {zap_data.get('action_command')}")
+        print(f"  - detection_method: {zap_data.get('detection_method')}")
+        
+        import traceback
+        traceback.print_exc()
         return None
 
 
