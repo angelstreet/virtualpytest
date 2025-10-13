@@ -6,11 +6,12 @@ called from both capture_monitor.py and zap_executor.py.
 
 Architecture:
 - Reuses existing banner detection AI from device video controllers
-- Updates frame JSON with zapping metadata (single source of truth!)
+- Writes truth to single frame only (historical record)
+- capture_monitor writes cache to next 5 frames as they arrive
 - Stores events in zap_results database table
 - Frontend reads directly from frame JSON (1s polling)
 
-✅ OPTIMIZED: No separate live events system - frame JSON has everything!
+✅ SIMPLE: Write truth to 1 frame, capture_monitor handles cache
 ✅ NO CODE DUPLICATION - single source of truth!
 """
 
@@ -37,11 +38,11 @@ def detect_and_record_zapping(
     Detect zapping by analyzing channel banner and record the event.
     
     This function:
-    1. Gets device video controller (reuses existing code)
-    2. Analyzes frame for channel banner using AI
-    3. Updates frame JSON with zapping metadata
-    4. Writes to live_events.json for real-time display
-    5. Stores in database
+    1. Analyzes frame for channel banner using AI
+    2. Writes truth to single frame only (historical record)
+    3. Writes last_zapping.json for instant access
+    4. Stores in database
+    5. capture_monitor writes cache to next 5 frames as they arrive
     
     Args:
         device_id: Device identifier
@@ -135,9 +136,8 @@ def detect_and_record_zapping(
         else:
             logger.info(f"[{capture_folder}] 👤 MANUAL zapping (no action found within 10s)")
         
-        # 1️⃣ Update frame JSON (for archive/playback) - DUAL WRITE STRATEGY
-        
-        # Prepare zapping data (used for both truth and cache)
+        # 1️⃣ Write truth to single frame only (historical record)
+        # capture_monitor will write cache to next 5 frames as they arrive
         zapping_data = {
             'channel_name': channel_info.get('channel_name', ''),
             'channel_number': channel_info.get('channel_number', ''),
@@ -150,72 +150,11 @@ def detect_and_record_zapping(
             'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
         }
         
-        # A) Historical truth: Write to original frame as "zap" (where blackscreen ended)
-        _write_zapping_to_frames(
+        _write_zapping_to_frame(
             capture_folder=capture_folder,
             frame_filename=frame_filename,
-            zapping_data=zapping_data,
-            key_prefix='zap',  # Writes to "zap" key
-            original_frame=None  # This IS the original
+            zapping_data=zapping_data
         )
-        
-        # B) Frontend cache: Fill gap from truth end to NOW only (limited window)
-        # Write cache to recent frames only - capture_monitor handles future frames
-        try:
-            from shared.src.lib.utils.storage_path_utils import get_metadata_path
-            import time
-            
-            original_sequence = int(frame_filename.split('_')[1].split('.')[0])
-            cache_start = original_sequence + 6  # Right after truth ends
-            
-            # ✅ FIXED: Only write cache for 10 seconds worth of frames (60 frames at 6fps)
-            # This prevents writing to thousands of old archived frames!
-            cache_end = cache_start + 60  # Limit to next 60 frames (~10 seconds)
-            
-            metadata_path = get_metadata_path(capture_folder)
-            
-            logger.info(f"[{capture_folder}] 📋 Writing cache from {cache_start} to {cache_end} (max 60 frames)")
-            
-            # Write cache to existing frames in limited range only
-            frames_written = []
-            for seq in range(cache_start, cache_end + 1):
-                target_file = os.path.join(metadata_path, f"capture_{seq:09d}.json")
-                if not os.path.exists(target_file):
-                    continue  # Frame doesn't exist yet, skip
-                
-                try:
-                    with open(target_file, 'r') as f:
-                        data = json.load(f)
-                    
-                    # Don't overwrite if already has truth
-                    if 'zap' in data and data['zap'].get('detected'):
-                        continue
-                    
-                    # Add cache (use original frame for consistent ID - deduplication)
-                    data['zap_cache'] = {
-                        'detected': True,
-                        'id': f"zap_cache_{frame_filename}",  # Same ID for all cache frames
-                        'detected_at': datetime.now().isoformat(),
-                        'original_frame': frame_filename,
-                        **zapping_data
-                    }
-                    
-                    with open(target_file, 'w') as f:
-                        json.dump(data, f, indent=2)
-                    frames_written.append(seq)
-                except Exception as write_error:
-                    logger.debug(f"[{capture_folder}] Skip {seq}: {write_error}")
-                    continue
-            
-            if frames_written:
-                logger.info(f"[{capture_folder}] ✅ Wrote cache to {len(frames_written)} frames: {min(frames_written)}-{max(frames_written)}")
-            else:
-                logger.info(f"[{capture_folder}] ℹ️  No existing frames to write cache (capture_monitor will handle future frames)")
-        except Exception as e:
-            logger.error(f"[{capture_folder}] Failed to write cache: {e}")
-        
-        # ❌ REMOVED: Live events queue - redundant! Frame JSON is single source of truth
-        # Frontend polls frame JSON directly (1s interval) which already has zapping + action data
         
         # 2️⃣ Write last_zapping.json (instant read for zap_executor - no searching needed!)
         _write_last_zapping_json(
@@ -258,51 +197,24 @@ def detect_and_record_zapping(
 
 
 
-def _write_zapping_to_frames(
+def _write_zapping_to_frame(
     capture_folder: str,
-    frame_filename: Optional[str],
-    zapping_data: Dict[str, Any],
-    key_prefix: str,
-    original_frame: Optional[str] = None
+    frame_filename: str,
+    zapping_data: Dict[str, Any]
 ):
     """
-    Unified function to write zapping data to frame JSONs.
+    Write zapping truth to single frame only (where blackscreen ended).
+    capture_monitor will handle writing cache to next 5 frames as they arrive.
     
     Args:
         capture_folder: Device folder (e.g., 'capture1')
-        frame_filename: Target frame (e.g., 'capture_000003655.jpg'), None = find latest
-        zapping_data: Dict with channel info, duration, etc.
-        key_prefix: JSON key prefix ('zap' for truth, 'zap_cache' for cache)
-        original_frame: If writing cache, reference to original event frame
-    
-    Behavior:
-        - key_prefix='zap': Writes to frames 3655-3660 (where event occurred)
-        - key_prefix='zap_cache': Writes to frames 3665-3670 (current, for frontend)
-    
-    Protection:
-        - 'zap_cache' never overwrites 'zap' (truth has priority)
+        frame_filename: Target frame (e.g., 'capture_000003655.jpg')
+        zapping_data: Dict with channel info, duration, confidence, etc.
     """
     try:
         from shared.src.lib.utils.storage_path_utils import get_metadata_path
         
         metadata_path = get_metadata_path(capture_folder)
-        
-        # If frame_filename is None, find the latest frame (for cache writes)
-        if frame_filename is None:
-            json_files = []
-            with os.scandir(metadata_path) as entries:
-                for entry in entries:
-                    if entry.name.startswith('capture_') and entry.name.endswith('.json'):
-                        json_files.append((entry.name, entry.stat().st_mtime))
-            
-            if not json_files:
-                logger.warning(f"[{capture_folder}] No JSON files found for {key_prefix} write")
-                return
-            
-            # Get the latest frame
-            json_files.sort(key=lambda x: x[1], reverse=True)
-            frame_filename = json_files[0][0].replace('.json', '.jpg')
-            logger.info(f"[{capture_folder}] 📋 Writing {key_prefix} to current frames (latest: {frame_filename})")
         
         # Extract sequence number
         try:
@@ -311,84 +223,58 @@ def _write_zapping_to_frames(
             logger.warning(f"[{capture_folder}] Could not extract sequence from {frame_filename}")
             return
         
-        # Prepare metadata for this specific key
-        # For cache, use original frame for consistent ID (deduplication)
-        # For truth, use current frame
-        if key_prefix == 'zap_cache' and original_frame:
-            base_sequence = int(original_frame.split('_')[1].split('.')[0])
-            zapping_id = f"zap_cache_{original_frame}"
-        else:
-            zapping_id = f"{key_prefix}_{sequence}_{int(datetime.now().timestamp())}"
+        # Build JSON path
+        json_filename = f"capture_{sequence:09d}.json"
+        json_path = os.path.join(metadata_path, json_filename)
         
-        detected_at = datetime.now().isoformat()
+        if not os.path.exists(json_path):
+            logger.warning(f"[{capture_folder}] Frame JSON not found: {json_path}")
+            return
         
+        # Prepare zapping metadata
+        zapping_id = f"zap_{sequence}_{int(datetime.now().timestamp())}"
         zapping_metadata = {
             'detected': True,
             'id': zapping_id,
-            'detected_at': detected_at,
-            **zapping_data  # Spread channel info, duration, confidence, etc.
+            'detected_at': datetime.now().isoformat(),
+            **zapping_data
         }
         
-        # Add original frame reference for cache
-        if original_frame:
-            zapping_metadata['original_frame'] = original_frame
-        
-        # Write to current frame + next 5 frames
-        frames_written = 0
-        for offset in range(6):  # Current frame + next 5
-            target_sequence = sequence + offset
-            target_filename = f"capture_{target_sequence:09d}.json"
-            target_file = os.path.join(metadata_path, target_filename)
-            
-            if not os.path.exists(target_file):
-                continue  # Frame doesn't exist yet, skip
-            
-            # Atomic update with file locking
-            lock_path = target_file + '.lock'
-            try:
-                with open(lock_path, 'w') as lock_file:
-                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-                    
-                    try:
-                        # Read current JSON
-                        with open(target_file, 'r') as f:
-                            data = json.load(f)
-                        
-                        # ✅ PROTECTION: Cache never overwrites truth
-                        if key_prefix == 'zap_cache' and 'zap' in data and data['zap'].get('detected'):
-                            # This frame already has the actual zapping event (not cache)
-                            # Don't overwrite with cache data
-                            logger.debug(f"[{capture_folder}] Skipping cache write to {target_filename} - already has truth")
-                            continue
-                        
-                        # Add zapping metadata to appropriate key
-                        data[key_prefix] = zapping_metadata
-                        
-                        # Atomic write
-                        with open(target_file + '.tmp', 'w') as f:
-                            json.dump(data, f, indent=2)
-                        os.rename(target_file + '.tmp', target_file)
-                        
-                        frames_written += 1
-                        
-                    finally:
-                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        # Atomic update with file locking
+        lock_path = json_path + '.lock'
+        try:
+            with open(lock_path, 'w') as lock_file:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
                 
-                # Clean up lock file
                 try:
-                    os.remove(lock_path)
-                except:
-                    pass
+                    # Read current JSON
+                    with open(json_path, 'r') as f:
+                        data = json.load(f)
                     
-            except Exception as e:
-                logger.debug(f"[{capture_folder}] Failed to update {target_filename}: {e}")
-                continue
-        
-        data_type = "CACHE" if key_prefix == 'zap_cache' else "TRUTH"
-        logger.info(f"[{capture_folder}] ✅ Updated {frames_written}/6 frames with {key_prefix} {data_type} (ID: {zapping_id})")
+                    # Add zapping truth
+                    data['zap'] = zapping_metadata
+                    
+                    # Atomic write
+                    with open(json_path + '.tmp', 'w') as f:
+                        json.dump(data, f, indent=2)
+                    os.rename(json_path + '.tmp', json_path)
+                    
+                    logger.info(f"[{capture_folder}] ✅ Wrote truth to {json_filename} (ID: {zapping_id})")
+                    
+                finally:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            
+            # Clean up lock file
+            try:
+                os.remove(lock_path)
+            except:
+                pass
+                
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Failed to update {json_filename}: {e}")
             
     except Exception as e:
-        logger.error(f"[{capture_folder}] ❌ Failed to write {key_prefix}: {e}")
+        logger.error(f"[{capture_folder}] ❌ Failed to write truth: {e}")
 
 
 def _write_last_zapping_json(
