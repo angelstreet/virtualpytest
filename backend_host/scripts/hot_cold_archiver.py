@@ -54,8 +54,8 @@ logger = logging.getLogger(__name__)
 # Configuration
 # Note: This script doesn't use active_captures.conf - it discovers devices via get_capture_base_directories()
 # which reads the file from the centralized location (/var/www/html/stream/active_captures.conf)
-RAM_RUN_INTERVAL = 30   # 30s for RAM mode (check for 60 TS segments more frequently, max latency 30s)
-SD_RUN_INTERVAL = 30    # 30s (same for consistency)
+RAM_RUN_INTERVAL = 15   # 30s for RAM mode (check for 60 TS segments more frequently, max latency 30s)
+SD_RUN_INTERVAL = 15    # 30s (same for consistency)
 
 # Hot storage limits
 # LIFECYCLE:
