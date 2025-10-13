@@ -534,6 +534,167 @@ def get_capture_number_from_segment(segment_number: int, fps: int) -> int:
     return segment_number * fps
 
 
+def get_segment_number_from_capture(frame_number: int, fps: int) -> int:
+    """
+    Calculate video segment number from capture/frame number based on FPS.
+    (Inverse of get_capture_number_from_segment)
+    
+    Args:
+        frame_number: Frame/capture number (e.g., 2497 from capture_000002497.jpg)
+        fps: Frames per second / capture rate (e.g., 5 for v4l2, 2 for x11grab)
+        
+    Returns:
+        Segment number that contains this frame
+        
+    Examples:
+        >>> get_segment_number_from_capture(2497, 5)  # v4l2 device
+        499  # segment_000000499.ts
+        
+        >>> get_segment_number_from_capture(1200, 2)  # x11grab device
+        600  # segment_000000600.ts
+        
+    Note:
+        - Each 1-second segment contains exactly FPS frames
+        - FPS=5: frames 2495-2499 → segment 499
+        - FPS=2: frames 1200-1201 → segment 600
+    """
+    return frame_number // fps
+
+
+def get_device_fps(capture_folder: str) -> int:
+    """
+    Get FPS for a device based on its device model.
+    
+    Args:
+        capture_folder: Device folder name (e.g., 'capture1')
+        
+    Returns:
+        FPS: 5 for hardware devices (v4l2), 2 for VNC devices (x11grab)
+        
+    Examples:
+        >>> get_device_fps('capture1')  # HDMI device
+        5
+        
+        >>> get_device_fps('capture3')  # VNC device
+        2
+    """
+    try:
+        device_info = get_device_info_from_capture_folder(capture_folder)
+        device_model = device_info.get('device_model', '').lower()
+        
+        # VNC devices use 2fps, hardware devices use 5fps
+        if 'vnc' in device_model or 'x11grab' in device_model or 'host' in device_model:
+            return 2
+        else:
+            return 5  # Default for hardware devices (HDMI, v4l2)
+    except Exception as e:
+        logger.warning(f"Could not determine FPS for {capture_folder}: {e}, defaulting to 5")
+        return 5  # Safe default (most common)
+
+
+def get_device_segment_duration(capture_folder: str) -> float:
+    """
+    Get HLS segment duration for a device based on its device model.
+    
+    Args:
+        capture_folder: Device folder name (e.g., 'capture1')
+        
+    Returns:
+        Segment duration in seconds: 1.0 for HDMI devices, 4.0 for VNC devices
+        
+    Examples:
+        >>> get_device_segment_duration('capture1')  # HDMI device
+        1.0
+        
+        >>> get_device_segment_duration('capture3')  # VNC device  
+        4.0
+        
+    Note:
+        - HDMI (v4l2): hls_time 1 → 1-second segments (5 fps × 1s = 5 frames)
+        - VNC (x11grab): hls_time 4 → 4-second segments (2 fps × 4s = 8 frames)
+    """
+    try:
+        device_info = get_device_info_from_capture_folder(capture_folder)
+        device_model = device_info.get('device_model', '').lower()
+        
+        # VNC devices use 4-second segments, hardware devices use 1-second segments
+        if 'vnc' in device_model or 'x11grab' in device_model or 'host' in device_model:
+            return 4.0
+        else:
+            return 1.0  # Default for hardware devices (HDMI, v4l2)
+    except Exception as e:
+        logger.warning(f"Could not determine segment duration for {capture_folder}: {e}, defaulting to 1.0s")
+        return 1.0  # Safe default (most common)
+
+
+def get_segment_path_from_frame(capture_folder: str, frame_filename: str) -> str:
+    """
+    Get the segment path for a given frame filename.
+    HIGH-LEVEL UTILITY - Handles all the complexity internally!
+    
+    This function:
+    1. Extracts frame number from filename
+    2. Determines device FPS automatically (5 for HDMI, 2 for VNC)
+    3. Calculates segment number (frame // fps)
+    4. Finds segment file (.ts or .mp4)
+    5. Returns full path to segment
+    
+    Args:
+        capture_folder: Device folder name (e.g., 'capture1')
+        frame_filename: Frame filename (e.g., 'capture_000002497.jpg')
+        
+    Returns:
+        Full path to segment file, or None if not found
+        
+    Examples:
+        >>> get_segment_path_from_frame('capture1', 'capture_000002497.jpg')
+        '/var/www/html/stream/capture1/hot/segments/segment_000000499.ts'
+        
+        >>> get_segment_path_from_frame('capture3', 'capture_000001200.jpg')  # VNC device
+        '/var/www/html/stream/capture3/segments/segment_000000600.ts'
+        
+    Note:
+        - Automatically handles hot/cold storage
+        - Automatically determines FPS based on device model
+        - Tries both .ts and .mp4 extensions
+    """
+    try:
+        # Extract frame number from filename
+        frame_number = int(frame_filename.split('_')[1].split('.')[0])
+        
+        # Get device FPS (automatic)
+        device_fps = get_device_fps(capture_folder)
+        
+        # Calculate segment number (automatic)
+        segment_number = get_segment_number_from_capture(frame_number, device_fps)
+        
+        # Get segments directory (automatic hot/cold detection)
+        segments_dir = get_segments_path(capture_folder)
+        
+        if not os.path.exists(segments_dir):
+            logger.warning(f"Segments directory not found: {segments_dir}")
+            return None
+        
+        # Try both .ts and .mp4 extensions
+        segment_name_ts = f"segment_{segment_number:09d}.ts"
+        segment_name_mp4 = f"segment_{segment_number:09d}.mp4"
+        
+        segment_path_ts = os.path.join(segments_dir, segment_name_ts)
+        segment_path_mp4 = os.path.join(segments_dir, segment_name_mp4)
+        
+        if os.path.exists(segment_path_ts):
+            return segment_path_ts
+        elif os.path.exists(segment_path_mp4):
+            return segment_path_mp4
+        else:
+            logger.debug(f"Segment not found for frame {frame_number} (tried {segment_name_ts}, {segment_name_mp4})")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"Failed to get segment path from frame {frame_filename}: {e}")
+        return None
+
+
 def calculate_chunk_location(timestamp):
     """
     Calculate hour and chunk_index from timestamp for 10-minute chunks.

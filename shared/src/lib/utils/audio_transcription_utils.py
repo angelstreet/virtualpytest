@@ -23,9 +23,11 @@ def check_audio_level(file_path: str, sample_duration: float = 0.5, threshold_db
     """
     Check if audio file/segment has actual audio content using ffmpeg volumedetect
     
+    NOTE: This checks MEAN volume over the duration - it will NOT detect brief audio dropouts!
+    For dropout detection, use check_audio_continuous() instead.
+    
     Generic audio detection utility - reused by:
     - transcript_accumulator.py: Check MP3 files before transcription
-    - capture_monitor.py: Check TS segments for zapping detection
     
     Args:
         file_path: Path to audio/video file (MP3, TS, MP4, etc.)
@@ -93,6 +95,120 @@ def check_audio_level(file_path: str, sample_duration: float = 0.5, threshold_db
         else:
             logger.warning(f"Failed to check audio level: {e}")
         return False, -100.0
+
+
+def check_audio_continuous(file_path: str, sample_duration: float, threshold_db: float = AUDIO_THRESHOLD_DB,
+                           min_silence_duration: float = 0.1, timeout: int = 10, context: str = "") -> Tuple[bool, float, float]:
+    """
+    Check if audio is CONTINUOUS (no dropouts/silence periods) using ffmpeg silencedetect
+    
+    This detects audio LOSS/dropouts during the segment, not just mean volume.
+    Perfect for zapping detection where we need to know if audio drops out during blackscreen.
+    
+    Args:
+        file_path: Path to audio/video file (MP3, TS, MP4, etc.)
+        sample_duration: Duration to analyze in seconds (e.g., 1.0 for HDMI, 4.0 for VNC)
+        threshold_db: Silence threshold in dB (default -50.0dB)
+        min_silence_duration: Minimum silence duration to detect in seconds (default 0.1s)
+        timeout: ffmpeg timeout in seconds (default 10s)
+        context: Context string for logging (e.g., device name)
+    
+    Returns:
+        Tuple of (has_continuous_audio: bool, total_silence_duration: float, mean_volume_db: float)
+        - has_continuous_audio: True if NO silence detected, False if silence/dropout found
+        - total_silence_duration: Total duration of silence in seconds
+        - mean_volume_db: Mean volume in dB
+    
+    Example:
+        >>> has_audio, silence_dur, volume = check_audio_continuous('/path/to/segment.ts', 1.0)
+        >>> if not has_audio:
+        >>>     print(f"Audio dropout detected: {silence_dur:.2f}s silence")
+    
+    Note:
+        - Detects ANY silence period >= min_silence_duration
+        - Returns False if 200ms dropout in 1s segment (zapping scenario)
+        - Returns True only if audio is continuous throughout
+    """
+    try:
+        # Use silencedetect filter to find silence periods
+        cmd = [
+            'ffmpeg',
+            '-hide_banner',
+            '-loglevel', 'info',
+            '-i', file_path,
+            '-t', str(sample_duration),
+            '-af', f'silencedetect=noise={threshold_db}dB:d={min_silence_duration}',
+            '-f', 'null',
+            '-'
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        
+        # Parse silence periods from stderr
+        silence_periods = []
+        silence_start = None
+        
+        for line in result.stderr.split('\n'):
+            if 'silence_start:' in line:
+                try:
+                    silence_start = float(line.split('silence_start:')[1].strip())
+                except:
+                    pass
+            elif 'silence_end:' in line and silence_start is not None:
+                try:
+                    # Extract silence_end and duration
+                    parts = line.split('|')
+                    silence_end = float(parts[0].split('silence_end:')[1].strip())
+                    silence_duration = float(parts[1].split('silence_duration:')[1].strip())
+                    silence_periods.append({
+                        'start': silence_start,
+                        'end': silence_end,
+                        'duration': silence_duration
+                    })
+                    silence_start = None
+                except:
+                    pass
+        
+        # Calculate total silence duration
+        total_silence = sum(p['duration'] for p in silence_periods)
+        
+        # Also get mean volume for logging
+        mean_volume = -100.0
+        for line in result.stderr.split('\n'):
+            if 'mean_volume:' in line:
+                try:
+                    mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                    break
+                except:
+                    pass
+        
+        # Has continuous audio = NO silence detected
+        has_continuous_audio = len(silence_periods) == 0
+        
+        if context and silence_periods:
+            logger.info(f"[{context}] Detected {len(silence_periods)} silence period(s): total {total_silence:.2f}s")
+            for i, period in enumerate(silence_periods):
+                logger.info(f"[{context}]   Period {i+1}: {period['start']:.2f}s - {period['end']:.2f}s ({period['duration']:.2f}s)")
+        
+        return has_continuous_audio, total_silence, mean_volume
+        
+    except subprocess.TimeoutExpired:
+        if context:
+            logger.warning(f"[{context}] Audio continuity check timeout for: {file_path}")
+        else:
+            logger.warning(f"Audio continuity check timeout for: {file_path}")
+        return False, 0.0, -100.0
+    except Exception as e:
+        if context:
+            logger.warning(f"[{context}] Failed to check audio continuity: {e}")
+        else:
+            logger.warning(f"Failed to check audio continuity: {e}")
+        return False, 0.0, -100.0
 
 
 # Global Whisper model cache (singleton pattern)

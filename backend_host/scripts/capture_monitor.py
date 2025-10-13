@@ -40,9 +40,11 @@ from shared.src.lib.utils.storage_path_utils import (
     get_device_info_from_capture_folder,
     get_metadata_path,
     get_captures_path,
-    get_segments_path
+    get_segments_path,
+    get_segment_path_from_frame,
+    get_device_segment_duration
 )
-from shared.src.lib.utils.audio_transcription_utils import check_audio_level
+from shared.src.lib.utils.audio_transcription_utils import check_audio_continuous
 from shared.src.lib.utils.zapping_detector_utils import detect_and_record_zapping
 from detector import detect_issues
 from incident_manager import IncidentManager
@@ -383,6 +385,9 @@ class InotifyFrameMonitor:
                     # Blackscreens > 10s are likely real incidents, not channel changes
                     logger.info(f"[{capture_folder}] Blackscreen ended ({total_duration_ms}ms) - checking for zapping...")
                     
+                    # Get start filename for audio check (blackscreen segment, not current segment)
+                    blackscreen_start_filename = device_state.get('blackscreen_start_filename')
+                    
                     # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
                     self.zapping_executor.submit(
                         self._check_for_zapping_async,
@@ -390,12 +395,13 @@ class InotifyFrameMonitor:
                         device_id=device_id,
                         device_model=device_model,
                         current_filename=current_filename,
-                        blackscreen_duration_ms=total_duration_ms
+                        blackscreen_duration_ms=total_duration_ms,
+                        blackscreen_start_filename=blackscreen_start_filename
                     )
         
         return detection_result
     
-    def _check_for_zapping_async(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms):
+    def _check_for_zapping_async(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms, blackscreen_start_filename=None):
         """
         Check if blackscreen was caused by zapping (channel change).
         This happens AFTER blackscreen ends, analyzing the first normal frame.
@@ -403,27 +409,29 @@ class InotifyFrameMonitor:
         ✅ ASYNC: Runs in background thread pool to avoid blocking frame processing queue
         (AI banner analysis takes ~5 seconds - would cause major queue backlog if synchronous)
         
-        ✅ AUDIO PRE-CHECK: Checks audio on TS segment following blackscreen
-        - If audio present → abort (likely just dark content, not zapping)
-        - If no audio → proceed with expensive AI banner detection
+        ✅ AUDIO PRE-CHECK: Checks audio in SAME 1-second TS segment where blackscreen occurred
+        - If audio present → proceed with banner detection (likely zapping - TV audio during channel switch)
+        - If no audio → abort (likely freeze/signal loss, not zapping)
         
         Uses shared zapping detection utility (reuses existing banner detection AI).
         """
         try:
             logger.info(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
             
-            # ✅ PRE-CHECK: Audio detection on TS segment following blackscreen
-            # Reuses existing audio detection logic from transcript_accumulator
-            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking audio on TS segment (after blackscreen)...")
-            has_audio = self._check_segment_audio(capture_folder)
+            # ✅ PRE-CHECK: Audio DROPOUT detection on SAME segment where blackscreen occurred
+            # We check if audio drops out during the blackscreen (indicating channel switch)
+            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking for audio dropout in blackscreen segment...")
+            has_continuous_audio = self._check_segment_audio(capture_folder, target_filename=blackscreen_start_filename)
             
-            if has_audio:
-                # Audio detected → abort zapping detection (likely just dark content)
-                logger.info(f"[{capture_folder}] ⏭️  ABORT: Audio detected after blackscreen - likely dark content, not zapping")
+            if has_continuous_audio:
+                # Continuous audio → ABORT (likely dark content, not zapping)
+                # Example: Movie scene with dark screen but continuous audio
+                logger.info(f"[{capture_folder}] ⏭️  ABORT: Continuous audio detected - likely dark content, not zapping")
                 return
             else:
-                # No audio → proceed with banner detection (likely zapping)
-                logger.info(f"[{capture_folder}] ✅ No audio detected - proceeding with banner detection (likely zapping)")
+                # Audio dropout detected → PROCEED with banner detection (likely zapping)
+                # Example: 800ms audio + 200ms silence during channel switch
+                logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
             
             # ✅ CLEAN: Read action from device_state (in-memory, instant lookup)
             action_info = self._get_action_from_device_state(device_id)
@@ -466,69 +474,108 @@ class InotifyFrameMonitor:
             import traceback
             traceback.print_exc()
     
-    def _check_segment_audio(self, capture_folder):
+    def _check_segment_audio(self, capture_folder, target_filename=None):
         """
-        Check audio on latest TS segment using shared audio detection utility.
+        Check for audio DROPOUTS in specific TS segment to detect zapping.
         
         This is called BEFORE expensive AI banner detection to avoid false positives:
-        - If audio present → likely just dark content, not zapping
-        - If no audio → likely zapping (channel change)
+        - If continuous audio → ABORT (likely dark content with audio, not zapping)
+        - If audio dropout → PROCEED with banner detection (likely zapping - audio cuts during channel switch)
         
-        Uses shared check_audio_level() utility from audio_transcription_utils.
+        Uses shared utilities:
+        - get_segment_path_from_frame(): High-level utility that handles FPS, segment calculation, and path resolution
+        - check_audio_continuous(): Detects audio dropouts using ffmpeg silencedetect
+        - get_device_segment_duration(): Gets segment duration (1s for HDMI, 4s for VNC)
+        
+        Args:
+            capture_folder: Device folder (e.g., 'capture1')
+            target_filename: Frame filename to find corresponding segment (e.g., 'capture_000002497.jpg')
+                           If None, uses latest segment
         
         Returns:
-            bool: True if audio detected (> -50dB), False if silent or error
+            bool: True if audio is CONTINUOUS (no dropouts), False if silence/dropout detected
         """
         try:
-            # Get segments directory (handles both hot and cold storage)
-            segments_dir = get_segments_path(capture_folder)
+            target_segment = None
             
-            if not os.path.exists(segments_dir):
-                logger.warning(f"[{capture_folder}] Segments directory not found: {segments_dir}")
-                return False  # Assume no audio if directory missing
+            if target_filename:
+                # ✅ HIGH-LEVEL UTILITY: One function call handles everything!
+                # - Extracts frame number
+                # - Determines FPS (5 for HDMI, 2 for VNC)
+                # - Calculates segment number
+                # - Finds segment file (.ts or .mp4)
+                # - Returns full path
+                target_segment = get_segment_path_from_frame(capture_folder, target_filename)
+                
+                if target_segment:
+                    segment_filename = os.path.basename(target_segment)
+                    logger.info(f"[{capture_folder}] Found segment for {target_filename} → {segment_filename}")
+                else:
+                    logger.warning(f"[{capture_folder}] Segment not found for {target_filename}, falling back to latest")
             
-            # Find latest segment file (same approach as audio detection worker)
-            latest_segment = None
-            latest_mtime = 0
+            # If no target segment found, fall back to latest segment
+            if not target_segment:
+                logger.info(f"[{capture_folder}] No target frame specified, using latest segment")
+                segments_dir = get_segments_path(capture_folder)
+                
+                if not os.path.exists(segments_dir):
+                    logger.warning(f"[{capture_folder}] Segments directory not found: {segments_dir}")
+                    return False
+                
+                latest_segment = None
+                latest_mtime = 0
+                
+                try:
+                    with os.scandir(segments_dir) as it:
+                        for entry in it:
+                            # Check TS or MP4 segments (not hour folders)
+                            if entry.is_file() and entry.name.startswith('segment_') and (entry.name.endswith('.ts') or entry.name.endswith('.mp4')):
+                                mtime = entry.stat().st_mtime
+                                if mtime > latest_mtime:
+                                    latest_segment = entry.path
+                                    latest_mtime = mtime
+                except Exception as e:
+                    logger.warning(f"[{capture_folder}] Segment scan failed: {e}")
+                    return False
+                
+                if not latest_segment:
+                    logger.warning(f"[{capture_folder}] No segments found in {segments_dir}")
+                    return False
+                
+                target_segment = latest_segment
+                age_seconds = time.time() - latest_mtime
+                
+                # Check if segment is recent (within last 10 seconds)
+                if age_seconds > 10:
+                    logger.warning(f"[{capture_folder}] Latest segment too old ({age_seconds:.1f}s)")
+                    return False
             
-            try:
-                with os.scandir(segments_dir) as it:
-                    for entry in it:
-                        # Check TS or MP4 segments (not hour folders)
-                        if entry.is_file() and entry.name.startswith('segment_') and (entry.name.endswith('.ts') or entry.name.endswith('.mp4')):
-                            mtime = entry.stat().st_mtime
-                            if mtime > latest_mtime:
-                                latest_segment = entry.path
-                                latest_mtime = mtime
-            except Exception as e:
-                logger.warning(f"[{capture_folder}] Segment scan failed: {e}")
-                return False
+            segment_filename = os.path.basename(target_segment)
             
-            if not latest_segment:
-                logger.warning(f"[{capture_folder}] No segments found in {segments_dir}")
-                return False
+            # Get full segment duration for this device (1s for HDMI, 4s for VNC)
+            segment_duration = get_device_segment_duration(capture_folder)
+            logger.info(f"[{capture_folder}] Checking audio on: {segment_filename} (full {segment_duration}s segment)")
             
-            # Check if segment is recent (within last 10 seconds)
-            age_seconds = time.time() - latest_mtime
-            if age_seconds > 10:
-                logger.warning(f"[{capture_folder}] Latest segment too old ({age_seconds:.1f}s)")
-                return False
-            
-            segment_filename = os.path.basename(latest_segment)
-            logger.info(f"[{capture_folder}] Checking audio on: {segment_filename} (age: {age_seconds:.1f}s)")
-            
-            # Use shared audio level check utility (no code duplication!)
-            has_audio, mean_volume = check_audio_level(
-                file_path=latest_segment,
-                sample_duration=0.5,  # Fast check (0.5s)
-                timeout=2,
+            # Check for audio CONTINUITY (detects dropouts during segment!)
+            # NOT checking mean volume - we need to detect audio LOSS during zapping
+            # Example: 800ms audio + 200ms silence → detected as dropout (zapping)
+            has_continuous_audio, silence_duration, mean_volume = check_audio_continuous(
+                file_path=target_segment,
+                sample_duration=segment_duration,  # Full segment duration (1s or 4s)
+                min_silence_duration=0.1,  # Detect silence >= 100ms
+                timeout=10,  # Higher timeout for VNC 4s segments
                 context=capture_folder
             )
             
-            status_icon = '🔊' if has_audio else '🔇'
-            logger.info(f"[{capture_folder}] {status_icon} Audio check result: {mean_volume:.1f}dB → {'AUDIO' if has_audio else 'SILENT'}")
+            if has_continuous_audio:
+                logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (no dropouts)")
+            else:
+                logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT detected: {silence_duration:.2f}s silence in {segment_duration}s segment (mean: {mean_volume:.1f}dB)")
             
-            return has_audio
+            # For zapping detection:
+            # - Continuous audio → NOT zapping (dark content with audio)
+            # - Audio dropout → likely zapping (audio cuts during channel switch)
+            return has_continuous_audio
             
         except Exception as e:
             logger.warning(f"[{capture_folder}] Audio check failed: {e}")

@@ -30,7 +30,7 @@ interface ConsecutiveErrorCounts {
 }
 
 interface MonitoringOverlayProps {
-  sx?: any;
+  // Removed sx prop to ensure consistent positioning across all contexts (modal, panels, etc.)
   monitoringAnalysis?: MonitoringAnalysis;
   subtitleAnalysis?: SubtitleAnalysis | null;
   languageMenuAnalysis?: LanguageMenuAnalysis | null;
@@ -42,7 +42,6 @@ interface MonitoringOverlayProps {
 }
 
 export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
-  sx,
   monitoringAnalysis,
   subtitleAnalysis,
   languageMenuAnalysis,
@@ -122,7 +121,7 @@ export const MonitoringOverlay: React.FC<MonitoringOverlayProps> = ({
           backgroundColor: 'rgba(0, 0, 0, 0.7)',
           pointerEvents: 'none', // Don't interfere with clicks
           minWidth: 200,
-          ...sx,
+          // Don't spread sx prop here to maintain consistent positioning across all contexts
         }}
       >
         {analysisTimestamp && (
