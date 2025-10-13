@@ -114,6 +114,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       setIsTransitioning(true);
       
       if (isLiveMode) {
+        // Reset all buffer state immediately when switching to live
+        console.log('[@EnhancedHLSPlayer] Resetting buffer state for live mode');
+        setIsAtLiveEdge(true);
+        setLiveBufferSeconds(0);
+        setLiveSliderPosition(150);
+        maxBufferSecondsRef.current = 0;
+        
         archive.clearArchiveData();
         transcript.clearTranscriptData();
       }
@@ -186,15 +193,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     
     return url;
   }, [providedStreamUrl, hookStreamUrl, isLiveMode, deviceId, archive.archiveMetadata, archive.currentManifestIndex, quality, archive.availableHours, host]);
-
-  const seekToLive = () => {
-    if (videoRef.current) {
-      const video = videoRef.current;
-      if (video.duration && !isNaN(video.duration) && isFinite(video.duration)) {
-        video.currentTime = video.duration;
-      }
-    }
-  };
 
   const togglePlayPause = () => {
     if (videoRef.current) {
@@ -305,22 +303,38 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     };
   }, [isLiveMode, archive, isAtLiveEdge]);
 
+  // Seek to live edge after stream is ready (only for live mode)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isLiveMode) {
-        console.log('[@EnhancedHLSPlayer] Switching to live mode');
-        setIsAtLiveEdge(true);
-        setLiveBufferSeconds(0);
-        setLiveSliderPosition(150);
-        maxBufferSecondsRef.current = 0; // Reset buffer tracking for new live session
-        seekToLive();
-      } else {
-        console.log(`[@EnhancedHLSPlayer] Mode change to archive - will auto-play when video loads`);
-      }
-    }, 500);
+    if (!isLiveMode || isTransitioning) return;
     
-    return () => clearTimeout(timer);
-  }, [isLiveMode]);
+    const video = videoRef.current;
+    if (!video) return;
+    
+    // Wait for the live stream to be loaded and have buffered data
+    const seekToLiveWhenReady = () => {
+      if (video.readyState >= 2 && video.buffered.length > 0) {
+        console.log('[@EnhancedHLSPlayer] Live stream ready, seeking to live edge');
+        const buffered = video.buffered;
+        const bufferEnd = buffered.end(buffered.length - 1);
+        video.currentTime = bufferEnd - 0.5; // Seek to near live edge
+      }
+    };
+    
+    // Try immediately if already loaded
+    if (video.readyState >= 2 && video.buffered.length > 0) {
+      seekToLiveWhenReady();
+    } else {
+      // Wait for data to be available
+      const handleCanPlay = () => {
+        setTimeout(seekToLiveWhenReady, 500); // Small delay to ensure buffer is populated
+      };
+      video.addEventListener('canplay', handleCanPlay, { once: true });
+      
+      return () => {
+        video.removeEventListener('canplay', handleCanPlay);
+      };
+    }
+  }, [isLiveMode, isTransitioning, streamUrl]);
 
   // Auto-play archive mode after video loads AND archive is ready
   useEffect(() => {
