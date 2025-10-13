@@ -218,12 +218,11 @@ class ZapExecutor:
                         analysis_type = config.get('analysis_type')
                         self._map_verification_result(result, analysis_type, verification_result, context)
             
-            # 4. ZAPPING: Read from JSON using action completion timestamp (matches last_action.json)
+            # 4. ZAPPING: Read recent zapping from last_zapping.json (simple recency check)
             if 'chup' in action_command.lower() and action_completion_time:
                 av_controller = self.device._get_controller('av')
                 if av_controller:
                     capture_folder = os.path.basename(av_controller.video_capture_path)
-                    print(f"🔍 [ZapExecutor] Looking for zapping with action completion timestamp: {action_completion_time}")
                     zapping_data = self._read_zapping_by_action_timestamp(action_completion_time, capture_folder)
                     self._map_zapping_from_json(result, zapping_data, context)
             
@@ -709,10 +708,10 @@ class ZapExecutor:
         # Zapping case removed - now handled by _read_zapping_by_action_timestamp    
     def _read_zapping_by_action_timestamp(self, action_timestamp: float, capture_folder: str) -> Dict[str, Any]:
         """
-        Read zapping detection using action timestamp as unique identifier.
+        Read recent zapping detection (simplified - no timestamp matching needed).
         
-        ✅ INSTANT ACCESS: Read from last_zapping.json (single file, instant!).
-        ✅ FAIL FAST: Return error if file not found or timestamp mismatch.
+        ✅ SIMPLE: If last_zapping.json exists and is recent (< 30s), that's the zapping!
+        ✅ INSTANT ACCESS: Single file read, no searching needed.
         ✅ SAME PATH AS METADATA: Uses get_metadata_path() - hot or cold based on mode.
         
         Path (RAM mode): /var/www/html/stream/{capture_folder}/hot/metadata/last_zapping.json
@@ -720,14 +719,14 @@ class ZapExecutor:
         Written by: zapping_detector_utils._write_last_zapping_json()
         
         Args:
-            action_timestamp: Unix timestamp when action was executed (unique ID)
+            action_timestamp: Unix timestamp when action was executed (for recency check)
             capture_folder: Device capture folder name (e.g., 'capture1', 'capture4')
         
         Returns:
-            Complete zapping data dict, or error dict if not found
+            Complete zapping data dict, or error dict if not found/too old
         """
         try:
-            print(f"📺 [ZapExecutor] Reading zapping detection for action timestamp: {action_timestamp}")
+            print(f"📺 [ZapExecutor] Reading recent zapping detection...")
             
             # ✅ READ FROM SAME LOCATION AS METADATA (hot or cold based on mode)
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
@@ -738,62 +737,63 @@ class ZapExecutor:
             
             if os.path.exists(last_zapping_path):
                 try:
+                    # Check file modification time for recency
+                    file_mtime = os.path.getmtime(last_zapping_path)
+                    file_age = time.time() - file_mtime
+                    
+                    # Only read if file is recent (< 30s old)
+                    if file_age > 30:
+                        print(f"⚠️ [ZapExecutor] last_zapping.json is too old ({file_age:.1f}s) - likely from previous test")
+                        return {'success': False, 'zapping_detected': False, 'error': f'Zapping file too old ({file_age:.1f}s)'}
+                    
                     with open(last_zapping_path, 'r') as f:
                         zapping_data = json.load(f)
                     
-                    # Check if this is the zapping event we're looking for
-                    # Tolerance: 1.0s to account for any timing differences
-                    zapping_action_ts = zapping_data.get('action_timestamp')
-                    if zapping_action_ts and abs(zapping_action_ts - action_timestamp) < 1.0:
-                        print(f"✅ [ZapExecutor] Found zapping in last_zapping.json (instant access!)")
-                        print(f"   Action timestamp match: {zapping_action_ts} ≈ {action_timestamp}")
-                        
-                        zapping_detected = zapping_data.get('zapping_detected', False)
-                        
-                        if zapping_detected:
-                            channel_name = zapping_data.get('channel_name', '')
-                            channel_number = zapping_data.get('channel_number', '')
-                            program_name = zapping_data.get('program_name', '')
-                            print(f"   📺 Zapping detected: {channel_name} ({channel_number}) - {program_name}")
-                        
-                        # Extract sequence from frame filename
-                        frame_filename = zapping_data.get('frame_filename', '')
-                        try:
-                            sequence = int(frame_filename.split('_')[1].split('.')[0])
-                        except:
-                            sequence = 0
-                        
-                        return {
-                            'success': True,
-                            'zapping_detected': zapping_detected,
-                            'channel_name': channel_name,
-                            'channel_number': channel_number,
-                            'program_name': zapping_data.get('program_name', ''),
-                            'blackscreen_duration': zapping_data.get('blackscreen_duration_ms', 0) / 1000.0,
-                            'detection_type': zapping_data.get('detection_type', 'unknown'),
-                            'confidence': zapping_data.get('confidence', 0.0),
-                            'detected_at': zapping_data.get('detected_at'),
-                            'frame_filename': frame_filename,
-                            'frame_sequence': sequence,
-                            'action_timestamp': zapping_action_ts,
-                            'audio_silence_duration': zapping_data.get('audio_silence_duration', 0.0),
-                            'details': {
-                                'start_time': zapping_data.get('program_start_time', ''),
-                                'end_time': zapping_data.get('program_end_time', '')
-                            }
+                    print(f"✅ [ZapExecutor] Found recent zapping ({file_age:.1f}s old)")
+                    
+                    zapping_detected = zapping_data.get('zapping_detected', False)
+                    
+                    if zapping_detected:
+                        channel_name = zapping_data.get('channel_name', '')
+                        channel_number = zapping_data.get('channel_number', '')
+                        program_name = zapping_data.get('program_name', '')
+                        detection_type = zapping_data.get('detection_type', 'unknown')
+                        print(f"   📺 {detection_type.upper()} zapping: {channel_name} ({channel_number}) - {program_name}")
+                    
+                    # Extract sequence from frame filename
+                    frame_filename = zapping_data.get('frame_filename', '')
+                    try:
+                        sequence = int(frame_filename.split('_')[1].split('.')[0])
+                    except:
+                        sequence = 0
+                    
+                    return {
+                        'success': True,
+                        'zapping_detected': zapping_detected,
+                        'channel_name': channel_name,
+                        'channel_number': channel_number,
+                        'program_name': zapping_data.get('program_name', ''),
+                        'blackscreen_duration': zapping_data.get('blackscreen_duration_ms', 0) / 1000.0,
+                        'detection_type': zapping_data.get('detection_type', 'unknown'),
+                        'confidence': zapping_data.get('confidence', 0.0),
+                        'detected_at': zapping_data.get('detected_at'),
+                        'frame_filename': frame_filename,
+                        'frame_sequence': sequence,
+                        'action_timestamp': zapping_data.get('action_timestamp'),
+                        'audio_silence_duration': zapping_data.get('audio_silence_duration', 0.0),
+                        'details': {
+                            'start_time': zapping_data.get('program_start_time', ''),
+                            'end_time': zapping_data.get('program_end_time', '')
                         }
-                    else:
-                        print(f"❌ [ZapExecutor] Timestamp mismatch: {zapping_action_ts} != {action_timestamp}")
-                        return {'success': False, 'zapping_detected': False, 'error': 'Timestamp mismatch - different zapping event'}
+                    }
                 
                 except Exception as e:
                     print(f"❌ [ZapExecutor] Error reading last_zapping.json: {e}")
                     return {'success': False, 'zapping_detected': False, 'error': f'Failed to read last_zapping.json: {e}'}
             
-            # ❌ FAIL EARLY: File not found
-            print(f"❌ [ZapExecutor] last_zapping.json not found at: {last_zapping_path}")
-            print(f"   This means capture_monitor has not detected zapping yet or zapping detection failed.")
-            return {'success': False, 'zapping_detected': False, 'error': 'last_zapping.json not found'}
+            # ❌ File not found
+            print(f"⚠️ [ZapExecutor] last_zapping.json not found - zapping may still be processing")
+            return {'success': False, 'zapping_detected': False, 'error': 'Zapping file not found (may still be processing)'}
             
         except Exception as e:
             print(f"❌ [ZapExecutor] Error reading zapping detection: {e}")
