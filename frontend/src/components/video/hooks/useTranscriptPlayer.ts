@@ -258,21 +258,9 @@ export const useTranscriptPlayer = ({
     // Local time within the 10-minute chunk (0-600 seconds)
     const localTime = globalCurrentTime - currentManifest.start_time_seconds;
     
-    // Find current minute (0-9)
-    const currentMinute = Math.floor(localTime / 60);
-    
-    // Filter segments for current minute only (60s window)
-    const minuteStart = currentMinute * 60;
-    const minuteEnd = minuteStart + 60;
-    
-    // Count segments in current minute
-    const segmentsInMinute = rawTranscriptData.segments.filter(
-      seg => seg.start >= minuteStart && seg.start < minuteEnd
-    );
-    
-    // Find active segment within current minute
+    // Find active segment at current time (no per-minute filtering for incomplete chunks)
     const activeSegment = rawTranscriptData.segments.find(
-      seg => seg.start >= minuteStart && seg.start < minuteEnd && localTime >= seg.start && localTime < seg.end
+      seg => localTime >= seg.start && localTime < seg.end
     );
     
     if (activeSegment) {
@@ -280,9 +268,13 @@ export const useTranscriptPlayer = ({
       console.log(`📝 ${localTime.toFixed(1)}s | seg[${activeSegment.start.toFixed(1)}-${activeSegment.end.toFixed(1)}] | "${activeSegment.text.substring(0, 40)}..."`);
     } else {
       setCurrentTimedSegment(null);
-      // Only log when no segments found (quieter)
-      if (segmentsInMinute.length === 0) {
-        console.log(`⏹️ ${localTime.toFixed(1)}s | No segments in minute ${currentMinute}`);
+      
+      // Log if no segment found (useful for debugging incomplete chunks)
+      const segmentRange = rawTranscriptData.segments.length > 0 
+        ? `${rawTranscriptData.segments[0].start.toFixed(1)}-${rawTranscriptData.segments[rawTranscriptData.segments.length - 1].end.toFixed(1)}s`
+        : 'none';
+      if (rawTranscriptData.segments.length === 0 || localTime < rawTranscriptData.segments[0].start || localTime > rawTranscriptData.segments[rawTranscriptData.segments.length - 1].end) {
+        console.log(`⏹️ ${localTime.toFixed(1)}s | Outside segment range: ${segmentRange} (${rawTranscriptData.segments.length} segments)`);
       }
     }
   }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
