@@ -138,6 +138,14 @@ def get_device_info_from_capture_folder(capture_folder):
     """
     Get device info from .env by matching capture path - LIGHTWEIGHT (no DB)
     Extracted from IncidentManager to avoid loading incidents from database
+    
+    Returns:
+        dict: Device info with keys:
+            - device_id: Device identifier (e.g., 'device1', 'host')
+            - device_name: Human-readable device name from env (e.g., 'Device 1')
+            - device_model: Device model from env (e.g., 'H96_MAX', 'X96_MAX_PLUS')
+            - stream_path: Video stream path
+            - capture_path: Capture folder name (e.g., 'capture1')
     """
     # Check cache first
     if capture_folder in _device_mapping_cache:
@@ -152,10 +160,12 @@ def get_device_info_from_capture_folder(capture_folder):
     
     if host_capture_path == capture_path:
         host_name = os.getenv('HOST_NAME', 'unknown')
+        host_model = os.getenv('HOST_MODEL', 'unknown')
         host_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH')
         device_info = {
             'device_id': 'host',
             'device_name': f"{host_name}_Host",
+            'device_model': host_model,
             'stream_path': host_stream_path,
             'capture_path': capture_folder
         }
@@ -166,12 +176,14 @@ def get_device_info_from_capture_folder(capture_folder):
     for i in range(1, 5):
         device_capture_path = os.getenv(f'DEVICE{i}_VIDEO_CAPTURE_PATH')
         device_name = os.getenv(f'DEVICE{i}_NAME', f'device{i}')
+        device_model = os.getenv(f'DEVICE{i}_MODEL', 'unknown')
         device_stream_path = os.getenv(f'DEVICE{i}_VIDEO_STREAM_PATH')
         
         if device_capture_path == capture_path:
             device_info = {
                 'device_id': f'device{i}',
                 'device_name': device_name,
+                'device_model': device_model,
                 'stream_path': device_stream_path,
                 'capture_path': capture_folder
             }
@@ -179,7 +191,7 @@ def get_device_info_from_capture_folder(capture_folder):
             return device_info
     
     # Fallback
-    device_info = {'device_id': capture_folder, 'device_name': capture_folder, 'stream_path': None, 'capture_path': capture_folder}
+    device_info = {'device_id': capture_folder, 'device_name': capture_folder, 'device_model': 'unknown', 'stream_path': None, 'capture_path': capture_folder}
     _device_mapping_cache[capture_folder] = device_info
     return device_info
 

@@ -551,12 +551,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
 
         <TranscriptOverlay
           transcriptText={transcript.getCurrentTranscriptText()}
-          selectedAudioLanguage={transcript.selectedAudioLanguage}
-          selectedTranscriptLanguage={transcript.selectedTranscriptLanguage}
+          selectedLanguage={transcript.selectedLanguage}
           availableLanguages={transcript.availableLanguages}
           availableDubbedLanguages={transcript.availableDubbedLanguages}
-          onAudioLanguageChange={transcript.handleAudioLanguageChange}
-          onTranscriptLanguageChange={transcript.handleTranscriptLanguageChange}
+          onLanguageChange={transcript.handleLanguageChange}
           isTranslating={transcript.isTranslating}
           show={!isLiveMode}
           hasMp3={transcript.hasMp3}
