@@ -6,9 +6,93 @@ Reused by: AudioAIHelpers, transcript_accumulator, and any script needing transc
 import os
 import subprocess
 import tempfile
+import logging
 from typing import List, Tuple, Dict, Any, Optional
 from datetime import datetime
 from shared.src.lib.utils.video_utils import merge_video_files
+
+logger = logging.getLogger(__name__)
+
+
+# Audio detection threshold (dB)
+AUDIO_THRESHOLD_DB = -50.0  # Volume above this = audio detected, below = silent
+
+
+def check_audio_level(file_path: str, sample_duration: float = 0.5, threshold_db: float = AUDIO_THRESHOLD_DB, 
+                       timeout: int = 10, context: str = "") -> Tuple[bool, float]:
+    """
+    Check if audio file/segment has actual audio content using ffmpeg volumedetect
+    
+    Generic audio detection utility - reused by:
+    - transcript_accumulator.py: Check MP3 files before transcription
+    - capture_monitor.py: Check TS segments for zapping detection
+    
+    Args:
+        file_path: Path to audio/video file (MP3, TS, MP4, etc.)
+        sample_duration: Duration to sample in seconds (default 0.5s for fast check)
+        threshold_db: Volume threshold in dB (default -50.0dB)
+        timeout: ffmpeg timeout in seconds (default 10s)
+        context: Context string for logging (e.g., device name)
+    
+    Returns:
+        Tuple of (has_audio: bool, mean_volume_db: float)
+        - has_audio: True if mean_volume > threshold_db
+        - mean_volume_db: Actual mean volume in dB (-100.0 if silent or error)
+    
+    Example:
+        >>> has_audio, volume = check_audio_level('/path/to/file.mp3', sample_duration=5.0)
+        >>> if has_audio:
+        >>>     print(f"Audio detected: {volume:.1f}dB")
+    """
+    try:
+        cmd = [
+            'ffmpeg',
+            '-hide_banner',
+            '-loglevel', 'info',
+            '-i', file_path,
+            '-t', str(sample_duration),
+            '-af', 'volumedetect',
+            '-f', 'null',
+            '-'
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        
+        # Parse mean_volume from stderr
+        mean_volume = -100.0
+        for line in result.stderr.split('\n'):
+            if 'mean_volume:' in line:
+                try:
+                    mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                    break
+                except Exception as e:
+                    if context:
+                        logger.warning(f"[{context}] Failed to parse volume from: {line} (error: {e})")
+                    else:
+                        logger.warning(f"Failed to parse volume from: {line} (error: {e})")
+        
+        # Determine if audio is present
+        has_audio = mean_volume > threshold_db
+        
+        return has_audio, mean_volume
+        
+    except subprocess.TimeoutExpired:
+        if context:
+            logger.warning(f"[{context}] Audio level check timeout for: {file_path}")
+        else:
+            logger.warning(f"Audio level check timeout for: {file_path}")
+        return False, -100.0
+    except Exception as e:
+        if context:
+            logger.warning(f"[{context}] Failed to check audio level: {e}")
+        else:
+            logger.warning(f"Failed to check audio level: {e}")
+        return False, -100.0
 
 
 # Global Whisper model cache (singleton pattern)

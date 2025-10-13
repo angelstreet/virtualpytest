@@ -57,6 +57,7 @@ from shared.src.lib.utils.audio_transcription_utils import (
     transcribe_audio,
     clean_transcript_text,
     correct_spelling,
+    check_audio_level,
     ENABLE_SPELLCHECK
 )
 
@@ -111,8 +112,8 @@ def check_mp3_has_audio(mp3_path: str, capture_folder: str, sample_duration: flo
     """
     Check if MP3 has actual audio content (not silence) using ffmpeg volumedetect
     
-    Uses 5s sample (vs 0.1s in capture_monitor) for better silence detection.
-    Reuses same logic as detector.py analyze_audio() but for MP3 files.
+    DEPRECATED: This function now wraps the shared check_audio_level() utility.
+    Use check_audio_level() directly for new code.
     
     Args:
         mp3_path: Path to MP3 file
@@ -122,45 +123,18 @@ def check_mp3_has_audio(mp3_path: str, capture_folder: str, sample_duration: flo
     Returns:
         (has_audio: bool, mean_volume_db: float)
     """
-    try:
-        cmd = [
-            'ffmpeg',
-            '-hide_banner',
-            '-loglevel', 'info',
-            '-i', mp3_path,
-            '-t', str(sample_duration),  # Sample 5 seconds
-            '-af', 'volumedetect',
-            '-f', 'null',
-            '-'
-        ]
-        
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        
-        output = result.stderr
-        mean_volume = -100.0
-        
-        for line in output.split('\n'):
-            if 'mean_volume:' in line:
-                try:
-                    mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
-                    break
-                except:
-                    pass
-        
-        # Consider silent if volume < -50dB (same threshold as detector.py)
-        has_audio = mean_volume > -50.0
-        
-        return has_audio, mean_volume
-        
-    except Exception as e:
-        logger.warning(f"[{capture_folder}] Failed to check MP3 audio level: {e}")
-        # On error, assume has audio (safer to transcribe than skip)
+    # Use shared utility (same logic, no duplication)
+    has_audio, mean_volume = check_audio_level(
+        file_path=mp3_path,
+        sample_duration=sample_duration,
+        context=capture_folder
+    )
+    
+    # On error (mean_volume = -100.0), assume has audio (safer to transcribe than skip)
+    if mean_volume == -100.0 and not has_audio:
         return True, 0.0
+    
+    return has_audio, mean_volume
 
 def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: int, chunk_index: int) -> list:
     """

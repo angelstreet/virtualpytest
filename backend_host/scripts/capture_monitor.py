@@ -39,8 +39,10 @@ from shared.src.lib.utils.storage_path_utils import (
     get_capture_folder, 
     get_device_info_from_capture_folder,
     get_metadata_path,
-    get_captures_path
+    get_captures_path,
+    get_segments_path
 )
+from shared.src.lib.utils.audio_transcription_utils import check_audio_level
 from shared.src.lib.utils.zapping_detector_utils import detect_and_record_zapping
 from detector import detect_issues
 from incident_manager import IncidentManager
@@ -466,14 +468,13 @@ class InotifyFrameMonitor:
     
     def _check_segment_audio(self, capture_folder):
         """
-        Check audio on latest TS segment (reuses existing ffmpeg volumedetect logic).
+        Check audio on latest TS segment using shared audio detection utility.
         
         This is called BEFORE expensive AI banner detection to avoid false positives:
         - If audio present → likely just dark content, not zapping
         - If no audio → likely zapping (channel change)
         
-        Reuses same ffmpeg volumedetect approach as transcript_accumulator's check_mp3_has_audio()
-        but for TS segments instead of MP3 files.
+        Uses shared check_audio_level() utility from audio_transcription_utils.
         
         Returns:
             bool: True if audio detected (> -50dB), False if silent or error
@@ -516,41 +517,19 @@ class InotifyFrameMonitor:
             segment_filename = os.path.basename(latest_segment)
             logger.info(f"[{capture_folder}] Checking audio on: {segment_filename} (age: {age_seconds:.1f}s)")
             
-            # Use ffmpeg volumedetect (same as transcript_accumulator's check_mp3_has_audio)
-            cmd = [
-                'ffmpeg',
-                '-hide_banner',
-                '-loglevel', 'info',
-                '-i', latest_segment,
-                '-t', '0.5',  # Sample 0.5s (fast check)
-                '-af', 'volumedetect',
-                '-f', 'null',
-                '-'
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
-            
-            # Parse mean_volume from stderr
-            mean_volume = -100.0
-            for line in result.stderr.split('\n'):
-                if 'mean_volume:' in line:
-                    try:
-                        mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
-                        break
-                    except Exception as e:
-                        logger.warning(f"[{capture_folder}] Failed to parse volume: {line} (error: {e})")
-            
-            # Consider has audio if volume > -50dB (same threshold as transcript_accumulator)
-            has_audio = mean_volume > -50.0
+            # Use shared audio level check utility (no code duplication!)
+            has_audio, mean_volume = check_audio_level(
+                file_path=latest_segment,
+                sample_duration=0.5,  # Fast check (0.5s)
+                timeout=2,
+                context=capture_folder
+            )
             
             status_icon = '🔊' if has_audio else '🔇'
             logger.info(f"[{capture_folder}] {status_icon} Audio check result: {mean_volume:.1f}dB → {'AUDIO' if has_audio else 'SILENT'}")
             
             return has_audio
             
-        except subprocess.TimeoutExpired:
-            logger.warning(f"[{capture_folder}] Audio check timeout")
-            return False
         except Exception as e:
             logger.warning(f"[{capture_folder}] Audio check failed: {e}")
             return False  # On error, assume no audio (safer to proceed with banner detection)
