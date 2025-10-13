@@ -33,14 +33,25 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         ? monitoringAnalysis.zap
         : null;
     
+    // DEBUG: Log zap detection
+    if (monitoringAnalysis.zap_cache) {
+      console.log('[ActionHistory] zap_cache found:', monitoringAnalysis.zap_cache);
+    }
+    if (monitoringAnalysis.zap) {
+      console.log('[ActionHistory] zap found:', monitoringAnalysis.zap);
+    }
+    
     // Backward compatibility: fallback to old flat structure
     const legacyZapDetected = monitoringAnalysis.zapping_detected && monitoringAnalysis.zapping_id;
     
     if (zapData || legacyZapDetected) {
       const zapId = zapData?.id || monitoringAnalysis.zapping_id!;
       
+      console.log('[ActionHistory] Zap detected! ID:', zapId, 'Already shown:', shownZappingIds.has(zapId));
+      
       // ✅ CACHE CHECK: Only show each zapping event once (prevents duplicates from multiple frames)
       if (!shownZappingIds.has(zapId)) {
+        console.log('[ActionHistory] Adding zap to actions:', zapId);
         // Use new structure if available, fallback to old
         const channelName = zapData?.channel_name || monitoringAnalysis.zapping_channel_name || 'Unknown';
         const channelNumber = zapData?.channel_number || monitoringAnalysis.zapping_channel_number || '';
@@ -74,6 +85,8 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         
         // Mark as shown
         setShownZappingIds(prev => new Set(prev).add(zapId));
+      } else {
+        console.log('[ActionHistory] Zap already shown, skipping:', zapId);
       }
     }
 
@@ -90,13 +103,16 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
 
     // Merge with existing actions, keep unique, sort by timestamp, keep last 3
     if (currentActions.length > 0) {
+      console.log('[ActionHistory] Updating actions with:', currentActions);
       setActions(prev => {
         const combined = [...currentActions, ...prev];
         const uniqueMap = new Map(combined.map(a => [a.id, a]));
         const unique = Array.from(uniqueMap.values());
-        return unique
+        const sorted = unique
           .sort((a, b) => b.timestamp - a.timestamp)
           .slice(0, 3);
+        console.log('[ActionHistory] Final actions to display:', sorted);
+        return sorted;
       });
     }
   }, [monitoringAnalysis]);
@@ -116,7 +132,12 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
     return () => timers.forEach(clearTimeout);
   }, [actions]);
 
-  if (actions.length === 0) return null;
+  console.log('[ActionHistory] Rendering with actions:', actions.length, actions);
+  
+  if (actions.length === 0) {
+    console.log('[ActionHistory] No actions to display, returning null');
+    return null;
+  }
 
   return (
     <Box

@@ -590,12 +590,59 @@ def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict
         except json.JSONDecodeError as e:
             logger.error(f"[{context_name}] JSON parsing error: {e}")
             logger.error(f"[{context_name}] Raw AI response: {repr(content)}")
-            return {
-                'success': False,
-                'error': 'Invalid AI response format',
-                'raw_response': content,
-                'json_error': str(e)
+            
+            # ✅ FALLBACK: Extract fields from incomplete/truncated JSON
+            # If we can find channel_name, program_name, etc., consider it a success
+            logger.info(f"[{context_name}] 🔧 Attempting fallback extraction from raw response...")
+            
+            import re
+            fallback_data = {}
+            
+            # Extract fields using regex (handle both complete and incomplete JSON)
+            patterns = {
+                'banner_detected': r'"banner_detected"\s*:\s*(true|false)',
+                'channel_name': r'"channel_name"\s*:\s*"([^"]*)"',
+                'channel_number': r'"channel_number"\s*:\s*"([^"]*)"',
+                'program_name': r'"program_name"\s*:\s*"([^"]*)"',
+                'episode_information': r'"episode_information"\s*:\s*"([^"]*)"',
+                'start_time': r'"start_time"\s*:\s*"([^"]*)"',
+                'end_time': r'"end_time"\s*:\s*"([^"]*)"',
+                'confidence': r'"confidence"\s*:\s*([0-9.]+)'
             }
+            
+            for field, pattern in patterns.items():
+                match = re.search(pattern, content)
+                if match:
+                    value = match.group(1)
+                    if field == 'banner_detected':
+                        fallback_data[field] = value == 'true'
+                    elif field == 'confidence':
+                        fallback_data[field] = float(value)
+                    else:
+                        fallback_data[field] = value
+            
+            # Check if we have ANY useful channel/program info
+            has_channel_info = any([
+                fallback_data.get('channel_name', '').strip(),
+                fallback_data.get('channel_number', '').strip(),
+                fallback_data.get('program_name', '').strip(),
+                fallback_data.get('episode_information', '').strip()
+            ])
+            
+            if has_channel_info:
+                logger.info(f"[{context_name}] ✅ Fallback extraction successful - found channel info!")
+                logger.info(f"[{context_name}] Extracted: {fallback_data}")
+                # Override banner_detected to true since we found channel info
+                fallback_data['banner_detected'] = True
+                ai_result = fallback_data
+            else:
+                logger.error(f"[{context_name}] ❌ Fallback extraction failed - no channel info found")
+                return {
+                    'success': False,
+                    'error': 'Invalid AI response format',
+                    'raw_response': content,
+                    'json_error': str(e)
+                }
         
         # Validate and normalize the result
         banner_detected = ai_result.get('banner_detected', False)

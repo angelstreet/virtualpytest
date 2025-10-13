@@ -7,6 +7,8 @@ import { Host, Device } from '../types/common/Host_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 import { HostManagerContext } from './HostManagerContext';
+import { HostDataContext } from './HostDataContext';
+import { HostControlContext } from './HostControlContext';
 
 interface HostManagerProviderProps {
   children: React.ReactNode;
@@ -619,20 +621,12 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   }, [availableHosts, stableUserInterface?.models]);
 
   // ========================================
-  // CONTEXT VALUE
+  // CONTEXT VALUES - Split into Data and Control
   // ========================================
 
-  const contextValue = useMemo(
+  // Host Data Context - static data (rarely changes)
+  const hostDataValue = useMemo(
     () => ({
-      // Panel and UI state
-      selectedHost,
-      selectedDeviceId,
-      isControlActive,
-      isRemotePanelOpen,
-      showRemotePanel,
-      showAVPanel,
-      isVerificationActive,
-
       // Server selection state
       selectedServer,
       availableServers,
@@ -650,6 +644,48 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       getAllDevices,
       getDevicesFromHost,
       getDevicesByCapability,
+    }),
+    [
+      selectedServer,
+      availableServers,
+      setSelectedServer,
+      filteredAvailableHosts,
+      getHostByName,
+      isLoading,
+      error,
+      getAllHosts,
+      getHostsByModel,
+      getAllDevices,
+      getDevicesFromHost,
+      getDevicesByCapability,
+    ],
+  );
+
+  // Host Control Context - dynamic control state (changes frequently)
+  const hostControlValue = useMemo(
+    () => ({
+      // Panel and UI state
+      selectedHost,
+      selectedDeviceId,
+      isControlActive,
+      isRemotePanelOpen,
+      showRemotePanel,
+      showAVPanel,
+      isVerificationActive,
+
+      // Device control methods
+      takeControl,
+      releaseControl,
+      isDeviceLocked,
+      canLockDevice,
+      hasActiveLock,
+
+      // Panel and UI handlers
+      handleDeviceSelect,
+      handleControlStateChange,
+      handleToggleRemotePanel,
+      handleConnectionChange,
+      handleDisconnectComplete,
 
       // Panel and control actions
       setSelectedHost,
@@ -665,20 +701,6 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         await reclaimUserLocks();
         return true;
       },
-
-      // Device control methods
-      takeControl,
-      releaseControl,
-      isDeviceLocked,
-      canLockDevice,
-      hasActiveLock,
-
-      // Panel and UI handlers
-      handleDeviceSelect,
-      handleControlStateChange,
-      handleToggleRemotePanel,
-      handleConnectionChange,
-      handleDisconnectComplete,
     }),
     [
       selectedHost,
@@ -688,17 +710,6 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       showRemotePanel,
       showAVPanel,
       isVerificationActive,
-      selectedServer,
-      availableServers,
-      filteredAvailableHosts,
-      isLoading,
-      error,
-      getAllHosts,
-      getHostsByModel,
-      getAllDevices,
-      getDevicesFromHost,
-      getDevicesByCapability,
-      reclaimUserLocks,
       takeControl,
       releaseControl,
       isDeviceLocked,
@@ -709,10 +720,28 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       handleToggleRemotePanel,
       handleConnectionChange,
       handleDisconnectComplete,
+      reclaimUserLocks,
     ],
   );
 
-  return <HostManagerContext.Provider value={contextValue}>{children}</HostManagerContext.Provider>;
+  // Legacy combined context for backward compatibility
+  const contextValue = useMemo(
+    () => ({
+      ...hostDataValue,
+      ...hostControlValue,
+    }),
+    [hostDataValue, hostControlValue],
+  );
+
+  return (
+    <HostDataContext.Provider value={hostDataValue}>
+      <HostControlContext.Provider value={hostControlValue}>
+        <HostManagerContext.Provider value={contextValue}>
+          {children}
+        </HostManagerContext.Provider>
+      </HostControlContext.Provider>
+    </HostDataContext.Provider>
+  );
 };
 
 HostManagerProvider.displayName = 'HostManagerProvider';

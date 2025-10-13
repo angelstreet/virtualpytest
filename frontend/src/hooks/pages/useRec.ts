@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import { Host, Device } from '../../types/common/Host_Types';
-import { useHostManager } from '../useHostManager';
+import { useHostData } from '../useHostManager';
 import { calculateVncScaling } from '../../utils/vncUtils';
 
 import { buildServerUrl, buildStreamUrl } from '../../utils/buildUrlUtils';
@@ -31,11 +31,11 @@ interface UseRecReturn {
  *
  * Simplified to only handle device discovery:
  * - Stream URL fetching: Use useStream hook
- * - Device control: Use HostManager takeControl/releaseControl directly
+ * - Device control: Use useDeviceControl hook or HostControl context directly
  * 
- * Note: This hook will re-execute when HostManager updates (e.g., on take/release control),
- * but the return value is memoized to prevent consumer re-renders when data hasn't changed.
- * All callbacks use refs to remain stable across HostManager updates.
+ * Note: This hook now uses useHostData (static data context) instead of useHostManager,
+ * which prevents re-renders when device control state changes (e.g., button presses).
+ * All callbacks use refs to remain stable across data updates.
  */
 export const useRec = (): UseRecReturn => {
   const [avDevices, setAvDevices] = useState<Array<{ host: Host; device: Device }>>([]);
@@ -62,26 +62,27 @@ export const useRec = (): UseRecReturn => {
   // Use useMemo to ensure stable reference across re-renders
   const baseUrlPatterns = useMemo(() => new Map<string, string>(), []);
 
-  // Use the simplified HostManager function and loading state
-  const { getDevicesByCapability, isLoading: isHostManagerLoading } = useHostManager();
+  // Use the HostData context (static data only - no control state)
+  // This prevents re-renders when device control state changes (e.g., button presses)
+  const { getDevicesByCapability, isLoading: isHostDataLoading } = useHostData();
   
   // Use refs to store latest values and prevent callback recreation
   const getDevicesByCapabilityRef = useRef(getDevicesByCapability);
-  const isHostManagerLoadingRef = useRef(isHostManagerLoading);
+  const isHostDataLoadingRef = useRef(isHostDataLoading);
   
   getDevicesByCapabilityRef.current = getDevicesByCapability;
-  isHostManagerLoadingRef.current = isHostManagerLoading;
+  isHostDataLoadingRef.current = isHostDataLoading;
 
   console.log(`[@hook:useRec] Hook render #${renderCountRef.current}`, {
-    isHostManagerLoading,
+    isHostDataLoading,
     avDevicesCount: avDevices.length
   });
 
-  // Get AV-capable devices - only when HostManager is ready
-  // Stabilized with ref to prevent recreation on every HostManager update
+  // Get AV-capable devices - only when HostData is ready
+  // Stabilized with ref to prevent recreation on every HostData update
   const refreshHosts = useCallback(async (): Promise<void> => {
-    // Don't fetch if HostManager is still loading
-    if (isHostManagerLoadingRef.current) {
+    // Don't fetch if HostData is still loading
+    if (isHostDataLoadingRef.current) {
       return;
     }
 
@@ -117,16 +118,16 @@ export const useRec = (): UseRecReturn => {
     }
   }, []); // No dependencies - use refs instead to keep callback stable
 
-  // Trigger refresh when HostManager finishes loading
+  // Trigger refresh when HostData finishes loading
   useEffect(() => {
-    if (!isHostManagerLoading) {
+    if (!isHostDataLoading) {
       refreshHosts();
     }
-  }, [isHostManagerLoading, refreshHosts]);
+  }, [isHostDataLoading, refreshHosts]);
 
   // Initialize on mount and set up auto-refresh
   useEffect(() => {
-    // Initial refresh (will be skipped if HostManager is loading)
+    // Initial refresh (will be skipped if HostData is loading)
     refreshHosts();
 
     // Auto-refresh every 30 seconds
