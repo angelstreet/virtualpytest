@@ -203,10 +203,10 @@ def detect_and_record_zapping(
                             if 'zap' in data and data['zap'].get('detected'):
                                 continue
                             
-                            # Add cache
+                            # Add cache (use original frame for consistent ID - deduplication)
                             data['zap_cache'] = {
                                 'detected': True,
-                                'id': f"zap_cache_{seq}_{int(datetime.now().timestamp())}",
+                                'id': f"zap_cache_{frame_filename}",  # Same ID for all cache frames
                                 'detected_at': datetime.now().isoformat(),
                                 'original_frame': frame_filename,
                                 **zapping_data
@@ -325,7 +325,14 @@ def _write_zapping_to_frames(
             return
         
         # Prepare metadata for this specific key
-        zapping_id = f"{key_prefix}_{sequence}_{int(datetime.now().timestamp())}"
+        # For cache, use original frame for consistent ID (deduplication)
+        # For truth, use current frame
+        if key_prefix == 'zap_cache' and original_frame:
+            base_sequence = int(original_frame.split('_')[1].split('.')[0])
+            zapping_id = f"zap_cache_{original_frame}"
+        else:
+            zapping_id = f"{key_prefix}_{sequence}_{int(datetime.now().timestamp())}"
+        
         detected_at = datetime.now().isoformat()
         
         zapping_metadata = {

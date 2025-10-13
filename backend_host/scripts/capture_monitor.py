@@ -481,9 +481,12 @@ class InotifyFrameMonitor:
                 # ✅ Cache: zapping_detector fills gap (existing frames), capture_monitor adds next 5 frames
                 try:
                     original_sequence = int(current_filename.split('_')[1].split('.')[0])
+                    # Use same ID format as zapping_detector (based on original frame for deduplication)
+                    zap_id = result.get('id', f"zap_cache_{current_filename}")
                     self.zapping_cache[capture_folder] = {
                         'zap_data': {
                             'detected': True,
+                            'id': zap_id,  # Same ID for all cache frames (deduplication)
                             'channel_name': channel_name,
                             'channel_number': channel_number,
                             'program_name': result.get('program_name', ''),
@@ -951,7 +954,7 @@ class InotifyFrameMonitor:
                         sequence = int(filename.split('_')[1].split('.')[0])
                         zap_cache_data = {
                             'detected': True,
-                            'id': f"zap_cache_{sequence}_{int(datetime.now().timestamp())}",
+                            'id': zap_data['id'],  # Same ID for all cache frames (deduplication)
                             'channel_name': zap_data['channel_name'],
                             'channel_number': zap_data['channel_number'],
                             'program_name': zap_data['program_name'],
