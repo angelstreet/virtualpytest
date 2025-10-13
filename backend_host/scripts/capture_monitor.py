@@ -443,7 +443,9 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
             
             # Check for recent action (reads last_action.json)
+            logger.info(f"[{capture_folder}] 🚀 BEFORE _get_action_from_device_state(device_id={device_id})")
             action_info = self._get_action_from_device_state(device_id)
+            logger.info(f"[{capture_folder}] ✅ AFTER _get_action_from_device_state, result={action_info}")
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
