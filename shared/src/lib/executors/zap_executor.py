@@ -196,7 +196,8 @@ class ZapExecutor:
         
         try:
             print(f"🔍 [ZapExecutor] Analyzing zap results for {action_command} (iteration {iteration})...")
-            
+            print(f"🔍 [ZapExecutor] Waiting 10 seconds for zapping detection to complete...")
+            time.sleep(10)
             # 1. MOTION: Read from JSON directly (fast, no verification needed)
             motion_result = self._detect_motion_from_json(context)
             self._map_verification_result(result, 'motion', motion_result, context)
@@ -743,6 +744,40 @@ class ZapExecutor:
                         zapping_data = json.load(f)
                     
                     print(f"✅ [ZapExecutor] Found last_zapping.json")
+                    
+                    # ✅ CHECK: Is detection in progress?
+                    status = zapping_data.get('status')
+                    if status == 'in_progress':
+                        print(f"⏳ [ZapExecutor] Zapping detection IN PROGRESS - will poll every 5s (max 60s)")
+                        started_at = zapping_data.get('started_at', '')
+                        print(f"   Started at: {started_at}")
+                        print(f"   Frame: {zapping_data.get('frame_filename')}")
+                        print(f"   Message: {zapping_data.get('message')}")
+                        
+                        # Poll for up to 60 seconds (12 attempts x 5 seconds)
+                        max_polls = 12
+                        for poll_attempt in range(1, max_polls + 1):
+                            print(f"   ⏳ Poll attempt {poll_attempt}/{max_polls} - waiting 5 seconds...")
+                            time.sleep(5)
+                            
+                            # Read again
+                            try:
+                                with open(last_zapping_path, 'r') as f:
+                                    zapping_data = json.load(f)
+                                
+                                # Check if completed
+                                if zapping_data.get('status') != 'in_progress':
+                                    print(f"   ✅ Detection complete after {poll_attempt * 5}s")
+                                    break
+                                else:
+                                    print(f"   ⏳ Still in progress...")
+                            except Exception as e:
+                                print(f"   ⚠️ Error reading during poll: {e}")
+                                break
+                        else:
+                            # Timeout after max_polls
+                            print(f"   ⏰ Timeout after {max_polls * 5}s - detection may have failed")
+                            return {'success': False, 'zapping_detected': False, 'error': 'Detection timeout (60s)'}
                     
                     # ✅ DEBUG: Log complete JSON content
                     print(f"📖 [ZapExecutor] READ last_zapping.json content:")

@@ -514,6 +514,10 @@ class InotifyFrameMonitor:
         try:
             logger.info(f"[{capture_folder}] 🔒 LOCK ACQUIRED - Zapping worker started for {current_filename}")
             
+            # ✅ WRITE "in_progress" marker IMMEDIATELY (before slow AI processing)
+            # This allows zap_executor to wait instead of reading stale data
+            self._write_zapping_in_progress(capture_folder, current_filename, blackscreen_duration_ms)
+            
             # ✅ PRE-CHECK: Audio DROPOUT detection across ALL segments during blackscreen + 1 extra after
             # We merge segments from blackscreen start to end + 1 more to check if audio comes back
             logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking for audio dropout across blackscreen period...")
@@ -527,6 +531,9 @@ class InotifyFrameMonitor:
                 # Continuous audio → ABORT (likely dark content, not zapping)
                 # Example: Movie scene with dark screen but continuous audio
                 logger.info(f"[{capture_folder}] ⏭️  ABORT: Continuous audio detected - likely dark content, not zapping")
+                
+                # ✅ Write "aborted" status so zap_executor doesn't timeout
+                self._write_zapping_aborted(capture_folder, current_filename, 'Continuous audio detected')
                 return
             else:
                 # Audio dropout detected → PROCEED with banner detection (likely zapping)
@@ -878,6 +885,72 @@ class InotifyFrameMonitor:
                 'segment_duration': 0.0,
                 'segments_checked': []
             }
+    
+    def _write_zapping_in_progress(self, capture_folder: str, frame_filename: str, blackscreen_duration_ms: int):
+        """
+        Write "in_progress" marker to last_zapping.json IMMEDIATELY when detection starts.
+        This allows zap_executor to poll and wait instead of reading stale data.
+        
+        Written before expensive AI processing (~40 seconds), updated when complete.
+        """
+        try:
+            from shared.src.lib.utils.storage_path_utils import get_metadata_path
+            from datetime import datetime
+            
+            metadata_path = get_metadata_path(capture_folder)
+            last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
+            
+            in_progress_data = {
+                'status': 'in_progress',
+                'started_at': datetime.now().isoformat(),
+                'frame_filename': frame_filename,
+                'blackscreen_duration_ms': blackscreen_duration_ms,
+                'message': 'AI banner detection in progress (may take up to 40 seconds)'
+            }
+            
+            # Atomic write
+            with open(last_zapping_path + '.tmp', 'w') as f:
+                json.dump(in_progress_data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.rename(last_zapping_path + '.tmp', last_zapping_path)
+            
+            logger.info(f"[{capture_folder}] 📝 Written 'in_progress' marker to last_zapping.json")
+            
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Failed to write in_progress marker: {e}")
+    
+    def _write_zapping_aborted(self, capture_folder: str, frame_filename: str, reason: str):
+        """
+        Write "aborted" status when zapping detection is skipped/aborted.
+        This prevents zap_executor from timing out waiting for a result.
+        """
+        try:
+            from shared.src.lib.utils.storage_path_utils import get_metadata_path
+            from datetime import datetime
+            
+            metadata_path = get_metadata_path(capture_folder)
+            last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
+            
+            aborted_data = {
+                'status': 'aborted',
+                'zapping_detected': False,
+                'aborted_at': datetime.now().isoformat(),
+                'frame_filename': frame_filename,
+                'reason': reason
+            }
+            
+            # Atomic write
+            with open(last_zapping_path + '.tmp', 'w') as f:
+                json.dump(aborted_data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.rename(last_zapping_path + '.tmp', last_zapping_path)
+            
+            logger.info(f"[{capture_folder}] 📝 Written 'aborted' status to last_zapping.json: {reason}")
+            
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Failed to write aborted status: {e}")
     
     def _get_action_from_device_state(self, capture_folder):
         """Read last_action.json from hot storage (simple IPC between processes)"""

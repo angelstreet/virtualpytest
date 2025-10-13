@@ -409,6 +409,7 @@ def _write_last_zapping_json(
         total_zap_duration_ms = (time_since_action_ms + blackscreen_duration_ms) if time_since_action_ms else None
         
         zapping_data = {
+            'status': 'completed',  # ✅ Mark as completed (zap_executor polls until not 'in_progress')
             'zapping_detected': True,
             'detected_at': detected_at,
             'frame_filename': frame_filename,
