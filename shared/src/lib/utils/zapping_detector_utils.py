@@ -164,8 +164,8 @@ def detect_and_record_zapping(
             original_frame=None  # This IS the original
         )
         
-        # B) Frontend cache: Fill gap from truth end to current time + 5 frames
-        # Simple: Write cache to all frames between event and now
+        # B) Frontend cache: Fill gap from truth end to current time (existing frames only)
+        # Simple: Write cache to all EXISTING frames between event and now
         try:
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
             
@@ -186,12 +186,12 @@ def detect_and_record_zapping(
             
             if json_files:
                 current_sequence = max(json_files)
-                cache_end = current_sequence + 5  # Current + 5 safety margin
+                cache_end = current_sequence  # Only write to existing frames (capture_monitor handles future)
                 
-                logger.info(f"[{capture_folder}] 📋 Writing cache from {cache_start} to {cache_end} (gap + safety)")
+                logger.info(f"[{capture_folder}] 📋 Writing cache from {cache_start} to {cache_end} (existing frames)")
                 
-                # Write cache to all frames in range
-                frames_written = 0
+                # Write cache to all existing frames in range
+                frames_written = []
                 for seq in range(cache_start, cache_end + 1):
                     target_file = os.path.join(metadata_path, f"capture_{seq:09d}.json")
                     if os.path.exists(target_file):
@@ -214,11 +214,16 @@ def detect_and_record_zapping(
                             
                             with open(target_file, 'w') as f:
                                 json.dump(data, f, indent=2)
-                            frames_written += 1
-                        except:
+                            frames_written.append(target_file)
+                        except Exception as write_error:
+                            logger.debug(f"[{capture_folder}] Skip {seq}: {write_error}")
                             continue
                 
-                logger.info(f"[{capture_folder}] ✅ Wrote cache to {frames_written} frames (no gap!)")
+                if frames_written:
+                    frames_list = ', '.join(frames_written)
+                    logger.info(f"[{capture_folder}] ✅ Wrote cache to {len(frames_written)} frames: {frames_list}")
+                else:
+                    logger.info(f"[{capture_folder}] ℹ️  No existing frames to write cache (capture_monitor will handle future frames)")
         except Exception as e:
             logger.error(f"[{capture_folder}] Failed to write cache: {e}")
         

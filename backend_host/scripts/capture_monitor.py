@@ -964,13 +964,19 @@ class InotifyFrameMonitor:
                             'audio_silence_duration': zap_data['audio_silence_duration'],
                             'original_frame': zap_data['original_frame']
                         }
+                        
+                        # Track frames for logging
+                        if 'frames_list' not in cache_entry:
+                            cache_entry['frames_list'] = []
+                        cache_entry['frames_list'].append(json_file)
                         cache_entry['frames_remaining'] -= 1
-                        logger.debug(f"[{capture_folder}] 📋 Added zap_cache to {filename} ({5 - cache_entry['frames_remaining']}/5)")
+                        logger.debug(f"[{capture_folder}] 📋 Added zap_cache to {json_file} ({5 - cache_entry['frames_remaining']}/5)")
                         
                         # Clean up if done
                         if cache_entry['frames_remaining'] <= 0:
+                            frames_list = ', '.join(cache_entry['frames_list'])
+                            logger.info(f"[{capture_folder}] ✅ Cache safety margin complete (5 frames): {frames_list}")
                             del self.zapping_cache[capture_folder]
-                            logger.info(f"[{capture_folder}] ✅ Cache safety margin complete (5 frames)")
                 
                 if detection_result:
                     # Determine if transcription is worthwhile (skip if incidents present or no audio)
