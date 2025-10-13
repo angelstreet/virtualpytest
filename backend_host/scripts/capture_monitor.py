@@ -663,11 +663,13 @@ class InotifyFrameMonitor:
     
     def _get_action_from_device_state(self, device_id):
         """Read last_action.json from hot storage (simple IPC between processes)"""
+        logger.info(f"[_get_action_from_device_state] 🚀 CALLED with device_id={device_id}")
         import time
         from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id, get_metadata_path
         
         # Get capture folder from device_id
         capture_folder = get_capture_folder_from_device_id(device_id)
+        logger.info(f"[_get_action_from_device_state] capture_folder={capture_folder}")
         if not capture_folder:
             logger.info(f"[{device_id}] ❌ MANUAL - device not found in .env")
             return None
