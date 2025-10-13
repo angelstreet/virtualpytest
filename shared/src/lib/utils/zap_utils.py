@@ -8,7 +8,6 @@ and other zap-related utility functions.
 import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from shared.src.lib.supabase.zap_results_db import get_zap_summary_for_script
 
 
 def format_time_from_timestamp(timestamp_str: str) -> str:
@@ -444,25 +443,56 @@ def format_timestamp_to_hhmmss_ms(timestamp_str: str) -> str:
         return 'N/A'
 
 def print_zap_summary_table(context):
-    """Print formatted zap summary table from database using shared formatter"""
-    if not context.script_result_id:
-        print("⚠️ [ZapUtils] No script result ID available for summary table")
-        return
-    
+    """Print formatted zap summary table from in-memory context data (NO database fetch)"""
     try:
-        # Get zap data from database
-        summary_data = get_zap_summary_for_script(context.script_result_id)
-        if not summary_data['success'] or not summary_data['zap_iterations']:
-            print("⚠️ [ZapUtils] No zap data found in database for summary table")
+        # Get zap data from context (already in memory from execution)
+        zap_data = context.custom_data.get('zap_data')
+        if not zap_data:
+            print("⚠️ [ZapUtils] No zap data in context - skipping summary table")
             return
         
-        zap_iterations = summary_data['zap_iterations']
+        analysis_results = zap_data.get('analysis_results', [])
+        if not analysis_results:
+            print("⚠️ [ZapUtils] No analysis results in zap data - skipping summary table")
+            return
+        
+        # Convert analysis results to database-like format for formatter compatibility
+        zap_iterations = []
+        for i, result in enumerate(analysis_results, 1):
+            result_dict = result.to_dict() if hasattr(result, 'to_dict') else result
+            
+            # Convert to format expected by generate_zap_summary_text
+            iteration_data = {
+                'iteration_index': i,
+                'execution_date': datetime.now().isoformat(),
+                'host_name': context.host.host_name,
+                'device_name': context.selected_device.device_name,
+                'device_model': context.selected_device.device_model,
+                'action_command': context.custom_data.get('action_command', 'unknown'),
+                'started_at': None,  # Not tracked per iteration in memory
+                'completed_at': None,  # Not tracked per iteration in memory
+                'duration_seconds': 0,  # Not tracked per iteration in memory
+                'motion_detected': result_dict.get('motion_detected', False),
+                'subtitles_detected': result_dict.get('subtitles_detected', False),
+                'subtitle_language': result_dict.get('detected_language'),
+                'audio_speech_detected': result_dict.get('audio_speech_detected', False),
+                'audio_language': result_dict.get('audio_language'),
+                'blackscreen_freeze_detected': result_dict.get('zapping_detected', False),
+                'blackscreen_freeze_duration_seconds': result_dict.get('blackscreen_duration', 0.0),
+                'detection_method': result_dict.get('zapping_details', {}).get('detection_type'),
+                'channel_name': result_dict.get('channel_name', ''),
+                'channel_number': result_dict.get('channel_number', ''),
+                'program_name': result_dict.get('program_name', ''),
+                'program_start_time': result_dict.get('program_start_time', ''),
+                'program_end_time': result_dict.get('program_end_time', '')
+            }
+            zap_iterations.append(iteration_data)
         
         # Use shared function to generate the exact same text as reports
         summary_text = generate_zap_summary_text(zap_iterations)
         print(f"\n{summary_text}")
         
-        # Store detailed table for report (before fullzap summary overwrites execution_summary)
+        # Store detailed table for report
         context.zap_detailed_summary = summary_text
         
         # Also capture fullzap summary
@@ -470,3 +500,5 @@ def print_zap_summary_table(context):
         
     except Exception as e:
         print(f"❌ [ZapUtils] Failed to generate summary table: {e}")
+        import traceback
+        traceback.print_exc()

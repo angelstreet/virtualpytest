@@ -495,7 +495,10 @@ class InotifyFrameMonitor:
             action_info = self._get_action_from_device_state(capture_folder)
             logger.info(f"[{capture_folder}] ✅ AFTER _get_action_from_device_state, result={action_info}")
             
-            # ✅ COLLECT transition images from device_state
+            # Get device_state to access transition images (same way as _add_event_duration_metadata)
+            device_state = self.incident_manager.get_device_state(device_id)
+            
+            # ✅ COLLECT transition images from device_state (same as freeze/blackscreen incident tracking)
             transition_images = {
                 'before_frame': device_state.get('blackscreen_before_filename'),
                 'before_thumbnail_path': device_state.get('blackscreen_before_thumbnail_cold'),
@@ -506,7 +509,11 @@ class InotifyFrameMonitor:
                 'after_frame': current_filename,  # Current frame (after blackscreen ended)
                 'after_thumbnail_path': device_state.get('blackscreen_closure_frame')  # Already stored by event tracking
             }
-            logger.info(f"[{capture_folder}] 📸 Zapping transition images collected: {list(transition_images.keys())}")
+            
+            # Log which images are available (debug R2 upload issues)
+            images_found = sum(1 for k, v in transition_images.items() if v and '_thumbnail_path' in k)
+            images_missing = [k.replace('_thumbnail_path', '') for k, v in transition_images.items() if not v and '_thumbnail_path' in k]
+            logger.info(f"[{capture_folder}] 📸 Transition images: {images_found}/4 found" + (f", missing: {images_missing}" if images_missing else ""))
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
