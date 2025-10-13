@@ -324,18 +324,25 @@ def execute_command():
         # Write action metadata to frame JSON for automatic zap measurement (if successful)
         if success:
             try:
+                print(f"[@route:host_remote:execute_command] 🎬 Action succeeded, writing to frame JSON and last_action.json...")
                 from backend_host.src.lib.utils.frame_metadata_utils import write_action_to_frame_json
                 device = get_device_by_id(device_id)
                 if device:
                     action_completion_timestamp = time.time()
+                    print(f"[@route:host_remote:execute_command] 📝 Calling write_action_to_frame_json: device={device_id}, cmd={command}, ts={action_completion_timestamp}")
                     write_action_to_frame_json(
                         device=device,
                         action={'command': command, 'params': params},
                         action_completion_timestamp=action_completion_timestamp
                     )
+                    print(f"[@route:host_remote:execute_command] ✅ write_action_to_frame_json completed")
+                else:
+                    print(f"[@route:host_remote:execute_command] ❌ Device not found for device_id: {device_id}")
             except Exception as e:
                 # Non-blocking - log but don't fail the command
-                print(f"[@route:host_remote:execute_command] Frame JSON write failed (non-blocking): {e}")
+                print(f"[@route:host_remote:execute_command] ❌ Frame JSON write failed (non-blocking): {e}")
+                import traceback
+                traceback.print_exc()
         
         return jsonify({
             'success': success,

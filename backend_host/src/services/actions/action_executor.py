@@ -616,8 +616,15 @@ class ActionExecutor:
         nav_context['last_action_timestamp'] = action_completion_timestamp
         
         # Write action metadata to frame JSON for automatic zap measurement (shared utility)
+        print(f"[@lib:action_executor:_execute_single_action] 🎬 Writing to frame JSON and last_action.json...")
         from backend_host.src.lib.utils.frame_metadata_utils import write_action_to_frame_json
-        write_action_to_frame_json(self.device, action, action_completion_timestamp)
+        try:
+            write_action_to_frame_json(self.device, action, action_completion_timestamp)
+            print(f"[@lib:action_executor:_execute_single_action] ✅ write_action_to_frame_json completed")
+        except Exception as e:
+            print(f"[@lib:action_executor:_execute_single_action] ❌ write_action_to_frame_json failed: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Return standardized result (same format as API)
         result_message = f"{action.get('command')}"

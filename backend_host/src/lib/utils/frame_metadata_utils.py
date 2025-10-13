@@ -32,14 +32,19 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
         action_completion_timestamp: Unix timestamp when action completed
     """
     try:
+        # Prominent entry log for debugging
+        print(f"[@frame_metadata_utils:write_action_to_frame_json] 🎬 CALLED: cmd={action.get('command')}, ts={action_completion_timestamp}")
+        
         # Get capture_folder from device
         # Device has capture_dir attribute like '/var/www/html/stream/capture1'
         capture_dir = device.get_capture_dir('captures')
         if not capture_dir:
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ No capture_dir configured, aborting")
             return  # No capture directory configured
         
         # Extract capture_folder name (e.g., 'capture1')
         capture_folder = get_capture_folder(capture_dir)
+        print(f"[@frame_metadata_utils:write_action_to_frame_json] 📂 capture_folder={capture_folder}")
         
         # ✅ STORE ACTION IN DEVICE STATE (in-memory for fast zapping detection)
         # ✅ INTER-PROCESS COMMUNICATION via last_action.json
@@ -47,12 +52,14 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
         # Write to single last_action.json file (same pattern as last_zapping.json)
         
         metadata_path = get_metadata_path(capture_folder)
+        print(f"[@frame_metadata_utils:write_action_to_frame_json] 📂 metadata_path={metadata_path}, exists={os.path.exists(metadata_path)}")
         
         if not os.path.exists(metadata_path):
             print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ Metadata path does not exist: {metadata_path}")
             return  # No metadata directory yet
         
         # ✅ WRITE last_action.json (instant read for capture_monitor)
+        print(f"[@frame_metadata_utils:write_action_to_frame_json] 📝 Writing last_action.json...")
         try:
             last_action_path = os.path.join(metadata_path, 'last_action.json')
             last_action_data = {
@@ -65,11 +72,18 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
             with open(last_action_path, 'w') as f:
                 json.dump(last_action_data, f, indent=2)
             
-            logger.info(f"[@frame_metadata_utils] ✅ Written last_action.json: {action.get('command')} @ {action_completion_timestamp}")
-            logger.info(f"[@frame_metadata_utils] 📂 Path: {last_action_path}")
+            # Verify file was written
+            if os.path.exists(last_action_path):
+                file_size = os.path.getsize(last_action_path)
+                print(f"[@frame_metadata_utils:write_action_to_frame_json] ✅ Written last_action.json: {action.get('command')} @ {action_completion_timestamp}")
+                print(f"[@frame_metadata_utils:write_action_to_frame_json] 📂 Path: {last_action_path} ({file_size} bytes)")
+            else:
+                print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ File write succeeded but file doesn't exist: {last_action_path}")
             
         except Exception as e:
-            logger.error(f"[@frame_metadata_utils] ❌ Failed to write last_action.json: {e}")
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ Failed to write last_action.json: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Get last 5 JSON files by mtime (fastest approach - uses cached stat)
         json_files = []
