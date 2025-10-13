@@ -681,7 +681,17 @@ class InotifyFrameMonitor:
         # Clear log showing exact path
         logger.info(f"[{device_id}] Reading action from: {last_action_path}")
         
-
+        # Check if file exists BEFORE trying to read
+        if not os.path.exists(last_action_path):
+            logger.info(f"[{device_id}] ❌ MANUAL - file not found: {last_action_path}")
+            return None
+        
+        # Check file size and permissions
+        try:
+            file_stat = os.stat(last_action_path)
+            logger.info(f"[{device_id}] File exists: size={file_stat.st_size} bytes, mode={oct(file_stat.st_mode)}")
+        except Exception as e:
+            logger.warning(f"[{device_id}] Could not stat file: {e}")
         
         # Read JSON
         try:
