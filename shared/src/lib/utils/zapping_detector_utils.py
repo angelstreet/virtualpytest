@@ -32,7 +32,8 @@ def detect_and_record_zapping(
     frame_filename: str,
     blackscreen_duration_ms: int,
     action_info: Optional[Dict[str, Any]] = None,
-    audio_info: Optional[Dict[str, Any]] = None
+    audio_info: Optional[Dict[str, Any]] = None,
+    transition_images: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Detect zapping by analyzing channel banner and record the event.
@@ -62,6 +63,17 @@ def detect_and_record_zapping(
                 'silence_duration': 0.56,
                 'mean_volume_db': -100.0,
                 'segment_duration': 1.0
+            }
+        transition_images: Optional dict with zapping transition images:
+            {
+                'before_frame': 'capture_12344.jpg',
+                'before_thumbnail_path': '/path/to/cold/thumbnail.jpg',
+                'first_blackscreen_frame': 'capture_12345.jpg',
+                'first_blackscreen_thumbnail_path': '/path/to/cold/thumbnail.jpg',
+                'last_blackscreen_frame': 'capture_12347.jpg',
+                'last_blackscreen_thumbnail_path': '/path/to/cold/thumbnail.jpg',
+                'after_frame': 'capture_12348.jpg',
+                'after_thumbnail_path': '/path/to/cold/thumbnail.jpg'
             }
     
     Returns:
@@ -138,6 +150,39 @@ def detect_and_record_zapping(
         else:
             logger.info(f"[{capture_folder}] 👤 MANUAL zapping (no action found within 10s)")
         
+        # ✅ UPLOAD transition images to R2 (images already in cold storage from capture_monitor)
+        r2_images = None
+        if transition_images:
+            logger.info(f"[{capture_folder}] 📤 Uploading zapping transition images to R2...")
+            from datetime import datetime
+            now = datetime.now()
+            time_key = f"{now.year}{now.month:02d}{now.day:02d}_{now.hour:02d}{now.minute:02d}{now.second:02d}"
+            
+            # Import incident_manager to reuse R2 upload logic (same as freeze/blackscreen)
+            try:
+                # Get incident manager from capture_monitor's global instance
+                # Alternative: Create temporary instance just for upload
+                from backend_host.scripts.incident_manager import IncidentManager
+                incident_manager = IncidentManager(skip_startup_cleanup=True)  # Don't cleanup on temp instance
+                
+                r2_images = incident_manager.upload_zapping_transition_images_to_r2(
+                    transition_images=transition_images,
+                    capture_folder=capture_folder,
+                    time_key=time_key
+                )
+                
+                if r2_images:
+                    uploaded_count = sum(1 for url in [r2_images.get('before_url'), r2_images.get('first_blackscreen_url'), 
+                                                       r2_images.get('last_blackscreen_url'), r2_images.get('after_url')] if url)
+                    logger.info(f"[{capture_folder}] ✅ R2 upload complete: {uploaded_count}/4 transition images")
+                else:
+                    logger.warning(f"[{capture_folder}] ⚠️  R2 upload failed or no images available")
+                    
+            except Exception as e:
+                logger.error(f"[{capture_folder}] Error uploading to R2: {e}")
+                import traceback
+                traceback.print_exc()
+        
         # 1️⃣ Write truth to single frame only (historical record)
         # capture_monitor will write cache to next 5 frames as they arrive
         zapping_data = {
@@ -166,7 +211,8 @@ def detect_and_record_zapping(
             blackscreen_duration_ms=blackscreen_duration_ms,
             is_automatic=is_automatic,
             action_info=action_info,
-            audio_info=audio_info
+            audio_info=audio_info,
+            transition_images=transition_images  # ✅ NEW: Pass transition images
         )
         
         # 3️⃣ Store in database
@@ -297,7 +343,8 @@ def _write_last_zapping_json(
     blackscreen_duration_ms: int,
     is_automatic: bool,
     action_info: Optional[Dict[str, Any]],
-    audio_info: Optional[Dict[str, Any]] = None
+    audio_info: Optional[Dict[str, Any]] = None,
+    transition_images: Optional[Dict[str, Any]] = None
 ):
     """
     Write last_zapping.json for instant read by zap_executor.
@@ -323,6 +370,10 @@ def _write_last_zapping_json(
         # Prepare complete zapping data
         detected_at = datetime.now().isoformat()
         
+        # Calculate total zap duration (action → blackscreen end)
+        time_since_action_ms = action_info.get('time_since_action_ms') if action_info else None
+        total_zap_duration_ms = (time_since_action_ms + blackscreen_duration_ms) if time_since_action_ms else None
+        
         zapping_data = {
             'zapping_detected': True,
             'detected_at': detected_at,
@@ -344,10 +395,17 @@ def _write_last_zapping_json(
             'action_timestamp': action_info.get('last_action_timestamp') if action_info else None,
             'action_command': action_info.get('last_action_executed') if action_info else None,
             'action_params': action_info.get('action_params', {}) if action_info else {},  # ✅ ADD: Full params (e.g., {"key": "CHANNEL_UP"})
-            'time_since_action_ms': action_info.get('time_since_action_ms') if action_info else None,
+            'time_since_action_ms': time_since_action_ms,
+            'total_zap_duration_ms': total_zap_duration_ms,  # ✅ NEW: Total zap duration (action → after blackscreen)
             
             # Audio dropout analysis (silence duration only - used for zapping pre-check)
             'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
+            
+            # ✅ NEW: Transition images (before → first blackscreen → last blackscreen → after)
+            'transition_images': transition_images if transition_images else {},
+            
+            # ✅ NEW: R2 image URLs (uploaded above when zapping confirmed)
+            'r2_images': r2_images if r2_images else {}
         }
         
         # Atomic write

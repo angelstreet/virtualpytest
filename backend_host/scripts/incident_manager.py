@@ -785,6 +785,77 @@ class IncidentManager:
             logger.error(f"[{device_id}] Error uploading {incident_type} frame to R2: {e}")
             return None
     
+    def upload_zapping_transition_images_to_r2(self, transition_images, capture_folder, time_key):
+        """Upload zapping transition images to R2 (4 frames: before → first → last → after)
+        
+        Uses consistent naming (overwrites previous uploads) to avoid memory issues.
+        Same pattern as freeze/blackscreen but with 4 transition frames.
+        
+        Args:
+            transition_images: Dict with paths to 4 transition frames (from cold storage)
+            capture_folder: Device identifier (e.g., 'capture1')
+            time_key: Timestamp key for naming (YYYYMMDD_HHMMSS)
+        
+        Returns:
+            Dict with URLs or None if upload failed
+        """
+        try:
+            from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+            
+            uploader = get_cloudflare_utils()
+            if not uploader:
+                logger.warning(f"[{capture_folder}] R2 uploader not available, skipping zapping frame upload")
+                return None
+            
+            # R2 base path: alerts/zapping/{capture_folder}/{YYYYMMDD_HHMMSS}_{stage}.jpg
+            # Consistent naming overwrites previous uploads (no memory accumulation)
+            base_r2_path = f"alerts/zapping/{capture_folder}"
+            
+            r2_results = {
+                'before_url': None,
+                'first_blackscreen_url': None,
+                'last_blackscreen_url': None,
+                'after_url': None,
+                'time_key': time_key
+            }
+            
+            # Map transition images to R2 stages
+            image_mapping = [
+                ('before_thumbnail_path', f'{base_r2_path}/{time_key}_before.jpg', 'before_url'),
+                ('first_blackscreen_thumbnail_path', f'{base_r2_path}/{time_key}_first_blackscreen.jpg', 'first_blackscreen_url'),
+                ('last_blackscreen_thumbnail_path', f'{base_r2_path}/{time_key}_last_blackscreen.jpg', 'last_blackscreen_url'),
+                ('after_thumbnail_path', f'{base_r2_path}/{time_key}_after.jpg', 'after_url')
+            ]
+            
+            uploaded_count = 0
+            for path_key, r2_path, url_key in image_mapping:
+                thumbnail_path = transition_images.get(path_key)
+                
+                if not thumbnail_path or not os.path.exists(thumbnail_path):
+                    logger.debug(f"[{capture_folder}] Zapping image missing: {path_key}")
+                    continue
+                
+                file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
+                upload_result = uploader.upload_files(file_mappings)
+                
+                if upload_result['uploaded_files']:
+                    r2_results[url_key] = upload_result['uploaded_files'][0]['url']
+                    uploaded_count += 1
+                    logger.debug(f"[{capture_folder}] Uploaded {path_key}: {r2_path}")
+                else:
+                    logger.warning(f"[{capture_folder}] Failed to upload {path_key}")
+            
+            if uploaded_count > 0:
+                logger.info(f"[{capture_folder}] ✅ Uploaded {uploaded_count}/4 zapping transition images to R2")
+                return r2_results
+            else:
+                logger.warning(f"[{capture_folder}] ⚠️  No zapping images uploaded to R2")
+                return None
+                
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Error uploading zapping images to R2: {e}")
+            return None
+    
     def _delete_r2_incident_images(self, r2_images, capture_folder, incident_type):
         """Delete orphaned incident images from R2 (generic for any incident type)
         

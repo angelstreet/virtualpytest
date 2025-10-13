@@ -300,6 +300,29 @@ class InotifyFrameMonitor:
                     detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
                     detection_result[f'{event_type}_event_duration_ms'] = 0
                     
+                    # ✅ ZAPPING: Capture "BEFORE blackscreen" frame (previous frame) for transition images
+                    if event_type == 'blackscreen':
+                        try:
+                            # Extract current sequence number
+                            current_sequence = int(current_filename.split('_')[1].split('.')[0])
+                            # Previous frame (before blackscreen started)
+                            before_filename = f"capture_{current_sequence-1:09d}.jpg"
+                            before_thumbnail_filename = f"capture_{current_sequence-1:09d}_thumbnail.jpg"
+                            
+                            from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
+                            thumbnails_dir = get_thumbnails_path(capture_folder)
+                            before_thumbnail_path = os.path.join(thumbnails_dir, before_thumbnail_filename)
+                            
+                            if os.path.exists(before_thumbnail_path):
+                                # Copy "before" frame to cold storage
+                                cold_path = copy_to_cold_storage(before_thumbnail_path)
+                                if cold_path:
+                                    device_state['blackscreen_before_thumbnail_cold'] = cold_path
+                                    device_state['blackscreen_before_filename'] = before_filename
+                                    logger.debug(f"[{capture_folder}] Copied BEFORE blackscreen frame to cold: {before_filename}")
+                        except Exception as e:
+                            logger.warning(f"[{capture_folder}] ⚠️  Failed to capture BEFORE frame: {e}")
+                    
                     # Copy START frame to COLD immediately for visual incidents (hot storage frames expire)
                     if event_type in ['blackscreen', 'macroblocks', 'audio']:
                         current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
@@ -354,17 +377,41 @@ class InotifyFrameMonitor:
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
                 
+                # ✅ ZAPPING: Capture LAST blackscreen frame (still showing blackscreen before it clears)
+                # This is the frame BEFORE current_filename (which is the first normal frame after blackscreen)
+                if event_type == 'blackscreen':
+                    try:
+                        # Current frame is AFTER blackscreen (first normal frame)
+                        current_sequence = int(current_filename.split('_')[1].split('.')[0])
+                        # Previous frame is LAST blackscreen frame
+                        last_blackscreen_filename = f"capture_{current_sequence-1:09d}.jpg"
+                        last_blackscreen_thumbnail_filename = f"capture_{current_sequence-1:09d}_thumbnail.jpg"
+                        
+                        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
+                        thumbnails_dir = get_thumbnails_path(capture_folder)
+                        last_thumbnail_path = os.path.join(thumbnails_dir, last_blackscreen_thumbnail_filename)
+                        
+                        if os.path.exists(last_thumbnail_path):
+                            # Copy "last blackscreen" frame to cold storage
+                            cold_path = copy_to_cold_storage(last_thumbnail_path)
+                            if cold_path:
+                                device_state['blackscreen_last_thumbnail_cold'] = cold_path
+                                device_state['blackscreen_last_filename'] = last_blackscreen_filename
+                                logger.debug(f"[{capture_folder}] Copied LAST blackscreen frame to cold: {last_blackscreen_filename}")
+                    except Exception as e:
+                        logger.warning(f"[{capture_folder}] ⚠️  Failed to capture LAST blackscreen frame: {e}")
+                
                 # Store closure frame for later upload by incident_manager (when resolving DB)
                 # For all visual incidents: blackscreen, freeze, macroblocks, audio_loss
                 if event_type in ['blackscreen', 'freeze', 'macroblocks', 'audio']:
-                    # Get current frame thumbnail path for closure
+                    # Get current frame thumbnail path for closure (AFTER frame for zapping)
                     current_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
                     from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
                     thumbnails_dir = get_thumbnails_path(capture_folder)
                     current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
                     
                     if os.path.exists(current_thumbnail_path):
-                        # Copy closure frame to cold storage immediately
+                        # Copy closure frame to cold storage immediately (this is AFTER frame for zapping)
                         cold_path = copy_to_cold_storage(current_thumbnail_path)
                         if cold_path:
                             # For audio, store as audio_loss (not audio) for consistency with incident_type
@@ -448,6 +495,19 @@ class InotifyFrameMonitor:
             action_info = self._get_action_from_device_state(capture_folder)
             logger.info(f"[{capture_folder}] ✅ AFTER _get_action_from_device_state, result={action_info}")
             
+            # ✅ COLLECT transition images from device_state
+            transition_images = {
+                'before_frame': device_state.get('blackscreen_before_filename'),
+                'before_thumbnail_path': device_state.get('blackscreen_before_thumbnail_cold'),
+                'first_blackscreen_frame': device_state.get('blackscreen_start_filename'),
+                'first_blackscreen_thumbnail_path': device_state.get('blackscreen_start_thumbnail_cold'),
+                'last_blackscreen_frame': device_state.get('blackscreen_last_filename'),
+                'last_blackscreen_thumbnail_path': device_state.get('blackscreen_last_thumbnail_cold'),
+                'after_frame': current_filename,  # Current frame (after blackscreen ended)
+                'after_thumbnail_path': device_state.get('blackscreen_closure_frame')  # Already stored by event tracking
+            }
+            logger.info(f"[{capture_folder}] 📸 Zapping transition images collected: {list(transition_images.keys())}")
+            
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
             result = detect_and_record_zapping(
@@ -457,7 +517,8 @@ class InotifyFrameMonitor:
                 frame_filename=current_filename,
                 blackscreen_duration_ms=blackscreen_duration_ms,
                 action_info=action_info,
-                audio_info=audio_info  # Pass audio dropout analysis to zapping record
+                audio_info=audio_info,  # Pass audio dropout analysis to zapping record
+                transition_images=transition_images  # ✅ NEW: Pass transition images
             )
             
             # Log result regardless of success/failure for debugging

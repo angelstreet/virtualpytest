@@ -163,7 +163,16 @@ export const useTranscriptPlayer = ({
             
             // Store raw 10-min data for timed segment access
             setRawTranscriptData(transcript);
-            console.log(`[@useTranscriptPlayer] 10-min transcript with ${transcript.segments?.length || 0} timed segments`);
+            
+            // Show segment summary
+            const segmentCount = transcript.segments?.length || 0;
+            if (segmentCount > 0 && transcript.segments) {
+              const firstSeg = transcript.segments[0];
+              const lastSeg = transcript.segments[segmentCount - 1];
+              console.log(`📚 Loaded ${segmentCount} segments: ${firstSeg.start.toFixed(1)}s-${lastSeg.end.toFixed(1)}s | First: "${firstSeg.text.substring(0, 30)}..."`);
+            } else {
+              console.log(`[@useTranscriptPlayer] 10-min transcript with ${segmentCount} timed segments`);
+            }
             
             const normalizedData = normalizeTranscriptData(transcript);
             
@@ -253,6 +262,11 @@ export const useTranscriptPlayer = ({
     const minuteStart = currentMinute * 60;
     const minuteEnd = minuteStart + 60;
     
+    // Count segments in current minute
+    const segmentsInMinute = rawTranscriptData.segments.filter(
+      seg => seg.start >= minuteStart && seg.start < minuteEnd
+    );
+    
     // Find active segment within current minute
     const activeSegment = rawTranscriptData.segments.find(
       seg => seg.start >= minuteStart && seg.start < minuteEnd && localTime >= seg.start && localTime < seg.end
@@ -260,9 +274,10 @@ export const useTranscriptPlayer = ({
     
     if (activeSegment) {
       setCurrentTimedSegment(activeSegment);
-      console.log(`[@useTranscriptPlayer] Minute ${currentMinute} | ${localTime.toFixed(1)}s -> "${activeSegment.text.substring(0, 50)}..."`);
+      console.log(`📝 Minute ${currentMinute} | Time ${localTime.toFixed(1)}s | Showing: "${activeSegment.text.substring(0, 40)}..."`);
     } else {
       setCurrentTimedSegment(null);
+      console.log(`⏸️ Minute ${currentMinute} | Time ${localTime.toFixed(1)}s | ${segmentsInMinute.length} segments but none active (between segments)`);
     }
   }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
 

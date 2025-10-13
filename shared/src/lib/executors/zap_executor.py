@@ -774,6 +774,9 @@ class ZapExecutor:
                         'channel_number': channel_number,
                         'program_name': zapping_data.get('program_name', ''),
                         'blackscreen_duration': zapping_data.get('blackscreen_duration_ms', 0) / 1000.0,
+                        'blackscreen_duration_ms': zapping_data.get('blackscreen_duration_ms', 0),  # ✅ ADD: Keep ms for consistency
+                        'total_zap_duration_ms': zapping_data.get('total_zap_duration_ms'),  # ✅ NEW: Total zap duration
+                        'time_since_action_ms': zapping_data.get('time_since_action_ms'),  # ✅ NEW: Time from action to blackscreen end
                         'detection_type': zapping_data.get('detection_type', 'unknown'),
                         'confidence': zapping_data.get('confidence', 0.0),
                         'detected_at': zapping_data.get('detected_at'),
@@ -781,6 +784,7 @@ class ZapExecutor:
                         'frame_sequence': sequence,
                         'action_timestamp': zapping_data.get('action_timestamp'),
                         'audio_silence_duration': zapping_data.get('audio_silence_duration', 0.0),
+                        'transition_images': zapping_data.get('transition_images', {}),  # ✅ NEW: Transition images
                         'details': {
                             'start_time': zapping_data.get('program_start_time', ''),
                             'end_time': zapping_data.get('program_end_time', '')
@@ -812,11 +816,59 @@ class ZapExecutor:
         result.program_start_time = zapping_data.get('details', {}).get('start_time', '')
         result.program_end_time = zapping_data.get('details', {}).get('end_time', '')
         
+        # ✅ NEW: Process transition images and R2 URLs
+        transition_images = zapping_data.get('transition_images', {})
+        r2_images = zapping_data.get('r2_images', {})
+        transition_image_paths = []
+        
+        if transition_images or r2_images:
+            print(f"📸 [ZapExecutor] Processing zapping transition images...")
+            
+            # Order: before → first_blackscreen → last_blackscreen → after
+            image_order = [
+                ('before_thumbnail_path', 'before_frame', 'before_url', 'Before'),
+                ('first_blackscreen_thumbnail_path', 'first_blackscreen_frame', 'first_blackscreen_url', 'First Blackscreen'),
+                ('last_blackscreen_thumbnail_path', 'last_blackscreen_frame', 'last_blackscreen_url', 'Last Blackscreen'),
+                ('after_thumbnail_path', 'after_frame', 'after_url', 'After')
+            ]
+            
+            for path_key, filename_key, url_key, display_name in image_order:
+                thumbnail_path = transition_images.get(path_key)
+                frame_filename = transition_images.get(filename_key)
+                r2_url = r2_images.get(url_key)
+                
+                # Prefer R2 URL if available, otherwise use local path
+                if r2_url:
+                    # Already in R2 - just add to transition list
+                    transition_image_paths.append({
+                        'type': display_name,
+                        'url': r2_url,
+                        'filename': frame_filename or 'unknown'
+                    })
+                    print(f"   📸 {display_name}: {frame_filename} (R2)")
+                elif thumbnail_path and frame_filename:
+                    # Local path - add to context screenshots (will upload to R2)
+                    if thumbnail_path not in context.screenshot_paths:
+                        context.add_screenshot(thumbnail_path)
+                        print(f"   📸 {display_name}: {frame_filename} (local)")
+                    transition_image_paths.append({
+                        'type': display_name,
+                        'path': thumbnail_path,
+                        'filename': frame_filename
+                    })
+        
+        # Calculate total zap duration for display
+        total_zap_duration_ms = zapping_data.get('total_zap_duration_ms')
+        time_since_action_ms = zapping_data.get('time_since_action_ms')
+        
         # Create details structure for compatibility
         result.zapping_details = {
             'success': zapping_data.get('success', False),
             'zapping_detected': result.zapping_detected,
             'blackscreen_duration': result.blackscreen_duration,
+            'blackscreen_duration_ms': zapping_data.get('blackscreen_duration_ms', 0),  # ✅ Keep ms
+            'total_zap_duration_ms': total_zap_duration_ms,  # ✅ NEW: Total duration
+            'time_since_action_ms': time_since_action_ms,  # ✅ NEW: Action delay
             'detection_type': zapping_data.get('detection_type', 'unknown'),
             'confidence': zapping_data.get('confidence', 0.0),
             'channel_info': {
@@ -828,11 +880,15 @@ class ZapExecutor:
                 'confidence': zapping_data.get('confidence', 0.0)
             },
             'frame_filename': zapping_data.get('frame_filename', ''),
+            'transition_images': transition_image_paths,  # ✅ NEW: Transition images for display
             'message': 'Zapping detected from capture_monitor' if result.zapping_detected else 'No zapping detected'
         }
         
-        # Add images if available (already in R2 from capture_monitor)
-        if zapping_data.get('images'):
+        # Add R2 images (transition images uploaded when zapping confirmed)
+        if r2_images:
+            result.zapping_details['r2_images'] = r2_images
+        # Legacy: Keep compatibility with old format
+        elif zapping_data.get('images'):
             result.zapping_details['r2_images'] = zapping_data['images']
 
     # Audio menu analysis integrated into ZapExecutor using VerificationExecutor
@@ -934,18 +990,47 @@ class ZapExecutor:
             zapping_status = "✅ DETECTED" if analysis_result.zapping_detected else "❌ NOT DETECTED"
             print(f"Zapping Detection: {zapping_status}")
             if analysis_result.zapping_detected:
-                duration_info = f"duration: {analysis_result.blackscreen_duration:.2f}s" if analysis_result.blackscreen_duration > 0 else "duration: N/A"
-                silence_info = f", audio silence: {analysis_result.audio_silence_duration:.2f}s" if analysis_result.audio_silence_duration > 0 else ""
-                print(f"Details: Zapping detected ({duration_info}{silence_info})")
+                # ✅ NEW: Display comprehensive duration information
+                details = analysis_result.zapping_details
+                
+                # Total zap duration (action → after blackscreen)
+                total_zap_duration_ms = details.get('total_zap_duration_ms')
+                if total_zap_duration_ms:
+                    print(f"   📊 Total Zap Duration: {total_zap_duration_ms}ms ({total_zap_duration_ms/1000:.2f}s)")
+                
+                # Blackscreen duration
+                blackscreen_duration_ms = details.get('blackscreen_duration_ms', 0)
+                if blackscreen_duration_ms > 0:
+                    print(f"   ⬛ Blackscreen Duration: {blackscreen_duration_ms}ms ({blackscreen_duration_ms/1000:.2f}s)")
+                
+                # Audio silence duration
+                if analysis_result.audio_silence_duration > 0:
+                    print(f"   🔇 Audio Silence: {analysis_result.audio_silence_duration:.2f}s")
+                
+                # Time from action to blackscreen end
+                time_since_action_ms = details.get('time_since_action_ms')
+                if time_since_action_ms:
+                    print(f"   ⏱️  Action Delay: {time_since_action_ms}ms (action → blackscreen end)")
+                
+                # Channel info
                 if analysis_result.channel_name:
                     channel_info = analysis_result.channel_name
                     if analysis_result.channel_number:
                         channel_info += f" ({analysis_result.channel_number})"
                     if analysis_result.program_name:
                         channel_info += f" - {analysis_result.program_name}"
-                    print(f"Channel: {channel_info}")
+                    print(f"   📺 Channel: {channel_info}")
                     if analysis_result.program_start_time and analysis_result.program_end_time:
-                        print(f"Program Time: {analysis_result.program_start_time}-{analysis_result.program_end_time}")
+                        print(f"   🕐 Program Time: {analysis_result.program_start_time}-{analysis_result.program_end_time}")
+                
+                # Transition images
+                transition_images = details.get('transition_images', [])
+                if transition_images:
+                    print(f"   📸 Transition Images: {len(transition_images)} frames captured")
+                    for img in transition_images:
+                        img_type = img.get('type', 'Unknown')
+                        filename = img.get('filename', 'unknown')
+                        print(f"      - {img_type}: {filename}")
             else:
                 # Show failure reason from zapping details
                 zapping_message = analysis_result.zapping_details.get('message', 'Zapping not detected')
