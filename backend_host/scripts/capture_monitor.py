@@ -600,6 +600,13 @@ class InotifyFrameMonitor:
             
             logger.info(f"[{capture_folder}] 📸 Transition thumbnails ready: {images_found}/3" + (f", missing: {missing}" if missing else "") + " (AFTER added during banner analysis)")
             
+            # ✅ DEBUG: Log action_info being passed to zapping detector
+            logger.info(f"[{capture_folder}] 📤 CALLING detect_and_record_zapping with action_info:")
+            if action_info:
+                logger.info(f"[{capture_folder}]    {json.dumps(action_info, indent=2)}")
+            else:
+                logger.info(f"[{capture_folder}]    action_info=None (MANUAL zapping)")
+            
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
             result = detect_and_record_zapping(
@@ -859,6 +866,10 @@ class InotifyFrameMonitor:
             with open(last_action_path, 'r') as f:
                 action_data = json.load(f)
             
+            # ✅ DEBUG: Log complete JSON content
+            logger.info(f"[{capture_folder}] 📖 READ last_action.json content:")
+            logger.info(f"[{capture_folder}]    {json.dumps(action_data, indent=2)}")
+            
             action_timestamp = action_data.get('timestamp')
             if not action_timestamp:
                 logger.info(f"[{capture_folder}] ❌ No timestamp in file")
@@ -868,18 +879,23 @@ class InotifyFrameMonitor:
             current_time = time.time()
             time_since_action = current_time - action_timestamp
             
+            logger.info(f"[{capture_folder}] ⏱️  Timestamp check: current={current_time:.3f}, action={action_timestamp:.3f}, diff={time_since_action:.3f}s")
+            
             if time_since_action > 10.0:
-                logger.info(f"[{capture_folder}] ❌ Action too old ({time_since_action:.1f}s)")
+                logger.info(f"[{capture_folder}] ❌ Action too old ({time_since_action:.1f}s > 10.0s)")
                 return None
             
             # Success
-            logger.info(f"[{capture_folder}] ✅ AUTOMATIC - action: {action_data.get('command')} ({time_since_action:.1f}s ago)")
-            return {
+            result = {
                 'last_action_executed': action_data.get('command'),
                 'last_action_timestamp': action_timestamp,
                 'action_params': action_data.get('params', {}),
                 'time_since_action_ms': int(time_since_action * 1000)
             }
+            logger.info(f"[{capture_folder}] ✅ AUTOMATIC - action: {action_data.get('command')} ({time_since_action:.1f}s ago)")
+            logger.info(f"[{capture_folder}] 📤 RETURN action_info:")
+            logger.info(f"[{capture_folder}]    {json.dumps(result, indent=2)}")
+            return result
                 
         except Exception as e:
             logger.error(f"[{capture_folder}] Error reading last_action.json: {e}")

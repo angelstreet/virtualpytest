@@ -727,6 +727,7 @@ class ZapExecutor:
         """
         try:
             print(f"📺 [ZapExecutor] Reading recent zapping detection...")
+            print(f"🔍 [ZapExecutor] Searching for zapping matching action_timestamp: {action_timestamp:.3f}")
             
             # ✅ READ FROM SAME LOCATION AS METADATA (hot or cold based on mode)
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
@@ -743,10 +744,17 @@ class ZapExecutor:
                     
                     print(f"✅ [ZapExecutor] Found last_zapping.json")
                     
+                    # ✅ DEBUG: Log complete JSON content
+                    print(f"📖 [ZapExecutor] READ last_zapping.json content:")
+                    print(f"   {json.dumps(zapping_data, indent=2)}")
+                    
                     # ✅ ONLY CHECK: Does action_timestamp match THIS action?
                     zapping_action_timestamp = zapping_data.get('action_timestamp')
                     if not zapping_action_timestamp:
                         print(f"⚠️ [ZapExecutor] No action_timestamp in zapping file - cannot verify this is the correct action")
+                        print(f"   detection_type: {zapping_data.get('detection_type')}")
+                        print(f"   frame_filename: {zapping_data.get('frame_filename')}")
+                        print(f"   detected_at: {zapping_data.get('detected_at')}")
                         return {'success': False, 'zapping_detected': False, 'error': 'No action_timestamp in zapping file'}
                     
                     timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
