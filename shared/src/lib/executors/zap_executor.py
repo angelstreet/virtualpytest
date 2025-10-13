@@ -737,35 +737,27 @@ class ZapExecutor:
             
             if os.path.exists(last_zapping_path):
                 try:
-                    # Check file modification time for recency
-                    file_mtime = os.path.getmtime(last_zapping_path)
-                    file_age = time.time() - file_mtime
-                    
-                    # Only read if file is recent (< 180s old)
-                    if file_age > 180:
-                        print(f"⚠️ [ZapExecutor] last_zapping.json is too old ({file_age:.1f}s) - likely from previous test")
-                        return {'success': False, 'zapping_detected': False, 'error': f'Zapping file too old ({file_age:.1f}s)'}
-                    
+                    # Read the zapping file
                     with open(last_zapping_path, 'r') as f:
                         zapping_data = json.load(f)
                     
-                    print(f"✅ [ZapExecutor] Found recent zapping file ({file_age:.1f}s old)")
+                    print(f"✅ [ZapExecutor] Found last_zapping.json")
                     
-                    # ✅ CRITICAL: Verify action_timestamp matches THIS action
+                    # ✅ ONLY CHECK: Does action_timestamp match THIS action?
                     zapping_action_timestamp = zapping_data.get('action_timestamp')
-                    if zapping_action_timestamp:
-                        timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
-                        print(f"🔍 [ZapExecutor] Action timestamp match check: current={action_timestamp:.3f}, zapping={zapping_action_timestamp:.3f}, diff={timestamp_diff:.3f}s")
-                        
-                        # Allow small timing variance (max 5 seconds)
-                        if timestamp_diff > 5.0:
-                            print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.1f}s difference - this is from a different action!")
-                            return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.1f}s (expected <5s)'}
-                        
-                        print(f"✅ [ZapExecutor] Timestamp match confirmed (diff={timestamp_diff:.3f}s)")
-                    else:
+                    if not zapping_action_timestamp:
                         print(f"⚠️ [ZapExecutor] No action_timestamp in zapping file - cannot verify this is the correct action")
                         return {'success': False, 'zapping_detected': False, 'error': 'No action_timestamp in zapping file'}
+                    
+                    timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
+                    print(f"🔍 [ZapExecutor] Timestamp comparison: current={action_timestamp:.3f}, zapping={zapping_action_timestamp:.3f}, diff={timestamp_diff:.3f}s")
+                    
+                    # Allow small timing variance (max 5 seconds)
+                    if timestamp_diff > 5.0:
+                        print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.1f}s difference - this is from a different action!")
+                        return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.1f}s (expected <5s)'}
+                    
+                    print(f"✅ [ZapExecutor] Timestamp match confirmed (diff={timestamp_diff:.3f}s) - this is OUR zapping!")
                     
                     zapping_detected = zapping_data.get('zapping_detected', False)
                     
