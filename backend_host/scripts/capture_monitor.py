@@ -665,10 +665,14 @@ class InotifyFrameMonitor:
     
     def _get_action_from_device_state(self, device_id):
         """Read last_action.json from hot storage (simple IPC between processes)"""
+        print(f"🔥🔥🔥 _get_action_from_device_state ENTRY: device_id={device_id}", flush=True)
         try:
+            print(f"🔥🔥🔥 Inside try block, about to log", flush=True)
             logger.info(f"[_get_action_from_device_state] 🚀 CALLED with device_id={device_id}")
+            print(f"🔥🔥🔥 After logger.info, about to import", flush=True)
             import time
             from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id, get_metadata_path
+            print(f"🔥🔥🔥 Imports complete", flush=True)
             
             # Get capture folder from device_id
             capture_folder = get_capture_folder_from_device_id(device_id)
