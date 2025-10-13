@@ -526,6 +526,48 @@ class InotifyFrameMonitor:
             last_thumbnail = device_state.get('blackscreen_last_thumbnail_cold')
             # AFTER frame is copied by zapping_detector (it's the analyzed frame) - no need to read from device_state
             
+            # ✅ FALLBACK: If thumbnails are None but we have filenames, construct paths from hot storage
+            from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, get_captures_path, copy_to_cold_storage
+            thumbnails_dir = get_thumbnails_path(capture_folder)
+            captures_dir = get_captures_path(capture_folder)
+            
+            if not before_thumbnail and before_frame:
+                before_thumbnail_hot = os.path.join(thumbnails_dir, before_frame.replace('.jpg', '_thumbnail.jpg'))
+                if os.path.exists(before_thumbnail_hot):
+                    before_thumbnail = copy_to_cold_storage(before_thumbnail_hot)
+                    if before_thumbnail:
+                        logger.info(f"[{capture_folder}] 📸 Recovered BEFORE thumbnail from hot storage")
+            
+            if not first_thumbnail and first_frame:
+                first_thumbnail_hot = os.path.join(thumbnails_dir, first_frame.replace('.jpg', '_thumbnail.jpg'))
+                if os.path.exists(first_thumbnail_hot):
+                    first_thumbnail = copy_to_cold_storage(first_thumbnail_hot)
+                    if first_thumbnail:
+                        logger.info(f"[{capture_folder}] 📸 Recovered FIRST thumbnail from hot storage")
+            
+            if not last_thumbnail and last_frame:
+                last_thumbnail_hot = os.path.join(thumbnails_dir, last_frame.replace('.jpg', '_thumbnail.jpg'))
+                if os.path.exists(last_thumbnail_hot):
+                    last_thumbnail = copy_to_cold_storage(last_thumbnail_hot)
+                    if last_thumbnail:
+                        logger.info(f"[{capture_folder}] 📸 Recovered LAST thumbnail from hot storage")
+            
+            # Same for originals
+            if not before_original and before_frame:
+                before_original_hot = os.path.join(captures_dir, before_frame)
+                if os.path.exists(before_original_hot):
+                    before_original = copy_to_cold_storage(before_original_hot)
+            
+            if not first_original and first_frame:
+                first_original_hot = os.path.join(captures_dir, first_frame)
+                if os.path.exists(first_original_hot):
+                    first_original = copy_to_cold_storage(first_original_hot)
+            
+            if not last_original and last_frame:
+                last_original_hot = os.path.join(captures_dir, last_frame)
+                if os.path.exists(last_original_hot):
+                    last_original = copy_to_cold_storage(last_original_hot)
+            
             # DEBUG: Log what we got from device_state
             logger.info(f"[{capture_folder}] 📋 Transition images from device_state:")
             logger.info(f"  BEFORE: frame={before_frame}, thumbnail={before_thumbnail}")
