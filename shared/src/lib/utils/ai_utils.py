@@ -618,8 +618,27 @@ def analyze_channel_banner_ai(image_path: str, context_name: str = "AI") -> Dict
         if has_useful_info and not banner_detected:
             logger.info(f"[{context_name}] 🔧 OVERRIDE: AI said banner_detected=false, but found useful info - setting to true")
             banner_detected = True
-            # Increase confidence since we have actual data
-            confidence = max(confidence, 0.7)  # At least 70% confidence if we have useful info
+        
+        # ✅ CALCULATE CONFIDENCE based on extracted fields
+        if banner_detected:
+            confidence_score = 0.0
+            # Channel name/logo: +0.4
+            if channel_name and len(channel_name.strip()) > 2:
+                confidence_score += 0.4
+            # Program name: +0.3
+            if program_name and len(program_name.strip()) > 2:
+                confidence_score += 0.3
+            # Time information: +0.2
+            if (start_time and len(start_time.strip()) > 2) or (end_time and len(end_time.strip()) > 2):
+                confidence_score += 0.2
+            # Channel number (bonus): +0.1
+            if channel_number and len(channel_number.strip()) > 0:
+                confidence_score += 0.1
+            
+            confidence = min(1.0, confidence_score)  # Cap at 1.0
+            logger.info(f"[{context_name}] 📊 Calculated confidence: {confidence:.2f} (channel={bool(channel_name)}, program={bool(program_name)}, time={bool(start_time or end_time)})")
+        else:
+            confidence = 0.1  # No banner detected
         
         logger.info(f"[{context_name}] {'='*80}")
         logger.info(f"[{context_name}] 🎯 AI ANALYSIS RESULT:")
@@ -666,58 +685,67 @@ def _create_banner_analysis_prompt() -> str:
     Create specialized prompt for channel banner analysis.
     
     This prompt is optimized for full image analysis to detect channel
-    information, logos, program names, and timing information.
+    information, logos, program names, episode details, and timing information.
     
     Returns:
         Formatted prompt string for AI analysis
     """
-    return """Analyze this full TV screen image for channel information banner/overlay. Look for channel names, program information, and time details anywhere in the image.
+    return """Analyze this TV screen image to extract channel and program information.
 
-CRITICAL INSTRUCTIONS:
-1. You MUST ALWAYS respond with valid JSON - never return empty content
-2. If you find a channel banner, extract the information
-3. If you find NO banner, you MUST still respond with the "banner_detected": false JSON format below
-4. ALWAYS provide a response - never return empty or null content
+WHAT YOU'RE LOOKING FOR:
+You need to identify ANY visible channel information display, including:
+- Channel logos or names (e.g., "BBC One", "U&DRAMA", "ITV", "Channel 4")
+- Program/show titles (e.g., "New Tricks", "EastEnders", "News")
+- Episode information (e.g., "S 2, Ep 7 - Fluke of Luck")
+- Time information (e.g., "00:15 - 01:35", "18:00 - 19:00")
 
-Required JSON format:
+IMPORTANT: Set "banner_detected": true if you can see ANY of the following:
+✓ Channel logo or name visible anywhere in the image
+✓ Program title displayed with time information
+✓ Episode information with channel branding
+✓ TV player UI showing channel and program details
+✓ Any on-screen display (OSD) with channel/program info
+
+This includes:
+- Player overlays showing program information
+- Channel banners that appear during channel changes
+- Program guide information bars
+- Corner logos with program details
+- ANY text showing what channel/program is playing
+
+Required JSON format (if channel info found):
 {
   "banner_detected": true,
-  "channel_name": "BBC One",
-  "channel_number": "1",
-  "program_name": "News at Six",
-  "start_time": "18:00",
-  "end_time": "18:30",
-  "confidence": 0.95
+  "channel_name": "U&DRAMA",
+  "channel_number": "",
+  "program_name": "New Tricks",
+  "episode_information": "S 2, Ep 7 - Fluke of Luck",
+  "start_time": "00:15",
+  "end_time": "01:35",
+  "confidence": 0.85
 }
 
-If no channel banner found:
+If NO channel or program information visible:
 {
   "banner_detected": false,
   "channel_name": "",
   "channel_number": "",
   "program_name": "",
+  "episode_information": "",
   "start_time": "",
   "end_time": "",
   "confidence": 0.1
 }
 
-FULL IMAGE ANALYSIS RULES:
-- Scan the ENTIRE image for channel information
-- Look for channel logos, channel names (BBC One, ITV, Channel 4, SRF, etc.)
-- Extract channel numbers (1, 2, 3, 101, 201, etc.) from banners or overlays
-- IMPORTANT: Channel numbers are typically located to the LEFT of the channel name
-- Extract program/show names (News, EastEnders, Music@SRF, etc.)
-- Find time information (start time, end time, duration) anywhere on screen
-- Look for text overlays, banners, or information bars in ANY location
-- Check ALL corners and edges of the image for channel info
-- Pay attention to typical TV UI elements (channel number, program guide info)
-- Look for semi-transparent overlays that may appear anywhere
-- Consider both horizontal bars (bottom/top) and vertical overlays (side)
+EXTRACTION RULES:
+- Channel name: Look in ALL corners, especially top-left and top-right for logos/text
+- Channel number: Usually appears before/near the channel name (e.g., "101 BBC One")
+- Program name: Main title text (e.g., "New Tricks"), do NOT include episode info here
+- Episode information: Season/episode details (e.g., "S 2, Ep 7 - Fluke of Luck") - extract separately!
+- Start/end times: Format as HH:MM (e.g., "18:00", "01:35")
+- If you see a channel logo without explicit channel number, leave channel_number empty
+- Leave confidence as 0.5 (we calculate actual confidence based on extracted fields)
 
-CONFIDENCE SCORING:
-- High (0.9+): Clear channel logo + name + program info + time visible
-- Medium (0.7-0.9): Channel name + some program info visible
-- Low (0.5-0.7): Only partial channel info visible
-- Very low (<0.5): Uncertain or no clear channel information
+CRITICAL: You MUST respond with valid JSON. Never return empty content.
 
-RESPOND ONLY WITH THE JSON OBJECT - NO OTHER TEXT OR EXPLANATION."""
+RESPOND ONLY WITH THE JSON OBJECT - NO MARKDOWN BLOCKS - NO EXPLANATION."""
