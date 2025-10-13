@@ -59,9 +59,11 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
             return  # No metadata directory yet
         
         # ✅ WRITE last_action.json (instant read for capture_monitor)
+        # ✅ ATOMIC WRITE: Write to .tmp first, then rename (prevents partial reads)
         print(f"[@frame_metadata_utils:write_action_to_frame_json] 📝 Writing last_action.json...")
         try:
             last_action_path = os.path.join(metadata_path, 'last_action.json')
+            last_action_tmp_path = last_action_path + '.tmp'
             last_action_data = {
                 'command': action.get('command'),
                 'timestamp': action_completion_timestamp,
@@ -69,14 +71,30 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
                 'written_at': datetime.utcnow().isoformat() + 'Z'
             }
             
-            with open(last_action_path, 'w') as f:
+            # Write to temp file first
+            with open(last_action_tmp_path, 'w') as f:
                 json.dump(last_action_data, f, indent=2)
+                f.flush()  # Flush to OS buffer
+                os.fsync(f.fileno())  # Sync to disk (ensures data is written)
+            
+            # Atomic rename (overwrites old file atomically)
+            os.rename(last_action_tmp_path, last_action_path)
             
             # Verify file was written
             if os.path.exists(last_action_path):
                 file_size = os.path.getsize(last_action_path)
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] ✅ Written last_action.json: {action.get('command')} @ {action_completion_timestamp}")
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] 📂 Path: {last_action_path} ({file_size} bytes)")
+                
+                # ✅ DEBUG: Read back to verify correct timestamp was written
+                try:
+                    with open(last_action_path, 'r') as f:
+                        verify_data = json.load(f)
+                    print(f"[@frame_metadata_utils:write_action_to_frame_json] 🔍 VERIFY - Read back timestamp: {verify_data.get('timestamp')}")
+                    if verify_data.get('timestamp') != action_completion_timestamp:
+                        print(f"[@frame_metadata_utils:write_action_to_frame_json] ⚠️  WARNING: Timestamp mismatch! Expected {action_completion_timestamp}, got {verify_data.get('timestamp')}")
+                except Exception as e:
+                    print(f"[@frame_metadata_utils:write_action_to_frame_json] ⚠️  Could not verify write: {e}")
             else:
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ File write succeeded but file doesn't exist: {last_action_path}")
             
