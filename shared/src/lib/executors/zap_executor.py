@@ -719,10 +719,6 @@ class ZapExecutor:
         try:
             print(f"📺 [ZapExecutor] Reading zapping detection for action timestamp: {action_timestamp}")
             
-            # Wait for detection to complete (blackscreen + AI takes ~5-10s)
-            print(f"⏳ [ZapExecutor] Waiting 10s for capture_monitor to detect and analyze zapping...")
-            time.sleep(10)
-            
             # ✅ READ FROM SAME LOCATION AS METADATA (hot or cold based on mode)
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
             metadata_path = get_metadata_path(capture_folder)
