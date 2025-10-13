@@ -217,6 +217,10 @@ def detect_and_record_zapping(
         )
         
         # 3️⃣ Store in database
+        # Calculate total zap duration for automatic zaps (action → blackscreen end)
+        time_since_action_ms = action_info.get('time_since_action_ms') if action_info else None
+        total_zap_duration_ms = (time_since_action_ms + blackscreen_duration_ms) if time_since_action_ms else blackscreen_duration_ms
+        
         _store_zapping_event(
             device_id=device_id,
             blackscreen_duration_ms=blackscreen_duration_ms,
@@ -224,12 +228,10 @@ def detect_and_record_zapping(
             action_info=action_info,
             detection_type=detection_type,
             frame_path=frame_path,
-            audio_info=audio_info
+            audio_info=audio_info,
+            time_since_action_ms=time_since_action_ms,
+            total_zap_duration_ms=total_zap_duration_ms
         )
-        
-        # Calculate total zap duration for automatic zaps (action → blackscreen end)
-        time_since_action_ms = action_info.get('time_since_action_ms') if action_info else None
-        total_zap_duration_ms = (time_since_action_ms + blackscreen_duration_ms) if time_since_action_ms else blackscreen_duration_ms
         
         return {
             'success': True,
@@ -440,7 +442,9 @@ def _store_zapping_event(
     action_info: Optional[Dict[str, Any]],
     detection_type: str,
     frame_path: str,
-    audio_info: Optional[Dict[str, Any]] = None
+    audio_info: Optional[Dict[str, Any]] = None,
+    time_since_action_ms: Optional[int] = None,
+    total_zap_duration_ms: Optional[int] = None
 ):
     """
     Store zapping event in zap_results table.
@@ -506,7 +510,9 @@ def _store_zapping_event(
             program_start_time=channel_info.get('start_time', ''),
             program_end_time=channel_info.get('end_time', ''),
             audio_silence_duration=audio_info.get('silence_duration', 0.0) if audio_info else None,  # ✅ Audio silence tracking
-            action_params=action_info.get('action_params') if action_info else None  # ✅ NEW: Action parameters (e.g., {"key": "CHANNEL_UP"})
+            action_params=action_info.get('action_params') if action_info else None,  # ✅ Action parameters (e.g., {"key": "CHANNEL_UP"})
+            time_since_action_ms=time_since_action_ms,  # ✅ NEW: Time from action to blackscreen end
+            total_zap_duration_ms=total_zap_duration_ms  # ✅ NEW: Total zap duration
         )
         
         if result:

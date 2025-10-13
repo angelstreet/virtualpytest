@@ -212,15 +212,19 @@ class ZapStatistics:
             # Calculate duration
             duration_seconds = end_time - start_time
             
-            # Extract blackscreen/freeze details
+            # Extract blackscreen/freeze details and timing info
             blackscreen_freeze_duration = None
             detection_method = None
+            time_since_action_ms = None
+            total_zap_duration_ms = None
             if analysis_result.zapping_detected:
                 # Get duration from analysis_result object directly (now that we added the field)
                 blackscreen_freeze_duration = getattr(analysis_result, 'blackscreen_duration', 0.0)
-                # Get detection method from zapping_details
+                # Get detection method and timing info from zapping_details
                 if zapping_details:
                     detection_method = zapping_details.get('detection_method', 'blackscreen')
+                    time_since_action_ms = zapping_details.get('time_since_action_ms')
+                    total_zap_duration_ms = zapping_details.get('total_zap_duration_ms')
             
             # Record to database
             record_zap_iteration(
@@ -251,7 +255,9 @@ class ZapStatistics:
                 program_start_time=getattr(analysis_result, 'program_start_time', None) or None,
                 program_end_time=getattr(analysis_result, 'program_end_time', None) or None,
                 audio_silence_duration=getattr(analysis_result, 'audio_silence_duration', None) or None,  # ✅ Audio silence tracking
-                action_params=context.custom_data.get('action_params', None)  # ✅ NEW: Action parameters (e.g., {"key": "CHANNEL_UP"})
+                action_params=context.custom_data.get('action_params', None),  # ✅ Action parameters (e.g., {"key": "CHANNEL_UP"})
+                time_since_action_ms=time_since_action_ms,  # ✅ NEW: Time from action to blackscreen end
+                total_zap_duration_ms=total_zap_duration_ms  # ✅ NEW: Total zap duration
             )
         except Exception as e:
             print(f"⚠️ [ZapStatistics] Failed to record zap iteration to database: {e}")

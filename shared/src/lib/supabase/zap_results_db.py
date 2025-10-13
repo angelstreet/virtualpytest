@@ -40,7 +40,9 @@ def record_zap_iteration(
     program_start_time: Optional[str] = None,
     program_end_time: Optional[str] = None,
     audio_silence_duration: Optional[float] = None,  # ✅ Audio silence duration during zapping
-    action_params: Optional[Dict[str, Any]] = None  # ✅ NEW: Action parameters (e.g., {"key": "CHANNEL_UP"})
+    action_params: Optional[Dict[str, Any]] = None,  # ✅ Action parameters (e.g., {"key": "CHANNEL_UP"})
+    time_since_action_ms: Optional[int] = None,  # ✅ NEW: Time from action to blackscreen end
+    total_zap_duration_ms: Optional[int] = None  # ✅ NEW: Total zap duration
 ) -> Optional[str]:
     """
     Record a single zap iteration result in database.
@@ -63,7 +65,7 @@ def record_zap_iteration(
             'execution_date': datetime.now(timezone.utc).isoformat(),
             'iteration_index': iteration_index,
             'action_command': action_command,
-            'action_params': action_params,  # ✅ NEW: Action parameters
+            'action_params': action_params,  # ✅ Action parameters
             'started_at': started_at.isoformat(),
             'completed_at': completed_at.isoformat(),
             'duration_seconds': duration_seconds,
@@ -82,7 +84,9 @@ def record_zap_iteration(
             'program_name': program_name,
             'program_start_time': program_start_time,
             'program_end_time': program_end_time,
-            'audio_silence_duration': audio_silence_duration  # ✅ Audio silence tracking
+            'audio_silence_duration': audio_silence_duration,  # ✅ Audio silence tracking
+            'time_since_action_ms': time_since_action_ms,  # ✅ NEW: Time from action to blackscreen end
+            'total_zap_duration_ms': total_zap_duration_ms  # ✅ NEW: Total zap duration
         }
         
         print(f"[@db:zap_results:record_zap_iteration] Recording zap iteration:")
