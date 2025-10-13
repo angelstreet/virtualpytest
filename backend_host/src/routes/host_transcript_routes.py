@@ -12,28 +12,43 @@ host_transcript_bp = Blueprint('host_transcript', __name__, url_prefix='/host/tr
 
 @host_transcript_bp.route('/translate-chunk', methods=['POST'])
 def translate_chunk():
-    """Translate a transcript chunk on-demand using AI"""
+    """Translate a transcript chunk using the chunk reference from frontend"""
     try:
         data = request.get_json() or {}
-        device_id = data.get('device_id')
-        hour = data.get('hour')
-        chunk_index = data.get('chunk_index')
+        chunk_url = data.get('chunk_url')  # e.g., "/transcript/5/chunk_10min_0.json"
         target_language = data.get('language')
         
-        if not all([device_id, hour is not None, chunk_index is not None, target_language]):
+        if not chunk_url or not target_language:
             return jsonify({
                 'success': False,
-                'error': 'Missing required parameters'
+                'error': 'Missing chunk_url or language'
             }), 400
         
-        # Get device paths
-        from shared.src.lib.utils.storage_path_utils import get_device_base_path, get_transcript_path
-        device_base_path = get_device_base_path(device_id)
-        transcript_base = get_transcript_path(device_id)
-        transcript_dir = os.path.join(transcript_base, str(hour))
+        # Convert URL to local file path using the same logic that serves the files
+        if chunk_url.startswith(('http://', 'https://')):
+            # Use existing URL conversion utility
+            from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
+            original_file = convertHostUrlToLocalPath(chunk_url)
+        else:
+            # For relative URLs like "/transcript/5/chunk_10min_0.json"
+            # We need to know which device/capture folder this came from
+            # The frontend should provide the device_id or full URL
+            return jsonify({
+                'success': False,
+                'error': 'Please provide full URL or device_id to resolve file path'
+            }), 400
+        
+        if not os.path.exists(original_file):
+            return jsonify({
+                'success': False,
+                'error': f'Original transcript not found at: {original_file}'
+            }), 404
+        
+        # Create translated file path (same directory, add language suffix)
+        base_path, ext = os.path.splitext(original_file)
+        translated_file = f"{base_path}_{target_language}{ext}"
         
         # Check if translation already exists
-        translated_file = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{target_language}.json')
         if os.path.exists(translated_file):
             with open(translated_file, 'r') as f:
                 cached_data = json.load(f)
@@ -43,14 +58,6 @@ def translate_chunk():
                 'cached': True,
                 'language': target_language
             })
-        
-        # Load original transcript
-        original_file = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}.json')
-        if not os.path.exists(original_file):
-            return jsonify({
-                'success': False,
-                'error': 'Original transcript not found'
-            }), 404
         
         with open(original_file, 'r') as f:
             original_data = json.load(f)
@@ -101,10 +108,10 @@ def translate_chunk():
         # Update manifest
         from backend_host.scripts.hot_cold_archiver import update_transcript_manifest
         update_transcript_manifest(
-            device_base_path=device_base_path,
+            capture_dir=device_id,  # Use device_id as capture_dir
             hour=hour,
             chunk_index=chunk_index,
-            chunk_path=original_file,
+            transcript_path=original_file,
             has_mp3=original_data.get('mp3_file') is not None
         )
         

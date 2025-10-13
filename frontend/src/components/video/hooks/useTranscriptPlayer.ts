@@ -464,14 +464,16 @@ export const useTranscriptPlayer = ({
           return;
         }
         
+        // Build the same transcript URL we used to load the original
+        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
+        const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
+
         const apiUrl = buildHostUrl(host, '/host/transcript/translate-chunk');
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            device_id: deviceId,
-            hour,
-            chunk_index: chunkIndex,
+            chunk_url: transcriptUrl,  // Use the same URL we loaded from
             language
           })
         });
