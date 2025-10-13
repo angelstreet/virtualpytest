@@ -1046,18 +1046,39 @@ class InotifyFrameMonitor:
                 pass  # If can't read, run detection
         
         try:
-            # Populate audio cache from last 3 frames if empty (handles race condition)
-            if capture_folder not in self.audio_cache:
-                sequence = int(filename.split('_')[1].split('.')[0])
-                for i in range(1, 4):  # Check previous 3 frames
-                    prev_json = os.path.join(metadata_path, f'capture_{sequence-i:09d}.json')
-                    if os.path.exists(prev_json):
+            sequence = int(filename.split('_')[1].split('.')[0])
+            
+            # Check last 3 frames for audio data (refreshes cache from transcript_accumulator writes)
+            # This runs for EVERY frame to catch audio updates written to recent frames
+            for i in range(1, 4):  # Check previous 3 frames (600ms window)
+                prev_json = os.path.join(metadata_path, f'capture_{sequence-i:09d}.json')
+                if os.path.exists(prev_json):
+                    try:
                         with open(prev_json, 'r') as f:
                             prev_data = json.load(f)
                         if 'audio' in prev_data:
-                            self.audio_cache[capture_folder] = {'audio': prev_data['audio'], 'mean_volume_db': prev_data.get('mean_volume_db', -100)}
-                            logger.info(f"[{capture_folder}] 🔍 Cached audio from frame-{i}: audio={'✅' if prev_data['audio'] else '❌'}, volume={prev_data.get('mean_volume_db', -100):.1f}dB")
-                            break
+                            # Found audio data - check if it's different from cache
+                            new_audio = prev_data['audio']
+                            new_volume = prev_data.get('mean_volume_db', -100)
+                            
+                            # Only update and log if changed (or cache empty)
+                            if capture_folder not in self.audio_cache:
+                                self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
+                                audio_val = "✅ YES" if new_audio else "❌ NO"
+                                logger.info(f"[{capture_folder}] 🔍 Cached audio from frame-{i}: audio={audio_val}, volume={new_volume:.1f}dB")
+                                break
+                            elif self.audio_cache[capture_folder].get('audio') != new_audio:
+                                # Audio changed - update cache and log
+                                self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
+                                audio_val = "✅ YES" if new_audio else "❌ NO"
+                                logger.info(f"[{capture_folder}] 🔄 Audio changed from frame-{i}: audio={audio_val}, volume={new_volume:.1f}dB")
+                                break
+                            else:
+                                # Same as cache - just ensure it's fresh (silent update)
+                                self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
+                                break
+                    except:
+                        continue  # Skip corrupted JSON
             
             # Check if JSON already exists and extract audio data early (needed for event tracking)
             existing_audio_data = {}
