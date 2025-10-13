@@ -1,6 +1,28 @@
 #!/bin/bash
+
+# Load environment variables from .env file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ENV_FILE="$PROJECT_ROOT/.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo "❌ Error: .env file not found at $ENV_FILE"
+    exit 1
+fi
+
+# Load OPENROUTER_API_KEY from .env file
+OPENROUTER_API_KEY=$(grep "^OPENROUTER_API_KEY=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '\r\n')
+
+if [ -z "$OPENROUTER_API_KEY" ]; then
+    echo "❌ Error: OPENROUTER_API_KEY not found in .env"
+    exit 1
+fi
+
+echo "✅ Loaded API key from $ENV_FILE"
+echo ""
+
 curl -X POST "https://openrouter.ai/api/v1/chat/completions" \
-  -H "Authorization: Bearer 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" \
+  -H "Authorization: Bearer $OPENROUTER_API_KEY" \
   -H "Content-Type: application/json" \
   -H "HTTP-Referer: https://virtualpytest.com" \
   -H "X-Title: VirtualPyTest" \

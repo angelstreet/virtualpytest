@@ -401,10 +401,27 @@ class InotifyFrameMonitor:
         ✅ ASYNC: Runs in background thread pool to avoid blocking frame processing queue
         (AI banner analysis takes ~5 seconds - would cause major queue backlog if synchronous)
         
+        ✅ AUDIO PRE-CHECK: Checks audio on TS segment following blackscreen
+        - If audio present → abort (likely just dark content, not zapping)
+        - If no audio → proceed with expensive AI banner detection
+        
         Uses shared zapping detection utility (reuses existing banner detection AI).
         """
         try:
             logger.info(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
+            
+            # ✅ PRE-CHECK: Audio detection on TS segment following blackscreen
+            # Reuses existing audio detection logic from transcript_accumulator
+            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking audio on TS segment (after blackscreen)...")
+            has_audio = self._check_segment_audio(capture_folder)
+            
+            if has_audio:
+                # Audio detected → abort zapping detection (likely just dark content)
+                logger.info(f"[{capture_folder}] ⏭️  ABORT: Audio detected after blackscreen - likely dark content, not zapping")
+                return
+            else:
+                # No audio → proceed with banner detection (likely zapping)
+                logger.info(f"[{capture_folder}] ✅ No audio detected - proceeding with banner detection (likely zapping)")
             
             # ✅ CLEAN: Read action from device_state (in-memory, instant lookup)
             action_info = self._get_action_from_device_state(device_id)
@@ -447,6 +464,97 @@ class InotifyFrameMonitor:
             import traceback
             traceback.print_exc()
     
+    def _check_segment_audio(self, capture_folder):
+        """
+        Check audio on latest TS segment (reuses existing ffmpeg volumedetect logic).
+        
+        This is called BEFORE expensive AI banner detection to avoid false positives:
+        - If audio present → likely just dark content, not zapping
+        - If no audio → likely zapping (channel change)
+        
+        Reuses same ffmpeg volumedetect approach as transcript_accumulator's check_mp3_has_audio()
+        but for TS segments instead of MP3 files.
+        
+        Returns:
+            bool: True if audio detected (> -50dB), False if silent or error
+        """
+        try:
+            # Get segments directory (handles both hot and cold storage)
+            segments_dir = get_segments_path(capture_folder)
+            
+            if not os.path.exists(segments_dir):
+                logger.warning(f"[{capture_folder}] Segments directory not found: {segments_dir}")
+                return False  # Assume no audio if directory missing
+            
+            # Find latest segment file (same approach as audio detection worker)
+            latest_segment = None
+            latest_mtime = 0
+            
+            try:
+                with os.scandir(segments_dir) as it:
+                    for entry in it:
+                        # Check TS or MP4 segments (not hour folders)
+                        if entry.is_file() and entry.name.startswith('segment_') and (entry.name.endswith('.ts') or entry.name.endswith('.mp4')):
+                            mtime = entry.stat().st_mtime
+                            if mtime > latest_mtime:
+                                latest_segment = entry.path
+                                latest_mtime = mtime
+            except Exception as e:
+                logger.warning(f"[{capture_folder}] Segment scan failed: {e}")
+                return False
+            
+            if not latest_segment:
+                logger.warning(f"[{capture_folder}] No segments found in {segments_dir}")
+                return False
+            
+            # Check if segment is recent (within last 10 seconds)
+            age_seconds = time.time() - latest_mtime
+            if age_seconds > 10:
+                logger.warning(f"[{capture_folder}] Latest segment too old ({age_seconds:.1f}s)")
+                return False
+            
+            segment_filename = os.path.basename(latest_segment)
+            logger.info(f"[{capture_folder}] Checking audio on: {segment_filename} (age: {age_seconds:.1f}s)")
+            
+            # Use ffmpeg volumedetect (same as transcript_accumulator's check_mp3_has_audio)
+            cmd = [
+                'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'info',
+                '-i', latest_segment,
+                '-t', '0.5',  # Sample 0.5s (fast check)
+                '-af', 'volumedetect',
+                '-f', 'null',
+                '-'
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+            
+            # Parse mean_volume from stderr
+            mean_volume = -100.0
+            for line in result.stderr.split('\n'):
+                if 'mean_volume:' in line:
+                    try:
+                        mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                        break
+                    except Exception as e:
+                        logger.warning(f"[{capture_folder}] Failed to parse volume: {line} (error: {e})")
+            
+            # Consider has audio if volume > -50dB (same threshold as transcript_accumulator)
+            has_audio = mean_volume > -50.0
+            
+            status_icon = '🔊' if has_audio else '🔇'
+            logger.info(f"[{capture_folder}] {status_icon} Audio check result: {mean_volume:.1f}dB → {'AUDIO' if has_audio else 'SILENT'}")
+            
+            return has_audio
+            
+        except subprocess.TimeoutExpired:
+            logger.warning(f"[{capture_folder}] Audio check timeout")
+            return False
+        except Exception as e:
+            logger.warning(f"[{capture_folder}] Audio check failed: {e}")
+            return False  # On error, assume no audio (safer to proceed with banner detection)
+    
     def _get_action_from_device_state(self, device_id):
         """
         Get last action from last_action.json (IPC between processes).
@@ -461,8 +569,14 @@ class InotifyFrameMonitor:
         """
         import time
         
-        # Get metadata path for this device
-        capture_folder = device_id.replace('device', 'capture')
+        # ✅ Get capture_folder from device_id using proper .env lookup
+        from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id
+        capture_folder = get_capture_folder_from_device_id(device_id)
+        
+        if not capture_folder:
+            logger.debug(f"[{device_id}] Could not map device_id to capture_folder")
+            return None
+        
         metadata_path = get_metadata_path(capture_folder)
         
         if not os.path.exists(metadata_path):
@@ -472,8 +586,10 @@ class InotifyFrameMonitor:
         # ✅ Read from single last_action.json file (instant!)
         last_action_path = os.path.join(metadata_path, 'last_action.json')
         
+        logger.info(f"[{device_id}] Looking for last_action.json at: {last_action_path}")
+        
         if not os.path.exists(last_action_path):
-            logger.debug(f"[{device_id}] No last_action.json found")
+            logger.info(f"[{device_id}] ❌ last_action.json NOT FOUND - will be MANUAL zapping")
             return None
         
         try:
@@ -490,7 +606,9 @@ class InotifyFrameMonitor:
             time_since_action = current_time - action_timestamp
             
             if time_since_action > 10.0:
-                logger.debug(f"[{device_id}] Action too old ({time_since_action:.1f}s) - manual zapping")
+                logger.info(f"[{device_id}] ❌ Action too old ({time_since_action:.1f}s) - will be MANUAL zapping")
+                logger.info(f"[{device_id}]    Action: {action_data.get('command')} at {action_timestamp}")
+                logger.info(f"[{device_id}]    Current time: {current_time}")
                 return None
             
             # ✅ Action within 10s - associate with this blackscreen
@@ -500,7 +618,9 @@ class InotifyFrameMonitor:
                 'action_params': action_data.get('params', {}),
                 'time_since_action_ms': int(time_since_action * 1000)
             }
-            logger.debug(f"[{device_id}] ✅ Found action in last_action.json: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
+            logger.info(f"[{device_id}] ✅ Found action in last_action.json: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
+            logger.info(f"[{device_id}]    Timestamp: {action_timestamp}")
+            logger.info(f"[{device_id}]    Will be AUTOMATIC zapping")
             return action_info
             
         except (json.JSONDecodeError, IOError, KeyError) as e:
