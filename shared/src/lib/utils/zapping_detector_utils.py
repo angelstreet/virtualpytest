@@ -150,6 +150,34 @@ def detect_and_record_zapping(
         else:
             logger.info(f"[{capture_folder}] 👤 MANUAL zapping (no action found within 10s)")
         
+        # ✅ ENSURE analyzed frame (after blackscreen) is in cold storage
+        # This frame was just analyzed for banner - it's the "after" frame we need!
+        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, copy_to_cold_storage
+        analyzed_frame_cold_original = None
+        analyzed_frame_cold_thumbnail = None
+        
+        if os.path.exists(frame_path):
+            analyzed_frame_cold_original = copy_to_cold_storage(frame_path)
+            if analyzed_frame_cold_original:
+                logger.info(f"[{capture_folder}] 📸 Copied analyzed frame (AFTER) original to cold")
+        
+        # Also copy thumbnail
+        thumbnails_path = get_thumbnails_path(capture_folder)
+        thumbnail_filename = frame_filename.replace('.jpg', '_thumbnail.jpg')
+        thumbnail_path = os.path.join(thumbnails_path, thumbnail_filename)
+        
+        if os.path.exists(thumbnail_path):
+            analyzed_frame_cold_thumbnail = copy_to_cold_storage(thumbnail_path)
+            if analyzed_frame_cold_thumbnail:
+                logger.info(f"[{capture_folder}] 📸 Copied analyzed frame (AFTER) thumbnail to cold")
+        
+        # Update transition_images with analyzed frame as "after" (overwrite if capture_monitor provided it)
+        if transition_images and analyzed_frame_cold_thumbnail:
+            transition_images['after_frame'] = frame_filename
+            transition_images['after_original_path'] = analyzed_frame_cold_original
+            transition_images['after_thumbnail_path'] = analyzed_frame_cold_thumbnail
+            logger.info(f"[{capture_folder}] ✅ Using analyzed frame as AFTER image (no need to fetch separately)")
+        
         # ✅ UPLOAD transition images to R2 (images already in cold storage from capture_monitor)
         r2_images = None
         if transition_images:

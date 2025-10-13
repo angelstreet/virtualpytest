@@ -317,13 +317,19 @@ class InotifyFrameMonitor:
                             before_original_path = os.path.join(captures_dir, before_filename)
                             before_thumbnail_path = os.path.join(thumbnails_dir, before_thumbnail_filename)
                             
+                            copied_count = 0
+                            
                             # Copy BEFORE original + thumbnail
                             if os.path.exists(before_original_path):
                                 before_original_cold = copy_to_cold_storage(before_original_path)
-                                device_state['blackscreen_before_original_cold'] = before_original_cold
+                                if before_original_cold:
+                                    device_state['blackscreen_before_original_cold'] = before_original_cold
+                                    copied_count += 1
                             if os.path.exists(before_thumbnail_path):
                                 before_thumbnail_cold = copy_to_cold_storage(before_thumbnail_path)
-                                device_state['blackscreen_before_thumbnail_cold'] = before_thumbnail_cold
+                                if before_thumbnail_cold:
+                                    device_state['blackscreen_before_thumbnail_cold'] = before_thumbnail_cold
+                                    copied_count += 1
                             device_state['blackscreen_before_filename'] = before_filename
                             
                             # FIRST blackscreen frame (current)
@@ -336,13 +342,21 @@ class InotifyFrameMonitor:
                             # Copy FIRST original + thumbnail
                             if os.path.exists(first_original_path):
                                 first_original_cold = copy_to_cold_storage(first_original_path)
-                                device_state['blackscreen_start_original_cold'] = first_original_cold
+                                if first_original_cold:
+                                    device_state['blackscreen_start_original_cold'] = first_original_cold
+                                    copied_count += 1
                             if os.path.exists(first_thumbnail_path):
                                 first_thumbnail_cold = copy_to_cold_storage(first_thumbnail_path)
-                                device_state['blackscreen_start_thumbnail_cold'] = first_thumbnail_cold
+                                if first_thumbnail_cold:
+                                    device_state['blackscreen_start_thumbnail_cold'] = first_thumbnail_cold
+                                    copied_count += 1
+                                else:
+                                    logger.warning(f"[{capture_folder}] ⚠️  Failed to copy FIRST thumbnail: {first_thumbnail_path}")
+                            else:
+                                logger.warning(f"[{capture_folder}] ⚠️  FIRST thumbnail not found: {first_thumbnail_path}")
                             device_state['blackscreen_start_filename'] = first_filename
                             
-                            logger.info(f"[{capture_folder}] 📋 BLACKSCREEN START: Copied BEFORE + FIRST (originals + thumbnails) to cold")
+                            logger.info(f"[{capture_folder}] 📋 BLACKSCREEN START: Copied {copied_count}/4 images to cold")
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] ⚠️  Failed to capture blackscreen START images: {e}")
                     
@@ -389,6 +403,8 @@ class InotifyFrameMonitor:
                         captures_dir = get_captures_path(capture_folder)
                         thumbnails_dir = get_thumbnails_path(capture_folder)
                         
+                        copied_count = 0
+                        
                         # LAST blackscreen frame (current - 1)
                         last_filename = f"capture_{current_sequence-1:09d}.jpg"
                         last_thumbnail_filename = f"capture_{current_sequence-1:09d}_thumbnail.jpg"
@@ -399,29 +415,21 @@ class InotifyFrameMonitor:
                         # Copy LAST original + thumbnail
                         if os.path.exists(last_original_path):
                             last_original_cold = copy_to_cold_storage(last_original_path)
-                            device_state['blackscreen_last_original_cold'] = last_original_cold
+                            if last_original_cold:
+                                device_state['blackscreen_last_original_cold'] = last_original_cold
+                                copied_count += 1
                         if os.path.exists(last_thumbnail_path):
                             last_thumbnail_cold = copy_to_cold_storage(last_thumbnail_path)
-                            device_state['blackscreen_last_thumbnail_cold'] = last_thumbnail_cold
+                            if last_thumbnail_cold:
+                                device_state['blackscreen_last_thumbnail_cold'] = last_thumbnail_cold
+                                copied_count += 1
                         device_state['blackscreen_last_filename'] = last_filename
                         
-                        # AFTER frame (current)
-                        after_filename = current_filename
-                        after_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
+                        # AFTER frame will be handled by zapping_detector (it's the analyzed frame)
+                        # Just store the filename for reference
+                        device_state['blackscreen_closure_filename'] = current_filename
                         
-                        after_original_path = os.path.join(captures_dir, after_filename)
-                        after_thumbnail_path = os.path.join(thumbnails_dir, after_thumbnail_filename)
-                        
-                        # Copy AFTER original + thumbnail
-                        if os.path.exists(after_original_path):
-                            after_original_cold = copy_to_cold_storage(after_original_path)
-                            device_state['blackscreen_closure_original_cold'] = after_original_cold
-                        if os.path.exists(after_thumbnail_path):
-                            after_thumbnail_cold = copy_to_cold_storage(after_thumbnail_path)
-                            device_state['blackscreen_closure_frame'] = after_thumbnail_cold
-                        device_state['blackscreen_closure_filename'] = after_filename
-                        
-                        logger.info(f"[{capture_folder}] 📋 BLACKSCREEN END: Copied LAST + AFTER (originals + thumbnails) to cold")
+                        logger.info(f"[{capture_folder}] 📋 BLACKSCREEN END: Copied {copied_count}/2 LAST images (AFTER=analyzed frame, copied during banner detection)")
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] ⚠️  Failed to capture blackscreen END images: {e}")
                 
@@ -509,17 +517,23 @@ class InotifyFrameMonitor:
             last_frame = device_state.get('blackscreen_last_filename')
             after_frame = device_state.get('blackscreen_closure_filename', current_filename)
             
-            # Read cold storage paths (already copied)
+            # Read cold storage paths (already copied during blackscreen tracking)
             before_original = device_state.get('blackscreen_before_original_cold')
             before_thumbnail = device_state.get('blackscreen_before_thumbnail_cold')
             first_original = device_state.get('blackscreen_start_original_cold')
             first_thumbnail = device_state.get('blackscreen_start_thumbnail_cold')
             last_original = device_state.get('blackscreen_last_original_cold')
             last_thumbnail = device_state.get('blackscreen_last_thumbnail_cold')
-            after_original = device_state.get('blackscreen_closure_original_cold')
-            after_thumbnail = device_state.get('blackscreen_closure_frame')  # Legacy key name
+            # AFTER frame is copied by zapping_detector (it's the analyzed frame) - no need to read from device_state
             
-            # Build transition images dict (we have both originals and thumbnails now)
+            # DEBUG: Log what we got from device_state
+            logger.info(f"[{capture_folder}] 📋 Transition images from device_state:")
+            logger.info(f"  BEFORE: frame={before_frame}, thumbnail={before_thumbnail}")
+            logger.info(f"  FIRST:  frame={first_frame}, thumbnail={first_thumbnail}")
+            logger.info(f"  LAST:   frame={last_frame}, thumbnail={last_thumbnail}")
+            logger.info(f"  AFTER:  frame={after_frame}, thumbnail=(will be copied during banner analysis)")
+            
+            # Build transition images dict (AFTER will be added by zapping_detector)
             transition_images = {
                 'before_frame': before_frame,
                 'before_original_path': before_original,
@@ -530,21 +544,19 @@ class InotifyFrameMonitor:
                 'last_blackscreen_frame': last_frame,
                 'last_blackscreen_original_path': last_original,
                 'last_blackscreen_thumbnail_path': last_thumbnail,
-                'after_frame': after_frame,
-                'after_original_path': after_original,
-                'after_thumbnail_path': after_thumbnail
+                # AFTER will be filled by zapping_detector with the analyzed frame
+                'after_frame': after_frame
             }
             
             # Log which thumbnails are available (for R2 upload)
-            thumbnails = [before_thumbnail, first_thumbnail, last_thumbnail, after_thumbnail]
+            thumbnails = [before_thumbnail, first_thumbnail, last_thumbnail]
             images_found = sum(1 for path in thumbnails if path)
             missing = []
             if not before_thumbnail: missing.append('before')
             if not first_thumbnail: missing.append('first')
             if not last_thumbnail: missing.append('last')
-            if not after_thumbnail: missing.append('after')
             
-            logger.info(f"[{capture_folder}] 📸 Transition thumbnails ready: {images_found}/4" + (f", missing: {missing}" if missing else ""))
+            logger.info(f"[{capture_folder}] 📸 Transition thumbnails ready: {images_found}/3" + (f", missing: {missing}" if missing else "") + " (AFTER added during banner analysis)")
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
