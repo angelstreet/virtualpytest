@@ -390,6 +390,13 @@ export const useTranscriptPlayer = ({
       // Generate on-demand
       setIsTranslating(true);
       try {
+        if (!host) {
+          console.error(`[@useTranscriptPlayer] Host information required for API call`);
+          setDubbedAudioUrl(null);
+          setIsTranslating(false);
+          return;
+        }
+        
         const apiUrl = buildHostUrl(host, '/host/transcript/generate-dubbed-audio');
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -451,6 +458,12 @@ export const useTranscriptPlayer = ({
       console.log(`[@useTranscriptPlayer] 🤖 Requesting AI translation to ${language}...`);
       
       try {
+        if (!host) {
+          console.error(`[@useTranscriptPlayer] Host information required for API call`);
+          setIsTranslating(false);
+          return;
+        }
+        
         const apiUrl = buildHostUrl(host, '/host/transcript/translate-chunk');
         const response = await fetch(apiUrl, {
           method: 'POST',
