@@ -199,6 +199,16 @@ class ZapStatistics:
             print(f"  - zapping_details success: {zapping_details.get('success')}")
             print(f"  - zapping_detected: {zapping_details.get('zapping_detected')}")
             
+            # ✅ FIX: Only record to DB if zapping was detected AND we have channel information
+            if not analysis_result.zapping_detected:
+                print(f"⏭️  [ZapStatistics] Skipping DB recording - zapping not detected")
+                return
+            
+            channel_name = getattr(analysis_result, 'channel_name', None)
+            if not channel_name or not channel_name.strip():
+                print(f"⏭️  [ZapStatistics] Skipping DB recording - no valid channel name")
+                return
+            
             # Calculate duration
             duration_seconds = end_time - start_time
             
@@ -240,7 +250,8 @@ class ZapStatistics:
                 program_name=getattr(analysis_result, 'program_name', None) or None,
                 program_start_time=getattr(analysis_result, 'program_start_time', None) or None,
                 program_end_time=getattr(analysis_result, 'program_end_time', None) or None,
-                audio_silence_duration=getattr(analysis_result, 'audio_silence_duration', None) or None  # ✅ NEW: Audio silence tracking
+                audio_silence_duration=getattr(analysis_result, 'audio_silence_duration', None) or None,  # ✅ Audio silence tracking
+                action_params=context.custom_data.get('action_params', None)  # ✅ NEW: Action parameters (e.g., {"key": "CHANNEL_UP"})
             )
         except Exception as e:
             print(f"⚠️ [ZapStatistics] Failed to record zap iteration to database: {e}")

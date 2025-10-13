@@ -274,10 +274,13 @@ export const useTranscriptPlayer = ({
     
     if (activeSegment) {
       setCurrentTimedSegment(activeSegment);
-      console.log(`📝 Minute ${currentMinute} | Time ${localTime.toFixed(1)}s | Showing: "${activeSegment.text.substring(0, 40)}..."`);
+      console.log(`📝 ${localTime.toFixed(1)}s | seg[${activeSegment.start.toFixed(1)}-${activeSegment.end.toFixed(1)}] | "${activeSegment.text.substring(0, 40)}..."`);
     } else {
       setCurrentTimedSegment(null);
-      console.log(`⏸️ Minute ${currentMinute} | Time ${localTime.toFixed(1)}s | ${segmentsInMinute.length} segments but none active (between segments)`);
+      // Only log when no segments found (quieter)
+      if (segmentsInMinute.length === 0) {
+        console.log(`⏹️ ${localTime.toFixed(1)}s | No segments in minute ${currentMinute}`);
+      }
     }
   }, [rawTranscriptData, globalCurrentTime, archiveMetadata, currentManifestIndex]);
 

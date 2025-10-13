@@ -212,7 +212,8 @@ def detect_and_record_zapping(
             is_automatic=is_automatic,
             action_info=action_info,
             audio_info=audio_info,
-            transition_images=transition_images  # ✅ NEW: Pass transition images
+            transition_images=transition_images,
+            r2_images=r2_images
         )
         
         # 3️⃣ Store in database
@@ -344,7 +345,8 @@ def _write_last_zapping_json(
     is_automatic: bool,
     action_info: Optional[Dict[str, Any]],
     audio_info: Optional[Dict[str, Any]] = None,
-    transition_images: Optional[Dict[str, Any]] = None
+    transition_images: Optional[Dict[str, Any]] = None,
+    r2_images: Optional[Dict[str, Any]] = None
 ):
     """
     Write last_zapping.json for instant read by zap_executor.
@@ -503,7 +505,8 @@ def _store_zapping_event(
             program_name=channel_info.get('program_name', ''),
             program_start_time=channel_info.get('start_time', ''),
             program_end_time=channel_info.get('end_time', ''),
-            audio_silence_duration=audio_info.get('silence_duration', 0.0) if audio_info else None  # ✅ NEW: Audio silence tracking
+            audio_silence_duration=audio_info.get('silence_duration', 0.0) if audio_info else None,  # ✅ Audio silence tracking
+            action_params=action_info.get('action_params') if action_info else None  # ✅ NEW: Action parameters (e.g., {"key": "CHANNEL_UP"})
         )
         
         if result:

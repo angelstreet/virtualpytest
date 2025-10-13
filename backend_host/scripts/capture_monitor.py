@@ -528,6 +528,17 @@ class InotifyFrameMonitor:
                 detection_type = result.get('detection_type', 'unknown')
                 logger.info(f"[{capture_folder}] 📺 {detection_type.upper()} ZAPPING: {channel_name} {channel_number}")
                 
+                # Log R2 upload status for transition images
+                r2_images = result.get('r2_images', {})
+                if r2_images:
+                    uploaded = [k for k, v in r2_images.items() if v and k.endswith('_url')]
+                    logger.info(f"[{capture_folder}] 📤 R2 upload: {len(uploaded)}/4 transition images uploaded to R2")
+                    if len(uploaded) < 4:
+                        missing = [k.replace('_url', '') for k in ['before_url', 'first_blackscreen_url', 'last_blackscreen_url', 'after_url'] if not r2_images.get(k)]
+                        logger.warning(f"[{capture_folder}] ⚠️  Missing R2 images: {missing}")
+                else:
+                    logger.warning(f"[{capture_folder}] ⚠️  No R2 images in result")
+                
                 # ✅ Cache: zapping_detector fills gap (existing frames), capture_monitor adds next 5 frames
                 try:
                     original_sequence = int(current_filename.split('_')[1].split('.')[0])
