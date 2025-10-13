@@ -145,7 +145,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
             title="Audio Language"
             sx={{
               position: 'fixed',
-              top: hasMp3 && mp3Url ? 106 : 50,
+              top: 80,
               right: 16,
               backgroundColor: 'rgba(156, 39, 176, 0.8)',
               color: 'white',
@@ -209,7 +209,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         title="Subtitle Language"
         sx={{
           position: 'fixed',
-          top: hasMp3 && mp3Url ? (availableDubbedLanguages.length > 0 ? 162 : 106) : (availableDubbedLanguages.length > 0 ? 106 : 50),
+          top: availableDubbedLanguages.length > 0 ? 136 : 80,
           right: 16,
           backgroundColor: 'rgba(33, 150, 243, 0.8)',
           color: 'white',
@@ -260,7 +260,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
       <Box
         sx={{
           position: 'fixed',
-          top: 80,  // Position from top
+          bottom: 80,  // Much closer to timeline (timeline takes ~80px from bottom)
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
