@@ -740,6 +740,17 @@ class ZapExecutor:
                     # ✅ CHECK: Is detection in progress?
                     status = zapping_data.get('status')
                     if status == 'in_progress':
+                        # ✅ TIMEOUT CHECK: Is marker stale (> 5 minutes old)?
+                        started_at_unix = zapping_data.get('started_at_unix')
+                        timeout_seconds = zapping_data.get('timeout_seconds', 300)  # Default 5 minutes
+                        
+                        if started_at_unix:
+                            age_seconds = time.time() - started_at_unix
+                            if age_seconds > timeout_seconds:
+                                print(f"🗑️  [ZapExecutor] STALE marker detected (age: {age_seconds:.0f}s > {timeout_seconds}s) - treating as failed")
+                                print(f"    Marker was likely left by crashed/stuck detection process")
+                                return {'success': False, 'zapping_detected': False, 'error': f'Stale in_progress marker ({age_seconds:.0f}s old)'}
+                        
                         print(f"⏳ [ZapExecutor] Zapping detection in progress - polling every 5s (max 60s)...")
                         
                         # Poll for up to 60 seconds (12 attempts x 5 seconds)
@@ -756,6 +767,13 @@ class ZapExecutor:
                                 if zapping_data.get('status') != 'in_progress':
                                     print(f"✅ [ZapExecutor] Detection completed after {poll_attempt * 5}s")
                                     break
+                                
+                                # ✅ RE-CHECK: Marker may have become stale during polling
+                                if started_at_unix:
+                                    age_seconds = time.time() - started_at_unix
+                                    if age_seconds > timeout_seconds:
+                                        print(f"🗑️  [ZapExecutor] Marker became STALE during polling (age: {age_seconds:.0f}s)")
+                                        return {'success': False, 'zapping_detected': False, 'error': f'Detection timeout (marker stale)'}
                             except Exception as e:
                                 print(f"⚠️ [ZapExecutor] Error during poll: {e}")
                                 break

@@ -251,6 +251,7 @@ def detect_and_record_zapping(
         
         _store_zapping_event(
             device_id=device_id,
+            device_model=device_model,
             blackscreen_duration_ms=blackscreen_duration_ms,
             channel_info=channel_info,
             action_info=action_info,
@@ -467,6 +468,7 @@ def _write_last_zapping_json(
 
 def _store_zapping_event(
     device_id: str,
+    device_model: str,
     blackscreen_duration_ms: int,
     channel_info: Dict[str, Any],
     action_info: Optional[Dict[str, Any]],
@@ -481,6 +483,7 @@ def _store_zapping_event(
     For automatic zapping (not part of a script), script_result_id will be None.
     
     Args:
+        device_model: Device model (used as userinterface_name for automatic zapping)
         audio_info: Optional audio dropout analysis data (stored in frame JSON, logged here for visibility)
     """
     try:
@@ -524,8 +527,8 @@ def _store_zapping_event(
             team_id=team_id,  # Use default team_id (same pattern as script_executor)
             host_name=os.getenv('HOST_NAME', 'unknown'),
             device_name=device_id,
-            device_model='unknown',  # TODO: Get from device info
-            userinterface_name='monitoring',  # Indicates automatic detection
+            device_model=device_model,
+            userinterface_name=device_model,  # Use device_model instead of 'monitoring'
             iteration_index=0,  # Not part of iteration loop
             action_command=action_command,
             started_at=started_at,

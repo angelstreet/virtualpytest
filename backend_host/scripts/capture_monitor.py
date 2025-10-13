@@ -883,6 +883,8 @@ class InotifyFrameMonitor:
         This allows zap_executor to poll and wait instead of reading stale data.
         
         Written before expensive AI processing (~40 seconds), updated when complete.
+        
+        ✅ TIMEOUT PROTECTION: Includes timestamp to detect stale markers (> 5 minutes = stale)
         """
         try:
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
@@ -894,9 +896,11 @@ class InotifyFrameMonitor:
             in_progress_data = {
                 'status': 'in_progress',
                 'started_at': datetime.now().isoformat(),
+                'started_at_unix': time.time(),  # ✅ ADD: Unix timestamp for timeout check
                 'frame_filename': frame_filename,
                 'blackscreen_duration_ms': blackscreen_duration_ms,
-                'message': 'AI banner detection in progress (may take up to 40 seconds)'
+                'message': 'AI banner detection in progress (may take up to 40 seconds)',
+                'timeout_seconds': 300  # ✅ ADD: Max time before marker is considered stale (5 minutes)
             }
             
             # Atomic write
@@ -1335,6 +1339,65 @@ class InotifyFrameMonitor:
                 except:
                     pass
 
+def cleanup_stale_zapping_markers():
+    """
+    Clean up any stale zapping detection markers left by crashed/stuck processes.
+    
+    Stale markers (in_progress > 5 minutes old) can cause high CPU and block detection.
+    This runs once at startup to ensure clean state.
+    """
+    try:
+        logger.info("🧹 [STARTUP] Checking for stale zapping markers...")
+        
+        base_dirs = get_capture_base_directories()
+        cleaned_count = 0
+        checked_count = 0
+        
+        for base_dir in base_dirs:
+            capture_folder = get_capture_folder(base_dir)
+            checked_count += 1
+            
+            try:
+                metadata_path = get_metadata_path(capture_folder)
+                last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
+                
+                if os.path.exists(last_zapping_path):
+                    with open(last_zapping_path, 'r') as f:
+                        zapping_data = json.load(f)
+                    
+                    status = zapping_data.get('status')
+                    if status == 'in_progress':
+                        # Check if stale (> 5 minutes old)
+                        started_at_unix = zapping_data.get('started_at_unix')
+                        timeout_seconds = zapping_data.get('timeout_seconds', 300)
+                        
+                        if started_at_unix:
+                            age_seconds = time.time() - started_at_unix
+                            if age_seconds > timeout_seconds:
+                                # STALE - remove it
+                                os.remove(last_zapping_path)
+                                cleaned_count += 1
+                                logger.warning(f"🗑️  [{capture_folder}] Removed STALE marker (age: {age_seconds:.0f}s > {timeout_seconds}s)")
+                            else:
+                                logger.info(f"⏳ [{capture_folder}] Found recent in_progress marker (age: {age_seconds:.0f}s) - keeping")
+                        else:
+                            # No timestamp - assume stale (old format)
+                            os.remove(last_zapping_path)
+                            cleaned_count += 1
+                            logger.warning(f"🗑️  [{capture_folder}] Removed STALE marker (no timestamp)")
+            
+            except Exception as e:
+                logger.warning(f"⚠️  [{capture_folder}] Error checking marker: {e}")
+                continue
+        
+        if cleaned_count > 0:
+            logger.info(f"✅ [STARTUP] Cleaned {cleaned_count}/{checked_count} stale zapping markers")
+        else:
+            logger.info(f"✅ [STARTUP] No stale markers found ({checked_count} devices checked)")
+    
+    except Exception as e:
+        logger.error(f"❌ [STARTUP] Error during stale marker cleanup: {e}")
+
 def main():
     """Main entry point"""
     
@@ -1351,6 +1414,9 @@ def main():
     logger.info("No directory scanning = 95% CPU reduction vs polling")
     logger.info("Queue Strategy: LIFO (newest frames first) - ensures real-time analysis")
     logger.info("=" * 80)
+    
+    # ✅ STARTUP CLEANUP: Clear any stale zapping markers from previous crashed instances
+    cleanup_stale_zapping_markers()
     
     host_name = os.getenv('USER', 'unknown')
     

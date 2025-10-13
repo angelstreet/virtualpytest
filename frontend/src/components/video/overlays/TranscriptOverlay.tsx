@@ -124,8 +124,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           title="Download MP3"
           sx={{
             position: 'fixed',
-            top: 80,
-            right: 36,
+            top: 140,
+            right: 56,
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             color: 'white',
             zIndex: 1250,
