@@ -164,9 +164,63 @@ def detect_and_record_zapping(
             original_frame=None  # This IS the original
         )
         
-        # B) Frontend cache: REMOVED - capture_monitor handles this!
-        # capture_monitor.py processes frames sequentially and will add zap_cache
-        # to the next N frames it processes (no race conditions)
+        # B) Frontend cache: Fill gap from truth end to current time + 5 frames
+        # Simple: Write cache to all frames between event and now
+        try:
+            from shared.src.lib.utils.storage_path_utils import get_metadata_path
+            
+            original_sequence = int(frame_filename.split('_')[1].split('.')[0])
+            cache_start = original_sequence + 6  # Right after truth ends
+            
+            # Find current frame (where AI completes)
+            metadata_path = get_metadata_path(capture_folder)
+            json_files = []
+            with os.scandir(metadata_path) as entries:
+                for entry in entries:
+                    if entry.name.startswith('capture_') and entry.name.endswith('.json'):
+                        try:
+                            seq = int(entry.name.split('_')[1].split('.')[0])
+                            json_files.append(seq)
+                        except:
+                            continue
+            
+            if json_files:
+                current_sequence = max(json_files)
+                cache_end = current_sequence + 5  # Current + 5 safety margin
+                
+                logger.info(f"[{capture_folder}] 📋 Writing cache from {cache_start} to {cache_end} (gap + safety)")
+                
+                # Write cache to all frames in range
+                frames_written = 0
+                for seq in range(cache_start, cache_end + 1):
+                    target_file = os.path.join(metadata_path, f"capture_{seq:09d}.json")
+                    if os.path.exists(target_file):
+                        try:
+                            with open(target_file, 'r') as f:
+                                data = json.load(f)
+                            
+                            # Don't overwrite if already has truth
+                            if 'zap' in data and data['zap'].get('detected'):
+                                continue
+                            
+                            # Add cache
+                            data['zap_cache'] = {
+                                'detected': True,
+                                'id': f"zap_cache_{seq}_{int(datetime.now().timestamp())}",
+                                'detected_at': datetime.now().isoformat(),
+                                'original_frame': frame_filename,
+                                **zapping_data
+                            }
+                            
+                            with open(target_file, 'w') as f:
+                                json.dump(data, f, indent=2)
+                            frames_written += 1
+                        except:
+                            continue
+                
+                logger.info(f"[{capture_folder}] ✅ Wrote cache to {frames_written} frames (no gap!)")
+        except Exception as e:
+            logger.error(f"[{capture_folder}] Failed to write cache: {e}")
         
         # ❌ REMOVED: Live events queue - redundant! Frame JSON is single source of truth
         # Frontend polls frame JSON directly (1s interval) which already has zapping + action data

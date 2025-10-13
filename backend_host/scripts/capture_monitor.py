@@ -478,25 +478,28 @@ class InotifyFrameMonitor:
                 detection_type = result.get('detection_type', 'unknown')
                 logger.info(f"[{capture_folder}] 📺 {detection_type.upper()} ZAPPING: {channel_name} {channel_number}")
                 
-                # ✅ ADD TO CACHE: capture_monitor will add zap_cache to next 6 frames it processes
-                self.zapping_cache[capture_folder] = {
-                    'zap_data': {
-                        'detected': True,
-                        'channel_name': channel_name,
-                        'channel_number': channel_number,
-                        'program_name': result.get('program_name', ''),
-                        'program_start_time': result.get('program_start_time', ''),
-                        'program_end_time': result.get('program_end_time', ''),
-                        'blackscreen_duration_ms': blackscreen_duration_ms,
-                        'detection_type': detection_type,
-                        'confidence': result.get('confidence', 0.0),
-                        'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
-                        'original_frame': current_filename
-                    },
-                    'frames_written': 0,
-                    'max_frames': 6
-                }
-                logger.info(f"[{capture_folder}] 📋 Zapping cache activated - will add zap_cache to next 6 frames")
+                # ✅ Cache: zapping_detector fills gap (existing frames), capture_monitor adds next 5 frames
+                try:
+                    original_sequence = int(current_filename.split('_')[1].split('.')[0])
+                    self.zapping_cache[capture_folder] = {
+                        'zap_data': {
+                            'detected': True,
+                            'channel_name': channel_name,
+                            'channel_number': channel_number,
+                            'program_name': result.get('program_name', ''),
+                            'program_start_time': result.get('program_start_time', ''),
+                            'program_end_time': result.get('program_end_time', ''),
+                            'blackscreen_duration_ms': blackscreen_duration_ms,
+                            'detection_type': detection_type,
+                            'confidence': result.get('confidence', 0.0),
+                            'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
+                            'original_frame': current_filename
+                        },
+                        'frames_remaining': 5  # Add cache to next 5 frames
+                    }
+                    logger.info(f"[{capture_folder}] 📋 Cache: will add to next 5 frames (safety margin)")
+                except Exception as e:
+                    logger.error(f"[{capture_folder}] Failed to setup cache: {e}")
                 
             elif result.get('error'):
                 logger.warning(f"[{capture_folder}] ⚠️  Zapping detection failed: {result.get('error')}")
@@ -938,16 +941,16 @@ class InotifyFrameMonitor:
                     volume = self.audio_cache[capture_folder].get('mean_volume_db', -100)
                     logger.debug(f"[{capture_folder}] 📋 Using cached audio for {json_file}: audio={audio_val}, volume={volume:.1f}dB")
                 
-                # ✅ CHECK FOR ZAPPING CACHE: Add zap_cache to next N frames after detection
+                # ✅ CHECK FOR ZAPPING CACHE: Add to next N frames after detection
                 zap_cache_data = None
                 if capture_folder in self.zapping_cache:
                     cache_entry = self.zapping_cache[capture_folder]
-                    if cache_entry['frames_written'] < cache_entry['max_frames']:
+                    if cache_entry['frames_remaining'] > 0:
                         # Add cache to this frame
                         zap_data = cache_entry['zap_data']
                         sequence = int(filename.split('_')[1].split('.')[0])
                         zap_cache_data = {
-                            'detected': zap_data['detected'],
+                            'detected': True,
                             'id': f"zap_cache_{sequence}_{int(datetime.now().timestamp())}",
                             'channel_name': zap_data['channel_name'],
                             'channel_number': zap_data['channel_number'],
@@ -961,19 +964,13 @@ class InotifyFrameMonitor:
                             'audio_silence_duration': zap_data['audio_silence_duration'],
                             'original_frame': zap_data['original_frame']
                         }
+                        cache_entry['frames_remaining'] -= 1
+                        logger.debug(f"[{capture_folder}] 📋 Added zap_cache to {filename} ({5 - cache_entry['frames_remaining']}/5)")
                         
-                        # Track frames for logging
-                        if 'frames_list' not in cache_entry:
-                            cache_entry['frames_list'] = []
-                        cache_entry['frames_list'].append(json_file)  # Store full path
-                        cache_entry['frames_written'] += 1
-                        logger.debug(f"[{capture_folder}] 📋 Added zap_cache to {filename} ({cache_entry['frames_written']}/{cache_entry['max_frames']})")
-                        
-                        # Clean up cache if done
-                        if cache_entry['frames_written'] >= cache_entry['max_frames']:
-                            frames_list = ', '.join(cache_entry['frames_list'])
-                            logger.info(f"[{capture_folder}] ✅ Zapping cache completed - wrote to {cache_entry['frames_written']} frames: {frames_list}")
+                        # Clean up if done
+                        if cache_entry['frames_remaining'] <= 0:
                             del self.zapping_cache[capture_folder]
+                            logger.info(f"[{capture_folder}] ✅ Cache safety margin complete (5 frames)")
                 
                 if detection_result:
                     # Determine if transcription is worthwhile (skip if incidents present or no audio)
