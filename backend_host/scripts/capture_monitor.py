@@ -43,7 +43,8 @@ from shared.src.lib.utils.storage_path_utils import (
     get_captures_path,
     get_segments_path,
     get_segment_path_from_frame,
-    get_device_segment_duration
+    get_device_segment_duration,
+    get_capture_folder_from_device_id
 )
 from shared.src.lib.utils.audio_transcription_utils import check_audio_continuous
 from shared.src.lib.utils.zapping_detector_utils import detect_and_record_zapping
@@ -664,13 +665,73 @@ class InotifyFrameMonitor:
             }
     
     def _get_action_from_device_state(self, device_id):
-        print("TEST ENTRY: device_id=" + str(device_id), flush=True)
-        logger.info(f"TEST LOG: Called with device_id={device_id}")
+        """Read last_action.json from hot storage (simple IPC between processes)"""
+        logger.info(f"[{device_id}] _get_action_from_device_state: 🚀 CALLED with device_id={device_id}")
         try:
-            print("TEST INSIDE TRY", flush=True)
-            return {"test": True}
+            import time
+            from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id, get_metadata_path
+            
+            # Get capture folder from device_id
+            capture_folder = get_capture_folder_from_device_id(device_id)
+            logger.info(f"[{device_id}] _get_action_from_device_state: capture_folder={capture_folder}")
+            if not capture_folder:
+                logger.info(f"[{device_id}] _get_action_from_device_state: ❌ No capture folder mapped for this device_id (check .env)")
+                return None
+            
+            # Build path to last_action.json in hot storage
+            metadata_path = get_metadata_path(capture_folder)
+            last_action_path = os.path.join(metadata_path, 'last_action.json')
+            
+            logger.info(f"[{device_id}] _get_action_from_device_state: Reading action from: {last_action_path}")
+            
+            # Check if file exists BEFORE trying to read
+            if not os.path.exists(last_action_path):
+                logger.info(f"[{device_id}] _get_action_from_device_state: ❌ File not found: {last_action_path}")
+                return None
+            
+            # Check file size and permissions
+            try:
+                file_stat = os.stat(last_action_path)
+                logger.info(f"[{device_id}] _get_action_from_device_state: File exists: size={file_stat.st_size} bytes, mode={oct(file_stat.st_mode)}")
+            except Exception as e:
+                logger.warning(f"[{device_id}] _get_action_from_device_state: Could not stat file: {e}")
+            
+            # Read JSON
+            try:
+                with open(last_action_path, 'r') as f:
+                    action_data = json.load(f)
+                
+                action_timestamp = action_data.get('timestamp')
+                if not action_timestamp:
+                    logger.info(f"[{device_id}] _get_action_from_device_state: ❌ No timestamp in file")
+                    return None
+                
+                # Check 10s timeout
+                current_time = time.time()
+                time_since_action = current_time - action_timestamp
+                
+                if time_since_action > 10.0:
+                    logger.info(f"[{device_id}] _get_action_from_device_state: ❌ Action too old ({time_since_action:.1f}s)")
+                    return None
+                
+                # Success
+                logger.info(f"[{device_id}] _get_action_from_device_state: ✅ AUTOMATIC - action: {action_data.get('command')} ({time_since_action:.1f}s ago)")
+                return {
+                    'last_action_executed': action_data.get('command'),
+                    'last_action_timestamp': action_timestamp,
+                    'action_params': action_data.get('params', {}),
+                    'time_since_action_ms': int(time_since_action * 1000),
+                    '_debug_path': last_action_path
+                }
+                
+            except Exception as e:
+                logger.info(f"[{device_id}] _get_action_from_device_state: ❌ Error reading file: {e}")
+                return None
+                
         except Exception as e:
-            print("TEST EXCEPTION: " + str(e), flush=True)
+            logger.error(f"[{device_id}] _get_action_from_device_state: 💥 FATAL ERROR: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def process_frame(self, captures_path, filename, queue_size=0):
