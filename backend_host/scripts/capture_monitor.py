@@ -10,6 +10,12 @@ Per-device queue processing:
 - Sequential processing within device prevents CPU spikes
 - Parallel processing across devices maintains performance
 - Queue size logging: Tracks backlog to detect performance issues
+
+Zapping detection concurrency control:
+- Per-device locks prevent concurrent processing of multiple blackscreens
+- If a blackscreen is already being analyzed, subsequent ones are skipped
+- This prevents race conditions where multiple workers read last_action.json
+- Ensures each action is matched to only ONE blackscreen detection
 """
 
 # CRITICAL: Limit CPU threads BEFORE importing OpenCV/NumPy
@@ -78,6 +84,10 @@ class InotifyFrameMonitor:
         # {capture_folder: {'zap_data': {...}, 'frames_written': 0, 'max_frames': 6}}
         self.zapping_cache = {}
         
+        # Zapping detection locks: prevent concurrent processing of multiple blackscreens on same device
+        # {capture_folder: threading.Lock()} - one lock per device
+        self.zapping_locks = {}
+        
         # Zapping detection thread pool (prevents blocking frame processing)
         # AI banner analysis takes ~5s - run in background to avoid queue backlog
         from concurrent.futures import ThreadPoolExecutor
@@ -111,6 +121,9 @@ class InotifyFrameMonitor:
             # LIFO queue (stack) - process newest frames first to avoid stale analysis
             work_queue = LifoQueue(maxsize=1000)
             self.device_queues[capture_folder] = work_queue
+            
+            # Initialize lock for this device (one lock per device)
+            self.zapping_locks[capture_folder] = threading.Lock()
             
             worker = threading.Thread(
                 target=self._device_worker,
@@ -475,14 +488,31 @@ class InotifyFrameMonitor:
         ✅ ASYNC: Runs in background thread pool to avoid blocking frame processing queue
         (AI banner analysis takes ~5 seconds - would cause major queue backlog if synchronous)
         
+        ✅ LOCKING: Uses per-device lock to prevent concurrent processing of multiple blackscreens
+        - If lock is already held (another blackscreen being processed), skip this one
+        - Prevents race conditions where multiple blackscreens try to read last_action.json
+        
         ✅ AUDIO PRE-CHECK: Checks audio in SAME 1-second TS segment where blackscreen occurred
         - If audio present → proceed with banner detection (likely zapping - TV audio during channel switch)
         - If no audio → abort (likely freeze/signal loss, not zapping)
         
         Uses shared zapping detection utility (reuses existing banner detection AI).
         """
+        # ✅ TRY TO ACQUIRE LOCK (non-blocking)
+        lock = self.zapping_locks.get(capture_folder)
+        if not lock:
+            logger.error(f"[{capture_folder}] No lock found for device - this should not happen!")
+            return
+        
+        # Try to acquire lock without blocking
+        lock_acquired = lock.acquire(blocking=False)
+        if not lock_acquired:
+            logger.info(f"[{capture_folder}] ⏭️  SKIP: Another blackscreen is already being processed (frame: {current_filename})")
+            logger.info(f"[{capture_folder}]     This prevents race conditions and stale action reads")
+            return
+        
         try:
-            logger.info(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
+            logger.info(f"[{capture_folder}] 🔒 LOCK ACQUIRED - Zapping worker started for {current_filename}")
             
             # ✅ PRE-CHECK: Audio DROPOUT detection across ALL segments during blackscreen + 1 extra after
             # We merge segments from blackscreen start to end + 1 more to check if audio comes back
@@ -504,9 +534,9 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
             
             # Check for recent action (reads last_action.json)
-            logger.info(f"[{capture_folder}] 🚀 BEFORE _get_action_from_device_state(capture_folder={capture_folder})")
+            logger.info(f"[{capture_folder}] 🚀 BEFORE _get_action_from_device_state [FRAME={current_filename}]")
             action_info = self._get_action_from_device_state(capture_folder)
-            logger.info(f"[{capture_folder}] ✅ AFTER _get_action_from_device_state, result={action_info}")
+            logger.info(f"[{capture_folder}] ✅ AFTER _get_action_from_device_state [FRAME={current_filename}] result={action_info}")
             
             # Get device_state to access transition images (same way as _add_event_duration_metadata)
             device_state = self.incident_manager.get_device_state(device_id)
@@ -601,11 +631,11 @@ class InotifyFrameMonitor:
             logger.info(f"[{capture_folder}] 📸 Transition thumbnails ready: {images_found}/3" + (f", missing: {missing}" if missing else "") + " (AFTER added during banner analysis)")
             
             # ✅ DEBUG: Log action_info being passed to zapping detector
-            logger.info(f"[{capture_folder}] 📤 CALLING detect_and_record_zapping with action_info:")
+            logger.info(f"[{capture_folder}] 📤 CALLING detect_and_record_zapping [FRAME={current_filename}] with action_info:")
             if action_info:
                 logger.info(f"[{capture_folder}]    {json.dumps(action_info, indent=2)}")
             else:
-                logger.info(f"[{capture_folder}]    action_info=None (MANUAL zapping)")
+                logger.info(f"[{capture_folder}]    action_info=None (MANUAL zapping - no action within 10s)")
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
@@ -683,6 +713,10 @@ class InotifyFrameMonitor:
             logger.error(f"[{capture_folder}] Error checking for zapping: {e}")
             import traceback
             traceback.print_exc()
+        finally:
+            # ✅ ALWAYS RELEASE LOCK (even if exception occurred)
+            lock.release()
+            logger.info(f"[{capture_folder}] 🔓 LOCK RELEASED - Zapping worker finished for {current_filename}")
     
     def _check_segment_audio(self, capture_folder, blackscreen_start_filename=None, blackscreen_end_filename=None):
         """

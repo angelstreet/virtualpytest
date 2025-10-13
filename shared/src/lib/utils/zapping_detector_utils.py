@@ -90,6 +90,7 @@ def detect_and_record_zapping(
     
     try:
         logger.info(f"[{capture_folder}] 🔍 Analyzing frame for channel banner: {frame_filename}")
+        logger.info(f"[{capture_folder}] 🔍 Received action_info: {action_info}")
         
         # ✅ STANDALONE: Use AI utility (no controllers needed!)
         from shared.src.lib.utils.ai_utils import analyze_channel_banner_ai
