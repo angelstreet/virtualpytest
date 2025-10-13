@@ -196,8 +196,7 @@ class ZapExecutor:
         
         try:
             print(f"🔍 [ZapExecutor] Analyzing zap results for {action_command} (iteration {iteration})...")
-            print(f"🔍 [ZapExecutor] Waiting 10 seconds for zapping detection to complete...")
-            time.sleep(10)
+            
             # 1. MOTION: Read from JSON directly (fast, no verification needed)
             motion_result = self._detect_motion_from_json(context)
             self._map_verification_result(result, 'motion', motion_result, context)
@@ -727,15 +726,10 @@ class ZapExecutor:
             Complete zapping data dict, or error dict if not found/too old
         """
         try:
-            print(f"📺 [ZapExecutor] Reading recent zapping detection...")
-            print(f"🔍 [ZapExecutor] Searching for zapping matching action_timestamp: {action_timestamp:.3f}")
-            
             # ✅ READ FROM SAME LOCATION AS METADATA (hot or cold based on mode)
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
             metadata_path = get_metadata_path(capture_folder)
             last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
-            
-            print(f"🔍 [ZapExecutor] Looking for last_zapping.json at: {last_zapping_path}")
             
             if os.path.exists(last_zapping_path):
                 try:
@@ -743,21 +737,14 @@ class ZapExecutor:
                     with open(last_zapping_path, 'r') as f:
                         zapping_data = json.load(f)
                     
-                    print(f"✅ [ZapExecutor] Found last_zapping.json")
-                    
                     # ✅ CHECK: Is detection in progress?
                     status = zapping_data.get('status')
                     if status == 'in_progress':
-                        print(f"⏳ [ZapExecutor] Zapping detection IN PROGRESS - will poll every 5s (max 60s)")
-                        started_at = zapping_data.get('started_at', '')
-                        print(f"   Started at: {started_at}")
-                        print(f"   Frame: {zapping_data.get('frame_filename')}")
-                        print(f"   Message: {zapping_data.get('message')}")
+                        print(f"⏳ [ZapExecutor] Zapping detection in progress - polling every 5s (max 60s)...")
                         
                         # Poll for up to 60 seconds (12 attempts x 5 seconds)
                         max_polls = 12
                         for poll_attempt in range(1, max_polls + 1):
-                            print(f"   ⏳ Poll attempt {poll_attempt}/{max_polls} - waiting 5 seconds...")
                             time.sleep(5)
                             
                             # Read again
@@ -767,40 +754,28 @@ class ZapExecutor:
                                 
                                 # Check if completed
                                 if zapping_data.get('status') != 'in_progress':
-                                    print(f"   ✅ Detection complete after {poll_attempt * 5}s")
+                                    print(f"✅ [ZapExecutor] Detection completed after {poll_attempt * 5}s")
                                     break
-                                else:
-                                    print(f"   ⏳ Still in progress...")
                             except Exception as e:
-                                print(f"   ⚠️ Error reading during poll: {e}")
+                                print(f"⚠️ [ZapExecutor] Error during poll: {e}")
                                 break
                         else:
                             # Timeout after max_polls
-                            print(f"   ⏰ Timeout after {max_polls * 5}s - detection may have failed")
+                            print(f"⏰ [ZapExecutor] Timeout after 60s - detection may have failed")
                             return {'success': False, 'zapping_detected': False, 'error': 'Detection timeout (60s)'}
-                    
-                    # ✅ DEBUG: Log complete JSON content
-                    print(f"📖 [ZapExecutor] READ last_zapping.json content:")
-                    print(f"   {json.dumps(zapping_data, indent=2)}")
                     
                     # ✅ ONLY CHECK: Does action_timestamp match THIS action?
                     zapping_action_timestamp = zapping_data.get('action_timestamp')
                     if not zapping_action_timestamp:
-                        print(f"⚠️ [ZapExecutor] No action_timestamp in zapping file - cannot verify this is the correct action")
-                        print(f"   detection_type: {zapping_data.get('detection_type')}")
-                        print(f"   frame_filename: {zapping_data.get('frame_filename')}")
-                        print(f"   detected_at: {zapping_data.get('detected_at')}")
+                        print(f"⚠️ [ZapExecutor] No action_timestamp in zapping file")
                         return {'success': False, 'zapping_detected': False, 'error': 'No action_timestamp in zapping file'}
                     
                     timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
-                    print(f"🔍 [ZapExecutor] Timestamp comparison: current={action_timestamp:.3f}, zapping={zapping_action_timestamp:.3f}, diff={timestamp_diff:.3f}s")
                     
                     # Allow small timing variance (max 5 seconds)
                     if timestamp_diff > 5.0:
-                        print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.1f}s difference - this is from a different action!")
-                        return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.1f}s (expected <5s)'}
-                    
-                    print(f"✅ [ZapExecutor] Timestamp match confirmed (diff={timestamp_diff:.3f}s) - this is OUR zapping!")
+                        print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.1f}s")
+                        return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.1f}s'}
                     
                     zapping_detected = zapping_data.get('zapping_detected', False)
                     
@@ -809,7 +784,7 @@ class ZapExecutor:
                         channel_number = zapping_data.get('channel_number', '')
                         program_name = zapping_data.get('program_name', '')
                         detection_type = zapping_data.get('detection_type', 'unknown')
-                        print(f"   📺 {detection_type.upper()} zapping: {channel_name} ({channel_number}) - {program_name}")
+                        print(f"📺 [ZapExecutor] {detection_type.upper()} zapping detected: {channel_name} ({channel_number}) - {program_name}")
                     
                     # Extract sequence from frame filename
                     frame_filename = zapping_data.get('frame_filename', '')

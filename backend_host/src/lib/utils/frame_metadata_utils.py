@@ -85,16 +85,6 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
                 file_size = os.path.getsize(last_action_path)
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] ✅ Written last_action.json: {action.get('command')} @ {action_completion_timestamp}")
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] 📂 Path: {last_action_path} ({file_size} bytes)")
-                
-                # ✅ DEBUG: Read back to verify correct timestamp was written
-                try:
-                    with open(last_action_path, 'r') as f:
-                        verify_data = json.load(f)
-                    print(f"[@frame_metadata_utils:write_action_to_frame_json] 🔍 VERIFY - Read back timestamp: {verify_data.get('timestamp')}")
-                    if verify_data.get('timestamp') != action_completion_timestamp:
-                        print(f"[@frame_metadata_utils:write_action_to_frame_json] ⚠️  WARNING: Timestamp mismatch! Expected {action_completion_timestamp}, got {verify_data.get('timestamp')}")
-                except Exception as e:
-                    print(f"[@frame_metadata_utils:write_action_to_frame_json] ⚠️  Could not verify write: {e}")
             else:
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ File write succeeded but file doesn't exist: {last_action_path}")
             

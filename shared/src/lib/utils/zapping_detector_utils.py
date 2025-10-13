@@ -90,7 +90,6 @@ def detect_and_record_zapping(
     
     try:
         logger.info(f"[{capture_folder}] 🔍 Analyzing frame for channel banner: {frame_filename}")
-        logger.info(f"[{capture_folder}] 🔍 Received action_info: {action_info}")
         
         # ✅ STANDALONE: Use AI utility (no controllers needed!)
         from shared.src.lib.utils.ai_utils import analyze_channel_banner_ai
@@ -443,10 +442,6 @@ def _write_last_zapping_json(
             'r2_images': r2_images if r2_images else {}
         }
         
-        # ✅ DEBUG: Log complete JSON content BEFORE writing
-        logger.info(f"[{capture_folder}] 📝 WRITING last_zapping.json content:")
-        logger.info(f"[{capture_folder}]    {json.dumps(zapping_data, indent=2)}")
-        
         # Atomic write
         with open(last_zapping_path + '.tmp', 'w') as f:
             json.dump(zapping_data, f, indent=2)
@@ -455,18 +450,7 @@ def _write_last_zapping_json(
         # Verify file exists
         if os.path.exists(last_zapping_path):
             file_size = os.path.getsize(last_zapping_path)
-            logger.info(f"[{capture_folder}] ✅ last_zapping.json written successfully: {last_zapping_path} ({file_size} bytes)")
-            
-            # ✅ DEBUG: Verify by reading back what was written
-            try:
-                with open(last_zapping_path, 'r') as f:
-                    written_content = json.load(f)
-                logger.info(f"[{capture_folder}] 🔍 VERIFY - Read back after write:")
-                logger.info(f"[{capture_folder}]    action_timestamp: {written_content.get('action_timestamp')}")
-                logger.info(f"[{capture_folder}]    detection_type: {written_content.get('detection_type')}")
-                logger.info(f"[{capture_folder}]    time_since_action_ms: {written_content.get('time_since_action_ms')}")
-            except Exception as e:
-                logger.error(f"[{capture_folder}] ❌ Failed to verify written content: {e}")
+            logger.info(f"[{capture_folder}] ✅ last_zapping.json written successfully ({file_size} bytes)")
         else:
             logger.error(f"[{capture_folder}] ❌ last_zapping.json write failed - file doesn't exist after write!")
         

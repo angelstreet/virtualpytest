@@ -541,9 +541,7 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
             
             # Check for recent action (reads last_action.json)
-            logger.info(f"[{capture_folder}] 🚀 BEFORE _get_action_from_device_state [FRAME={current_filename}]")
             action_info = self._get_action_from_device_state(capture_folder)
-            logger.info(f"[{capture_folder}] ✅ AFTER _get_action_from_device_state [FRAME={current_filename}] result={action_info}")
             
             # Get device_state to access transition images (same way as _add_event_duration_metadata)
             device_state = self.incident_manager.get_device_state(device_id)
@@ -636,13 +634,6 @@ class InotifyFrameMonitor:
             if not last_thumbnail: missing.append('last')
             
             logger.info(f"[{capture_folder}] 📸 Transition thumbnails ready: {images_found}/3" + (f", missing: {missing}" if missing else "") + " (AFTER added during banner analysis)")
-            
-            # ✅ DEBUG: Log action_info being passed to zapping detector
-            logger.info(f"[{capture_folder}] 📤 CALLING detect_and_record_zapping [FRAME={current_filename}] with action_info:")
-            if action_info:
-                logger.info(f"[{capture_folder}]    {json.dumps(action_info, indent=2)}")
-            else:
-                logger.info(f"[{capture_folder}]    action_info=None (MANUAL zapping - no action within 10s)")
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
@@ -973,10 +964,6 @@ class InotifyFrameMonitor:
             with open(last_action_path, 'r') as f:
                 action_data = json.load(f)
             
-            # ✅ DEBUG: Log complete JSON content
-            logger.info(f"[{capture_folder}] 📖 READ last_action.json content:")
-            logger.info(f"[{capture_folder}]    {json.dumps(action_data, indent=2)}")
-            
             action_timestamp = action_data.get('timestamp')
             if not action_timestamp:
                 logger.info(f"[{capture_folder}] ❌ No timestamp in file")
@@ -986,23 +973,18 @@ class InotifyFrameMonitor:
             current_time = time.time()
             time_since_action = current_time - action_timestamp
             
-            logger.info(f"[{capture_folder}] ⏱️  Timestamp check: current={current_time:.3f}, action={action_timestamp:.3f}, diff={time_since_action:.3f}s")
-            
             if time_since_action > 10.0:
-                logger.info(f"[{capture_folder}] ❌ Action too old ({time_since_action:.1f}s > 10.0s)")
+                logger.info(f"[{capture_folder}] ❌ Action too old ({time_since_action:.1f}s)")
                 return None
             
             # Success
-            result = {
+            logger.info(f"[{capture_folder}] ✅ AUTOMATIC - action: {action_data.get('command')} ({time_since_action:.1f}s ago)")
+            return {
                 'last_action_executed': action_data.get('command'),
                 'last_action_timestamp': action_timestamp,
                 'action_params': action_data.get('params', {}),
                 'time_since_action_ms': int(time_since_action * 1000)
             }
-            logger.info(f"[{capture_folder}] ✅ AUTOMATIC - action: {action_data.get('command')} ({time_since_action:.1f}s ago)")
-            logger.info(f"[{capture_folder}] 📤 RETURN action_info:")
-            logger.info(f"[{capture_folder}]    {json.dumps(result, indent=2)}")
-            return result
                 
         except Exception as e:
             logger.error(f"[{capture_folder}] Error reading last_action.json: {e}")
