@@ -38,7 +38,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
   const [audioMenuAnchor, setAudioMenuAnchor] = useState<null | HTMLElement>(null);
   const [transcriptMenuAnchor, setTranscriptMenuAnchor] = useState<null | HTMLElement>(null);
   
-  if (!show || !currentTranscript || !transcriptText) {
+  // Show if we have either legacy currentTranscript OR new transcriptText
+  if (!show || (!currentTranscript && !transcriptText)) {
     return null;
   }
 
@@ -269,7 +270,7 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           zIndex: 1250,
         }}
       >
-        {currentTranscript.enhanced_transcript && selectedTranscriptLanguage === 'original' && (
+        {currentTranscript?.enhanced_transcript && selectedTranscriptLanguage === 'original' && (
           <Box sx={{ display: 'flex', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)', px: 1, py: 0.5, borderRadius: 1 }}>
             <AutoAwesome sx={{ fontSize: 14, color: '#2196f3', mr: 0.5 }} />
             <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 600, fontSize: '0.7rem' }}>
@@ -278,21 +279,23 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           </Box>
         )}
         
-        <Box sx={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', px: 1.5, py: 0.5, borderRadius: 1 }}>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: 'rgba(255,255,255,0.8)', 
-              fontSize: '0.7rem',
-              fontWeight: 500,
-            }}
-          >
-            {selectedTranscriptLanguage === 'original' 
-              ? `${currentTranscript.language.charAt(0).toUpperCase() + currentTranscript.language.slice(1).toLowerCase()} • ${Math.round(currentTranscript.confidence * 100)}%`
-              : `Translated to ${languageNames[selectedTranscriptLanguage] || selectedTranscriptLanguage}`
-            }
-          </Typography>
-        </Box>
+        {currentTranscript && (
+          <Box sx={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', px: 1.5, py: 0.5, borderRadius: 1 }}>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'rgba(255,255,255,0.8)', 
+                fontSize: '0.7rem',
+                fontWeight: 500,
+              }}
+            >
+              {selectedTranscriptLanguage === 'original' 
+                ? `${currentTranscript.language.charAt(0).toUpperCase() + currentTranscript.language.slice(1).toLowerCase()} • ${Math.round(currentTranscript.confidence * 100)}%`
+                : `Translated to ${languageNames[selectedTranscriptLanguage] || selectedTranscriptLanguage}`
+              }
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* Transcript box - only 2 lines */}
@@ -310,10 +313,10 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
           maxWidth: 'calc(100% - 80px)',  // Window width minus 80px
           width: 'calc(100% - 80px)',      // Use full available width
           textAlign: 'center',
-          border: currentTranscript.enhanced_transcript && selectedTranscriptLanguage === 'original'
+          border: currentTranscript?.enhanced_transcript && selectedTranscriptLanguage === 'original'
             ? '2px solid rgba(33, 150, 243, 0.8)'
             : '1px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: currentTranscript.enhanced_transcript && selectedTranscriptLanguage === 'original'
+          boxShadow: currentTranscript?.enhanced_transcript && selectedTranscriptLanguage === 'original'
             ? '0 4px 12px rgba(33, 150, 243, 0.4)'
             : '0 4px 12px rgba(0,0,0,0.5)',
           zIndex: 1250,  // Below timeline (which is 1300) but above video

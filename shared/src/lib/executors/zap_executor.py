@@ -848,41 +848,77 @@ class ZapExecutor:
         r2_images = zapping_data.get('r2_images', {})
         transition_image_paths = []
         
+        # Map to report formatter expected field names
+        first_image = None  # Before blackscreen
+        blackscreen_start_image = None  # First blackscreen
+        blackscreen_end_image = None  # Last blackscreen
+        first_content_after_blackscreen = None  # After
+        
         if transition_images or r2_images:
             print(f"📸 [ZapExecutor] Processing zapping transition images...")
             
-            # Order: before → first_blackscreen → last_blackscreen → after
+            # Map before image
+            if r2_images.get('before_url'):
+                first_image = r2_images['before_url']
+                print(f"   📸 Before: {transition_images.get('before_frame', 'unknown')} (R2)")
+            elif transition_images.get('before_thumbnail_path'):
+                first_image = transition_images['before_thumbnail_path']
+                if first_image not in context.screenshot_paths:
+                    context.add_screenshot(first_image)
+                print(f"   📸 Before: {transition_images.get('before_frame', 'unknown')} (local)")
+            
+            # Map first blackscreen image
+            if r2_images.get('first_blackscreen_url'):
+                blackscreen_start_image = r2_images['first_blackscreen_url']
+                print(f"   📸 First Blackscreen: {transition_images.get('first_blackscreen_frame', 'unknown')} (R2)")
+            elif transition_images.get('first_blackscreen_thumbnail_path'):
+                blackscreen_start_image = transition_images['first_blackscreen_thumbnail_path']
+                if blackscreen_start_image not in context.screenshot_paths:
+                    context.add_screenshot(blackscreen_start_image)
+                print(f"   📸 First Blackscreen: {transition_images.get('first_blackscreen_frame', 'unknown')} (local)")
+            
+            # Map last blackscreen image
+            if r2_images.get('last_blackscreen_url'):
+                blackscreen_end_image = r2_images['last_blackscreen_url']
+                print(f"   📸 Last Blackscreen: {transition_images.get('last_blackscreen_frame', 'unknown')} (R2)")
+            elif transition_images.get('last_blackscreen_thumbnail_path'):
+                blackscreen_end_image = transition_images['last_blackscreen_thumbnail_path']
+                if blackscreen_end_image not in context.screenshot_paths:
+                    context.add_screenshot(blackscreen_end_image)
+                print(f"   📸 Last Blackscreen: {transition_images.get('last_blackscreen_frame', 'unknown')} (local)")
+            
+            # Map after image
+            if r2_images.get('after_url'):
+                first_content_after_blackscreen = r2_images['after_url']
+                print(f"   📸 After: {transition_images.get('after_frame', 'unknown')} (R2)")
+            elif transition_images.get('after_thumbnail_path'):
+                first_content_after_blackscreen = transition_images['after_thumbnail_path']
+                if first_content_after_blackscreen not in context.screenshot_paths:
+                    context.add_screenshot(first_content_after_blackscreen)
+                print(f"   📸 After: {transition_images.get('after_frame', 'unknown')} (local)")
+            
+            # Build transition_image_paths for backward compatibility
             image_order = [
-                ('before_thumbnail_path', 'before_frame', 'before_url', 'Before'),
-                ('first_blackscreen_thumbnail_path', 'first_blackscreen_frame', 'first_blackscreen_url', 'First Blackscreen'),
-                ('last_blackscreen_thumbnail_path', 'last_blackscreen_frame', 'last_blackscreen_url', 'Last Blackscreen'),
-                ('after_thumbnail_path', 'after_frame', 'after_url', 'After')
+                (first_image, 'before_frame', 'Before'),
+                (blackscreen_start_image, 'first_blackscreen_frame', 'First Blackscreen'),
+                (blackscreen_end_image, 'last_blackscreen_frame', 'Last Blackscreen'),
+                (first_content_after_blackscreen, 'after_frame', 'After')
             ]
             
-            for path_key, filename_key, url_key, display_name in image_order:
-                thumbnail_path = transition_images.get(path_key)
-                frame_filename = transition_images.get(filename_key)
-                r2_url = r2_images.get(url_key)
-                
-                # Prefer R2 URL if available, otherwise use local path
-                if r2_url:
-                    # Already in R2 - just add to transition list
+            for image_url, filename_key, display_name in image_order:
+                if image_url:
                     transition_image_paths.append({
                         'type': display_name,
-                        'url': r2_url,
-                        'filename': frame_filename or 'unknown'
+                        'url': image_url,
+                        'filename': transition_images.get(filename_key, 'unknown')
                     })
-                    print(f"   📸 {display_name}: {frame_filename} (R2)")
-                elif thumbnail_path and frame_filename:
-                    # Local path - add to context screenshots (will upload to R2)
-                    if thumbnail_path not in context.screenshot_paths:
-                        context.add_screenshot(thumbnail_path)
-                        print(f"   📸 {display_name}: {frame_filename} (local)")
-                    transition_image_paths.append({
-                        'type': display_name,
-                        'path': thumbnail_path,
-                        'filename': frame_filename
-                    })
+            
+            # Debug log mapped fields for report formatter
+            print(f"🔍 [ZapExecutor] Mapped zapping images for report:")
+            print(f"   first_image: {first_image}")
+            print(f"   blackscreen_start_image: {blackscreen_start_image}")
+            print(f"   blackscreen_end_image: {blackscreen_end_image}")
+            print(f"   first_content_after_blackscreen: {first_content_after_blackscreen}")
         
         # Calculate total zap duration for display
         total_zap_duration_ms = zapping_data.get('total_zap_duration_ms')
@@ -909,6 +945,11 @@ class ZapExecutor:
             },
             'frame_filename': zapping_data.get('frame_filename', ''),
             'transition_images': transition_image_paths,  # ✅ NEW: Transition images for display
+            # ✅ ADD: Report formatter expected field names for thumbnails/modal
+            'first_image': first_image,  # Before blackscreen
+            'blackscreen_start_image': blackscreen_start_image,  # First blackscreen
+            'blackscreen_end_image': blackscreen_end_image,  # Last blackscreen
+            'first_content_after_blackscreen': first_content_after_blackscreen,  # After
             'message': 'Zapping detected from capture_monitor' if result.zapping_detected else 'No zapping detected'
         }
         
