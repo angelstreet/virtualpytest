@@ -159,66 +159,58 @@ def detect_and_record_zapping(
             original_frame=None  # This IS the original
         )
         
-        # B) Frontend cache: Fill gap from truth end to current time (existing frames only)
-        # Simple: Write cache to all EXISTING frames between event and now
+        # B) Frontend cache: Fill gap from truth end to NOW only (limited window)
+        # Write cache to recent frames only - capture_monitor handles future frames
         try:
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
+            import time
             
             original_sequence = int(frame_filename.split('_')[1].split('.')[0])
             cache_start = original_sequence + 6  # Right after truth ends
             
-            # Find current frame (where AI completes)
-            metadata_path = get_metadata_path(capture_folder)
-            json_files = []
-            with os.scandir(metadata_path) as entries:
-                for entry in entries:
-                    if entry.name.startswith('capture_') and entry.name.endswith('.json'):
-                        try:
-                            seq = int(entry.name.split('_')[1].split('.')[0])
-                            json_files.append(seq)
-                        except:
-                            continue
+            # ✅ FIXED: Only write cache for 10 seconds worth of frames (60 frames at 6fps)
+            # This prevents writing to thousands of old archived frames!
+            cache_end = cache_start + 60  # Limit to next 60 frames (~10 seconds)
             
-            if json_files:
-                current_sequence = max(json_files)
-                cache_end = current_sequence  # Only write to existing frames (capture_monitor handles future)
+            metadata_path = get_metadata_path(capture_folder)
+            
+            logger.info(f"[{capture_folder}] 📋 Writing cache from {cache_start} to {cache_end} (max 60 frames)")
+            
+            # Write cache to existing frames in limited range only
+            frames_written = []
+            for seq in range(cache_start, cache_end + 1):
+                target_file = os.path.join(metadata_path, f"capture_{seq:09d}.json")
+                if not os.path.exists(target_file):
+                    continue  # Frame doesn't exist yet, skip
                 
-                logger.info(f"[{capture_folder}] 📋 Writing cache from {cache_start} to {cache_end} (existing frames)")
-                
-                # Write cache to all existing frames in range
-                frames_written = []
-                for seq in range(cache_start, cache_end + 1):
-                    target_file = os.path.join(metadata_path, f"capture_{seq:09d}.json")
-                    if os.path.exists(target_file):
-                        try:
-                            with open(target_file, 'r') as f:
-                                data = json.load(f)
-                            
-                            # Don't overwrite if already has truth
-                            if 'zap' in data and data['zap'].get('detected'):
-                                continue
-                            
-                            # Add cache (use original frame for consistent ID - deduplication)
-                            data['zap_cache'] = {
-                                'detected': True,
-                                'id': f"zap_cache_{frame_filename}",  # Same ID for all cache frames
-                                'detected_at': datetime.now().isoformat(),
-                                'original_frame': frame_filename,
-                                **zapping_data
-                            }
-                            
-                            with open(target_file, 'w') as f:
-                                json.dump(data, f, indent=2)
-                            frames_written.append(target_file)
-                        except Exception as write_error:
-                            logger.debug(f"[{capture_folder}] Skip {seq}: {write_error}")
-                            continue
-                
-                if frames_written:
-                    frames_list = ', '.join(frames_written)
-                    logger.info(f"[{capture_folder}] ✅ Wrote cache to {len(frames_written)} frames: {frames_list}")
-                else:
-                    logger.info(f"[{capture_folder}] ℹ️  No existing frames to write cache (capture_monitor will handle future frames)")
+                try:
+                    with open(target_file, 'r') as f:
+                        data = json.load(f)
+                    
+                    # Don't overwrite if already has truth
+                    if 'zap' in data and data['zap'].get('detected'):
+                        continue
+                    
+                    # Add cache (use original frame for consistent ID - deduplication)
+                    data['zap_cache'] = {
+                        'detected': True,
+                        'id': f"zap_cache_{frame_filename}",  # Same ID for all cache frames
+                        'detected_at': datetime.now().isoformat(),
+                        'original_frame': frame_filename,
+                        **zapping_data
+                    }
+                    
+                    with open(target_file, 'w') as f:
+                        json.dump(data, f, indent=2)
+                    frames_written.append(seq)
+                except Exception as write_error:
+                    logger.debug(f"[{capture_folder}] Skip {seq}: {write_error}")
+                    continue
+            
+            if frames_written:
+                logger.info(f"[{capture_folder}] ✅ Wrote cache to {len(frames_written)} frames: {min(frames_written)}-{max(frames_written)}")
+            else:
+                logger.info(f"[{capture_folder}] ℹ️  No existing frames to write cache (capture_monitor will handle future frames)")
         except Exception as e:
             logger.error(f"[{capture_folder}] Failed to write cache: {e}")
         

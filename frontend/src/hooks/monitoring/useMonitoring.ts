@@ -78,6 +78,14 @@ export const useMonitoring = ({
     analysis: MonitoringAnalysis | null;
     subtitleAnalysis: SubtitleAnalysis | null;
   } => {
+    // DEBUG: Log zap data extraction
+    if (data.zap_cache || data.zap) {
+      console.log('[useMonitoring] Extracting zap data:', { 
+        zap_cache: data.zap_cache, 
+        zap: data.zap 
+      });
+    }
+    
     const parsed: MonitoringAnalysis = {
       timestamp: data.timestamp || '',
       filename: data.filename || '',
@@ -107,9 +115,12 @@ export const useMonitoring = ({
       last_action_executed: data.last_action_executed,
       last_action_timestamp: data.last_action_timestamp,
       action_params: data.action_params,
-      // Zapping detection metadata (complete info for popup display)
+      // NEW: Nested zapping structures (primary data source)
+      zap: data.zap,
+      zap_cache: data.zap_cache,
+      // @deprecated Old flat zapping fields (kept for backward compatibility)
       zapping_detected: data.zapping_detected,
-      zapping_id: data.zapping_id, // Unique ID for caching
+      zapping_id: data.zapping_id,
       zapping_channel_name: data.zapping_channel_name,
       zapping_channel_number: data.zapping_channel_number,
       zapping_program_name: data.zapping_program_name,
@@ -314,6 +325,9 @@ export const useMonitoring = ({
             last_action_executed: nearestFrame.last_action_executed,
             last_action_timestamp: nearestFrame.last_action_timestamp,
             action_params: nearestFrame.action_params,
+            // Zapping detection (nested structures)
+            zap: nearestFrame.zap,
+            zap_cache: nearestFrame.zap_cache,
           };
           
           const snapshot: AnalysisSnapshot = {
