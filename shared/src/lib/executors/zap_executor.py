@@ -741,8 +741,8 @@ class ZapExecutor:
                     file_mtime = os.path.getmtime(last_zapping_path)
                     file_age = time.time() - file_mtime
                     
-                    # Only read if file is recent (< 30s old)
-                    if file_age > 30:
+                    # Only read if file is recent (< 45s old)
+                    if file_age > 45:
                         print(f"⚠️ [ZapExecutor] last_zapping.json is too old ({file_age:.1f}s) - likely from previous test")
                         return {'success': False, 'zapping_detected': False, 'error': f'Zapping file too old ({file_age:.1f}s)'}
                     
