@@ -47,6 +47,7 @@ class ZapAnalysisResult:
         self.program_name = ""
         self.program_start_time = ""
         self.program_end_time = ""
+        self.audio_silence_duration = 0.0  # Audio silence duration during zapping
         
         self.success = False
         self.message = ""
@@ -76,7 +77,8 @@ class ZapAnalysisResult:
             "channel_number": self.channel_number,
             "program_name": self.program_name,
             "program_start_time": self.program_start_time,
-            "program_end_time": self.program_end_time
+            "program_end_time": self.program_end_time,
+            "audio_silence_duration": self.audio_silence_duration
         }
 
 
@@ -765,6 +767,7 @@ class ZapExecutor:
                             'frame_filename': frame_filename,
                             'frame_sequence': sequence,
                             'action_timestamp': zapping_action_ts,
+                            'audio_silence_duration': zapping_data.get('audio_silence_duration', 0.0),
                             'details': {
                                 'start_time': zapping_data.get('program_start_time', ''),
                                 'end_time': zapping_data.get('program_end_time', '')
@@ -796,6 +799,7 @@ class ZapExecutor:
         result.channel_number = zapping_data.get('channel_number', '')
         result.program_name = zapping_data.get('program_name', '')
         result.blackscreen_duration = zapping_data.get('blackscreen_duration', 0.0)
+        result.audio_silence_duration = zapping_data.get('audio_silence_duration', 0.0)
         result.program_start_time = zapping_data.get('details', {}).get('start_time', '')
         result.program_end_time = zapping_data.get('details', {}).get('end_time', '')
         
@@ -922,7 +926,8 @@ class ZapExecutor:
             print(f"Zapping Detection: {zapping_status}")
             if analysis_result.zapping_detected:
                 duration_info = f"duration: {analysis_result.blackscreen_duration:.2f}s" if analysis_result.blackscreen_duration > 0 else "duration: N/A"
-                print(f"Details: Zapping detected ({duration_info})")
+                silence_info = f", audio silence: {analysis_result.audio_silence_duration:.2f}s" if analysis_result.audio_silence_duration > 0 else ""
+                print(f"Details: Zapping detected ({duration_info}{silence_info})")
                 if analysis_result.channel_name:
                     channel_info = analysis_result.channel_name
                     if analysis_result.channel_number:

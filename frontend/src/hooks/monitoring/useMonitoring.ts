@@ -117,6 +117,7 @@ export const useMonitoring = ({
       zapping_program_end_time: data.zapping_program_end_time,
       zapping_confidence: data.zapping_confidence,
       zapping_blackscreen_duration_ms: data.zapping_blackscreen_duration_ms,
+      zapping_audio_silence_duration: data.zapping_audio_silence_duration,
       zapping_detection_type: data.zapping_detection_type,
       zapping_detected_at: data.zapping_detected_at,
     };

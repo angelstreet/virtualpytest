@@ -439,18 +439,21 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
             
             # ✅ CLEAN: Read action from device_state (in-memory, instant lookup)
+            logger.info(f"[{capture_folder}] 🔍 Checking for recent action...")
+            logger.info(f"[{capture_folder}]    Device ID: {device_id}")
             action_info = self._get_action_from_device_state(device_id)
             
-            # Log action info for debugging
+            # Log action info with CONSISTENT detail level for both cases
             if action_info:
-                logger.info(f"[{capture_folder}] 📋 Last action found:")
-                logger.info(f"[{capture_folder}]    ⚡ Command: {action_info.get('last_action_executed', 'unknown')}")
+                logger.info(f"[{capture_folder}] ✅ AUTOMATIC ZAPPING:")
+                logger.info(f"[{capture_folder}]    ⚡ Action: {action_info.get('last_action_executed', 'unknown')}")
                 logger.info(f"[{capture_folder}]    ⏰ Timestamp: {action_info.get('last_action_timestamp', 0)}")
-                logger.info(f"[{capture_folder}]    ⏱️  Time since action: {action_info.get('time_since_action_ms', 0)}ms")
-                logger.info(f"[{capture_folder}]    🎯 Detection type: AUTOMATIC")
+                logger.info(f"[{capture_folder}]    ⏱️  Age: {action_info.get('time_since_action_ms', 0)}ms")
+                logger.info(f"[{capture_folder}]    📄 Path checked: {action_info.get('_debug_path', 'N/A')}")
             else:
-                logger.info(f"[{capture_folder}] 📋 No action found in device_state")
-                logger.info(f"[{capture_folder}]    🎯 Detection type: MANUAL")
+                logger.info(f"[{capture_folder}] ⚠️  MANUAL ZAPPING (no recent action found):")
+                logger.info(f"[{capture_folder}]    Device ID: {device_id}")
+                logger.info(f"[{capture_folder}]    Reason: See detailed logs above from _get_action_from_device_state")
             
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
@@ -655,46 +658,70 @@ class InotifyFrameMonitor:
         """
         import time
         
+        logger.info(f"[_get_action_from_device_state] Called with device_id={device_id}")
+        
         # ✅ Get capture_folder from device_id using proper .env lookup
         from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id
         capture_folder = get_capture_folder_from_device_id(device_id)
         
+        logger.info(f"[_get_action_from_device_state] Mapped device_id={device_id} to capture_folder={capture_folder}")
+        
         if not capture_folder:
-            logger.debug(f"[{device_id}] Could not map device_id to capture_folder")
+            logger.info(f"[{device_id}] ❌ MANUAL ZAPPING - Could not map device_id to capture_folder")
+            logger.info(f"[{device_id}]    Check .env: DEVICE_X_VIDEO_CAPTURE_PATH")
             return None
         
         metadata_path = get_metadata_path(capture_folder)
+        logger.info(f"[{device_id}] Metadata path: {metadata_path}")
+        logger.info(f"[{device_id}] Metadata exists: {os.path.exists(metadata_path)}")
         
         if not os.path.exists(metadata_path):
-            logger.debug(f"[{device_id}] Metadata path not found: {metadata_path}")
+            logger.info(f"[{device_id}] ❌ MANUAL ZAPPING - Metadata directory not found")
+            logger.info(f"[{device_id}]    Expected: {metadata_path}")
             return None
         
         # ✅ Read from single last_action.json file (instant!)
         last_action_path = os.path.join(metadata_path, 'last_action.json')
         
-        logger.info(f"[{device_id}] Looking for last_action.json at: {last_action_path}")
+        logger.info(f"[{device_id}] Checking: {last_action_path}")
+        file_exists = os.path.exists(last_action_path)
+        logger.info(f"[{device_id}] File exists: {file_exists}")
         
-        if not os.path.exists(last_action_path):
-            logger.info(f"[{device_id}] ❌ last_action.json NOT FOUND - will be MANUAL zapping")
+        if not file_exists:
+            logger.info(f"[{device_id}] ❌ MANUAL ZAPPING - last_action.json NOT FOUND")
+            logger.info(f"[{device_id}]    Expected path: {last_action_path}")
+            logger.info(f"[{device_id}]    This means no action was executed recently or file wasn't written")
             return None
         
         try:
+            logger.info(f"[{device_id}] ✅ File exists! Reading content...")
             with open(last_action_path, 'r') as f:
                 action_data = json.load(f)
             
+            logger.info(f"[{device_id}] File content: {action_data}")
+            
             action_timestamp = action_data.get('timestamp')
             if not action_timestamp:
-                logger.debug(f"[{device_id}] last_action.json missing timestamp")
+                logger.info(f"[{device_id}] ❌ last_action.json missing timestamp - will be MANUAL zapping")
                 return None
             
             # Check if action is within 10s window
             current_time = time.time()
             time_since_action = current_time - action_timestamp
             
+            logger.info(f"[{device_id}] ⏰ Timestamp check:")
+            logger.info(f"[{device_id}]    Action timestamp: {action_timestamp}")
+            logger.info(f"[{device_id}]    Current time: {current_time}")
+            logger.info(f"[{device_id}]    Time since action: {time_since_action:.1f}s")
+            logger.info(f"[{device_id}]    Window limit: 10.0s")
+            
             if time_since_action > 10.0:
-                logger.info(f"[{device_id}] ❌ Action too old ({time_since_action:.1f}s) - will be MANUAL zapping")
-                logger.info(f"[{device_id}]    Action: {action_data.get('command')} at {action_timestamp}")
+                logger.info(f"[{device_id}] ❌ MANUAL ZAPPING - Action too old")
+                logger.info(f"[{device_id}]    Action: {action_data.get('command')}")
+                logger.info(f"[{device_id}]    Action age: {time_since_action:.1f}s (max: 10.0s)")
+                logger.info(f"[{device_id}]    Action timestamp: {action_timestamp}")
                 logger.info(f"[{device_id}]    Current time: {current_time}")
+                logger.info(f"[{device_id}]    Path checked: {last_action_path}")
                 return None
             
             # ✅ Action within 10s - associate with this blackscreen
@@ -702,18 +729,24 @@ class InotifyFrameMonitor:
                 'last_action_executed': action_data.get('command'),
                 'last_action_timestamp': action_timestamp,
                 'action_params': action_data.get('params', {}),
-                'time_since_action_ms': int(time_since_action * 1000)
+                'time_since_action_ms': int(time_since_action * 1000),
+                '_debug_path': last_action_path  # For logging
             }
             logger.info(f"[{device_id}] ✅ Found action in last_action.json: {action_info['last_action_executed']} ({time_since_action:.1f}s ago)")
             logger.info(f"[{device_id}]    Timestamp: {action_timestamp}")
+            logger.info(f"[{device_id}]    Path: {last_action_path}")
             logger.info(f"[{device_id}]    Will be AUTOMATIC zapping")
             return action_info
             
         except (json.JSONDecodeError, IOError, KeyError) as e:
-            logger.debug(f"[{device_id}] Error reading last_action.json: {e}")
+            logger.info(f"[{device_id}] ❌ Error reading last_action.json: {e} - will be MANUAL zapping")
+            import traceback
+            logger.info(f"[{device_id}] Traceback: {traceback.format_exc()}")
             return None
         except Exception as e:
-            logger.error(f"[{device_id}] Unexpected error reading last_action.json: {e}")
+            logger.error(f"[{device_id}] ❌ Unexpected error reading last_action.json: {e}")
+            import traceback
+            logger.error(f"[{device_id}] Traceback: {traceback.format_exc()}")
             return None
     
     def process_frame(self, captures_path, filename, queue_size=0):

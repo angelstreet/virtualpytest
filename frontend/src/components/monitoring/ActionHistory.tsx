@@ -43,6 +43,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
             program_start_time: monitoringAnalysis.zapping_program_start_time,
             program_end_time: monitoringAnalysis.zapping_program_end_time,
             blackscreen_duration_ms: monitoringAnalysis.zapping_blackscreen_duration_ms,
+            audio_silence_duration: monitoringAnalysis.zapping_audio_silence_duration,
             detection_type: monitoringAnalysis.zapping_detection_type,
           },
           id: monitoringAnalysis.zapping_id, // Use unique zapping_id
@@ -173,7 +174,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
                   </Typography>
                 )}
                 
-                {/* Line 2: Zap duration - WHITE, single line with explicit labels */}
+                {/* Line 2: Durations - WHITE, single line with explicit labels */}
                 {action.params?.blackscreen_duration_ms && (
                   <Typography
                     variant="caption"
@@ -184,7 +185,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
                       mt: 0.2,
                     }}
                   >
-                    Zap duration: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s - Blackscreen duration: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s
+                    Zap: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s - Blackscreen: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s{action.params?.audio_silence_duration ? ` - Silence: ${action.params.audio_silence_duration.toFixed(1)}s` : ''}
                   </Typography>
                 )}
               </>

@@ -66,6 +66,7 @@ export interface MonitoringAnalysis {
   zapping_program_end_time?: string; // e.g., "18:30"
   zapping_confidence?: number;
   zapping_blackscreen_duration_ms?: number;
+  zapping_audio_silence_duration?: number; // Audio silence duration in seconds during zapping
   zapping_detection_type?: 'automatic' | 'manual'; // 'automatic' = triggered by action, 'manual' = user change
   zapping_detected_at?: string; // ISO timestamp
 }
