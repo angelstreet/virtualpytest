@@ -127,12 +127,14 @@ def detect_and_record_zapping(
         channel_info = banner_result.get('channel_info', {})
         confidence = channel_info.get('confidence', 0.0)
         
-        # Log action type only (channel info already logged by ai_utils.py)
+        # Log action type with params (channel info already logged by ai_utils.py)
         is_automatic = action_info is not None
         detection_type = 'automatic' if is_automatic else 'manual'
         
         if is_automatic:
-            logger.info(f"[{capture_folder}] ⚡ AUTOMATIC zapping: {action_info['last_action_executed']} ({action_info['time_since_action_ms']}ms before)")
+            action_params = action_info.get('action_params', {})
+            params_str = f" {action_params}" if action_params else ""
+            logger.info(f"[{capture_folder}] ⚡ AUTOMATIC zapping: {action_info['last_action_executed']}{params_str} ({action_info['time_since_action_ms']}ms before)")
         else:
             logger.info(f"[{capture_folder}] 👤 MANUAL zapping (no action found within 10s)")
         
@@ -330,6 +332,7 @@ def _write_last_zapping_json(
             # Action info (for matching by zap_executor)
             'action_timestamp': action_info.get('last_action_timestamp') if action_info else None,
             'action_command': action_info.get('last_action_executed') if action_info else None,
+            'action_params': action_info.get('action_params', {}) if action_info else {},  # ✅ ADD: Full params (e.g., {"key": "CHANNEL_UP"})
             'time_since_action_ms': action_info.get('time_since_action_ms') if action_info else None,
             
             # Audio dropout analysis (silence duration only - used for zapping pre-check)
