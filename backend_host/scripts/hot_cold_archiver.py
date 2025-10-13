@@ -1100,32 +1100,9 @@ def process_capture_directory(capture_dir: str):
         device_id = device_info.get('device_id', device_folder)
         is_host = (device_id == 'host')
         
-        # Check if device has shown audio activity (from recent metadata)
-        has_audio = False
-        if not is_host:
-            try:
-                # Check last few metadata files to see if device has audio
-                import json
-                metadata_dir = os.path.join(capture_dir, 'hot', 'metadata') if ram_mode else os.path.join(capture_dir, 'metadata')
-                if os.path.isdir(metadata_dir):
-                    metadata_files = sorted(Path(metadata_dir).glob('capture_*.json'), key=os.path.getmtime, reverse=True)[:10]
-                    for mf in metadata_files:
-                        try:
-                            with open(mf) as f:
-                                data = json.load(f)
-                                if data.get('audio', False):
-                                    has_audio = True
-                                    break
-                        except:
-                            pass
-            except:
-                pass
-        
         mp3_1min = None
         if is_host:
             logger.debug(f"[{device_folder}] Skipped MP3 (host device)")
-        elif not has_audio:
-            logger.debug(f"[{device_folder}] Skipped MP3 (no audio activity detected)")
         else:
             # Use COLD storage for temp (same as segments/temp)
             from shared.src.lib.utils.storage_path_utils import get_cold_storage_path

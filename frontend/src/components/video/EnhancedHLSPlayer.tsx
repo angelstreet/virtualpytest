@@ -322,32 +322,37 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     return () => clearTimeout(timer);
   }, [isLiveMode]);
 
-  // Auto-play archive mode after video loads
+  // Auto-play archive mode after video loads AND archive is ready
   useEffect(() => {
-    if (!isLiveMode && videoRef.current && !isTransitioning) {
+    if (!isLiveMode && videoRef.current && !isTransitioning && archive.archiveMetadata) {
       const video = videoRef.current;
       
-      // Wait for video to be loaded and ready
+      // Wait for video to be loaded and ready, then auto-play
       const tryPlay = () => {
         if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-          console.log(`[@EnhancedHLSPlayer] Archive video loaded, starting auto-play`);
-          video.currentTime = 0;
+          console.log(`[@EnhancedHLSPlayer] Archive ready, starting auto-play`);
+          // Don't seek to 0 - causes interruption. Just play from wherever it loaded.
           video.play().catch(err => {
-            console.warn('[@EnhancedHLSPlayer] Failed to auto-play archive:', err);
+            console.warn('[@EnhancedHLSPlayer] Auto-play failed:', err);
           });
         }
       };
 
-      // If already loaded, play immediately
-      if (video.readyState >= 2) {
-        tryPlay();
-      } else {
-        // Otherwise wait for loadeddata event
-        video.addEventListener('loadeddata', tryPlay, { once: true });
-        return () => video.removeEventListener('loadeddata', tryPlay);
-      }
+      // Small delay to ensure everything is initialized
+      const timer = setTimeout(() => {
+        if (video.readyState >= 2) {
+          tryPlay();
+        } else {
+          video.addEventListener('loadeddata', tryPlay, { once: true });
+        }
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        video.removeEventListener('loadeddata', tryPlay);
+      };
     }
-  }, [isLiveMode, streamUrl, isTransitioning]);
+  }, [isLiveMode, streamUrl, isTransitioning, archive.archiveMetadata]);
 
   // Dubbed audio sync and control (reuses restart pattern!)
   useEffect(() => {

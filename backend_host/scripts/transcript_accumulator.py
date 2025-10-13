@@ -327,8 +327,18 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
                 'skip_reason': skip_reason
             }
             
+            # Apply timestamp offset to convert minute-relative times (0-60s) to chunk-relative times
+            # Example: minute 3 segments at 0-60s become 180-240s in the chunk
+            time_offset_seconds = minute_offset * 60
+            offset_segments = []
+            for seg in minute_segments:
+                offset_seg = seg.copy()
+                offset_seg['start'] = seg.get('start', 0) + time_offset_seconds
+                offset_seg['end'] = seg.get('end', 0) + time_offset_seconds
+                offset_segments.append(offset_seg)
+            
             existing_starts = {s.get('start') for s in chunk_data['segments']}
-            new_segments = [s for s in minute_segments if s.get('start') not in existing_starts]
+            new_segments = [s for s in offset_segments if s.get('start') not in existing_starts]
             
             if new_segments:
                 chunk_data['segments'].extend(new_segments)
