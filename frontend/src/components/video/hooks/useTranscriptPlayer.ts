@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { TranscriptData, TranscriptDataLegacy, TranscriptData10Min, TranscriptSegment, ArchiveMetadata, TimedSegment } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
-import { buildStreamUrl } from '../../../utils/buildUrlUtils';
+import { buildStreamUrl, buildHostUrl } from '../../../utils/buildUrlUtils';
 
 interface UseTranscriptPlayerProps {
   isLiveMode: boolean;
@@ -390,7 +390,8 @@ export const useTranscriptPlayer = ({
       // Generate on-demand
       setIsTranslating(true);
       try {
-        const response = await fetch(`${host}/host/transcript/generate-dubbed-audio`, {
+        const apiUrl = buildHostUrl(host, '/host/transcript/generate-dubbed-audio');
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -450,7 +451,8 @@ export const useTranscriptPlayer = ({
       console.log(`[@useTranscriptPlayer] 🤖 Requesting AI translation to ${language}...`);
       
       try {
-        const response = await fetch(`${host}/host/transcript/translate-chunk`, {
+        const apiUrl = buildHostUrl(host, '/host/transcript/translate-chunk');
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

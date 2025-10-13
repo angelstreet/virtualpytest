@@ -57,7 +57,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   
   useEffect(() => {
     if (prevQuality.current !== quality) {
-      console.log(`[@EnhancedHLSPlayer] Quality changed: ${prevQuality.current} -> ${quality}`);
       qualityTimestampRef.current = Date.now();
       prevQuality.current = quality;
     }
@@ -110,12 +109,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
 
   useEffect(() => {
     if (prevIsLiveMode.current !== isLiveMode) {
-      console.log(`[@EnhancedHLSPlayer] Mode change detected: ${prevIsLiveMode.current ? 'Live' : 'Archive'} -> ${isLiveMode ? 'Live' : 'Archive'}`);
       setIsTransitioning(true);
       
       if (isLiveMode) {
         // Reset all buffer state immediately when switching to live
-        console.log('[@EnhancedHLSPlayer] Resetting buffer state for live mode');
         setIsAtLiveEdge(true);
         setLiveBufferSeconds(0);
         setLiveSliderPosition(150);
@@ -139,12 +136,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     if (!video) return;
 
     const handlePlay = () => {
-      console.log('[@EnhancedHLSPlayer] Video playing');
       setIsPlaying(true);
     };
 
     const handlePause = () => {
-      console.log('[@EnhancedHLSPlayer] Video paused');
       setIsPlaying(false);
     };
 
@@ -175,7 +170,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         const chunkPath = currentManifest.name;
         url = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/segments/${chunkPath}`);
-        console.log(`[@EnhancedHLSPlayer] Using 10-min chunk (hour ${currentManifest.window_index}, chunk ${currentManifest.chunk_index}):`, url);
       } else {
         const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         const firstHour = archive.availableHours.length > 0 ? archive.availableHours[0] : 0;
@@ -228,7 +222,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       const secondsBehind = 150 - value;
       const targetTime = bufferEnd - secondsBehind;
       
-      console.log(`[@EnhancedHLSPlayer] Live seek to ${value}s position (${secondsBehind}s behind live)`);
       video.currentTime = Math.max(bufferStart, Math.min(targetTime, bufferEnd));
       setLiveSliderPosition(value);
       
@@ -263,12 +256,10 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
           const cappedBuffer = Math.min(totalBuffer, 150);
           maxBufferSecondsRef.current = cappedBuffer;
           setLiveBufferSeconds(cappedBuffer);
-          console.log(`[@EnhancedHLSPlayer] Buffer growing: ${cappedBuffer.toFixed(1)}s`);
         }
         
         if (atLiveEdge !== isAtLiveEdge) {
           setIsAtLiveEdge(atLiveEdge);
-          console.log(`[@EnhancedHLSPlayer] Live edge status: ${atLiveEdge ? 'LIVE' : 'BEHIND'} (latency: ${latency.toFixed(2)}s)`);
         }
       }
       
@@ -313,7 +304,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     // Wait for the live stream to be loaded and have buffered data
     const seekToLiveWhenReady = () => {
       if (video.readyState >= 2 && video.buffered.length > 0) {
-        console.log('[@EnhancedHLSPlayer] Live stream ready, seeking to live edge');
         const buffered = video.buffered;
         const bufferEnd = buffered.end(buffered.length - 1);
         video.currentTime = bufferEnd - 0.5; // Seek to near live edge
@@ -344,10 +334,9 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       // Wait for video to be loaded and ready, then auto-play
       const tryPlay = () => {
         if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-          console.log(`[@EnhancedHLSPlayer] Archive ready, starting auto-play`);
           // Don't seek to 0 - causes interruption. Just play from wherever it loaded.
-          video.play().catch(err => {
-            console.warn('[@EnhancedHLSPlayer] Auto-play failed:', err);
+          video.play().catch(() => {
+            // Auto-play failed (likely browser policy)
           });
         }
       };
@@ -377,8 +366,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     const hasDubbedAudio = !!transcript.dubbedAudioUrl;
 
     if (hasDubbedAudio) {
-      console.log(`[@EnhancedHLSPlayer] 🎤 Enabling dubbed audio:`, transcript.dubbedAudioUrl);
-      
       // Mute video, play dubbed audio
       video.muted = true;
       dubbedAudio.src = transcript.dubbedAudioUrl || '';
@@ -386,8 +373,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       
       // Sync playback state
       if (!video.paused) {
-        dubbedAudio.play().catch(err => {
-          console.warn('[@EnhancedHLSPlayer] Failed to play dubbed audio:', err);
+        dubbedAudio.play().catch(() => {
+          // Failed to play dubbed audio
         });
       }
     } else {
@@ -395,7 +382,6 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.muted = muted;
       dubbedAudio.pause();
       dubbedAudio.src = '';
-      console.log(`[@EnhancedHLSPlayer] 🔊 Restored original audio`);
     }
   }, [transcript.dubbedAudioUrl, muted]);
 
@@ -413,8 +399,8 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     };
 
     const handleVideoPlay = () => {
-      dubbedAudio.play().catch(err => {
-        console.warn('[@EnhancedHLSPlayer] Failed to play dubbed audio:', err);
+      dubbedAudio.play().catch(() => {
+        // Failed to play dubbed audio
       });
     };
 
