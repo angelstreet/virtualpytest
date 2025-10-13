@@ -185,8 +185,13 @@ class ZapExecutor:
             print(f"❌ [ZapExecutor] Motion detection error: {e}")
             return {'success': False, 'message': f'Error: {e}'}
     
-    def analyze_after_zap(self, iteration: int, action_command: str, context, action_start_time: float = None) -> ZapAnalysisResult:
-        """Perform comprehensive analysis after a zap action - CLEAN ARCHITECTURE"""
+    def analyze_after_zap(self, iteration: int, action_command: str, context, action_completion_time: float = None) -> ZapAnalysisResult:
+        """
+        Perform comprehensive analysis after a zap action - CLEAN ARCHITECTURE
+        
+        Args:
+            action_completion_time: Timestamp when action completed (used to match zapping detection)
+        """
         result = ZapAnalysisResult()
         
         try:
@@ -197,7 +202,7 @@ class ZapExecutor:
             self._map_verification_result(result, 'motion', motion_result, context)
             
             # 2. Get verification configurations (subtitles, audio)
-            verification_configs = self._get_zap_verification_configs(context, iteration, action_command, action_start_time)
+            verification_configs = self._get_zap_verification_configs(context, iteration, action_command, action_completion_time)
             
             # Remove motion from configs (already handled above)
             verification_configs = [c for c in verification_configs if c.get('analysis_type') != 'motion']
@@ -213,12 +218,13 @@ class ZapExecutor:
                         analysis_type = config.get('analysis_type')
                         self._map_verification_result(result, analysis_type, verification_result, context)
             
-            # 4. ZAPPING: Read from JSON using action timestamp (capture_monitor already detected it)
-            if 'chup' in action_command.lower() and action_start_time:
+            # 4. ZAPPING: Read from JSON using action completion timestamp (matches last_action.json)
+            if 'chup' in action_command.lower() and action_completion_time:
                 av_controller = self.device._get_controller('av')
                 if av_controller:
                     capture_folder = os.path.basename(av_controller.video_capture_path)
-                    zapping_data = self._read_zapping_by_action_timestamp(action_start_time, capture_folder)
+                    print(f"🔍 [ZapExecutor] Looking for zapping with action completion timestamp: {action_completion_time}")
+                    zapping_data = self._read_zapping_by_action_timestamp(action_completion_time, capture_folder)
                     self._map_zapping_from_json(result, zapping_data, context)
             
             result.success = True
@@ -296,9 +302,11 @@ class ZapExecutor:
                 context=context
             )
             
+            action_completion_time = time.time()  # ✅ FIXED: Use completion time, not start time
+            
             if result.get('success', False):
-                # Perform zap-specific analysis and record zap step
-                analysis_result = self.analyze_after_zap(iteration, action_node, context, action_start_time)
+                # Perform zap-specific analysis and record zap step (use completion time for matching)
+                analysis_result = self.analyze_after_zap(iteration, action_node, context, action_completion_time)
                 if analysis_result.success:
                     self.statistics.successful_iterations += 1
                     
@@ -497,7 +505,7 @@ class ZapExecutor:
         except Exception as e:
             print(f"⚠️ [ZapExecutor] Failed to record zap step: {e}")
     
-    def _get_zap_verification_configs(self, context, iteration: int, action_command: str, action_start_time: float) -> List[Dict]:
+    def _get_zap_verification_configs(self, context, iteration: int, action_command: str, action_completion_time: float) -> List[Dict]:
         """Get all verification configurations for zap analysis"""
         device_model = context.selected_device.device_model if context.selected_device else 'unknown'
         configs = []
@@ -734,8 +742,9 @@ class ZapExecutor:
                         zapping_data = json.load(f)
                     
                     # Check if this is the zapping event we're looking for
+                    # Tolerance: 1.0s to account for any timing differences
                     zapping_action_ts = zapping_data.get('action_timestamp')
-                    if zapping_action_ts and abs(zapping_action_ts - action_timestamp) < 0.1:
+                    if zapping_action_ts and abs(zapping_action_ts - action_timestamp) < 1.0:
                         print(f"✅ [ZapExecutor] Found zapping in last_zapping.json (instant access!)")
                         print(f"   Action timestamp match: {zapping_action_ts} ≈ {action_timestamp}")
                         
