@@ -28,6 +28,7 @@ import time
 from queue import LifoQueue
 import threading
 from datetime import datetime
+import subprocess
 import inotify.adapters
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -418,12 +419,16 @@ class InotifyFrameMonitor:
         try:
             logger.info(f"[{capture_folder}] 🔍 Zapping worker started for {current_filename}")
             
-            # ✅ PRE-CHECK: Audio DROPOUT detection on SAME segment where blackscreen occurred
-            # We check if audio drops out during the blackscreen (indicating channel switch)
-            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking for audio dropout in blackscreen segment...")
-            has_continuous_audio = self._check_segment_audio(capture_folder, target_filename=blackscreen_start_filename)
+            # ✅ PRE-CHECK: Audio DROPOUT detection across ALL segments during blackscreen + 1 extra after
+            # We merge segments from blackscreen start to end + 1 more to check if audio comes back
+            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking for audio dropout across blackscreen period...")
+            audio_info = self._check_segment_audio(
+                capture_folder, 
+                blackscreen_start_filename=blackscreen_start_filename,
+                blackscreen_end_filename=current_filename  # End of blackscreen
+            )
             
-            if has_continuous_audio:
+            if audio_info['has_continuous_audio']:
                 # Continuous audio → ABORT (likely dark content, not zapping)
                 # Example: Movie scene with dark screen but continuous audio
                 logger.info(f"[{capture_folder}] ⏭️  ABORT: Continuous audio detected - likely dark content, not zapping")
@@ -455,7 +460,8 @@ class InotifyFrameMonitor:
                 capture_folder=capture_folder,
                 frame_filename=current_filename,
                 blackscreen_duration_ms=blackscreen_duration_ms,
-                action_info=action_info
+                action_info=action_info,
+                audio_info=audio_info  # Pass audio dropout analysis to zapping record
             )
             
             # Log result regardless of success/failure for debugging
@@ -474,112 +480,165 @@ class InotifyFrameMonitor:
             import traceback
             traceback.print_exc()
     
-    def _check_segment_audio(self, capture_folder, target_filename=None):
+    def _check_segment_audio(self, capture_folder, blackscreen_start_filename=None, blackscreen_end_filename=None):
         """
-        Check for audio DROPOUTS in specific TS segment to detect zapping.
+        Check for audio DROPOUTS across ALL segments spanning blackscreen duration + 1 extra segment after.
+        
+        This merges multiple TS segments (from blackscreen start to end + 1 more) and checks audio continuity
+        across the entire period. This catches audio dropouts that span segment boundaries.
+        
+        Example:
+        - Blackscreen: frame 2495-2498 (800ms at 5fps)
+        - Segments: 499 (frames 2495-2499), 500 (frames 2500-2504)
+        - We check: segment 499 + 500 + 501 (start + end + 1 extra after)
+        - This detects if audio cuts during zapping and comes back after
         
         This is called BEFORE expensive AI banner detection to avoid false positives:
         - If continuous audio → ABORT (likely dark content with audio, not zapping)
         - If audio dropout → PROCEED with banner detection (likely zapping - audio cuts during channel switch)
         
-        Uses shared utilities:
-        - get_segment_path_from_frame(): High-level utility that handles FPS, segment calculation, and path resolution
-        - check_audio_continuous(): Detects audio dropouts using ffmpeg silencedetect
-        - get_device_segment_duration(): Gets segment duration (1s for HDMI, 4s for VNC)
-        
         Args:
             capture_folder: Device folder (e.g., 'capture1')
-            target_filename: Frame filename to find corresponding segment (e.g., 'capture_000002497.jpg')
-                           If None, uses latest segment
+            blackscreen_start_filename: Frame where blackscreen started (e.g., 'capture_000002495.jpg')
+            blackscreen_end_filename: Frame where blackscreen ended (e.g., 'capture_000002498.jpg')
         
         Returns:
-            bool: True if audio is CONTINUOUS (no dropouts), False if silence/dropout detected
+            dict: Audio analysis result with keys:
+                - has_continuous_audio (bool): True if audio is continuous, False if dropout detected
+                - silence_duration (float): Total silence duration in seconds
+                - mean_volume_db (float): Mean volume in dB
+                - segment_duration (float): Total segment duration analyzed
+                - segments_checked (list): List of segment numbers checked
         """
         try:
-            target_segment = None
+            if not blackscreen_start_filename or not blackscreen_end_filename:
+                logger.warning(f"[{capture_folder}] Missing blackscreen start/end filenames")
+                return {
+                    'has_continuous_audio': False,
+                    'silence_duration': 0.0,
+                    'mean_volume_db': -100.0,
+                    'segment_duration': 0.0,
+                    'segments_checked': []
+                }
             
-            if target_filename:
-                # ✅ HIGH-LEVEL UTILITY: One function call handles everything!
-                # - Extracts frame number
-                # - Determines FPS (5 for HDMI, 2 for VNC)
-                # - Calculates segment number
-                # - Finds segment file (.ts or .mp4)
-                # - Returns full path
-                target_segment = get_segment_path_from_frame(capture_folder, target_filename)
+            # Extract frame numbers from filenames
+            start_frame = int(blackscreen_start_filename.split('_')[1].split('.')[0])
+            end_frame = int(blackscreen_end_filename.split('_')[1].split('.')[0])
+            
+            # Get device FPS and calculate segment numbers
+            from shared.src.lib.utils.storage_path_utils import get_device_fps, get_segment_number_from_capture
+            device_fps = get_device_fps(capture_folder)
+            
+            start_segment = get_segment_number_from_capture(start_frame, device_fps)
+            end_segment = get_segment_number_from_capture(end_frame, device_fps)
+            
+            # Add 1 extra segment after to check if audio comes back
+            segments_to_check = list(range(start_segment, end_segment + 2))  # +2 because range is exclusive
+            
+            logger.info(f"[{capture_folder}] Blackscreen: frames {start_frame}-{end_frame} → segments {start_segment}-{end_segment} + 1 extra")
+            logger.info(f"[{capture_folder}] Will merge and analyze {len(segments_to_check)} segments: {segments_to_check}")
+            
+            # Find all segment files
+            segments_dir = get_segments_path(capture_folder)
+            if not os.path.exists(segments_dir):
+                logger.warning(f"[{capture_folder}] Segments directory not found: {segments_dir}")
+                return {
+                    'has_continuous_audio': False,
+                    'silence_duration': 0.0,
+                    'mean_volume_db': -100.0,
+                    'segment_duration': 0.0,
+                    'segments_checked': []
+                }
+            
+            # Build segment file list (segments are .ts files in segments directory)
+            segment_files = [os.path.join(segments_dir, f"segment_{seg_num:09d}.ts") for seg_num in segments_to_check]
+            
+            logger.info(f"[{capture_folder}] Merging {len(segment_files)} segments: {segments_to_check}")
+            
+            # Create temporary files for merge
+            import tempfile
+            concat_list_fd, concat_list_path = tempfile.mkstemp(suffix='.txt', prefix='concat_')
+            merged_fd, merged_path = tempfile.mkstemp(suffix='.ts', prefix=f'{capture_folder}_audio_check_')
+            os.close(merged_fd)
+            
+            try:
+                # Write concat list
+                with os.fdopen(concat_list_fd, 'w') as f:
+                    for seg_file in segment_files:
+                        f.write(f"file '{seg_file}'\n")
                 
-                if target_segment:
-                    segment_filename = os.path.basename(target_segment)
-                    logger.info(f"[{capture_folder}] Found segment for {target_filename} → {segment_filename}")
+                # Merge segments with ffmpeg
+                merge_cmd = [
+                    'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
+                    '-f', 'concat',
+                    '-safe', '0',
+                    '-i', concat_list_path,
+                    '-c', 'copy',
+                    '-y',
+                    merged_path
+                ]
+                
+                result = subprocess.run(merge_cmd, capture_output=True, text=True, timeout=10)
+                os.unlink(concat_list_path)
+                
+                if result.returncode != 0:
+                    logger.warning(f"[{capture_folder}] Failed to merge segments: {result.stderr}")
+                    return {
+                        'has_continuous_audio': False,
+                        'silence_duration': 0.0,
+                        'mean_volume_db': -100.0,
+                        'segment_duration': 0.0,
+                        'segments_checked': segments_to_check
+                    }
+                
+                # Get total duration of merged file
+                merged_size = os.path.getsize(merged_path)
+                logger.info(f"[{capture_folder}] Merged {len(segment_files)} segments → {merged_path} ({merged_size/1024:.1f} KB)")
+                
+                # Analyze merged file for audio continuity
+                segment_duration = get_device_segment_duration(capture_folder) * len(segment_files)
+                logger.info(f"[{capture_folder}] Analyzing merged audio: {segment_duration:.1f}s total")
+                
+                has_continuous_audio, silence_duration, mean_volume = check_audio_continuous(
+                    file_path=merged_path,
+                    sample_duration=segment_duration,  # Full duration of merged segments
+                    min_silence_duration=0.1,  # Detect silence >= 100ms
+                    timeout=15,  # Higher timeout for merged file
+                    context=capture_folder
+                )
+                
+                if has_continuous_audio:
+                    logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (no dropouts across {len(segment_files)} segments)")
                 else:
-                    logger.warning(f"[{capture_folder}] Segment not found for {target_filename}, falling back to latest")
-            
-            # If no target segment found, fall back to latest segment
-            if not target_segment:
-                logger.info(f"[{capture_folder}] No target frame specified, using latest segment")
-                segments_dir = get_segments_path(capture_folder)
+                    logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT detected: {silence_duration:.2f}s silence in {segment_duration:.1f}s total (mean: {mean_volume:.1f}dB)")
                 
-                if not os.path.exists(segments_dir):
-                    logger.warning(f"[{capture_folder}] Segments directory not found: {segments_dir}")
-                    return False
+                return {
+                    'has_continuous_audio': has_continuous_audio,
+                    'silence_duration': silence_duration,
+                    'mean_volume_db': mean_volume,
+                    'segment_duration': segment_duration,
+                    'segments_checked': segments_to_check
+                }
                 
-                latest_segment = None
-                latest_mtime = 0
-                
-                try:
-                    with os.scandir(segments_dir) as it:
-                        for entry in it:
-                            # Check TS or MP4 segments (not hour folders)
-                            if entry.is_file() and entry.name.startswith('segment_') and (entry.name.endswith('.ts') or entry.name.endswith('.mp4')):
-                                mtime = entry.stat().st_mtime
-                                if mtime > latest_mtime:
-                                    latest_segment = entry.path
-                                    latest_mtime = mtime
-                except Exception as e:
-                    logger.warning(f"[{capture_folder}] Segment scan failed: {e}")
-                    return False
-                
-                if not latest_segment:
-                    logger.warning(f"[{capture_folder}] No segments found in {segments_dir}")
-                    return False
-                
-                target_segment = latest_segment
-                age_seconds = time.time() - latest_mtime
-                
-                # Check if segment is recent (within last 10 seconds)
-                if age_seconds > 10:
-                    logger.warning(f"[{capture_folder}] Latest segment too old ({age_seconds:.1f}s)")
-                    return False
-            
-            segment_filename = os.path.basename(target_segment)
-            
-            # Get full segment duration for this device (1s for HDMI, 4s for VNC)
-            segment_duration = get_device_segment_duration(capture_folder)
-            logger.info(f"[{capture_folder}] Checking audio on: {segment_filename} (full {segment_duration}s segment)")
-            
-            # Check for audio CONTINUITY (detects dropouts during segment!)
-            # NOT checking mean volume - we need to detect audio LOSS during zapping
-            # Example: 800ms audio + 200ms silence → detected as dropout (zapping)
-            has_continuous_audio, silence_duration, mean_volume = check_audio_continuous(
-                file_path=target_segment,
-                sample_duration=segment_duration,  # Full segment duration (1s or 4s)
-                min_silence_duration=0.1,  # Detect silence >= 100ms
-                timeout=10,  # Higher timeout for VNC 4s segments
-                context=capture_folder
-            )
-            
-            if has_continuous_audio:
-                logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (no dropouts)")
-            else:
-                logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT detected: {silence_duration:.2f}s silence in {segment_duration}s segment (mean: {mean_volume:.1f}dB)")
-            
-            # For zapping detection:
-            # - Continuous audio → NOT zapping (dark content with audio)
-            # - Audio dropout → likely zapping (audio cuts during channel switch)
-            return has_continuous_audio
+            finally:
+                # Clean up merged file
+                if os.path.exists(merged_path):
+                    os.unlink(merged_path)
             
         except Exception as e:
             logger.warning(f"[{capture_folder}] Audio check failed: {e}")
-            return False  # On error, assume no audio (safer to proceed with banner detection)
+            import traceback
+            traceback.print_exc()
+            # On error, assume dropout detected (safer to proceed with banner detection)
+            return {
+                'has_continuous_audio': False,
+                'silence_duration': 0.0,
+                'mean_volume_db': -100.0,
+                'segment_duration': 0.0,
+                'segments_checked': []
+            }
     
     def _get_action_from_device_state(self, device_id):
         """
