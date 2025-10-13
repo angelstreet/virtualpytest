@@ -239,7 +239,8 @@ class ZapStatistics:
                 channel_number=getattr(analysis_result, 'channel_number', None) or None,
                 program_name=getattr(analysis_result, 'program_name', None) or None,
                 program_start_time=getattr(analysis_result, 'program_start_time', None) or None,
-                program_end_time=getattr(analysis_result, 'program_end_time', None) or None
+                program_end_time=getattr(analysis_result, 'program_end_time', None) or None,
+                audio_silence_duration=getattr(analysis_result, 'audio_silence_duration', None) or None  # ✅ NEW: Audio silence tracking
             )
         except Exception as e:
             print(f"⚠️ [ZapStatistics] Failed to record zap iteration to database: {e}")

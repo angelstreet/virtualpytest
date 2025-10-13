@@ -148,6 +148,7 @@ CREATE TABLE zap_results (
     program_name text,
     program_start_time text,
     program_end_time text,
+    audio_silence_duration numeric, -- Duration of audio silence during zapping (seconds)
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
     userinterface_name text,
     started_at timestamp with time zone,

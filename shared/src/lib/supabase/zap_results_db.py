@@ -38,7 +38,8 @@ def record_zap_iteration(
     channel_number: Optional[str] = None,
     program_name: Optional[str] = None,
     program_start_time: Optional[str] = None,
-    program_end_time: Optional[str] = None
+    program_end_time: Optional[str] = None,
+    audio_silence_duration: Optional[float] = None  # ✅ NEW: Audio silence duration during zapping
 ) -> Optional[str]:
     """
     Record a single zap iteration result in database.
@@ -78,7 +79,8 @@ def record_zap_iteration(
             'channel_number': channel_number,
             'program_name': program_name,
             'program_start_time': program_start_time,
-            'program_end_time': program_end_time
+            'program_end_time': program_end_time,
+            'audio_silence_duration': audio_silence_duration  # ✅ NEW: Audio silence tracking
         }
         
         print(f"[@db:zap_results:record_zap_iteration] Recording zap iteration:")

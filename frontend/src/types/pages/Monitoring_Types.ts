@@ -70,6 +70,8 @@ export interface MonitoringAnalysis {
     confidence: number;
     detected_at: string;
     audio_silence_duration: number;
+    time_since_action_ms?: number; // Time from action to blackscreen start (automatic only)
+    total_zap_duration_ms: number; // Backend calculated total zap duration
   };
   
   // ✅ NEW: Zapping cache (for real-time frontend notification)
@@ -86,6 +88,8 @@ export interface MonitoringAnalysis {
     confidence: number;
     detected_at: string;
     audio_silence_duration: number;
+    time_since_action_ms?: number; // Time from action to blackscreen start (automatic only)
+    total_zap_duration_ms: number; // Backend calculated total zap duration
     original_frame: string; // Reference to actual event frame
   };
   

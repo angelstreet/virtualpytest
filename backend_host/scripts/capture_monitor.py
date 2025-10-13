@@ -479,12 +479,14 @@ class InotifyFrameMonitor:
                             'channel_name': channel_name,
                             'channel_number': channel_number,
                             'program_name': result.get('program_name', ''),
-                            'program_start_time': result.get('program_start_time', ''),
-                            'program_end_time': result.get('program_end_time', ''),
+                            'program_start_time': result.get('program_start_time', ''),  # ✅ Now returned from detector
+                            'program_end_time': result.get('program_end_time', ''),      # ✅ Now returned from detector
                             'blackscreen_duration_ms': blackscreen_duration_ms,
                             'detection_type': detection_type,
                             'confidence': result.get('confidence', 0.0),
-                            'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0,
+                            'audio_silence_duration': result.get('audio_silence_duration', 0.0),  # ✅ Now in result
+                            'time_since_action_ms': result.get('time_since_action_ms'),           # ✅ Now in result
+                            'total_zap_duration_ms': result.get('total_zap_duration_ms'),         # ✅ Backend calculated total
                             'original_frame': current_filename
                         },
                         'frames_remaining': 5  # Add cache to next 5 frames
@@ -889,13 +891,15 @@ class InotifyFrameMonitor:
                             'channel_name': zap_data['channel_name'],
                             'channel_number': zap_data['channel_number'],
                             'program_name': zap_data['program_name'],
-                            'program_start_time': zap_data['program_start_time'],
-                            'program_end_time': zap_data['program_end_time'],
+                            'program_start_time': zap_data['program_start_time'],  # ✅ Now populated
+                            'program_end_time': zap_data['program_end_time'],      # ✅ Now populated
                             'blackscreen_duration_ms': zap_data['blackscreen_duration_ms'],
                             'detection_type': zap_data['detection_type'],
                             'confidence': zap_data['confidence'],
                             'detected_at': datetime.now().isoformat(),
                             'audio_silence_duration': zap_data['audio_silence_duration'],
+                            'time_since_action_ms': zap_data.get('time_since_action_ms'),      # ✅ ADD: For calculation
+                            'total_zap_duration_ms': zap_data.get('total_zap_duration_ms'),    # ✅ ADD: Backend calculated
                             'original_frame': zap_data['original_frame']
                         }
                         

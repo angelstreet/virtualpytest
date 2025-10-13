@@ -69,6 +69,8 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
             program_end_time: zapData.program_end_time,
             blackscreen_duration_ms: zapData.blackscreen_duration_ms,
             audio_silence_duration: zapData.audio_silence_duration,
+            time_since_action_ms: zapData.time_since_action_ms,        // ✅ From backend
+            total_zap_duration_ms: zapData.total_zap_duration_ms,      // ✅ Backend calculated
             detection_type: detectionType,
             is_cache: isCache,
             original_frame: monitoringAnalysis.zap_cache?.original_frame,
@@ -95,11 +97,18 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
       currentActions.push(regularAction);
     }
 
-    // Merge with existing actions, keep unique, sort by timestamp, keep last 3
+    // Merge with existing actions - CRITICAL: Only keep ONE zap at a time (newest replaces old)
     if (currentActions.length > 0) {
       console.log('[ActionHistory] Updating actions with:', currentActions);
       setActions(prev => {
-        const combined = [...currentActions, ...prev];
+        const hasNewZap = currentActions.some(a => a.command.includes('ZAP'));
+        
+        // If new action is a zap, remove ALL previous zaps first
+        const filteredPrev = hasNewZap 
+          ? prev.filter(a => !a.command.includes('ZAP'))
+          : prev;
+        
+        const combined = [...currentActions, ...filteredPrev];
         const uniqueMap = new Map(combined.map(a => [a.id, a]));
         const unique = Array.from(uniqueMap.values());
         const sorted = unique
@@ -111,12 +120,12 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
     }
   }, [monitoringAnalysis, shownZappingIds]);
 
-  // Auto-remove actions after 10 seconds (increased for zapping events)
+  // Auto-remove actions after 15 seconds (zapping events need more time to read)
   useEffect(() => {
     const now = Date.now() / 1000;
     const timers = actions.map(action => {
       const age = now - action.timestamp;
-      const remainingTime = Math.max(0, 10 - age) * 1000;
+      const remainingTime = Math.max(0, 15 - age) * 1000;
 
       return setTimeout(() => {
         setActions(prev => prev.filter(a => a.id !== action.id));
@@ -159,7 +168,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
               backgroundColor: isZapping
                 ? isManual
                   ? 'rgba(255, 165, 0, 0.9)'  // Orange for manual zapping
-                  : 'rgba(0, 255, 0, 0.9)'    // Green for automatic zapping
+                  : 'rgba(147, 51, 234, 0.9)' // Purple for automatic zapping
                 : 'rgba(0, 191, 255, 0.8)',   // Blue for regular actions
               minWidth: index === 0 ? 150 : 120,
               transition: 'all 0.3s ease',
@@ -196,8 +205,8 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
                   </Typography>
                 )}
                 
-                {/* Line 1: Program time - WHITE, single line with labels */}
-                {action.params?.program_start_time && action.params?.program_end_time && (
+                {/* Line 1: Program time - WHITE, single line with labels (show if available) */}
+                {(action.params?.program_start_time || action.params?.program_end_time) && (
                   <Typography
                     variant="caption"
                     sx={{
@@ -207,12 +216,14 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
                       mt: 0.2,
                     }}
                   >
-                    start: {action.params.program_start_time} - end: {action.params.program_end_time}
+                    {action.params.program_start_time && `start: ${action.params.program_start_time}`}
+                    {action.params.program_start_time && action.params.program_end_time && ' - '}
+                    {action.params.program_end_time && `end: ${action.params.program_end_time}`}
                   </Typography>
                 )}
                 
-                {/* Line 2: Durations - WHITE, single line with explicit labels */}
-                {action.params?.blackscreen_duration_ms && (
+                {/* Line 2: Durations - WHITE, single line with explicit labels (backend calculated) */}
+                {action.params?.total_zap_duration_ms && (
                   <Typography
                     variant="caption"
                     sx={{
@@ -222,7 +233,11 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
                       mt: 0.2,
                     }}
                   >
-                    Zap: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s - Blackscreen: {(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s{action.params?.audio_silence_duration ? ` - Silence: ${action.params.audio_silence_duration.toFixed(1)}s` : ''}
+                    {/* Use backend-calculated total duration */}
+                    {action.params.detection_type === 'automatic'
+                      ? `Zap: ${(action.params.total_zap_duration_ms / 1000).toFixed(1)}s - Blackscreen: ${(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s${action.params?.audio_silence_duration ? ` - Silence: ${action.params.audio_silence_duration.toFixed(1)}s` : ''}`
+                      : `Blackscreen: ${(action.params.blackscreen_duration_ms / 1000).toFixed(1)}s${action.params?.audio_silence_duration ? ` - Silence: ${action.params.audio_silence_duration.toFixed(1)}s` : ''}`
+                    }
                   </Typography>
                 )}
               </>

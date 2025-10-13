@@ -180,14 +180,25 @@ def detect_and_record_zapping(
             audio_info=audio_info
         )
         
+        # Calculate total zap duration for automatic zaps (action → blackscreen end)
+        time_since_action_ms = action_info.get('time_since_action_ms') if action_info else None
+        total_zap_duration_ms = (time_since_action_ms + blackscreen_duration_ms) if time_since_action_ms else blackscreen_duration_ms
+        
         return {
             'success': True,
             'zapping_detected': True,
+            'id': f"zap_cache_{frame_filename}",  # ✅ ADD: ID for deduplication
             'channel_name': channel_info.get('channel_name', ''),
             'channel_number': channel_info.get('channel_number', ''),
             'program_name': channel_info.get('program_name', ''),
+            'program_start_time': channel_info.get('start_time', ''),  # ✅ ADD: Missing field
+            'program_end_time': channel_info.get('end_time', ''),      # ✅ ADD: Missing field
             'confidence': confidence,
-            'detection_type': detection_type
+            'detection_type': detection_type,
+            'blackscreen_duration_ms': blackscreen_duration_ms,        # ✅ ADD: For frontend display
+            'time_since_action_ms': time_since_action_ms,              # ✅ ADD: For total calculation
+            'total_zap_duration_ms': total_zap_duration_ms,            # ✅ ADD: Backend calculated total
+            'audio_silence_duration': audio_info.get('silence_duration', 0.0) if audio_info else 0.0  # ✅ ADD: Audio info
         }
         
     except Exception as e:
@@ -431,7 +442,8 @@ def _store_zapping_event(
             channel_number=channel_info.get('channel_number', ''),
             program_name=channel_info.get('program_name', ''),
             program_start_time=channel_info.get('start_time', ''),
-            program_end_time=channel_info.get('end_time', '')
+            program_end_time=channel_info.get('end_time', ''),
+            audio_silence_duration=audio_info.get('silence_duration', 0.0) if audio_info else None  # ✅ NEW: Audio silence tracking
         )
         
         if result:
