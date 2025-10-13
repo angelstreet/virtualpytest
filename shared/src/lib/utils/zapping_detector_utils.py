@@ -526,11 +526,14 @@ def _store_zapping_event(
             silence_duration = audio_info.get('silence_duration', 0.0)
             logger.info(f"🔊 Audio silence: {silence_duration:.2f}s")
         
+        # Get default team_id for automatic zapping (same as used in script_executor)
+        team_id ='7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+        
         # Record in zap_results table (reuses existing function)
         # Note: script_result_id is None for automatic zapping (not part of a script execution)
         result = record_zap_iteration(
-            script_result_id=None,  # None for automatic zapping (requires schema update to allow NULL)
-            team_id='00000000-0000-0000-0000-000000000000',  # TODO: Get from context
+            script_result_id=None,  # None for automatic zapping (not part of a script execution)
+            team_id=team_id,  # Use default team_id (same pattern as script_executor)
             host_name=os.getenv('HOST_NAME', 'unknown'),
             device_name=device_id,
             device_model='unknown',  # TODO: Get from device info
