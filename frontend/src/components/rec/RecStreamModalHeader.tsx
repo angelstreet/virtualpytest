@@ -95,12 +95,12 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
         minHeight: 48,
       }}
     >
-      <Box sx={{ minWidth: 300 }}>
-        <Typography variant="h6" component="h2">
-          {device?.device_name || host.host_name} -{' '}
+      <Typography variant="h6" component="h2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box component="span">{device?.device_name || host.host_name} -</Box>
+        <Box component="span" sx={{ minWidth: 100, display: 'inline-block' }}>
           {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live' : 'Last 24h'}
-        </Typography>
-      </Box>
+        </Box>
+      </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {/* Screenshot Button - disabled in archive/restart mode */}
