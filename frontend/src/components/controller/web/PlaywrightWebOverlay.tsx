@@ -200,7 +200,7 @@ export const PlaywrightWebOverlay = React.memo(
         <div
           style={{
             position: 'fixed',
-            left: `${panelInfo.position.x}px`,
+            right: `${window.innerWidth - panelInfo.position.x - panelInfo.size.width}px`,
             bottom: `${window.innerHeight - panelInfo.position.y - panelInfo.size.height}px`,
             width: `${panelInfo.size.width}px`,
             height: `${panelInfo.size.height}px`,
@@ -219,7 +219,7 @@ export const PlaywrightWebOverlay = React.memo(
           <div
             style={{
               position: 'fixed',
-              left: `${panelInfo.position.x}px`,
+              right: `${window.innerWidth - panelInfo.position.x - panelInfo.size.width}px`,
               bottom: `${window.innerHeight - panelInfo.position.y - panelInfo.size.height}px`,
               width: `${panelInfo.size.width}px`,
               height: `${panelInfo.size.height}px`,
