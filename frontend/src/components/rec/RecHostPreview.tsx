@@ -33,7 +33,6 @@ interface RecHostPreviewProps {
   onOpenModal?: () => void;
   isAnyModalOpen?: boolean;
   isSelectedForModal?: boolean;
-  onStreamActiveChange?: (isActive: boolean) => void;
 }
 
 // Simple mobile detection function to match MonitoringPlayer logic
@@ -54,7 +53,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   onOpenModal,
   isAnyModalOpen,
   isSelectedForModal,
-  onStreamActiveChange,
 }) => {
   useEffect(() => {
     console.log('[@RecHostPreview] mounted', {
@@ -82,10 +80,6 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
   // States
   const [error] = useState<string | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(true);
-
-  useEffect(() => {
-    onStreamActiveChange?.(isStreamActive);
-  }, [isStreamActive, onStreamActiveChange]);
 
   // Detect if this is a mobile device model for proper sizing
   const isMobile = useMemo(() => {
