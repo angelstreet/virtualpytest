@@ -295,7 +295,7 @@ export const PlaywrightWebOverlay = React.memo(
             style={{
               position: 'fixed',
               left: `${panelInfo.position.x + coordinateDisplay.x + 20}px`,
-              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`,
+              bottom: `${window.innerHeight - panelInfo.position.y - coordinateDisplay.y - 15}px`,
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               padding: '4px 8px',
