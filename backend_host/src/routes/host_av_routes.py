@@ -349,17 +349,26 @@ def take_screenshot():
         # ALWAYS copy to cold storage with FIXED filename (for verification persistence)
         from shared.src.lib.utils.storage_path_utils import get_capture_folder, get_cold_storage_path
         
+        print(f"[@route:host_av:takeScreenshot] Original screenshot path: {screenshot_path}")
+        
         device_folder = get_capture_folder(screenshot_path)
+        print(f"[@route:host_av:takeScreenshot] Extracted device folder: {device_folder}")
+        
         cold_captures_path = get_cold_storage_path(device_folder, 'captures')
         
         # Use FIXED filename that overwrites each time (ensures verification source is always available)
         cold_path = os.path.join(cold_captures_path, 'verification_source.jpg')
         
-        os.makedirs(cold_captures_path, exist_ok=True)
+        print(f"[@route:host_av:takeScreenshot] Target cold path: {cold_path}")
+        
+        os.makedirs(cold_captures_path, mode=0o777, exist_ok=True)
         if os.path.exists(screenshot_path):
             shutil.copy2(screenshot_path, cold_path)
+            os.chmod(cold_path, 0o644)
             screenshot_path = cold_path
-            print(f"[@route:host_av:takeScreenshot] Copied screenshot to COLD (fixed name): {cold_path}")
+            print(f"[@route:host_av:takeScreenshot] ✅ Copied to COLD: {cold_path}")
+        else:
+            print(f"[@route:host_av:takeScreenshot] ⚠️ Source not found: {screenshot_path}")
         
         time.sleep(0.5)
         
@@ -370,6 +379,8 @@ def take_screenshot():
             host = get_host()
             screenshot_url = buildCaptureUrlFromPath(host.to_dict(), screenshot_path, device_id)
             client_screenshot_url = screenshot_url
+            
+            print(f"[@route:host_av:takeScreenshot] Final URL: {client_screenshot_url}")
             
             return jsonify({
                 'success': True,

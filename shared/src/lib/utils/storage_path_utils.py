@@ -500,6 +500,7 @@ def get_capture_folder(capture_dir):
         /var/www/html/stream/capture1/hot/captures -> capture1
         /var/www/html/stream/capture4/hot/segments -> capture4
         /var/www/html/stream/capture4 -> capture4  (base path)
+        /var/www/html/stream/capture4/captures/capture_000001.jpg -> capture4  (file path)
     """
     if not capture_dir:
         return None
@@ -518,10 +519,22 @@ def get_capture_folder(capture_dir):
             # Fallback to old logic if 'hot' not found
             return os.path.basename(os.path.dirname(capture_dir))
     else:
-        # Check if this is already a base path (ends with captureX, not a subfolder)
+        # Check if this is a file path (has extension)
         basename = os.path.basename(capture_dir)
-        if basename.startswith('capture') or basename == 'stream' or basename == 'camera':
+        if '.' in basename:
+            # File path: /var/www/html/stream/capture4/captures/capture_000001.jpg
+            # Need to go up to find capture folder
+            parent_dir = os.path.dirname(capture_dir)  # /var/www/html/stream/capture4/captures
+            parent_basename = os.path.basename(parent_dir)  # captures
+            if parent_basename in ['captures', 'segments', 'thumbnails', 'metadata', 'audio', 'transcript']:
+                # Go up one more level to get capture folder
+                return os.path.basename(os.path.dirname(parent_dir))  # capture4
+            else:
+                # Might already be at capture folder level
+                return parent_basename
+        elif basename.startswith('capture') and not basename.endswith('s'):
             # Base path like /var/www/html/stream/capture4 -> capture4
+            # (check not ending with 's' to avoid matching 'captures' folder)
             return basename
         else:
             # Subfolder path: /var/www/html/stream/capture1/captures -> capture1
