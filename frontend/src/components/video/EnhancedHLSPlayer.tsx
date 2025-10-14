@@ -364,6 +364,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     if (!video || !dubbedAudio) return;
 
     const hasDubbedAudio = !!transcript.dubbedAudioUrl;
+    console.log(`[@EnhancedHLSPlayer] Dubbed audio URL changed:`, transcript.dubbedAudioUrl, `| Will mute video: ${hasDubbedAudio}`);
 
     if (hasDubbedAudio) {
       // Mute video, play dubbed audio
@@ -371,10 +372,12 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       dubbedAudio.src = transcript.dubbedAudioUrl || '';
       dubbedAudio.currentTime = video.currentTime;
       
+      console.log(`[@EnhancedHLSPlayer] ✅ Video muted, dubbed audio loaded`);
+      
       // Sync playback state
       if (!video.paused) {
-        dubbedAudio.play().catch(() => {
-          // Failed to play dubbed audio
+        dubbedAudio.play().catch((err) => {
+          console.error(`[@EnhancedHLSPlayer] Failed to play dubbed audio:`, err);
         });
       }
     } else {
@@ -382,6 +385,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.muted = muted;
       dubbedAudio.pause();
       dubbedAudio.src = '';
+      console.log(`[@EnhancedHLSPlayer] Video audio restored (unmuted: ${!muted})`);
     }
   }, [transcript.dubbedAudioUrl, muted]);
 

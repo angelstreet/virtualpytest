@@ -13,13 +13,20 @@ def translate_segments(
     start_time = time.time()
     
     try:
+        lang_names = {
+            'fr': 'French', 'en': 'English', 'es': 'Spanish',
+            'de': 'German', 'it': 'Italian', 'pt': 'Portuguese'
+        }
+        target_lang_name = lang_names.get(target_language, target_language)
+        
         texts = [f"{i+1}. {seg['text']}" for i, seg in enumerate(segments)]
-        prompt = f"""Translate from {source_language} to {target_language}:
+        prompt = f"""Translate these numbered texts from {source_language} to {target_lang_name}.
+Keep the same order. Provide ONLY valid JSON.
 
 {chr(10).join(texts)}
 
-JSON only:
-{{"translations": ["text1", "text2", ...]}}"""
+Respond with ONLY this JSON (no markdown, no extra text):
+{{"translations": ["translated text 1", "translated text 2", ...]}}"""
         
         estimated_tokens = max(3000, len('\n'.join(texts)) * 2)
         result = call_text_ai(prompt, max_tokens=estimated_tokens, temperature=0.0)
@@ -28,24 +35,54 @@ JSON only:
             return {'success': False, 'error': result.get('error', 'AI call failed'), 'processing_time': time.time() - start_time}
         
         content = result['content'].strip().replace('```json', '').replace('```', '').strip()
-        data = json.loads(content)
+        
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            import re
+            print(f"[AI_TRANSCRIPT] ⚠️ JSON parse error: {e}")
+            print(f"[AI_TRANSCRIPT] Content length: {len(content)} chars")
+            print(f"[AI_TRANSCRIPT] Content preview: {content[:200]}...")
+            print(f"[AI_TRANSCRIPT] Cleaning control characters and retrying...")
+            content = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', content)
+            try:
+                data = json.loads(content)
+                print(f"[AI_TRANSCRIPT] ✅ Successfully parsed after cleaning")
+            except json.JSONDecodeError as e2:
+                print(f"[AI_TRANSCRIPT] ❌ Still failed after cleaning: {e2}")
+                print(f"[AI_TRANSCRIPT] Problem area: {content[max(0, e2.pos-50):e2.pos+50]}")
+                return {'success': False, 'error': f'Invalid control character at: {e2}', 'processing_time': time.time() - start_time}
+        
         translations = data.get('translations', [])
         
         if len(translations) != len(segments):
+            print(f"[AI_TRANSCRIPT] ❌ Translation count mismatch: got {len(translations)}, expected {len(segments)}")
             return {'success': False, 'error': f'Translation count mismatch: {len(translations)} != {len(segments)}', 'processing_time': time.time() - start_time}
         
         translated_segments = []
         for i, seg in enumerate(segments):
             new_seg = seg.copy()
-            new_seg['text'] = translations[i]
+            translated_text = translations[i]
+            
+            if not translated_text or not isinstance(translated_text, str):
+                print(f"[AI_TRANSCRIPT] ⚠️ Invalid translation at index {i}: {translated_text}")
+                translated_text = seg['text']
+            
+            new_seg['text'] = translated_text
             translated_segments.append(new_seg)
+        
+        processing_time = time.time() - start_time
+        print(f"[AI_TRANSCRIPT] ✅ Translated {len(translated_segments)} segments to {target_lang_name} in {processing_time:.1f}s")
         
         return {
             'success': True,
             'segments': translated_segments,
-            'processing_time': time.time() - start_time
+            'processing_time': processing_time
         }
     except Exception as e:
+        print(f"[AI_TRANSCRIPT] ❌ Translation exception: {e}")
+        import traceback
+        traceback.print_exc()
         return {'success': False, 'error': str(e), 'processing_time': time.time() - start_time}
 
 def enhance_and_translate_transcript(

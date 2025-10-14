@@ -283,22 +283,34 @@ export const useTranscriptPlayer = ({
 
   // Translation progress removed - we now translate the full transcript as ONE block (fast!)
   
-  // Helper: Load transcript for a specific language (original or pre-translated)
-  const loadTranscriptForLanguage = useCallback(async (hour: number, chunkIndex: number, language: string) => {
+  const loadTranscriptForLanguage = useCallback(async (hour: number, chunkIndex: number, language: string, retries = 3) => {
     const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
     
-    try {
-      const response = await fetch(transcriptUrl);
-      if (!response.ok) throw new Error(`Failed to load ${language} transcript`);
-      
-      const data = await response.json();
-      const transcript: TranscriptData10Min = { ...data, hour, chunk_index: chunkIndex };
-      
-      setRawTranscriptData(transcript);
-      setTranscriptData(normalizeTranscriptData(transcript));
-      console.log(`[@useTranscriptPlayer] ✅ Loaded ${language} transcript`);
-    } catch (error) {
-      console.error(`[@useTranscriptPlayer] Error loading ${language}:`, error);
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(transcriptUrl);
+        if (!response.ok) {
+          if (attempt < retries) {
+            console.log(`[@useTranscriptPlayer] Transcript not ready yet (attempt ${attempt}/${retries}), retrying in 500ms...`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            continue;
+          }
+          throw new Error(`Failed to load ${language} transcript after ${retries} attempts`);
+        }
+        
+        const data = await response.json();
+        const transcript: TranscriptData10Min = { ...data, hour, chunk_index: chunkIndex };
+        
+        setRawTranscriptData(transcript);
+        setTranscriptData(normalizeTranscriptData(transcript));
+        console.log(`[@useTranscriptPlayer] ✅ Loaded ${language} transcript (attempt ${attempt})`);
+        return;
+      } catch (error) {
+        if (attempt === retries) {
+          console.error(`[@useTranscriptPlayer] Error loading ${language}:`, error);
+          throw error;
+        }
+      }
     }
   }, [deviceId, host]);
 
@@ -318,14 +330,18 @@ export const useTranscriptPlayer = ({
       const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
       const checkResponse = await fetch(transcriptUrl);
       
+      let transcriptLoaded = false;
+      
       if (checkResponse.ok) {
         await loadTranscriptForLanguage(hour, chunkIndex, language);
+        transcriptLoaded = true;
       } else if (language !== 'original') {
         if (!host) {
           console.error(`[@useTranscriptPlayer] Host required for translation`);
           return;
         }
         
+        console.log(`[@useTranscriptPlayer] Starting translation to ${language}...`);
         const originalUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
         const apiUrl = buildHostUrl(host, 'host/transcript/translate-chunk');
         const response = await fetch(apiUrl, {
@@ -337,7 +353,9 @@ export const useTranscriptPlayer = ({
         const result = await response.json();
         
         if (result.success) {
+          console.log(`[@useTranscriptPlayer] Translation completed in ${result.processing_time?.toFixed(1)}s, loading transcript...`);
           await loadTranscriptForLanguage(hour, chunkIndex, language);
+          transcriptLoaded = true;
         } else {
           console.error(`[@useTranscriptPlayer] Translation failed:`, result.error);
           return;
@@ -346,30 +364,52 @@ export const useTranscriptPlayer = ({
         console.error(`[@useTranscriptPlayer] Original transcript not found`);
         return;
       }
+      
+      if (!transcriptLoaded) {
+        console.error(`[@useTranscriptPlayer] Transcript could not be loaded`);
+        return;
+      }
+
+      console.log(`[@useTranscriptPlayer] ✅ Transcript loaded successfully, proceeding to audio...`);
 
       if (language === 'original') {
         setDubbedAudioUrl(null);
       } else {
         const url10min = buildDubbedAudioUrl(host, deviceId, hour, chunkIndex, language);
+        console.log(`[@useTranscriptPlayer] Checking dubbed audio:`, url10min);
         
         const audioCheck = await fetch(url10min, { method: 'HEAD' }).catch(() => ({ ok: false }));
         
         if (audioCheck.ok) {
+          console.log(`[@useTranscriptPlayer] ✅ Dubbed audio exists`);
           setDubbedAudioUrl(url10min);
         } else if (host) {
           const apiUrl = buildHostUrl(host, 'host/transcript/generate-dubbed-audio');
+          console.log(`[@useTranscriptPlayer] Generating dubbed audio via API:`, apiUrl);
+          
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ device_id: deviceId, hour, chunk_index: chunkIndex, language })
+          }).catch(err => {
+            console.error(`[@useTranscriptPlayer] API request failed:`, err);
+            return null;
           });
           
-          const result = await response.json();
-          
-          if (result.success && result.url) {
-            const cleanUrl = result.url.startsWith('/') ? result.url.slice(1) : result.url;
-            setDubbedAudioUrl(buildHostUrl(host, cleanUrl));
+          if (response && response.ok) {
+            const result = await response.json();
+            
+            if (result.success && result.url) {
+              const cleanUrl = result.url.startsWith('/') ? result.url.slice(1) : result.url;
+              const finalUrl = buildHostUrl(host, cleanUrl);
+              console.log(`[@useTranscriptPlayer] ✅ Dubbed audio generated:`, finalUrl);
+              setDubbedAudioUrl(finalUrl);
+            } else {
+              console.error(`[@useTranscriptPlayer] API returned error:`, result);
+              setDubbedAudioUrl(null);
+            }
           } else {
+            console.error(`[@useTranscriptPlayer] API request failed with status:`, response?.status);
             setDubbedAudioUrl(null);
           }
         } else {

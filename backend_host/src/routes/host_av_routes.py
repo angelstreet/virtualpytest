@@ -346,24 +346,20 @@ def take_screenshot():
                 'error': 'Failed to take temporary screenshot - controller returned None'
             }), 500
         
-        # Copy from HOT to COLD storage if needed (for AI access)
-        if '/hot/' in screenshot_path:
-            from shared.src.lib.utils.storage_path_utils import get_capture_folder, get_cold_storage_path
-            
-            # Extract device folder and filename
-            device_folder = get_capture_folder(screenshot_path)
-            filename = os.path.basename(screenshot_path)
-            
-            # Build cold path using centralized utility
-            cold_captures_path = get_cold_storage_path(device_folder, 'captures')
-            cold_path = os.path.join(cold_captures_path, filename)
-            
-            # Copy to cold storage
-            os.makedirs(cold_captures_path, exist_ok=True)
-            if os.path.exists(screenshot_path):
-                shutil.copy2(screenshot_path, cold_path)
-                screenshot_path = cold_path
-                print(f"[@route:host_av:takeScreenshot] Copied screenshot from HOT to COLD: {cold_path}")
+        # ALWAYS copy to cold storage with FIXED filename (for verification persistence)
+        from shared.src.lib.utils.storage_path_utils import get_capture_folder, get_cold_storage_path
+        
+        device_folder = get_capture_folder(screenshot_path)
+        cold_captures_path = get_cold_storage_path(device_folder, 'captures')
+        
+        # Use FIXED filename that overwrites each time (ensures verification source is always available)
+        cold_path = os.path.join(cold_captures_path, 'verification_source.jpg')
+        
+        os.makedirs(cold_captures_path, exist_ok=True)
+        if os.path.exists(screenshot_path):
+            shutil.copy2(screenshot_path, cold_path)
+            screenshot_path = cold_path
+            print(f"[@route:host_av:takeScreenshot] Copied screenshot to COLD (fixed name): {cold_path}")
         
         time.sleep(0.5)
         

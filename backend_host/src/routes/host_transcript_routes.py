@@ -74,7 +74,6 @@ def translate_chunk():
 
 @host_transcript_bp.route('/generate-dubbed-audio', methods=['POST'])
 def generate_dubbed_audio():
-    """Generate dubbed audio on-demand for a specific chunk"""
     try:
         data = request.get_json() or {}
         device_id = data.get('device_id')
@@ -82,11 +81,10 @@ def generate_dubbed_audio():
         chunk_index = data.get('chunk_index')
         language = data.get('language')
         
+        print(f"[@host_transcript] Dubbed audio request: {device_id}/{hour}/{chunk_index} → {language}")
+        
         if not all([device_id, hour is not None, chunk_index is not None, language]):
-            return jsonify({
-                'success': False,
-                'error': 'Missing required parameters'
-            }), 400
+            return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
         
         # Get device base path
         from shared.src.lib.utils.storage_path_utils import get_device_base_path, get_cold_storage_path
@@ -104,28 +102,28 @@ def generate_dubbed_audio():
                 'cached': True
             })
         
-        # Load transcript
+        # Load translated transcript
         transcript_dir = os.path.join(device_base_path, 'transcript', str(hour))
         transcript_file = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{language}.json')
         
-        if not os.path.exists(transcript_file):
-            return jsonify({
-                'success': False,
-                'error': f'Translation not available for {language}'
-            }), 404
+        print(f"[@host_transcript] Looking for transcript: {transcript_file}")
         
-        # Generate dubbed audio
+        if not os.path.exists(transcript_file):
+            print(f"[@host_transcript] ❌ Translated transcript not found: {transcript_file}")
+            return jsonify({'success': False, 'error': f'Translation not available for {language}'}), 404
+        
+        # Generate dubbed audio from translated transcript
         from backend_host.src.lib.utils.audio_utils import generate_edge_tts_audio, EDGE_TTS_VOICE_MAP
         
         with open(transcript_file, 'r') as f:
             data = json.load(f)
         
         translated_text = data.get('transcript', '')
+        print(f"[@host_transcript] Loaded transcript ({len(translated_text)} chars)")
+        
         if not translated_text:
-            return jsonify({
-                'success': False,
-                'error': 'No transcript text found'
-            }), 404
+            print(f"[@host_transcript] ❌ Transcript file exists but contains no text")
+            return jsonify({'success': False, 'error': 'No transcript text found'}), 404
         
         voice_name = EDGE_TTS_VOICE_MAP.get(language)
         if not voice_name:
@@ -138,7 +136,8 @@ def generate_dubbed_audio():
         audio_hour_dir = os.path.join(audio_cold, str(hour))
         os.makedirs(audio_hour_dir, exist_ok=True)
         
-        # Generate audio
+        # Generate dubbed audio using Edge TTS
+        print(f"[@host_transcript] Generating TTS audio with voice: {voice_name}")
         success = generate_edge_tts_audio(
             text=translated_text,
             language_code=language,
@@ -152,9 +151,12 @@ def generate_dubbed_audio():
                 'error': 'Failed to generate dubbed audio'
             }), 500
         
+        audio_url = f'host/stream/{device_id}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3'
+        print(f"[@host_transcript] ✅ Generated dubbed audio: {audio_url}")
+        
         return jsonify({
             'success': True,
-            'url': f'host/stream/{device_id}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
+            'url': audio_url,
             'status': 'ready',
             'cached': False,
             'size': os.path.getsize(audio_file)
@@ -162,10 +164,7 @@ def generate_dubbed_audio():
         
     except Exception as e:
         import traceback
-        print(f"[@host_transcript] Error generating dubbed audio: {e}")
+        print(f"[@host_transcript] ❌ Error generating dubbed audio: {e}")
         print(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
