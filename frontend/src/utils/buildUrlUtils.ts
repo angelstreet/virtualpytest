@@ -423,6 +423,136 @@ export const buildMetadataChunkUrl = (
 };
 
 // =====================================================
+// AUDIO/TRANSCRIPT UTILITIES
+// =====================================================
+
+/**
+ * Build URL for original MP3 audio file (10-minute chunk)
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @param hour - Hour (0-23)
+ * @param chunkIndex - Chunk index within hour (0-5)
+ * @returns URL to original MP3 file
+ */
+export const buildAudioMp3Url = (
+  host: any,
+  deviceId: string,
+  hour: number,
+  chunkIndex: number
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildAudioMp3Url');
+  }
+  
+  // Get device stream path for audio
+  const streamPath = getDeviceStreamUrlPath(host, deviceId);
+  const audioPath = `${streamPath}/audio/${hour}/chunk_10min_${chunkIndex}.mp3`;
+  
+  return internalBuildHostUrl(host, `host${audioPath}`);
+};
+
+/**
+ * Build URL for dubbed audio file (10-minute chunk with language)
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @param hour - Hour (0-23)
+ * @param chunkIndex - Chunk index within hour (0-5)
+ * @param language - Target language code (e.g., 'es', 'fr')
+ * @returns URL to dubbed MP3 file
+ */
+export const buildDubbedAudioUrl = (
+  host: any,
+  deviceId: string,
+  hour: number,
+  chunkIndex: number,
+  language: string
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildDubbedAudioUrl');
+  }
+  
+  // Get device stream path for audio
+  const streamPath = getDeviceStreamUrlPath(host, deviceId);
+  const audioPath = `${streamPath}/audio/${hour}/chunk_10min_${chunkIndex}_${language}.mp3`;
+  
+  return internalBuildHostUrl(host, `host${audioPath}`);
+};
+
+/**
+ * Build URL for temporary 1-minute dubbed audio file
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @param minute - Minute within chunk (0-9)
+ * @param language - Target language code (e.g., 'es', 'fr')
+ * @returns URL to temporary 1-minute MP3 file
+ */
+export const buildDubbedAudio1MinUrl = (
+  host: any,
+  deviceId: string,
+  minute: number,
+  language: string
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildDubbedAudio1MinUrl');
+  }
+  
+  // Get device stream path for audio
+  const streamPath = getDeviceStreamUrlPath(host, deviceId);
+  const audioPath = `${streamPath}/audio/temp/1min_${minute}_${language}.mp3`;
+  
+  return internalBuildHostUrl(host, `host${audioPath}`);
+};
+
+/**
+ * Build URL for transcript chunk JSON file
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @param hour - Hour (0-23)
+ * @param chunkIndex - Chunk index within hour (0-5)
+ * @param language - Language code (optional, 'original' if not specified)
+ * @returns URL to transcript JSON file
+ */
+export const buildTranscriptChunkUrl = (
+  host: any,
+  deviceId: string,
+  hour: number,
+  chunkIndex: number,
+  language: string = 'original'
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildTranscriptChunkUrl');
+  }
+  
+  // Get device stream path for transcript
+  const streamPath = getDeviceStreamUrlPath(host, deviceId);
+  const langSuffix = language === 'original' ? '' : `_${language}`;
+  const transcriptPath = `${streamPath}/transcript/${hour}/chunk_10min_${chunkIndex}${langSuffix}.json`;
+  
+  return internalBuildHostUrl(host, `host${transcriptPath}`);
+};
+
+/**
+ * Build URL for transcript manifest JSON file
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @returns URL to transcript manifest
+ */
+export const buildTranscriptManifestUrl = (
+  host: any,
+  deviceId: string
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildTranscriptManifestUrl');
+  }
+  
+  // Get device stream path for transcript manifest
+  const streamPath = getDeviceStreamUrlPath(host, deviceId);
+  const manifestPath = `${streamPath}/transcript/transcript_manifest.json`;
+  
+  return internalBuildHostUrl(host, `host${manifestPath}`);
+};
+
+// =====================================================
 // STREAM UTILITIES (Quality Changes & Captures)
 // =====================================================
 

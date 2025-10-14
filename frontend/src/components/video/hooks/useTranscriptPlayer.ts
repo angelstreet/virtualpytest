@@ -1,7 +1,14 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { TranscriptData, TranscriptDataLegacy, TranscriptData10Min, TranscriptSegment, ArchiveMetadata, TimedSegment } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
-import { buildStreamUrl, buildHostUrl } from '../../../utils/buildUrlUtils';
+import { 
+  buildHostUrl, 
+  buildAudioMp3Url,
+  buildDubbedAudioUrl,
+  buildDubbedAudio1MinUrl,
+  buildTranscriptChunkUrl,
+  buildTranscriptManifestUrl
+} from '../../../utils/buildUrlUtils';
 
 interface UseTranscriptPlayerProps {
   isLiveMode: boolean;
@@ -82,10 +89,9 @@ export const useTranscriptPlayer = ({
       if (currentManifest) {
         const hour = currentManifest.window_index;
         const chunkIndex = currentManifest.chunk_index;
-        const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
         
         // Check transcript manifest first to avoid 404s
-        const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
+        const manifestUrl = buildTranscriptManifestUrl(host, deviceId);
         
         console.log(`[@useTranscriptPlayer] Checking transcript availability from manifest...`);
         
@@ -121,7 +127,7 @@ export const useTranscriptPlayer = ({
             const hasMp3Flag = chunkInfo.has_mp3 === true;
             setHasMp3(hasMp3Flag);
             if (hasMp3Flag) {
-              const mp3Path = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/${hour}/chunk_10min_${chunkIndex}.mp3`);
+              const mp3Path = buildAudioMp3Url(host, deviceId, hour, chunkIndex);
               setMp3Url(mp3Path);
             } else {
               setMp3Url(null);
@@ -137,7 +143,7 @@ export const useTranscriptPlayer = ({
             
             // Manifest has metadata only - load actual chunk JSON for segments
             console.log(`[@useTranscriptPlayer] Loading transcript chunk with segments (hour ${hour}, chunk ${chunkIndex})`);
-            const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
+            const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
             
             fetch(transcriptUrl)
               .then(res => {
@@ -283,9 +289,7 @@ export const useTranscriptPlayer = ({
   
   // Helper: Load transcript for a specific language (original or pre-translated)
   const loadTranscriptForLanguage = useCallback(async (hour: number, chunkIndex: number, language: string) => {
-    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-    const langSuffix = language === 'original' ? '' : `_${language}`;
-    const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}${langSuffix}.json`);
+    const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
     
     try {
       const response = await fetch(transcriptUrl);
@@ -300,14 +304,13 @@ export const useTranscriptPlayer = ({
     } catch (error) {
       console.error(`[@useTranscriptPlayer] Error loading ${language}:`, error);
     }
-  }, [providedStreamUrl, hookStreamUrl, deviceId, host]);
+  }, [deviceId, host]);
   
   // Helper: Reload transcript data from manifest
   const reloadTranscriptData = useCallback(async () => {
     if (!rawTranscriptData) return;
     
-    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-    const manifestUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/transcript_manifest.json`);
+    const manifestUrl = buildTranscriptManifestUrl(host, deviceId);
     
     try {
       const manifest = await fetch(manifestUrl).then(res => res.json());
@@ -340,7 +343,7 @@ export const useTranscriptPlayer = ({
     } catch (error) {
       console.error('[@useTranscriptPlayer] Failed to reload transcript:', error);
     }
-  }, [rawTranscriptData, providedStreamUrl, hookStreamUrl, deviceId, host]);
+  }, [rawTranscriptData, deviceId, host]);
 
   // Unified language change handler (handles both transcript and audio)
   const handleLanguageChange = useCallback(async (language: string) => {
@@ -371,10 +374,9 @@ export const useTranscriptPlayer = ({
             return;
           }
           
-          const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
-          const transcriptUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/transcript/${hour}/chunk_10min_${chunkIndex}.json`);
+          const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
 
-          const apiUrl = buildHostUrl(host, '/host/transcript/translate-chunk');
+          const apiUrl = buildHostUrl(host, 'host/transcript/translate-chunk');
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -405,14 +407,13 @@ export const useTranscriptPlayer = ({
 
     const hour = currentManifest.window_index;
     const chunkIndex = currentManifest.chunk_index;
-    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
 
     if (language === 'original') {
       setDubbedAudioUrl(null);
     } else if (availableDubbedLanguages.includes(language)) {
       const currentMinute = Math.floor(globalCurrentTime / 60) % 10;
-      const url1min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/temp/1min_${currentMinute}_${language}.mp3`);
-      const url10min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/${hour}/chunk_10min_${chunkIndex}_${language}.mp3`);
+      const url1min = buildDubbedAudio1MinUrl(host, deviceId, currentMinute, language);
+      const url10min = buildDubbedAudioUrl(host, deviceId, hour, chunkIndex, language);
       
       try {
         const response = await fetch(url1min, { method: 'HEAD' });
@@ -442,7 +443,7 @@ export const useTranscriptPlayer = ({
           return;
         }
         
-        const apiUrl = buildHostUrl(host, '/host/transcript/generate-dubbed-audio');
+        const apiUrl = buildHostUrl(host, 'host/transcript/generate-dubbed-audio');
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -457,7 +458,10 @@ export const useTranscriptPlayer = ({
         const result = await response.json();
         
         if (result.success && result.url) {
-          const fullUrl = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, result.url);
+          // Result URL is a relative path, use buildHostUrl to construct full URL
+          // Remove leading slash if present since buildHostUrl handles it
+          const cleanUrl = result.url.startsWith('/') ? result.url.slice(1) : result.url;
+          const fullUrl = buildHostUrl(host, cleanUrl);
           setDubbedAudioUrl(fullUrl);
         } else {
           setDubbedAudioUrl(null);
@@ -471,7 +475,7 @@ export const useTranscriptPlayer = ({
       setDubbedAudioUrl(null);
     }
   }, [availableLanguages, availableDubbedLanguages, archiveMetadata, currentManifestIndex, globalCurrentTime, 
-      loadTranscriptForLanguage, reloadTranscriptData, providedStreamUrl, hookStreamUrl, host, deviceId]);
+      loadTranscriptForLanguage, reloadTranscriptData, host, deviceId]);
 
   // Auto-update 1-minute dubbed audio as video progresses through minutes
   useEffect(() => {
@@ -484,12 +488,11 @@ export const useTranscriptPlayer = ({
     if (!currentManifest) return;
 
     const currentMinute = Math.floor(globalCurrentTime / 60) % 10;
-    const baseUrl = providedStreamUrl || hookStreamUrl || buildStreamUrl(host, deviceId);
     const hour = currentManifest.window_index;
     const chunkIndex = currentManifest.chunk_index;
 
-    const url1min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/temp/1min_${currentMinute}_${selectedAudioLanguage}.mp3`);
-    const url10min = baseUrl.replace(/\/(segments\/)?(output|archive.*?)\.m3u8$/, `/audio/${hour}/chunk_10min_${chunkIndex}_${selectedAudioLanguage}.mp3`);
+    const url1min = buildDubbedAudio1MinUrl(host, deviceId, currentMinute, selectedAudioLanguage);
+    const url10min = buildDubbedAudioUrl(host, deviceId, hour, chunkIndex, selectedAudioLanguage);
 
     fetch(url1min, { method: 'HEAD' })
       .then(response => {
@@ -504,7 +507,7 @@ export const useTranscriptPlayer = ({
           setDubbedAudioUrl(url10min);
         }
       });
-  }, [globalCurrentTime, selectedAudioLanguage, availableDubbedLanguages, archiveMetadata, currentManifestIndex, providedStreamUrl, hookStreamUrl, host, deviceId, dubbedAudioUrl]);
+  }, [globalCurrentTime, selectedAudioLanguage, availableDubbedLanguages, archiveMetadata, currentManifestIndex, host, deviceId, dubbedAudioUrl]);
 
   const getCurrentTranscriptText = useCallback(() => {
     if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0) {
