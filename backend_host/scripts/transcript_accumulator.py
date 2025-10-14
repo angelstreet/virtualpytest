@@ -1164,30 +1164,42 @@ class InotifyTranscriptMonitor:
                 )
                 audio_worker.start()
                 self.audio_workers[device_folder] = audio_worker
-                logger.info(f"✓ [{device_folder}] Started audio detection worker (5s interval)")
+                logger.info(f"✓ [{device_folder}] Started adaptive audio detection worker (5-10s intervals based on load)")
             except Exception as e:
                 logger.error(f"✗ [{device_folder}] Failed to start audio detection worker: {e}")
     
     def _audio_detection_worker(self, device_folder):
-        """Worker thread: Check audio every 5s by scanning segments directory"""
+        """Worker thread: Check audio every 5s by scanning segments directory with dynamic load adjustment"""
         BLUE = '\033[94m'
+        GREEN = '\033[92m'
+        YELLOW = '\033[93m'
         RESET = '\033[0m'
         
-        logger.info(f"{BLUE}[AUDIO:{device_folder}] Worker thread started - checking every 5s{RESET}")
+        logger.info(f"{BLUE}[AUDIO:{device_folder}] Worker thread started - adaptive 5-10s intervals based on load{RESET}")
         
         # Resolve segments path once (hot/cold aware)
         segments_dir = get_segments_path(device_folder)
         logger.info(f"{BLUE}[AUDIO:{device_folder}] 📂 Watching: {segments_dir}{RESET}")
         
+        # Dynamic interval management
+        base_interval = 5.0          # Start with 5s
+        current_interval = base_interval
+        max_interval = 10.0          # Max 10s under load
+        processing_times = []        # Track recent processing times
+        consecutive_timeouts = 0     # Track timeout streak
+        consecutive_successes = 0    # Track success streak
+        
         check_count = 0
         while True:
             check_count += 1
+            cycle_start_time = time.time()
+            
             try:
                 # Find latest segment file (same approach as old detector.py)
                 if not os.path.exists(segments_dir):
                     if check_count % 12 == 0:
                         logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segments directory not found (check #{check_count}): {segments_dir}{RESET}")
-                    time.sleep(5)
+                    time.sleep(current_interval)
                     continue
                 
                 # Scan for latest segment_*.ts or segment_*.mp4 file
@@ -1206,13 +1218,13 @@ class InotifyTranscriptMonitor:
                 except Exception as e:
                     if check_count % 12 == 0:
                         logger.error(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment scan failed (check #{check_count}): {e}{RESET}")
-                    time.sleep(5)
+                    time.sleep(current_interval)
                     continue
                 
                 if not latest_segment:
                     if check_count % 12 == 0:
                         logger.info(f"{BLUE}[AUDIO:{device_folder}] ⏸️  No segments found in {segments_dir} (check #{check_count}){RESET}")
-                    time.sleep(5)
+                    time.sleep(current_interval)
                     continue
                 
                 # Check if segment is recent (within last 5 minutes)
@@ -1226,10 +1238,16 @@ class InotifyTranscriptMonitor:
                 if age_seconds > 300:
                     if check_count % 60 == 0:
                         logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⏸️  Segment too old (check #{check_count}): {age_seconds:.0f}s{RESET}")
-                    time.sleep(5)
+                    time.sleep(current_interval)
                     continue
                 
                 segment_path = latest_segment
+                
+                # Measure audio detection performance with adaptive timeout
+                processing_start = time.time()
+                
+                # Adaptive timeout: increase under load
+                adaptive_timeout = 2.0 if current_interval <= 5.0 else 4.0
                 
                 # Use faster audio detection with timeout handling
                 try:
@@ -1244,7 +1262,7 @@ class InotifyTranscriptMonitor:
                         '-'
                     ]
                     
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=adaptive_timeout)
                     
                     mean_volume = -100.0
                     for line in result.stderr.split('\n'):
@@ -1256,17 +1274,64 @@ class InotifyTranscriptMonitor:
                                 logger.error(f"{BLUE}[AUDIO:{device_folder}] Failed to parse volume: {line} (error: {e}){RESET}")
                     
                     has_audio = mean_volume > -50.0
+                    processing_time = time.time() - processing_start
+                    
+                    # Record successful processing
+                    processing_times.append(processing_time)
+                    if len(processing_times) > 10:  # Keep last 10 measurements
+                        processing_times.pop(0)
+                    
+                    consecutive_timeouts = 0
+                    consecutive_successes += 1
                     
                 except subprocess.TimeoutExpired:
-                    # Gracefully handle timeout - assume no audio and continue
-                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⏰ ffmpeg timeout on {segment_filename} - skipping analysis (assuming silent){RESET}")
+                    # Handle timeout - system is overloaded
+                    processing_time = adaptive_timeout
                     has_audio = False
                     mean_volume = -100.0
+                    
+                    consecutive_timeouts += 1
+                    consecutive_successes = 0
+                    
+                    logger.warning(f"{YELLOW}[AUDIO:{device_folder}] ⏰ ffmpeg timeout ({adaptive_timeout}s) on {segment_filename} - system overloaded{RESET}")
+                    
                 except Exception as e:
                     # Handle other ffmpeg errors gracefully
-                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⚠️  ffmpeg error on {segment_filename}: {e} (assuming silent){RESET}")
+                    processing_time = 1.0  # Assume moderate processing time on errors
                     has_audio = False
                     mean_volume = -100.0
+                    
+                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⚠️  ffmpeg error on {segment_filename}: {e} (assuming silent){RESET}")
+                
+                # Dynamic interval adjustment based on performance
+                old_interval = current_interval
+                
+                # Calculate average processing time
+                avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else 0.5
+                
+                # Decide on interval adjustment
+                should_increase = (
+                    consecutive_timeouts >= 2 or  # 2+ consecutive timeouts
+                    avg_processing_time > 1.5 or  # Average processing > 1.5s
+                    (processing_times and max(processing_times) > 2.0)  # Any recent processing > 2s
+                )
+                
+                should_decrease = (
+                    consecutive_successes >= 5 and  # 5+ consecutive successes
+                    avg_processing_time < 0.8 and   # Average processing < 0.8s
+                    consecutive_timeouts == 0        # No recent timeouts
+                )
+                
+                if should_increase and current_interval < max_interval:
+                    current_interval = max_interval  # Jump to 10s under load
+                elif should_decrease and current_interval > base_interval:
+                    current_interval = base_interval  # Back to 5s when stable
+                
+                # Log interval changes
+                if old_interval != current_interval:
+                    reason = "overload detected" if should_increase else "load reduced"
+                    logger.info(f"{YELLOW}[AUDIO:{device_folder}] 🔄 Interval adjusted: {old_interval:.1f}s → {current_interval:.1f}s ({reason}){RESET}")
+                    logger.info(f"{YELLOW}[AUDIO:{device_folder}] 📊 Stats: avg_proc={avg_processing_time:.2f}s, timeouts={consecutive_timeouts}, successes={consecutive_successes}{RESET}")
                 status_icon = '🔊' if has_audio else '🔇'
                 
                 # Only log audio status occasionally or when audio is detected
@@ -1368,7 +1433,14 @@ class InotifyTranscriptMonitor:
                 logger.error(f"{BLUE}[AUDIO:{device_folder}] Error: {e}{RESET}")
                 logger.error(f"{BLUE}[AUDIO:{device_folder}] Traceback: {traceback.format_exc()}{RESET}")
             
-            time.sleep(5)
+            # Enhanced logging with performance metrics
+            cycle_duration = time.time() - cycle_start_time
+            
+            # Log performance metrics occasionally
+            if check_count % 60 == 0:
+                logger.info(f"{GREEN}[AUDIO:{device_folder}] 📈 Performance: interval={current_interval:.1f}s, cycle={cycle_duration:.2f}s, avg_proc={avg_processing_time:.2f}s{RESET}")
+            
+            time.sleep(current_interval)  # Use dynamic interval
     
     def run(self):
         """Main event loop - watch for 1min MP3 files in temp/"""
