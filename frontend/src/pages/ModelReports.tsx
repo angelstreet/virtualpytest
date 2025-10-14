@@ -34,6 +34,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useExecutionResults, ExecutionResult } from '../hooks/pages/useExecutionResults';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { useMetrics } from '../hooks/navigation/useMetrics';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 type FilterType = 'all' | 'action' | 'verification';
 
@@ -123,18 +124,44 @@ const ModelReports: React.FC = () => {
         if (selectedUI?.root_tree?.id) {
           console.log(`[@ModelReports] Loading data for interface: ${selectedUserInterface}, tree: ${selectedUI.root_tree.id}`);
           
-          // Load execution results for this specific tree only
+          // Build an extended tree map that includes all nested trees
+          const extendedTreeMap: Record<string, string> = { ...treeToInterfaceMap };
+          
+          // Fetch metrics and hierarchy info in a single call
+          try {
+            const response = await fetch(
+              buildServerUrl(`/server/metrics/tree/${selectedUI.root_tree.id}`)
+            );
+            if (response.ok) {
+              const metricsData = await response.json();
+              if (metricsData.success && metricsData.hierarchy_info?.trees) {
+                // Map all tree IDs in the hierarchy to this interface
+                metricsData.hierarchy_info.trees.forEach((tree: any) => {
+                  if (tree.tree_id) {
+                    extendedTreeMap[tree.tree_id] = selectedUserInterface;
+                    console.log(`[@ModelReports] Mapped tree ${tree.tree_id} (${tree.name}) to interface ${selectedUserInterface}`);
+                  }
+                });
+                
+                // Also fetch metrics for the tree (this will update the metricsHook state)
+                await metricsHook.fetchMetrics(selectedUI.root_tree.id);
+              }
+            }
+          } catch (hierarchyErr) {
+            console.warn('[@ModelReports] Failed to fetch tree hierarchy, using root tree only:', hierarchyErr);
+            // Still try to fetch metrics even if hierarchy fetch fails
+            await metricsHook.fetchMetrics(selectedUI.root_tree.id);
+          }
+          
+          // Load execution results and filter using the extended tree map
           const results = await getAllExecutionResults();
-          // Filter results by tree_id to reduce processing
           const filteredResults = results.filter(result => 
-            treeToInterfaceMap[result.tree_id] === selectedUserInterface
+            extendedTreeMap[result.tree_id] === selectedUserInterface
           );
           
           console.log(`[@ModelReports] Filtered ${results.length} results to ${filteredResults.length} for interface ${selectedUserInterface}`);
+          console.log(`[@ModelReports] Extended tree map has ${Object.keys(extendedTreeMap).length} tree IDs mapped`);
           setExecutionResults(filteredResults);
-          
-          // Load metrics for this tree - this will now include direction-specific metrics
-          metricsHook.fetchMetrics(selectedUI.root_tree.id);
         }
       } catch (err) {
         console.error('[@component:ModelReports] Error loading execution results:', err);
