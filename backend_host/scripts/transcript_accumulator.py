@@ -1231,29 +1231,42 @@ class InotifyTranscriptMonitor:
                 
                 segment_path = latest_segment
                 
-                cmd = [
-                    'ffmpeg',
-                    '-hide_banner',
-                    '-loglevel', 'info',  # Need info level to get volumedetect output
-                    '-i', segment_path,
-                    '-t', '0.5',
-                    '-af', 'volumedetect',
-                    '-f', 'null',
-                    '-'
-                ]
-                
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
-                
-                mean_volume = -100.0
-                for line in result.stderr.split('\n'):
-                    if 'mean_volume:' in line:
-                        try:
-                            mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
-                            break
-                        except Exception as e:
-                            logger.error(f"{BLUE}[AUDIO:{device_folder}] Failed to parse volume: {line} (error: {e}){RESET}")
-                
-                has_audio = mean_volume > -50.0
+                # Use faster audio detection with timeout handling
+                try:
+                    cmd = [
+                        'ffmpeg',
+                        '-hide_banner',
+                        '-loglevel', 'error',  # Less verbose to avoid I/O delays
+                        '-i', segment_path,
+                        '-t', '0.5',
+                        '-af', 'volumedetect',
+                        '-f', 'null',
+                        '-'
+                    ]
+                    
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+                    
+                    mean_volume = -100.0
+                    for line in result.stderr.split('\n'):
+                        if 'mean_volume:' in line:
+                            try:
+                                mean_volume = float(line.split('mean_volume:')[1].split('dB')[0].strip())
+                                break
+                            except Exception as e:
+                                logger.error(f"{BLUE}[AUDIO:{device_folder}] Failed to parse volume: {line} (error: {e}){RESET}")
+                    
+                    has_audio = mean_volume > -50.0
+                    
+                except subprocess.TimeoutExpired:
+                    # Gracefully handle timeout - assume no audio and continue
+                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⏰ ffmpeg timeout on {segment_filename} - skipping analysis (assuming silent){RESET}")
+                    has_audio = False
+                    mean_volume = -100.0
+                except Exception as e:
+                    # Handle other ffmpeg errors gracefully
+                    logger.warning(f"{BLUE}[AUDIO:{device_folder}] ⚠️  ffmpeg error on {segment_filename}: {e} (assuming silent){RESET}")
+                    has_audio = False
+                    mean_volume = -100.0
                 status_icon = '🔊' if has_audio else '🔇'
                 
                 # Only log audio status occasionally or when audio is detected
