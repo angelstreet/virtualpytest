@@ -373,6 +373,65 @@ class InotifyFrameMonitor:
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] ⚠️  Failed to capture blackscreen START images: {e}")
                     
+                    elif event_type == 'freeze':
+                        try:
+                            from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, get_captures_path, copy_to_cold_storage
+                            
+                            current_sequence = int(current_filename.split('_')[1].split('.')[0])
+                            
+                            # BEFORE frame (current - 1)
+                            before_filename = f"capture_{current_sequence-1:09d}.jpg"
+                            before_thumbnail_filename = f"capture_{current_sequence-1:09d}_thumbnail.jpg"
+                            
+                            captures_dir = get_captures_path(capture_folder)
+                            thumbnails_dir = get_thumbnails_path(capture_folder)
+                            
+                            before_original_path = os.path.join(captures_dir, before_filename)
+                            before_thumbnail_path = os.path.join(thumbnails_dir, before_thumbnail_filename)
+                            
+                            copied_count = 0
+                            
+                            # Copy BEFORE original + thumbnail
+                            if os.path.exists(before_original_path):
+                                before_original_cold = copy_to_cold_storage(before_original_path)
+                                if before_original_cold:
+                                    device_state['freeze_before_original_cold'] = before_original_cold
+                                    copied_count += 1
+                            if os.path.exists(before_thumbnail_path):
+                                before_thumbnail_cold = copy_to_cold_storage(before_thumbnail_path)
+                                if before_thumbnail_cold:
+                                    device_state['freeze_before_thumbnail_cold'] = before_thumbnail_cold
+                                    copied_count += 1
+                            device_state['freeze_before_filename'] = before_filename
+                            
+                            # FIRST freeze frame (current)
+                            first_filename = current_filename
+                            first_thumbnail_filename = current_filename.replace('.jpg', '_thumbnail.jpg')
+                            
+                            first_original_path = os.path.join(captures_dir, first_filename)
+                            first_thumbnail_path = os.path.join(thumbnails_dir, first_thumbnail_filename)
+                            
+                            # Copy FIRST original + thumbnail
+                            if os.path.exists(first_original_path):
+                                first_original_cold = copy_to_cold_storage(first_original_path)
+                                if first_original_cold:
+                                    device_state['freeze_start_original_cold'] = first_original_cold
+                                    copied_count += 1
+                            if os.path.exists(first_thumbnail_path):
+                                first_thumbnail_cold = copy_to_cold_storage(first_thumbnail_path)
+                                if first_thumbnail_cold:
+                                    device_state['freeze_start_thumbnail_cold'] = first_thumbnail_cold
+                                    copied_count += 1
+                                else:
+                                    logger.warning(f"[{capture_folder}] ⚠️  Failed to copy FIRST freeze thumbnail: {first_thumbnail_path}")
+                            else:
+                                logger.warning(f"[{capture_folder}] ⚠️  FIRST freeze thumbnail not found: {first_thumbnail_path}")
+                            device_state['freeze_start_filename'] = first_filename
+                            
+                            logger.info(f"[{capture_folder}] 📋 FREEZE START: Copied {copied_count}/4 images to cold")
+                        except Exception as e:
+                            logger.warning(f"[{capture_folder}] ⚠️  Failed to capture freeze START images: {e}")
+                    
                     # Log event start
                     if event_type == 'audio':
                         volume = detection_result.get('mean_volume_db', -100)
@@ -446,6 +505,45 @@ class InotifyFrameMonitor:
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] ⚠️  Failed to capture blackscreen END images: {e}")
                 
+                elif event_type == 'freeze':
+                    try:
+                        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, get_captures_path, copy_to_cold_storage
+                        
+                        current_sequence = int(current_filename.split('_')[1].split('.')[0])
+                        
+                        captures_dir = get_captures_path(capture_folder)
+                        thumbnails_dir = get_thumbnails_path(capture_folder)
+                        
+                        copied_count = 0
+                        
+                        # LAST freeze frame (current - 1)
+                        last_filename = f"capture_{current_sequence-1:09d}.jpg"
+                        last_thumbnail_filename = f"capture_{current_sequence-1:09d}_thumbnail.jpg"
+                        
+                        last_original_path = os.path.join(captures_dir, last_filename)
+                        last_thumbnail_path = os.path.join(thumbnails_dir, last_thumbnail_filename)
+                        
+                        # Copy LAST original + thumbnail
+                        if os.path.exists(last_original_path):
+                            last_original_cold = copy_to_cold_storage(last_original_path)
+                            if last_original_cold:
+                                device_state['freeze_last_original_cold'] = last_original_cold
+                                copied_count += 1
+                        if os.path.exists(last_thumbnail_path):
+                            last_thumbnail_cold = copy_to_cold_storage(last_thumbnail_path)
+                            if last_thumbnail_cold:
+                                device_state['freeze_last_thumbnail_cold'] = last_thumbnail_cold
+                                copied_count += 1
+                        device_state['freeze_last_filename'] = last_filename
+                        
+                        # AFTER frame will be handled by zapping_detector (it's the analyzed frame)
+                        # Just store the filename for reference
+                        device_state['freeze_closure_filename'] = current_filename
+                        
+                        logger.info(f"[{capture_folder}] 📋 FREEZE END: Copied {copied_count}/2 LAST images (AFTER=analyzed frame, copied during banner detection)")
+                    except Exception as e:
+                        logger.warning(f"[{capture_folder}] ⚠️  Failed to capture freeze END images: {e}")
+                
                 # Log event end
                 if event_type == 'audio':
                     volume = detection_result.get('mean_volume_db', -100)
@@ -475,26 +573,50 @@ class InotifyFrameMonitor:
                         device_model=device_model,
                         current_filename=current_filename,
                         blackscreen_duration_ms=total_duration_ms,
-                        blackscreen_start_filename=blackscreen_start_filename
+                        blackscreen_start_filename=blackscreen_start_filename,
+                        event_type='blackscreen'
+                    )
+                
+                # ✅ Automatic zapping detection when freeze ends
+                elif event_type == 'freeze' and total_duration_ms < 10000:
+                    # Trigger for freezes up to 10s (zapping can take time depending on signal/TV)
+                    # Freezes > 10s are likely real incidents, not channel changes
+                    logger.info(f"[{capture_folder}] Freeze ended ({total_duration_ms}ms) - checking for zapping...")
+                    
+                    # Get start filename for audio check (freeze segment, not current segment)
+                    freeze_start_filename = device_state.get('freeze_start_filename')
+                    
+                    # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
+                    self.zapping_executor.submit(
+                        self._check_for_zapping_async,
+                        capture_folder=capture_folder,
+                        device_id=device_id,
+                        device_model=device_model,
+                        current_filename=current_filename,
+                        blackscreen_duration_ms=total_duration_ms,  # Keep same param name (it's just event_duration)
+                        blackscreen_start_filename=freeze_start_filename,  # Keep same param name (it's just event_start)
+                        event_type='freeze'
                     )
         
         return detection_result
     
-    def _check_for_zapping_async(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms, blackscreen_start_filename=None):
+    def _check_for_zapping_async(self, capture_folder, device_id, device_model, current_filename, blackscreen_duration_ms, blackscreen_start_filename=None, event_type='blackscreen'):
         """
-        Check if blackscreen was caused by zapping (channel change).
-        This happens AFTER blackscreen ends, analyzing the first normal frame.
+        Check if blackscreen/freeze was caused by zapping (channel change).
+        This happens AFTER event ends, analyzing the first normal frame.
         
         ✅ ASYNC: Runs in background thread pool to avoid blocking frame processing queue
         (AI banner analysis takes ~5 seconds - would cause major queue backlog if synchronous)
         
-        ✅ LOCKING: Uses per-device lock to prevent concurrent processing of multiple blackscreens
-        - If lock is already held (another blackscreen being processed), skip this one
-        - Prevents race conditions where multiple blackscreens try to read last_action.json
+        ✅ LOCKING: Uses per-device lock to prevent concurrent processing of multiple events
+        - If lock is already held (another event being processed), skip this one
+        - Prevents race conditions where multiple events try to read last_action.json
         
-        ✅ AUDIO PRE-CHECK: Checks audio in SAME 1-second TS segment where blackscreen occurred
+        ✅ AUDIO PRE-CHECK: Checks audio in SAME 1-second TS segment where event occurred
         - If audio present → proceed with banner detection (likely zapping - TV audio during channel switch)
         - If no audio → abort (likely freeze/signal loss, not zapping)
+        
+        ✅ SUPPORTS: Both blackscreen and freeze event types (identical processing flow)
         
         Uses shared zapping detection utility (reuses existing banner detection AI).
         """
@@ -507,20 +629,21 @@ class InotifyFrameMonitor:
         # Try to acquire lock without blocking
         lock_acquired = lock.acquire(blocking=False)
         if not lock_acquired:
-            logger.info(f"[{capture_folder}] ⏭️  SKIP: Another blackscreen is already being processed (frame: {current_filename})")
+            logger.info(f"[{capture_folder}] ⏭️  SKIP: Another event is already being processed (frame: {current_filename})")
             logger.info(f"[{capture_folder}]     This prevents race conditions and stale action reads")
             return
         
         try:
-            logger.info(f"[{capture_folder}] 🔒 LOCK ACQUIRED - Zapping worker started for {current_filename}")
+            event_name = event_type.upper()
+            logger.info(f"[{capture_folder}] 🔒 LOCK ACQUIRED - Zapping worker started for {current_filename} ({event_name} event)")
             
             # ✅ WRITE "in_progress" marker IMMEDIATELY (before slow AI processing)
             # This allows zap_executor to wait instead of reading stale data
             self._write_zapping_in_progress(capture_folder, current_filename, blackscreen_duration_ms)
             
-            # ✅ PRE-CHECK: Audio DROPOUT detection across ALL segments during blackscreen + 1 extra after
-            # We merge segments from blackscreen start to end + 1 more to check if audio comes back
-            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking for audio dropout across blackscreen period...")
+            # ✅ PRE-CHECK: Audio DROPOUT detection across ALL segments during event + 1 extra after
+            # We merge segments from event start to end + 1 more to check if audio comes back
+            logger.info(f"[{capture_folder}] 🔊 Pre-check: Checking for audio dropout across {event_name} period...")
             audio_info = self._check_segment_audio(
                 capture_folder, 
                 blackscreen_start_filename=blackscreen_start_filename,
@@ -547,18 +670,34 @@ class InotifyFrameMonitor:
             device_state = self.incident_manager.get_device_state(device_id)
             
             # ✅ READ transition image paths from device_state (already copied to cold during event tracking)
-            before_frame = device_state.get('blackscreen_before_filename')
-            first_frame = device_state.get('blackscreen_start_filename')
-            last_frame = device_state.get('blackscreen_last_filename')
-            after_frame = device_state.get('blackscreen_closure_filename', current_filename)
+            # Support both blackscreen and freeze event types
+            if event_type == 'blackscreen':
+                before_frame = device_state.get('blackscreen_before_filename')
+                first_frame = device_state.get('blackscreen_start_filename')
+                last_frame = device_state.get('blackscreen_last_filename')
+                after_frame = device_state.get('blackscreen_closure_filename', current_filename)
+                
+                # Read cold storage paths (already copied during blackscreen tracking)
+                before_original = device_state.get('blackscreen_before_original_cold')
+                before_thumbnail = device_state.get('blackscreen_before_thumbnail_cold')
+                first_original = device_state.get('blackscreen_start_original_cold')
+                first_thumbnail = device_state.get('blackscreen_start_thumbnail_cold')
+                last_original = device_state.get('blackscreen_last_original_cold')
+                last_thumbnail = device_state.get('blackscreen_last_thumbnail_cold')
+            elif event_type == 'freeze':
+                before_frame = device_state.get('freeze_before_filename')
+                first_frame = device_state.get('freeze_start_filename')
+                last_frame = device_state.get('freeze_last_filename')
+                after_frame = device_state.get('freeze_closure_filename', current_filename)
+                
+                # Read cold storage paths (already copied during freeze tracking)
+                before_original = device_state.get('freeze_before_original_cold')
+                before_thumbnail = device_state.get('freeze_before_thumbnail_cold')
+                first_original = device_state.get('freeze_start_original_cold')
+                first_thumbnail = device_state.get('freeze_start_thumbnail_cold')
+                last_original = device_state.get('freeze_last_original_cold')
+                last_thumbnail = device_state.get('freeze_last_thumbnail_cold')
             
-            # Read cold storage paths (already copied during blackscreen tracking)
-            before_original = device_state.get('blackscreen_before_original_cold')
-            before_thumbnail = device_state.get('blackscreen_before_thumbnail_cold')
-            first_original = device_state.get('blackscreen_start_original_cold')
-            first_thumbnail = device_state.get('blackscreen_start_thumbnail_cold')
-            last_original = device_state.get('blackscreen_last_original_cold')
-            last_thumbnail = device_state.get('blackscreen_last_thumbnail_cold')
             # AFTER frame is copied by zapping_detector (it's the analyzed frame) - no need to read from device_state
             
             # ✅ FALLBACK: If thumbnails are None but we have filenames, construct paths from hot storage
@@ -604,7 +743,8 @@ class InotifyFrameMonitor:
                     last_original = copy_to_cold_storage(last_original_hot)
             
             # DEBUG: Log what we got from device_state
-            logger.info(f"[{capture_folder}] 📋 Transition images from device_state:")
+            event_name = event_type.upper()
+            logger.info(f"[{capture_folder}] 📋 {event_name} transition images from device_state:")
             logger.info(f"  BEFORE: frame={before_frame}, thumbnail={before_thumbnail}")
             logger.info(f"  FIRST:  frame={first_frame}, thumbnail={first_thumbnail}")
             logger.info(f"  LAST:   frame={last_frame}, thumbnail={last_thumbnail}")
@@ -714,17 +854,20 @@ class InotifyFrameMonitor:
         finally:
             # ✅ ALWAYS RELEASE LOCK (even if exception occurred)
             lock.release()
-            logger.info(f"[{capture_folder}] 🔓 LOCK RELEASED - Zapping worker finished for {current_filename}")
+            event_name = event_type.upper() if 'event_type' in locals() else 'UNKNOWN'
+            logger.info(f"[{capture_folder}] 🔓 LOCK RELEASED - Zapping worker finished for {current_filename} ({event_name} event)")
     
     def _check_segment_audio(self, capture_folder, blackscreen_start_filename=None, blackscreen_end_filename=None):
         """
-        Check for audio DROPOUTS across ALL segments spanning blackscreen duration + 1 extra segment after.
+        Check for audio DROPOUTS across ALL segments spanning event duration + 1 extra segment after.
         
-        This merges multiple TS segments (from blackscreen start to end + 1 more) and checks audio continuity
+        This merges multiple TS segments (from event start to end + 1 more) and checks audio continuity
         across the entire period. This catches audio dropouts that span segment boundaries.
         
+        Works for both BLACKSCREEN and FREEZE events (parameter names use "blackscreen" for backward compat).
+        
         Example:
-        - Blackscreen: frame 2495-2498 (800ms at 5fps)
+        - Event: frame 2495-2498 (800ms at 5fps)
         - Segments: 499 (frames 2495-2499), 500 (frames 2500-2504)
         - We check: segment 499 + 500 + 501 (start + end + 1 extra after)
         - This detects if audio cuts during zapping and comes back after
@@ -735,8 +878,8 @@ class InotifyFrameMonitor:
         
         Args:
             capture_folder: Device folder (e.g., 'capture1')
-            blackscreen_start_filename: Frame where blackscreen started (e.g., 'capture_000002495.jpg')
-            blackscreen_end_filename: Frame where blackscreen ended (e.g., 'capture_000002498.jpg')
+            blackscreen_start_filename: Frame where event started (e.g., 'capture_000002495.jpg')
+            blackscreen_end_filename: Frame where event ended (e.g., 'capture_000002498.jpg')
         
         Returns:
             dict: Audio analysis result with keys:
@@ -771,7 +914,7 @@ class InotifyFrameMonitor:
             # Add 1 extra segment after to check if audio comes back
             segments_to_check = list(range(start_segment, end_segment + 2))  # +2 because range is exclusive
             
-            logger.info(f"[{capture_folder}] Blackscreen: frames {start_frame}-{end_frame} → segments {start_segment}-{end_segment} + 1 extra")
+            logger.info(f"[{capture_folder}] Event: frames {start_frame}-{end_frame} → segments {start_segment}-{end_segment} + 1 extra")
             logger.info(f"[{capture_folder}] Will merge and analyze {len(segments_to_check)} segments: {segments_to_check}")
             
             # Find all segment files

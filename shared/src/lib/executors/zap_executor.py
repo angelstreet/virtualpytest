@@ -49,6 +49,11 @@ class ZapAnalysisResult:
         self.program_end_time = ""
         self.audio_silence_duration = 0.0  # Audio silence duration during zapping
         
+        # Zap timing information
+        self.zap_start_timestamp = None  # Action execution timestamp
+        self.zap_end_timestamp = None  # When content appeared after blackscreen
+        self.total_zap_duration = 0.0  # Total duration in seconds (action → content)
+        
         self.success = False
         self.message = ""
     
@@ -78,7 +83,10 @@ class ZapAnalysisResult:
             "program_name": self.program_name,
             "program_start_time": self.program_start_time,
             "program_end_time": self.program_end_time,
-            "audio_silence_duration": self.audio_silence_duration
+            "audio_silence_duration": self.audio_silence_duration,
+            "zap_start_timestamp": self.zap_start_timestamp,
+            "zap_end_timestamp": self.zap_end_timestamp,
+            "total_zap_duration": self.total_zap_duration
         }
 
 
@@ -193,6 +201,10 @@ class ZapExecutor:
             action_completion_time: Timestamp when action completed (used to match zapping detection)
         """
         result = ZapAnalysisResult()
+        
+        # Store action timestamp as zap start time
+        if action_completion_time:
+            result.zap_start_timestamp = action_completion_time
         
         try:
             print(f"🔍 [ZapExecutor] Analyzing zap results for {action_command} (iteration {iteration})...")
@@ -325,16 +337,20 @@ class ZapExecutor:
                 if analysis_result.zapping_detected:
                     self.statistics.zapping_detected_count += 1
                     # Create proper zapping result data structure for statistics
+                    # Use total_zap_duration_ms from top-level zapping_details (not nested in details)
+                    total_zap_duration_ms = analysis_result.zapping_details.get('total_zap_duration_ms', 0)
+                    zapping_duration_s = total_zap_duration_ms / 1000.0 if total_zap_duration_ms else 0.0
+                    
                     zapping_result_data = {
                         'success': True,
-                        'zapping_duration': analysis_result.zapping_details.get('details', {}).get('zapping_duration', 0.0),
+                        'zapping_duration': zapping_duration_s,  # Total zap duration in seconds
                         'blackscreen_duration': analysis_result.blackscreen_duration,
                         'channel_name': analysis_result.channel_name,
                         'channel_number': analysis_result.channel_number,
                         'program_name': analysis_result.program_name,
                         'program_start_time': analysis_result.program_start_time,
                         'program_end_time': analysis_result.program_end_time,
-                        'channel_confidence': analysis_result.zapping_details.get('details', {}).get('channel_confidence', 0.0)
+                        'channel_confidence': analysis_result.zapping_details.get('confidence', 0.0)
                     }
                     self.statistics.add_zapping_result(zapping_result_data)
                     
@@ -400,6 +416,22 @@ class ZapExecutor:
             lines.append(f"🔄 Iterations: {self.statistics.successful_iterations}/{max_iterations}")
             lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
             lines.append(f"📊 Success Rate: {(self.statistics.successful_iterations/max_iterations)*100:.1f}%")
+            
+            # Add zap duration metrics if available
+            if self.statistics.zapping_durations:
+                avg_zap = self.statistics.average_zapping_duration
+                avg_bs = self.statistics.average_blackscreen_duration
+                min_zap = min(self.statistics.zapping_durations)
+                max_zap = max(self.statistics.zapping_durations)
+                lines.append(f"⚡ Avg Zap Duration: {avg_zap:.2f}s (range: {min_zap:.2f}s - {max_zap:.2f}s)")
+                lines.append(f"⬛ Avg Blackscreen: {avg_bs:.2f}s")
+                
+                # Add audio silence if we have that data
+                audio_silence_durations = [result.audio_silence_duration for result in self.statistics.analysis_results 
+                                          if hasattr(result, 'audio_silence_duration') and result.audio_silence_duration > 0]
+                if audio_silence_durations:
+                    avg_audio_silence = sum(audio_silence_durations) / len(audio_silence_durations)
+                    lines.append(f"🔇 Avg Audio Silence: {avg_audio_silence:.2f}s")
             
             if self.learned_detection_method:
                 method_emoji = "⬛" if self.learned_detection_method == "blackscreen" else "🧊"
@@ -861,6 +893,16 @@ class ZapExecutor:
         result.program_start_time = zapping_data.get('details', {}).get('start_time', '')
         result.program_end_time = zapping_data.get('details', {}).get('end_time', '')
         
+        # Calculate and store zap timing information
+        total_zap_duration_ms = zapping_data.get('total_zap_duration_ms', 0)
+        if total_zap_duration_ms:
+            result.total_zap_duration = total_zap_duration_ms / 1000.0  # Convert to seconds
+            
+            # Calculate end timestamp: start + duration
+            action_timestamp = zapping_data.get('action_timestamp')
+            if action_timestamp and result.zap_start_timestamp:
+                result.zap_end_timestamp = result.zap_start_timestamp + result.total_zap_duration
+        
         # ✅ NEW: Process transition images and R2 URLs
         transition_images = zapping_data.get('transition_images', {})
         r2_images = zapping_data.get('r2_images', {})
@@ -1084,6 +1126,13 @@ class ZapExecutor:
                 total_zap_duration_ms = details.get('total_zap_duration_ms')
                 if total_zap_duration_ms:
                     print(f"   📊 Total Zap Duration: {total_zap_duration_ms}ms ({total_zap_duration_ms/1000:.2f}s)")
+                
+                # Timing information (start/end timestamps)
+                if analysis_result.zap_start_timestamp and analysis_result.zap_end_timestamp:
+                    from datetime import datetime
+                    start_dt = datetime.fromtimestamp(analysis_result.zap_start_timestamp)
+                    end_dt = datetime.fromtimestamp(analysis_result.zap_end_timestamp)
+                    print(f"   ⏰ Start: {start_dt.strftime('%H:%M:%S.%f')[:-3]} | End: {end_dt.strftime('%H:%M:%S.%f')[:-3]}")
                 
                 # Blackscreen duration
                 blackscreen_duration_ms = details.get('blackscreen_duration_ms', 0)
