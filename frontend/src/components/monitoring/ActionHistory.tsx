@@ -33,22 +33,11 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         ? monitoringAnalysis.zap
         : null;
     
-    // DEBUG: Log zap detection
-    if (monitoringAnalysis.zap_cache) {
-      console.log('[ActionHistory] zap_cache found:', monitoringAnalysis.zap_cache);
-    }
-    if (monitoringAnalysis.zap) {
-      console.log('[ActionHistory] zap found:', monitoringAnalysis.zap);
-    }
-    
     if (zapData) {
       const zapId = zapData.id;
       
-      console.log('[ActionHistory] Zap detected! ID:', zapId, 'Already shown:', shownZappingIds.has(zapId));
-      
       // ✅ CRITICAL: Only show each zapping event once (prevents duplicates from multiple frames with same zap_cache)
       if (!shownZappingIds.has(zapId)) {
-        console.log('[ActionHistory] Adding zap to actions:', zapId);
         const channelName = zapData.channel_name || 'Unknown';
         const channelNumber = zapData.channel_number || '';
         const detectionType = zapData.detection_type || 'manual';
@@ -81,8 +70,6 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         
         // Mark as shown immediately (synchronously update tracking)
         setShownZappingIds(prev => new Set(prev).add(zapId));
-      } else {
-        console.log('[ActionHistory] Zap already shown, skipping:', zapId);
       }
     }
 
@@ -99,7 +86,6 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
 
     // Merge with existing actions - CRITICAL: Only keep ONE zap at a time (newest replaces old)
     if (currentActions.length > 0) {
-      console.log('[ActionHistory] Updating actions with:', currentActions);
       setActions(prev => {
         const hasNewZap = currentActions.some(a => a.command.includes('ZAP'));
         
@@ -114,7 +100,6 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
         const sorted = unique
           .sort((a, b) => b.timestamp - a.timestamp)
           .slice(0, 3);
-        console.log('[ActionHistory] Final actions to display:', sorted);
         return sorted;
       });
     }
@@ -135,10 +120,7 @@ export const ActionHistory: React.FC<ActionHistoryProps> = ({
     return () => timers.forEach(clearTimeout);
   }, [actions]);
 
-  console.log('[ActionHistory] Rendering with actions:', actions.length, actions);
-  
   if (actions.length === 0) {
-    console.log('[ActionHistory] No actions to display, returning null');
     return null;
   }
 

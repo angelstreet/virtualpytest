@@ -626,6 +626,9 @@ export function HLSVideoPlayer({
   }, [useNativePlayer, streamUrl, isStreamActive, tryNativePlayback]);
 
   // Initialization - only on streamUrl change
+  // Use refs to track current URL to avoid circular dependencies
+  const currentStreamUrlRef = useRef<string | null>(null);
+  
   useEffect(() => {
     if (!streamUrl || !videoRef.current) return;
 
@@ -635,13 +638,13 @@ export function HLSVideoPlayer({
       return;
     }
 
-    // Always initialize if URL changed (don't skip even if already loaded)
-    if (currentStreamUrl === streamUrl && streamLoaded && !streamError && !ffmpegStuck) {
-      console.log('[@component:HLSVideoPlayer] Skipping init - already loaded with same URL');
+    // Only initialize if URL actually changed
+    if (currentStreamUrlRef.current === streamUrl) {
+      console.log('[@component:HLSVideoPlayer] Skipping init - same URL, already initialized');
       return;
     }
 
-    console.log('[@component:HLSVideoPlayer] URL changed or error state - reinitializing');
+    console.log('[@component:HLSVideoPlayer] URL changed - initializing:', streamUrl);
     // Reset error states but don't cleanup (preserve if possible)
     setStreamError(null);
     setRetryCount(0);
@@ -649,9 +652,10 @@ export function HLSVideoPlayer({
     setFfmpegStuck(false);
     setStreamLoaded(false);
     setCurrentStreamUrl(streamUrl);
+    currentStreamUrlRef.current = streamUrl;
 
     initializeStream(); // Initialize without destructive cleanup
-  }, [streamUrl, currentStreamUrl, streamLoaded, streamError, ffmpegStuck, shouldPause]);
+  }, [streamUrl, shouldPause, initializeStream]); // Depend on external props and the init callback
 
   // Handle shouldPause prop - pause to show last frame (e.g., during quality transition)
   const prevShouldPause = useRef(shouldPause);
