@@ -200,8 +200,8 @@ export const PlaywrightWebOverlay = React.memo(
         <div
           style={{
             position: 'fixed',
-            right: `${window.innerWidth - panelInfo.position.x - panelInfo.size.width}px`,
-            bottom: `${window.innerHeight - panelInfo.position.y - panelInfo.size.height}px`,
+            left: `${panelInfo.position.x}px`,
+            top: `${panelInfo.position.y}px`,
             width: `${panelInfo.size.width}px`,
             height: `${panelInfo.size.height}px`,
                           zIndex: getZIndex('DEBUG_OVERLAY', 5), // Use higher z-index above VNC streams
@@ -219,8 +219,8 @@ export const PlaywrightWebOverlay = React.memo(
           <div
             style={{
               position: 'fixed',
-              right: `${window.innerWidth - panelInfo.position.x - panelInfo.size.width}px`,
-              bottom: `${window.innerHeight - panelInfo.position.y - panelInfo.size.height}px`,
+              left: `${panelInfo.position.x}px`,
+              top: `${panelInfo.position.y}px`,
               width: `${panelInfo.size.width}px`,
               height: `${panelInfo.size.height}px`,
               zIndex: getZIndex('DEBUG_OVERLAY', 5),
@@ -275,7 +275,7 @@ export const PlaywrightWebOverlay = React.memo(
             style={{
               position: 'fixed',
               left: `${panelInfo.position.x + clickAnimation.x - 15}px`,
-              bottom: `${window.innerHeight - panelInfo.position.y - clickAnimation.y - 15}px`,
+              top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
               width: '30px',
               height: '30px',
               borderRadius: '50%',
@@ -295,7 +295,7 @@ export const PlaywrightWebOverlay = React.memo(
             style={{
               position: 'fixed',
               left: `${panelInfo.position.x + coordinateDisplay.x + 20}px`,
-              bottom: `${window.innerHeight - panelInfo.position.y - coordinateDisplay.y - 15}px`,
+              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`,
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               padding: '4px 8px',
