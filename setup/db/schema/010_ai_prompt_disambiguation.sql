@@ -1,8 +1,18 @@
--- AI Prompt Disambiguation Table
--- Stores learned user preferences for disambiguating ambiguous navigation prompts
--- Created: 2025-09-30
+-- Migration 010: AI Prompt Disambiguation Table
+-- Date: 2025-09-30
+-- Description: Stores learned user preferences for disambiguating ambiguous navigation prompts
+--              to prevent repeated ambiguity dialogs
 
-CREATE TABLE IF NOT EXISTS ai_prompt_disambiguation (
+-- Drop existing objects if they exist (for clean recreation)
+DROP INDEX IF EXISTS idx_ai_disambiguation_lookup;
+DROP INDEX IF EXISTS idx_ai_disambiguation_usage;
+DROP TABLE IF EXISTS ai_prompt_disambiguation;
+
+-- ==============================================================================
+-- AI PROMPT DISAMBIGUATION TABLE
+-- ==============================================================================
+
+CREATE TABLE ai_prompt_disambiguation (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   
@@ -34,3 +44,15 @@ COMMENT ON TABLE ai_prompt_disambiguation IS 'Stores learned user preferences fo
 COMMENT ON COLUMN ai_prompt_disambiguation.user_phrase IS 'The ambiguous phrase from user input that needs disambiguation';
 COMMENT ON COLUMN ai_prompt_disambiguation.resolved_node IS 'The actual navigation node the user chose for this phrase';
 COMMENT ON COLUMN ai_prompt_disambiguation.usage_count IS 'Number of times this mapping has been applied (increases confidence)';
+
+-- ==============================================================================
+-- ROLLBACK INSTRUCTIONS
+-- ==============================================================================
+-- To rollback this migration, run:
+--
+-- DROP INDEX IF EXISTS idx_ai_disambiguation_lookup;
+-- DROP INDEX IF EXISTS idx_ai_disambiguation_usage;
+-- DROP TABLE IF EXISTS ai_prompt_disambiguation;
+
+-- Log migration completion
+SELECT 'Migration 010: AI Prompt Disambiguation table created successfully' as status;
