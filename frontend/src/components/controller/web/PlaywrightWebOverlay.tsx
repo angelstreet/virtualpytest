@@ -201,7 +201,7 @@ export const PlaywrightWebOverlay = React.memo(
           style={{
             position: 'fixed',
             left: `${panelInfo.position.x}px`,
-            top: `${panelInfo.position.y}px`,
+            bottom: `${window.innerHeight - panelInfo.position.y - panelInfo.size.height}px`,
             width: `${panelInfo.size.width}px`,
             height: `${panelInfo.size.height}px`,
                           zIndex: getZIndex('DEBUG_OVERLAY', 5), // Use higher z-index above VNC streams
@@ -220,7 +220,7 @@ export const PlaywrightWebOverlay = React.memo(
             style={{
               position: 'fixed',
               left: `${panelInfo.position.x}px`,
-              top: `${panelInfo.position.y}px`,
+              bottom: `${window.innerHeight - panelInfo.position.y - panelInfo.size.height}px`,
               width: `${panelInfo.size.width}px`,
               height: `${panelInfo.size.height}px`,
               zIndex: getZIndex('DEBUG_OVERLAY', 5),
@@ -275,7 +275,7 @@ export const PlaywrightWebOverlay = React.memo(
             style={{
               position: 'fixed',
               left: `${panelInfo.position.x + clickAnimation.x - 15}px`,
-              top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
+              bottom: `${window.innerHeight - panelInfo.position.y - clickAnimation.y - 15}px`,
               width: '30px',
               height: '30px',
               borderRadius: '50%',
