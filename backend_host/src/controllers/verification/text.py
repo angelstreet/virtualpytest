@@ -296,6 +296,8 @@ class TextVerificationController:
                 # Local filename case - use URL conversion utility like image verification
                 try:
                     from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
+                    
                     # Build a proper URL first if it's just a filename
                     if not image_source_url.startswith('/'):
                         # Assume it's a filename from captures directory
@@ -306,8 +308,16 @@ class TextVerificationController:
                     
                     print(f"[@controller:TextVerification] Resolved path: {image_source_path}")
                     
+                    # Check hot storage first, then cold storage
                     if not os.path.exists(image_source_path):
-                        return {'success': False, 'message': f'Local file not found: {image_source_path}'}
+                        # Try cold storage
+                        device_folder = get_capture_folder(self.captures_path)
+                        cold_path = os.path.join(get_cold_storage_path(device_folder, 'captures'), os.path.basename(image_source_path))
+                        if os.path.exists(cold_path):
+                            image_source_path = cold_path
+                            print(f"[@controller:TextVerification] Found in cold storage: {cold_path}")
+                        else:
+                            return {'success': False, 'message': f'Local file not found in hot or cold: {image_source_path}'}
                         
                 except Exception as e:
                     print(f"[@controller:TextVerification] Path resolution error: {e}")

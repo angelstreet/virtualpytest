@@ -341,8 +341,16 @@ class ImageVerificationController:
                 # Local filename case - build full path directly
                 image_source_path = os.path.join(self.captures_path, image_source_url)
                 
+                # Check hot storage first, then cold storage
                 if not os.path.exists(image_source_path):
-                    return {'success': False, 'message': f'Local file not found: {image_source_path}'}
+                    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
+                    device_folder = get_capture_folder(self.captures_path)
+                    cold_path = os.path.join(get_cold_storage_path(device_folder, 'captures'), image_source_url)
+                    if os.path.exists(cold_path):
+                        image_source_path = cold_path
+                        print(f"[@controller:ImageVerification] Found in cold storage: {cold_path}")
+                    else:
+                        return {'success': False, 'message': f'Local file not found in hot or cold: {image_source_path}'}
             
             # Generate unique filename for output
             filename = self.helpers.get_unique_filename(reference_name)
@@ -397,8 +405,16 @@ class ImageVerificationController:
                 # Local filename case - build full path directly
                 image_source_path = os.path.join(self.captures_path, image_source_url)
                 
+                # Check hot storage first, then cold storage
                 if not os.path.exists(image_source_path):
-                    return {'success': False, 'message': f'Local file not found: {image_source_path}'}
+                    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
+                    device_folder = get_capture_folder(self.captures_path)
+                    cold_path = os.path.join(get_cold_storage_path(device_folder, 'captures'), image_source_url)
+                    if os.path.exists(cold_path):
+                        image_source_path = cold_path
+                        print(f"[@controller:ImageVerification] Found in cold storage: {cold_path}")
+                    else:
+                        return {'success': False, 'message': f'Local file not found in hot or cold: {image_source_path}'}
                 
                 # Create copy for filtering
                 filename = self.helpers.get_unique_filename('filtered_image')
@@ -449,8 +465,16 @@ class ImageVerificationController:
                 # Local filename case - build full path directly
                 image_source_path = os.path.join(self.captures_path, image_source_url)
                 
+                # Check hot storage first, then cold storage
                 if not os.path.exists(image_source_path):
-                    return {'success': False, 'message': f'Local file not found: {image_source_path}'}
+                    from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
+                    device_folder = get_capture_folder(self.captures_path)
+                    cold_path = os.path.join(get_cold_storage_path(device_folder, 'captures'), image_source_url)
+                    if os.path.exists(cold_path):
+                        image_source_path = cold_path
+                        print(f"[@controller:ImageVerification] Found in cold storage: {cold_path}")
+                    else:
+                        return {'success': False, 'message': f'Local file not found in hot or cold: {image_source_path}'}
             
             # Generate unique filename for saved reference
             filename = self.helpers.get_unique_filename(reference_name)
