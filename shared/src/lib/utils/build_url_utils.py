@@ -801,7 +801,8 @@ def buildCaptureUrlFromPath(host_info: dict, capture_path: str, device_id: str) 
     
     # Extract filename from capture path
     filename = os.path.basename(capture_path)
-    if not filename.startswith('capture_'):
+    # Allow 'verification_source.jpg' (fixed name for verification persistence) or standard 'capture_*' format
+    if not (filename.startswith('capture_') or filename == 'verification_source.jpg'):
         raise ValueError(f'Invalid capture filename format: {filename}')
     
     # Use existing buildCaptureUrl function
