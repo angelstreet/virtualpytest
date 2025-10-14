@@ -114,8 +114,19 @@ def save_resource():
     try:
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
+        team_id = request.args.get('team_id')
         
-        print(f"[@route:host_save_resource] Save image reference request for device: {device_id}")
+        print(f"[@route:host_save_resource] Save image reference request for device: {device_id}, team: {team_id}")
+        
+        # Validate team_id
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id query parameter is required'
+            }), 400
+        
+        # Add team_id to data
+        data['team_id'] = team_id
         
         # Get image verification controller and device info
         image_controller, device, error_response = get_verification_controller(device_id, 'verification_image', check_device=True)

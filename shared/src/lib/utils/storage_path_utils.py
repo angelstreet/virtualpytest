@@ -473,7 +473,7 @@ def get_metadata_path(device_folder):
     return get_capture_storage_path(device_folder, 'metadata')
 
 
-def get_transcript_chunk_path(device_folder, hour, chunk_index):
+def get_transcript_chunk_path(device_folder, hour, chunk_index, language='original'):
     """
     Get path to specific transcript chunk JSON file.
     CENTRALIZED - Use this instead of building paths manually!
@@ -482,13 +482,37 @@ def get_transcript_chunk_path(device_folder, hour, chunk_index):
         device_folder: Device folder name (e.g., 'capture1')
         hour: Hour (0-23)
         chunk_index: Chunk index within hour (0-5 for 10-min chunks)
+        language: Language code ('original', 'es', 'fr', etc.)
         
     Returns:
         Full path to transcript JSON file
         (e.g., '/var/www/html/stream/capture1/transcript/1/chunk_10min_0.json')
+        (e.g., '/var/www/html/stream/capture1/transcript/1/chunk_10min_0_es.json')
     """
     transcript_base = get_transcript_path(device_folder)
-    return os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}.json')
+    lang_suffix = '' if language == 'original' else f'_{language}'
+    return os.path.join(transcript_base, str(hour), f'chunk_10min_{chunk_index}{lang_suffix}.json')
+
+
+def get_audio_chunk_path(device_folder, hour, chunk_index, language='original'):
+    """
+    Get path to specific audio chunk MP3 file.
+    CENTRALIZED - Use this instead of building paths manually!
+    
+    Args:
+        device_folder: Device folder name (e.g., 'capture1')
+        hour: Hour (0-23)
+        chunk_index: Chunk index within hour (0-5 for 10-min chunks)
+        language: Language code ('original' for source audio, 'es', 'fr' for dubbed)
+        
+    Returns:
+        Full path to audio MP3 file
+        (e.g., '/var/www/html/stream/capture1/audio/1/chunk_10min_0.mp3')
+        (e.g., '/var/www/html/stream/capture1/audio/1/chunk_10min_0_es.mp3')
+    """
+    audio_base = get_cold_storage_path(device_folder, 'audio')
+    lang_suffix = '' if language == 'original' else f'_{language}'
+    return os.path.join(audio_base, str(hour), f'chunk_10min_{chunk_index}{lang_suffix}.mp3')
 
 
 def get_capture_folder(capture_dir):

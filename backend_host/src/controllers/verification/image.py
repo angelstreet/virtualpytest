@@ -453,6 +453,7 @@ class ImageVerificationController:
             image_source_url = data.get('image_source_url', '')
             reference_name = data.get('reference_name', 'image_reference')
             area = data.get('area')
+            team_id = data.get('team_id')
             
             if not image_source_url:
                 return {'success': False, 'message': 'image_source_url is required for saving reference'}
@@ -495,8 +496,11 @@ class ImageVerificationController:
             if not device_model:
                 return {'success': False, 'message': 'device_model is required for saving reference'}
             
+            if not team_id:
+                return {'success': False, 'message': 'team_id is required for saving reference'}
+            
             # Save reference using helpers (handles R2 upload and database save)
-            save_result = self.helpers.save_image_reference(image_saved_path, reference_name, device_model, area)
+            save_result = self.helpers.save_image_reference(image_saved_path, reference_name, device_model, team_id, area)
             
             if not save_result.get('success'):
                 return {

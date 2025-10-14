@@ -327,15 +327,11 @@ export const useTranscriptPlayer = ({
     setIsTranslating(true);
     
     try {
-      const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
-      const checkResponse = await fetch(transcriptUrl);
-      
-      let transcriptLoaded = false;
-      
-      if (checkResponse.ok) {
+      if (language === 'original') {
+        // Load original transcript directly
         await loadTranscriptForLanguage(hour, chunkIndex, language);
-        transcriptLoaded = true;
-      } else if (language !== 'original') {
+      } else {
+        // For translations, trigger translation API first
         if (!host) {
           console.error(`[@useTranscriptPlayer] Host required for translation`);
           return;
@@ -354,20 +350,12 @@ export const useTranscriptPlayer = ({
         
         if (result.success) {
           console.log(`[@useTranscriptPlayer] Translation completed in ${result.processing_time?.toFixed(1)}s, loading transcript...`);
+          // NOW load the translated transcript
           await loadTranscriptForLanguage(hour, chunkIndex, language);
-          transcriptLoaded = true;
         } else {
           console.error(`[@useTranscriptPlayer] Translation failed:`, result.error);
           return;
         }
-      } else {
-        console.error(`[@useTranscriptPlayer] Original transcript not found`);
-        return;
-      }
-      
-      if (!transcriptLoaded) {
-        console.error(`[@useTranscriptPlayer] Transcript could not be loaded`);
-        return;
       }
 
       console.log(`[@useTranscriptPlayer] ✅ Transcript loaded successfully, proceeding to audio...`);

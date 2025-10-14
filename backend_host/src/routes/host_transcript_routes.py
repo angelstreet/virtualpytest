@@ -86,25 +86,31 @@ def generate_dubbed_audio():
         if not all([device_id, hour is not None, chunk_index is not None, language]):
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
         
-        # Get device base path
-        from shared.src.lib.utils.storage_path_utils import get_device_base_path, get_cold_storage_path
-        device_base_path = get_device_base_path(device_id)
+        # Use centralized path utilities - NO manual path building!
+        from shared.src.lib.utils.storage_path_utils import (
+            get_capture_folder_from_device_id,
+            get_transcript_chunk_path,
+            get_audio_chunk_path
+        )
         
-        # Check if audio already exists
-        audio_cold = get_cold_storage_path(device_id, 'audio')
-        audio_file = os.path.join(audio_cold, str(hour), f'chunk_10min_{chunk_index}_{language}.mp3')
+        # Get capture folder from device_id
+        capture_folder = get_capture_folder_from_device_id(device_id)
+        if not capture_folder:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found in configuration'}), 404
+        
+        # Check if audio already exists using CENTRALIZED function
+        audio_file = get_audio_chunk_path(capture_folder, hour, chunk_index, language)
         
         if os.path.exists(audio_file):
             return jsonify({
                 'success': True,
-                'url': f'host/stream/{device_id}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
+                'url': f'host/stream/{capture_folder}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
                 'status': 'ready',
                 'cached': True
             })
         
-        # Load translated transcript
-        transcript_dir = os.path.join(device_base_path, 'transcript', str(hour))
-        transcript_file = os.path.join(transcript_dir, f'chunk_10min_{chunk_index}_{language}.json')
+        # Load translated transcript using CENTRALIZED function
+        transcript_file = get_transcript_chunk_path(capture_folder, hour, chunk_index, language)
         
         print(f"[@host_transcript] Looking for transcript: {transcript_file}")
         
@@ -132,8 +138,8 @@ def generate_dubbed_audio():
                 'error': f'Voice not available for {language}'
             }), 400
         
-        # Create audio directory
-        audio_hour_dir = os.path.join(audio_cold, str(hour))
+        # Create audio directory (from centralized path)
+        audio_hour_dir = os.path.dirname(audio_file)
         os.makedirs(audio_hour_dir, exist_ok=True)
         
         # Generate dubbed audio using Edge TTS
@@ -151,7 +157,7 @@ def generate_dubbed_audio():
                 'error': 'Failed to generate dubbed audio'
             }), 500
         
-        audio_url = f'host/stream/{device_id}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3'
+        audio_url = f'host/stream/{capture_folder}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3'
         print(f"[@host_transcript] ✅ Generated dubbed audio: {audio_url}")
         
         return jsonify({
