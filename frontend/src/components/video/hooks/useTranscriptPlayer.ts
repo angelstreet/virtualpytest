@@ -5,7 +5,6 @@ import {
   buildHostUrl, 
   buildAudioMp3Url,
   buildDubbedAudioUrl,
-  buildDubbedAudio1MinUrl,
   buildTranscriptChunkUrl,
   buildTranscriptManifestUrl
 } from '../../../utils/buildUrlUtils';
@@ -71,9 +70,6 @@ export const useTranscriptPlayer = ({
   const [rawTranscriptData, setRawTranscriptData] = useState<TranscriptData10Min | null>(null);  // Keep raw 10-min data
   const [currentTranscript, setCurrentTranscript] = useState<TranscriptSegment | null>(null);
   const [currentTimedSegment, setCurrentTimedSegment] = useState<TimedSegment | null>(null);
-  
-  // Separate language selection for audio and transcript
-  const [selectedAudioLanguage, setSelectedAudioLanguage] = useState<string>('original');
   const [selectedTranscriptLanguage, setSelectedTranscriptLanguage] = useState<string>('original');
   
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(['original']);
@@ -305,96 +301,9 @@ export const useTranscriptPlayer = ({
       console.error(`[@useTranscriptPlayer] Error loading ${language}:`, error);
     }
   }, [deviceId, host]);
-  
-  // Helper: Reload transcript data from manifest
-  const reloadTranscriptData = useCallback(async () => {
-    if (!rawTranscriptData) return;
-    
-    const manifestUrl = buildTranscriptManifestUrl(host, deviceId);
-    
-    try {
-      const manifest = await fetch(manifestUrl).then(res => res.json());
-      
-      if (manifest && manifest.chunks) {
-        const chunkInfo = manifest.chunks.find(
-          (chunk: any) => chunk.hour === rawTranscriptData.hour && chunk.chunk_index === rawTranscriptData.chunk_index
-        );
-        
-        if (chunkInfo && chunkInfo.transcript) {
-          const updatedTranscript: TranscriptData10Min = {
-            capture_folder: chunkInfo.capture_folder || deviceId,
-            hour: rawTranscriptData.hour,
-            chunk_index: rawTranscriptData.chunk_index,
-            chunk_duration_minutes: 10,
-            language: chunkInfo.language || 'unknown',
-            transcript: chunkInfo.transcript || '',
-            confidence: chunkInfo.confidence || 0.0,
-            transcription_time_seconds: chunkInfo.transcription_time_seconds || 0,
-            timestamp: chunkInfo.timestamp || new Date().toISOString(),
-            mp3_file: chunkInfo.mp3_file || '',
-            segments: chunkInfo.segments || [],
-            minute_metadata: chunkInfo.minute_metadata || []
-          };
-          
-          setRawTranscriptData(updatedTranscript);
-          setTranscriptData(normalizeTranscriptData(updatedTranscript));
-        }
-      }
-    } catch (error) {
-      console.error('[@useTranscriptPlayer] Failed to reload transcript:', error);
-    }
-  }, [rawTranscriptData, deviceId, host]);
 
   const handleLanguageChange = useCallback(async (language: string) => {
     setSelectedTranscriptLanguage(language);
-    setSelectedAudioLanguage(language);
-    
-    if (language === 'original') {
-      await reloadTranscriptData();
-    } else {
-      if (!archiveMetadata?.manifests.length) return;
-      const currentManifest = archiveMetadata.manifests[currentManifestIndex];
-      if (!currentManifest) return;
-
-      const hour = currentManifest.window_index;
-      const chunkIndex = currentManifest.chunk_index;
-
-      setIsTranslating(true);
-      
-      try {
-        const translatedChunkUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
-        const checkResponse = await fetch(translatedChunkUrl);
-        
-        if (checkResponse.ok) {
-          await loadTranscriptForLanguage(hour, chunkIndex, language);
-        } else {
-          if (!host) {
-            console.error(`[@useTranscriptPlayer] Host required for translation`);
-            return;
-          }
-          
-          const originalUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
-          const apiUrl = buildHostUrl(host, 'host/transcript/translate-chunk');
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chunk_url: originalUrl, language })
-          });
-          
-          const result = await response.json();
-          
-          if (result.success) {
-            await loadTranscriptForLanguage(hour, chunkIndex, language);
-          } else {
-            console.error(`[@useTranscriptPlayer] Translation failed:`, result.error);
-          }
-        }
-      } catch (error) {
-        console.error(`[@useTranscriptPlayer] Error:`, error);
-      } finally {
-        setIsTranslating(false);
-      }
-    }
     
     if (!archiveMetadata?.manifests.length) return;
     const currentManifest = archiveMetadata.manifests[currentManifestIndex];
@@ -403,106 +312,76 @@ export const useTranscriptPlayer = ({
     const hour = currentManifest.window_index;
     const chunkIndex = currentManifest.chunk_index;
 
-    if (language === 'original') {
-      setDubbedAudioUrl(null);
-    } else if (availableDubbedLanguages.includes(language)) {
-      const currentMinute = Math.floor(globalCurrentTime / 60) % 10;
-      const url1min = buildDubbedAudio1MinUrl(host, deviceId, currentMinute, language);
-      const url10min = buildDubbedAudioUrl(host, deviceId, hour, chunkIndex, language);
+    setIsTranslating(true);
+    
+    try {
+      const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
+      const checkResponse = await fetch(transcriptUrl);
       
-      try {
-        const response = await fetch(url1min, { method: 'HEAD' });
-        if (response.ok) {
-          setDubbedAudioUrl(url1min);
-          return;
-        }
-      } catch (e) {
-        // Fallback to 10min
-      }
-      
-      try {
-        const response10 = await fetch(url10min, { method: 'HEAD' });
-        if (response10.ok) {
-          setDubbedAudioUrl(url10min);
-          return;
-        }
-      } catch (e) {
-        // Generate on-demand
-      }
-      
-      setIsTranslating(true);
-      try {
+      if (checkResponse.ok) {
+        await loadTranscriptForLanguage(hour, chunkIndex, language);
+      } else if (language !== 'original') {
         if (!host) {
-          setDubbedAudioUrl(null);
-          setIsTranslating(false);
+          console.error(`[@useTranscriptPlayer] Host required for translation`);
           return;
         }
         
-        const apiUrl = buildHostUrl(host, 'host/transcript/generate-dubbed-audio');
+        const originalUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
+        const apiUrl = buildHostUrl(host, 'host/transcript/translate-chunk');
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            device_id: deviceId, 
-            hour, 
-            chunk_index: chunkIndex, 
-            language 
-          })
+          body: JSON.stringify({ chunk_url: originalUrl, language })
         });
         
         const result = await response.json();
         
-        if (result.success && result.url) {
-          // Result URL is a relative path, use buildHostUrl to construct full URL
-          // Remove leading slash if present since buildHostUrl handles it
-          const cleanUrl = result.url.startsWith('/') ? result.url.slice(1) : result.url;
-          const fullUrl = buildHostUrl(host, cleanUrl);
-          setDubbedAudioUrl(fullUrl);
+        if (result.success) {
+          await loadTranscriptForLanguage(hour, chunkIndex, language);
+        } else {
+          console.error(`[@useTranscriptPlayer] Translation failed:`, result.error);
+          return;
+        }
+      } else {
+        console.error(`[@useTranscriptPlayer] Original transcript not found`);
+        return;
+      }
+
+      if (language === 'original') {
+        setDubbedAudioUrl(null);
+      } else {
+        const url10min = buildDubbedAudioUrl(host, deviceId, hour, chunkIndex, language);
+        
+        const audioCheck = await fetch(url10min, { method: 'HEAD' }).catch(() => ({ ok: false }));
+        
+        if (audioCheck.ok) {
+          setDubbedAudioUrl(url10min);
+        } else if (host) {
+          const apiUrl = buildHostUrl(host, 'host/transcript/generate-dubbed-audio');
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: deviceId, hour, chunk_index: chunkIndex, language })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success && result.url) {
+            const cleanUrl = result.url.startsWith('/') ? result.url.slice(1) : result.url;
+            setDubbedAudioUrl(buildHostUrl(host, cleanUrl));
+          } else {
+            setDubbedAudioUrl(null);
+          }
         } else {
           setDubbedAudioUrl(null);
         }
-      } catch (error) {
-        setDubbedAudioUrl(null);
-      } finally {
-        setIsTranslating(false);
       }
-    } else {
-      setDubbedAudioUrl(null);
+    } catch (error) {
+      console.error(`[@useTranscriptPlayer] Error:`, error);
+    } finally {
+      setIsTranslating(false);
     }
-  }, [availableLanguages, availableDubbedLanguages, archiveMetadata, currentManifestIndex, globalCurrentTime, 
-      loadTranscriptForLanguage, reloadTranscriptData, host, deviceId]);
-
-  // Auto-update 1-minute dubbed audio as video progresses through minutes
-  useEffect(() => {
-    if (selectedAudioLanguage === 'original' || !availableDubbedLanguages.includes(selectedAudioLanguage)) {
-      return;
-    }
-
-    if (!archiveMetadata?.manifests.length) return;
-    const currentManifest = archiveMetadata.manifests[currentManifestIndex];
-    if (!currentManifest) return;
-
-    const currentMinute = Math.floor(globalCurrentTime / 60) % 10;
-    const hour = currentManifest.window_index;
-    const chunkIndex = currentManifest.chunk_index;
-
-    const url1min = buildDubbedAudio1MinUrl(host, deviceId, currentMinute, selectedAudioLanguage);
-    const url10min = buildDubbedAudioUrl(host, deviceId, hour, chunkIndex, selectedAudioLanguage);
-
-    fetch(url1min, { method: 'HEAD' })
-      .then(response => {
-        if (response.ok && dubbedAudioUrl !== url1min) {
-          setDubbedAudioUrl(url1min);
-        } else if (!response.ok && dubbedAudioUrl !== url10min) {
-          setDubbedAudioUrl(url10min);
-        }
-      })
-      .catch(() => {
-        if (dubbedAudioUrl !== url10min) {
-          setDubbedAudioUrl(url10min);
-        }
-      });
-  }, [globalCurrentTime, selectedAudioLanguage, availableDubbedLanguages, archiveMetadata, currentManifestIndex, host, deviceId, dubbedAudioUrl]);
+  }, [archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, host, deviceId]);
 
   const getCurrentTranscriptText = useCallback(() => {
     if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0 && currentTimedSegment) {

@@ -99,7 +99,7 @@ def generate_dubbed_audio():
         if os.path.exists(audio_file):
             return jsonify({
                 'success': True,
-                'url': f'/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
+                'url': f'host/stream/{device_id}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
                 'status': 'ready',
                 'cached': True
             })
@@ -154,7 +154,7 @@ def generate_dubbed_audio():
         
         return jsonify({
             'success': True,
-            'url': f'/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
+            'url': f'host/stream/{device_id}/audio/{hour}/chunk_10min_{chunk_index}_{language}.mp3',
             'status': 'ready',
             'cached': False,
             'size': os.path.getsize(audio_file)
