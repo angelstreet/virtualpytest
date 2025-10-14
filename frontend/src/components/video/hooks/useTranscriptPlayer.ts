@@ -345,7 +345,6 @@ export const useTranscriptPlayer = ({
     }
   }, [rawTranscriptData, deviceId, host]);
 
-  // Unified language change handler (handles both transcript and audio)
   const handleLanguageChange = useCallback(async (language: string) => {
     setSelectedTranscriptLanguage(language);
     setSelectedAudioLanguage(language);
@@ -360,30 +359,26 @@ export const useTranscriptPlayer = ({
       const hour = currentManifest.window_index;
       const chunkIndex = currentManifest.chunk_index;
 
-      if (availableLanguages.includes(language)) {
-        setIsTranslating(true);
-        await loadTranscriptForLanguage(hour, chunkIndex, language);
-        setIsTranslating(false);
-      } else {
-        setIsTranslating(true);
+      setIsTranslating(true);
+      
+      try {
+        const translatedChunkUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, language);
+        const checkResponse = await fetch(translatedChunkUrl);
         
-        try {
+        if (checkResponse.ok) {
+          await loadTranscriptForLanguage(hour, chunkIndex, language);
+        } else {
           if (!host) {
-            console.error(`[@useTranscriptPlayer] Host information required for API call`);
-            setIsTranslating(false);
+            console.error(`[@useTranscriptPlayer] Host required for translation`);
             return;
           }
           
-          const transcriptUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
-
+          const originalUrl = buildTranscriptChunkUrl(host, deviceId, hour, chunkIndex, 'original');
           const apiUrl = buildHostUrl(host, 'host/transcript/translate-chunk');
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chunk_url: transcriptUrl,
-              language
-            })
+            body: JSON.stringify({ chunk_url: originalUrl, language })
           });
           
           const result = await response.json();
@@ -393,11 +388,11 @@ export const useTranscriptPlayer = ({
           } else {
             console.error(`[@useTranscriptPlayer] Translation failed:`, result.error);
           }
-        } catch (error) {
-          console.error(`[@useTranscriptPlayer] Translation error:`, error);
-        } finally {
-          setIsTranslating(false);
         }
+      } catch (error) {
+        console.error(`[@useTranscriptPlayer] Error:`, error);
+      } finally {
+        setIsTranslating(false);
       }
     }
     
@@ -510,24 +505,14 @@ export const useTranscriptPlayer = ({
   }, [globalCurrentTime, selectedAudioLanguage, availableDubbedLanguages, archiveMetadata, currentManifestIndex, host, deviceId, dubbedAudioUrl]);
 
   const getCurrentTranscriptText = useCallback(() => {
-    if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0) {
-      if (!currentTimedSegment) return '';
-      
-      if (selectedTranscriptLanguage !== 'original' && currentTimedSegment.translations?.[selectedTranscriptLanguage]) {
-        return currentTimedSegment.translations[selectedTranscriptLanguage];
-      }
+    if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0 && currentTimedSegment) {
       return currentTimedSegment.text;
     }
-    
-    if (!currentTranscript) return '';
-    
-    if (selectedTranscriptLanguage === 'original') {
+    if (currentTranscript) {
       return currentTranscript.enhanced_transcript || currentTranscript.transcript;
     }
-    
-    const translation = currentTranscript.translations?.[selectedTranscriptLanguage];
-    return translation || currentTranscript.enhanced_transcript || currentTranscript.transcript;
-  }, [rawTranscriptData, currentTranscript, currentTimedSegment, selectedTranscriptLanguage]);
+    return '';
+  }, [rawTranscriptData, currentTranscript, currentTimedSegment]);
 
   const clearTranscriptData = useCallback(() => {
     setTranscriptData(null);

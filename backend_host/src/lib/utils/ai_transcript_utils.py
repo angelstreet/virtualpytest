@@ -5,6 +5,49 @@ import time
 from typing import Dict, Any, List
 from shared.src.lib.utils.ai_utils import call_text_ai
 
+def translate_segments(
+    segments: List[Dict[str, Any]],
+    source_language: str,
+    target_language: str
+) -> Dict[str, Any]:
+    start_time = time.time()
+    
+    try:
+        texts = [f"{i+1}. {seg['text']}" for i, seg in enumerate(segments)]
+        prompt = f"""Translate from {source_language} to {target_language}:
+
+{chr(10).join(texts)}
+
+JSON only:
+{{"translations": ["text1", "text2", ...]}}"""
+        
+        estimated_tokens = max(3000, len('\n'.join(texts)) * 2)
+        result = call_text_ai(prompt, max_tokens=estimated_tokens, temperature=0.0)
+        
+        if not result['success']:
+            return {'success': False, 'error': result.get('error', 'AI call failed'), 'processing_time': time.time() - start_time}
+        
+        content = result['content'].strip().replace('```json', '').replace('```', '').strip()
+        data = json.loads(content)
+        translations = data.get('translations', [])
+        
+        if len(translations) != len(segments):
+            return {'success': False, 'error': f'Translation count mismatch: {len(translations)} != {len(segments)}', 'processing_time': time.time() - start_time}
+        
+        translated_segments = []
+        for i, seg in enumerate(segments):
+            new_seg = seg.copy()
+            new_seg['text'] = translations[i]
+            translated_segments.append(new_seg)
+        
+        return {
+            'success': True,
+            'segments': translated_segments,
+            'processing_time': time.time() - start_time
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e), 'processing_time': time.time() - start_time}
+
 def enhance_and_translate_transcript(
     text: str,
     source_language: str,
