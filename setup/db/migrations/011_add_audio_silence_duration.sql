@@ -26,3 +26,5 @@ COMMENT ON COLUMN zap_results.audio_silence_duration IS 'Duration of audio silen
 
 -- Log migration completion
 SELECT 'Migration 011: audio_silence_duration column added successfully' as status;
+
+

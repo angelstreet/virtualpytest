@@ -56,3 +56,5 @@ COMMENT ON COLUMN ai_prompt_disambiguation.usage_count IS 'Number of times this 
 
 -- Log migration completion
 SELECT 'Migration 010: AI Prompt Disambiguation table created successfully' as status;
+
+

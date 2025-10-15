@@ -316,15 +316,19 @@ def get_capture_folder_size(capture_folder: str) -> str:
 def get_process_start_time(capture_folder: str, process_type: str) -> float:
     """Get process start time from system"""
     try:
+        # Force C locale for consistent date parsing regardless of system locale
+        env = os.environ.copy()
+        env['LC_ALL'] = 'C'
+        
         if process_type == 'ffmpeg':
             # Find FFmpeg process for this capture folder
             result = subprocess.run(['pgrep', '-f', f'ffmpeg.*{capture_folder}'], 
                                   capture_output=True, text=True)
             if result.returncode == 0:
                 pid = result.stdout.strip().split('\n')[0]  # Get first PID
-                # Get process start time using ps
+                # Get process start time using ps with C locale for English output
                 ps_result = subprocess.run(['ps', '-o', 'lstart=', '-p', pid], 
-                                         capture_output=True, text=True)
+                                         capture_output=True, text=True, env=env)
                 if ps_result.returncode == 0:
                     start_str = ps_result.stdout.strip()
                     # Parse start time (format: "Mon Jan 1 10:00:00 2024")
@@ -336,8 +340,9 @@ def get_process_start_time(capture_folder: str, process_type: str) -> float:
                                   capture_output=True, text=True)
             if result.returncode == 0:
                 pid = result.stdout.strip().split('\n')[0]  # Get first PID
+                # Get process start time using ps with C locale for English output
                 ps_result = subprocess.run(['ps', '-o', 'lstart=', '-p', pid], 
-                                         capture_output=True, text=True)
+                                         capture_output=True, text=True, env=env)
                 if ps_result.returncode == 0:
                     start_str = ps_result.stdout.strip()
                     return datetime.strptime(start_str, '%a %b %d %H:%M:%S %Y').timestamp()
