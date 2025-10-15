@@ -276,16 +276,19 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                   overflow: 'hidden',
                 }}
               >
-                <iframe
-                  src={streamUrl}
-                  style={{
-                    border: 'none',
-                    backgroundColor: '#000',
-                    pointerEvents: 'none',
-                    ...calculateVncScaling({ width: 300, height: 150 }), // Preview card target size
-                  }}
-                  title="VNC Desktop Preview"
-                />
+                {/* Only render VNC iframe when stream is active */}
+                {isStreamActive && (
+                  <iframe
+                    src={streamUrl}
+                    style={{
+                      border: 'none',
+                      backgroundColor: '#000',
+                      pointerEvents: 'none',
+                      ...calculateVncScaling({ width: 300, height: 150 }), // Preview card target size
+                    }}
+                    title="VNC Desktop Preview"
+                  />
+                )}
                 {/* Pause overlay when modal is open */}
                 {isPausingForModal && (
                   <Box

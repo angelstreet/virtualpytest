@@ -379,10 +379,12 @@ def start_server(app):
             from shared.src.lib.supabase.system_metrics_db import store_system_metrics
             
             time.sleep(15)  # Wait for startup
+            first_run = True  # Track first metrics collection
             while True:
                 try:
-                    # Get server system stats (use server-specific function)
-                    server_stats = get_server_system_stats()
+                    # Get server system stats (skip speedtest on first run to avoid startup delay)
+                    server_stats = get_server_system_stats(skip_speedtest=first_run)
+                    first_run = False  # Allow speedtest on subsequent runs
                     
                     # Debug: Show actual metrics values including load averages
                     disk_write = server_stats.get('disk_write_mb_per_sec', 'N/A')

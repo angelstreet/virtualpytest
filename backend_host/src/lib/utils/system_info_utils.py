@@ -204,8 +204,13 @@ def get_files_by_pattern(
         return []
 
 
-def get_network_speed_cached():
-    """Get network speed with 10-min shared cache"""
+def get_network_speed_cached(skip_if_no_cache=False):
+    """
+    Get network speed with 10-min shared cache
+    
+    Args:
+        skip_if_no_cache: If True, return empty dict if cache doesn't exist (for startup optimization)
+    """
     try:
         # Read shared cache with file locking
         if os.path.exists(SPEEDTEST_CACHE):
@@ -233,6 +238,11 @@ def get_network_speed_cached():
                     os.remove(SPEEDTEST_CACHE)
                 except:
                     pass
+        
+        # Skip speedtest if requested (for startup optimization)
+        if skip_if_no_cache:
+            print("🌐 [SPEEDTEST] Skipping initial speedtest (will run after startup)")
+            return {}
         
         # Cache expired, missing, or corrupted - run test
         result = measure_network_speed()
@@ -448,8 +458,13 @@ def get_cpu_temperature():
     return None  # Temperature not available
 
 
-def get_host_system_stats():
-    """Get basic system statistics for host registration"""
+def get_host_system_stats(skip_speedtest=False):
+    """
+    Get basic system statistics for host registration
+    
+    Args:
+        skip_speedtest: If True, skip speedtest if no cache exists (for startup optimization)
+    """
     try:
         # Get service uptime from status checks
         ffmpeg_status = check_ffmpeg_status()
@@ -498,8 +513,8 @@ def get_host_system_stats():
         if cpu_temp is not None:
             stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
         
-        # Add network speed (cached)
-        network_speed = get_network_speed_cached()
+        # Add network speed (cached) - skip speedtest during startup if requested
+        network_speed = get_network_speed_cached(skip_if_no_cache=skip_speedtest)
         stats.update(network_speed)
         
         return stats
@@ -544,8 +559,13 @@ def is_host_stuck():
         print(f"⚠️ Error checking if host is stuck: {e}")
         return False
 
-def get_enhanced_system_stats():
-    """Get enhanced system statistics including uptime and process status"""
+def get_enhanced_system_stats(skip_speedtest=False):
+    """
+    Get enhanced system statistics including uptime and process status
+    
+    Args:
+        skip_speedtest: If True, skip speedtest if no cache exists (for startup optimization)
+    """
     try:
         # Basic system stats
         memory = psutil.virtual_memory()
@@ -611,8 +631,8 @@ def get_enhanced_system_stats():
         if cpu_temp is not None:
             stats['cpu_temperature_celsius'] = round(cpu_temp, 1)
         
-        # Add network speed (cached)
-        network_speed = get_network_speed_cached()
+        # Add network speed (cached) - skip speedtest during startup if requested
+        network_speed = get_network_speed_cached(skip_if_no_cache=skip_speedtest)
         stats.update(network_speed)
         
         return stats

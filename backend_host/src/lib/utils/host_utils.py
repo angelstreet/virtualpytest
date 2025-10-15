@@ -222,8 +222,8 @@ def register_host_with_server():
             if capabilities:
                 print(f"       Capabilities: {', '.join(capabilities)}")
         
-        # Get enhanced system stats for registration
-        system_stats = get_enhanced_system_stats()
+        # Get enhanced system stats for registration (skip speedtest to avoid startup delay)
+        system_stats = get_enhanced_system_stats(skip_speedtest=True)
         
         # Get HOST_URL from environment variable (for browser/frontend access via nginx)
         host_url = os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
