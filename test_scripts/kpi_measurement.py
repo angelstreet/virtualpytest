@@ -26,7 +26,7 @@ Examples:
 import sys
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add project root to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -182,8 +182,8 @@ def main():
     print(f"🔗 [kpi_measurement] Action Set: {args.edge}")
     print(f"🔢 [kpi_measurement] Iterations: {args.iterations}")
     
-    # Record script start time for DB query
-    script_start_time = datetime.now()
+    # Record script start time for DB query (use UTC to match database timestamps)
+    script_start_time = datetime.now(timezone.utc)
     
     # Get available edges and build action_set map
     print(f"📥 [kpi_measurement] Loading available edges...")
@@ -286,7 +286,7 @@ def main():
     time.sleep(10)
     
     # Fetch KPI results from database
-    script_end_time = datetime.now()
+    script_end_time = datetime.now(timezone.utc)
     print(f"📥 [kpi_measurement] Fetching KPI results from database...")
     print(f"   Time range: {script_start_time.isoformat()} to {script_end_time.isoformat()}")
     

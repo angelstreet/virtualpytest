@@ -162,6 +162,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       renderInput={renderInput}
       loading={loading}
       disabled={!userinterfaceName || !hostName || loading}
+      disableClearable
       noOptionsText={
         !userinterfaceName
           ? 'Select user interface first'
