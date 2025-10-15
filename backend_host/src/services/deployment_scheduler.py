@@ -1,7 +1,7 @@
 """Deployment Scheduler - Manages periodic script execution"""
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from shared.src.lib.supabase.client import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
 import time
 

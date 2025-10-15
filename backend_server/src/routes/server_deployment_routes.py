@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import requests
 from backend_server.src.lib.utils.server_utils import get_host_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl
-from shared.src.lib.supabase.client import get_supabase_client
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 server_deployment_bp = Blueprint('server_deployment', __name__, url_prefix='/server/deployment')
 
