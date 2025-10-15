@@ -3,22 +3,24 @@
 KPI Measurement Script for VirtualPyTest
 
 This script measures KPIs for a specific edge transition by repeatedly navigating it.
-Uses edge_id selection to ensure DIRECT navigation transition between two nodes.
+Uses edge label (from_node|to_node) to ensure DIRECT navigation transition.
 KPI measurements are post-processed by kpi_executor service and fetched from DB.
 
 Workflow:
-1. Select edge (by UUID) to get source and target nodes
-2. Navigate in loop: goto(source) → goto(target) (like goto.py)
-3. Wait 10 seconds for kpi_executor post-processing
-4. Fetch KPI measurements from database
-5. Display min/max/avg statistics
+1. Frontend: User selects edge from dropdown (e.g., "home → live")
+2. Frontend: Sends edge as "home|live" (pipe separator for command-line safety)
+3. Script: Parses to get from_node="home", to_node="live"
+4. Script: Navigate in loop: goto(home) → goto(live) (like goto.py)
+5. Script: Wait 10 seconds for kpi_executor post-processing
+6. Script: Fetch KPI measurements from database
+7. Script: Display min/max/avg statistics
 
 Usage:
-    python test_scripts/kpi_measurement.py <userinterface_name> --edge-id <edge_uuid> [--iterations <count>]
+    python test_scripts/kpi_measurement.py <userinterface_name> --edge <from_node|to_node> [--iterations <count>]
     
 Examples:
-    python test_scripts/kpi_measurement.py horizon_android_mobile --edge-id abc123... --iterations 5
-    python test_scripts/kpi_measurement.py horizon_android_tv --edge-id def456... --iterations 10
+    python test_scripts/kpi_measurement.py horizon_android_mobile --edge "home|live" --iterations 5
+    python test_scripts/kpi_measurement.py horizon_android_tv --edge "settings|home" --iterations 10
 """
 
 import sys
@@ -38,43 +40,9 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
 # NOTE: Framework params (userinterface_name, --host, --device) are automatic - don't declare them!
 _script_args = [
-    '--edge-id:str:',            # Script-specific param - Edge ID (UUID)
+    '--edge:str:',               # Script-specific param - Edge label (e.g., "home|live")
     '--iterations:int:3'         # Script-specific param - Number of iterations
 ]
-
-
-def _get_available_edges(context):
-    """Get list of all available edges from navigation tree"""
-    from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-    from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
-    from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
-    
-    device = context.selected_device
-    args = context.args
-    
-    # Get tree_id
-    userinterface = get_userinterface_by_name(args.userinterface_name, context.team_id)
-    if not userinterface:
-        print(f"❌ User interface '{args.userinterface_name}' not found")
-        return []
-    
-    root_tree = get_root_tree_for_interface(userinterface['id'], context.team_id)
-    if not root_tree:
-        print(f"❌ No root tree found for interface '{args.userinterface_name}'")
-        return []
-    
-    context.tree_id = root_tree['id']
-    
-    # Load navigation tree to populate cache
-    nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
-        context.team_id
-    )
-    if not nav_result['success']:
-        print(f"❌ Navigation tree loading failed")
-        return []
-    
-    return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
 def _fetch_kpi_results_from_db(device_id: str, team_id: str, start_time: datetime, end_time: datetime):
@@ -176,41 +144,35 @@ def main():
     
     print(f"📊 [kpi_measurement] Starting KPI measurement")
     print(f"📱 [kpi_measurement] Device: {device.device_name} ({device.device_model})")
-    print(f"🔗 [kpi_measurement] Edge ID: {args.edge_id}")
+    print(f"🔗 [kpi_measurement] Edge: {args.edge}")
     print(f"🔢 [kpi_measurement] Iterations: {args.iterations}")
     
     # Record script start time for DB query
     script_start_time = datetime.now()
     
-    # Get available edges
-    print(f"📥 [kpi_measurement] Loading available edges...")
-    edges = _get_available_edges(context)
-    if not edges:
-        context.error_message = "No edges found in navigation tree"
+    # Parse edge label to get from/to nodes
+    # Frontend sends format: "home|live" (pipe separator for command-line safety)
+    if '|' not in args.edge:
+        context.error_message = f"Invalid edge format: '{args.edge}'. Expected format: 'from_node|to_node'"
         return False
     
-    print(f"✅ [kpi_measurement] Found {len(edges)} edges in validation sequence")
+    from_label, to_label = args.edge.split('|', 1)
+    edge_label_display = f"{from_label} → {to_label}"
     
-    # Build edge map by edge_id
-    edge_map = {}
-    for edge in edges:
-        edge_id = edge.get('edge_id')
-        if edge_id:
-            edge_map[edge_id] = edge
+    print(f"✅ [kpi_measurement] Parsed edge: '{edge_label_display}'")
+    print(f"📍 [kpi_measurement] From: '{from_label}' → To: '{to_label}'")
     
-    # Find selected edge by ID
-    if args.edge_id not in edge_map:
-        available_edges = [f"{e.get('from_node_label')} → {e.get('to_node_label')}" for e in list(edge_map.values())[:10]]
-        context.error_message = f"Edge ID '{args.edge_id}' not found. Available edges: {', '.join(available_edges)}"
+    # Load navigation tree (like goto.py)
+    nav_result = device.navigation_executor.load_navigation_tree(
+        args.userinterface_name, 
+        context.team_id
+    )
+    if not nav_result['success']:
+        context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
         return False
     
-    selected_edge = edge_map[args.edge_id]
-    from_label = selected_edge['from_node_label']
-    to_label = selected_edge['to_node_label']
-    edge_label = f"{from_label} → {to_label}"
-    
-    print(f"✅ [kpi_measurement] Selected edge: '{edge_label}'")
-    print(f"📍 [kpi_measurement] Transition: {from_label} → {to_label}")
+    context.tree_id = nav_result['tree_id']
+    print(f"✅ [kpi_measurement] Navigation tree loaded (tree_id: {context.tree_id})")
     
     # Execute navigation loop (simple, like goto.py)
     navigation_success_count = 0
@@ -281,7 +243,7 @@ def main():
     summary_text = capture_kpi_summary(
         context, 
         args.userinterface_name, 
-        edge_label,
+        edge_label_display,
         from_label, 
         to_label, 
         args.iterations, 
