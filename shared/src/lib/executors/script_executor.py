@@ -282,8 +282,6 @@ class ScriptExecutor:
         self.device_id = device_id or "unknown-device"
         self.device_model = device_model or "unknown-model"
         self.current_team_id = None
-        
-        print(f"[@script_executor] Initialized: {self.script_name} for device: {self.device_id}, model: {self.device_model}")
     
     def set_team_id(self, team_id: str):
         """Set team_id for script execution"""
