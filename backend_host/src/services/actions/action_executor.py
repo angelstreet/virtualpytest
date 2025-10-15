@@ -99,6 +99,7 @@ class ActionExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
+        self.device_name = device.device_name
         # Navigation context - REMOVED: Now using device.navigation_context
         # Action-specific context
         self.edge_id = edge_id
@@ -728,6 +729,7 @@ class ActionExecutor:
                 edge_id=self.edge_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
+                device_name=self.device_name,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,

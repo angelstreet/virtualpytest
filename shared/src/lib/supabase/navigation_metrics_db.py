@@ -160,6 +160,7 @@ def record_action_execution(
     device_model: str,
     device_id: str,
     host_name: str,
+    device_name: Optional[str] = None,
     execution_id: Optional[str] = None,
     error_message: Optional[str] = None
 ) -> Optional[str]:
@@ -186,6 +187,7 @@ def record_action_execution(
             'success': success,
             'execution_time_ms': execution_time_ms,
             'device_model': device_model,
+            'device_name': device_name,
             'host_name': host_name
         }
         
@@ -219,6 +221,7 @@ def record_verification_execution(
     execution_time_ms: int,
     device_model: str,
     host_name: str,
+    device_name: Optional[str] = None,
     execution_id: Optional[str] = None,
     confidence_score: Optional[float] = None,
     threshold_used: Optional[float] = None,
@@ -250,6 +253,7 @@ def record_verification_execution(
             'success': success,
             'execution_time_ms': execution_time_ms,
             'device_model': device_model,
+            'device_name': device_name,
             'host_name': host_name
         }
         

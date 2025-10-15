@@ -79,8 +79,8 @@ def _get_available_edges(context):
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
-def _fetch_kpi_results_from_db(team_id: str, start_time: datetime, end_time: datetime):
-    """Fetch KPI measurements from execution_results table filtered by team and time range"""
+def _fetch_kpi_results_from_db(team_id: str, device_name: str, start_time: datetime, end_time: datetime):
+    """Fetch KPI measurements from execution_results table filtered by team, device, and time range"""
     from shared.src.lib.utils.supabase_utils import get_supabase_client
     
     try:
@@ -90,16 +90,16 @@ def _fetch_kpi_results_from_db(team_id: str, start_time: datetime, end_time: dat
             return []
         
         # Query execution_results for KPI measurements in time range
-        # Filter by team_id and time window (no device filter since execution_results stores device_model not device_id)
+        # Filter by team_id, device_name, and time window for precise device-specific results
         result = supabase.table('execution_results').select(
             'kpi_measurement_ms, kpi_measurement_success, kpi_measurement_error, executed_at, action_set_id, edge_id'
-        ).eq('team_id', team_id).gte(
+        ).eq('team_id', team_id).eq('device_name', device_name).gte(
             'executed_at', start_time.isoformat()
         ).lte(
             'executed_at', end_time.isoformat()
         ).not_.is_('kpi_measurement_ms', 'null').order('executed_at', desc=False).execute()
         
-        print(f"✅ [_fetch_kpi_results] Found {len(result.data)} KPI measurements from DB")
+        print(f"✅ [_fetch_kpi_results] Found {len(result.data)} KPI measurements from DB for device '{device_name}'")
         return result.data
         
     except Exception as e:
@@ -292,6 +292,7 @@ def main():
     
     kpi_db_results = _fetch_kpi_results_from_db(
         team_id=context.team_id,
+        device_name=device.device_name,
         start_time=script_start_time,
         end_time=script_end_time
     )

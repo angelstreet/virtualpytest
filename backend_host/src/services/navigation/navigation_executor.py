@@ -73,6 +73,7 @@ class NavigationExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
+        self.device_name = device.device_name
         self.unified_graph = None
       
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
@@ -1259,6 +1260,7 @@ class NavigationExecutor:
                 edge_id=edge_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
+                device_name=self.device_name,
                 success=True,
                 execution_time_ms=0,  # Will be updated by KPI measurement
                 message="KPI measurement queued",

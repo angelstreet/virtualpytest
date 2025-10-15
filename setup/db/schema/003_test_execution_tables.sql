@@ -79,6 +79,7 @@ CREATE TABLE execution_results (
     execution_type text NOT NULL,
     host_name text NOT NULL,
     device_model text,
+    device_name text,  -- UPDATED: Added for device-specific filtering
     success boolean NOT NULL,
     execution_time_ms integer,
     message text,
@@ -171,6 +172,8 @@ CREATE INDEX idx_execution_results_team_id ON execution_results(team_id);
 CREATE INDEX idx_execution_results_tree_id ON execution_results(tree_id);
 CREATE INDEX idx_execution_results_host_name ON execution_results(host_name);
 CREATE INDEX idx_execution_results_executed_at ON execution_results(executed_at);
+CREATE INDEX idx_execution_results_device_name ON execution_results(device_name);
+CREATE INDEX idx_execution_results_kpi_query ON execution_results(team_id, device_name, executed_at) WHERE kpi_measurement_ms IS NOT NULL;
 CREATE INDEX idx_execution_results_kpi_success ON execution_results(kpi_measurement_success) WHERE kpi_measurement_success IS NOT NULL;
 CREATE INDEX idx_execution_results_kpi_ms ON execution_results(kpi_measurement_ms) WHERE kpi_measurement_ms IS NOT NULL;
 CREATE INDEX idx_script_results_team_id ON script_results(team_id);
@@ -191,6 +194,7 @@ COMMENT ON TABLE script_results IS 'Script execution results matching automai sc
 COMMENT ON TABLE zap_results IS 'Individual zap iteration results with detailed analysis data';
 COMMENT ON COLUMN zap_results.script_result_id IS 'References script execution. NULL for automatic zapping detection during monitoring';
 COMMENT ON COLUMN zap_results.detection_method IS 'Detection method: automatic (system action) or manual (user IR remote)';
+COMMENT ON COLUMN execution_results.device_name IS 'Device name (unique identifier) for filtering results by specific device instance';
 COMMENT ON COLUMN execution_results.kpi_measurement_ms IS 'KPI: Measured time from action to visual confirmation';
 COMMENT ON COLUMN execution_results.kpi_measurement_success IS 'KPI: Whether measurement succeeded';
 COMMENT ON COLUMN execution_results.kpi_measurement_error IS 'KPI: Error message if measurement failed';

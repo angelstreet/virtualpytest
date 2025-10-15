@@ -74,6 +74,7 @@ class VerificationExecutor:
         self.host_name = device.host_name
         self.device_id = device.device_id
         self.device_model = device.device_model
+        self.device_name = device.device_name
 
         # Get AV controller directly from device for screenshot capture
         self.av_controller = device._get_controller('av')
@@ -527,6 +528,7 @@ class VerificationExecutor:
                 node_id=node_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
+                device_name=self.device_name,
                 success=success,
                 execution_time_ms=execution_time_ms,
                 message=message,

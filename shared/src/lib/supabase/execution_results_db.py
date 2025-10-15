@@ -172,7 +172,8 @@ def record_edge_execution(
     error_details: Optional[Dict] = None,
     script_result_id: Optional[str] = None,
     script_context: str = 'direct',
-    action_set_id: Optional[str] = None
+    action_set_id: Optional[str] = None,
+    device_name: Optional[str] = None
 ) -> Optional[str]:
     """Record edge action execution directly to database."""
     try:
@@ -186,6 +187,7 @@ def record_edge_execution(
             'execution_type': 'action',
             'host_name': host_name,
             'device_model': device_model,
+            'device_name': device_name,
             'success': success,
             'execution_time_ms': execution_time_ms,
             'message': message,
@@ -224,7 +226,8 @@ def record_node_execution(
     message: str = "",
     error_details: Optional[Dict] = None,
     script_result_id: Optional[str] = None,
-    script_context: str = 'direct'
+    script_context: str = 'direct',
+    device_name: Optional[str] = None
 ) -> Optional[str]:
     """Record node verification execution directly to database."""
     try:
@@ -238,6 +241,7 @@ def record_node_execution(
             'execution_type': 'verification',
             'host_name': host_name,
             'device_model': device_model,
+            'device_name': device_name,
             'success': success,
             'execution_time_ms': execution_time_ms,
             'message': message,
@@ -280,7 +284,9 @@ def record_action_execution(
     host_name: str,
     execution_id: Optional[str] = None,
     error_message: Optional[str] = None,
-    error_details: Optional[Dict] = None
+    error_details: Optional[Dict] = None,
+    device_name: Optional[str] = None,
+    device_model: Optional[str] = None
 ) -> Optional[str]:
     """Record individual action execution to history table."""
     try:
@@ -299,6 +305,8 @@ def record_action_execution(
             'success': success,
             'execution_time_ms': execution_time_ms,
             'host_name': host_name,
+            'device_name': device_name,
+            'device_model': device_model,
             'error_message': error_message,
             'error_details': error_details,
             'executed_at': datetime.now(timezone.utc).isoformat()
@@ -340,7 +348,9 @@ def record_verification_execution(
     error_message: Optional[str] = None,
     error_details: Optional[Dict] = None,
     confidence_score: Optional[float] = None,
-    result_data: Optional[Dict] = None
+    result_data: Optional[Dict] = None,
+    device_name: Optional[str] = None,
+    device_model: Optional[str] = None
 ) -> Optional[str]:
     """Record individual verification execution to history table."""
     try:
@@ -358,6 +368,8 @@ def record_verification_execution(
             'success': success,
             'execution_time_ms': execution_time_ms,
             'host_name': host_name,
+            'device_name': device_name,
+            'device_model': device_model,
             'error_message': error_message,
             'error_details': error_details,
             'confidence_score': confidence_score,
