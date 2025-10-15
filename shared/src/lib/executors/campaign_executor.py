@@ -270,11 +270,22 @@ class CampaignExecutor:
             from .script_executor import ScriptExecutor
             device_id = campaign_config.get("device", "device1")
             
+            # Get actual device model
+            device_model = "unknown"
+            try:
+                from backend_host.src.lib.utils.host_utils import get_device_by_id
+                device = get_device_by_id(device_id)
+                if device:
+                    device_model = device.model
+            except Exception as e:
+                print(f"🔍 [Campaign] Could not get device model: {e}")
+            
             # Create script executor with device context
             script_executor = ScriptExecutor(
+                script_name=script_name,  # Pass script name
                 host_name=context.host.host_name,
                 device_id=device_id,
-                device_model="unknown"  # Could be enhanced to get actual device model
+                device_model=device_model  # Use actual device model
             )
             script_executor.set_team_id(context.team_id)
             
