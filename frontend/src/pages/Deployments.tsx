@@ -2,7 +2,7 @@ import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon } from '@mui/ico
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, IconButton, Chip, Checkbox, FormControlLabel
+  TableRow, Paper, IconButton, Chip
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
@@ -13,7 +13,7 @@ import { useDeployment, Deployment } from '../hooks/useDeployment';
 import { useRun } from '../hooks/useRun';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { getLogsUrl } from '../utils/executionUtils';
-import { getUserTimezone, formatToLocalTime, formatUTCTimeToLocal, convertLocalTimeToUTC } from '../utils/dateUtils';
+import { getUserTimezone, formatToLocalTime } from '../utils/dateUtils';
 import { validateCronExpression, cronToHuman } from '../utils/cronUtils';
 
 interface AdditionalDevice {
@@ -38,13 +38,12 @@ const Deployments: React.FC = () => {
   const [cronExpression, setCronExpression] = useState('*/10 * * * *'); // Default: every 10 min
   const [cronError, setCronError] = useState<string>('');
   
-  // Optional constraints
-  const [enableStartDate, setEnableStartDate] = useState(false);
-  const [startDate, setStartDate] = useState<string>('');
-  const [enableEndDate, setEnableEndDate] = useState(false);
-  const [endDate, setEndDate] = useState<string>('');
-  const [enableMaxExecutions, setEnableMaxExecutions] = useState(false);
-  const [maxExecutions, setMaxExecutions] = useState<number>(10);
+  // Optional constraints with smart defaults
+  const [startDateOption, setStartDateOption] = useState<'now' | '1hour' | '6hours' | 'tomorrow' | 'nextMonday' | 'custom'>('now');
+  const [startDateCustom, setStartDateCustom] = useState<string>('');
+  const [endDateOption, setEndDateOption] = useState<'never' | '1day' | '7days' | '30days' | '90days' | 'custom'>('7days');
+  const [endDateCustom, setEndDateCustom] = useState<string>('');
+  const [maxExecutions, setMaxExecutions] = useState<string>(''); // Empty by default (unlimited)
   
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [executions, setExecutions] = useState<any[]>([]);
@@ -61,6 +60,54 @@ const Deployments: React.FC = () => {
       setCronError(valid ? '' : (error || 'Invalid cron expression'));
     }
   }, [cronExpression]);
+
+  // Helper functions to convert dropdown options to dates
+  const getStartDate = (): string | null => {
+    if (startDateOption === 'now') return null; // Start immediately
+    if (startDateOption === 'custom') return startDateCustom ? new Date(startDateCustom).toISOString() : null;
+    
+    const now = new Date();
+    switch (startDateOption) {
+      case '1hour':
+        now.setHours(now.getHours() + 1);
+        break;
+      case '6hours':
+        now.setHours(now.getHours() + 6);
+        break;
+      case 'tomorrow':
+        now.setDate(now.getDate() + 1);
+        now.setHours(0, 0, 0, 0);
+        break;
+      case 'nextMonday':
+        const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+        now.setDate(now.getDate() + daysUntilMonday);
+        now.setHours(0, 0, 0, 0);
+        break;
+    }
+    return now.toISOString();
+  };
+
+  const getEndDate = (): string | null => {
+    if (endDateOption === 'never') return null; // Run forever
+    if (endDateOption === 'custom') return endDateCustom ? new Date(endDateCustom).toISOString() : null;
+    
+    const now = new Date();
+    switch (endDateOption) {
+      case '1day':
+        now.setDate(now.getDate() + 1);
+        break;
+      case '7days':
+        now.setDate(now.getDate() + 7);
+        break;
+      case '30days':
+        now.setDate(now.getDate() + 30);
+        break;
+      case '90days':
+        now.setDate(now.getDate() + 90);
+        break;
+    }
+    return now.toISOString();
+  };
   
   // Function to get available devices for selection (excluding already selected ones)
   const getAvailableDevicesForSelection = () => {
@@ -179,21 +226,23 @@ const Deployments: React.FC = () => {
     const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     
-    // Prepare optional constraints (convert local time to UTC if provided)
+    // Prepare optional constraints using helper functions
     const deploymentData: any = {
       cron_expression: cronExpression,
     };
     
-    if (enableStartDate && startDate) {
-      deploymentData.start_date = new Date(startDate).toISOString();
+    const startDate = getStartDate();
+    if (startDate) {
+      deploymentData.start_date = startDate;
     }
     
-    if (enableEndDate && endDate) {
-      deploymentData.end_date = new Date(endDate).toISOString();
+    const endDate = getEndDate();
+    if (endDate) {
+      deploymentData.end_date = endDate;
     }
     
-    if (enableMaxExecutions && maxExecutions > 0) {
-      deploymentData.max_executions = maxExecutions;
+    if (maxExecutions && parseInt(maxExecutions) > 0) {
+      deploymentData.max_executions = parseInt(maxExecutions);
     }
     
     // Create deployments for all devices
@@ -225,13 +274,12 @@ const Deployments: React.FC = () => {
       setSelectedDevice('');
       setSelectedUserinterface('');
       setAdditionalDevices([]);
-      setCronExpression('*/10 * * * *'); // Reset to default
-      setEnableStartDate(false);
-      setStartDate('');
-      setEnableEndDate(false);
-      setEndDate('');
-      setEnableMaxExecutions(false);
-      setMaxExecutions(10);
+      setCronExpression('*/10 * * * *');
+      setStartDateOption('now');
+      setStartDateCustom('');
+      setEndDateOption('7days');
+      setEndDateCustom('');
+      setMaxExecutions('');
       loadDeployments();
     }
   };
@@ -268,129 +316,133 @@ const Deployments: React.FC = () => {
               ) : (
                 <>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {/* Device and Script Selection */}
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <FormControl size="small" sx={{ minWidth: 150 }}>
-                        <InputLabel>Script</InputLabel>
-                        <Select value={selectedScript} label="Script" onChange={e => setSelectedScript(e.target.value)}>
-                          {scripts.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                      <FormControl size="small" sx={{ minWidth: 150 }}>
-                        <InputLabel>Host</InputLabel>
-                        <Select value={selectedHost} label="Host" onChange={e => setSelectedHost(e.target.value)}>
-                          {hosts.map(h => <MenuItem key={h.host_name} value={h.host_name}>{h.host_name}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                      <FormControl size="small" sx={{ minWidth: 150 }}>
-                        <InputLabel>Device</InputLabel>
-                        <Select value={selectedDevice} label="Device" onChange={e => setSelectedDevice(e.target.value)} disabled={!selectedHost}>
-                          {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                      <Box sx={{ minWidth: 150 }}>
-                        <UserinterfaceSelector deviceModel={deviceModel} value={selectedUserinterface} onChange={setSelectedUserinterface} label="Userinterface" size="small" fullWidth />
+                    {/* Configuration */}
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>Configuration</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                          <InputLabel>Script</InputLabel>
+                          <Select value={selectedScript} label="Script" onChange={e => setSelectedScript(e.target.value)}>
+                            {scripts.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                          </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                          <InputLabel>Host</InputLabel>
+                          <Select value={selectedHost} label="Host" onChange={e => setSelectedHost(e.target.value)}>
+                            {hosts.map(h => <MenuItem key={h.host_name} value={h.host_name}>{h.host_name}</MenuItem>)}
+                          </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                          <InputLabel>Device</InputLabel>
+                          <Select value={selectedDevice} label="Device" onChange={e => setSelectedDevice(e.target.value)} disabled={!selectedHost}>
+                            {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
+                          </Select>
+                        </FormControl>
+                        <Box sx={{ minWidth: 150 }}>
+                          <UserinterfaceSelector deviceModel={deviceModel} value={selectedUserinterface} onChange={setSelectedUserinterface} label="Userinterface" size="small" fullWidth />
+                        </Box>
+                        {displayParameters.map(p => (
+                          <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
+                        ))}
                       </Box>
-                      {displayParameters.map(p => (
-                        <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
-                      ))}
                     </Box>
 
-                    {/* Cron Schedule - REQUIRED */}
+                    {/* Schedule - Compact inline */}
                     <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                        ⏰ Schedule (Required)
-                      </Typography>
-                      <CronHelper 
-                        value={cronExpression} 
-                        onChange={setCronExpression}
-                        error={cronError}
-                      />
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                        {cronToHuman(cronExpression)}
-                      </Typography>
-                    </Box>
-
-                    {/* Optional: Start Date */}
-                    <Box>
-                      <FormControlLabel
-                        control={
-                          <Checkbox 
-                            checked={enableStartDate} 
-                            onChange={(e) => setEnableStartDate(e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={<Typography variant="body2">Start Date (Optional)</Typography>}
-                      />
-                      {enableStartDate && (
-                        <TextField
-                          type="datetime-local"
-                          size="small"
-                          fullWidth
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          helperText="When to start scheduling (leave empty to start immediately)"
-                          sx={{ mt: 1 }}
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>Schedule</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <CronHelper 
+                          value={cronExpression} 
+                          onChange={setCronExpression}
+                          error={cronError}
                         />
-                      )}
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontFamily: 'monospace', 
+                            color: 'text.secondary',
+                            fontSize: '0.875rem',
+                            minWidth: 100
+                          }}
+                        >
+                          {cronExpression}
+                        </Typography>
+                      </Box>
                     </Box>
 
-                    {/* Optional: End Date */}
+                    {/* Constraints - All inline, no checkboxes */}
                     <Box>
-                      <FormControlLabel
-                        control={
-                          <Checkbox 
-                            checked={enableEndDate} 
-                            onChange={(e) => setEnableEndDate(e.target.checked)}
-                            size="small"
-                          />
-                        }
-                        label={<Typography variant="body2">End Date (Optional)</Typography>}
-                      />
-                      {enableEndDate && (
-                        <TextField
-                          type="datetime-local"
-                          size="small"
-                          fullWidth
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          helperText="When to stop scheduling (leave empty for no end)"
-                          sx={{ mt: 1 }}
-                        />
-                      )}
-                    </Box>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>Constraints (optional)</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ minWidth: 40 }}>Start</Typography>
+                          <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <Select
+                              value={startDateOption}
+                              onChange={e => setStartDateOption(e.target.value as any)}
+                              displayEmpty
+                            >
+                              <MenuItem value="now">Now</MenuItem>
+                              <MenuItem value="1hour">In 1 hour</MenuItem>
+                              <MenuItem value="6hours">In 6 hours</MenuItem>
+                              <MenuItem value="tomorrow">Tomorrow 00:00</MenuItem>
+                              <MenuItem value="nextMonday">Next Monday</MenuItem>
+                              <MenuItem value="custom">Pick date...</MenuItem>
+                            </Select>
+                          </FormControl>
+                          {startDateOption === 'custom' && (
+                            <TextField
+                              type="datetime-local"
+                              size="small"
+                              value={startDateCustom}
+                              onChange={e => setStartDateCustom(e.target.value)}
+                              sx={{ width: 200 }}
+                            />
+                          )}
+                        </Box>
 
-                    {/* Optional: Max Executions */}
-                    <Box>
-                      <FormControlLabel
-                        control={
-                          <Checkbox 
-                            checked={enableMaxExecutions} 
-                            onChange={(e) => setEnableMaxExecutions(e.target.checked)}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ minWidth: 30 }}>End</Typography>
+                          <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <Select
+                              value={endDateOption}
+                              onChange={e => setEndDateOption(e.target.value as any)}
+                              displayEmpty
+                            >
+                              <MenuItem value="never">No end</MenuItem>
+                              <MenuItem value="1day">+1 day</MenuItem>
+                              <MenuItem value="7days">+7 days</MenuItem>
+                              <MenuItem value="30days">+30 days</MenuItem>
+                              <MenuItem value="90days">+90 days</MenuItem>
+                              <MenuItem value="custom">Pick date...</MenuItem>
+                            </Select>
+                          </FormControl>
+                          {endDateOption === 'custom' && (
+                            <TextField
+                              type="datetime-local"
+                              size="small"
+                              value={endDateCustom}
+                              onChange={e => setEndDateCustom(e.target.value)}
+                              sx={{ width: 200 }}
+                            />
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ minWidth: 30 }}>Max</Typography>
+                          <TextField
+                            type="number"
                             size="small"
+                            value={maxExecutions}
+                            onChange={e => setMaxExecutions(e.target.value)}
+                            placeholder="unlimited"
+                            inputProps={{ min: 1 }}
+                            sx={{ width: 100 }}
                           />
-                        }
-                        label={<Typography variant="body2">Execution Limit (Optional)</Typography>}
-                      />
-                      {enableMaxExecutions && (
-                        <TextField
-                          type="number"
-                          size="small"
-                          fullWidth
-                          value={maxExecutions}
-                          onChange={(e) => setMaxExecutions(parseInt(e.target.value) || 10)}
-                          helperText="Maximum number of times to run (leave empty for unlimited)"
-                          inputProps={{ min: 1 }}
-                          sx={{ mt: 1 }}
-                        />
-                      )}
+                          <Typography variant="body2" color="text.secondary">runs</Typography>
+                        </Box>
+                      </Box>
                     </Box>
-                    
-                    {/* Timezone info message */}
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      ℹ️ Times are shown in your local timezone ({userTimezone}). They will be stored and executed in UTC.
-                    </Typography>
                   </Box>
 
                   {/* Add Device button - only show if more devices are available */}
@@ -498,12 +550,11 @@ const Deployments: React.FC = () => {
                       setSelectedUserinterface('');
                       setAdditionalDevices([]);
                       setCronExpression('*/10 * * * *');
-                      setEnableStartDate(false);
-                      setStartDate('');
-                      setEnableEndDate(false);
-                      setEndDate('');
-                      setEnableMaxExecutions(false);
-                      setMaxExecutions(10);
+                      setStartDateOption('now');
+                      setStartDateCustom('');
+                      setEndDateOption('7days');
+                      setEndDateCustom('');
+                      setMaxExecutions('');
                     }}>Cancel</Button>
                   </Box>
                 </>
