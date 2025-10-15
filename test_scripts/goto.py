@@ -85,6 +85,9 @@ def main():
     if not success:
         context.error_message = result.get('error', 'Navigation failed')
     
+    # Set overall_success BEFORE capturing summary so it shows correct status
+    context.overall_success = success
+    
     # Check if already at destination (no steps recorded)
     already_at_destination = (len(context.step_results) == 0 and success)
     
