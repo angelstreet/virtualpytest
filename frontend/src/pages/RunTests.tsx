@@ -620,16 +620,13 @@ const RunTests: React.FC = () => {
     );
   };
 
-  // Filter to show required parameters and important optional ones
-  // Exclude framework parameters: host, device, userinterface_name (shown at top level)
-  // Important optional parameters to always show (even if not required)
-  const importantOptionalParams = ['node', 'max-iteration', 'action', 'goto-live', 'audio-analysis', 'edges', 'edge', 'iterations'];
+  // Framework parameters are shown in dedicated selectors at the top
+  // All other parameters are shown inline (no whitelist needed!)
+  const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
   
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
-    // Show required parameters (except framework ones)
-    (param.required && param.name !== 'host' && param.name !== 'device' && param.name !== 'userinterface_name') ||
-    // Show important optional parameters
-    importantOptionalParams.includes(param.name)
+    // Show all parameters EXCEPT framework ones (which have dedicated UI elements)
+    !FRAMEWORK_PARAMS.includes(param.name)
   ) || [];
 
 

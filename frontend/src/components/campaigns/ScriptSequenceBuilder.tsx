@@ -108,16 +108,13 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
       );
     }
 
-    // Filter parameters to show only required ones and important optional ones
-    // Exclude framework parameters: host, device, userinterface_name (shown at campaign level)
+    // Framework parameters are shown at campaign level (not per-script)
+    // All other parameters are shown inline (no whitelist needed!)
+    const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
+    
     const displayParameters = analysis.parameters.filter((param: any) => 
-      (param.required && param.name !== 'host' && param.name !== 'device' && param.name !== 'userinterface_name') ||
-      param.name === 'blackscreen_area' ||
-      param.name === 'node' ||
-      param.name === 'edge' ||
-      param.name === 'iterations' ||
-      param.name === 'max-iteration' ||
-      param.name === 'edges'
+      // Show all parameters EXCEPT framework ones (which are set at campaign level)
+      !FRAMEWORK_PARAMS.includes(param.name)
     );
 
     if (displayParameters.length === 0) {

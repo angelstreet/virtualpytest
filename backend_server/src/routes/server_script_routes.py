@@ -141,38 +141,9 @@ def analyze_script_parameters(script_path):
                 'default': default_value
             })
         
-        # Add standard framework parameters that all scripts using ScriptExecutor or @script decorator have
-        # Check if script uses ScriptExecutor framework or @script decorator
-        if 'ScriptExecutor' in script_content or 'script_framework' in script_content or '@script' in script_content or 'from shared.src.lib.executors.script_decorators import script' in script_content:
-            # Add userinterface_name as positional if not already present
-            if not any(p['name'] == 'userinterface_name' for p in parameters):
-                parameters.insert(0, {
-                    'name': 'userinterface_name',
-                    'type': 'positional',
-                    'required': True,
-                    'help': 'Name of the userinterface to use (default: horizon_android_mobile)',
-                    'default': 'horizon_android_mobile'
-                })
-            
-            # Add host parameter if not already present
-            if not any(p['name'] == 'host' for p in parameters):
-                parameters.append({
-                    'name': 'host',
-                    'type': 'optional',
-                    'required': False,
-                    'help': 'Specific host to use (will be auto-filled from selection)',
-                    'default': None
-                })
-            
-            # Add device parameter if not already present
-            if not any(p['name'] == 'device' for p in parameters):
-                parameters.append({
-                    'name': 'device',
-                    'type': 'optional',
-                    'required': False,
-                    'help': 'Specific device to use (will be auto-filled from selection)',
-                    'default': None
-                })
+        # NO MORE INJECTION - Scripts explicitly define all their parameters
+        # Framework parameters (userinterface_name, host, device) should be
+        # explicitly defined in script's _script_args if the script needs them
         
         # Special handling for common patterns
         if 'userinterface_name' in [p['name'] for p in parameters]:

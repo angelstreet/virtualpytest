@@ -307,10 +307,13 @@ def main():
     return context.overall_success
 
 
-# Define script-specific arguments
+# Define ALL script arguments (framework + script-specific)
 main._script_args = [
-    '--edge:str:',  # Action set label (e.g., "go_to_live", "open_settings")
-    '--iterations:int:3'  # Default 3 iterations
+    'userinterface_name:str:',  # Required positional - framework param
+    '--edge:str:',               # Script-specific param - Action set label
+    '--iterations:int:3',        # Script-specific param - Number of iterations
+    '--host:str:',               # Optional - framework param (auto-filled by UI)
+    '--device:str:'              # Optional - framework param (auto-filled by UI)
 ]
 
 if __name__ == "__main__":
