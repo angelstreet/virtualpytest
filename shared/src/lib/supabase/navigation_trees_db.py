@@ -169,6 +169,28 @@ def get_node_by_id(tree_id: str, node_id: str, team_id: str) -> Dict:
         print(f"[@db:navigation_trees:get_node_by_id] Error: {e}")
         return {'success': False, 'error': str(e)}
 
+def get_nodes_batch(tree_id: str, node_ids: list, team_id: str) -> Dict:
+    """Get multiple nodes by their node_ids in a single query (optimized for N+1 prevention)."""
+    try:
+        if not node_ids:
+            return {'success': True, 'nodes': {}}
+        
+        supabase = get_supabase()
+        result = supabase.table('navigation_nodes').select('*')\
+            .eq('tree_id', tree_id)\
+            .in_('node_id', node_ids)\
+            .eq('team_id', team_id)\
+            .execute()
+        
+        # Create a dict for fast lookup: node_id -> node_data
+        nodes_dict = {node['node_id']: node for node in result.data} if result.data else {}
+        
+        print(f"[@db:navigation_trees:get_nodes_batch] Retrieved {len(nodes_dict)}/{len(node_ids)} nodes in single query")
+        return {'success': True, 'nodes': nodes_dict}
+    except Exception as e:
+        print(f"[@db:navigation_trees:get_nodes_batch] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
 def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
     """Save a single node (create or update)."""
     try:

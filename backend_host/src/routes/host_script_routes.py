@@ -31,14 +31,20 @@ def _execute_script():
         
         # Create shared script executor with device context
         from shared.src.lib.executors.script_executor import ScriptExecutor
-        from backend_host.src.lib.utils.host_utils import get_host_instance
+        from backend_host.src.lib.utils.host_utils import get_host_instance, get_device_by_id
         
         try:
             host = get_host_instance()
+            
+            # Get actual device model
+            device = get_device_by_id(device_id)
+            device_model = device.model if device else "unknown"
+            
             script_executor = ScriptExecutor(
+                script_name=script_name,  # Pass script name
                 host_name=host.host_name,
                 device_id=device_id,
-                device_model="unknown"  # Could be enhanced to get actual device model
+                device_model=device_model  # Use actual device model
             )
         except Exception as e:
             return jsonify({
@@ -189,10 +195,40 @@ def get_edge_options():
         
         print(f"[@host_script:get_edge_options] Found {len(edges)} edges from validation sequence")
         
-        # Import for node KPI checking
-        from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
+        # OPTIMIZED: Batch fetch all nodes in ONE query instead of N+1 queries
+        from shared.src.lib.supabase.navigation_trees_db import get_nodes_batch
         
-        # Extract action_set labels (bidirectional support) - FILTER by KPI availability
+        # Step 1: Collect all unique node IDs that need KPI checking
+        node_ids_to_fetch = set()
+        for edge in edges:
+            node_ids_to_fetch.add(edge.get('to_node_id'))  # Forward target
+            node_ids_to_fetch.add(edge.get('from_node_id'))  # Reverse target
+        
+        # Step 2: Batch fetch all nodes in a SINGLE query
+        batch_result = get_nodes_batch(tree_id, list(node_ids_to_fetch), team_id)
+        if not batch_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': f"Failed to batch fetch nodes: {batch_result.get('error')}"
+            }), 500
+        
+        nodes_cache = batch_result['nodes']  # Dict: node_id -> node_data
+        
+        # Helper function to check if a node has KPI (using cached nodes)
+        def node_has_kpi(node_id: str) -> bool:
+            node_data = nodes_cache.get(node_id)
+            if not node_data:
+                return False
+            
+            use_verifications_for_kpi = node_data.get('use_verifications_for_kpi', False)
+            if use_verifications_for_kpi:
+                verifications = node_data.get('verifications', [])
+                return bool(verifications)
+            else:
+                kpi_references = node_data.get('kpi_references', [])
+                return bool(kpi_references)
+        
+        # Step 3: Extract action_set labels (bidirectional support) - FILTER by KPI availability
         edge_options = []
         edge_details = []  # For debugging/display
         filtered_count = 0
@@ -204,35 +240,12 @@ def get_edge_options():
             to_label = edge.get('to_node_label', 'unknown')
             from_node_id = edge.get('from_node_id')
             to_node_id = edge.get('to_node_id')
-            to_tree_id = edge.get('to_tree_id', tree_id)
             
-            # Check if target node has KPI configured
-            has_kpi = False
-            try:
-                node_result = get_node_by_id(to_tree_id, to_node_id, team_id)
-                if node_result.get('success'):
-                    node_data = node_result['node']
-                    use_verifications_for_kpi = node_data.get('use_verifications_for_kpi', False)
-                    
-                    if use_verifications_for_kpi:
-                        # Check verifications[]
-                        verifications = node_data.get('verifications', [])
-                        has_kpi = bool(verifications)
-                    else:
-                        # Check kpi_references[]
-                        kpi_references = node_data.get('kpi_references', [])
-                        has_kpi = bool(kpi_references)
-            except Exception as e:
-                print(f"[@host_script:get_edge_options] Error checking KPI for node {to_node_id}: {e}")
-                has_kpi = False
-            
-            # Skip edges without KPI on target node
-            if not has_kpi:
-                filtered_count += 1
-                continue
+            # Check if forward target node has KPI (from cache)
+            forward_has_kpi = node_has_kpi(to_node_id)
             
             # Forward action set (index 0)
-            if len(action_sets) > 0:
+            if len(action_sets) > 0 and forward_has_kpi:
                 forward_set = action_sets[0]
                 forward_label = forward_set.get('label', '')
                 if forward_label and forward_set.get('actions'):
@@ -243,32 +256,17 @@ def get_edge_options():
                         'from': from_label,
                         'to': to_label
                     })
+            elif len(action_sets) > 0 and not forward_has_kpi:
+                filtered_count += 1
             
             # Reverse action set (index 1) - if exists and has actions
             if len(action_sets) > 1:
                 reverse_set = action_sets[1]
                 reverse_label = reverse_set.get('label', '')
                 if reverse_label and reverse_set.get('actions'):
-                    # For reverse, check the FROM node (which becomes target)
-                    from_tree_id = edge.get('from_tree_id', tree_id)
-                    reverse_has_kpi = False
-                    try:
-                        reverse_node_result = get_node_by_id(from_tree_id, from_node_id, team_id)
-                        if reverse_node_result.get('success'):
-                            reverse_node_data = reverse_node_result['node']
-                            use_verifications_for_kpi = reverse_node_data.get('use_verifications_for_kpi', False)
-                            
-                            if use_verifications_for_kpi:
-                                verifications = reverse_node_data.get('verifications', [])
-                                reverse_has_kpi = bool(verifications)
-                            else:
-                                kpi_references = reverse_node_data.get('kpi_references', [])
-                                reverse_has_kpi = bool(kpi_references)
-                    except Exception as e:
-                        print(f"[@host_script:get_edge_options] Error checking KPI for reverse node {from_node_id}: {e}")
-                        reverse_has_kpi = False
+                    # For reverse, check the FROM node (which becomes target) - from cache
+                    reverse_has_kpi = node_has_kpi(from_node_id)
                     
-                    # Only add reverse if it has KPI
                     if reverse_has_kpi:
                         edge_options.append(reverse_label)
                         edge_details.append({
@@ -277,6 +275,8 @@ def get_edge_options():
                             'from': to_label,  # Swapped for reverse
                             'to': from_label   # Swapped for reverse
                         })
+                    else:
+                        filtered_count += 1
         
         print(f"[@host_script:get_edge_options] Extracted {len(edge_options)} action_set labels with KPI (filtered {filtered_count} without KPI)")
         
