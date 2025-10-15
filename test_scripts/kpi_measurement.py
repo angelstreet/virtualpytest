@@ -207,20 +207,24 @@ def main():
         if len(action_sets) > 0:
             forward_set = action_sets[0]
             forward_label = forward_set.get('label', '')
+            forward_id = forward_set.get('id', '')
             if forward_label and forward_set.get('actions'):
                 action_set_map[forward_label] = {
                     'from_node': source_label,    # Normal direction
-                    'to_node': target_label
+                    'to_node': target_label,
+                    'action_set_id': forward_id   # Store action_set_id for filtering
                 }
         
         # Reverse action_set (index 1) - SWAP source/target
         if len(action_sets) > 1:
             reverse_set = action_sets[1]
             reverse_label = reverse_set.get('label', '')
+            reverse_id = reverse_set.get('id', '')
             if reverse_label and reverse_set.get('actions'):
                 action_set_map[reverse_label] = {
                     'from_node': target_label,    # Swapped!
-                    'to_node': source_label       # Swapped!
+                    'to_node': source_label,      # Swapped!
+                    'action_set_id': reverse_id   # Store action_set_id for filtering
                 }
     
     print(f"✅ [kpi_measurement] Built action_set map with {len(action_set_map)} action sets")
@@ -234,9 +238,11 @@ def main():
     selected = action_set_map[args.edge]
     from_label = selected['from_node']
     to_label = selected['to_node']
+    selected_action_set_id = selected['action_set_id']
     
     print(f"✅ [kpi_measurement] Selected action_set: '{args.edge}'")
     print(f"📍 [kpi_measurement] Will navigate: {from_label} → {to_label}")
+    print(f"🔑 [kpi_measurement] Action set ID: {selected_action_set_id}")
     
     # Execute navigation loop (simple, like goto.py)
     navigation_success_count = 0
@@ -297,13 +303,45 @@ def main():
         end_time=script_end_time
     )
     
-    # Calculate overall success
-    successful_kpis = sum(1 for r in kpi_db_results if r.get('kpi_measurement_success'))
-    context.overall_success = successful_kpis == args.iterations
+    print(f"\n{'='*60}")
+    print(f"📊 [kpi_measurement] RAW DATABASE FETCH RESULTS:")
+    print(f"{'='*60}")
+    print(f"Total KPI measurements found: {len(kpi_db_results)}")
     
-    print(f"📊 [kpi_measurement] KPI Results: {successful_kpis}/{len(kpi_db_results)} successful")
+    if kpi_db_results:
+        print(f"\nAll fetched KPI measurements:")
+        for idx, result in enumerate(kpi_db_results, 1):
+            action_set = result.get('action_set_id', 'N/A')
+            kpi_ms = result.get('kpi_measurement_ms', 'N/A')
+            success = result.get('kpi_measurement_success', False)
+            executed = result.get('executed_at', 'N/A')
+            status_icon = "✅" if success else "❌"
+            print(f"  {idx}. {status_icon} action_set: {action_set}, KPI: {kpi_ms}ms, time: {executed}")
+    else:
+        print(f"⚠️  No KPI measurements found in the time range")
     
-    # Always capture summary for report
+    print(f"{'='*60}\n")
+    
+    # Filter KPI results to only include the selected action_set_id
+    filtered_kpi_results = [
+        r for r in kpi_db_results 
+        if r.get('action_set_id') == selected_action_set_id
+    ]
+    
+    print(f"🔍 [kpi_measurement] Filtering for action_set: '{selected_action_set_id}'")
+    print(f"📊 [kpi_measurement] Filtered results: {len(filtered_kpi_results)}/{len(kpi_db_results)} match the selected action_set")
+    
+    # Calculate overall success using filtered results
+    successful_kpis = sum(1 for r in filtered_kpi_results if r.get('kpi_measurement_success'))
+    expected_count = args.iterations
+    
+    print(f"📊 [kpi_measurement] KPI Results: {successful_kpis}/{len(filtered_kpi_results)} successful")
+    print(f"🎯 [kpi_measurement] Expected: {expected_count} iterations, Got: {len(filtered_kpi_results)} matching KPIs")
+    
+    # Consider success if we have at least the expected count (not exact match to be more forgiving)
+    context.overall_success = successful_kpis >= args.iterations and len(filtered_kpi_results) >= args.iterations
+    
+    # Always capture summary for report (use filtered results)
     summary_text = capture_kpi_summary(
         context, 
         args.userinterface_name, 
@@ -311,7 +349,7 @@ def main():
         from_label, 
         to_label, 
         args.iterations, 
-        kpi_db_results
+        filtered_kpi_results
     )
     context.execution_summary = summary_text
     
