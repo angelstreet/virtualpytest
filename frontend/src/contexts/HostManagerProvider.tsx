@@ -34,17 +34,21 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
 
   // Extract hosts from server data, filtering by selected server only
   // This ensures we only show hosts from the currently selected server
+  const [selectedServerError, setSelectedServerError] = useState<string | null>(null);
   const allHostsFromServers = useMemo(() => {
     if (!selectedServer) return [];
     
-    // Find the server data that matches the selected server
     const selectedServerData = serverHostsData.find(
       serverData => serverData.server_info.server_url === selectedServer
     );
     
     if (!selectedServerData) {
-      console.warn('[@HostManagerProvider] No server data found for selected server:', selectedServer);
+      if (!serverLoading) {
+        setSelectedServerError('Selected server is not responding. Please select another server.');
+      }
       return [];
+    } else {
+      setSelectedServerError(null);
     }
     
     console.log('[@HostManagerProvider] Using hosts from selected server:', {
@@ -54,7 +58,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     });
     
     return selectedServerData.hosts;
-  }, [serverHostsData, selectedServer]);
+  }, [serverHostsData, selectedServer, serverLoading]);
 
   // Use hosts from ServerManager instead of fetching separately
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);
@@ -647,6 +651,17 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     }
   }, [availableHosts, stableUserInterface?.models]);
 
+  // Auto-switch to fallback server if selected server is down
+  useEffect(() => {
+    if (selectedServerError && availableServers.length > 1) {
+      // Switch to first available server with data
+      const fallbackServer = serverHostsData[0]?.server_info.server_url;
+      if (fallbackServer && fallbackServer !== selectedServer) {
+        setSelectedServer(fallbackServer);
+      }
+    }
+  }, [selectedServerError, availableServers, serverHostsData, selectedServer, setSelectedServer]);
+
   // ========================================
   // CONTEXT VALUES - Split into Data and Control
   // ========================================
@@ -663,7 +678,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       availableHosts: filteredAvailableHosts,
       getHostByName,
       isLoading,
-      error,
+      error: serverError || selectedServerError, // Combine errors
 
       // Direct data access functions
       getAllHosts,
@@ -685,6 +700,8 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       getAllDevices,
       getDevicesFromHost,
       getDevicesByCapability,
+      serverError,
+      selectedServerError,
     ],
   );
 

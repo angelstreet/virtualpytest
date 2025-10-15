@@ -710,10 +710,16 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
           <CircularProgress />
         </Box>
       ) : filteredDevices.length === 0 ? (
-        <Alert severity="info" icon={<ComputerIcon />}>
-          {hasActiveFilters
-            ? 'No devices match the selected filters. Try adjusting your filter criteria.'
-            : 'No AV devices found. Make sure your devices are connected and have AV capabilities.'}
+        <Alert 
+          severity={error?.includes('not responding') ? 'error' : 'info'} 
+          icon={<ComputerIcon />}
+        >
+          {error?.includes('not responding') 
+            ? error 
+            : (hasActiveFilters 
+              ? 'No devices match the selected filters. Try adjusting your filter criteria.' 
+              : 'No AV devices found. Make sure your devices are connected and have AV capabilities.')
+          }
         </Alert>
       ) : (
         <Grid container spacing={2}>
