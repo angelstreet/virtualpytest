@@ -276,7 +276,7 @@ class CampaignExecutor:
                 from backend_host.src.lib.utils.host_utils import get_device_by_id
                 device = get_device_by_id(device_id)
                 if device:
-                    device_model = device.model
+                    device_model = device.device_model
             except Exception as e:
                 print(f"🔍 [Campaign] Could not get device model: {e}")
             

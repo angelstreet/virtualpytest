@@ -38,7 +38,7 @@ def _execute_script():
             
             # Get actual device model
             device = get_device_by_id(device_id)
-            device_model = device.model if device else "unknown"
+            device_model = device.device_model if device else "unknown"
             
             script_executor = ScriptExecutor(
                 script_name=script_name,  # Pass script name
