@@ -2,20 +2,22 @@
 """
 KPI Measurement Script for VirtualPyTest
 
-This script measures KPIs for navigation between two nodes by repeatedly navigating between them.
-It provides min, max, and average performance metrics.
+This script measures KPIs for a specific edge transition by repeatedly navigating it.
+Uses edge selection to ensure DIRECT navigation transition between two nodes.
+KPI measurements are post-processed by kpi_executor service and fetched from DB.
 
 Usage:
-    python test_scripts/kpi_measurement.py <userinterface_name> --from-node <source> --to-node <target> [--iterations <count>]
+    python test_scripts/kpi_measurement.py <userinterface_name> --edge <edge_label> [--iterations <count>]
     
 Examples:
-    python test_scripts/kpi_measurement.py horizon_android_mobile --from-node home --to-node live --iterations 5
-    python test_scripts/kpi_measurement.py horizon_android_tv --from-node settings --to-node home --iterations 10
+    python test_scripts/kpi_measurement.py horizon_android_mobile --edge "home → live" --iterations 5
+    python test_scripts/kpi_measurement.py horizon_android_tv --edge "settings → home" --iterations 10
 """
 
 import sys
 import os
 import time
+from datetime import datetime
 
 # Add project root to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,13 +31,73 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
 # NOTE: Framework params (userinterface_name, --host, --device) are automatic - don't declare them!
 _script_args = [
-    '--from-node:str:home',      # Script-specific param - Source node
-    '--to-node:str:live',        # Script-specific param - Target node
+    '--edge:str:',               # Script-specific param - Edge label (e.g., "home → live")
     '--iterations:int:3'         # Script-specific param - Number of iterations
 ]
 
 
-def capture_kpi_summary(context, userinterface_name: str, from_node: str, to_node: str, iterations: int, kpi_results: list) -> str:
+def _get_available_edges(context):
+    """Get list of all available edges from navigation tree"""
+    from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+    from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
+    from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+    
+    device = context.selected_device
+    args = context.args
+    
+    # Get tree_id
+    userinterface = get_userinterface_by_name(args.userinterface_name, context.team_id)
+    if not userinterface:
+        print(f"❌ User interface '{args.userinterface_name}' not found")
+        return []
+    
+    root_tree = get_root_tree_for_interface(userinterface['id'], context.team_id)
+    if not root_tree:
+        print(f"❌ No root tree found for interface '{args.userinterface_name}'")
+        return []
+    
+    context.tree_id = root_tree['id']
+    
+    # Load navigation tree to populate cache
+    nav_result = device.navigation_executor.load_navigation_tree(
+        args.userinterface_name, 
+        context.team_id
+    )
+    if not nav_result['success']:
+        print(f"❌ Navigation tree loading failed")
+        return []
+    
+    return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
+
+
+def _fetch_kpi_results_from_db(device_id: str, team_id: str, start_time: datetime, end_time: datetime):
+    """Fetch KPI measurements from execution_results table"""
+    from shared.src.lib.utils.supabase_utils import get_supabase_client
+    
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            print("❌ [_fetch_kpi_results] Supabase client not available")
+            return []
+        
+        # Query execution_results for KPI measurements in time range
+        result = supabase.table('execution_results').select(
+            'kpi_measurement_ms, kpi_measurement_success, kpi_measurement_error, executed_at, from_node_label, to_node_label'
+        ).eq('team_id', team_id).eq('device_id', device_id).gte(
+            'executed_at', start_time.isoformat()
+        ).lte(
+            'executed_at', end_time.isoformat()
+        ).not_.is_('kpi_measurement_ms', 'null').order('executed_at', desc=False).execute()
+        
+        print(f"✅ [_fetch_kpi_results] Found {len(result.data)} KPI measurements from DB")
+        return result.data
+        
+    except Exception as e:
+        print(f"❌ [_fetch_kpi_results] Error fetching KPI results: {e}")
+        return []
+
+
+def capture_kpi_summary(context, userinterface_name: str, edge_label: str, from_label: str, to_label: str, iterations: int, kpi_db_results: list) -> str:
     """Capture KPI measurement summary as text for report"""
     lines = []
     lines.append("="*60)
@@ -44,43 +106,47 @@ def capture_kpi_summary(context, userinterface_name: str, from_node: str, to_nod
     lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     lines.append(f"🖥️  Host: {context.host.host_name}")
     lines.append(f"📋 Interface: {userinterface_name}")
-    lines.append(f"📍 Transition: {from_node} → {to_node}")
-    lines.append(f"🔢 Iterations: {iterations}")
-    lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
+    lines.append(f"🎯 Edge: {edge_label}")
+    lines.append(f"📍 Transition: {from_label} → {to_label}")
+    lines.append(f"🔢 Requested Iterations: {iterations}")
+    lines.append(f"⏱️  Total Script Time: {context.get_execution_time_ms()/1000:.1f}s")
     lines.append("")
     
-    # Calculate KPI statistics
-    if kpi_results:
-        successful_results = [r for r in kpi_results if r['success']]
-        failed_results = [r for r in kpi_results if not r['success']]
+    # Calculate KPI statistics from DB results
+    if kpi_db_results:
+        successful_results = [r for r in kpi_db_results if r.get('kpi_measurement_success')]
+        failed_results = [r for r in kpi_db_results if not r.get('kpi_measurement_success')]
         
-        lines.append("📈 KPI STATISTICS:")
-        lines.append(f"✅ Successful: {len(successful_results)}/{len(kpi_results)}")
-        lines.append(f"❌ Failed: {len(failed_results)}/{len(kpi_results)}")
+        lines.append("📈 KPI STATISTICS (FROM DATABASE):")
+        lines.append(f"✅ Successful: {len(successful_results)}/{len(kpi_db_results)}")
+        lines.append(f"❌ Failed: {len(failed_results)}/{len(kpi_db_results)}")
         
         if successful_results:
-            durations = [r['duration'] for r in successful_results]
-            min_duration = min(durations)
-            max_duration = max(durations)
-            avg_duration = sum(durations) / len(durations)
+            durations_ms = [r['kpi_measurement_ms'] for r in successful_results]
+            min_duration = min(durations_ms)
+            max_duration = max(durations_ms)
+            avg_duration = sum(durations_ms) / len(durations_ms)
             
             lines.append("")
-            lines.append("⏱️  TIMING METRICS (successful iterations only):")
-            lines.append(f"   Min: {min_duration:.2f}s")
-            lines.append(f"   Max: {max_duration:.2f}s")
-            lines.append(f"   Avg: {avg_duration:.2f}s")
+            lines.append("⏱️  TIMING METRICS (successful measurements only):")
+            lines.append(f"   Min: {min_duration}ms ({min_duration/1000:.2f}s)")
+            lines.append(f"   Max: {max_duration}ms ({max_duration/1000:.2f}s)")
+            lines.append(f"   Avg: {avg_duration:.0f}ms ({avg_duration/1000:.2f}s)")
         
         # Per-iteration breakdown
         lines.append("")
         lines.append("📋 PER-ITERATION RESULTS:")
-        for i, result in enumerate(kpi_results, 1):
-            status = "✅" if result['success'] else "❌"
-            if result['success']:
-                lines.append(f"   Iteration {i}: {status} {result['duration']:.2f}s")
+        for i, result in enumerate(kpi_db_results, 1):
+            status = "✅" if result.get('kpi_measurement_success') else "❌"
+            if result.get('kpi_measurement_success'):
+                kpi_ms = result.get('kpi_measurement_ms')
+                lines.append(f"   Iteration {i}: {status} {kpi_ms}ms ({kpi_ms/1000:.2f}s)")
             else:
-                lines.append(f"   Iteration {i}: {status} Failed - {result.get('error', 'Unknown error')}")
+                error = result.get('kpi_measurement_error', 'Unknown error')
+                lines.append(f"   Iteration {i}: {status} Failed - {error}")
     else:
-        lines.append("⚠️  No KPI results collected")
+        lines.append("⚠️  No KPI measurements found in database")
+        lines.append("   (Post-processing may still be in progress)")
     
     lines.append("")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
@@ -94,105 +160,125 @@ def capture_kpi_summary(context, userinterface_name: str, from_node: str, to_nod
     return "\n".join(lines)
 
 
-@script("kpi_measurement", "Measure KPIs for navigation between two nodes")
+@script("kpi_measurement", "Measure KPIs for specific navigation edge")
 def main():
-    """Main KPI measurement function - uses same navigation as goto.py"""
+    """Main KPI measurement function - simple navigation + DB fetch"""
     args = get_args()
     context = get_context()
     device = get_device()
-    from_node = args.from_node
-    to_node = args.to_node
     
     print(f"📊 [kpi_measurement] Starting KPI measurement")
     print(f"📱 [kpi_measurement] Device: {device.device_name} ({device.device_model})")
-    print(f"📍 [kpi_measurement] Measuring: {from_node} → {to_node}")
+    print(f"🔗 [kpi_measurement] Edge: {args.edge}")
     print(f"🔢 [kpi_measurement] Iterations: {args.iterations}")
     
-    # Load navigation tree (same as goto.py)
-    nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
-        context.team_id
-    )
-    if not nav_result['success']:
-        context.error_message = f"Navigation tree loading failed: {nav_result.get('error', 'Unknown error')}"
+    # Record script start time for DB query
+    script_start_time = datetime.now()
+    
+    # Get available edges
+    print(f"📥 [kpi_measurement] Loading available edges...")
+    edges = _get_available_edges(context)
+    if not edges:
+        context.error_message = "No edges found in navigation tree"
         return False
     
-    context.tree_id = nav_result['tree_id']
-    print(f"✅ [kpi_measurement] Navigation tree loaded (tree_id: {context.tree_id})")
+    print(f"✅ [kpi_measurement] Found {len(edges)} edges in validation sequence")
     
-    # Execute KPI measurement loop
-    kpi_results = []
+    # Build edge map: "from_label → to_label" -> edge_info
+    edge_map = {}
+    for edge in edges:
+        from_label = edge.get('from_node_label', '')
+        to_label = edge.get('to_node_label', '')
+        edge_label = f"{from_label} → {to_label}"
+        edge_map[edge_label] = edge
+    
+    # Find selected edge
+    if args.edge not in edge_map:
+        available_edges = ", ".join(list(edge_map.keys())[:10])
+        context.error_message = f"Edge '{args.edge}' not found. Available (first 10): {available_edges}"
+        return False
+    
+    selected_edge = edge_map[args.edge]
+    from_label = selected_edge['from_node_label']
+    to_label = selected_edge['to_node_label']
+    
+    print(f"✅ [kpi_measurement] Selected edge: '{args.edge}'")
+    print(f"📍 [kpi_measurement] Transition: {from_label} → {to_label}")
+    
+    # Execute navigation loop (simple, like goto.py)
+    navigation_success_count = 0
     
     for i in range(args.iterations):
         print(f"\n{'='*60}")
         print(f"🔄 [kpi_measurement] Iteration {i+1}/{args.iterations}")
         print(f"{'='*60}")
         
-        iteration_result = {
-            'iteration': i + 1,
-            'success': False,
-            'duration': 0,
-            'error': None
-        }
-        
-        # Step 1: Navigate to FROM node (starting position) - same as goto.py
-        print(f"📍 [kpi_measurement] Step 1: Going to starting position '{from_node}'")
+        # Step 1: Navigate to FROM node (like goto.py)
+        print(f"📍 [kpi_measurement] Going to '{from_label}'")
         from_result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
-            target_node_label=from_node,  # Use label, not ID (same as goto.py)
+            target_node_label=from_label,
             team_id=context.team_id,
             context=context
         )
         
         if not from_result.get('success', False):
-            error_msg = from_result.get('error', 'Unknown error')
-            print(f"❌ [kpi_measurement] Failed to reach starting position: {error_msg}")
-            iteration_result['error'] = f"Failed to reach {from_node}: {error_msg}"
-            kpi_results.append(iteration_result)
+            print(f"❌ [kpi_measurement] Failed to reach '{from_label}'")
             continue
         
-        print(f"✅ [kpi_measurement] Reached starting position '{from_node}'")
+        print(f"✅ [kpi_measurement] Reached '{from_label}'")
         
-        # Step 2: Navigate to TO node (measure this!) - same as goto.py
-        print(f"⏱️  [kpi_measurement] Step 2: Measuring transition to '{to_node}'")
-        start_time = time.time()
-        
+        # Step 2: Navigate to TO node (like goto.py) - KPI measured automatically
+        print(f"⏱️  [kpi_measurement] Navigating to '{to_label}' (KPI will be measured)")
         to_result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
-            target_node_label=to_node,  # Use label, not ID (same as goto.py)
+            target_node_label=to_label,
             team_id=context.team_id,
             context=context
         )
         
-        duration = time.time() - start_time
-        iteration_result['duration'] = duration
-        
         if to_result.get('success', False):
-            iteration_result['success'] = True
-            print(f"✅ [kpi_measurement] Iteration {i+1} SUCCESS - Duration: {duration:.2f}s")
+            navigation_success_count += 1
+            print(f"✅ [kpi_measurement] Iteration {i+1} navigation SUCCESS")
         else:
-            iteration_result['error'] = to_result.get('error', 'Unknown error')
-            print(f"❌ [kpi_measurement] Iteration {i+1} FAILED - Error: {iteration_result['error']}")
-        
-        kpi_results.append(iteration_result)
-    
-    # Calculate overall success
-    successful_count = sum(1 for r in kpi_results if r['success'])
-    context.overall_success = successful_count == args.iterations
+            print(f"❌ [kpi_measurement] Iteration {i+1} navigation FAILED")
     
     print(f"\n{'='*60}")
     print(f"🎉 [kpi_measurement] Completed {args.iterations} iterations")
-    print(f"📊 [kpi_measurement] Results: {successful_count}/{args.iterations} successful")
+    print(f"📊 [kpi_measurement] Navigation success: {navigation_success_count}/{args.iterations}")
     print(f"{'='*60}")
+    
+    # Wait for post-processing to complete
+    print(f"\n⏳ [kpi_measurement] Waiting 10 seconds for KPI post-processing...")
+    time.sleep(10)
+    
+    # Fetch KPI results from database
+    script_end_time = datetime.now()
+    print(f"📥 [kpi_measurement] Fetching KPI results from database...")
+    print(f"   Time range: {script_start_time.isoformat()} to {script_end_time.isoformat()}")
+    
+    kpi_db_results = _fetch_kpi_results_from_db(
+        device_id=device.device_id,
+        team_id=context.team_id,
+        start_time=script_start_time,
+        end_time=script_end_time
+    )
+    
+    # Calculate overall success
+    successful_kpis = sum(1 for r in kpi_db_results if r.get('kpi_measurement_success'))
+    context.overall_success = successful_kpis == args.iterations
+    
+    print(f"📊 [kpi_measurement] KPI Results: {successful_kpis}/{len(kpi_db_results)} successful")
     
     # Always capture summary for report
     summary_text = capture_kpi_summary(
         context, 
         args.userinterface_name, 
-        from_node, 
-        to_node, 
+        args.edge,
+        from_label, 
+        to_label, 
         args.iterations, 
-        kpi_results
+        kpi_db_results
     )
     context.execution_summary = summary_text
     
