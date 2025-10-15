@@ -64,7 +64,7 @@ def analyze_script_parameters(script_path):
                         'name': param_name,
                         'type': 'optional',
                         'required': False,
-                        'help': f'Parameter: {param_name}',
+                        'help': '',
                         'default': default_value
                     }
                     print(f"[@analyze_script] Parsed parameter from _script_args: {param}")
@@ -91,7 +91,7 @@ def analyze_script_parameters(script_path):
                     'name': param_name,
                     'type': 'positional',
                     'required': True,
-                    'help': help_text or f'Required parameter: {param_name}',
+                    'help': help_text,
                     'default': None
                 })
         
@@ -137,7 +137,7 @@ def analyze_script_parameters(script_path):
                 'name': param_name,
                 'type': 'optional',
                 'required': False,
-                'help': help_text or f'Optional parameter: --{param_name}',
+                'help': help_text,
                 'default': default_value
             })
         

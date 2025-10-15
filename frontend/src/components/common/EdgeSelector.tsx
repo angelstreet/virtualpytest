@@ -181,8 +181,8 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       componentsProps={{
         paper: {
           sx: {
-            minWidth: '500px',
-            maxWidth: '600px',
+            minWidth: '350px',
+            maxWidth: '450px',
           },
         },
       }}
