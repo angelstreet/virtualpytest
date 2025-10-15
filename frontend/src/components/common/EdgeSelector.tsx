@@ -111,7 +111,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   }, [fetchEdges]);
 
   // Get the selected edge option (for display)
-  const selectedEdge = edges.find((e) => e.label === value) || null;
+  const selectedEdge = edges.find((e) => e.label === value) || undefined;
 
   // Render option - simplified (just edge label, smaller font)
   const renderOption = (props: any, option: EdgeOption) => (

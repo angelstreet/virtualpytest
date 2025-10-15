@@ -1,8 +1,8 @@
-import { PlayArrow, Pause, Delete, Add, History } from '@mui/icons-material';
+import { PlayArrow, Pause, Delete, Add } from '@mui/icons-material';
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, IconButton, Chip, CircularProgress
+  TableRow, Paper, IconButton, Chip
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
@@ -10,6 +10,7 @@ import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useDeployment, Deployment } from '../hooks/useDeployment';
 import { useRun } from '../hooks/useRun';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 const Deployments: React.FC = () => {
   const { createDeployment, listDeployments, pauseDeployment, resumeDeployment, deleteDeployment, getRecentExecutions } = useDeployment();
@@ -17,7 +18,6 @@ const Deployments: React.FC = () => {
   const { showSuccess, showError } = useToast();
 
   const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState('');
   const [selectedScript, setSelectedScript] = useState('');
   const [selectedHost, setSelectedHost] = useState('');
   const [selectedDevice, setSelectedDevice] = useState('');
@@ -51,9 +51,14 @@ const Deployments: React.FC = () => {
   }, []);
 
   const loadScripts = async () => {
-    const res = await fetch('/server/script/list');
-    const data = await res.json();
-    if (data.success) setScripts(data.scripts);
+    try {
+      const res = await fetch(buildServerUrl('/server/script/list'));
+      const data = await res.json();
+      if (data.success) setScripts(data.scripts);
+    } catch (error) {
+      showError('Failed to load scripts');
+      console.error('Error loading scripts:', error);
+    }
   };
 
   const loadDeployments = async () => {
@@ -69,8 +74,12 @@ const Deployments: React.FC = () => {
   const handleCreate = async () => {
     const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
     
+    // Auto-generate deployment name from script name and timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const deploymentName = `${selectedScript}_${timestamp}`;
+    
     const res = await createDeployment({
-      name,
+      name: deploymentName,
       host_name: selectedHost,
       device_id: selectedDevice,
       script_name: selectedScript,
@@ -121,7 +130,6 @@ const Deployments: React.FC = () => {
               ) : (
                 <>
                   <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                    <TextField label="Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 150 }} />
                     <FormControl size="small" sx={{ minWidth: 150 }}>
                       <InputLabel>Script</InputLabel>
                       <Select value={selectedScript} label="Script" onChange={e => setSelectedScript(e.target.value)}>
@@ -160,7 +168,7 @@ const Deployments: React.FC = () => {
                     ))}
                   </Box>
                   <Box display="flex" gap={1}>
-                    <Button variant="contained" onClick={handleCreate} disabled={!name || !selectedScript || !selectedHost}>Create</Button>
+                    <Button variant="contained" onClick={handleCreate} disabled={!selectedScript || !selectedHost || !selectedDevice}>Create</Button>
                     <Button variant="outlined" onClick={() => setShowCreate(false)}>Cancel</Button>
                   </Box>
                 </>
