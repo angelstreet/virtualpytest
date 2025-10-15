@@ -1,4 +1,4 @@
-import { PlayArrow, Pause, Delete, Add } from '@mui/icons-material';
+import { PlayArrow, Pause, Delete, Add, Close } from '@mui/icons-material';
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
@@ -11,6 +11,13 @@ import { useToast } from '../hooks/useToast';
 import { useDeployment, Deployment } from '../hooks/useDeployment';
 import { useRun } from '../hooks/useRun';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+
+interface AdditionalDevice {
+  hostName: string;
+  deviceId: string;
+  deviceModel: string;
+  userinterface: string;
+}
 
 const Deployments: React.FC = () => {
   const { createDeployment, listDeployments, pauseDeployment, resumeDeployment, deleteDeployment, getRecentExecutions } = useDeployment();
@@ -28,10 +35,56 @@ const Deployments: React.FC = () => {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [executions, setExecutions] = useState<any[]>([]);
   const [scripts, setScripts] = useState<string[]>([]);
+  const [additionalDevices, setAdditionalDevices] = useState<AdditionalDevice[]>([]);
 
   const hosts = getAllHosts();
-  const devices = selectedHost ? getDevicesFromHost(selectedHost) : [];
+  
+  // Function to get available devices for selection (excluding already selected ones)
+  const getAvailableDevicesForSelection = () => {
+    if (!selectedHost) return [];
+    
+    const allDevicesForHost = getDevicesFromHost(selectedHost);
+    const selectedDeviceIds = additionalDevices
+      .filter(d => d.hostName === selectedHost)
+      .map(d => d.deviceId);
+    
+    return allDevicesForHost.filter(device => 
+      !selectedDeviceIds.includes(device.device_id)
+    );
+  };
+
+  const devices = getAvailableDevicesForSelection();
   const deviceModel = devices.find(d => d.device_id === selectedDevice)?.device_model || 'unknown';
+
+  // Function to check if there are more devices available to add across all hosts
+  const hasMoreDevicesAvailable = () => {
+    const allSelectedDevices = [...additionalDevices];
+    if (selectedHost && selectedDevice) {
+      allSelectedDevices.push({ 
+        hostName: selectedHost, 
+        deviceId: selectedDevice,
+        deviceModel: deviceModel,
+        userinterface: selectedUserinterface
+      });
+    }
+    
+    for (const host of hosts) {
+      const hostDevices = getDevicesFromHost(host.host_name);
+      const selectedDevicesForHost = allSelectedDevices
+        .filter(d => d.hostName === host.host_name)
+        .map(d => d.deviceId);
+      
+      const availableDevicesForHost = hostDevices.filter(device => 
+        !selectedDevicesForHost.includes(device.device_id)
+      );
+      
+      if (availableDevicesForHost.length > 0) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
 
   const { scriptAnalysis, parameterValues, handleParameterChange } = useRun({
     selectedScript,
@@ -72,29 +125,61 @@ const Deployments: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
+    // Build complete device list: primary device + additional devices
+    const allDevices: AdditionalDevice[] = [];
     
-    // Auto-generate deployment name from script name and timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const deploymentName = `${selectedScript}_${timestamp}`;
+    // Add primary device if selected
+    if (selectedHost && selectedDevice && selectedUserinterface) {
+      allDevices.push({ 
+        hostName: selectedHost, 
+        deviceId: selectedDevice,
+        deviceModel: deviceModel,
+        userinterface: selectedUserinterface
+      });
+    }
     
-    const res = await createDeployment({
-      name: deploymentName,
-      host_name: selectedHost,
-      device_id: selectedDevice,
-      script_name: selectedScript,
-      userinterface_name: selectedUserinterface,
-      parameters: params,
-      schedule_type: scheduleType,
-      schedule_config: { hour: scheduleHour, minute: scheduleMinute }
-    });
+    // Add additional devices
+    allDevices.push(...additionalDevices);
 
-    if (res.success) {
-      showSuccess('Deployment created');
+    if (allDevices.length === 0 || !selectedScript) {
+      showError('Please select at least one device and a script');
+      return;
+    }
+
+    const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    
+    // Create deployments for all devices
+    let successCount = 0;
+    for (const device of allDevices) {
+      const deploymentName = `${selectedScript}_${device.hostName}_${device.deviceId}_${timestamp}`;
+      
+      const res = await createDeployment({
+        name: deploymentName,
+        host_name: device.hostName,
+        device_id: device.deviceId,
+        script_name: selectedScript,
+        userinterface_name: device.userinterface,
+        parameters: params,
+        schedule_type: scheduleType,
+        schedule_config: { hour: scheduleHour, minute: scheduleMinute }
+      });
+
+      if (res.success) {
+        successCount++;
+      } else {
+        showError(`Failed to create deployment for ${device.hostName}:${device.deviceId}`);
+      }
+    }
+
+    if (successCount > 0) {
+      showSuccess(`Created ${successCount} deployment${successCount > 1 ? 's' : ''} successfully`);
       setShowCreate(false);
+      setSelectedHost('');
+      setSelectedDevice('');
+      setSelectedUserinterface('');
+      setAdditionalDevices([]);
       loadDeployments();
-    } else {
-      showError(res.error);
     }
   };
 
@@ -167,9 +252,112 @@ const Deployments: React.FC = () => {
                       <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
                     ))}
                   </Box>
+
+                  {/* Add Device button - only show if more devices are available */}
+                  {hasMoreDevicesAvailable() && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+                      {selectedHost && selectedDevice && selectedUserinterface && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<Add />}
+                          onClick={() => {
+                            const exists = additionalDevices.some(d => d.hostName === selectedHost && d.deviceId === selectedDevice);
+                            if (!exists) {
+                              setAdditionalDevices(prev => [...prev, { 
+                                hostName: selectedHost, 
+                                deviceId: selectedDevice,
+                                deviceModel: deviceModel,
+                                userinterface: selectedUserinterface
+                              }]);
+                              setSelectedHost('');
+                              setSelectedDevice('');
+                              setSelectedUserinterface('');
+                            }
+                          }}
+                          disabled={!selectedHost || !selectedDevice || !selectedUserinterface}
+                          size="small"
+                        >
+                          Add Device
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Show additional devices with remove option */}
+                  {additionalDevices.length > 0 && (
+                    <Box sx={{ mt: 2, mb: 1 }}>
+                      <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        Additional Devices ({additionalDevices.length}):
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {additionalDevices.map((device, index) => {
+                          const hostDevices = getDevicesFromHost(device.hostName);
+                          const deviceObject = hostDevices.find(d => d.device_id === device.deviceId);
+                          const deviceDisplayName = deviceObject?.device_name || device.deviceId;
+                          
+                          return (
+                            <Card 
+                              key={`${device.hostName}:${device.deviceId}`}
+                              variant="outlined"
+                              sx={{ p: 1, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ flex: '0 0 200px' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                    📱 {device.hostName}:{deviceDisplayName}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {device.deviceModel}
+                                  </Typography>
+                                </Box>
+                                
+                                <Box sx={{ flex: 1, minWidth: 200 }}>
+                                  <UserinterfaceSelector
+                                    deviceModel={device.deviceModel}
+                                    value={device.userinterface}
+                                    onChange={(newUserinterface) => {
+                                      setAdditionalDevices(prev => prev.map((d, i) => 
+                                        i === index ? { ...d, userinterface: newUserinterface } : d
+                                      ));
+                                    }}
+                                    label="Userinterface"
+                                    size="small"
+                                    fullWidth
+                                  />
+                                </Box>
+                                
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setAdditionalDevices(prev => prev.filter((_, i) => i !== index));
+                                  }}
+                                  sx={{ ml: 'auto' }}
+                                >
+                                  <Close />
+                                </IconButton>
+                              </Box>
+                            </Card>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  )}
+
                   <Box display="flex" gap={1}>
-                    <Button variant="contained" onClick={handleCreate} disabled={!selectedScript || !selectedHost || !selectedDevice}>Create</Button>
-                    <Button variant="outlined" onClick={() => setShowCreate(false)}>Cancel</Button>
+                    <Button 
+                      variant="contained" 
+                      onClick={handleCreate} 
+                      disabled={(!selectedHost || !selectedDevice) && additionalDevices.length === 0 || !selectedScript}
+                    >
+                      Create{((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length > 1 ? ` ${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length} Deployments` : ' Deployment'}
+                    </Button>
+                    <Button variant="outlined" onClick={() => {
+                      setShowCreate(false);
+                      setSelectedHost('');
+                      setSelectedDevice('');
+                      setSelectedUserinterface('');
+                      setAdditionalDevices([]);
+                    }}>Cancel</Button>
                   </Box>
                 </>
               )}
@@ -189,29 +377,48 @@ const Deployments: React.FC = () => {
                       <TableCell>Name</TableCell>
                       <TableCell>Script</TableCell>
                       <TableCell>Host:Device</TableCell>
+                      <TableCell>Parameters</TableCell>
                       <TableCell>Schedule</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {deployments.map(d => (
-                      <TableRow key={d.id}>
-                        <TableCell>{d.name}</TableCell>
-                        <TableCell>{d.script_name}</TableCell>
-                        <TableCell>{d.host_name}:{d.device_id}</TableCell>
-                        <TableCell>{d.schedule_type} {d.schedule_config?.hour}:{d.schedule_config?.minute}</TableCell>
-                        <TableCell><Chip label={d.status} color={d.status === 'active' ? 'success' : 'default'} size="small" /></TableCell>
-                        <TableCell>
-                          {d.status === 'active' ? (
-                            <IconButton size="small" onClick={() => handlePause(d.id)}><Pause /></IconButton>
-                          ) : (
-                            <IconButton size="small" onClick={() => handleResume(d.id)}><PlayArrow /></IconButton>
-                          )}
-                          <IconButton size="small" onClick={() => handleDelete(d.id)}><Delete /></IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {deployments.map(d => {
+                      const hostDevices = getDevicesFromHost(d.host_name);
+                      const deviceObject = hostDevices.find(device => device.device_id === d.device_id);
+                      const deviceDisplayName = deviceObject?.device_name || d.device_id;
+                      
+                      return (
+                        <TableRow 
+                          key={d.id}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                            },
+                          }}
+                        >
+                          <TableCell>{d.name}</TableCell>
+                          <TableCell>{d.script_name}</TableCell>
+                          <TableCell>{d.host_name}:{deviceDisplayName}</TableCell>
+                          <TableCell>
+                            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                              {d.parameters && d.parameters.trim() ? d.parameters : '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{d.schedule_type} {d.schedule_config?.hour}:{d.schedule_config?.minute}</TableCell>
+                          <TableCell><Chip label={d.status} color={d.status === 'active' ? 'success' : 'default'} size="small" /></TableCell>
+                          <TableCell>
+                            {d.status === 'active' ? (
+                              <IconButton size="small" onClick={() => handlePause(d.id)}><Pause /></IconButton>
+                            ) : (
+                              <IconButton size="small" onClick={() => handleResume(d.id)}><PlayArrow /></IconButton>
+                            )}
+                            <IconButton size="small" onClick={() => handleDelete(d.id)}><Delete /></IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -230,21 +437,42 @@ const Deployments: React.FC = () => {
                     <TableRow>
                       <TableCell>Deployment</TableCell>
                       <TableCell>Script</TableCell>
+                      <TableCell>Host:Device</TableCell>
                       <TableCell>Started</TableCell>
                       <TableCell>Duration</TableCell>
                       <TableCell>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {executions.map(e => (
-                      <TableRow key={e.id}>
-                        <TableCell>{e.deployments?.name}</TableCell>
-                        <TableCell>{e.deployments?.script_name}</TableCell>
-                        <TableCell>{new Date(e.started_at).toLocaleString()}</TableCell>
-                        <TableCell>{e.completed_at ? `${Math.round((new Date(e.completed_at).getTime() - new Date(e.started_at).getTime()) / 1000)}s` : '-'}</TableCell>
-                        <TableCell><Chip label={e.success ? 'Success' : e.completed_at ? 'Failed' : 'Running'} color={e.success ? 'success' : e.completed_at ? 'error' : 'warning'} size="small" /></TableCell>
-                      </TableRow>
-                    ))}
+                    {executions.map(e => {
+                      const hostName = e.deployments?.host_name;
+                      const deviceId = e.deployments?.device_id;
+                      let deviceDisplayName = deviceId;
+                      
+                      if (hostName && deviceId) {
+                        const hostDevices = getDevicesFromHost(hostName);
+                        const deviceObject = hostDevices.find(device => device.device_id === deviceId);
+                        deviceDisplayName = deviceObject?.device_name || deviceId;
+                      }
+                      
+                      return (
+                        <TableRow 
+                          key={e.id}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                            },
+                          }}
+                        >
+                          <TableCell>{e.deployments?.name}</TableCell>
+                          <TableCell>{e.deployments?.script_name}</TableCell>
+                          <TableCell>{hostName && deviceId ? `${hostName}:${deviceDisplayName}` : '-'}</TableCell>
+                          <TableCell>{new Date(e.started_at).toLocaleString()}</TableCell>
+                          <TableCell>{e.completed_at ? `${Math.round((new Date(e.completed_at).getTime() - new Date(e.started_at).getTime()) / 1000)}s` : '-'}</TableCell>
+                          <TableCell><Chip label={e.success ? 'Success' : e.completed_at ? 'Failed' : 'Running'} color={e.success ? 'success' : e.completed_at ? 'error' : 'warning'} size="small" /></TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
