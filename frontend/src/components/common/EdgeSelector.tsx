@@ -8,7 +8,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Autocomplete, TextField, CircularProgress, Box, Typography } from '@mui/material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { useAuth } from '../../contexts/AuthContext';
+
+// Hardcoded team_id (same as used throughout the app)
+const TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce';
 
 interface EdgeOption {
   label: string;
@@ -38,7 +40,6 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   userinterfaceName,
   hostName,
 }) => {
-  const { team } = useAuth();
   const [edges, setEdges] = useState<EdgeOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,13 +49,13 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   const lastFetchKey = useRef<string | null>(null);
 
   const fetchEdges = useCallback(async () => {
-    if (!userinterfaceName || !hostName || !team?.id) {
+    if (!userinterfaceName || !hostName) {
       setEdges([]);
       setError(null);
       return;
     }
 
-    const fetchKey = `${userinterfaceName}-${hostName}-${team.id}`;
+    const fetchKey = `${userinterfaceName}-${hostName}-${TEAM_ID}`;
     
     // Prevent duplicate requests
     if (fetchInProgress.current && lastFetchKey.current === fetchKey) {
@@ -68,7 +69,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
     setError(null);
 
     try {
-      console.log('[EdgeSelector] Fetching edges for:', { userinterfaceName, hostName, team_id: team.id });
+      console.log('[EdgeSelector] Fetching edges for:', { userinterfaceName, hostName, team_id: TEAM_ID });
       
       const response = await fetch(buildServerUrl('/server/script/get_edge_options'), {
         method: 'POST',
@@ -77,7 +78,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
         },
         body: JSON.stringify({
           userinterface_name: userinterfaceName,
-          team_id: team.id,
+          team_id: TEAM_ID,
           host_name: hostName,
         }),
       });
