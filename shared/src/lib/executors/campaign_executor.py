@@ -296,7 +296,9 @@ class CampaignExecutor:
             for param_name, param_value in parameters.items():
                 param_parts.extend([f"--{param_name}", str(param_value)])
             
-            parameters_string = " ".join(param_parts)
+            # Join parameters with proper shell quoting to handle special characters
+            import shlex
+            parameters_string = " ".join(shlex.quote(part) for part in param_parts)
             
             print(f"🚀 [Campaign] Executing: {script_name} {parameters_string}")
             print(f"📋 [Campaign] Starting real-time script output:")

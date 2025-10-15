@@ -21,6 +21,7 @@ import subprocess
 import uuid
 import glob
 import select
+import shlex
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 
@@ -401,13 +402,19 @@ class ScriptExecutor:
         
         venv_activate = os.path.join(project_root, 'venv', 'bin', 'activate')
         
-        # Build command with parameters
-        base_command = f"bash -c 'source {venv_activate} && python {script_path}"
+        # Build command with parameters - PROPER SHELL QUOTING
+        base_command = f"source {venv_activate} && python {script_path}"
         
         if parameters and parameters.strip():
-            command = f"{base_command} {parameters.strip()}'"
+            # Split parameters and properly quote each one to handle special characters
+            param_parts = shlex.split(parameters.strip())
+            quoted_params = ' '.join(shlex.quote(part) for part in param_parts)
+            full_command = f"{base_command} {quoted_params}"
         else:
-            command = f"{base_command}'"
+            full_command = base_command
+        
+        # Final bash command
+        command = f"bash -c {shlex.quote(full_command)}"
         
         print(f"[@script_executor] Executing: {command}")
         print(f"[@script_executor] === SCRIPT OUTPUT START ===")
