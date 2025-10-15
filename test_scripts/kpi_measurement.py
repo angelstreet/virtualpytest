@@ -79,8 +79,8 @@ def _get_available_edges(context):
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
-def _fetch_kpi_results_from_db(device_id: str, team_id: str, start_time: datetime, end_time: datetime):
-    """Fetch KPI measurements from execution_results table"""
+def _fetch_kpi_results_from_db(team_id: str, start_time: datetime, end_time: datetime):
+    """Fetch KPI measurements from execution_results table filtered by team and time range"""
     from shared.src.lib.utils.supabase_utils import get_supabase_client
     
     try:
@@ -90,9 +90,10 @@ def _fetch_kpi_results_from_db(device_id: str, team_id: str, start_time: datetim
             return []
         
         # Query execution_results for KPI measurements in time range
+        # Filter by team_id and time window (no device filter since execution_results stores device_model not device_id)
         result = supabase.table('execution_results').select(
-            'kpi_measurement_ms, kpi_measurement_success, kpi_measurement_error, executed_at, from_node_label, to_node_label'
-        ).eq('team_id', team_id).eq('device_id', device_id).gte(
+            'kpi_measurement_ms, kpi_measurement_success, kpi_measurement_error, executed_at, action_set_id, edge_id'
+        ).eq('team_id', team_id).gte(
             'executed_at', start_time.isoformat()
         ).lte(
             'executed_at', end_time.isoformat()
@@ -290,7 +291,6 @@ def main():
     print(f"   Time range: {script_start_time.isoformat()} to {script_end_time.isoformat()}")
     
     kpi_db_results = _fetch_kpi_results_from_db(
-        device_id=device.device_id,
         team_id=context.team_id,
         start_time=script_start_time,
         end_time=script_end_time
