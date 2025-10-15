@@ -103,7 +103,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       setLoading(false);
       fetchInProgress.current = false;
     }
-  }, [userinterfaceName, hostName, team?.id]);
+  }, [userinterfaceName, hostName]);
 
   // Fetch edges when dependencies change
   useEffect(() => {
