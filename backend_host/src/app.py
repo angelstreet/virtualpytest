@@ -205,10 +205,20 @@ def main():
     
     app = setup_flask_app("VirtualPyTest-backend_host")
     
-    # Initialize app context
     with app.app_context():
         app.default_user_id = DEFAULT_USER_ID
         
+        # Initialize shared cache using multiprocessing Manager
+        from multiprocessing import Manager
+        manager = Manager()
+        app.navigation_cache = {
+            'graphs': manager.dict(),
+            'hierarchy': manager.dict(),
+            'locations': manager.dict(),
+            'timestamps': manager.dict()
+        }
+        print("[@backend_host:main] ✅ Initialized shared multiprocessing navigation cache")
+
         # STEP 2.5: Initialize host devices with executors
         print("[@backend_host:main] Step 2.5: Initializing host devices with executors...")
         try:

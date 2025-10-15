@@ -9,6 +9,8 @@ from typing import Dict, Optional, List
 import sys
 import os
 
+from multiprocessing.managers import SyncManager
+
 # Cache TTL in seconds (24 hours)
 CACHE_TTL = 86400
 
@@ -250,6 +252,27 @@ def get_cache_stats() -> Dict[str, int]:
         'node_locations': len(_node_location_cache),
         'total_cached_items': len(_unified_graphs_cache) + len(_tree_hierarchy_cache) + len(_node_location_cache)
     }
+
+def _get_cache_backend():
+    """
+    Get cache backend - Shared Manager if available, then Flask, then module-level
+    """
+    try:
+        from flask import current_app
+        if hasattr(current_app, 'navigation_cache'):
+            if isinstance(current_app.navigation_cache['graphs'], SyncManager.DictProxy):
+                return current_app.navigation_cache, 'Shared'
+            return current_app.navigation_cache, 'Flask'
+    except (ImportError, RuntimeError):
+        pass
+    
+    # Fallback to module-level cache
+    return {
+        'graphs': _unified_graphs_cache,
+        'hierarchy': _tree_hierarchy_cache,
+        'locations': _node_location_cache,
+        'timestamps': _unified_cache_timestamps
+    }, 'Module'
 
 # Backward compatibility aliases (deprecated - use unified functions directly)
 def get_cached_graph(tree_id: str, team_id: str, force_rebuild: bool = False) -> Optional[nx.DiGraph]:
