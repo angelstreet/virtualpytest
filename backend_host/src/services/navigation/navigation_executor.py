@@ -1210,8 +1210,12 @@ class NavigationExecutor:
         try:
             # ✅ FAIL EARLY: Validate required fields (no fallbacks)
             target_node_id = step.get('to_node_id')
-            target_tree_id = step.get('to_tree_id')  # ONE TRUTH: use to_tree_id (target tree)
+            target_tree_id = step.get('to_tree_id')  # For fetching target node data
             edge_id = step.get('edge_id')
+            
+            # Get edge's actual tree_id from original_edge_data (where the edge lives)
+            original_edge_data = step.get('original_edge_data', {})
+            edge_tree_id = original_edge_data.get('tree_id', target_tree_id)  # Fallback to target_tree_id if not found
             
             if not target_node_id or not target_tree_id or not edge_id:
                 return
@@ -1256,7 +1260,7 @@ class NavigationExecutor:
             from shared.src.lib.supabase.execution_results_db import record_edge_execution
             execution_result_id = record_edge_execution(
                 team_id=team_id,
-                tree_id=target_tree_id,  # Use target tree (where edge lives)
+                tree_id=edge_tree_id,  # ✅ Use edge's tree_id (both forward/reverse use same tree)
                 edge_id=edge_id,
                 host_name=self.host_name,
                 device_model=self.device_model,
