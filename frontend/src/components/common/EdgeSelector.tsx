@@ -113,14 +113,11 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   // Get the selected edge option (for display)
   const selectedEdge = edges.find((e) => e.label === value) || null;
 
-  // Render option with from/to node information
+  // Render option - simplified (just edge label, smaller font)
   const renderOption = (props: any, option: EdgeOption) => (
-    <Box component="li" {...props} sx={{ display: 'flex', flexDirection: 'column', py: 1 }}>
-      <Typography variant="body2" fontWeight="bold">
+    <Box component="li" {...props} sx={{ py: 0.5, px: 1 }}>
+      <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
         {option.label}
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {option.from} → {option.to} ({option.direction})
       </Typography>
     </Box>
   );
@@ -135,13 +132,14 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       error={!!error || (required && !value)}
       helperText={
         error ||
-        (loading ? 'Loading edges...' : '') ||
+        (loading ? 'Loading edges with KPI...' : '') ||
         (!userinterfaceName ? 'Select user interface first' : '') ||
         (!hostName ? 'Select host first' : '') ||
         (required && !value ? 'This field is required' : '')
       }
       InputProps={{
         ...params.InputProps,
+        style: { fontSize: '0.875rem' },
         endAdornment: (
           <>
             {loading ? <CircularProgress color="inherit" size={20} /> : null}
@@ -171,7 +169,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
           ? 'Select host first'
           : loading
           ? 'Loading...'
-          : 'No edges available'
+          : 'No edges with KPI found'
       }
       size={size}
       fullWidth={fullWidth}
