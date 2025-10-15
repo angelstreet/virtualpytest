@@ -3,15 +3,22 @@
 KPI Measurement Script for VirtualPyTest
 
 This script measures KPIs for a specific edge transition by repeatedly navigating it.
-Uses edge selection to ensure DIRECT navigation transition between two nodes.
+Uses edge_id selection to ensure DIRECT navigation transition between two nodes.
 KPI measurements are post-processed by kpi_executor service and fetched from DB.
 
+Workflow:
+1. Select edge (by UUID) to get source and target nodes
+2. Navigate in loop: goto(source) → goto(target) (like goto.py)
+3. Wait 10 seconds for kpi_executor post-processing
+4. Fetch KPI measurements from database
+5. Display min/max/avg statistics
+
 Usage:
-    python test_scripts/kpi_measurement.py <userinterface_name> --edge <edge_label> [--iterations <count>]
+    python test_scripts/kpi_measurement.py <userinterface_name> --edge-id <edge_uuid> [--iterations <count>]
     
 Examples:
-    python test_scripts/kpi_measurement.py horizon_android_mobile --edge "home → live" --iterations 5
-    python test_scripts/kpi_measurement.py horizon_android_tv --edge "settings → home" --iterations 10
+    python test_scripts/kpi_measurement.py horizon_android_mobile --edge-id abc123... --iterations 5
+    python test_scripts/kpi_measurement.py horizon_android_tv --edge-id def456... --iterations 10
 """
 
 import sys
@@ -31,7 +38,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
 # NOTE: Framework params (userinterface_name, --host, --device) are automatic - don't declare them!
 _script_args = [
-    '--edge:str:',               # Script-specific param - Edge label (e.g., "home → live")
+    '--edge-id:str:',            # Script-specific param - Edge ID (UUID)
     '--iterations:int:3'         # Script-specific param - Number of iterations
 ]
 
@@ -169,7 +176,7 @@ def main():
     
     print(f"📊 [kpi_measurement] Starting KPI measurement")
     print(f"📱 [kpi_measurement] Device: {device.device_name} ({device.device_model})")
-    print(f"🔗 [kpi_measurement] Edge: {args.edge}")
+    print(f"🔗 [kpi_measurement] Edge ID: {args.edge_id}")
     print(f"🔢 [kpi_measurement] Iterations: {args.iterations}")
     
     # Record script start time for DB query
@@ -184,25 +191,25 @@ def main():
     
     print(f"✅ [kpi_measurement] Found {len(edges)} edges in validation sequence")
     
-    # Build edge map: "from_label → to_label" -> edge_info
+    # Build edge map by edge_id
     edge_map = {}
     for edge in edges:
-        from_label = edge.get('from_node_label', '')
-        to_label = edge.get('to_node_label', '')
-        edge_label = f"{from_label} → {to_label}"
-        edge_map[edge_label] = edge
+        edge_id = edge.get('edge_id')
+        if edge_id:
+            edge_map[edge_id] = edge
     
-    # Find selected edge
-    if args.edge not in edge_map:
-        available_edges = ", ".join(list(edge_map.keys())[:10])
-        context.error_message = f"Edge '{args.edge}' not found. Available (first 10): {available_edges}"
+    # Find selected edge by ID
+    if args.edge_id not in edge_map:
+        available_edges = [f"{e.get('from_node_label')} → {e.get('to_node_label')}" for e in list(edge_map.values())[:10]]
+        context.error_message = f"Edge ID '{args.edge_id}' not found. Available edges: {', '.join(available_edges)}"
         return False
     
-    selected_edge = edge_map[args.edge]
+    selected_edge = edge_map[args.edge_id]
     from_label = selected_edge['from_node_label']
     to_label = selected_edge['to_node_label']
+    edge_label = f"{from_label} → {to_label}"
     
-    print(f"✅ [kpi_measurement] Selected edge: '{args.edge}'")
+    print(f"✅ [kpi_measurement] Selected edge: '{edge_label}'")
     print(f"📍 [kpi_measurement] Transition: {from_label} → {to_label}")
     
     # Execute navigation loop (simple, like goto.py)
@@ -274,7 +281,7 @@ def main():
     summary_text = capture_kpi_summary(
         context, 
         args.userinterface_name, 
-        args.edge,
+        edge_label,
         from_label, 
         to_label, 
         args.iterations, 
