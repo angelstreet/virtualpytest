@@ -102,3 +102,144 @@ def _execute_script():
             'success': False,
             'error': str(e)
         }), 500
+
+@host_script_bp.route('/script/get_edge_options', methods=['POST'])
+def get_edge_options():
+    """Get available edge action_set labels for dropdown selection"""
+    try:
+        data = request.get_json()
+        userinterface_name = data.get('userinterface_name')
+        team_id = data.get('team_id')
+        
+        if not all([userinterface_name, team_id]):
+            return jsonify({
+                'success': False,
+                'error': 'userinterface_name and team_id are required'
+            }), 400
+        
+        print(f"[@host_script:get_edge_options] Loading edges for {userinterface_name}")
+        
+        # Import required modules
+        from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
+        from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+        from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache
+        
+        # Get interface and tree ID
+        interface_info = get_userinterface_by_name(userinterface_name, team_id)
+        if not interface_info:
+            return jsonify({
+                'success': False,
+                'error': f"Interface '{userinterface_name}' not found"
+            }), 404
+        
+        root_tree_info = get_root_tree_for_interface(interface_info['id'], team_id)
+        if not root_tree_info:
+            return jsonify({
+                'success': False,
+                'error': f"No root tree found for interface '{userinterface_name}'"
+            }), 404
+        
+        tree_id = root_tree_info['id']
+        
+        # Check if unified cache exists, if not populate it
+        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        if not cached_graph:
+            print(f"[@host_script:get_edge_options] Cache miss - loading and populating cache")
+            # Load navigation tree to populate cache
+            from shared.src.lib.supabase.navigation_trees_db import get_full_tree, get_complete_tree_hierarchy
+            tree_data = get_full_tree(tree_id, team_id)
+            
+            if not tree_data['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f"Failed to load tree: {tree_data.get('error')}"
+                }), 500
+            
+            # Get complete hierarchy
+            hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+            if not hierarchy_result['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f"Failed to load hierarchy: {hierarchy_result.get('error')}"
+                }), 500
+            
+            # Populate cache
+            from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+            cached_graph = populate_unified_cache(tree_id, team_id, hierarchy_result['hierarchy'])
+            
+            if not cached_graph:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to populate unified cache'
+                }), 500
+            
+            print(f"[@host_script:get_edge_options] Cache populated: {len(cached_graph.nodes)} nodes, {len(cached_graph.edges)} edges")
+        else:
+            print(f"[@host_script:get_edge_options] Using cached graph: {len(cached_graph.nodes)} nodes, {len(cached_graph.edges)} edges")
+        
+        # Get edges from validation sequence
+        edges = find_optimal_edge_validation_sequence(tree_id, team_id)
+        
+        if not edges:
+            return jsonify({
+                'success': False,
+                'error': 'No edges found in navigation tree'
+            }), 404
+        
+        print(f"[@host_script:get_edge_options] Found {len(edges)} edges from validation sequence")
+        
+        # Extract action_set labels (bidirectional support)
+        edge_options = []
+        edge_details = []  # For debugging/display
+        
+        for edge in edges:
+            edge_data = edge.get('original_edge_data', {})
+            action_sets = edge_data.get('action_sets', [])
+            from_label = edge.get('from_node_label', 'unknown')
+            to_label = edge.get('to_node_label', 'unknown')
+            
+            # Forward action set (index 0)
+            if len(action_sets) > 0:
+                forward_set = action_sets[0]
+                forward_label = forward_set.get('label', '')
+                if forward_label and forward_set.get('actions'):
+                    edge_options.append(forward_label)
+                    edge_details.append({
+                        'label': forward_label,
+                        'direction': 'forward',
+                        'from': from_label,
+                        'to': to_label
+                    })
+            
+            # Reverse action set (index 1) - if exists and has actions
+            if len(action_sets) > 1:
+                reverse_set = action_sets[1]
+                reverse_label = reverse_set.get('label', '')
+                if reverse_label and reverse_set.get('actions'):
+                    edge_options.append(reverse_label)
+                    edge_details.append({
+                        'label': reverse_label,
+                        'direction': 'reverse',
+                        'from': to_label,  # Swapped for reverse
+                        'to': from_label   # Swapped for reverse
+                    })
+        
+        print(f"[@host_script:get_edge_options] Extracted {len(edge_options)} action_set labels")
+        
+        return jsonify({
+            'success': True,
+            'edge_options': edge_options,
+            'edge_details': edge_details,  # For debugging/tooltips
+            'count': len(edge_options),
+            'cache_used': cached_graph is not None
+        })
+        
+    except Exception as e:
+        print(f"[@host_script:get_edge_options] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

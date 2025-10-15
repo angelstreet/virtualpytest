@@ -241,6 +241,66 @@ def analyze_script():
             'error': str(e)
         }), 500
 
+@server_script_bp.route('/script/get_edge_options', methods=['POST'])
+def get_edge_options():
+    """Get available edge action_set labels for KPI measurement script"""
+    try:
+        data = request.get_json()
+        userinterface_name = data.get('userinterface_name')
+        team_id = data.get('team_id')
+        host_name = data.get('host_name')
+        
+        if not all([userinterface_name, team_id, host_name]):
+            return jsonify({
+                'success': False,
+                'error': 'userinterface_name, team_id, and host_name are required'
+            }), 400
+        
+        print(f"[@get_edge_options] Loading edges for {userinterface_name} on {host_name}")
+        
+        # Get host info
+        host_manager = get_host_manager()
+        host_info = host_manager.get_host(host_name)
+        
+        if not host_info:
+            return jsonify({
+                'success': False,
+                'error': f'Host not found: {host_name}'
+            }), 404
+        
+        # Call host to get edges
+        host_url = buildHostUrl(host_info, '/host/script/get_edge_options')
+        response = requests.post(
+            host_url,
+            json={
+                'userinterface_name': userinterface_name,
+                'team_id': team_id
+            },
+            timeout=30
+        )
+        
+        if response.status_code != 200:
+            return jsonify({
+                'success': False,
+                'error': f'Host request failed: {response.text}'
+            }), response.status_code
+        
+        result = response.json()
+        
+        if not result.get('success'):
+            return jsonify(result), 400
+        
+        print(f"[@get_edge_options] Found {len(result.get('edge_options', []))} edge options")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@get_edge_options] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @server_script_bp.route('/script/list', methods=['GET'])
 def list_scripts():
     """List all available Python scripts AND AI test cases"""
