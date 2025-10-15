@@ -651,17 +651,6 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     }
   }, [availableHosts, stableUserInterface?.models]);
 
-  // Auto-switch to fallback server if selected server is down
-  useEffect(() => {
-    if (selectedServerError && availableServers.length > 1) {
-      // Switch to first available server with data
-      const fallbackServer = serverHostsData[0]?.server_info.server_url;
-      if (fallbackServer && fallbackServer !== selectedServer) {
-        setSelectedServer(fallbackServer);
-      }
-    }
-  }, [selectedServerError, availableServers, serverHostsData, selectedServer, setSelectedServer]);
-
   // ========================================
   // CONTEXT VALUES - Split into Data and Control
   // ========================================

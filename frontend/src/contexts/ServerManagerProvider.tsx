@@ -41,6 +41,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingServers, setPendingServers] = useState<Set<string>>(new Set());
+  const [failedServers, setFailedServers] = useState<Set<string>>(new Set());
 
   // Ref to prevent duplicate API calls
   const isRequestInProgress = useRef(false);
@@ -80,6 +81,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     setError(null);
     setServerHostsData([]); // Reset to empty
     setPendingServers(new Set(availableServers));
+    setFailedServers(new Set()); // Reset failed servers
     
     availableServers.forEach(async (serverUrl) => {
       try {
@@ -111,9 +113,13 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
           }
         } else {
           console.warn(`[@ServerManager] Failed response from ${serverUrl}: ${response.status}`);
+          // Mark as failed
+          setFailedServers(prev => new Set(prev).add(serverUrl));
         }
       } catch (error: any) {
         console.warn(`[@ServerManager] Error from ${serverUrl}: ${error.message}`);
+        // Mark as failed
+        setFailedServers(prev => new Set(prev).add(serverUrl));
       } finally {
         // Remove from pending
         setPendingServers(prev => {
@@ -149,6 +155,18 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
+  // Auto-switch away from failed server after initial load
+  useEffect(() => {
+    if (!isLoading && failedServers.has(selectedServer)) {
+      // Find first working server
+      const workingServer = availableServers.find(s => !failedServers.has(s));
+      if (workingServer) {
+        console.log(`[@ServerManager] Selected server ${selectedServer} is down, switching to ${workingServer}`);
+        setSelectedServer(workingServer);
+      }
+    }
+  }, [isLoading, failedServers, selectedServer, availableServers, setSelectedServer]);
+
   // ========================================
   // CONTEXT VALUE
   // ========================================
@@ -165,11 +183,12 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
       isLoading,
       error,
       pendingServers,
+      failedServers,
 
       // Actions
       refreshServerData,
     }),
-    [selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading, error, refreshServerData, pendingServers]
+    [selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading, error, refreshServerData, pendingServers, failedServers]
   );
 
   return (

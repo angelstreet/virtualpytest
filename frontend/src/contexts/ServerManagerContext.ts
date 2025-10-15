@@ -17,6 +17,8 @@ export interface ServerManagerContextType {
   serverHostsData: ServerHostData[];
   isLoading: boolean;
   error: string | null;
+  pendingServers: Set<string>;
+  failedServers: Set<string>;
 
   // Actions
   refreshServerData: () => Promise<void>;
