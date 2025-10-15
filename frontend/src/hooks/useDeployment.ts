@@ -9,9 +9,22 @@ export interface Deployment {
   script_name: string;
   userinterface_name: string;
   parameters?: string;
-  schedule_type: 'hourly' | 'daily' | 'weekly';
-  schedule_config: any;
-  status: 'active' | 'paused' | 'stopped';
+  
+  // Cron-based scheduling
+  cron_expression: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  max_executions?: number | null;
+  
+  // Execution tracking
+  execution_count: number;
+  last_executed_at?: string | null;
+  
+  // Legacy fields (for backward compatibility)
+  schedule_type?: 'hourly' | 'daily' | 'weekly';
+  schedule_config?: any;
+  
+  status: 'active' | 'paused' | 'stopped' | 'completed' | 'expired';
   created_at: string;
 }
 

@@ -2,10 +2,11 @@ import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon } from '@mui/ico
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, IconButton, Chip
+  TableRow, Paper, IconButton, Chip, Checkbox, FormControlLabel
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
+import { CronHelper } from '../components/common/CronHelper';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useDeployment, Deployment } from '../hooks/useDeployment';
@@ -13,6 +14,7 @@ import { useRun } from '../hooks/useRun';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { getLogsUrl } from '../utils/executionUtils';
 import { getUserTimezone, formatToLocalTime, formatUTCTimeToLocal, convertLocalTimeToUTC } from '../utils/dateUtils';
+import { validateCronExpression, cronToHuman } from '../utils/cronUtils';
 
 interface AdditionalDevice {
   hostName: string;
@@ -31,9 +33,19 @@ const Deployments: React.FC = () => {
   const [selectedHost, setSelectedHost] = useState('');
   const [selectedDevice, setSelectedDevice] = useState('');
   const [selectedUserinterface, setSelectedUserinterface] = useState('');
-  const [scheduleType, setScheduleType] = useState<'hourly' | 'daily' | 'weekly'>('daily');
-  const [scheduleHour, setScheduleHour] = useState(10);
-  const [scheduleMinute, setScheduleMinute] = useState(0);
+  
+  // Cron-based scheduling
+  const [cronExpression, setCronExpression] = useState('*/10 * * * *'); // Default: every 10 min
+  const [cronError, setCronError] = useState<string>('');
+  
+  // Optional constraints
+  const [enableStartDate, setEnableStartDate] = useState(false);
+  const [startDate, setStartDate] = useState<string>('');
+  const [enableEndDate, setEnableEndDate] = useState(false);
+  const [endDate, setEndDate] = useState<string>('');
+  const [enableMaxExecutions, setEnableMaxExecutions] = useState(false);
+  const [maxExecutions, setMaxExecutions] = useState<number>(10);
+  
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [executions, setExecutions] = useState<any[]>([]);
   const [scripts, setScripts] = useState<string[]>([]);
@@ -41,6 +53,14 @@ const Deployments: React.FC = () => {
 
   const hosts = getAllHosts();
   const userTimezone = getUserTimezone();
+  
+  // Validate cron expression
+  useEffect(() => {
+    if (cronExpression) {
+      const { valid, error } = validateCronExpression(cronExpression);
+      setCronError(valid ? '' : (error || 'Invalid cron expression'));
+    }
+  }, [cronExpression]);
   
   // Function to get available devices for selection (excluding already selected ones)
   const getAvailableDevicesForSelection = () => {
@@ -128,6 +148,13 @@ const Deployments: React.FC = () => {
   };
 
   const handleCreate = async () => {
+    // Validate cron expression
+    const { valid, error } = validateCronExpression(cronExpression);
+    if (!valid) {
+      showError(`Invalid cron expression: ${error}`);
+      return;
+    }
+    
     // Build complete device list: primary device + additional devices
     const allDevices: AdditionalDevice[] = [];
     
@@ -152,8 +179,22 @@ const Deployments: React.FC = () => {
     const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     
-    // Convert local time to UTC for storage
-    const { hour: utcHour, minute: utcMinute } = convertLocalTimeToUTC(scheduleHour, scheduleMinute);
+    // Prepare optional constraints (convert local time to UTC if provided)
+    const deploymentData: any = {
+      cron_expression: cronExpression,
+    };
+    
+    if (enableStartDate && startDate) {
+      deploymentData.start_date = new Date(startDate).toISOString();
+    }
+    
+    if (enableEndDate && endDate) {
+      deploymentData.end_date = new Date(endDate).toISOString();
+    }
+    
+    if (enableMaxExecutions && maxExecutions > 0) {
+      deploymentData.max_executions = maxExecutions;
+    }
     
     // Create deployments for all devices
     let successCount = 0;
@@ -167,8 +208,7 @@ const Deployments: React.FC = () => {
         script_name: selectedScript,
         userinterface_name: device.userinterface,
         parameters: params,
-        schedule_type: scheduleType,
-        schedule_config: { hour: utcHour, minute: utcMinute } // Store in UTC
+        ...deploymentData
       });
 
       if (res.success) {
@@ -185,6 +225,13 @@ const Deployments: React.FC = () => {
       setSelectedDevice('');
       setSelectedUserinterface('');
       setAdditionalDevices([]);
+      setCronExpression('*/10 * * * *'); // Reset to default
+      setEnableStartDate(false);
+      setStartDate('');
+      setEnableEndDate(false);
+      setEndDate('');
+      setEnableMaxExecutions(false);
+      setMaxExecutions(10);
       loadDeployments();
     }
   };
@@ -220,49 +267,131 @@ const Deployments: React.FC = () => {
                 </Button>
               ) : (
                 <>
-                  <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                    <FormControl size="small" sx={{ minWidth: 150 }}>
-                      <InputLabel>Script</InputLabel>
-                      <Select value={selectedScript} label="Script" onChange={e => setSelectedScript(e.target.value)}>
-                        {scripts.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 150 }}>
-                      <InputLabel>Host</InputLabel>
-                      <Select value={selectedHost} label="Host" onChange={e => setSelectedHost(e.target.value)}>
-                        {hosts.map(h => <MenuItem key={h.host_name} value={h.host_name}>{h.host_name}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 150 }}>
-                      <InputLabel>Device</InputLabel>
-                      <Select value={selectedDevice} label="Device" onChange={e => setSelectedDevice(e.target.value)} disabled={!selectedHost}>
-                        {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                    <Box sx={{ minWidth: 150 }}>
-                      <UserinterfaceSelector deviceModel={deviceModel} value={selectedUserinterface} onChange={setSelectedUserinterface} label="Userinterface" size="small" fullWidth />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {/* Device and Script Selection */}
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                        <InputLabel>Script</InputLabel>
+                        <Select value={selectedScript} label="Script" onChange={e => setSelectedScript(e.target.value)}>
+                          {scripts.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                        <InputLabel>Host</InputLabel>
+                        <Select value={selectedHost} label="Host" onChange={e => setSelectedHost(e.target.value)}>
+                          {hosts.map(h => <MenuItem key={h.host_name} value={h.host_name}>{h.host_name}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                        <InputLabel>Device</InputLabel>
+                        <Select value={selectedDevice} label="Device" onChange={e => setSelectedDevice(e.target.value)} disabled={!selectedHost}>
+                          {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                      <Box sx={{ minWidth: 150 }}>
+                        <UserinterfaceSelector deviceModel={deviceModel} value={selectedUserinterface} onChange={setSelectedUserinterface} label="Userinterface" size="small" fullWidth />
+                      </Box>
+                      {displayParameters.map(p => (
+                        <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
+                      ))}
                     </Box>
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                      <InputLabel>Schedule</InputLabel>
-                      <Select value={scheduleType} label="Schedule" onChange={e => setScheduleType(e.target.value as any)}>
-                        <MenuItem value="hourly">Hourly</MenuItem>
-                        <MenuItem value="daily">Daily</MenuItem>
-                        <MenuItem value="weekly">Weekly</MenuItem>
-                      </Select>
-                    </FormControl>
-                    {scheduleType !== 'hourly' && (
-                      <TextField label={`Hour (${userTimezone})`} type="number" value={scheduleHour} onChange={e => setScheduleHour(+e.target.value)} size="small" sx={{ width: 110 }} inputProps={{ min: 0, max: 23 }} />
-                    )}
-                    <TextField label="Min" type="number" value={scheduleMinute} onChange={e => setScheduleMinute(+e.target.value)} size="small" sx={{ width: 80 }} inputProps={{ min: 0, max: 59 }} />
-                    {displayParameters.map(p => (
-                      <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
-                    ))}
+
+                    {/* Cron Schedule - REQUIRED */}
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        ⏰ Schedule (Required)
+                      </Typography>
+                      <CronHelper 
+                        value={cronExpression} 
+                        onChange={setCronExpression}
+                        error={cronError}
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        {cronToHuman(cronExpression)}
+                      </Typography>
+                    </Box>
+
+                    {/* Optional: Start Date */}
+                    <Box>
+                      <FormControlLabel
+                        control={
+                          <Checkbox 
+                            checked={enableStartDate} 
+                            onChange={(e) => setEnableStartDate(e.target.checked)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">Start Date (Optional)</Typography>}
+                      />
+                      {enableStartDate && (
+                        <TextField
+                          type="datetime-local"
+                          size="small"
+                          fullWidth
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          helperText="When to start scheduling (leave empty to start immediately)"
+                          sx={{ mt: 1 }}
+                        />
+                      )}
+                    </Box>
+
+                    {/* Optional: End Date */}
+                    <Box>
+                      <FormControlLabel
+                        control={
+                          <Checkbox 
+                            checked={enableEndDate} 
+                            onChange={(e) => setEnableEndDate(e.target.checked)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">End Date (Optional)</Typography>}
+                      />
+                      {enableEndDate && (
+                        <TextField
+                          type="datetime-local"
+                          size="small"
+                          fullWidth
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          helperText="When to stop scheduling (leave empty for no end)"
+                          sx={{ mt: 1 }}
+                        />
+                      )}
+                    </Box>
+
+                    {/* Optional: Max Executions */}
+                    <Box>
+                      <FormControlLabel
+                        control={
+                          <Checkbox 
+                            checked={enableMaxExecutions} 
+                            onChange={(e) => setEnableMaxExecutions(e.target.checked)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="body2">Execution Limit (Optional)</Typography>}
+                      />
+                      {enableMaxExecutions && (
+                        <TextField
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={maxExecutions}
+                          onChange={(e) => setMaxExecutions(parseInt(e.target.value) || 10)}
+                          helperText="Maximum number of times to run (leave empty for unlimited)"
+                          inputProps={{ min: 1 }}
+                          sx={{ mt: 1 }}
+                        />
+                      )}
+                    </Box>
+                    
+                    {/* Timezone info message */}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      ℹ️ Times are shown in your local timezone ({userTimezone}). They will be stored and executed in UTC.
+                    </Typography>
                   </Box>
-                  
-                  {/* Timezone info message */}
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, ml: 0.5 }}>
-                    ℹ️ Times are shown in your local timezone ({userTimezone}). They will be stored and executed in UTC.
-                  </Typography>
 
                   {/* Add Device button - only show if more devices are available */}
                   {hasMoreDevicesAvailable() && (
@@ -368,6 +497,13 @@ const Deployments: React.FC = () => {
                       setSelectedDevice('');
                       setSelectedUserinterface('');
                       setAdditionalDevices([]);
+                      setCronExpression('*/10 * * * *');
+                      setEnableStartDate(false);
+                      setStartDate('');
+                      setEnableEndDate(false);
+                      setEndDate('');
+                      setEnableMaxExecutions(false);
+                      setMaxExecutions(10);
                     }}>Cancel</Button>
                   </Box>
                 </>
@@ -418,10 +554,17 @@ const Deployments: React.FC = () => {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            {d.schedule_type} {formatUTCTimeToLocal(d.schedule_config?.hour || 0, d.schedule_config?.minute || 0)}
-                            <Typography variant="caption" display="block" color="text.secondary">
-                              ({userTimezone})
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                              {d.cron_expression}
                             </Typography>
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              {cronToHuman(d.cron_expression)}
+                            </Typography>
+                            {d.execution_count > 0 && (
+                              <Typography variant="caption" display="block" color="primary">
+                                Runs: {d.execution_count}{d.max_executions ? `/${d.max_executions}` : ''}
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell><Chip label={d.status} color={d.status === 'active' ? 'success' : 'default'} size="small" /></TableCell>
                           <TableCell>
