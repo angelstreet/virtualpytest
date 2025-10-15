@@ -41,6 +41,7 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import { useScriptResults, ScriptResult } from '../hooks/pages/useScriptResults';
+import { formatToLocalTime } from '../utils/dateUtils';
 
 const TestReports: React.FC = () => {
   const { getAllScriptResults, updateCheckedStatus, updateDiscardStatus } = useScriptResults();
@@ -106,7 +107,7 @@ const TestReports: React.FC = () => {
 
   // Format date helper
   function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleString();
+    return formatToLocalTime(dateString);
   }
 
   // Convert report URL to logs URL helper

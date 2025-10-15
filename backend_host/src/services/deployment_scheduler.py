@@ -3,7 +3,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
-import time
+from datetime import datetime, timezone
 
 class DeploymentScheduler:
     def __init__(self, host_name):
@@ -31,12 +31,13 @@ class DeploymentScheduler:
         """Add deployment to scheduler"""
         config = deployment['schedule_config']
         
+        # Always use UTC timezone for consistent scheduling across hosts
         if deployment['schedule_type'] == 'hourly':
-            trigger = CronTrigger(hour='*', minute=config.get('minute', 0))
+            trigger = CronTrigger(hour='*', minute=config.get('minute', 0), timezone='UTC')
         elif deployment['schedule_type'] == 'daily':
-            trigger = CronTrigger(hour=config.get('hour', 0), minute=config.get('minute', 0))
+            trigger = CronTrigger(hour=config.get('hour', 0), minute=config.get('minute', 0), timezone='UTC')
         elif deployment['schedule_type'] == 'weekly':
-            trigger = CronTrigger(day_of_week=config.get('day', 0), hour=config.get('hour', 0), minute=config.get('minute', 0))
+            trigger = CronTrigger(day_of_week=config.get('day', 0), hour=config.get('hour', 0), minute=config.get('minute', 0), timezone='UTC')
         
         self.scheduler.add_job(
             func=self._execute_deployment,
@@ -45,7 +46,7 @@ class DeploymentScheduler:
             id=deployment['id'],
             replace_existing=True
         )
-        print(f"[@deployment_scheduler] Added job: {deployment['name']}")
+        print(f"[@deployment_scheduler] Added job: {deployment['name']} (UTC schedule: {config})")
     
     def _execute_deployment(self, deployment_id):
         """Execute deployment and record result"""
@@ -55,10 +56,10 @@ class DeploymentScheduler:
             # Get deployment config
             dep = self.supabase.table('deployments').select('*').eq('id', deployment_id).single().execute().data
             
-            # Create execution record
+            # Create execution record with UTC timestamp
             exec_record = self.supabase.table('deployment_executions').insert({
                 'deployment_id': deployment_id,
-                'started_at': time.strftime('%Y-%m-%d %H:%M:%S')
+                'started_at': datetime.now(timezone.utc).isoformat()
             }).execute().data[0]
             exec_id = exec_record['id']
             
@@ -66,9 +67,9 @@ class DeploymentScheduler:
             executor = ScriptExecutor(self.host_name, dep['device_id'], 'unknown')
             result = executor.execute_script(dep['script_name'], dep['parameters'])
             
-            # Update execution record
+            # Update execution record with UTC timestamp
             self.supabase.table('deployment_executions').update({
-                'completed_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                'completed_at': datetime.now(timezone.utc).isoformat(),
                 'success': result.get('script_success', False),
                 'script_result_id': result.get('script_result_id')
             }).eq('id', exec_id).execute()
@@ -78,7 +79,7 @@ class DeploymentScheduler:
             print(f"[@deployment_scheduler] Execution error: {e}")
             if exec_id:
                 self.supabase.table('deployment_executions').update({
-                    'completed_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'completed_at': datetime.now(timezone.utc).isoformat(),
                     'success': False,
                     'error_message': str(e)
                 }).eq('id', exec_id).execute()

@@ -28,6 +28,7 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import { useCampaignResults, CampaignResult } from '../hooks/pages/useCampaignResults';
+import { formatToLocalTime } from '../utils/dateUtils';
 
 const CampaignReports: React.FC = () => {
   const { getAllCampaignResults } = useCampaignResults();
@@ -88,7 +89,7 @@ const CampaignReports: React.FC = () => {
 
   // Format date helper
   function formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleString();
+    return formatToLocalTime(dateString);
   }
 
   // Handle row expansion

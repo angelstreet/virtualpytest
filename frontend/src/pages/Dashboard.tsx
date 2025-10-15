@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { buildServerUrl, buildServerUrlForServer } from '../utils/buildUrlUtils';
+import { formatToLocalTime } from '../utils/dateUtils';
 
 import {
   Computer as ComputerIcon,
@@ -193,12 +194,7 @@ const Dashboard: React.FC = () => {
   };
 
   const formatRegisteredAt = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString();
-    } catch {
-      return 'Unknown';
-    }
+    return formatToLocalTime(dateString) || 'Unknown';
   };
 
   const getUsageColor = (percentage: number) => {

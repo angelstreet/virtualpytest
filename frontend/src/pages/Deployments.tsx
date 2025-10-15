@@ -12,6 +12,7 @@ import { useDeployment, Deployment } from '../hooks/useDeployment';
 import { useRun } from '../hooks/useRun';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { getLogsUrl } from '../utils/executionUtils';
+import { getUserTimezone, formatToLocalTime, formatUTCTimeToLocal, convertLocalTimeToUTC } from '../utils/dateUtils';
 
 interface AdditionalDevice {
   hostName: string;
@@ -39,6 +40,7 @@ const Deployments: React.FC = () => {
   const [additionalDevices, setAdditionalDevices] = useState<AdditionalDevice[]>([]);
 
   const hosts = getAllHosts();
+  const userTimezone = getUserTimezone();
   
   // Function to get available devices for selection (excluding already selected ones)
   const getAvailableDevicesForSelection = () => {
@@ -150,6 +152,9 @@ const Deployments: React.FC = () => {
     const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     
+    // Convert local time to UTC for storage
+    const { hour: utcHour, minute: utcMinute } = convertLocalTimeToUTC(scheduleHour, scheduleMinute);
+    
     // Create deployments for all devices
     let successCount = 0;
     for (const device of allDevices) {
@@ -163,7 +168,7 @@ const Deployments: React.FC = () => {
         userinterface_name: device.userinterface,
         parameters: params,
         schedule_type: scheduleType,
-        schedule_config: { hour: scheduleHour, minute: scheduleMinute }
+        schedule_config: { hour: utcHour, minute: utcMinute } // Store in UTC
       });
 
       if (res.success) {
@@ -246,13 +251,18 @@ const Deployments: React.FC = () => {
                       </Select>
                     </FormControl>
                     {scheduleType !== 'hourly' && (
-                      <TextField label="Hour" type="number" value={scheduleHour} onChange={e => setScheduleHour(+e.target.value)} size="small" sx={{ width: 80 }} />
+                      <TextField label={`Hour (${userTimezone})`} type="number" value={scheduleHour} onChange={e => setScheduleHour(+e.target.value)} size="small" sx={{ width: 110 }} inputProps={{ min: 0, max: 23 }} />
                     )}
-                    <TextField label="Min" type="number" value={scheduleMinute} onChange={e => setScheduleMinute(+e.target.value)} size="small" sx={{ width: 80 }} />
+                    <TextField label="Min" type="number" value={scheduleMinute} onChange={e => setScheduleMinute(+e.target.value)} size="small" sx={{ width: 80 }} inputProps={{ min: 0, max: 59 }} />
                     {displayParameters.map(p => (
                       <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
                     ))}
                   </Box>
+                  
+                  {/* Timezone info message */}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, ml: 0.5 }}>
+                    ℹ️ Times are shown in your local timezone ({userTimezone}). They will be stored and executed in UTC.
+                  </Typography>
 
                   {/* Add Device button - only show if more devices are available */}
                   {hasMoreDevicesAvailable() && (
@@ -407,7 +417,12 @@ const Deployments: React.FC = () => {
                               {d.parameters && d.parameters.trim() ? d.parameters : '-'}
                             </Typography>
                           </TableCell>
-                          <TableCell>{d.schedule_type} {d.schedule_config?.hour}:{d.schedule_config?.minute}</TableCell>
+                          <TableCell>
+                            {d.schedule_type} {formatUTCTimeToLocal(d.schedule_config?.hour || 0, d.schedule_config?.minute || 0)}
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              ({userTimezone})
+                            </Typography>
+                          </TableCell>
                           <TableCell><Chip label={d.status} color={d.status === 'active' ? 'success' : 'default'} size="small" /></TableCell>
                           <TableCell>
                             {d.status === 'active' ? (
@@ -470,7 +485,12 @@ const Deployments: React.FC = () => {
                           <TableCell>{e.deployments?.name}</TableCell>
                           <TableCell>{e.deployments?.script_name}</TableCell>
                           <TableCell>{hostName && deviceId ? `${hostName}:${deviceDisplayName}` : '-'}</TableCell>
-                          <TableCell>{new Date(e.started_at).toLocaleString()}</TableCell>
+                          <TableCell>
+                            {formatToLocalTime(e.started_at)}
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              {userTimezone}
+                            </Typography>
+                          </TableCell>
                           <TableCell>{e.completed_at ? `${Math.round((new Date(e.completed_at).getTime() - new Date(e.started_at).getTime()) / 1000)}s` : '-'}</TableCell>
                           <TableCell><Chip label={e.success ? 'Success' : e.completed_at ? 'Failed' : 'Running'} color={e.success ? 'success' : e.completed_at ? 'error' : 'warning'} size="small" /></TableCell>
                           <TableCell>
