@@ -316,6 +316,17 @@ const RunTests: React.FC = () => {
 
 
 
+  // Helper function to quote parameter values that need it (contain spaces or special chars)
+  const quoteIfNeeded = (value: string): string => {
+    // If value contains spaces, quotes, or special shell characters, wrap it in double quotes
+    if (/[\s"'`$\\()&|;<>]/.test(value)) {
+      // Escape any existing double quotes and backslashes
+      const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      return `"${escaped}"`;
+    }
+    return value;
+  };
+
   const buildParameterString = (deviceHost?: string, deviceId?: string, deviceUserinterface?: string) => {
     const paramStrings: string[] = [];
 
@@ -326,7 +337,7 @@ const RunTests: React.FC = () => {
 
     // FIRST: Add userinterface_name as positional argument (framework requirement)
     if (targetUserinterface) {
-      paramStrings.push(targetUserinterface);
+      paramStrings.push(quoteIfNeeded(targetUserinterface));
     }
 
     // Add parameters from script analysis
@@ -341,9 +352,9 @@ const RunTests: React.FC = () => {
         
         if (value) {
           if (param.type === 'positional') {
-            paramStrings.push(value);
+            paramStrings.push(quoteIfNeeded(value));
           } else {
-            paramStrings.push(`--${param.name} ${value}`);
+            paramStrings.push(`--${param.name} ${quoteIfNeeded(value)}`);
           }
         }
       });
@@ -351,10 +362,10 @@ const RunTests: React.FC = () => {
 
     // Always add --host and --device parameters
     if (targetHost) {
-      paramStrings.push(`--host ${targetHost}`);
+      paramStrings.push(`--host ${quoteIfNeeded(targetHost)}`);
     }
     if (targetDevice) {
-      paramStrings.push(`--device ${targetDevice}`);
+      paramStrings.push(`--device ${quoteIfNeeded(targetDevice)}`);
     }
 
     return paramStrings.join(' ');
