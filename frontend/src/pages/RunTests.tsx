@@ -19,11 +19,11 @@ import {
   TableHead,
   TableRow,
   Paper,
-  TextField,
   IconButton,
 } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
+import { ParameterInputRenderer } from '../components/common/ParameterInput/ParameterInputRenderer';
 
 
 
@@ -605,17 +605,17 @@ const RunTests: React.FC = () => {
       );
     }
 
-    // Default text field for all parameters - use value from useRun hook (which handles defaults)
+    // Use ParameterInputRenderer for all other parameters (including edge selector for KPI measurement)
     return (
-      <TextField
+      <ParameterInputRenderer
         key={param.name}
-        label={`${param.name}${param.required ? ' *' : ''}`}
+        parameter={param}
         value={value}
-        onChange={(e) => handleParameterChange(param.name, e.target.value)}
-        size="small"
-        fullWidth
+        onChange={handleParameterChange}
         error={param.required && !value.trim()}
-        placeholder={param.default || ''}
+        deviceModel={getPrimaryDeviceModel()}
+        userinterfaceName={selectedUserinterface}
+        hostName={selectedHost}
       />
     );
   };

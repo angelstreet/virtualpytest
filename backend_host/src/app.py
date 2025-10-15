@@ -145,7 +145,8 @@ def register_host_routes(app):
         (host_ai_routes.host_ai_bp, 'AI execution'),
         (host_ai_disambiguation_routes.host_ai_disambiguation_bp, 'AI disambiguation'),
         (host_campaign_routes.host_campaign_bp, 'Campaign execution'),
-        (host_transcript_routes.host_transcript_bp, 'Transcript services')
+        (host_transcript_routes.host_transcript_bp, 'Transcript services'),
+        (host_deployment_routes.host_deployment_bp, 'Deployment scheduling')
     ]
     
     for blueprint, description in blueprints:

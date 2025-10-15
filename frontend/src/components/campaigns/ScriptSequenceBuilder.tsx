@@ -45,6 +45,8 @@ interface ScriptSequenceBuilderProps {
   aiTestCasesInfo?: any[];
   scriptAnalysisCache: { [scriptName: string]: any };
   deviceModel?: string; // Device model for userinterface selection
+  userinterfaceName?: string; // For edge selector (kpi_measurement)
+  hostName?: string; // For edge selector (kpi_measurement)
   onAddScript: (scriptName: string) => void;
   onRemoveScript: (index: number) => void;
 
@@ -58,6 +60,8 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
   aiTestCasesInfo = [],
   scriptAnalysisCache,
   deviceModel,
+  userinterfaceName,
+  hostName,
   onAddScript,
   onRemoveScript,
 
@@ -135,6 +139,8 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
             onChange={(name: string, value: any) => handleScriptParameterChange(scriptIndex, name, value)}
             error={param.required && !script.parameters[param.name]}
             deviceModel={deviceModel}
+            userinterfaceName={userinterfaceName}
+            hostName={hostName}
           />
         ))}
       </Box>

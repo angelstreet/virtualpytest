@@ -187,6 +187,8 @@ const RunCampaigns: React.FC = () => {
             aiTestCasesInfo={aiTestCasesInfo}
             scriptAnalysisCache={scriptAnalysisCache}
             deviceModel={getDeviceModel()}
+            userinterfaceName={campaignConfig.userinterface_name}
+            hostName={campaignConfig.host}
             onAddScript={addScript}
             onRemoveScript={removeScript}
 

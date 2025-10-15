@@ -53,6 +53,11 @@ const NavigationBar: React.FC = () => {
           path: '/test-execution/run-campaigns',
           icon: <CampaignIcon fontSize="small" />,
         },
+        {
+          label: 'Deployments',
+          path: '/test-execution/deployments',
+          icon: <RunIcon fontSize="small" />,
+        },
       ],
     },
     {

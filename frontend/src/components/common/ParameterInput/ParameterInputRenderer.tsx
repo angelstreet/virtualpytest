@@ -8,6 +8,7 @@
 import React from 'react';
 import { TextField, Autocomplete } from '@mui/material';
 import { UserinterfaceSelector } from '../UserinterfaceSelector';
+import { EdgeSelector } from '../EdgeSelector';
 
 export interface ScriptParameter {
   name: string;
@@ -27,6 +28,8 @@ interface ParameterInputRendererProps {
   onChange: (name: string, value: string) => void;
   error?: boolean;
   deviceModel?: string; // Device model for fetching compatible userinterfaces
+  userinterfaceName?: string; // For edge selector (kpi_measurement)
+  hostName?: string; // For edge selector (kpi_measurement)
 }
 
 export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
@@ -35,6 +38,8 @@ export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
   onChange,
   error = false,
   deviceModel,
+  userinterfaceName,
+  hostName,
 }) => {
   const handleChange = (newValue: string) => {
     onChange(parameter.name, newValue);
@@ -51,6 +56,23 @@ export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
         label={`${parameter.name}${parameter.required ? ' *' : ''}`}
         size="small"
         fullWidth
+      />
+    );
+  }
+
+  // Special handling for edge parameter (KPI measurement) - use EdgeSelector to fetch edges
+  if (parameter.name === 'edge') {
+    return (
+      <EdgeSelector
+        key={parameter.name}
+        value={value}
+        onChange={(edge) => handleChange(edge)}
+        label={`${parameter.name}${parameter.required ? ' *' : ''}`}
+        size="small"
+        fullWidth
+        required={parameter.required}
+        userinterfaceName={userinterfaceName}
+        hostName={hostName}
       />
     );
   }

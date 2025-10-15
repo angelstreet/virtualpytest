@@ -29,6 +29,16 @@ if project_root not in sys.path:
 from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_device
 
 
+# Script arguments - defined early for backend parameter detection (must be within first 300 lines)
+_script_args = [
+    'userinterface_name:str:',  # Required positional - framework param
+    '--edge:str:',               # Script-specific param - Action set label
+    '--iterations:int:3',        # Script-specific param - Number of iterations
+    '--host:str:',               # Optional - framework param (auto-filled by UI)
+    '--device:str:'              # Optional - framework param (auto-filled by UI)
+]
+
+
 def _get_available_edges(context):
     """Get list of all available edges from navigation tree"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
@@ -307,14 +317,8 @@ def main():
     return context.overall_success
 
 
-# Define ALL script arguments (framework + script-specific)
-main._script_args = [
-    'userinterface_name:str:',  # Required positional - framework param
-    '--edge:str:',               # Script-specific param - Action set label
-    '--iterations:int:3',        # Script-specific param - Number of iterations
-    '--host:str:',               # Optional - framework param (auto-filled by UI)
-    '--device:str:'              # Optional - framework param (auto-filled by UI)
-]
+# Assign script args to main function
+main._script_args = _script_args
 
 if __name__ == "__main__":
     main()
