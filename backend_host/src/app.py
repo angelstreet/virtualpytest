@@ -108,7 +108,8 @@ def register_host_routes(app):
             host_ai_routes,
             host_ai_disambiguation_routes,
             host_campaign_routes,
-            host_transcript_routes
+            host_transcript_routes,
+            host_deployment_routes  # This should work now with lazy imports
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
