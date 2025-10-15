@@ -115,7 +115,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
 
   // Render option - simplified (just edge label, smaller font)
   const renderOption = (props: any, option: EdgeOption) => (
-    <Box component="li" {...props} sx={{ py: 0.5, px: 1 }}>
+    <Box component="li" {...props} sx={{ py: 0.5, px: 1, whiteSpace: 'nowrap' }}>
       <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
         {option.label}
       </Typography>
@@ -173,6 +173,19 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       }
       size={size}
       fullWidth={fullWidth}
+      ListboxProps={{
+        style: {
+          maxHeight: '400px',
+        },
+      }}
+      componentsProps={{
+        paper: {
+          sx: {
+            minWidth: '500px',
+            maxWidth: '600px',
+          },
+        },
+      }}
     />
   );
 };
