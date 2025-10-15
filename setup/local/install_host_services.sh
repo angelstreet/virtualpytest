@@ -207,17 +207,27 @@ chmod +x backend_host/scripts/transcript_accumulator.py
 echo "✅ Scripts made executable in project directory"
 echo "ℹ️  Scripts now read configuration from backend_host/src/.env (single source of truth)"
 
-# Configure sudo permissions for cross-user FFmpeg spawning
+# Configure sudo permissions for cross-user FFmpeg spawning and system control
 echo ""
-echo "🔐 Configuring sudo permissions for stream quality control..."
-echo "   Allows $USER to spawn FFmpeg processes as www-data (stream service user)"
+echo "🔐 Configuring sudo permissions for stream quality control and system management..."
+echo "   Allows $USER to spawn FFmpeg processes as www-data and manage systemctl services"
 sudo tee /etc/sudoers.d/virtualpytest > /dev/null << EOF
 # VirtualPyTest - Allow backend_host user to run commands as www-data
 # This enables dynamic stream quality changes via Python backend
 $USER ALL=(www-data) NOPASSWD: ALL
+
+# VirtualPyTest - Allow systemctl commands for stream service management (passwordless)
+$USER ALL=(root) NOPASSWD: /bin/systemctl show stream *, /usr/bin/systemctl show stream *
+$USER ALL=(root) NOPASSWD: /bin/systemctl status stream*, /usr/bin/systemctl status stream*
+$USER ALL=(root) NOPASSWD: /bin/systemctl start stream*, /usr/bin/systemctl start stream*
+$USER ALL=(root) NOPASSWD: /bin/systemctl stop stream*, /usr/bin/systemctl stop stream*
+$USER ALL=(root) NOPASSWD: /bin/systemctl restart stream*, /usr/bin/systemctl restart stream*
+
+# VirtualPyTest - Allow system reboot (passwordless)
+$USER ALL=(root) NOPASSWD: /sbin/reboot, /usr/sbin/reboot
 EOF
 sudo chmod 440 /etc/sudoers.d/virtualpytest
-echo "✅ Sudo permissions configured: $USER can run commands as www-data"
+echo "✅ Sudo permissions configured: $USER can run commands as www-data and manage stream services"
 
 # Install and configure nginx for local development
 echo ""
