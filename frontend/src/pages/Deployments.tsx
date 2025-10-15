@@ -347,15 +347,18 @@ const Deployments: React.FC = () => {
                       </Box>
                     </Box>
 
-                    {/* Schedule - Compact inline */}
+                    {/* Schedule - Everything on ONE line */}
                     <Box>
                       <Typography variant="subtitle2" sx={{ mb: 1 }}>Schedule</Typography>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Cron pattern selector */}
                         <CronHelper 
                           value={cronExpression} 
                           onChange={setCronExpression}
                           error={cronError}
                         />
+                        
+                        {/* Cron expression display */}
                         <Typography 
                           variant="body2" 
                           sx={{ 
@@ -367,13 +370,8 @@ const Deployments: React.FC = () => {
                         >
                           {cronExpression}
                         </Typography>
-                      </Box>
-                    </Box>
 
-                    {/* Constraints - All inline, no checkboxes */}
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>Constraints (optional)</Typography>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Start constraint */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Typography variant="body2" sx={{ minWidth: 40 }}>Start</Typography>
                           <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -401,6 +399,7 @@ const Deployments: React.FC = () => {
                           )}
                         </Box>
 
+                        {/* End constraint */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Typography variant="body2" sx={{ minWidth: 30 }}>End</Typography>
                           <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -428,6 +427,7 @@ const Deployments: React.FC = () => {
                           )}
                         </Box>
 
+                        {/* Max executions */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Typography variant="body2" sx={{ minWidth: 30 }}>Max</Typography>
                           <TextField
