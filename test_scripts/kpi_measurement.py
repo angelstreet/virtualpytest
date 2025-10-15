@@ -5,12 +5,15 @@ KPI Measurement Script for VirtualPyTest
 This script measures KPIs for a specific edge transition by repeatedly navigating it.
 It provides min, max, and average performance metrics.
 
+The script works with action_set labels (not node labels). Each edge has bidirectional
+action sets with labels like "go_to_live", "go_back_home", etc.
+
 Usage:
-    python test_scripts/kpi_measurement.py <userinterface_name> --edge <from_node_label>-<to_node_label> --iterations <count>
+    python test_scripts/kpi_measurement.py <userinterface_name> --edge <action_set_label> --iterations <count>
     
 Examples:
-    python test_scripts/kpi_measurement.py horizon_android_mobile --edge home-live --iterations 5
-    python test_scripts/kpi_measurement.py horizon_android_tv --edge live-settings --iterations 10
+    python test_scripts/kpi_measurement.py horizon_android_mobile --edge go_to_live --iterations 5
+    python test_scripts/kpi_measurement.py horizon_android_tv --edge open_settings --iterations 10
 """
 
 import sys
@@ -65,7 +68,7 @@ def _get_available_edges(context):
     return find_optimal_edge_validation_sequence(context.tree_id, context.team_id)
 
 
-def capture_kpi_summary(context, userinterface_name: str, edge_str: str, iterations: int, kpi_results: list) -> str:
+def capture_kpi_summary(context, userinterface_name: str, edge_label: str, from_label: str, to_label: str, iterations: int, kpi_results: list) -> str:
     """Capture KPI measurement summary as text for report"""
     lines = []
     lines.append("="*60)
@@ -84,7 +87,8 @@ def capture_kpi_summary(context, userinterface_name: str, edge_str: str, iterati
         lines.append(f"🖥️  Host: Setup failed - no host available")
     
     lines.append(f"📋 Interface: {userinterface_name}")
-    lines.append(f"🔗 Edge: {edge_str}")
+    lines.append(f"🎯 Action Set: {edge_label}")
+    lines.append(f"📍 Transition: {from_label} → {to_label}")
     lines.append(f"🔢 Iterations: {iterations}")
     lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     lines.append("")
@@ -153,33 +157,76 @@ def main():
         context.error_message = "No edges found in navigation tree"
         return False
     
-    print(f"✅ [kpi_measurement] Found {len(edges)} edges")
+    print(f"✅ [kpi_measurement] Found {len(edges)} edges in validation sequence")
     
-    # Parse edge argument (format: from_node_id-to_node_id, same as validation.py)
-    if '-' not in args.edge:
-        context.error_message = f"Invalid edge format. Expected 'from_node_id-to_node_id', got '{args.edge}'"
-        return False
+    # Extract all action_set labels from edges (bidirectional support)
+    # Each edge has action_sets[0] (forward) and optionally action_sets[1] (reverse)
+    available_action_sets = []
+    edge_action_set_map = {}  # Map action_set_label -> (edge, action_set_index, direction)
     
-    edge_id = args.edge
-    print(f"🔍 [kpi_measurement] Looking for edge ID: {edge_id}")
-    
-    # Find matching edge by ID (same format as validation.py)
-    selected_edge = None
     for edge in edges:
-        current_edge_id = f"{edge.get('from_node_id')}-{edge.get('to_node_id')}"
-        if current_edge_id == edge_id:
-            selected_edge = edge
-            break
+        edge_data = edge.get('original_edge_data', {})
+        action_sets = edge_data.get('action_sets', [])
+        
+        # Forward action set (index 0)
+        if len(action_sets) > 0:
+            forward_set = action_sets[0]
+            forward_label = forward_set.get('label', '')
+            if forward_label and forward_set.get('actions'):
+                available_action_sets.append(forward_label)
+                edge_action_set_map[forward_label] = {
+                    'edge': edge,
+                    'action_set_index': 0,
+                    'action_set_id': forward_set.get('id'),
+                    'direction': 'forward',
+                    'from_node_id': edge.get('from_node_id'),
+                    'to_node_id': edge.get('to_node_id'),
+                    'from_node_label': edge.get('from_node_label'),
+                    'to_node_label': edge.get('to_node_label')
+                }
+        
+        # Reverse action set (index 1) - if exists and has actions
+        if len(action_sets) > 1:
+            reverse_set = action_sets[1]
+            reverse_label = reverse_set.get('label', '')
+            if reverse_label and reverse_set.get('actions'):
+                available_action_sets.append(reverse_label)
+                # For reverse, swap from/to nodes
+                edge_action_set_map[reverse_label] = {
+                    'edge': edge,
+                    'action_set_index': 1,
+                    'action_set_id': reverse_set.get('id'),
+                    'direction': 'reverse',
+                    'from_node_id': edge.get('to_node_id'),  # Swapped
+                    'to_node_id': edge.get('from_node_id'),  # Swapped
+                    'from_node_label': edge.get('to_node_label'),  # Swapped
+                    'to_node_label': edge.get('from_node_label')   # Swapped
+                }
     
-    if not selected_edge:
-        # Show available edges for debugging
-        available_edges_str = ", ".join([f"{e.get('from_node_id')}-{e.get('to_node_id')}" for e in edges[:10]])
-        context.error_message = f"Edge '{args.edge}' not found. Available edges (first 10): {available_edges_str}"
+    print(f"✅ [kpi_measurement] Found {len(available_action_sets)} action sets (including bidirectional)")
+    
+    # Find matching action_set by label
+    edge_label = args.edge
+    print(f"🔍 [kpi_measurement] Looking for action_set label: '{edge_label}'")
+    
+    if edge_label not in edge_action_set_map:
+        # Show available action_set labels for debugging
+        available_str = ", ".join(available_action_sets[:10])
+        context.error_message = f"Action set '{edge_label}' not found. Available (first 10): {available_str}"
         return False
     
-    from_label = selected_edge.get('from_node_label')
-    to_label = selected_edge.get('to_node_label')
-    print(f"✅ [kpi_measurement] Found edge: {from_label} → {to_label} (ID: {edge_id})")
+    selected_mapping = edge_action_set_map[edge_label]
+    from_node_id = selected_mapping['from_node_id']
+    to_node_id = selected_mapping['to_node_id']
+    from_label = selected_mapping['from_node_label']
+    to_label = selected_mapping['to_node_label']
+    direction = selected_mapping['direction']
+    action_set_id = selected_mapping['action_set_id']
+    
+    print(f"✅ [kpi_measurement] Found action_set: '{edge_label}' ({direction})")
+    print(f"📍 [kpi_measurement] Navigation: {from_label} → {to_label}")
+    print(f"🆔 [kpi_measurement] From: {from_node_id}, To: {to_node_id}")
+    print(f"🎯 [kpi_measurement] Action Set ID: {action_set_id}")
     
     # Execute KPI measurement loop
     kpi_results = []
@@ -197,10 +244,10 @@ def main():
         }
         
         # Step 1: Navigate to FROM node (starting position)
-        print(f"📍 [kpi_measurement] Step 1: Going to starting position '{from_label}'")
+        print(f"📍 [kpi_measurement] Step 1: Going to starting position '{from_label}' ({from_node_id})")
         from_result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
-            target_node_label=from_label,
+            target_node_id=from_node_id,
             team_id=context.team_id,
             context=context
         )
@@ -214,12 +261,12 @@ def main():
         print(f"✅ [kpi_measurement] Reached starting position '{from_label}'")
         
         # Step 2: Navigate to TO node (measure this!)
-        print(f"⏱️  [kpi_measurement] Step 2: Measuring transition to '{to_label}'")
+        print(f"⏱️  [kpi_measurement] Step 2: Measuring transition '{edge_label}' to '{to_label}' ({to_node_id})")
         start_time = time.time()
         
         to_result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
-            target_node_label=to_label,
+            target_node_id=to_node_id,
             team_id=context.team_id,
             context=context
         )
@@ -246,7 +293,15 @@ def main():
     print(f"{'='*60}")
     
     # Always capture summary for report
-    summary_text = capture_kpi_summary(context, args.userinterface_name, args.edge, args.iterations, kpi_results)
+    summary_text = capture_kpi_summary(
+        context, 
+        args.userinterface_name, 
+        edge_label, 
+        from_label, 
+        to_label, 
+        args.iterations, 
+        kpi_results
+    )
     context.execution_summary = summary_text
     
     return context.overall_success
@@ -254,7 +309,7 @@ def main():
 
 # Define script-specific arguments
 main._script_args = [
-    '--edge:str:',  # Edge ID in format: from_node_id-to_node_id (e.g., "123-456")
+    '--edge:str:',  # Action set label (e.g., "go_to_live", "open_settings")
     '--iterations:int:3'  # Default 3 iterations
 ]
 
