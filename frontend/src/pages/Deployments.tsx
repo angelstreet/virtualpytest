@@ -1,4 +1,4 @@
-import { PlayArrow, Pause, Delete, Add, Close } from '@mui/icons-material';
+import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon } from '@mui/icons-material';
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
@@ -11,6 +11,7 @@ import { useToast } from '../hooks/useToast';
 import { useDeployment, Deployment } from '../hooks/useDeployment';
 import { useRun } from '../hooks/useRun';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { getLogsUrl } from '../utils/executionUtils';
 
 interface AdditionalDevice {
   hostName: string;
@@ -441,6 +442,8 @@ const Deployments: React.FC = () => {
                       <TableCell>Started</TableCell>
                       <TableCell>Duration</TableCell>
                       <TableCell>Status</TableCell>
+                      <TableCell>Report</TableCell>
+                      <TableCell>Logs</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -470,6 +473,39 @@ const Deployments: React.FC = () => {
                           <TableCell>{new Date(e.started_at).toLocaleString()}</TableCell>
                           <TableCell>{e.completed_at ? `${Math.round((new Date(e.completed_at).getTime() - new Date(e.started_at).getTime()) / 1000)}s` : '-'}</TableCell>
                           <TableCell><Chip label={e.success ? 'Success' : e.completed_at ? 'Failed' : 'Running'} color={e.success ? 'success' : e.completed_at ? 'error' : 'warning'} size="small" /></TableCell>
+                          <TableCell>
+                            {e.report_url ? (
+                              <Chip
+                                label="View Report"
+                                component="a"
+                                href={e.report_url}
+                                target="_blank"
+                                clickable
+                                size="small"
+                                sx={{ cursor: 'pointer' }}
+                                icon={<LinkIcon />}
+                                color="primary"
+                                variant="outlined"
+                              />
+                            ) : (
+                              <Chip label="No Report" size="small" variant="outlined" disabled />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {e.report_url ? (
+                              <Chip
+                                icon={<LinkIcon />}
+                                label="Logs"
+                                size="small"
+                                clickable
+                                onClick={() => window.open(getLogsUrl(e.report_url), '_blank')}
+                                color="secondary"
+                                variant="outlined"
+                              />
+                            ) : (
+                              <Chip label="No Logs" size="small" variant="outlined" disabled />
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
