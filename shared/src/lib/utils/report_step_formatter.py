@@ -1000,6 +1000,9 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
             action_formatted_display = format_screenshot_display_name(screenshot_path)
             screenshots_for_step.append((f'{action_formatted_display}_action_{i+1}', screenshot_path, action_cmd, action_params))
     
+    # Check if this is a dummy "Script Start → Script End" step (no actual navigation)
+    is_dummy_step = (step.get('from_node') == 'Script Start' and step.get('to_node') == 'Script End')
+    
     # Step end screenshot
     if step.get('step_end_screenshot_path'):
         # Use enhanced formatting for navigation step screenshots
@@ -1007,7 +1010,8 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         end_formatted_display = format_screenshot_display_name(end_screenshot_path)
         screenshots_for_step.append((f'{end_formatted_display}_step_end', end_screenshot_path, None, None))
         print(f"[@report_step_formatter:format_step_screenshots] ✅ Step {step_num} end screenshot included")
-    else:
+    elif not is_dummy_step:
+        # Only warn about missing screenshots for real navigation steps
         expected_filename = f"step_{step_num}_{step.get('from_node', 'unknown')}_{step.get('to_node', 'unknown')}_end"
         print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} end screenshot NOT found - expected: {expected_filename}")
     
@@ -1016,8 +1020,9 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
         print(f"  [{i+1}] {label}: {path}")
     
     if not screenshots_for_step:
-        # For failed steps, try to show at least the main screenshot even if no step start/end
-        print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} has no screenshots - this may be a failed action")
+        if not is_dummy_step:
+            # Only warn for real steps - dummy steps are expected to have no screenshots
+            print(f"[@report_step_formatter:format_step_screenshots] ⚠️ Step {step_num} has no screenshots - this may be a failed action")
         return ""
     
     step_id = step.get('step_number', step_index+1)

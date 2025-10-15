@@ -27,7 +27,7 @@ if project_root not in sys.path:
 from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_device
 
 
-def capture_navigation_summary(context, userinterface_name: str, target_node: str, path_length: int) -> str:
+def capture_navigation_summary(context, userinterface_name: str, target_node: str, already_at_destination: bool = False) -> str:
     """Capture navigation summary as text for report"""
     lines = []
     lines.append(f"🎯 [GOTO_{target_node.upper()}] EXECUTION SUMMARY")
@@ -35,7 +35,13 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     lines.append(f"🖥️  Host: {context.host.host_name}")
     lines.append(f"📋 Interface: {userinterface_name}")
     lines.append(f"🗺️  Target: {target_node}")
-    lines.append(f"📍 Path length: {path_length} steps")
+    
+    if already_at_destination:
+        lines.append(f"✅ Already at destination - no navigation needed")
+        lines.append(f"📍 Navigation steps: 0 (already verified at target)")
+    else:
+        lines.append(f"📍 Navigation steps: {len(context.step_results)}")
+    
     lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     lines.append(f"🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
@@ -79,8 +85,11 @@ def main():
     if not success:
         context.error_message = result.get('error', 'Navigation failed')
     
+    # Check if already at destination (no steps recorded)
+    already_at_destination = (len(context.step_results) == 0 and success)
+    
     # Always capture summary for report (regardless of success/failure)
-    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, 1)
+    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
     context.execution_summary = summary_text
     
     return success
