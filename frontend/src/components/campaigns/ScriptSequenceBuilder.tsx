@@ -113,7 +113,11 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
     const displayParameters = analysis.parameters.filter((param: any) => 
       (param.required && param.name !== 'host' && param.name !== 'device' && param.name !== 'userinterface_name') ||
       param.name === 'blackscreen_area' ||
-      param.name === 'node'
+      param.name === 'node' ||
+      param.name === 'edge' ||
+      param.name === 'iterations' ||
+      param.name === 'max-iteration' ||
+      param.name === 'edges'
     );
 
     if (displayParameters.length === 0) {
