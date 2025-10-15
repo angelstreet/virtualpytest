@@ -41,7 +41,7 @@ const Deployments: React.FC = () => {
   // Optional constraints with smart defaults
   const [startDateOption, setStartDateOption] = useState<'now' | '1hour' | '6hours' | 'tomorrow' | 'nextMonday' | 'custom'>('now');
   const [startDateCustom, setStartDateCustom] = useState<string>('');
-  const [endDateOption, setEndDateOption] = useState<'never' | '1day' | '7days' | '30days' | '90days' | 'custom'>('7days');
+  const [endDateOption, setEndDateOption] = useState<'never' | '1day' | '7days' | '30days' | '90days' | 'custom'>('never');
   const [endDateCustom, setEndDateCustom] = useState<string>('');
   const [maxExecutions, setMaxExecutions] = useState<string>(''); // Empty by default (unlimited)
   
@@ -277,7 +277,7 @@ const Deployments: React.FC = () => {
       setCronExpression('*/10 * * * *');
       setStartDateOption('now');
       setStartDateCustom('');
-      setEndDateOption('7days');
+      setEndDateOption('never');
       setEndDateCustom('');
       setMaxExecutions('');
       loadDeployments();
@@ -552,7 +552,7 @@ const Deployments: React.FC = () => {
                       setCronExpression('*/10 * * * *');
                       setStartDateOption('now');
                       setStartDateCustom('');
-                      setEndDateOption('7days');
+                      setEndDateOption('never');
                       setEndDateCustom('');
                       setMaxExecutions('');
                     }}>Cancel</Button>
