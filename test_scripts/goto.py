@@ -85,12 +85,9 @@ def main():
     
     return success
 
-# Define ALL script arguments (framework + script-specific)
+# Script arguments (framework params are automatic)
 main._script_args = [
-    'userinterface_name:str:',  # Required positional - framework param
-    '--node:str:home',           # Script-specific param
-    '--host:str:',               # Optional - framework param (auto-filled by UI)
-    '--device:str:'              # Optional - framework param (auto-filled by UI)
+    '--node:str:home'           # Script-specific param only
 ]
 
 if __name__ == "__main__":

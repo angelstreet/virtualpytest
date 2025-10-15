@@ -227,13 +227,10 @@ def main():
     return result
 
 
-# Define ALL script arguments (framework + script-specific)
+# Script arguments (framework params are automatic)
 main._script_args = [
-    'userinterface_name:str:',  # Required positional - framework param
     '--max-iteration:int:0',     # Script-specific param
-    '--edges:str:',              # Script-specific param - Comma-separated list of edge IDs
-    '--host:str:',               # Optional - framework param (auto-filled by UI)
-    '--device:str:'              # Optional - framework param (auto-filled by UI)
+    '--edges:str:'               # Script-specific param - Comma-separated list of edge IDs
 ]
 
 if __name__ == "__main__":
