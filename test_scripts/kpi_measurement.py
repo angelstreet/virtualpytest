@@ -30,12 +30,10 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
+# NOTE: Framework params (userinterface_name, --host, --device) are automatic - don't declare them!
 _script_args = [
-    'userinterface_name:str:',  # Required positional - framework param
     '--edge:str:',               # Script-specific param - Action set label
-    '--iterations:int:3',        # Script-specific param - Number of iterations
-    '--host:str:',               # Optional - framework param (auto-filled by UI)
-    '--device:str:'              # Optional - framework param (auto-filled by UI)
+    '--iterations:int:3'         # Script-specific param - Number of iterations
 ]
 
 
