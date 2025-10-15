@@ -65,6 +65,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
 
   /**
    * Fetch server information and hosts from all configured servers
+   * Non-blocking: Shows partial data if some servers fail
    */
   const fetchServerData = useCallback(async () => {
     // Prevent duplicate calls
@@ -80,10 +81,16 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
 
       console.log('[@ServerManager] Fetching data from all servers:', availableServers);
 
-      // Fetch from all servers in parallel
+      // Fetch from all servers with timeout to prevent blocking
       const serverDataPromises = availableServers.map(async (serverUrl) => {
         try {
-          const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'));
+          // Race between fetch and timeout to prevent blocking
+          const fetchPromise = fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'), {
+            signal: AbortSignal.timeout(5000) // 5 second timeout per server
+          });
+          
+          const response = await fetchPromise;
+          
           if (response.ok) {
             const data = await response.json();
             
@@ -109,26 +116,35 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
           } else {
             console.warn('[@ServerManager] Failed to fetch from server:', serverUrl, response.status);
           }
-        } catch (error) {
-          console.error(`[@ServerManager] Error fetching from ${serverUrl}:`, error);
+        } catch (error: any) {
+          if (error.name === 'TimeoutError') {
+            console.warn(`[@ServerManager] Timeout fetching from ${serverUrl} - continuing with other servers`);
+          } else {
+            console.warn(`[@ServerManager] Error fetching from ${serverUrl}:`, error.message, '- continuing with other servers');
+          }
         }
         return null;
       });
 
       const results = (await Promise.all(serverDataPromises)).filter(Boolean) as ServerHostData[];
-      setServerHostsData(results);
       
+      // Batch state updates to prevent multiple re-renders
+      const totalHosts = results.reduce((sum, s) => sum + s.hosts.length, 0);
       console.log('[@ServerManager] Server data fetched successfully:', {
         serverCount: results.length,
-        totalHosts: results.reduce((sum, s) => sum + s.hosts.length, 0)
+        totalHosts
       });
+      
+      // Single state update with both values
+      setServerHostsData(results);
+      setIsLoading(false);
 
     } catch (err) {
       const errorMessage = 'Failed to fetch server data';
       setError(errorMessage);
+      setIsLoading(false);
       console.error('[@ServerManager]', errorMessage, err);
     } finally {
-      setIsLoading(false);
       isRequestInProgress.current = false;
     }
   }, [availableServers]);
@@ -144,21 +160,15 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   // EFFECTS
   // ========================================
 
-  // Initial data fetch on mount
+  // Initial data fetch on mount only
+  // We fetch ALL servers once, then switching servers is just a client-side operation
   useEffect(() => {
     if (availableServers.length > 0) {
       console.log('[@ServerManager] Initial data fetch');
       fetchServerData();
     }
-  }, [fetchServerData, availableServers]);
-
-  // Fetch data when selected server changes
-  useEffect(() => {
-    if (selectedServer) {
-      console.log('[@ServerManager] Selected server changed, refreshing data:', selectedServer);
-      fetchServerData();
-    }
-  }, [selectedServer, fetchServerData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // ========================================
   // CONTEXT VALUE

@@ -89,9 +89,36 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   const stableUserInterface = useMemo(() => userInterface, [userInterface]);
 
   // Update availableHosts when server data changes (from ServerManager)
+  // Only update if the hosts actually changed to prevent unnecessary re-renders
   useEffect(() => {
-    console.log('[@context:HostManagerProvider] Updating hosts from ServerManager:', allHostsFromServers.length);
-    setAvailableHosts(allHostsFromServers);
+    setAvailableHosts(prev => {
+      // Quick length check first
+      if (prev.length !== allHostsFromServers.length) {
+        console.log('[@context:HostManagerProvider] Hosts count changed:', prev.length, '->', allHostsFromServers.length);
+        return allHostsFromServers;
+      }
+      
+      // Deep comparison: check if any host data actually changed
+      const hostsChanged = allHostsFromServers.some((newHost, index) => {
+        const oldHost = prev[index];
+        if (!oldHost) return true;
+        
+        // Compare key properties
+        if (oldHost.host_name !== newHost.host_name) return true;
+        if (oldHost.status !== newHost.status) return true;
+        if ((oldHost.devices?.length || 0) !== (newHost.devices?.length || 0)) return true;
+        
+        return false;
+      });
+      
+      if (hostsChanged) {
+        console.log('[@context:HostManagerProvider] Host data changed, updating');
+        return allHostsFromServers;
+      }
+      
+      // No changes, keep previous reference to prevent re-renders
+      return prev;
+    });
   }, [allHostsFromServers]);
 
   // ========================================
