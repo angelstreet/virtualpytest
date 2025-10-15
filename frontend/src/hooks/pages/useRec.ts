@@ -73,11 +73,6 @@ export const useRec = (): UseRecReturn => {
   getDevicesByCapabilityRef.current = getDevicesByCapability;
   isHostDataLoadingRef.current = isHostDataLoading;
 
-  console.log(`[@hook:useRec] Hook render #${renderCountRef.current}`, {
-    isHostDataLoading,
-    avDevicesCount: avDevices.length
-  });
-
   // Get AV-capable devices - only when HostData is ready
   // Stabilized with ref to prevent recreation on every HostData update
   const refreshHosts = useCallback(async (): Promise<void> => {
@@ -118,26 +113,15 @@ export const useRec = (): UseRecReturn => {
     }
   }, []); // No dependencies - use refs instead to keep callback stable
 
-  // Trigger refresh when HostData finishes loading
+  // Combine effects:
   useEffect(() => {
-    if (!isHostDataLoading) {
-      refreshHosts();
-    }
-  }, [isHostDataLoading, refreshHosts]);
-
-  // Initialize on mount and set up auto-refresh
-  useEffect(() => {
-    // Initial refresh (will be skipped if HostData is loading)
-    refreshHosts();
-
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      refreshHosts();
-    }, 30000);
-
-    return () => {
-      clearInterval(interval);
+    const loadData = async () => {
+      await refreshHosts();
+      const interval = setInterval(refreshHosts, 30000);
+      return () => clearInterval(interval);
     };
+    
+    loadData();
   }, [refreshHosts]);
 
   // Use ref to store the latest avDevices and isRestarting to avoid dependency issues

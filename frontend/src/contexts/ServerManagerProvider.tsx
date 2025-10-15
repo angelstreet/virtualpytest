@@ -40,6 +40,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   const [serverHostsData, setServerHostsData] = useState<ServerHostData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingServers, setPendingServers] = useState<Set<string>>(new Set());
 
   // Ref to prevent duplicate API calls
   const isRequestInProgress = useRef(false);
@@ -74,80 +75,58 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
       return;
     }
 
-    try {
-      isRequestInProgress.current = true;
-      setIsLoading(true);
-      setError(null);
-
-      console.log('[@ServerManager] Fetching data from all servers:', availableServers);
-
-      // Fetch from all servers with timeout to prevent blocking
-      const serverDataPromises = availableServers.map(async (serverUrl) => {
-        try {
-          // Race between fetch and timeout to prevent blocking
-          const fetchPromise = fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'), {
-            signal: AbortSignal.timeout(5000) // 5 second timeout per server
-          });
+    isRequestInProgress.current = true;
+    setIsLoading(true);
+    setError(null);
+    setServerHostsData([]); // Reset to empty
+    setPendingServers(new Set(availableServers));
+    
+    availableServers.forEach(async (serverUrl) => {
+      try {
+        const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'), {
+          signal: AbortSignal.timeout(10000) // Increased to 10s
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const urlParts = new URL(serverUrl);
+          const cleanUrl = serverUrl.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
           
-          const response = await fetchPromise;
+          const serverData = {
+            server_info: {
+              server_name: data.server_info?.server_name || 'Unknown Server',
+              server_url: serverUrl,
+              server_url_display: cleanUrl,
+              server_port: urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80')
+            },
+            hosts: data.hosts || []
+          };
           
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Use backend's SERVER_NAME and keep full URL for functionality
-            const urlParts = new URL(serverUrl);
-            const cleanUrl = serverUrl.replace(/^https?:\/\//, '').replace(/:\d+$/, '');
-            
-            console.log('[@ServerManager] Server data received:', {
-              serverUrl,
-              serverName: data.server_info?.server_name,
-              hostsCount: data.hosts?.length || 0
-            });
-
-            return {
-              server_info: {
-                server_name: data.server_info?.server_name || 'Unknown Server',
-                server_url: serverUrl, // Keep full URL for localStorage/API calls
-                server_url_display: cleanUrl, // Clean URL for display only
-                server_port: urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80')
-              },
-              hosts: data.hosts || []
-            };
-          } else {
-            console.warn('[@ServerManager] Failed to fetch from server:', serverUrl, response.status);
+          // Append this server's data
+          setServerHostsData(prev => [...prev, serverData]);
+          
+          // If this is the selected server, stop loading
+          if (serverUrl === selectedServer) {
+            setIsLoading(false);
           }
-        } catch (error: any) {
-          if (error.name === 'TimeoutError') {
-            console.warn(`[@ServerManager] Timeout fetching from ${serverUrl} - continuing with other servers`);
-          } else {
-            console.warn(`[@ServerManager] Error fetching from ${serverUrl}:`, error.message, '- continuing with other servers');
-          }
+        } else {
+          console.warn(`[@ServerManager] Failed response from ${serverUrl}: ${response.status}`);
         }
-        return null;
-      });
-
-      const results = (await Promise.all(serverDataPromises)).filter(Boolean) as ServerHostData[];
-      
-      // Batch state updates to prevent multiple re-renders
-      const totalHosts = results.reduce((sum, s) => sum + s.hosts.length, 0);
-      console.log('[@ServerManager] Server data fetched successfully:', {
-        serverCount: results.length,
-        totalHosts
-      });
-      
-      // Single state update with both values
-      setServerHostsData(results);
-      setIsLoading(false);
-
-    } catch (err) {
-      const errorMessage = 'Failed to fetch server data';
-      setError(errorMessage);
-      setIsLoading(false);
-      console.error('[@ServerManager]', errorMessage, err);
-    } finally {
-      isRequestInProgress.current = false;
-    }
-  }, [availableServers]);
+      } catch (error: any) {
+        console.warn(`[@ServerManager] Error from ${serverUrl}: ${error.message}`);
+      } finally {
+        // Remove from pending
+        setPendingServers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(serverUrl);
+          if (newSet.size === 0) {
+            setIsLoading(false); // All done
+          }
+          return newSet;
+        });
+      }
+    });
+  }, [availableServers, selectedServer]);
 
   /**
    * Manual refresh function
@@ -185,11 +164,12 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
       serverHostsData,
       isLoading,
       error,
+      pendingServers,
 
       // Actions
       refreshServerData,
     }),
-    [selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading, error, refreshServerData]
+    [selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading, error, refreshServerData, pendingServers]
   );
 
   return (
