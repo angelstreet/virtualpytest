@@ -6,11 +6,11 @@ This script measures KPIs for a specific edge transition by repeatedly navigatin
 It provides min, max, and average performance metrics.
 
 Usage:
-    python test_scripts/kpi_measurement.py <userinterface_name> --edge <from>:<to> --iterations <count>
+    python test_scripts/kpi_measurement.py <userinterface_name> --edge <from_node_label>-<to_node_label> --iterations <count>
     
 Examples:
-    python test_scripts/kpi_measurement.py horizon_android_mobile --edge home:live --iterations 5
-    python test_scripts/kpi_measurement.py horizon_android_tv --edge live:settings --iterations 10
+    python test_scripts/kpi_measurement.py horizon_android_mobile --edge home-live --iterations 5
+    python test_scripts/kpi_measurement.py horizon_android_tv --edge live-settings --iterations 10
 """
 
 import sys
@@ -155,28 +155,31 @@ def main():
     
     print(f"✅ [kpi_measurement] Found {len(edges)} edges")
     
-    # Parse edge argument (format: from_label:to_label)
-    if ':' not in args.edge:
-        context.error_message = f"Invalid edge format. Expected 'from:to', got '{args.edge}'"
+    # Parse edge argument (format: from_node_id-to_node_id, same as validation.py)
+    if '-' not in args.edge:
+        context.error_message = f"Invalid edge format. Expected 'from_node_id-to_node_id', got '{args.edge}'"
         return False
     
-    from_label, to_label = args.edge.split(':', 1)
-    print(f"🔍 [kpi_measurement] Looking for edge: {from_label} → {to_label}")
+    edge_id = args.edge
+    print(f"🔍 [kpi_measurement] Looking for edge ID: {edge_id}")
     
-    # Find matching edge
+    # Find matching edge by ID (same format as validation.py)
     selected_edge = None
     for edge in edges:
-        if edge.get('from_node_label') == from_label and edge.get('to_node_label') == to_label:
+        current_edge_id = f"{edge.get('from_node_id')}-{edge.get('to_node_id')}"
+        if current_edge_id == edge_id:
             selected_edge = edge
             break
     
     if not selected_edge:
         # Show available edges for debugging
-        available_edges_str = ", ".join([f"{e.get('from_node_label')}:{e.get('to_node_label')}" for e in edges[:10]])
+        available_edges_str = ", ".join([f"{e.get('from_node_id')}-{e.get('to_node_id')}" for e in edges[:10]])
         context.error_message = f"Edge '{args.edge}' not found. Available edges (first 10): {available_edges_str}"
         return False
     
-    print(f"✅ [kpi_measurement] Found edge: {from_label} → {to_label}")
+    from_label = selected_edge.get('from_node_label')
+    to_label = selected_edge.get('to_node_label')
+    print(f"✅ [kpi_measurement] Found edge: {from_label} → {to_label} (ID: {edge_id})")
     
     # Execute KPI measurement loop
     kpi_results = []
@@ -251,8 +254,8 @@ def main():
 
 # Define script-specific arguments
 main._script_args = [
-    '--edge:str:home:live',  # Default edge for testing
-    '--iterations:int:3'      # Default 3 iterations
+    '--edge:str:',  # Edge ID in format: from_node_id-to_node_id (e.g., "123-456")
+    '--iterations:int:3'  # Default 3 iterations
 ]
 
 if __name__ == "__main__":
