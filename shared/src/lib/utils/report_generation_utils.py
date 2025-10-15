@@ -175,6 +175,7 @@ def generate_and_upload_script_report(
         print(f"[@utils:report_utils:generate_and_upload_script_report] DEBUG: Timestamp generated: {execution_timestamp}")
         
         # Handle simple script execution (no step_results)
+        # Don't include script output here - it's available via "Execution Logs" link
         if not step_results:
             step_results = [{
                 'step_number': 1,
@@ -192,12 +193,7 @@ def generate_and_upload_script_report(
                     'label': f'Execute {script_name} script'
                 }],
                 'verifications': [],
-                'verification_results': [],
-                'script_output': {
-                    'stdout': stdout[:2000] if stdout else '',
-                    'stderr': stderr[:2000] if stderr else '',
-                    'exit_code': exit_code
-                }
+                'verification_results': []
             }]
         
         # Calculate verification statistics
