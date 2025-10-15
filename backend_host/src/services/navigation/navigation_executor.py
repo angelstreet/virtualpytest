@@ -814,7 +814,7 @@ class NavigationExecutor:
         try:
             print(f"🗺️ [NavigationExecutor] Loading navigation tree for '{userinterface_name}'")
             
-            # 1. Load root tree data
+            # 1. Get root tree ID to check cache
             from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
             userinterface = get_userinterface_by_name(userinterface_name, team_id)
             if not userinterface:
@@ -831,13 +831,39 @@ class NavigationExecutor:
             if not tree:
                 return {'success': False, 'error': f"No root tree found for interface: {userinterface_id}"}
             
+            root_tree_id = tree['id']
+            
+            # 2. CHECK CACHE FIRST before loading from database
+            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            cached_graph = get_cached_unified_graph(root_tree_id, team_id)
+            
+            if cached_graph:
+                print(f"✅ [NavigationExecutor] Using cached unified graph: {len(cached_graph.nodes)} nodes, {len(cached_graph.edges)} edges")
+                self.unified_graph = cached_graph
+                
+                # Return minimal result - graph is already in memory
+                return {
+                    'success': True,
+                    'tree_id': root_tree_id,
+                    'tree': {
+                        'id': root_tree_id,
+                        'name': tree.get('name', ''),
+                    },
+                    'userinterface_id': userinterface_id,
+                    'from_cache': True,
+                    'unified_graph_nodes': len(cached_graph.nodes),
+                    'unified_graph_edges': len(cached_graph.edges)
+                }
+            
+            # 3. CACHE MISS - Load full tree data from database
+            print(f"🔄 [NavigationExecutor] Cache miss - loading from database...")
+            
             # Get full tree data with nodes and edges (same as navigation page)
-            tree_data = get_full_tree(tree['id'], team_id)
+            tree_data = get_full_tree(root_tree_id, team_id)
             
             if not tree_data['success']:
                 return {'success': False, 'error': f"Failed to load tree data: {tree_data.get('error', 'Unknown error')}"}
             
-            root_tree_id = tree['id']
             nodes = tree_data['nodes']
             edges = tree_data['edges']
             
@@ -860,7 +886,7 @@ class NavigationExecutor:
             
             print(f"✅ [NavigationExecutor] Root tree loaded: {root_tree_id}")
             
-            # 2. Discover complete tree hierarchy
+            # 4. Discover complete tree hierarchy
             hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id)
             if not hierarchy_data:
                 # If no nested trees, create single-tree hierarchy
@@ -869,12 +895,12 @@ class NavigationExecutor:
             else:
                 print(f"📋 [NavigationExecutor] Found {len(hierarchy_data)} trees in hierarchy")
             
-            # 3. Build unified tree data structure
+            # 5. Build unified tree data structure
             all_trees_data = self.build_unified_tree_data(hierarchy_data)
             if not all_trees_data:
                 raise NavigationTreeError("Failed to build unified tree data structure")
             
-            # 4. Populate unified cache (MANDATORY)
+            # 6. Populate unified cache (MANDATORY)
             print(f"🔄 [NavigationExecutor] Populating unified cache...")
             from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
             unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
@@ -886,7 +912,7 @@ class NavigationExecutor:
             # Store unified graph for direct access
             self.unified_graph = unified_graph
             
-            # 5. Return result compatible with script executor expectations
+            # 7. Return result compatible with script executor expectations
             return {
                 'success': True,
                 'tree_id': root_tree_id,
@@ -901,6 +927,7 @@ class NavigationExecutor:
                 'userinterface_id': userinterface_id,
                 'nodes': nodes,
                 'edges': edges,
+                'from_cache': False,
                 # Additional hierarchy info for advanced use cases
                 'hierarchy': hierarchy_data,
                 'unified_graph_nodes': len(unified_graph.nodes),
