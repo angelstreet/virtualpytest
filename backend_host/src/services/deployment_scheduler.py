@@ -121,7 +121,6 @@ class DeploymentScheduler:
                     # Format last execution
                     last_exec = dep.get('last_executed_at')
                     if last_exec:
-                        from datetime import datetime
                         last_exec_dt = datetime.fromisoformat(last_exec.replace('Z', '+00:00'))
                         last_exec_str = last_exec_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
                     else:
