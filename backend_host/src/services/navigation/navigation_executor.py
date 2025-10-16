@@ -317,6 +317,15 @@ class NavigationExecutor:
                     # Record dummy step to show from/target nodes in report
                     if context:
                         from datetime import datetime
+                        from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                        
+                        # Capture screenshot to show verified destination state
+                        screenshot_path = ""
+                        screenshot_id = capture_screenshot_for_script(self.device, context, f"already_at_{target_node_label or target_node_id}")
+                        if screenshot_id and context.screenshot_paths:
+                            screenshot_path = context.screenshot_paths[-1]
+                            print(f"📸 [@navigation_executor:execute_navigation] Screenshot captured for 'already at destination': {screenshot_id}")
+                        
                         dummy_step_result = {
                             'success': True,
                             'from_node': target_node_label or target_node_id,
@@ -327,7 +336,9 @@ class NavigationExecutor:
                             'start_time': datetime.now().strftime('%H:%M:%S'),
                             'end_time': datetime.now().strftime('%H:%M:%S'),
                             'actions': [],
-                            'step_category': 'navigation'
+                            'step_category': 'navigation',
+                            'step_end_screenshot_path': screenshot_path,
+                            'screenshot_path': screenshot_path
                         }
                         context.record_step_immediately(dummy_step_result)
                     
@@ -377,6 +388,15 @@ class NavigationExecutor:
                         # Record dummy step to show from/target nodes in report
                         if context:
                             from datetime import datetime
+                            from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                            
+                            # Capture screenshot to show verified destination state
+                            screenshot_path = ""
+                            screenshot_id = capture_screenshot_for_script(self.device, context, f"already_at_{target_node_label or target_node_id}")
+                            if screenshot_id and context.screenshot_paths:
+                                screenshot_path = context.screenshot_paths[-1]
+                                print(f"📸 [@navigation_executor:execute_navigation] Screenshot captured for 'already at destination': {screenshot_id}")
+                            
                             dummy_step_result = {
                                 'success': True,
                                 'from_node': target_node_label or target_node_id,
@@ -387,7 +407,9 @@ class NavigationExecutor:
                                 'start_time': datetime.now().strftime('%H:%M:%S'),
                                 'end_time': datetime.now().strftime('%H:%M:%S'),
                                 'actions': [],
-                                'step_category': 'navigation'
+                                'step_category': 'navigation',
+                                'step_end_screenshot_path': screenshot_path,
+                                'screenshot_path': screenshot_path
                             }
                             context.record_step_immediately(dummy_step_result)
                         
@@ -424,6 +446,15 @@ class NavigationExecutor:
                         # Record dummy step to show from/target nodes in report
                         if context:
                             from datetime import datetime
+                            from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                            
+                            # Capture screenshot to show verified destination state
+                            screenshot_path = ""
+                            screenshot_id = capture_screenshot_for_script(self.device, context, f"already_at_{target_node_label or target_node_id}")
+                            if screenshot_id and context.screenshot_paths:
+                                screenshot_path = context.screenshot_paths[-1]
+                                print(f"📸 [@navigation_executor:execute_navigation] Screenshot captured for 'already at destination': {screenshot_id}")
+                            
                             dummy_step_result = {
                                 'success': True,
                                 'from_node': target_node_label or target_node_id,
@@ -434,7 +465,9 @@ class NavigationExecutor:
                                 'start_time': datetime.now().strftime('%H:%M:%S'),
                                 'end_time': datetime.now().strftime('%H:%M:%S'),
                                 'actions': [],
-                                'step_category': 'navigation'
+                                'step_category': 'navigation',
+                                'step_end_screenshot_path': screenshot_path,
+                                'screenshot_path': screenshot_path
                             }
                             context.record_step_immediately(dummy_step_result)
                         
