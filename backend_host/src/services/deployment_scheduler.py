@@ -405,10 +405,44 @@ class DeploymentScheduler:
             if dep.get('userinterface_name'):
                 param_parts.append(dep['userinterface_name'])
             
-            # SECOND: Add script-specific parameters
+            # SECOND: Add script-specific parameters (filter out empty/null values)
             custom_params = dep.get('parameters', '').strip()
             if custom_params:
-                param_parts.append(custom_params)
+                # Parse parameters to filter out flags with empty values
+                # Example: "--max-iteration 10 --edges --host" should remove "--edges"
+                import shlex
+                parsed_params = []
+                tokens = shlex.split(custom_params)
+                i = 0
+                while i < len(tokens):
+                    token = tokens[i]
+                    if token.startswith('--'):
+                        # This is a flag
+                        if i + 1 < len(tokens) and not tokens[i + 1].startswith('--'):
+                            # Has a value
+                            value = tokens[i + 1]
+                            if value and value.strip():  # Only add if value is not empty
+                                parsed_params.append(token)
+                                parsed_params.append(value)
+                                i += 2
+                                continue
+                            else:
+                                # Skip flag with empty value
+                                print(f"[@deployment_scheduler] Skipping parameter {token} with empty value")
+                                i += 2
+                                continue
+                        else:
+                            # Flag without value - skip it (invalid)
+                            print(f"[@deployment_scheduler] Skipping parameter {token} (no value provided)")
+                            i += 1
+                            continue
+                    else:
+                        # Not a flag, keep as-is (shouldn't happen in custom_params)
+                        parsed_params.append(token)
+                        i += 1
+                
+                if parsed_params:
+                    param_parts.append(' '.join(parsed_params))
             
             # THIRD: Add framework parameters
             param_parts.append(f"--host {dep['host_name']}")
