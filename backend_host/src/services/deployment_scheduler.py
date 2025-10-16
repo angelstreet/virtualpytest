@@ -394,22 +394,27 @@ class DeploymentScheduler:
             
             deployment_logger.info(f"▶️  EXECUTING: {dep_name} | Script: {dep['script_name']} | Device: {dep['device_id']}")
             
-            # Build complete parameters including framework params
-            # Framework params: --host and --device are flags, userinterface_name is positional
-            framework_params = [
-                f"--host {dep['host_name']}",
-                f"--device {dep['device_id']}",
-            ]
+            # Build complete parameters in correct order:
+            # 1. userinterface_name (POSITIONAL - MUST BE FIRST)
+            # 2. script parameters (--max-iteration, --edges, etc.)
+            # 3. framework parameters (--host, --device)
             
-            # Combine framework flags with custom params first
-            custom_params = dep.get('parameters', '').strip()
-            all_params = ' '.join(framework_params)
-            if custom_params:
-                all_params = f"{all_params} {custom_params}"
+            param_parts = []
             
-            # Add userinterface_name as positional argument at the end (if available)
+            # FIRST: Add userinterface_name as positional argument (REQUIRED FIRST)
             if dep.get('userinterface_name'):
-                all_params = f"{all_params} {dep['userinterface_name']}"
+                param_parts.append(dep['userinterface_name'])
+            
+            # SECOND: Add script-specific parameters
+            custom_params = dep.get('parameters', '').strip()
+            if custom_params:
+                param_parts.append(custom_params)
+            
+            # THIRD: Add framework parameters
+            param_parts.append(f"--host {dep['host_name']}")
+            param_parts.append(f"--device {dep['device_id']}")
+            
+            all_params = ' '.join(param_parts)
             
             # Execute script with complete parameters
             executor = ScriptExecutor(self.host_name, dep['device_id'], 'unknown')
