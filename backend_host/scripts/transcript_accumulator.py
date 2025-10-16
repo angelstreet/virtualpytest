@@ -10,6 +10,12 @@ COLD STORAGE ARCHITECTURE:
 
 Instant transcription: 1min MP3 → immediate Whisper transcription → merge to JSON
 Progressive save: Transcripts saved by minute to chunk_10min_X.json
+
+USAGE:
+  --transcript true   Enable MP3 transcription (CPU-intensive Whisper processing)
+  --transcript false  Disable transcription (default - audio detection only)
+  
+Audio detection ALWAYS runs (lightweight, critical for incident system)
 """
 
 # CRITICAL: Limit CPU threads BEFORE importing PyTorch/Whisper
@@ -32,6 +38,7 @@ import threading
 from datetime import datetime
 import time
 from pathlib import Path
+import argparse
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 backend_host_dir = os.path.dirname(script_dir)
@@ -859,8 +866,9 @@ def check_minute_already_processed(capture_folder: str, hour: int, chunk_index: 
 class InotifyTranscriptMonitor:
     """Simple MP3 transcription monitor"""
     
-    def __init__(self, monitored_devices):
+    def __init__(self, monitored_devices, enable_transcription=False):
         self.monitored_devices = monitored_devices
+        self.enable_transcription = enable_transcription
         self.inotify = inotify.adapters.Inotify()
         self.audio_path_to_device = {}
         # Two separate queues: inotify (real-time) and scan (backlog)
@@ -869,10 +877,21 @@ class InotifyTranscriptMonitor:
         self.audio_workers = {}
         self.incident_manager = None
         
-        self._setup_watches()
+        # Audio detection ALWAYS runs (critical for incident system)
         self._start_audio_workers()
-        self._scan_existing_mp3s()
-        self._start_transcription_worker()
+        
+        # Transcription components - ONLY if enabled
+        if self.enable_transcription:
+            logger.info("=" * 80)
+            logger.info("🎤 TRANSCRIPTION ENABLED - Starting Whisper components")
+            logger.info("=" * 80)
+            self._setup_watches()
+            self._scan_existing_mp3s()
+            self._start_transcription_worker()
+        else:
+            logger.info("=" * 80)
+            logger.info("🔇 TRANSCRIPTION DISABLED - Audio detection only (lightweight mode)")
+            logger.info("=" * 80)
     
     def _setup_watches(self):
         """Setup inotify watches for 1min MP3 files in temp/"""
@@ -1511,7 +1530,22 @@ class InotifyTranscriptMonitor:
             time.sleep(current_interval)  # Use dynamic interval
     
     def run(self):
-        """Main event loop - watch for 1min MP3 files in temp/"""
+        """Main event loop - watch for 1min MP3 files in temp/ (only if transcription enabled)"""
+        if not self.enable_transcription:
+            logger.info("=" * 80)
+            logger.info("🔇 Transcription disabled - inotify loop skipped")
+            logger.info("✅ Audio detection workers running in background")
+            logger.info("=" * 80)
+            
+            # Keep main thread alive while audio workers run
+            try:
+                while True:
+                    time.sleep(60)
+                    logger.info("[AUDIO-ONLY] ❤️  Heartbeat: Audio detection active, transcription disabled")
+            except KeyboardInterrupt:
+                logger.info("Shutting down...")
+            return
+        
         logger.info("=" * 80)
         logger.info("Starting 1min MP3 inotify event loop...")
         logger.info(f"Watching {len(self.audio_path_to_device)} directories for IN_MOVED_TO events")
@@ -1564,6 +1598,27 @@ class InotifyTranscriptMonitor:
                     pass
 
 def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Transcript Accumulator - Audio Detection & MP3 Transcription Service',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python transcript_accumulator.py                    # Audio detection only (default)
+  python transcript_accumulator.py --transcript false # Audio detection only (explicit)
+  python transcript_accumulator.py --transcript true  # Audio detection + transcription (CPU-intensive)
+        """
+    )
+    parser.add_argument(
+        '--transcript',
+        type=lambda x: x.lower() == 'true',
+        default=False,
+        help='Enable MP3 transcription (default: false - audio detection only)'
+    )
+    args = parser.parse_args()
+    
+    enable_transcription = args.transcript
+    
     # Clean log file first
     cleanup_logs_on_startup()
     
@@ -1589,12 +1644,18 @@ def main():
     logging.getLogger('faster_whisper').setLevel(logging.WARNING)
     
     logger.info("=" * 80)
-    logger.info("Transcript Accumulator - MP3 Transcription Service")
+    logger.info("Transcript Accumulator - Audio Detection & Transcription Service")
+    logger.info("=" * 80)
+    logger.info(f"Mode: {'🎤 TRANSCRIPTION ENABLED' if enable_transcription else '🔇 AUDIO DETECTION ONLY (lightweight)'}")
     logger.info("=" * 80)
     logger.info("Architecture: inotify event-driven (zero CPU when idle)")
-    logger.info("Watches: 1min MP3 files in COLD /audio/temp/ (instant transcription)")
-    logger.info("Scans: 1min /audio/temp/ + 10min /audio/{hour}/ (backfill/recovery)")
-    logger.info("Processing: MP3 → JSON transcript (Whisper tiny model)")
+    if enable_transcription:
+        logger.info("Watches: 1min MP3 files in COLD /audio/temp/ (instant transcription)")
+        logger.info("Scans: 1min /audio/temp/ + 10min /audio/{hour}/ (backfill/recovery)")
+        logger.info("Processing: MP3 → JSON transcript (Whisper tiny model)")
+    else:
+        logger.info("Audio Detection: Checks segments every 5-10s for audio presence")
+        logger.info("Transcription: DISABLED (Whisper not loaded, saves CPU)")
     logger.info("=" * 80)
     
     try:
@@ -1633,9 +1694,12 @@ def main():
             return
         
         logger.info(f"Monitoring {len(monitored_devices)} devices ({skipped_count} skipped)")
-        logger.info("Whisper model will be loaded on first transcription (global singleton)")
+        if enable_transcription:
+            logger.info("Whisper model will be loaded on first transcription (global singleton)")
+        else:
+            logger.info("Whisper model will NOT be loaded (transcription disabled)")
         
-        monitor = InotifyTranscriptMonitor(monitored_devices)
+        monitor = InotifyTranscriptMonitor(monitored_devices, enable_transcription=enable_transcription)
         monitor.run()
         
     except Exception as e:
