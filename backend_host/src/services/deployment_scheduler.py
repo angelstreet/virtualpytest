@@ -29,7 +29,10 @@ class DeploymentScheduler:
         print(f"[@deployment_scheduler] Starting for {self.host_name}")
         deployment_logger.info(f"=== DEPLOYMENT SCHEDULER STARTING === Host: {self.host_name}")
         self.scheduler.start()
+        print(f"[@deployment_scheduler] APScheduler state: {self.scheduler.state}")
+        print(f"[@deployment_scheduler] APScheduler running: {self.scheduler.running}")
         self._sync_from_db()
+        print(f"[@deployment_scheduler] Active jobs count: {len(self.scheduler.get_jobs())}")
         
     def _sync_from_db(self):
         """Load active deployments from Supabase on startup"""
