@@ -314,6 +314,28 @@ class NavigationExecutor:
                     # Mark navigation as successful
                     nav_context['current_node_navigation_success'] = True
                     
+                    # Record step to context showing we're already at destination
+                    if context:
+                        from datetime import datetime
+                        step_result = {
+                            'success': True,
+                            'message': f"Already at destination",
+                            'execution_time_ms': 0,
+                            'start_time': datetime.now().strftime('%H:%M:%S'),
+                            'end_time': datetime.now().strftime('%H:%M:%S'),
+                            'from_node': target_node_label or target_node_id,
+                            'to_node': target_node_label or target_node_id,
+                            'actions': [],  # Empty actions array
+                            'retry_actions': [],
+                            'failure_actions': [],
+                            'action_results': [],
+                            'verifications': [],
+                            'verification_results': [],
+                            'step_category': 'navigation',
+                            'already_at_destination': True
+                        }
+                        context.record_step_immediately(step_result)
+                    
                     return self._build_result(
                         True,
                         f"Already at target '{target_node_label or target_node_id}'",
@@ -356,6 +378,29 @@ class NavigationExecutor:
                         nav_context['last_verified_timestamp'] = time.time()
                         self.update_current_position(target_node_id, tree_id, target_node_label)
                         nav_context['current_node_navigation_success'] = True
+                        
+                        # Record step to context showing we're already at destination
+                        if context:
+                            from datetime import datetime
+                            step_result = {
+                                'success': True,
+                                'message': f"Already at destination",
+                                'execution_time_ms': 0,
+                                'start_time': datetime.now().strftime('%H:%M:%S'),
+                                'end_time': datetime.now().strftime('%H:%M:%S'),
+                                'from_node': target_node_label or target_node_id,
+                                'to_node': target_node_label or target_node_id,
+                                'actions': [],  # Empty actions array
+                                'retry_actions': [],
+                                'failure_actions': [],
+                                'action_results': [],
+                                'verifications': [],
+                                'verification_results': [],
+                                'step_category': 'navigation',
+                                'already_at_destination': True
+                            }
+                            context.record_step_immediately(step_result)
+                        
                         return self._build_result(
                             True,
                             f"Already at home '{target_node_label or target_node_id}' - avoided systematic entry",
@@ -385,6 +430,29 @@ class NavigationExecutor:
                         nav_context['last_verified_timestamp'] = time.time()
                         self.update_current_position(target_node_id, tree_id, target_node_label)
                         nav_context['current_node_navigation_success'] = True
+                        
+                        # Record step to context showing we're already at destination
+                        if context:
+                            from datetime import datetime
+                            step_result = {
+                                'success': True,
+                                'message': f"Already at destination",
+                                'execution_time_ms': 0,
+                                'start_time': datetime.now().strftime('%H:%M:%S'),
+                                'end_time': datetime.now().strftime('%H:%M:%S'),
+                                'from_node': target_node_label or target_node_id,
+                                'to_node': target_node_label or target_node_id,
+                                'actions': [],  # Empty actions array
+                                'retry_actions': [],
+                                'failure_actions': [],
+                                'action_results': [],
+                                'verifications': [],
+                                'verification_results': [],
+                                'step_category': 'navigation',
+                                'already_at_destination': True
+                            }
+                            context.record_step_immediately(step_result)
+                        
                         return self._build_result(
                             True,
                             f"Already at target '{target_node_label or target_node_id}'",

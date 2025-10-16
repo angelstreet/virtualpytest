@@ -239,9 +239,6 @@ const Deployments: React.FC = () => {
     }
 
     const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
-    // Simple timestamp: HHMMSS
-    const now = new Date();
-    const timestamp = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
     
     // Prepare optional constraints using helper functions
     const deploymentData: any = {
@@ -265,7 +262,9 @@ const Deployments: React.FC = () => {
     // Create deployments for all devices
     let successCount = 0;
     for (const device of allDevices) {
-      const deploymentName = `${selectedScript}_${timestamp}`;
+      // Generate unique short ID: timestamp with milliseconds
+      const now = Date.now();
+      const deploymentName = `${selectedScript}_${now}`;
       
       const res = await createDeployment({
         name: deploymentName,

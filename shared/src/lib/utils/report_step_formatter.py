@@ -260,6 +260,10 @@ def format_step_error(step: Dict) -> str:
 
 def format_step_actions(step: Dict) -> str:
     """Format actions section for a step with execution status."""
+    # Check if this is an "already at destination" step
+    if step.get('already_at_destination'):
+        return '<div class="already-at-destination" style="color: #666; font-style: italic;">No navigation needed - already at destination</div>'
+    
     actions = step.get('actions', [])
     retry_actions = step.get('retry_actions', [])
     failure_actions = step.get('failure_actions', [])

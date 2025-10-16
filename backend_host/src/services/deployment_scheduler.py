@@ -208,7 +208,14 @@ class DeploymentScheduler:
         
         try:
             # Get deployment config
-            dep = self.supabase.table('deployments').select('*').eq('id', deployment_id).single().execute().data
+            result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+            if not result.data or len(result.data) == 0:
+                print(f"[@deployment_scheduler] Deployment {deployment_id} no longer exists, removing from scheduler")
+                deployment_logger.warning(f"DELETED: {deployment_id} | Deployment no longer exists in database")
+                self.scheduler.remove_job(deployment_id)
+                return
+            
+            dep = result.data[0]
             dep_name = dep.get('name', deployment_id)
             
             deployment_logger.info(f"⚡ TRIGGERED: {dep_name} | Time: {start_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
