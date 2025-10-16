@@ -33,18 +33,70 @@ class DeploymentScheduler:
         """Load active deployments from Supabase on startup"""
         try:
             result = self.supabase.table('deployments').select('*').eq('host_name', self.host_name).eq('status', 'active').execute()
-            deployment_logger.info(f"Loading {len(result.data)} active deployments from database")
+            
+            # Add jobs first
             for dep in result.data:
                 self._add_job(dep)
-            print(f"[@deployment_scheduler] Synced {len(result.data)} deployments")
-            deployment_logger.info(f"=== ACTIVE DEPLOYMENTS ({len(result.data)}) ===")
-            for dep in result.data:
-                deployment_logger.info(f"  - {dep['name']} | Cron: {dep.get('cron_expression')} | Executions: {dep.get('execution_count', 0)}/{dep.get('max_executions', '∞')}")
+            
+            # Format deployment summary for both console and log file
+            separator = "=" * 80
+            header = f"{'DEPLOYMENTS':^80}"
+            active_count = f"Active: {len(result.data)}"
+            
+            # Build the summary
+            summary_lines = [
+                "",
+                separator,
+                header,
+                separator,
+                active_count,
+                ""
+            ]
+            
+            if len(result.data) > 0:
+                for dep in result.data:
+                    # Get job info for next run time
+                    job = self.scheduler.get_job(dep['id'])
+                    next_run = job.next_run_time.strftime('%Y-%m-%d %H:%M:%S UTC') if job and job.next_run_time else 'N/A'
+                    
+                    # Format last execution
+                    last_exec = dep.get('last_executed_at')
+                    if last_exec:
+                        from datetime import datetime
+                        last_exec_dt = datetime.fromisoformat(last_exec.replace('Z', '+00:00'))
+                        last_exec_str = last_exec_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    else:
+                        last_exec_str = 'Never'
+                    
+                    # Format frequency
+                    cron_expr = dep.get('cron_expression', 'N/A')
+                    
+                    summary_lines.append(f"• {dep['name']}")
+                    summary_lines.append(f"  Last execution:  {last_exec_str}")
+                    summary_lines.append(f"  Next execution:  {next_run}")
+                    summary_lines.append(f"  Frequency:       {cron_expr}")
+                    summary_lines.append(f"  Executions:      {dep.get('execution_count', 0)}/{dep.get('max_executions', '∞')}")
+                    summary_lines.append("")
+            else:
+                summary_lines.append("(No active deployments)")
+                summary_lines.append("")
+            
+            summary_lines.append(separator)
+            
+            # Print to console
+            for line in summary_lines:
+                print(f"[@deployment_scheduler] {line}")
+            
+            # Write to log file
+            for line in summary_lines:
+                deployment_logger.info(line)
+                
         except Exception as e:
-            print(f"[@deployment_scheduler] Sync error: {e}")
-            deployment_logger.error(f"Failed to sync deployments: {e}")
+            error_msg = f"Failed to sync deployments: {e}"
+            print(f"[@deployment_scheduler] {error_msg}")
+            deployment_logger.error(error_msg)
     
-    def _add_job(self, deployment):
+    def _add_job(self, deployment, log_details=False):
         """Add deployment to scheduler using cron expression"""
         cron_expr = deployment.get('cron_expression')
         if not cron_expr:
@@ -78,12 +130,13 @@ class DeploymentScheduler:
             id=deployment['id'],
             replace_existing=True
         )
-        print(f"[@deployment_scheduler] Added job: {deployment['name']} with cron: {cron_expr}")
         
-        # Log next run time
-        job = self.scheduler.get_job(deployment['id'])
-        next_run = job.next_run_time if job else None
-        deployment_logger.info(f"ADDED: {deployment['name']} | Cron: {cron_expr} | Next run: {next_run} UTC")
+        # Only log detailed info when adding individual deployments (not during sync)
+        if log_details:
+            job = self.scheduler.get_job(deployment['id'])
+            next_run = job.next_run_time if job else None
+            print(f"[@deployment_scheduler] Added: {deployment['name']} with cron: {cron_expr}")
+            deployment_logger.info(f"ADDED: {deployment['name']} | Cron: {cron_expr} | Next run: {next_run} UTC")
     
     def _should_execute(self, deployment):
         """Check if deployment should execute based on constraints"""
@@ -231,7 +284,7 @@ class DeploymentScheduler:
     def add_deployment(self, deployment):
         """Add new deployment (called by API)"""
         deployment_logger.info(f"API: Adding new deployment: {deployment.get('name')}")
-        self._add_job(deployment)
+        self._add_job(deployment, log_details=True)
     
     def pause_deployment(self, deployment_id):
         """Pause deployment"""

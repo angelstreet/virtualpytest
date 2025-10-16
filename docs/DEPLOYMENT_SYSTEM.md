@@ -430,20 +430,48 @@ The deployment system logs:
 
 ### **Log Format**
 
+**On Host Startup:**
 ```
-2025-10-16 14:30:00 [INFO] ⚡ TRIGGERED: checkout_test_device1 | Time: 2025-10-16 14:30:00 UTC
-2025-10-16 14:30:00 [INFO] ▶️  EXECUTING: checkout_test_device1 | Script: test_checkout.py | Device: emulator-5554
-2025-10-16 14:32:15 [INFO] ✅ COMPLETED: checkout_test_device1 | Duration: 135.2s | Success: True | Executions: 5/20
+2025-10-16 14:00:00 [INFO] === DEPLOYMENT SCHEDULER STARTING === Host: host-01
+2025-10-16 14:00:00 [INFO] 
+2025-10-16 14:00:00 [INFO] ================================================================================
+2025-10-16 14:00:00 [INFO]                                  DEPLOYMENTS                                   
+2025-10-16 14:00:00 [INFO] ================================================================================
+2025-10-16 14:00:00 [INFO] Active: 2
+2025-10-16 14:00:00 [INFO] 
+2025-10-16 14:00:00 [INFO] • login_test_device1_2025-10-15
+2025-10-16 14:00:00 [INFO]   Last execution:  2025-10-16 13:50:00 UTC
+2025-10-16 14:00:00 [INFO]   Next execution:  2025-10-16 14:10:00 UTC
+2025-10-16 14:00:00 [INFO]   Frequency:       */10 * * * *
+2025-10-16 14:00:00 [INFO]   Executions:      15/∞
+2025-10-16 14:00:00 [INFO] 
+2025-10-16 14:00:00 [INFO] • checkout_test_device2_2025-10-15
+2025-10-16 14:00:00 [INFO]   Last execution:  2025-10-16 13:45:00 UTC
+2025-10-16 14:00:00 [INFO]   Next execution:  2025-10-16 14:15:00 UTC
+2025-10-16 14:00:00 [INFO]   Frequency:       */30 * * * *
+2025-10-16 14:00:00 [INFO]   Executions:      8/20
+2025-10-16 14:00:00 [INFO] 
+2025-10-16 14:00:00 [INFO] ================================================================================
+```
+
+**During Execution:**
+```
+2025-10-16 14:10:00 [INFO] ⚡ TRIGGERED: login_test_device1 | Time: 2025-10-16 14:10:00 UTC
+2025-10-16 14:10:00 [INFO] ▶️  EXECUTING: login_test_device1 | Script: test_login.py | Device: emulator-5554
+2025-10-16 14:12:15 [INFO] ✅ COMPLETED: login_test_device1 | Duration: 135.2s | Success: True | Executions: 16/∞
 ```
 
 ### **Viewing Logs**
 
 ```bash
-# View latest logs
+# View latest logs in real-time
 tail -f /tmp/deployments.log
 
 # View all logs
 cat /tmp/deployments.log
+
+# View deployment summary (on startup)
+grep -A 100 "DEPLOYMENTS" /tmp/deployments.log | tail -50
 
 # Search for specific deployment
 grep "deployment_name" /tmp/deployments.log
@@ -453,6 +481,9 @@ grep "TRIGGERED" /tmp/deployments.log
 
 # Show only errors
 grep "ERROR" /tmp/deployments.log
+
+# View last deployment summary (host restart/init)
+tail -100 /tmp/deployments.log | grep -A 50 "DEPLOYMENTS"
 ```
 
 ---
@@ -543,6 +574,12 @@ Cron: */15 9-17 * * 1-5
 ```bash
 # Watch deployments in real-time
 tail -f /tmp/deployments.log
+
+# See deployment summary after host restart
+sudo systemctl status backend-host.service | grep -A 20 "DEPLOYMENTS"
+
+# View full deployment status on startup
+grep -A 100 "DEPLOYMENTS" /tmp/deployments.log | tail -50
 
 # See when specific deployment last triggered
 grep "TRIGGERED.*deployment_name" /tmp/deployments.log | tail -5
