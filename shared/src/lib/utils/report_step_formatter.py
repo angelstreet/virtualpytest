@@ -262,7 +262,10 @@ def format_step_actions(step: Dict) -> str:
     """Format actions section for a step with execution status."""
     # Check if this is an "already at destination" step
     if step.get('already_at_destination'):
-        return '<div class="already-at-destination" style="color: #666; font-style: italic;">No navigation needed - already at destination</div>'
+        return '''<div class="already-at-destination" style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 12px; margin: 8px 0; border-radius: 4px;">
+            <div style="font-weight: bold; color: #1e40af; margin-bottom: 4px;">✓ Already at Destination</div>
+            <div style="color: #64748b; font-size: 14px;">No navigation needed - device was already verified at the target node.</div>
+        </div>'''
     
     actions = step.get('actions', [])
     retry_actions = step.get('retry_actions', [])
