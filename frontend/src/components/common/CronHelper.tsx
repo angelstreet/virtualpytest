@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Select, MenuItem, FormControl, InputLabel, TextField, Typography, Chip } from '@mui/material';
+import { Box, Select, MenuItem, FormControl, InputLabel, TextField, Typography } from '@mui/material';
 import { Info } from '@mui/icons-material';
 
 interface CronPattern {
@@ -9,6 +9,7 @@ interface CronPattern {
 }
 
 const CRON_PATTERNS: CronPattern[] = [
+  { label: 'Every 1 minute', value: '*/1 * * * *', description: 'Runs 60 times per hour' },
   { label: 'Every 5 minutes', value: '*/5 * * * *', description: 'Runs 12 times per hour' },
   { label: 'Every 10 minutes', value: '*/10 * * * *', description: 'Runs 6 times per hour' },
   { label: 'Every 15 minutes', value: '*/15 * * * *', description: 'Runs 4 times per hour' },
@@ -23,7 +24,7 @@ const CRON_PATTERNS: CronPattern[] = [
   { label: 'Business hours (hourly)', value: '0 9-17 * * 1-5', description: 'Every hour 9am-5pm, Mon-Fri' },
   { label: 'Weekly on Monday', value: '0 0 * * 1', description: 'Every Monday at midnight' },
   { label: 'Weekly on Sunday', value: '0 0 * * 0', description: 'Every Sunday at midnight' },
-  { label: 'Custom...', value: '', description: 'Enter your own cron expression' },
+  { label: 'Custom', value: 'custom', description: 'Custom expression' },
 ];
 
 interface CronHelperProps {
@@ -34,78 +35,75 @@ interface CronHelperProps {
 }
 
 export const CronHelper: React.FC<CronHelperProps> = ({ value, onChange, error, size = 'small' }) => {
-  const [usePreset, setUsePreset] = React.useState(true);
-  
-  const matchedPattern = CRON_PATTERNS.find(p => p.value === value && p.value !== '');
-  
-  React.useEffect(() => {
-    // If value doesn't match any preset, switch to custom
-    if (value && !matchedPattern) {
-      setUsePreset(false);
-    }
-  }, [value, matchedPattern]);
+  // Find matching preset for current cron expression
+  const matchedPattern = CRON_PATTERNS.find(p => p.value === value && p.value !== 'custom');
+  const selectedPreset = matchedPattern ? matchedPattern.value : 'custom';
   
   const handlePresetChange = (newValue: string) => {
-    if (newValue === '') {
-      // Custom selected
-      setUsePreset(false);
-      onChange('');
-    } else {
+    if (newValue !== 'custom') {
+      // User selected a preset - update cron expression
       onChange(newValue);
     }
+    // If 'custom' selected, keep current cron expression (no change)
+  };
+  
+  const handleCronChange = (newValue: string) => {
+    // User manually edited cron - onChange will trigger re-render
+    // and useEffect will auto-sync the preset dropdown
+    onChange(newValue);
   };
   
   return (
-    <Box>
-      {usePreset ? (
-        <FormControl fullWidth size={size}>
-          <InputLabel>Schedule Pattern</InputLabel>
-          <Select
-            value={matchedPattern?.value || ''}
-            label="Schedule Pattern"
-            onChange={(e) => handlePresetChange(e.target.value)}
-          >
-            {CRON_PATTERNS.map((pattern) => (
-              <MenuItem key={pattern.label} value={pattern.value}>
-                <Box>
-                  <Typography variant="body2">{pattern.label}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {pattern.description}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      ) : (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-          <TextField
-            fullWidth
-            size={size}
-            label="Cron Expression"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            error={!!error}
-            helperText={error || 'Format: minute hour day month day_of_week'}
-            placeholder="*/10 * * * *"
-          />
-          <Chip
-            label="Presets"
-            onClick={() => {
-              setUsePreset(true);
-              onChange('*/10 * * * *'); // Default to every 10 minutes
-            }}
-            size="small"
-            sx={{ mt: size === 'small' ? 1 : 1.5 }}
-          />
-        </Box>
-      )}
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      {/* Preset Dropdown - always visible */}
+      <FormControl size={size} sx={{ minWidth: 200 }}>
+        <InputLabel>Pattern</InputLabel>
+        <Select
+          value={selectedPreset}
+          label="Pattern"
+          onChange={(e) => handlePresetChange(e.target.value)}
+        >
+          {CRON_PATTERNS.map((pattern) => (
+            <MenuItem key={pattern.label} value={pattern.value}>
+              <Box>
+                <Typography variant="body2">{pattern.label}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {pattern.description}
+                </Typography>
+              </Box>
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
       
-      {/* Cron help link */}
-      {!usePreset && (
-        <Typography variant="caption" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {/* Cron Expression TextField - always visible and editable */}
+      <TextField
+        size={size}
+        label="Cron Expression"
+        value={value}
+        onChange={(e) => handleCronChange(e.target.value)}
+        error={!!error}
+        helperText={error || 'Editable - presets auto-sync'}
+        placeholder="*/10 * * * *"
+        sx={{ minWidth: 150 }}
+        inputProps={{
+          style: { fontFamily: 'monospace' }
+        }}
+      />
+      
+      {/* Help link when custom */}
+      {selectedPreset === 'custom' && (
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            mt: size === 'small' ? 1 : 1.5, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 0.5,
+            color: 'text.secondary'
+          }}
+        >
           <Info sx={{ fontSize: 12 }} />
-          Need help? Visit{' '}
           <a href="https://crontab.guru" target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
             crontab.guru
           </a>

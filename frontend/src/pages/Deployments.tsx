@@ -422,25 +422,12 @@ const Deployments: React.FC = () => {
                     <Box>
                       <Typography variant="subtitle2" sx={{ mb: 1 }}>Schedule</Typography>
                       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {/* Cron pattern selector */}
+                        {/* Cron pattern selector with editable expression */}
                         <CronHelper 
                           value={cronExpression} 
                           onChange={setCronExpression}
                           error={cronError}
                         />
-                        
-                        {/* Cron expression display */}
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            fontFamily: 'monospace', 
-                            color: 'text.secondary',
-                            fontSize: '0.875rem',
-                            minWidth: 100
-                          }}
-                        >
-                          {cronExpression}
-                        </Typography>
 
                         {/* Start constraint */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
