@@ -270,12 +270,8 @@ class DeploymentScheduler:
     
     def _execute_deployment(self, deployment_id):
         """Execute deployment with constraint checks"""
-        print(f"[@deployment_scheduler] Triggering deployment: {deployment_id}")
-        
-        # Add random delay to stagger concurrent executions (0-2 seconds)
-        # This prevents multiple deployments from hitting DB at exact same moment
-        stagger_delay = random.uniform(0, 2.0)
-        time.sleep(stagger_delay)
+        print(f"[@deployment_scheduler] ===== TRIGGERED: {deployment_id} =====")
+        deployment_logger.info(f"===== TRIGGERED: {deployment_id} =====")
         
         exec_id = None
         start_time = datetime.now(timezone.utc)
