@@ -164,9 +164,23 @@ fi
 
 # 10. CHECK IF MONITORING IS INSTALLED
 header "MONITORING SYSTEM CHECK"
-if systemctl is-active --quiet crash-monitor.timer 2>/dev/null; then
-    success "Crash monitoring is ACTIVE"
-    systemctl status crash-monitor.timer --no-pager -l | grep "Active:" | tee -a "${REPORT_FILE}"
+
+# Check if timer exists and is enabled (not just active, since timers wait for triggers)
+if systemctl list-unit-files crash-monitor.timer 2>/dev/null | grep -q crash-monitor.timer; then
+    TIMER_ENABLED=$(systemctl is-enabled crash-monitor.timer 2>/dev/null || echo "disabled")
+    TIMER_ACTIVE=$(systemctl is-active crash-monitor.timer 2>/dev/null || echo "inactive")
+    
+    if [ "$TIMER_ENABLED" = "enabled" ]; then
+        success "Crash monitoring is INSTALLED and ENABLED"
+        log "Timer status: ${TIMER_ACTIVE}"
+        systemctl status crash-monitor.timer --no-pager -l 2>/dev/null | head -10 | tee -a "${REPORT_FILE}"
+    else
+        warn "Crash monitoring timer exists but is NOT enabled"
+        log "Enabling timer..."
+        sudo systemctl enable crash-monitor.timer
+        sudo systemctl start crash-monitor.timer
+        success "Timer enabled and started"
+    fi
 else
     warn "Crash monitoring is NOT installed"
     log "\nInstalling crash monitoring..."
@@ -249,7 +263,12 @@ log "Report saved: ${REPORT_FILE}"
 log "\nNext steps:"
 log "  1. Review findings above"
 log "  2. Monitor: tail -f ${LOG_DIR}/health_\$(date +%Y%m%d).log"
-log "  3. After crash: journalctl --boot=-1 | grep -i error"
+log "  3. Check timer: systemctl list-timers crash-monitor.timer"
+log "  4. After crash: journalctl --boot=-1 | grep -i error"
+log "\nUseful commands:"
+log "  • systemctl status crash-monitor.timer"
+log "  • journalctl -u crash-monitor.service -f"
+log "  • cat ${LOG_DIR}/health_\$(date +%Y%m%d).log"
 
 echo ""
 cat "${REPORT_FILE}"
