@@ -130,6 +130,19 @@ tail -50 /tmp/deployments.log
 
 7. **Click "Create Deployment(s)"**
 
+**Naming Convention**: Deployments are named `{script}_{HHMMSS}` for easy identification (e.g., `validation_143052`)
+
+### **Editing an Active Deployment**
+
+1. **In Active Deployments table**, click the **Edit (✏️)** icon
+2. **Modify any of**:
+   - ⏰ **Schedule** (cron expression)
+   - 📅 **Start Date** (when to begin)
+   - 📅 **End Date** (when to stop)
+   - 🔢 **Max Executions** (run limit)
+3. **Click "Save Changes"**
+4. Changes apply immediately - scheduler updates automatically
+
 ### **Example Scenarios**
 
 #### **Scenario 1: Continuous Monitoring**

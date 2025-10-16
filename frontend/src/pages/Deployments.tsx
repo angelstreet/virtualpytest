@@ -1,8 +1,8 @@
-import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon } from '@mui/icons-material';
+import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon, Edit, Save, Cancel } from '@mui/icons-material';
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, IconButton, Chip
+  TableRow, Paper, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
@@ -49,6 +49,14 @@ const Deployments: React.FC = () => {
   const [executions, setExecutions] = useState<any[]>([]);
   const [scripts, setScripts] = useState<string[]>([]);
   const [additionalDevices, setAdditionalDevices] = useState<AdditionalDevice[]>([]);
+  
+  // Edit deployment state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingDeployment, setEditingDeployment] = useState<Deployment | null>(null);
+  const [editCron, setEditCron] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editMaxExecutions, setEditMaxExecutions] = useState('');
 
   const hosts = getAllHosts();
   const userTimezone = getUserTimezone();
@@ -224,7 +232,9 @@ const Deployments: React.FC = () => {
     }
 
     const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    // Simple timestamp: HHMMSS
+    const now = new Date();
+    const timestamp = `${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
     
     // Prepare optional constraints using helper functions
     const deploymentData: any = {
@@ -248,7 +258,7 @@ const Deployments: React.FC = () => {
     // Create deployments for all devices
     let successCount = 0;
     for (const device of allDevices) {
-      const deploymentName = `${selectedScript}_${device.hostName}_${device.deviceId}_${timestamp}`;
+      const deploymentName = `${selectedScript}_${timestamp}`;
       
       const res = await createDeployment({
         name: deploymentName,
@@ -297,6 +307,58 @@ const Deployments: React.FC = () => {
   const handleDelete = async (id: string) => {
     await deleteDeployment(id);
     loadDeployments();
+  };
+
+  const handleEditOpen = (deployment: Deployment) => {
+    setEditingDeployment(deployment);
+    setEditCron(deployment.cron_expression);
+    setEditStartDate(deployment.start_date || '');
+    setEditEndDate(deployment.end_date || '');
+    setEditMaxExecutions(deployment.max_executions?.toString() || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditClose = () => {
+    setEditDialogOpen(false);
+    setEditingDeployment(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingDeployment) return;
+
+    const { valid } = validateCronExpression(editCron);
+    if (!valid) {
+      showError('Invalid cron expression');
+      return;
+    }
+
+    try {
+      const updateData: any = {
+        cron_expression: editCron,
+        start_date: editStartDate || null,
+        end_date: editEndDate || null,
+        max_executions: editMaxExecutions ? parseInt(editMaxExecutions) : null,
+      };
+
+      // Call update API
+      const res = await fetch(buildServerUrl(`/server/deployment/update/${editingDeployment.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showSuccess('Deployment updated successfully');
+        handleEditClose();
+        loadDeployments();
+      } else {
+        showError(data.error || 'Failed to update deployment');
+      }
+    } catch (error) {
+      showError('Failed to update deployment');
+      console.error('Error updating deployment:', error);
+    }
   };
 
   return (
@@ -619,12 +681,13 @@ const Deployments: React.FC = () => {
                           </TableCell>
                           <TableCell><Chip label={d.status} color={d.status === 'active' ? 'success' : 'default'} size="small" /></TableCell>
                           <TableCell>
+                            <IconButton size="small" onClick={() => handleEditOpen(d)} title="Edit"><Edit /></IconButton>
                             {d.status === 'active' ? (
-                              <IconButton size="small" onClick={() => handlePause(d.id)}><Pause /></IconButton>
+                              <IconButton size="small" onClick={() => handlePause(d.id)} title="Pause"><Pause /></IconButton>
                             ) : (
-                              <IconButton size="small" onClick={() => handleResume(d.id)}><PlayArrow /></IconButton>
+                              <IconButton size="small" onClick={() => handleResume(d.id)} title="Resume"><PlayArrow /></IconButton>
                             )}
-                            <IconButton size="small" onClick={() => handleDelete(d.id)}><Delete /></IconButton>
+                            <IconButton size="small" onClick={() => handleDelete(d.id)} title="Delete"><Delete /></IconButton>
                           </TableCell>
                         </TableRow>
                       );
@@ -730,6 +793,74 @@ const Deployments: React.FC = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Edit Deployment Dialog */}
+      <Dialog open={editDialogOpen} onClose={handleEditClose} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Deployment: {editingDeployment?.name}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            {/* Schedule */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Schedule</Typography>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  label="Cron Expression"
+                  value={editCron}
+                  onChange={(e) => setEditCron(e.target.value)}
+                  size="small"
+                  fullWidth
+                  helperText={cronToHuman(editCron)}
+                />
+              </Box>
+            </Box>
+
+            {/* Start Date */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Start Date (Optional)</Typography>
+              <TextField
+                type="datetime-local"
+                value={editStartDate ? new Date(editStartDate).toISOString().slice(0, 16) : ''}
+                onChange={(e) => setEditStartDate(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                size="small"
+                fullWidth
+                helperText="Leave empty to start immediately"
+              />
+            </Box>
+
+            {/* End Date */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>End Date (Optional)</Typography>
+              <TextField
+                type="datetime-local"
+                value={editEndDate ? new Date(editEndDate).toISOString().slice(0, 16) : ''}
+                onChange={(e) => setEditEndDate(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                size="small"
+                fullWidth
+                helperText="Leave empty for no end date"
+              />
+            </Box>
+
+            {/* Max Executions */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Max Executions (Optional)</Typography>
+              <TextField
+                type="number"
+                value={editMaxExecutions}
+                onChange={(e) => setEditMaxExecutions(e.target.value)}
+                size="small"
+                fullWidth
+                placeholder="Unlimited"
+                inputProps={{ min: 1 }}
+                helperText="Leave empty for unlimited executions"
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEditClose} startIcon={<Cancel />}>Cancel</Button>
+          <Button onClick={handleEditSave} variant="contained" startIcon={<Save />}>Save Changes</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

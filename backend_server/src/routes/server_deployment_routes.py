@@ -51,6 +51,45 @@ def create_deployment():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_deployment_bp.route('/update/<deployment_id>', methods=['PUT'])
+def update_deployment(deployment_id):
+    try:
+        data = request.get_json()
+        supabase = get_supabase_client()
+        
+        # Get existing deployment
+        dep = supabase.table('deployments').select('*').eq('id', deployment_id).single().execute().data
+        
+        # Build update data
+        update_data = {}
+        if 'cron_expression' in data:
+            update_data['cron_expression'] = data['cron_expression']
+        if 'start_date' in data:
+            update_data['start_date'] = data['start_date']
+        if 'end_date' in data:
+            update_data['end_date'] = data['end_date']
+        if 'max_executions' in data:
+            update_data['max_executions'] = data['max_executions']
+        
+        # Update in database
+        result = supabase.table('deployments').update(update_data).eq('id', deployment_id).execute()
+        updated_deployment = result.data[0]
+        
+        # Notify host to update scheduler
+        host_manager = get_host_manager()
+        host_info = host_manager.get_host(dep['host_name'])
+        if host_info:
+            # Remove old job and add updated one
+            host_url = buildHostUrl(host_info, f'/host/deployment/remove/{deployment_id}')
+            requests.delete(host_url, timeout=10)
+            
+            host_url = buildHostUrl(host_info, '/host/deployment/add')
+            requests.post(host_url, json=updated_deployment, timeout=10)
+        
+        return jsonify({'success': True, 'deployment': updated_deployment})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_deployment_bp.route('/list', methods=['GET'])
 def list_deployments():
     try:
