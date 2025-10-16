@@ -5,8 +5,7 @@ from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
 from datetime import datetime, timezone
 import logging
-import time
-import random
+import threading
 
 # Configure deployment logger
 deployment_logger = logging.getLogger('deployment_scheduler')
@@ -23,6 +22,7 @@ class DeploymentScheduler:
         self.host_name = host_name
         self.scheduler = BackgroundScheduler(timezone='UTC')
         self.supabase = get_supabase_client()
+        self.db_lock = threading.Lock()  # Serialize concurrent DB operations
         
     def start(self):
         """Start scheduler and sync from DB"""
@@ -374,14 +374,15 @@ class DeploymentScheduler:
             # Note: Supabase auto-generates unique UUID for 'id' field to avoid conflicts
             scheduled_at = start_time.isoformat()
             try:
-                exec_record = self.supabase.table('deployment_executions').insert({
-                    'deployment_id': deployment_id,
-                    'scheduled_at': scheduled_at,
-                    'started_at': scheduled_at,
-                    'status': 'running'
-                }).execute().data[0]
-                exec_id = exec_record['id']
-                print(f"[@deployment_scheduler] Created execution record: {exec_id}")
+                with self.db_lock:
+                    exec_record = self.supabase.table('deployment_executions').insert({
+                        'deployment_id': deployment_id,
+                        'scheduled_at': scheduled_at,
+                        'started_at': scheduled_at,
+                        'status': 'running'
+                    }).execute().data[0]
+                    exec_id = exec_record['id']
+                    print(f"[@deployment_scheduler] Created execution record: {exec_id}")
             except Exception as db_error:
                 error_type = type(db_error).__name__
                 print(f"[@deployment_scheduler] Failed to create execution record: {error_type}: {db_error}")
@@ -429,12 +430,13 @@ class DeploymentScheduler:
             
             # Update execution record with UTC timestamp
             try:
-                self.supabase.table('deployment_executions').update({
-                    'completed_at': end_time.isoformat(),
-                    'status': 'completed' if result.get('script_success') else 'failed',
-                    'success': result.get('script_success', False),
-                    'script_result_id': script_result_id
-                }).eq('id', exec_id).execute()
+                with self.db_lock:
+                    self.supabase.table('deployment_executions').update({
+                        'completed_at': end_time.isoformat(),
+                        'status': 'completed' if result.get('script_success') else 'failed',
+                        'success': result.get('script_success', False),
+                        'script_result_id': script_result_id
+                    }).eq('id', exec_id).execute()
             except Exception as db_error:
                 error_type = type(db_error).__name__
                 print(f"[@deployment_scheduler] Failed to update execution record: {error_type}: {db_error}")
@@ -448,10 +450,11 @@ class DeploymentScheduler:
             # Update deployment counters
             new_count = dep.get('execution_count', 0) + 1
             try:
-                self.supabase.table('deployments').update({
-                    'execution_count': new_count,
-                    'last_executed_at': end_time.isoformat()
-                }).eq('id', deployment_id).execute()
+                with self.db_lock:
+                    self.supabase.table('deployments').update({
+                        'execution_count': new_count,
+                        'last_executed_at': end_time.isoformat()
+                    }).eq('id', deployment_id).execute()
             except Exception as db_error:
                 error_type = type(db_error).__name__
                 print(f"[@deployment_scheduler] Failed to update deployment counters: {error_type}: {db_error}")
