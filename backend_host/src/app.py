@@ -174,6 +174,16 @@ def start_background_services():
         time.sleep(2)  # Wait for Flask to start
         register_host_with_server()
         start_ping_thread()
+        
+        # Start deployment scheduler
+        try:
+            from backend_host.src.services.deployment_scheduler import get_deployment_scheduler
+            print("[@backend_host:main] Starting deployment scheduler...")
+            scheduler = get_deployment_scheduler()
+            print("[@backend_host:main] ✓ Deployment scheduler started")
+        except Exception as e:
+            print(f"[@backend_host:main] ⚠️  Deployment scheduler not available: {e}")
+        
         # Note: KPI measurement service is started in main() at Step 4.1
     
     thread = threading.Thread(target=start_services, daemon=True)

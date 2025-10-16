@@ -6,9 +6,19 @@ The Deployment System allows scheduling automated test script executions on devi
 
 **Quick Start:**
 - ✅ No separate service needed - runs inside `backend_host.service`
-- ✅ Auto-starts when backend_host starts
+- ✅ Auto-starts when backend_host starts (restart service to see logs)
 - ✅ Logs to `/tmp/deployments.log`
 - ✅ Uses industry-standard cron expressions
+
+**To see deployment logs:**
+```bash
+# Restart backend_host to initialize deployment scheduler
+sudo systemctl restart backend-host.service
+
+# View logs
+sudo journalctl -u backend-host.service -n 100 | grep -A 30 "DEPLOYMENTS"
+tail -50 /tmp/deployments.log
+```
 
 ---
 
