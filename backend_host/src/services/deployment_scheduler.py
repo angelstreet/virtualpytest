@@ -246,9 +246,25 @@ class DeploymentScheduler:
             
             deployment_logger.info(f"▶️  EXECUTING: {dep_name} | Script: {dep['script_name']} | Device: {dep['device_id']}")
             
-            # Execute script
+            # Build complete parameters including framework params
+            framework_params = [
+                f"--host {dep['host_name']}",
+                f"--device {dep['device_id']}",
+            ]
+            
+            # Add userinterface_name if available
+            if dep.get('userinterface_name'):
+                framework_params.append(f"--userinterface_name {dep['userinterface_name']}")
+            
+            # Combine framework params with custom params
+            custom_params = dep.get('parameters', '').strip()
+            all_params = ' '.join(framework_params)
+            if custom_params:
+                all_params = f"{all_params} {custom_params}"
+            
+            # Execute script with complete parameters
             executor = ScriptExecutor(self.host_name, dep['device_id'], 'unknown')
-            result = executor.execute_script(dep['script_name'], dep['parameters'])
+            result = executor.execute_script(dep['script_name'], all_params)
             
             end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()
