@@ -966,6 +966,28 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
             await navigationConfig?.saveNode(targetTreeId, normalizedNode as any);
 
+            // UPDATE TREE CACHE: Keep cache synchronized with current state
+            // For parent references, update the original tree cache
+            // For regular nodes, update the current tree cache
+            if (isParentReference && updatedNodeData.data.originalTreeId) {
+              // Update cache for the original parent tree
+              const originalTreeCache = getCachedTree(updatedNodeData.data.originalTreeId);
+              if (originalTreeCache) {
+                const updatedOriginalNodes = originalTreeCache.nodes.map((node) =>
+                  node.id === updatedNodeData.id ? updatedNodeData : node
+                );
+                cacheTree(updatedNodeData.data.originalTreeId, { 
+                  nodes: updatedOriginalNodes, 
+                  edges: originalTreeCache.edges 
+                });
+                console.log('[@NavigationContext] Updated original tree cache after parent reference node save');
+              }
+            }
+            
+            // Always update current tree cache
+            cacheTree(navigationConfig.actualTreeId, { nodes, edges });
+            console.log('[@NavigationContext] Updated tree cache after node save');
+
             // Note: Cache refresh removed to prevent tree reload that breaks selectedNode reference
             // The cache will be refreshed on next navigation operation if needed
            }
@@ -1089,6 +1111,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                }
                
                console.log('[@NavigationContext] Updated frontend state with server response');
+               
+               // UPDATE TREE CACHE: Keep cache synchronized with current state
+               if (navigationConfig?.actualTreeId) {
+                 cacheTree(navigationConfig.actualTreeId, { nodes, edges: updatedEdges });
+                 console.log('[@NavigationContext] Updated tree cache after edge save');
+               }
              }
 
                           // Refresh navigation cache (non-blocking)
@@ -1191,6 +1219,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              edges: edges as UINavigationEdge[] 
            });
            setHasUnsavedChanges(false);
+           
+           // UPDATE TREE CACHE: Keep cache synchronized with current state after full tree save
+           cacheTree(treeId, { nodes: nodes as UINavigationNode[], edges: edges as UINavigationEdge[] });
+           console.log('[@NavigationContext] Updated tree cache after tree save');
+           
            setSuccess('Tree saved successfully');
          } catch (error) {
            console.error('Error saving tree:', error);
@@ -1247,14 +1280,21 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              (!as.failure_actions || as.failure_actions.length === 0)
            );
 
-           if (bothDirectionsEmpty) {
-             // Delete entire edge
-             const filteredEdges = edges.filter(e => e.id !== edgeId);
-             setEdges(filteredEdges);
-             setSelectedEdge(null);
-             setHasUnsavedChanges(true);
-             console.log('[@NavigationContext] Deleted entire edge after clearing last direction');
-           } else {
+          if (bothDirectionsEmpty) {
+            // Delete entire edge
+            const filteredEdges = edges.filter(e => e.id !== edgeId);
+            setEdges(filteredEdges);
+            setSelectedEdge(null);
+            setHasUnsavedChanges(true);
+            
+            // UPDATE TREE CACHE: Keep cache synchronized after edge deletion
+            if (navigationConfig?.actualTreeId) {
+              cacheTree(navigationConfig.actualTreeId, { nodes, edges: filteredEdges });
+              console.log('[@NavigationContext] Updated tree cache after edge deletion');
+            }
+            
+            console.log('[@NavigationContext] Deleted entire edge after clearing last direction');
+          } else {
              // Update edge and save to database
              const edgeForm = {
                edgeId: updatedEdge.id,
@@ -1321,10 +1361,16 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 setEdgeForm(refreshedEdgeForm);
                 console.log('[@NavigationContext] Reloaded edge form after direction deletion');
               }
+              
+              // UPDATE TREE CACHE: Keep cache synchronized after edge direction deletion
+              if (navigationConfig?.actualTreeId) {
+                cacheTree(navigationConfig.actualTreeId, { nodes, edges: updatedEdges });
+                console.log('[@NavigationContext] Updated tree cache after edge direction deletion');
+              }
              }
 
-             console.log('[@NavigationContext] Updated edge direction and saved to database');
-           }
+            console.log('[@NavigationContext] Updated edge direction and saved to database');
+          }
 
          } catch (error) {
            console.error('[@NavigationContext] Error deleting edge direction:', error);
