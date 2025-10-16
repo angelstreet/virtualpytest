@@ -635,18 +635,11 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const actualVncExpanded = isVNCExpanded;
     
     // Use same scaling calculation as VNC stream
+    // VNC shows the entire desktop at this resolution
     const vncResolution = { width: 1440, height: 847 };
     const panelSize = actualVncExpanded 
       ? { width: 520, height: 360 }
       : { width: 370, height: 240 };
-    
-    // Calculate scale to fit VNC content in panel (same as VNC stream)
-    const scaleX = panelSize.width / vncResolution.width;
-    const scaleY = (panelSize.height) / vncResolution.height;
-    
-    // Calculate scaled overlay dimensions
-    const overlayWidth = browserViewport.width * scaleX;
-    const overlayHeight = browserViewport.height * scaleY;
     
     // FIXED: Always use bottom-right positioning regardless of expansion state
     // The VNC panel always stays anchored at bottom-right corner
@@ -658,10 +651,14 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     const x = panelX;
     const y = panelY + headerOffset;
     
+    // Calculate scale to fit VNC desktop in panel (same as VNC stream)
+    const scaleX = panelSize.width / vncResolution.width;
+    const scaleY = panelSize.height / vncResolution.height;
+    
     const panelInfo = {
       position: { x, y },
-      size: { width: overlayWidth, height: overlayHeight },
-      deviceResolution: browserViewport, // Browser viewport size from dump_elements
+      size: { width: panelSize.width, height: panelSize.height },
+      deviceResolution: vncResolution, // VNC desktop resolution (NOT browser viewport)
       isCollapsed: !actualVncExpanded,
       scaleX: scaleX,
       scaleY: scaleY,
@@ -674,7 +671,6 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       browserViewport,
       scaleX: scaleX.toFixed(3),
       scaleY: scaleY.toFixed(3),
-      overlayDimensions: `${overlayWidth.toFixed(0)}x${overlayHeight.toFixed(0)}`,
       panelPosition: { panelX, panelY },
       overlayPosition: { x, y },
       panelInfo
