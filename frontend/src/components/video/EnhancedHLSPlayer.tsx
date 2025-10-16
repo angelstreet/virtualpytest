@@ -367,12 +367,13 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     console.log(`[@EnhancedHLSPlayer] Dubbed audio URL changed:`, transcript.dubbedAudioUrl, `| Will mute video: ${hasDubbedAudio}`);
 
     if (hasDubbedAudio) {
-      // Mute video, play dubbed audio
+      // Mute video, play dubbed audio (respecting muted prop from modal)
       video.muted = true;
+      dubbedAudio.muted = muted; // Apply muted state from modal to dubbed audio
       dubbedAudio.src = transcript.dubbedAudioUrl || '';
       dubbedAudio.currentTime = video.currentTime;
       
-      console.log(`[@EnhancedHLSPlayer] ✅ Video muted, dubbed audio loaded`);
+      console.log(`[@EnhancedHLSPlayer] ✅ Video muted, dubbed audio loaded (dubbed audio muted: ${muted})`);
       
       // Handle audio load errors with retry
       let retryCount = 0;
@@ -424,6 +425,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       video.muted = muted;
       dubbedAudio.pause();
       dubbedAudio.src = '';
+      dubbedAudio.muted = false; // Reset dubbed audio muted state
       console.log(`[@EnhancedHLSPlayer] Video audio restored (unmuted: ${!muted})`);
     }
   }, [transcript.dubbedAudioUrl, muted]);

@@ -112,8 +112,8 @@ export const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({
         title="Language (Audio + Subtitles)"
         sx={{
           position: 'fixed',
-          top: 80,
-          right: 16,
+          top: 140,
+          right: 50,
           backgroundColor: 'rgba(33, 150, 243, 0.8)',
           color: 'white',
           zIndex: 1250,
