@@ -319,7 +319,7 @@ class NavigationExecutor:
                         from datetime import datetime
                         step_result = {
                             'success': True,
-                            'message': f"Already at destination",
+                            'message': f"No navigation needed - already at destination",
                             'execution_time_ms': 0,
                             'start_time': datetime.now().strftime('%H:%M:%S'),
                             'end_time': datetime.now().strftime('%H:%M:%S'),
@@ -384,7 +384,7 @@ class NavigationExecutor:
                             from datetime import datetime
                             step_result = {
                                 'success': True,
-                                'message': f"Already at destination",
+                                'message': f"No navigation needed - already at destination",
                                 'execution_time_ms': 0,
                                 'start_time': datetime.now().strftime('%H:%M:%S'),
                                 'end_time': datetime.now().strftime('%H:%M:%S'),
@@ -436,7 +436,7 @@ class NavigationExecutor:
                             from datetime import datetime
                             step_result = {
                                 'success': True,
-                                'message': f"Already at destination",
+                                'message': f"No navigation needed - already at destination",
                                 'execution_time_ms': 0,
                                 'start_time': datetime.now().strftime('%H:%M:%S'),
                                 'end_time': datetime.now().strftime('%H:%M:%S'),
