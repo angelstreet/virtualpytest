@@ -75,7 +75,14 @@ class DeploymentScheduler:
                     summary_lines.append(f"  Last execution:  {last_exec_str}")
                     summary_lines.append(f"  Next execution:  {next_run}")
                     summary_lines.append(f"  Frequency:       {cron_expr}")
-                    summary_lines.append(f"  Executions:      {dep.get('execution_count', 0)}/{dep.get('max_executions', '∞')}")
+                    
+                    # Format executions count
+                    exec_count = dep.get('execution_count', 0)
+                    max_exec = dep.get('max_executions')
+                    if max_exec:
+                        summary_lines.append(f"  Executions:      {exec_count}/{max_exec}")
+                    else:
+                        summary_lines.append(f"  Executions:      {exec_count}")
                     summary_lines.append("")
             else:
                 summary_lines.append("(No active deployments)")
@@ -234,6 +241,27 @@ class DeploymentScheduler:
                 }).execute()
                 return
             
+            # Check if previous execution is still running
+            running_check = self.supabase.table('deployment_executions')\
+                .select('id, started_at')\
+                .eq('deployment_id', deployment_id)\
+                .eq('status', 'running')\
+                .execute()
+            
+            if running_check.data and len(running_check.data) > 0:
+                running_exec = running_check.data[0]
+                started_at = running_exec.get('started_at', 'unknown')
+                print(f"[@deployment_scheduler] Skipping - previous execution still running since {started_at}")
+                deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at})")
+                # Create skipped execution record
+                self.supabase.table('deployment_executions').insert({
+                    'deployment_id': deployment_id,
+                    'scheduled_at': start_time.isoformat(),
+                    'status': 'skipped',
+                    'skip_reason': 'Previous execution still running'
+                }).execute()
+                return
+            
             # Create execution record with UTC timestamp
             scheduled_at = start_time.isoformat()
             exec_record = self.supabase.table('deployment_executions').insert({
@@ -247,20 +275,21 @@ class DeploymentScheduler:
             deployment_logger.info(f"▶️  EXECUTING: {dep_name} | Script: {dep['script_name']} | Device: {dep['device_id']}")
             
             # Build complete parameters including framework params
+            # Framework params: --host and --device are flags, userinterface_name is positional
             framework_params = [
                 f"--host {dep['host_name']}",
                 f"--device {dep['device_id']}",
             ]
             
-            # Add userinterface_name if available
-            if dep.get('userinterface_name'):
-                framework_params.append(f"--userinterface_name {dep['userinterface_name']}")
-            
-            # Combine framework params with custom params
+            # Combine framework flags with custom params first
             custom_params = dep.get('parameters', '').strip()
             all_params = ' '.join(framework_params)
             if custom_params:
                 all_params = f"{all_params} {custom_params}"
+            
+            # Add userinterface_name as positional argument at the end (if available)
+            if dep.get('userinterface_name'):
+                all_params = f"{all_params} {dep['userinterface_name']}"
             
             # Execute script with complete parameters
             executor = ScriptExecutor(self.host_name, dep['device_id'], 'unknown')
@@ -295,8 +324,18 @@ class DeploymentScheduler:
             
             print(f"[@deployment_scheduler] Deployment {deployment_id} completed: {result.get('script_success')}")
             
-            status_emoji = "✅" if result.get('script_success') else "❌"
-            deployment_logger.info(f"{status_emoji} COMPLETED: {dep_name} | Duration: {duration:.1f}s | Success: {result.get('script_success')} | Executions: {new_count}/{dep.get('max_executions', '∞')}")
+            # Format success status and execution count
+            script_success = result.get('script_success')
+            status_emoji = "✅" if script_success else "❌"
+            success_str = "True" if script_success else "False"
+            
+            max_exec = dep.get('max_executions')
+            if max_exec:
+                exec_info = f"Executions: {new_count}/{max_exec}"
+            else:
+                exec_info = f"Executions: {new_count}"
+            
+            deployment_logger.info(f"{status_emoji} COMPLETED: {dep_name} | Duration: {duration:.1f}s | Success: {success_str} | {exec_info}")
             
             # Check if max executions reached after this run
             if dep.get('max_executions') and new_count >= dep['max_executions']:
