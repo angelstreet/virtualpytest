@@ -284,29 +284,66 @@ export const useEdge = (props: UseEdgeProps = {}) => {
   );
 
   /**
-   * Create edge form from edge data - CLEAN BIDIRECTIONAL STRUCTURE ONLY
+   * Check if an edge involves an action node or entry node (source or target is action/entry type)
+   * Both action and entry nodes should only show forward edges (unidirectional)
+   */
+  const isActionEdge = useCallback((edge: UINavigationEdge): boolean => {
+    const sourceNode = nodes.find((n) => n.id === edge.source);
+    const targetNode = nodes.find((n) => n.id === edge.target);
+    return (
+      sourceNode?.type === 'action' || 
+      targetNode?.type === 'action' ||
+      sourceNode?.type === 'entry' || 
+      targetNode?.type === 'entry'
+    );
+  }, [nodes]);
+
+  /**
+   * Create edge form from edge data - creates action sets if missing/malformed
    */
   const createEdgeForm = useCallback(
     (edge: UINavigationEdge): EdgeForm => {
-      // Ensure edge has exactly 2 action sets
-      const actionSets = getActionSetsFromEdge(edge);
-      if (actionSets.length !== 2) {
-        throw new Error(`Edge must have exactly 2 action sets, found ${actionSets.length}`);
-      }
+      const isUnidirectional = isActionEdge(edge);
+      const expectedCount = isUnidirectional ? 1 : 2;
       
-      const defaultActionSetId = edge.data.default_action_set_id;
-      if (!defaultActionSetId) {
-        throw new Error("Edge missing default_action_set_id");
+      // Get existing or create default action sets
+      let actionSets = edge.data?.action_sets || [];
+      
+      // If malformed, create proper structure
+      if (actionSets.length !== expectedCount) {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        const sourceLabel = sourceNode?.data?.label || 'source';
+        const targetLabel = targetNode?.data?.label || 'target';
+        
+        actionSets = [{
+          id: `actionset-${Date.now()}`,
+          label: `${sourceLabel} → ${targetLabel}`,
+          actions: [],
+          retry_actions: [],
+          failure_actions: [],
+        }];
+        
+        // Add reverse direction for bidirectional edges
+        if (!isUnidirectional) {
+          actionSets.push({
+            id: `actionset-${Date.now() + 1}`,
+            label: `${targetLabel} → ${sourceLabel}`,
+            actions: [],
+            retry_actions: [],
+            failure_actions: [],
+          });
+        }
       }
 
       return {
         edgeId: edge.id,
         action_sets: actionSets,
-        default_action_set_id: defaultActionSetId,
+        default_action_set_id: edge.data?.default_action_set_id || actionSets[0].id,
         final_wait_time: edge.data?.final_wait_time ?? 2000,
       };
     },
-    [getActionSetsFromEdge],
+    [isActionEdge, nodes],
   );
 
   /**
@@ -496,21 +533,6 @@ export const useEdge = (props: UseEdgeProps = {}) => {
   const clearResults = useCallback(() => {
     setRunResult(null);
   }, []);
-
-  /**
-   * Check if an edge involves an action node or entry node (source or target is action/entry type)
-   * Both action and entry nodes should only show forward edges (unidirectional)
-   */
-  const isActionEdge = useCallback((edge: UINavigationEdge): boolean => {
-    const sourceNode = nodes.find((n) => n.id === edge.source);
-    const targetNode = nodes.find((n) => n.id === edge.target);
-    return (
-      sourceNode?.type === 'action' || 
-      targetNode?.type === 'action' ||
-      sourceNode?.type === 'entry' || 
-      targetNode?.type === 'entry'
-    );
-  }, [nodes]);
 
   /**
    * Get action sets for display - filter to only forward direction for action/entry edges

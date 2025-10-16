@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 
 import { PanelInfo } from '../../../types/controller/Panel_Types';
 import { WebElement } from '../../../types/controller/Web_Types';
@@ -44,6 +44,59 @@ export const PlaywrightWebOverlay = React.memo(
       y: number;
       id: string;
     } | null>(null);
+
+    // Calculate actual content dimensions using contain logic (preserve aspect ratio)
+    // This ensures overlay aligns with VNC stream content, not the panel container
+    const { actualContentWidth, actualContentHeight, horizontalOffset, verticalOffset } = useMemo(() => {
+      if (!panelInfo || !panelInfo.deviceResolution || !panelInfo.size) {
+        return { actualContentWidth: 0, actualContentHeight: 0, horizontalOffset: 0, verticalOffset: 0 };
+      }
+
+      // Browser viewport dimensions
+      const browserWidth = panelInfo.deviceResolution.width;
+      const browserHeight = panelInfo.deviceResolution.height;
+
+      // Use contain logic to match HLSVideoPlayer objectFit: 'contain'
+      const browserAspectRatio = browserWidth / browserHeight;
+      const panelAspectRatio = panelInfo.size.width / panelInfo.size.height;
+
+      let actualWidth, actualHeight, hOffset, vOffset;
+
+      if (browserAspectRatio <= panelAspectRatio) {
+        // Browser is narrower than panel - fit by height
+        actualHeight = panelInfo.size.height;
+        actualWidth = actualHeight * browserAspectRatio;
+        hOffset = (panelInfo.size.width - actualWidth) / 2;
+        vOffset = 0;
+      } else {
+        // Browser is wider than panel - fit by width
+        actualWidth = panelInfo.size.width;
+        actualHeight = actualWidth / browserAspectRatio;
+        hOffset = 0;
+        vOffset = (panelInfo.size.height - actualHeight) / 2;
+      }
+
+      console.log('[PlaywrightWebOverlay] Contain scaling calculated:', {
+        scalingMode: 'contain (preserve aspect ratio)',
+        browserAspectRatio,
+        panelAspectRatio,
+        browserWidth,
+        browserHeight,
+        panelWidth: panelInfo.size.width,
+        panelHeight: panelInfo.size.height,
+        actualWidth,
+        actualHeight,
+        hOffset,
+        vOffset,
+      });
+
+      return {
+        actualContentWidth: actualWidth,
+        actualContentHeight: actualHeight,
+        horizontalOffset: hOffset,
+        verticalOffset: vOffset,
+      };
+    }, [panelInfo]);
 
     // Calculate scaled elements for overlay positioning
     useEffect(() => {
@@ -100,8 +153,8 @@ export const PlaywrightWebOverlay = React.memo(
 
           const scaledElement = {
             selector: element.selector,
-            x: element.position.x * scaleX,
-            y: element.position.y * scaleY,
+            x: element.position.x * scaleX + horizontalOffset,
+            y: element.position.y * scaleY + verticalOffset,
             width: element.position.width * scaleX,
             height: element.position.height * scaleY,
             color: COLORS[index % COLORS.length],
@@ -114,7 +167,7 @@ export const PlaywrightWebOverlay = React.memo(
         .filter(Boolean) as ScaledElement[];
 
       setScaledElements(scaled);
-    }, [elements, panelInfo]);
+    }, [elements, panelInfo, horizontalOffset, verticalOffset]);
 
     // Handle element click
     const handleElementClick = async (scaledElement: ScaledElement, event: React.MouseEvent) => {
@@ -196,15 +249,15 @@ export const PlaywrightWebOverlay = React.memo(
 
     return (
       <>
-        {/* Base transparent tap layer - Full viewport */}
+        {/* Base transparent tap layer - Aligned with VNC stream content */}
         <div
           style={{
             position: 'fixed',
-            left: `${panelInfo.position.x}px`,
-            top: `${panelInfo.position.y}px`,
-            width: `${panelInfo.size.width}px`,
-            height: `${panelInfo.size.height}px`,
-                          zIndex: getZIndex('DEBUG_OVERLAY', 5), // Use higher z-index above VNC streams
+            left: `${panelInfo.position.x + horizontalOffset}px`,
+            top: `${panelInfo.position.y + verticalOffset}px`,
+            width: `${actualContentWidth}px`,
+            height: `${actualContentHeight}px`,
+            zIndex: getZIndex('DEBUG_OVERLAY', 5), // Use higher z-index above VNC streams
             contain: 'layout style size',
             willChange: 'transform',
             pointerEvents: 'auto',
@@ -214,7 +267,7 @@ export const PlaywrightWebOverlay = React.memo(
           onClick={handleBaseTap}
         ></div>
 
-        {/* Elements layer */}
+        {/* Elements layer - Container positioned at panel origin */}
         {scaledElements.length > 0 && (
           <div
             style={{
@@ -274,8 +327,8 @@ export const PlaywrightWebOverlay = React.memo(
             key={clickAnimation.id}
             style={{
               position: 'fixed',
-              left: `${panelInfo.position.x + clickAnimation.x - 15}px`,
-              top: `${panelInfo.position.y + clickAnimation.y - 15}px`,
+              left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x - 15}px`,
+              top: `${panelInfo.position.y + verticalOffset + clickAnimation.y - 15}px`,
               width: '30px',
               height: '30px',
               borderRadius: '50%',
@@ -294,8 +347,8 @@ export const PlaywrightWebOverlay = React.memo(
             key={coordinateDisplay.id}
             style={{
               position: 'fixed',
-              left: `${panelInfo.position.x + coordinateDisplay.x + 20}px`,
-              top: `${panelInfo.position.y + coordinateDisplay.y - 15}px`,
+              left: `${panelInfo.position.x + horizontalOffset + coordinateDisplay.x + 20}px`,
+              top: `${panelInfo.position.y + verticalOffset + coordinateDisplay.y - 15}px`,
               backgroundColor: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               padding: '4px 8px',
@@ -307,7 +360,7 @@ export const PlaywrightWebOverlay = React.memo(
               pointerEvents: 'none',
               whiteSpace: 'nowrap',
             }}
-                      >
+          >
             Browser: {Math.round(coordinateDisplay.x / panelInfo.scaleX!)}, {Math.round(coordinateDisplay.y / panelInfo.scaleY!)}
           </div>
         )}

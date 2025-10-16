@@ -255,17 +255,32 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         // Handle both remote and web click_element actions
         if (currentActionDef?.requiresInput) {
           if (action.action_type === 'web') {
-            // Web click_element uses selector field
+            // Web click_element can use selector, text, or both
             fields.push(
               <TextField
                 key="selector"
-                label="Selector/Text"
+                label="Selector"
                 size="small"
                 value={getParamValue('selector') || ''}
                 onChange={(e) => safeHandleParamChange('selector', e.target.value)}
-                placeholder="#submit-button or 'Submit'"
+                placeholder="#submit-button"
                 sx={{
-                  width: 220,
+                  width: 150,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />,
+              <TextField
+                key="text"
+                label="Text"
+                size="small"
+                value={getParamValue('text') || ''}
+                onChange={(e) => safeHandleParamChange('text', e.target.value)}
+                placeholder="Button text"
+                sx={{
+                  width: 150,
                   '& .MuiInputBase-input': {
                     padding: '3px 6px',
                     fontSize: '0.75rem',

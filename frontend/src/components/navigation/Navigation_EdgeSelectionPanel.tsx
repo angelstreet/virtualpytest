@@ -159,8 +159,14 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       // Simple edge form creation
       const edgeForm = edgeHook.createEdgeForm(selectedEdge);
       
-      // Simple direction detection: index 0 = forward, index 1 = reverse
-      if (actionSet?.id && edgeForm.action_sets?.length >= 2) {
+      // Direction detection based on edge type:
+      // - Unidirectional edges (entry/action): always forward (only 1 action set)
+      // - Bidirectional edges (screen/menu): detect from action set ID (index 0 = forward, index 1 = reverse)
+      if (edgeForm.action_sets?.length === 1) {
+        // Unidirectional edge - always forward
+        edgeForm.direction = 'forward';
+      } else if (actionSet?.id && edgeForm.action_sets?.length >= 2) {
+        // Bidirectional edge - detect from action set ID
         edgeForm.direction = actionSet.id === edgeForm.action_sets[0].id ? 'forward' : 'reverse';
       }
       
@@ -324,7 +330,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.text) paramParts.push(`"${params.text}"`);
                       break;
                     case 'click_element':
-                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
+                      if (params.selector) paramParts.push(`selector: "${params.selector}"`);
+                      if (params.text) paramParts.push(`text: "${params.text}"`);
+                      if (params.element_id) paramParts.push(`id: "${params.element_id}"`);
                       break;
                     case 'click_element_by_id':
                       if (params.element_id) paramParts.push(`"${params.element_id}"`);
@@ -394,7 +402,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.text) paramParts.push(`"${params.text}"`);
                       break;
                     case 'click_element':
-                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
+                      if (params.selector) paramParts.push(`selector: "${params.selector}"`);
+                      if (params.text) paramParts.push(`text: "${params.text}"`);
+                      if (params.element_id) paramParts.push(`id: "${params.element_id}"`);
                       break;
                     case 'click_element_by_id':
                       if (params.element_id) paramParts.push(`"${params.element_id}"`);
@@ -462,7 +472,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                   const paramParts = [];
                   switch (action.command) {
                     case 'click_element':
-                      paramParts.push(`element: ${params.element_id || 'undefined'}`);
+                      if (params.selector) paramParts.push(`selector: "${params.selector}"`);
+                      if (params.text) paramParts.push(`text: "${params.text}"`);
+                      if (params.element_id) paramParts.push(`id: "${params.element_id}"`);
                       break;
                     case 'input_text':
                       paramParts.push(`text: "${params.text || 'undefined'}"`);
