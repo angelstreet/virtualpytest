@@ -1297,33 +1297,6 @@ class InotifyTranscriptMonitor:
                     has_audio = mean_volume > -50.0
                     processing_time = time.time() - processing_start
                     
-                    # DEBUG: Log raw ffmpeg output when no audio detected (for debugging regression)
-                    if not has_audio or mean_volume == -100.0:
-                        RED = '\033[91m'
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}] 🐛 No audio detected on {segment_filename}:{RESET}")
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]   mean_volume={mean_volume:.1f}dB, volume_line_found={volume_line_found}{RESET}")
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]   ffmpeg command: {' '.join(cmd)}{RESET}")
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]   ffmpeg return code: {result.returncode}{RESET}")
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]   ffmpeg stderr (raw):{RESET}")
-                        if result.stderr:
-                            for idx, line in enumerate(result.stderr.split('\n'), 1):
-                                logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]     Line {idx}: '{line}'{RESET}")
-                        else:
-                            logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]     (empty stderr){RESET}")
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]   ffmpeg stdout (raw):{RESET}")
-                        if result.stdout:
-                            for idx, line in enumerate(result.stdout.split('\n'), 1):
-                                logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]     Line {idx}: '{line}'{RESET}")
-                        else:
-                            logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]     (empty stdout){RESET}")
-                        logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]   Segment file info:{RESET}")
-                        try:
-                            segment_size = os.path.getsize(segment_path)
-                            segment_age = time.time() - os.path.getmtime(segment_path)
-                            logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]     size={segment_size} bytes, age={segment_age:.1f}s{RESET}")
-                        except Exception as e:
-                            logger.warning(f"{RED}[AUDIO-DEBUG:{device_folder}]     Failed to get file info: {e}{RESET}")
-                    
                     # Record successful processing
                     processing_times.append(processing_time)
                     if len(processing_times) > 10:  # Keep last 10 measurements
