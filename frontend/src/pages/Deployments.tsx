@@ -713,7 +713,7 @@ const Deployments: React.FC = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 1 }}>Recent Executions</Typography>
+              <Typography variant="h6" sx={{ mb: 1 }}>Recent Executions (Last 2 per deployment)</Typography>
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
@@ -729,7 +729,34 @@ const Deployments: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {executions.map(e => {
+                    {(() => {
+                      // Group executions by deployment name and take only the 2 most recent per deployment
+                      const executionsByDeployment = new Map<string, any[]>();
+                      
+                      executions.forEach(e => {
+                        const deploymentName = e.deployments?.name || 'unknown';
+                        if (!executionsByDeployment.has(deploymentName)) {
+                          executionsByDeployment.set(deploymentName, []);
+                        }
+                        executionsByDeployment.get(deploymentName)!.push(e);
+                      });
+                      
+                      // Take only the 2 most recent per deployment and flatten
+                      const limitedExecutions: any[] = [];
+                      executionsByDeployment.forEach((execs) => {
+                        // Already sorted by started_at desc from API, just take first 2
+                        limitedExecutions.push(...execs.slice(0, 2));
+                      });
+                      
+                      // Sort by started_at descending for display
+                      limitedExecutions.sort((a, b) => {
+                        const dateA = new Date(a.started_at || 0).getTime();
+                        const dateB = new Date(b.started_at || 0).getTime();
+                        return dateB - dateA;
+                      });
+                      
+                      return limitedExecutions;
+                    })().map(e => {
                       const hostName = e.deployments?.host_name;
                       const deviceId = e.deployments?.device_id;
                       let deviceDisplayName = deviceId;
