@@ -34,9 +34,54 @@ class DeploymentScheduler:
     def _sync_from_db(self):
         """Load active deployments from Supabase on startup"""
         try:
+            # First, clean up any stale "running" executions from previous crashes/restarts
+            print(f"[@deployment_scheduler] Checking for stale 'running' executions...")
+            deployment_logger.info("Cleaning up stale 'running' executions from previous session...")
+            
+            try:
+                # Get all deployments for this host to find their stale executions
+                deployments_result = self.supabase.table('deployments').select('id').eq('host_name', self.host_name).execute()
+                deployment_ids = [d['id'] for d in deployments_result.data]
+                
+                if deployment_ids:
+                    # Find all running executions for this host's deployments
+                    stale_executions = self.supabase.table('deployment_executions')\
+                        .select('id, deployment_id, started_at')\
+                        .in_('deployment_id', deployment_ids)\
+                        .eq('status', 'running')\
+                        .execute()
+                    
+                    if stale_executions.data:
+                        stale_count = len(stale_executions.data)
+                        print(f"[@deployment_scheduler] Found {stale_count} stale 'running' execution(s)")
+                        deployment_logger.warning(f"Found {stale_count} stale 'running' execution(s) - marking as failed")
+                        
+                        # Mark each stale execution as failed
+                        for stale_exec in stale_executions.data:
+                            try:
+                                self.supabase.table('deployment_executions').update({
+                                    'completed_at': datetime.now(timezone.utc).isoformat(),
+                                    'status': 'failed',
+                                    'success': False,
+                                    'error_message': 'Execution aborted - scheduler restarted'
+                                }).eq('id', stale_exec['id']).execute()
+                                
+                                print(f"[@deployment_scheduler] Marked stale execution {stale_exec['id']} as failed")
+                                deployment_logger.info(f"Cleaned up stale execution: {stale_exec['id']} (started: {stale_exec.get('started_at', 'unknown')})")
+                            except Exception as e:
+                                print(f"[@deployment_scheduler] Failed to clean up execution {stale_exec['id']}: {e}")
+                                deployment_logger.error(f"Failed to clean up stale execution {stale_exec['id']}: {e}")
+                    else:
+                        print(f"[@deployment_scheduler] No stale executions found")
+                        deployment_logger.info("No stale executions found - clean state")
+            except Exception as e:
+                print(f"[@deployment_scheduler] Error cleaning up stale executions: {e}")
+                deployment_logger.error(f"Error during stale execution cleanup: {e}")
+            
+            # Now load active deployments
             result = self.supabase.table('deployments').select('*').eq('host_name', self.host_name).eq('status', 'active').execute()
             
-            # Add jobs first
+            # Add jobs
             for dep in result.data:
                 self._add_job(dep)
             
