@@ -416,6 +416,10 @@ class DeploymentScheduler:
             
             all_params = ' '.join(param_parts)
             
+            # Log the exact command for debugging
+            print(f"[@deployment_scheduler] Executing command: python test_scripts/{dep['script_name']} {all_params}")
+            deployment_logger.info(f"📋 COMMAND: python test_scripts/{dep['script_name']} {all_params}")
+            
             # Execute script with complete parameters
             executor = ScriptExecutor(self.host_name, dep['device_id'], 'unknown')
             result = executor.execute_script(dep['script_name'], all_params)
