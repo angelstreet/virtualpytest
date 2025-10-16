@@ -22,6 +22,7 @@ echo "   User: $USER"
 echo ""
 echo "This will configure passwordless sudo for:"
 echo "  ✓ Running FFmpeg processes as www-data"
+echo "  ✓ www-data user to manage FFmpeg processes (pkill, kill, fuser)"
 echo "  ✓ Managing stream systemctl services"
 echo "  ✓ System reboot command"
 echo ""
@@ -46,6 +47,17 @@ EOF
 # Set proper permissions on sudoers file
 sudo chmod 440 /etc/sudoers.d/virtualpytest
 
+# Create www-data sudoers configuration for FFmpeg process management
+sudo tee /etc/sudoers.d/ffmpeg-www-data > /dev/null << EOF
+# Allow www-data to manage FFmpeg processes (used by stream.service ExecStartPre)
+www-data ALL=(ALL) NOPASSWD: /usr/bin/fuser
+www-data ALL=(ALL) NOPASSWD: /usr/bin/pkill
+www-data ALL=(ALL) NOPASSWD: /usr/bin/kill
+EOF
+
+# Set proper permissions on www-data sudoers file
+sudo chmod 0440 /etc/sudoers.d/ffmpeg-www-data
+
 echo "✅ Sudoers configuration updated successfully!"
 echo ""
 echo "Testing sudo permissions..."
@@ -57,14 +69,25 @@ else
     echo "⚠️  systemctl test failed, but configuration was applied"
 fi
 
+# Verify www-data sudoers syntax
+if sudo visudo -c -f /etc/sudoers.d/ffmpeg-www-data >/dev/null 2>&1; then
+    echo "✅ www-data sudoers configuration is valid"
+else
+    echo "⚠️  www-data sudoers syntax check failed"
+fi
+
 echo ""
 echo "=================================================="
 echo "✅ Configuration Complete!"
 echo "=================================================="
 echo ""
-echo "The HDMI stream controller should now work without password prompts."
-echo "Please restart the backend_host service to apply changes:"
+echo "Configured sudoers files:"
+echo "  ✓ /etc/sudoers.d/virtualpytest       - User permissions for stream management"
+echo "  ✓ /etc/sudoers.d/ffmpeg-www-data    - www-data permissions for process management"
 echo ""
-echo "  sudo systemctl restart host"
+echo "The HDMI stream controller should now work without password prompts."
+echo "Please restart the stream service to apply changes:"
+echo ""
+echo "  sudo systemctl restart stream"
 echo ""
 

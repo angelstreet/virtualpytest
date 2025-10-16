@@ -229,6 +229,16 @@ EOF
 sudo chmod 440 /etc/sudoers.d/virtualpytest
 echo "✅ Sudo permissions configured: $USER can run commands as www-data and manage stream services"
 
+# Create www-data sudoers configuration for FFmpeg process management
+sudo tee /etc/sudoers.d/ffmpeg-www-data > /dev/null << EOF
+# Allow www-data to manage FFmpeg processes (used by stream.service ExecStartPre)
+www-data ALL=(ALL) NOPASSWD: /usr/bin/fuser
+www-data ALL=(ALL) NOPASSWD: /usr/bin/pkill
+www-data ALL=(ALL) NOPASSWD: /usr/bin/kill
+EOF
+sudo chmod 0440 /etc/sudoers.d/ffmpeg-www-data
+echo "✅ www-data sudoers configured: www-data can manage FFmpeg processes"
+
 # Install and configure nginx for local development
 echo ""
 echo "🌐 Installing and configuring nginx for local development..."
@@ -486,6 +496,7 @@ echo ""
 echo "📋 Configuration files:"
 echo "   backend_host/src/.env                      # MASTER config (edit here only)"
 echo "   /etc/sudoers.d/virtualpytest              # Sudo permissions for quality control"
+echo "   /etc/sudoers.d/ffmpeg-www-data            # www-data process management permissions"
 echo ""
 echo "📝 Required .env variables for FFmpeg capture:"
 echo "   HOST_VIDEO_SOURCE, HOST_VIDEO_AUDIO, HOST_VIDEO_CAPTURE_PATH, HOST_VIDEO_FPS"
