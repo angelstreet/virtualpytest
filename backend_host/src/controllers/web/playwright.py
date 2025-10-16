@@ -1729,3 +1729,97 @@ class PlaywrightWebController(WebControllerInterface):
                 }
             ]
         }
+
+    # ========================================
+    # VERIFICATION METHODS (Reuse find_element)
+    # ========================================
+    
+    def waitForElementToAppear(self, element_id: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
+        """
+        Wait for element to appear (polls find_element with timeout).
+        Supports pipe-separated fallback: "Submit|OK|Confirm"
+        """
+        import time
+        from typing import Tuple
+        
+        print(f"[@controller:Playwright:waitForElementToAppear] Waiting for '{element_id}' (timeout: {timeout}s)")
+        
+        # Parse pipe-separated terms
+        terms = [t.strip() for t in element_id.split('|')] if '|' in element_id else [element_id]
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            # Try each term until one succeeds
+            for term in terms:
+                result = self.find_element(term)
+                if result.get('success'):
+                    elapsed = time.time() - start_time
+                    return True, f"Element found after {elapsed:.1f}s", {
+                        'search_term': element_id,
+                        'successful_term': term,
+                        'wait_time': elapsed,
+                        'element_info': result.get('element_info', {})
+                    }
+            
+            if check_interval > 0:
+                time.sleep(check_interval)
+            else:
+                break  # Single check mode
+        
+        # Timeout
+        elapsed = time.time() - start_time
+        return False, f"Element not found after {elapsed:.1f}s", {'search_term': element_id, 'wait_time': elapsed}
+    
+    def waitForElementToDisappear(self, element_id: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
+        """Wait for element to disappear (polls find_element until fails)."""
+        import time
+        from typing import Tuple
+        
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            result = self.find_element(element_id)
+            if not result.get('success'):
+                elapsed = time.time() - start_time
+                return True, f"Element disappeared after {elapsed:.1f}s", {'search_term': element_id, 'wait_time': elapsed}
+            
+            if check_interval > 0:
+                time.sleep(check_interval)
+            else:
+                break
+        
+        elapsed = time.time() - start_time
+        return False, f"Element still present after {elapsed:.1f}s", {'search_term': element_id, 'wait_time': elapsed}
+    
+    def checkElementExists(self, element_id: str) -> Tuple[bool, str, Dict[str, Any]]:
+        """Check if element exists (single find_element call, no polling)."""
+        from typing import Tuple
+        
+        result = self.find_element(element_id)
+        if result.get('success'):
+            return True, f"Element '{element_id}' exists", {'search_term': element_id, 'element_info': result.get('element_info', {})}
+        else:
+            return False, f"Element '{element_id}' not found", {'search_term': element_id, 'error': result.get('error', '')}
+    
+    def get_available_verifications(self) -> List[Dict[str, Any]]:
+        """Get available verifications for Playwright (web element checks)."""
+        return [
+            {
+                'command': 'waitForElementToAppear',
+                'params': {'element_id': '', 'timeout': 10.0, 'check_interval': 1.0},
+                'verification_type': 'web',
+                'description': 'Wait for web element to appear (by text, selector, or aria-label)'
+            },
+            {
+                'command': 'waitForElementToDisappear',
+                'params': {'element_id': '', 'timeout': 10.0, 'check_interval': 1.0},
+                'verification_type': 'web',
+                'description': 'Wait for web element to disappear'
+            },
+            {
+                'command': 'checkElementExists',
+                'params': {'element_id': ''},
+                'verification_type': 'web',
+                'description': 'Check if web element exists (single check, no waiting)'
+            }
+        ]

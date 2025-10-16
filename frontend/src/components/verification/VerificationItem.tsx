@@ -136,7 +136,7 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
                 </MenuItem>,
                 ...verifications.map((verification) => (
                   <MenuItem
-                    key={verification.command}
+                    key={`${category}-${verification.command}`}
                     value={verification.command}
                     sx={{ pl: 3, fontSize: '0.7rem', minHeight: '24px' }}
                   >

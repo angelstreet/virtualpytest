@@ -63,12 +63,12 @@ export const useEdge = (props: UseEdgeProps = {}) => {
 
   /**
    * Check if an edge is a protected edge (cannot be deleted)
+   * Only edges from entry nodes should be protected
    */
   const isProtectedEdge = useCallback((edge: UINavigationEdge): boolean => {
     return (
       edge.source === 'entry-node' ||
-      edge.source?.toLowerCase().includes('entry') ||
-      edge.source?.toLowerCase().includes('home')
+      edge.source?.toLowerCase().includes('entry')
     );
   }, []);
 

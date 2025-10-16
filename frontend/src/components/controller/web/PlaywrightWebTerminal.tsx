@@ -629,49 +629,58 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     }
   };
 
-  // Dynamic VNC panel info using same scaling as VNC stream
+  // Dynamic VNC panel info using same approach as AndroidMobileRemote
   const getVNCPanelInfo = () => {
     // Use VNC state from context
     const actualVncExpanded = isVNCExpanded;
     
-    // Use same scaling calculation as VNC stream
-    // VNC shows the entire desktop at this resolution
+    // VNC desktop resolution (what the VNC stream shows)
     const vncResolution = { width: 1440, height: 847 };
-    const panelSize = actualVncExpanded 
-      ? { width: 520, height: 360 }
-      : { width: 370, height: 240 };
     
-    // HARDCODED: Use bottom-left positioning (left 20px, bottom 20px)
+    // VNC panel size from config/state
+    const vncPanelWidth = actualVncExpanded ? 520 : 370;
+    const vncPanelHeight = actualVncExpanded ? 360 : 240;
+    
+    // Header height (varies by expansion state)
+    const headerHeight = actualVncExpanded ? 35 : 30;
+    
+    // Calculate VNC CONTENT size (subtract header, maintain aspect ratio)
+    const vncContentHeight = vncPanelHeight - headerHeight;
+    const vncAspectRatio = vncResolution.width / vncResolution.height; // 1440:847 = 1.7
+    const vncContentWidth = vncContentHeight * vncAspectRatio;
+    
+    // Calculate VNC panel position (bottom-left)
     const panelX = 20;  // Fixed left: 20px
-    const panelY = window.innerHeight - 20 - panelSize.height;  // Bottom: 20px
+    const panelY = window.innerHeight - 20 - vncPanelHeight;  // Bottom: 20px
     
-    // Overlay position: offset from panel position to account for header
-    const headerOffset = actualVncExpanded ? 35 : 30;
-    const x = panelX;
-    const y = panelY + headerOffset;
-    
-    // Calculate scale to fit VNC desktop in panel (same as VNC stream)
-    const scaleX = panelSize.width / vncResolution.width;
-    const scaleY = panelSize.height / vncResolution.height;
-    
-    const panelInfo = {
-      position: { x, y },
-      size: { width: panelSize.width, height: panelSize.height },
-      deviceResolution: vncResolution, // VNC desktop resolution (NOT browser viewport)
-      isCollapsed: !actualVncExpanded,
-      scaleX: scaleX,
-      scaleY: scaleY,
+    // Calculate VNC CONTENT position (panel position + centering + header offset)
+    const vncContentPosition = {
+      x: panelX + (vncPanelWidth - vncContentWidth) / 2, // Center horizontally in panel
+      y: panelY + headerHeight  // Below header
     };
     
-    console.log('[PlaywrightWebTerminal] Dynamic VNC Panel Info:', {
+    const vncContentSize = {
+      width: Math.round(vncContentWidth),
+      height: Math.round(vncContentHeight)
+    };
+    
+    const panelInfo = {
+      position: vncContentPosition,  // VNC content position (not panel position!)
+      size: vncContentSize,           // VNC content size (not panel size!)
+      deviceResolution: vncResolution, // VNC desktop resolution
+      isCollapsed: !actualVncExpanded
+    };
+    
+    console.log('[PlaywrightWebTerminal] Dynamic VNC Panel Info (Content Area):', {
       vncExpanded: actualVncExpanded,
       vncResolution,
-      panelSize,
-      browserViewport,
-      scaleX: scaleX.toFixed(3),
-      scaleY: scaleY.toFixed(3),
+      vncPanelSize: { width: vncPanelWidth, height: vncPanelHeight },
+      vncContentSize,
+      headerHeight,
+      vncAspectRatio: vncAspectRatio.toFixed(3),
       panelPosition: { panelX, panelY },
-      overlayPosition: { x, y },
+      contentPosition: vncContentPosition,
+      browserViewport,
       panelInfo
     });
     

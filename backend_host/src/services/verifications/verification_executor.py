@@ -89,6 +89,7 @@ class VerificationExecutor:
         self.audio_controller = None
         self.adb_controller = None
         self.appium_controller = None
+        self.web_controller = None
         
         for ctrl in verification_controllers:
             class_name = ctrl.__class__.__name__.lower()
@@ -104,6 +105,8 @@ class VerificationExecutor:
                 self.adb_controller = ctrl
             elif 'appium' in class_name:
                 self.appium_controller = ctrl
+            elif 'playwright' in class_name or 'web' in class_name:
+                self.web_controller = ctrl
         
         # Initialize screenshot tracking
         self.verification_screenshots = []

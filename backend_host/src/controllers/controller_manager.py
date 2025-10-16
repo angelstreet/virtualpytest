@@ -28,6 +28,7 @@ from backend_host.src.controllers.verification.appium import AppiumVerificationC
 from backend_host.src.controllers.verification.video import VideoVerificationController
 from backend_host.src.controllers.verification.audio import AudioVerificationController
 from backend_host.src.controllers.power.tapo_power import TapoPowerController
+from backend_host.src.controllers.web.playwright import PlaywrightWebController
 
 
 def create_host_from_environment(device_ids: List[str] = None) -> Host:
@@ -253,6 +254,9 @@ def _create_controller_instance(controller_type: str, implementation: str, param
             return ADBVerificationController(**params)
         elif implementation == 'appium':
             return AppiumVerificationController(**params)
+        elif implementation == 'web':
+            # Web verification reuses the existing web controller (Playwright has verification methods)
+            return None  # Will be handled specially in device creation
     
     # Desktop Controllers
     elif controller_type == 'desktop':
@@ -353,7 +357,19 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         if controller:
             device.add_controller(controller_type, controller)
     
-    # Step 3: Create AI controllers (no dependencies)
+    # Step 3: Create web controllers (no dependencies, needed before verification controllers)
+    web_controller = None
+    for controller_config in web_controllers:
+        controller_type = controller_config['type']
+        implementation = controller_config['implementation']
+        controller_params = controller_config['params']
+        
+        controller = _create_controller_instance(controller_type, implementation, controller_params)
+        if controller:
+            device.add_controller(controller_type, controller)
+            web_controller = controller  # Keep reference for web verification
+    
+    # Step 4: Create AI controllers (no dependencies)
     for controller_config in ai_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
@@ -363,11 +379,21 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         if controller:
             device.add_controller(controller_type, controller)
     
-    # Step 4: Create verification controllers (depend on AV controller and device model)
+    # Step 5: Create verification controllers (depend on AV/web controllers and device model)
     for controller_config in verification_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
+        
+        # Special handling for 'web' verification - reuses existing Playwright web controller
+        if implementation == 'web':
+            if web_controller:
+                # Add the web controller as a verification controller (it has verification methods)
+                device.add_controller('verification', web_controller)
+                print(f"[@controller_manager:_create_device_with_controllers] ✓ Registered Playwright web controller for web verification")
+            else:
+                print(f"[@controller_manager:_create_device_with_controllers] WARNING: web verification needs web controller but none available")
+            continue
         
         # Add av_controller dependency for verification controllers that need it
         # ADB verification controller doesn't need av_controller (uses direct ADB communication)
@@ -391,7 +417,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         else:
             print(f"[@controller_manager:_create_device_with_controllers] ✗ Failed to create {implementation} verification controller")
     
-    # Step 5: Create power controllers (no dependencies)
+    # Step 6: Create power controllers (no dependencies)
     for controller_config in power_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
@@ -401,18 +427,8 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         if controller:
             device.add_controller(controller_type, controller)
     
-    # Step 6: Create desktop controllers (no dependencies)
+    # Step 7: Create desktop controllers (no dependencies)
     for controller_config in desktop_controllers:
-        controller_type = controller_config['type']
-        implementation = controller_config['implementation']
-        controller_params = controller_config['params']
-        
-        controller = _create_controller_instance(controller_type, implementation, controller_params)
-        if controller:
-            device.add_controller(controller_type, controller)
-    
-    # Step 7: Create web controllers (no dependencies)
-    for controller_config in web_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
