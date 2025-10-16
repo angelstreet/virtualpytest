@@ -201,6 +201,30 @@ export default defineConfig({
         ? "frame-ancestors 'self' http://localhost:3000 https://localhost:3000 https://dev.virtualpytest.com https://virtualpytest.com; upgrade-insecure-requests"
         : "frame-ancestors 'self' http://localhost:3000 http://localhost:6109",
     },
+    // Proxy configuration for backend services
+    proxy: {
+      '/server': {
+        target: process.env.VITE_SERVER_URL || 'http://localhost:5109',
+        changeOrigin: true,
+        secure: false,
+        ws: true, // Enable WebSocket proxying for Socket.IO
+        rewrite: (path) => path.replace(/^\/server/, ''),
+      },
+      '/host': {
+        target: process.env.VITE_HOST_URL || 'http://localhost:6109',
+        changeOrigin: true,
+        secure: false,
+        ws: true, // Enable WebSocket proxying
+        rewrite: (path) => path.replace(/^\/host/, ''),
+      },
+      '/websockify': {
+        target: process.env.VITE_HOST_URL || 'http://localhost:6109',
+        changeOrigin: true,
+        secure: false,
+        ws: true, // Enable WebSocket proxying for VNC
+        rewrite: (path) => path.replace(/^\/websockify/, '/websockify'),
+      },
+    },
   },
   // Configure build for proper SPA handling
   build: {

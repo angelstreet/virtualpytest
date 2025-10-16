@@ -99,6 +99,12 @@ echo "📦 Installing backend_host dependencies..."
 cd backend_host
 pip install -r requirements.txt
 
+# Install Playwright browsers
+echo "🌐 Installing Playwright browsers..."
+playwright install chromium firefox webkit
+playwright install-deps
+echo "✅ Playwright browsers installed"
+
 # Create .env file in src/ directory if it doesn't exist
 cd src
 if [ ! -f ".env" ]; then
