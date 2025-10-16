@@ -165,8 +165,23 @@ def recent_executions():
     try:
         team_id = request.args.get('team_id')
         supabase = get_supabase_client()
-        result = supabase.table('deployment_executions').select('*, deployments!inner(team_id, name, script_name, host_name, device_id)').eq('deployments.team_id', team_id).order('started_at', desc=True).limit(100).execute()
-        return jsonify({'success': True, 'executions': result.data})
+        # Join with deployments (inner) and script_results (left) to get report URLs
+        result = supabase.table('deployment_executions').select(
+            '*, deployments!inner(team_id, name, script_name, host_name, device_id), script_results(report_url)'
+        ).eq('deployments.team_id', team_id).order('started_at', desc=True).limit(100).execute()
+        
+        # Flatten script_results data into execution objects for easier frontend access
+        executions = []
+        for exec in result.data:
+            execution_data = {**exec}
+            # Extract report_url from nested script_results object
+            if exec.get('script_results') and isinstance(exec['script_results'], dict):
+                execution_data['report_url'] = exec['script_results'].get('report_url')
+            elif exec.get('script_results') and isinstance(exec['script_results'], list) and len(exec['script_results']) > 0:
+                execution_data['report_url'] = exec['script_results'][0].get('report_url')
+            executions.append(execution_data)
+        
+        return jsonify({'success': True, 'executions': executions})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
