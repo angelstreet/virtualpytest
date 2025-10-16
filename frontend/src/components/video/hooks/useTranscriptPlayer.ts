@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { TranscriptData, TranscriptDataLegacy, TranscriptData10Min, TranscriptSegment, ArchiveMetadata, TimedSegment } from '../EnhancedHLSPlayer.types';
 import { Host } from '../../../types/common/Host_Types';
 import { 
@@ -78,6 +78,9 @@ export const useTranscriptPlayer = ({
   const [hasMp3, setHasMp3] = useState(false);
   const [mp3Url, setMp3Url] = useState<string | null>(null);
   const [dubbedAudioUrl, setDubbedAudioUrl] = useState<string | null>(null);
+  
+  // Prevent duplicate language change requests
+  const languageChangeInProgressRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
@@ -315,6 +318,12 @@ export const useTranscriptPlayer = ({
   }, [deviceId, host]);
 
   const handleLanguageChange = useCallback(async (language: string) => {
+    // Prevent duplicate requests for the same language
+    if (languageChangeInProgressRef.current === language) {
+      console.log(`[@useTranscriptPlayer] 🛑 Language change already in progress for ${language}, skipping duplicate request`);
+      return;
+    }
+    
     setSelectedTranscriptLanguage(language);
     
     if (!archiveMetadata?.manifests.length) return;
@@ -324,6 +333,8 @@ export const useTranscriptPlayer = ({
     const hour = currentManifest.window_index;
     const chunkIndex = currentManifest.chunk_index;
 
+    // Mark language change as in progress
+    languageChangeInProgressRef.current = language;
     setIsTranslating(true);
     
     try {
@@ -408,6 +419,7 @@ export const useTranscriptPlayer = ({
       console.error(`[@useTranscriptPlayer] Error:`, error);
     } finally {
       setIsTranslating(false);
+      languageChangeInProgressRef.current = null; // Clear the guard
     }
   }, [archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, host, deviceId]);
 
