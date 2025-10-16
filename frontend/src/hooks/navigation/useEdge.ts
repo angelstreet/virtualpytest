@@ -16,12 +16,6 @@ export interface UseEdgeProps {
 }
 
 export const useEdge = (props: UseEdgeProps = {}) => {
-  // Only log when actually being used (not just initialized with empty params)
-  const isActive = props.selectedHost || props.isControlActive || props.treeId;
-  if (isActive) {
-    console.log('[@useEdge] Hook initialized with props:', props);
-  }
-  
   // Action hook for edge operations
   const actionHook = useAction();
 
@@ -306,11 +300,11 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       const isUnidirectional = isActionEdge(edge);
       const expectedCount = isUnidirectional ? 1 : 2;
       
-      // Get existing or create default action sets
+      // Get existing or empty array
       let actionSets = edge.data?.action_sets || [];
       
-      // If malformed, create proper structure
-      if (actionSets.length !== expectedCount) {
+      // If no action sets exist, create empty structure
+      if (actionSets.length === 0) {
         const sourceNode = nodes.find(n => n.id === edge.source);
         const targetNode = nodes.find(n => n.id === edge.target);
         const sourceLabel = sourceNode?.data?.label || 'source';
@@ -324,7 +318,6 @@ export const useEdge = (props: UseEdgeProps = {}) => {
           failure_actions: [],
         }];
         
-        // Add reverse direction for bidirectional edges
         if (!isUnidirectional) {
           actionSets.push({
             id: `actionset-${Date.now() + 1}`,
@@ -334,6 +327,10 @@ export const useEdge = (props: UseEdgeProps = {}) => {
             failure_actions: [],
           });
         }
+      }
+      // If wrong count, keep only what we need (preserve existing actions)
+      else if (actionSets.length !== expectedCount) {
+        actionSets = actionSets.slice(0, expectedCount);
       }
 
       return {
