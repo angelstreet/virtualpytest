@@ -246,12 +246,21 @@ class DeploymentScheduler:
             end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()
             
+            # Extract script_result_id from stdout if available
+            script_result_id = None
+            if result.get('stdout'):
+                import re
+                match = re.search(r'SCRIPT_RESULT_ID:([a-f0-9-]+)', result['stdout'])
+                if match:
+                    script_result_id = match.group(1)
+                    print(f"[@deployment_scheduler] Extracted script_result_id: {script_result_id}")
+            
             # Update execution record with UTC timestamp
             self.supabase.table('deployment_executions').update({
                 'completed_at': end_time.isoformat(),
                 'status': 'completed' if result.get('script_success') else 'failed',
                 'success': result.get('script_success', False),
-                'script_result_id': result.get('script_result_id')
+                'script_result_id': script_result_id
             }).eq('id', exec_id).execute()
             
             # Update deployment counters
