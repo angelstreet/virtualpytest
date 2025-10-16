@@ -36,14 +36,20 @@ export const useEdgeEdit = ({
   const [localFailureActions, setLocalFailureActions] = useState<Action[]>([]);
   const [dependencyCheckResult, setDependencyCheckResult] = useState<any>(null);
 
-  // Initialize actions when dialog opens - SIMPLIFIED
+  // Initialize actions when dialog opens - FIXED: Support both unidirectional (1 action set) and bidirectional (2 action sets)
   useEffect(() => {
-    if (isOpen && edgeForm?.action_sets && edgeForm.action_sets.length >= 2) {
-      // Simple direction-based action set selection
+    if (isOpen && edgeForm?.action_sets && edgeForm.action_sets.length >= 1) {
+      // Direction-based action set selection
       const direction = edgeForm.direction || 'forward';
-      const actionSet = direction === 'forward' ? edgeForm.action_sets[0] : edgeForm.action_sets[1];
+      
+      // For unidirectional edges (entry/action): always use first action set
+      // For bidirectional edges: use direction to select forward (index 0) or reverse (index 1)
+      const actionSetIndex = edgeForm.action_sets.length === 1 ? 0 : (direction === 'forward' ? 0 : 1);
+      const actionSet = edgeForm.action_sets[actionSetIndex];
       
       console.log('[@useEdgeEdit] Loading action set for direction:', direction, actionSet.id, { 
+        isUnidirectional: edgeForm.action_sets.length === 1,
+        actionSetIndex,
         actions: actionSet.actions?.length || 0, 
         retry_actions: actionSet.retry_actions?.length || 0,
         failure_actions: actionSet.failure_actions?.length || 0
@@ -53,9 +59,9 @@ export const useEdgeEdit = ({
       setLocalRetryActions(actionSet.retry_actions || []);
       setLocalFailureActions(actionSet.failure_actions || []);
     } else if (isOpen && selectedEdge?.data?.action_sets?.[0]) {
-      // Load actions from selectedEdge if form doesn't have them
+      // Fallback: Load actions from selectedEdge if form doesn't have them
       const actionSet = selectedEdge.data.action_sets[0];
-      console.log('[@useEdgeEdit] Loading from selectedEdge:', { 
+      console.log('[@useEdgeEdit] Loading from selectedEdge (fallback):', { 
         actions: actionSet.actions?.length || 0, 
         retry_actions: actionSet.retry_actions?.length || 0,
         failure_actions: actionSet.failure_actions?.length || 0
