@@ -4,6 +4,12 @@
 
 The Deployment System allows scheduling automated test script executions on devices using **cron expressions** with optional time-based and count-based constraints.
 
+**Quick Start:**
+- ✅ No separate service needed - runs inside `backend_host.service`
+- ✅ Auto-starts when backend_host starts
+- ✅ Logs to `/tmp/deployments.log`
+- ✅ Uses industry-standard cron expressions
+
 ---
 
 ## ✨ Key Features
@@ -260,6 +266,16 @@ CREATE TABLE deployment_executions (
 
 ## 🏗️ Architecture
 
+### **No Separate Service Needed**
+
+The deployment system runs **inside the backend_host service** - no additional deployment service is required.
+
+**How it works:**
+1. **backend_host starts** → DeploymentScheduler auto-initializes on first use
+2. **Syncs active deployments** from database (Supabase)
+3. **APScheduler triggers** scripts based on cron expressions
+4. **Logs to `/tmp/deployments.log`** on the host machine
+
 ### **Components**
 
 ```
@@ -276,10 +292,11 @@ CREATE TABLE deployment_executions (
          │
          ↓
 ┌─────────────────┐
-│  Backend Host   │  DeploymentScheduler
+│  Backend Host   │  DeploymentScheduler (inside backend_host.service)
 │  (APScheduler)  │  └─ Cron trigger
 └─────────────────┘     └─ Script execution
                         └─ Constraint checking
+                        └─ Logging to /tmp/deployments.log
 ```
 
 ### **Flow Diagram**
