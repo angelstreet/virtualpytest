@@ -330,9 +330,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.text) paramParts.push(`"${params.text}"`);
                       break;
                     case 'click_element':
-                      if (params.selector) paramParts.push(`selector: "${params.selector}"`);
-                      if (params.text) paramParts.push(`text: "${params.text}"`);
-                      if (params.element_id) paramParts.push(`id: "${params.element_id}"`);
+                      // Backend uses single parameter: selector (web) or element_id (remote)
+                      if (params.selector) paramParts.push(`"${params.selector}"`);
+                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
                       break;
                     case 'click_element_by_id':
                       if (params.element_id) paramParts.push(`"${params.element_id}"`);
@@ -402,9 +402,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                       if (params.text) paramParts.push(`"${params.text}"`);
                       break;
                     case 'click_element':
-                      if (params.selector) paramParts.push(`selector: "${params.selector}"`);
-                      if (params.text) paramParts.push(`text: "${params.text}"`);
-                      if (params.element_id) paramParts.push(`id: "${params.element_id}"`);
+                      // Backend uses single parameter: selector (web) or element_id (remote)
+                      if (params.selector) paramParts.push(`"${params.selector}"`);
+                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
                       break;
                     case 'click_element_by_id':
                       if (params.element_id) paramParts.push(`"${params.element_id}"`);
@@ -472,9 +472,9 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
                   const paramParts = [];
                   switch (action.command) {
                     case 'click_element':
-                      if (params.selector) paramParts.push(`selector: "${params.selector}"`);
-                      if (params.text) paramParts.push(`text: "${params.text}"`);
-                      if (params.element_id) paramParts.push(`id: "${params.element_id}"`);
+                      // Backend uses single parameter: selector (web) or element_id (remote)
+                      if (params.selector) paramParts.push(`"${params.selector}"`);
+                      if (params.element_id) paramParts.push(`"${params.element_id}"`);
                       break;
                     case 'input_text':
                       paramParts.push(`text: "${params.text || 'undefined'}"`);
