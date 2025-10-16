@@ -30,10 +30,6 @@ CREATE TABLE deployments (
     execution_count INTEGER DEFAULT 0 NOT NULL,
     last_executed_at TIMESTAMP WITH TIME ZONE,
     
-    -- Legacy fields (kept for backward compatibility during migration - nullable)
-    schedule_type TEXT,
-    schedule_config JSONB DEFAULT '{}'::jsonb,
-    
     -- Status management
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'stopped', 'completed', 'expired')),
     
@@ -107,8 +103,6 @@ COMMENT ON COLUMN deployments.max_executions IS 'Optional: Maximum number of exe
 COMMENT ON COLUMN deployments.execution_count IS 'Number of times this deployment has executed';
 COMMENT ON COLUMN deployments.last_executed_at IS 'Timestamp of last execution';
 COMMENT ON COLUMN deployments.status IS 'Deployment status: active, paused, stopped, completed, or expired';
-COMMENT ON COLUMN deployments.schedule_type IS 'Legacy: Old schedule type (hourly, daily, weekly) - nullable, kept for backward compatibility';
-COMMENT ON COLUMN deployments.schedule_config IS 'Legacy: Old schedule configuration - nullable, kept for backward compatibility';
 COMMENT ON TABLE deployment_executions IS 'History of deployment executions - skips if device locked';
 COMMENT ON COLUMN deployment_executions.script_result_id IS 'Link to script_results table for execution details';
 COMMENT ON COLUMN deployment_executions.scheduled_at IS 'When deployment was scheduled to run';

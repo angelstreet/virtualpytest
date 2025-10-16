@@ -331,6 +331,7 @@ Check if should complete
 - Execution tracking
 - Error handling and retry
 - Device lock checking (skips if device busy)
+- Comprehensive logging to `/tmp/deployments.log`
 
 ### **Frontend: CronHelper Component**
 
@@ -354,30 +355,17 @@ Check if should complete
 
 ---
 
-## 📝 Migration from Legacy System
+## 📝 Cron-Based Format
 
-### **Old Format**
+### **Deployment Format**
 ```typescript
-schedule_type: 'daily'
-schedule_config: { hour: 10, minute: 0 }
+cron_expression: '0 10 * * *'      // Required - schedule pattern
+start_date: null                   // Optional - when to start
+end_date: null                     // Optional - when to stop
+max_executions: null               // Optional - run limit
 ```
 
-### **New Format**
-```typescript
-cron_expression: '0 10 * * *'
-start_date: null
-end_date: null
-max_executions: null
-```
-
-### **Migration SQL**
-
-The migration script (`011_add_cron_scheduling.sql`) automatically converts:
-- `hourly` → `M * * * *`
-- `daily` → `M H * * *`
-- `weekly` → `M H * * D`
-
-**Backward Compatibility**: Legacy fields (`schedule_type`, `schedule_config`) are kept for transition period.
+All deployments use industry-standard cron expressions with optional time and execution constraints.
 
 ---
 
@@ -403,6 +391,55 @@ Track progress in the deployments table to see how many times each has run.
 
 ---
 
+## 📋 Deployment Logs
+
+### **Log Location**
+
+All deployment activities are logged to `/tmp/deployments.log` on the host machine.
+
+### **What Gets Logged**
+
+The deployment system logs:
+- ✅ **Scheduler startup** - When the deployment scheduler starts
+- 📋 **Active deployments** - List of all active deployments on startup
+- ➕ **New deployments** - When deployments are added
+- ⚡ **Triggers** - When deployments are triggered (timestamp)
+- ▶️  **Execution start** - Script and device details
+- ✅/❌ **Execution results** - Success/failure, duration, execution count
+- ⏭️  **Skipped executions** - When constraints prevent execution
+- ⚠️  **Constraint checks** - Start date, end date, max executions
+- 🔄 **Status changes** - Paused, resumed, completed, expired, removed
+- 💥 **Errors** - Any execution or scheduling errors
+
+### **Log Format**
+
+```
+2025-10-16 14:30:00 [INFO] ⚡ TRIGGERED: checkout_test_device1 | Time: 2025-10-16 14:30:00 UTC
+2025-10-16 14:30:00 [INFO] ▶️  EXECUTING: checkout_test_device1 | Script: test_checkout.py | Device: emulator-5554
+2025-10-16 14:32:15 [INFO] ✅ COMPLETED: checkout_test_device1 | Duration: 135.2s | Success: True | Executions: 5/20
+```
+
+### **Viewing Logs**
+
+```bash
+# View latest logs
+tail -f /tmp/deployments.log
+
+# View all logs
+cat /tmp/deployments.log
+
+# Search for specific deployment
+grep "deployment_name" /tmp/deployments.log
+
+# Show only triggered executions
+grep "TRIGGERED" /tmp/deployments.log
+
+# Show only errors
+grep "ERROR" /tmp/deployments.log
+```
+
+---
+
 ## 🐛 Troubleshooting
 
 ### **Issue: Deployment not executing**
@@ -415,8 +452,9 @@ Track progress in the deployments table to see how many times each has run.
 5. Cron expression is valid
 6. Host is online and registered
 7. Device is available (not locked)
+8. **Check `/tmp/deployments.log` for trigger events and errors**
 
-**Solution**: View deployment details, check constraints, verify host status.
+**Solution**: View deployment details, check constraints, verify host status, review deployment logs.
 
 ### **Issue: Invalid cron expression**
 
@@ -482,6 +520,15 @@ Cron: 0 1 * * 1
 ```bash
 # Every 15 min, 9am-5pm, weekdays
 Cron: */15 9-17 * * 1-5
+```
+
+### **Monitor Active Deployments**
+```bash
+# Watch deployments in real-time
+tail -f /tmp/deployments.log
+
+# See when specific deployment last triggered
+grep "TRIGGERED.*deployment_name" /tmp/deployments.log | tail -5
 ```
 
 ---

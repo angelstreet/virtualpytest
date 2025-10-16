@@ -20,10 +20,6 @@ export interface Deployment {
   execution_count: number;
   last_executed_at?: string | null;
   
-  // Legacy fields (for backward compatibility)
-  schedule_type?: 'hourly' | 'daily' | 'weekly';
-  schedule_config?: any;
-  
   status: 'active' | 'paused' | 'stopped' | 'completed' | 'expired';
   created_at: string;
 }

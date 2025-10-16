@@ -86,17 +86,26 @@ def generate_dubbed_audio():
         if not all([device_id, hour is not None, chunk_index is not None, language]):
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
         
-        # Use centralized path utilities - NO manual path building!
+        # Get av_controller to access video_capture_path (same pattern as host_av_routes.py)
+        from backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id
+        
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            device = get_device_by_id(device_id)
+            if not device:
+                return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+            return jsonify({'success': False, 'error': f'No AV controller found for device {device_id}'}), 404
+        
+        # Get capture folder from controller's video_capture_path
         from shared.src.lib.utils.storage_path_utils import (
-            get_capture_folder_from_device_id,
+            get_capture_folder,
             get_transcript_chunk_path,
             get_audio_chunk_path
         )
         
-        # Get capture folder from device_id
-        capture_folder = get_capture_folder_from_device_id(device_id)
+        capture_folder = get_capture_folder(av_controller.video_capture_path)
         if not capture_folder:
-            return jsonify({'success': False, 'error': f'Device {device_id} not found in configuration'}), 404
+            return jsonify({'success': False, 'error': f'Could not determine capture folder for device {device_id}'}), 404
         
         # Check if audio already exists using CENTRALIZED function
         audio_file = get_audio_chunk_path(capture_folder, hour, chunk_index, language)

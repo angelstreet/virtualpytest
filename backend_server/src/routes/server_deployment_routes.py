@@ -23,25 +23,17 @@ def create_deployment():
             'script_name': data['script_name'],
             'userinterface_name': data['userinterface_name'],
             'parameters': data.get('parameters'),
+            'cron_expression': data['cron_expression'],
             'status': 'active'
         }
         
-        # Handle cron-based scheduling (new format)
-        if 'cron_expression' in data:
-            deployment_data['cron_expression'] = data['cron_expression']
-            
-            # Optional constraints
-            if 'start_date' in data and data['start_date']:
-                deployment_data['start_date'] = data['start_date']
-            if 'end_date' in data and data['end_date']:
-                deployment_data['end_date'] = data['end_date']
-            if 'max_executions' in data and data['max_executions']:
-                deployment_data['max_executions'] = data['max_executions']
-        
-        # Backward compatibility with old format
-        elif 'schedule_type' in data:
-            deployment_data['schedule_type'] = data['schedule_type']
-            deployment_data['schedule_config'] = data['schedule_config']
+        # Optional constraints
+        if 'start_date' in data and data['start_date']:
+            deployment_data['start_date'] = data['start_date']
+        if 'end_date' in data and data['end_date']:
+            deployment_data['end_date'] = data['end_date']
+        if 'max_executions' in data and data['max_executions']:
+            deployment_data['max_executions'] = data['max_executions']
         
         # Insert into Supabase
         result = supabase.table('deployments').insert(deployment_data).execute()

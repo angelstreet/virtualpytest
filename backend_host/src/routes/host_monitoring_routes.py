@@ -120,17 +120,25 @@ def get_live_events():
         import os
         import json
         from datetime import datetime
-        from shared.src.lib.utils.storage_path_utils import get_metadata_path, get_capture_folder_from_device_id
+        from shared.src.lib.utils.storage_path_utils import get_metadata_path, get_capture_folder
         
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         
-        # Get device's metadata path
-        capture_folder = get_capture_folder_from_device_id(device_id)
+        # Get av_controller to access video_capture_path (same pattern as host_av_routes.py)
+        av_controller = get_controller(device_id, 'av')
+        if not av_controller:
+            device = get_device_by_id(device_id)
+            if not device:
+                return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+            return jsonify({'success': False, 'error': f'No AV controller found for device {device_id}'}), 404
+        
+        # Get capture folder from controller's video_capture_path
+        capture_folder = get_capture_folder(av_controller.video_capture_path)
         if not capture_folder:
             return jsonify({
                 'success': False,
-                'error': f'Device {device_id} not found'
+                'error': f'Could not determine capture folder for device {device_id}'
             }), 404
         
         metadata_path = get_metadata_path(capture_folder)
