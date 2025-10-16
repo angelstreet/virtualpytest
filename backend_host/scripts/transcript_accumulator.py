@@ -164,7 +164,14 @@ def transcribe_mp3_chunk_progressive(mp3_path: str, capture_folder: str, hour: i
         
         if not has_audio:
             logger.info(f"[{capture_folder}] ⏭️  SKIPPED: chunk silent ({mean_volume_db:.1f}dB)")
-            return []
+            # Return silent minute data to trigger rolling 24h cleanup
+            return [{
+                'minute_offset': i,
+                'language': 'unknown',
+                'transcript': '',
+                'segments': [],
+                'skip_reason': f'silent_audio_{mean_volume_db:.1f}dB'
+            } for i in range(10)]
         
         # Log CPU before Whisper execution
         time.sleep(0.1)  # Small delay to get accurate baseline
@@ -321,11 +328,17 @@ def merge_minute_to_chunk(capture_folder: str, hour: int, chunk_index: int, minu
             
             if should_clear_old_data:
                 # Clear old day's data completely
+                was_silent = skip_reason and 'silent_audio' in skip_reason
+                old_transcript_length = len(chunk_data.get('transcript', ''))
                 chunk_data['segments'] = []
                 chunk_data['minute_statuses'] = {}
                 chunk_data['transcript'] = ''
                 chunk_data['confidence'] = 0.0
                 chunk_data['timestamp'] = datetime.now().isoformat()
+                
+                # Log cleanup with context (especially important for silent periods)
+                if was_silent and old_transcript_length > 0:
+                    logger.info(f"[{capture_folder}] 🧹 CLEANUP: Cleared old transcript ({old_transcript_length} chars) due to silent audio - prevents showing yesterday's transcript")
             
             chunk_data['minute_statuses'][str(minute_offset)] = {
                 'processed': True,
@@ -1088,17 +1101,13 @@ class InotifyTranscriptMonitor:
                     mp3_path = os.path.join(audio_cold, str(hour), f'chunk_10min_{chunk_index}.mp3')
                     
                     if os.path.exists(mp3_path):
-                        # Early silence check BEFORE loading Whisper (avoid wasting CPU on silent MP3s)
-                        logger.info(f"[{device_folder}] 🎵 Checking 10min: {hour}h/chunk_{chunk_index} (source={source_queue}, {queue_status})")
-                        has_audio, mean_volume_db = check_mp3_has_audio(mp3_path, device_folder, sample_duration=5.0)
-                        
-                        if not has_audio:
-                            logger.info(f"[{device_folder}] ⏭️  SKIPPED 10min chunk (silent: {mean_volume_db:.1f}dB) - no Whisper needed")
-                        else:
-                            logger.info(f"[{device_folder}] ✅ Audio detected ({mean_volume_db:.1f}dB), starting Whisper transcription...")
-                            minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
-                            for minute_data in minute_results:
-                                merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
+                        # Process 10min chunk (includes silence check before Whisper to avoid wasting CPU)
+                        logger.info(f"[{device_folder}] 🎵 Processing 10min: {hour}h/chunk_{chunk_index} (source={source_queue}, {queue_status})")
+                        minute_results = transcribe_mp3_chunk_progressive(mp3_path, device_folder, hour, chunk_index)
+                        # CRITICAL: Process ALL minute_data (including silent) to trigger rolling 24h cleanup
+                        # Without this, old transcripts persist indefinitely during silent periods
+                        for minute_data in minute_results:
+                            merge_minute_to_chunk(device_folder, hour, chunk_index, minute_data, has_mp3=True)
                     else:
                         logger.warning(f"[{device_folder}] ⚠️  10min MP3 not found: {mp3_path}")
                 
