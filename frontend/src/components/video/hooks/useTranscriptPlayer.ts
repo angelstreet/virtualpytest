@@ -380,11 +380,11 @@ export const useTranscriptPlayer = ({
         const audioCheck = await fetch(url10min, { method: 'HEAD' }).catch(() => ({ ok: false }));
         
         if (audioCheck.ok) {
-          console.log(`[@useTranscriptPlayer] ✅ Dubbed audio exists`);
+          console.log(`[@useTranscriptPlayer] ✅ Dubbed audio exists (cached)`);
           setDubbedAudioUrl(url10min);
         } else if (host) {
           const apiUrl = buildHostUrl(host, 'host/transcript/generate-dubbed-audio');
-          console.log(`[@useTranscriptPlayer] Generating dubbed audio via API:`, apiUrl);
+          console.log(`[@useTranscriptPlayer] 🎤 Generating dubbed audio via API (404 is expected - checking cache first)...`);
           
           const response = await fetch(apiUrl, {
             method: 'POST',
@@ -401,8 +401,31 @@ export const useTranscriptPlayer = ({
             if (result.success && result.url) {
               const cleanUrl = result.url.startsWith('/') ? result.url.slice(1) : result.url;
               const finalUrl = buildHostUrl(host, cleanUrl);
-              console.log(`[@useTranscriptPlayer] ✅ Dubbed audio generated:`, finalUrl);
-              setDubbedAudioUrl(finalUrl);
+              console.log(`[@useTranscriptPlayer] ✅ Dubbed audio generated, waiting for file to be ready...`);
+              
+              // Wait for the file to be fully written to disk before setting URL
+              // This prevents the audio element from trying to load before the file is ready
+              await new Promise(resolve => setTimeout(resolve, 500));
+              
+              // Verify the file is now accessible with retry
+              let fileReady = false;
+              for (let i = 0; i < 3; i++) {
+                const verifyCheck = await fetch(finalUrl, { method: 'HEAD' }).catch(() => ({ ok: false }));
+                if (verifyCheck.ok) {
+                  fileReady = true;
+                  console.log(`[@useTranscriptPlayer] ✅ Audio file verified and ready to play`);
+                  break;
+                }
+                console.log(`[@useTranscriptPlayer] Audio file not ready yet, retrying... (${i + 1}/3)`);
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+              
+              if (fileReady) {
+                setDubbedAudioUrl(finalUrl);
+              } else {
+                console.error(`[@useTranscriptPlayer] Audio file not accessible after retries`);
+                setDubbedAudioUrl(null);
+              }
             } else {
               console.error(`[@useTranscriptPlayer] API returned error:`, result);
               setDubbedAudioUrl(null);

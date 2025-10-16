@@ -357,7 +357,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     }
   }, [isLiveMode, streamUrl, isTransitioning, archive.archiveMetadata]);
 
-  // Dubbed audio sync and control (reuses restart pattern!)
+  // Dubbed audio sync and control with retry on error
   useEffect(() => {
     const video = videoRef.current;
     const dubbedAudio = dubbedAudioRef.current;
@@ -374,12 +374,51 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
       
       console.log(`[@EnhancedHLSPlayer] ✅ Video muted, dubbed audio loaded`);
       
+      // Handle audio load errors with retry
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      const handleAudioError = () => {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`[@EnhancedHLSPlayer] ⚠️ Audio failed to load, retrying... (${retryCount}/${maxRetries})`);
+          setTimeout(() => {
+            dubbedAudio.load();
+            dubbedAudio.currentTime = video.currentTime;
+            if (!video.paused) {
+              dubbedAudio.play().catch(() => {
+                console.error(`[@EnhancedHLSPlayer] Retry ${retryCount} failed`);
+              });
+            }
+          }, 500 * retryCount); // Progressive delay: 500ms, 1000ms
+        } else {
+          console.error(`[@EnhancedHLSPlayer] ❌ Audio failed to load after ${maxRetries} retries`);
+        }
+      };
+      
+      const handleAudioCanPlay = () => {
+        console.log(`[@EnhancedHLSPlayer] 🎵 Audio ready to play`);
+        if (!video.paused) {
+          dubbedAudio.play().catch((err) => {
+            console.error(`[@EnhancedHLSPlayer] Failed to play dubbed audio:`, err);
+          });
+        }
+      };
+      
+      dubbedAudio.addEventListener('error', handleAudioError);
+      dubbedAudio.addEventListener('canplay', handleAudioCanPlay);
+      
       // Sync playback state
       if (!video.paused) {
         dubbedAudio.play().catch((err) => {
           console.error(`[@EnhancedHLSPlayer] Failed to play dubbed audio:`, err);
         });
       }
+      
+      return () => {
+        dubbedAudio.removeEventListener('error', handleAudioError);
+        dubbedAudio.removeEventListener('canplay', handleAudioCanPlay);
+      };
     } else {
       // Restore original video audio
       video.muted = muted;
