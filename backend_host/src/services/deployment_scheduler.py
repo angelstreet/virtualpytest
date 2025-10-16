@@ -40,20 +40,32 @@ class DeploymentScheduler:
             
             try:
                 # Get all deployments for this host to find their stale executions
+                print(f"[@deployment_scheduler] Querying deployments for host: {self.host_name}")
                 deployments_result = self.supabase.table('deployments').select('id').eq('host_name', self.host_name).execute()
                 deployment_ids = [d['id'] for d in deployments_result.data]
+                print(f"[@deployment_scheduler] Found {len(deployment_ids)} deployment(s) for this host")
+                deployment_logger.info(f"Found {len(deployment_ids)} deployment(s) for host {self.host_name}")
+                
+                if not deployment_ids:
+                    print(f"[@deployment_scheduler] No deployments for host {self.host_name}, skipping stale execution check")
+                    deployment_logger.info(f"No deployments for host {self.host_name}")
                 
                 if deployment_ids:
                     # Find all running executions for this host's deployments
+                    print(f"[@deployment_scheduler] Checking for running executions in {len(deployment_ids)} deployment(s)...")
                     stale_executions = self.supabase.table('deployment_executions')\
                         .select('id, deployment_id, started_at')\
                         .in_('deployment_id', deployment_ids)\
                         .eq('status', 'running')\
                         .execute()
                     
+                    print(f"[@deployment_scheduler] Query returned {len(stale_executions.data) if stale_executions.data else 0} running execution(s)")
+                    
                     if stale_executions.data:
                         stale_count = len(stale_executions.data)
-                        print(f"[@deployment_scheduler] Found {stale_count} stale 'running' execution(s)")
+                        print(f"[@deployment_scheduler] Found {stale_count} stale 'running' execution(s):")
+                        for stale in stale_executions.data:
+                            print(f"[@deployment_scheduler]   - Execution {stale['id']} started at {stale.get('started_at', 'unknown')}")
                         deployment_logger.warning(f"Found {stale_count} stale 'running' execution(s) - marking as failed")
                         
                         # Mark each stale execution as failed
@@ -258,9 +270,9 @@ class DeploymentScheduler:
         """Execute deployment with constraint checks"""
         print(f"[@deployment_scheduler] Triggering deployment: {deployment_id}")
         
-        # Add small random delay to stagger concurrent executions (0-500ms)
+        # Add random delay to stagger concurrent executions (0-2 seconds)
         # This prevents multiple deployments from hitting DB at exact same moment
-        stagger_delay = random.uniform(0, 0.5)
+        stagger_delay = random.uniform(0, 2.0)
         time.sleep(stagger_delay)
         
         exec_id = None
@@ -314,17 +326,50 @@ class DeploymentScheduler:
             
             if running_check.data and len(running_check.data) > 0:
                 running_exec = running_check.data[0]
-                started_at = running_exec.get('started_at', 'unknown')
-                print(f"[@deployment_scheduler] Skipping - previous execution still running since {started_at}")
-                deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at})")
-                # Create skipped execution record
-                self.supabase.table('deployment_executions').insert({
-                    'deployment_id': deployment_id,
-                    'scheduled_at': start_time.isoformat(),
-                    'status': 'skipped',
-                    'skip_reason': 'Previous execution still running'
-                }).execute()
-                return
+                started_at_str = running_exec.get('started_at', 'unknown')
+                
+                # Check if execution is stale (running for more than 1 hour)
+                try:
+                    started_at = datetime.fromisoformat(started_at_str.replace('Z', '+00:00'))
+                    age_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
+                    
+                    if age_seconds > 3600:  # 1 hour = 3600 seconds
+                        print(f"[@deployment_scheduler] Found stale execution (age: {age_seconds/3600:.1f} hours) - marking as failed")
+                        deployment_logger.warning(f"Stale execution detected: {running_exec['id']} (age: {age_seconds/3600:.1f} hours) - marking as failed")
+                        
+                        # Mark stale execution as failed
+                        self.supabase.table('deployment_executions').update({
+                            'completed_at': datetime.now(timezone.utc).isoformat(),
+                            'status': 'failed',
+                            'success': False,
+                            'error_message': f'Execution timed out - ran for {age_seconds/3600:.1f} hours'
+                        }).eq('id', running_exec['id']).execute()
+                        
+                        # Continue with new execution (don't skip)
+                        print(f"[@deployment_scheduler] Stale execution cleaned up, proceeding with new execution")
+                    else:
+                        # Execution is recent, skip this scheduled run
+                        print(f"[@deployment_scheduler] Skipping - previous execution still running since {started_at_str} (age: {age_seconds:.0f}s)")
+                        deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at_str}, age: {age_seconds:.0f}s)")
+                        # Create skipped execution record
+                        self.supabase.table('deployment_executions').insert({
+                            'deployment_id': deployment_id,
+                            'scheduled_at': start_time.isoformat(),
+                            'status': 'skipped',
+                            'skip_reason': 'Previous execution still running'
+                        }).execute()
+                        return
+                except (ValueError, TypeError) as e:
+                    # If we can't parse the date, assume it's stale and skip
+                    print(f"[@deployment_scheduler] Could not parse started_at date: {e}, skipping execution")
+                    deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at_str})")
+                    self.supabase.table('deployment_executions').insert({
+                        'deployment_id': deployment_id,
+                        'scheduled_at': start_time.isoformat(),
+                        'status': 'skipped',
+                        'skip_reason': 'Previous execution still running'
+                    }).execute()
+                    return
             
             # Create execution record with UTC timestamp
             # Note: Supabase auto-generates unique UUID for 'id' field to avoid conflicts
