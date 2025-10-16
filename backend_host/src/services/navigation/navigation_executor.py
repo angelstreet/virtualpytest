@@ -317,14 +317,17 @@ class NavigationExecutor:
                     # Record step to context showing we're already at destination
                     if context:
                         from datetime import datetime
+                        # Show actual navigation path in step title
+                        from_node = nav_context.get('current_node_label') or 'ENTRY'
+                        to_node = target_node_label or target_node_id
                         step_result = {
                             'success': True,
-                            'message': f"No navigation needed - already at destination",
+                            'message': f"{from_node} → {to_node}",
                             'execution_time_ms': 0,
                             'start_time': datetime.now().strftime('%H:%M:%S'),
                             'end_time': datetime.now().strftime('%H:%M:%S'),
-                            'from_node': target_node_label or target_node_id,
-                            'to_node': target_node_label or target_node_id,
+                            'from_node': from_node,
+                            'to_node': to_node,
                             'actions': [],  # Empty actions array
                             'retry_actions': [],
                             'failure_actions': [],
@@ -382,14 +385,17 @@ class NavigationExecutor:
                         # Record step to context showing we're already at destination
                         if context:
                             from datetime import datetime
+                            # Show actual navigation path in step title
+                            from_node = nav_context.get('current_node_label') or 'ENTRY'
+                            to_node = target_node_label or target_node_id
                             step_result = {
                                 'success': True,
-                                'message': f"No navigation needed - already at destination",
+                                'message': f"{from_node} → {to_node}",
                                 'execution_time_ms': 0,
                                 'start_time': datetime.now().strftime('%H:%M:%S'),
                                 'end_time': datetime.now().strftime('%H:%M:%S'),
-                                'from_node': target_node_label or target_node_id,
-                                'to_node': target_node_label or target_node_id,
+                                'from_node': from_node,
+                                'to_node': to_node,
                                 'actions': [],  # Empty actions array
                                 'retry_actions': [],
                                 'failure_actions': [],
@@ -434,14 +440,17 @@ class NavigationExecutor:
                         # Record step to context showing we're already at destination
                         if context:
                             from datetime import datetime
+                            # Show actual navigation path in step title
+                            from_node = nav_context.get('current_node_label') or 'ENTRY'
+                            to_node = target_node_label or target_node_id
                             step_result = {
                                 'success': True,
-                                'message': f"No navigation needed - already at destination",
+                                'message': f"{from_node} → {to_node}",
                                 'execution_time_ms': 0,
                                 'start_time': datetime.now().strftime('%H:%M:%S'),
                                 'end_time': datetime.now().strftime('%H:%M:%S'),
-                                'from_node': target_node_label or target_node_id,
-                                'to_node': target_node_label or target_node_id,
+                                'from_node': from_node,
+                                'to_node': to_node,
                                 'actions': [],  # Empty actions array
                                 'retry_actions': [],
                                 'failure_actions': [],
