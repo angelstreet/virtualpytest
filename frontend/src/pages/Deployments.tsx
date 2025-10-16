@@ -304,7 +304,10 @@ const Deployments: React.FC = () => {
     loadDeployments();
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, deploymentName: string) => {
+    if (!window.confirm(`Are you sure you want to delete deployment "${deploymentName}"?\n\nThis action cannot be undone.`)) {
+      return;
+    }
     await deleteDeployment(id);
     loadDeployments();
   };
@@ -687,7 +690,7 @@ const Deployments: React.FC = () => {
                             ) : (
                               <IconButton size="small" onClick={() => handleResume(d.id)} title="Resume"><PlayArrow /></IconButton>
                             )}
-                            <IconButton size="small" onClick={() => handleDelete(d.id)} title="Delete"><Delete /></IconButton>
+                            <IconButton size="small" onClick={() => handleDelete(d.id, d.name)} title="Delete"><Delete /></IconButton>
                           </TableCell>
                         </TableRow>
                       );
