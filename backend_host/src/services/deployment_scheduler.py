@@ -575,18 +575,37 @@ class DeploymentScheduler:
         self._add_job(deployment, log_details=True)
     
     def pause_deployment(self, deployment_id):
-        """Pause deployment"""
-        self.scheduler.pause_job(deployment_id)
-        print(f"[@deployment_scheduler] Paused: {deployment_id}")
-        deployment_logger.info(f"⏸️  PAUSED: {deployment_id}")
+        """Pause deployment by removing from scheduler"""
+        try:
+            self.scheduler.remove_job(deployment_id)
+            print(f"[@deployment_scheduler] Paused (removed from scheduler): {deployment_id}")
+            deployment_logger.info(f"⏸️  PAUSED: {deployment_id} | Removed from scheduler")
+        except Exception as e:
+            print(f"[@deployment_scheduler] Error pausing deployment: {e}")
+            deployment_logger.error(f"Failed to pause deployment {deployment_id}: {e}")
     
     def resume_deployment(self, deployment_id):
-        """Resume deployment"""
-        self.scheduler.resume_job(deployment_id)
-        print(f"[@deployment_scheduler] Resumed: {deployment_id}")
-        job = self.scheduler.get_job(deployment_id)
-        next_run = job.next_run_time if job else None
-        deployment_logger.info(f"▶️  RESUMED: {deployment_id} | Next run: {next_run} UTC")
+        """Resume deployment by re-adding to scheduler"""
+        try:
+            # Fetch deployment from database
+            result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+            if not result.data or len(result.data) == 0:
+                print(f"[@deployment_scheduler] Cannot resume - deployment not found: {deployment_id}")
+                deployment_logger.error(f"Cannot resume - deployment not found: {deployment_id}")
+                return
+            
+            deployment = result.data[0]
+            
+            # Re-add job to scheduler
+            self._add_job(deployment, log_details=True)
+            print(f"[@deployment_scheduler] Resumed (re-added to scheduler): {deployment_id}")
+            
+            job = self.scheduler.get_job(deployment_id)
+            next_run = job.next_run_time if job else None
+            deployment_logger.info(f"▶️  RESUMED: {deployment.get('name', deployment_id)} | Next run: {next_run} UTC")
+        except Exception as e:
+            print(f"[@deployment_scheduler] Error resuming deployment: {e}")
+            deployment_logger.error(f"Failed to resume deployment {deployment_id}: {e}")
     
     def remove_deployment(self, deployment_id):
         """Remove deployment"""
