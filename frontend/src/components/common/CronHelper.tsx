@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Select, MenuItem, FormControl, InputLabel, TextField, Typography, Chip } from '@mui/material';
-import { AccessTime, Info } from '@mui/icons-material';
+import { Info } from '@mui/icons-material';
 
 interface CronPattern {
   label: string;

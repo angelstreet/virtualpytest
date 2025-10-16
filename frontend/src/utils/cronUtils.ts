@@ -73,7 +73,7 @@ export function cronToHuman(cron: string): string {
   const parts = cron.trim().split(/\s+/);
   if (parts.length !== 5) return 'Invalid cron expression';
   
-  const [minute, hour, day, month, dayOfWeek] = parts;
+  const [minute, hour, , , dayOfWeek] = parts;
   
   // Common patterns
   if (cron.match(/^\*\/\d+ \* \* \* \*$/)) {
