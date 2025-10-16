@@ -179,6 +179,13 @@ const Deployments: React.FC = () => {
     loadScripts();
     loadDeployments();
     loadExecutions();
+    
+    // Auto-refresh executions every 10 seconds
+    const intervalId = setInterval(() => {
+      loadExecutions();
+    }, 10000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const loadScripts = async () => {
@@ -634,18 +641,18 @@ const Deployments: React.FC = () => {
             <CardContent>
               <Typography variant="h6" sx={{ mb: 1 }}>Active Deployments</Typography>
               <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Script</TableCell>
-                      <TableCell>Host:Device</TableCell>
-                      <TableCell>Parameters</TableCell>
-                      <TableCell>Schedule</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Script</TableCell>
+                        <TableCell>Host:Device</TableCell>
+                        <TableCell>Parameters</TableCell>
+                        <TableCell>Schedule</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
                   <TableBody>
                     {deployments.map(d => {
                       const hostDevices = getDevicesFromHost(d.host_name);
