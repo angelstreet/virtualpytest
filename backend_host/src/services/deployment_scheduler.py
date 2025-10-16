@@ -270,13 +270,13 @@ class DeploymentScheduler:
     
     def _execute_deployment(self, deployment_id):
         """Execute deployment with constraint checks"""
-        print(f"[@deployment_scheduler] ===== TRIGGERED: {deployment_id} =====")
-        deployment_logger.info(f"===== TRIGGERED: {deployment_id} =====")
-        
-        exec_id = None
-        start_time = datetime.now(timezone.utc)
-        
         try:
+            print(f"[@deployment_scheduler] ===== TRIGGERED: {deployment_id} =====")
+            deployment_logger.info(f"===== TRIGGERED: {deployment_id} =====")
+            
+            exec_id = None
+            start_time = datetime.now(timezone.utc)
+            
             # Get deployment config
             try:
                 result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
@@ -515,6 +515,16 @@ class DeploymentScheduler:
                     print(f"[@deployment_scheduler] Raw DB error: {repr(db_error)}")
                     deployment_logger.error(f"Failed to update execution record: {db_error_type}: {db_error}")
                     deployment_logger.error(f"Raw DB error: {repr(db_error)}")
+        except Exception as fatal_error:
+            # Catch-all for ANY unhandled exception (syntax errors, missing imports, etc.)
+            print(f"[@deployment_scheduler] 🔥 FATAL ERROR in deployment execution: {fatal_error}")
+            print(f"[@deployment_scheduler] 🔥 Error type: {type(fatal_error).__name__}")
+            print(f"[@deployment_scheduler] 🔥 Full error: {repr(fatal_error)}")
+            deployment_logger.error(f"🔥 FATAL: {deployment_id} | {type(fatal_error).__name__}: {fatal_error}")
+            deployment_logger.error(f"🔥 FATAL: {deployment_id} | Full: {repr(fatal_error)}")
+            import traceback
+            traceback.print_exc()
+            deployment_logger.error(f"🔥 FATAL: {deployment_id} | Traceback: {traceback.format_exc()}")
     
     def add_deployment(self, deployment):
         """Add new deployment (called by API)"""
