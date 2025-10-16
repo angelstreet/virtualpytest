@@ -421,18 +421,18 @@ class PlaywrightWebController(WebControllerInterface):
         
         return self.utils.run_async(_async_navigate_to_url())
     
-    def click_element(self, selector: str) -> Dict[str, Any]:
+    def click_element(self, element_id: str) -> Dict[str, Any]:
         """Click an element using dump-first approach (like Android mobile).
         
         Args:
-            selector: CSS selector, text content, or aria-label to search for
+            element_id: Element text, CSS selector, or aria-label to search for (unified with Android parameter name)
         """
         try:
-            print(f"[PLAYWRIGHT]: Clicking element using dump-first approach: {selector}")
+            print(f"[PLAYWRIGHT]: Clicking element using dump-first approach: {element_id}")
             start_time = time.time()
             
             # Step 1: Find element using dump-first (same as Android mobile)
-            find_result = self.find_element(selector)
+            find_result = self.find_element(element_id)
             
             if not find_result.get('success'):
                 execution_time = int((time.time() - start_time) * 1000)
@@ -1208,16 +1208,16 @@ class PlaywrightWebController(WebControllerInterface):
             return self.navigate_to_url(url, timeout=timeout, follow_redirects=follow_redirects)
         
         elif command == 'click_element':
-            selector = params.get('selector')
+            element_id = params.get('element_id') or params.get('selector')  # Support both for backward compatibility during transition
             
-            if not selector:
+            if not element_id:
                 return {
                     'success': False,
-                    'error': 'selector parameter is required',
+                    'error': 'element_id parameter is required',
                     'execution_time': 0
                 }
                 
-            return self.click_element(selector)
+            return self.click_element(element_id)
         
         elif command == 'find_element':
             selector = params.get('selector')
@@ -1592,14 +1592,14 @@ class PlaywrightWebController(WebControllerInterface):
                 # Element interaction
                 {
                     'id': 'click_element',
-                    'label': 'Click Element',
+                    'label': 'Click Element by Text',
                     'command': 'click_element',
                     'action_type': 'web',
                     'params': {},
-                    'description': 'Click an element by CSS selector or text',
+                    'description': 'Click an element by text/ID (same as Android - dump UI first, then click)',
                     'requiresInput': True,
-                    'inputLabel': 'Selector or text',
-                    'inputPlaceholder': '#submit-button or "Submit"'
+                    'inputLabel': 'Element Text/ID',
+                    'inputPlaceholder': 'Submit Button'
                 },
                 {
                     'id': 'find_element',

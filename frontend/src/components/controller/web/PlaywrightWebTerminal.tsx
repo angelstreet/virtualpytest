@@ -380,10 +380,10 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       // Clear response area before new command
       clearTerminal();
 
-      // Use proper JSON format for the command
+      // Use proper JSON format for the command (now using element_id like Android)
       const commandJson = JSON.stringify({
         command: 'click_element',
-        params: { selector: clickSelector.trim() },
+        params: { element_id: clickSelector.trim() },
       });
       const result = await executeCommand(commandJson);
       // Don't reset clickSelector to allow reuse

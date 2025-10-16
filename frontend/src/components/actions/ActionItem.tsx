@@ -252,47 +252,25 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         break;
 
       case 'click_element':
-        // Handle both remote and web click_element actions
+        // UNIFIED: Both remote and web use element_id parameter (same principle: dump UI → find element → click)
         if (currentActionDef?.requiresInput) {
-          if (action.action_type === 'web') {
-            // Web click_element uses selector field
-            fields.push(
-              <TextField
-                key="selector"
-                label="Selector/Text"
-                size="small"
-                value={getParamValue('selector') || ''}
-                onChange={(e) => safeHandleParamChange('selector', e.target.value)}
-                placeholder="#submit-button or 'Submit'"
-                sx={{
-                  width: 220,
-                  '& .MuiInputBase-input': {
-                    padding: '3px 6px',
-                    fontSize: '0.75rem',
-                  },
-                }}
-              />,
-            );
-          } else {
-            // Remote click_element uses element_id field
-            fields.push(
-              <TextField
-                key="element_id"
-                label="Element ID"
-                size="small"
-                value={getParamValue('element_id') || ''}
-                onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
-                placeholder="e.g., Home Button, Menu Icon"
-                sx={{
-                  width: 220,
-                  '& .MuiInputBase-input': {
-                    padding: '3px 6px',
-                    fontSize: '0.75rem',
-                  },
-                }}
-              />,
-            );
-          }
+          fields.push(
+            <TextField
+              key="element_id"
+              label="Element Text/ID"
+              size="small"
+              value={getParamValue('element_id') || getParamValue('selector') || ''}  // Support legacy selector param
+              onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
+              placeholder="e.g., Home Button, Submit"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
         }
         break;
 
