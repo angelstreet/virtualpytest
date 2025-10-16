@@ -5,6 +5,8 @@ from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
 from datetime import datetime, timezone
 import logging
+import time
+import random
 
 # Configure deployment logger
 deployment_logger = logging.getLogger('deployment_scheduler')
@@ -210,12 +212,29 @@ class DeploymentScheduler:
     def _execute_deployment(self, deployment_id):
         """Execute deployment with constraint checks"""
         print(f"[@deployment_scheduler] Triggering deployment: {deployment_id}")
+        
+        # Add small random delay to stagger concurrent executions (0-500ms)
+        # This prevents multiple deployments from hitting DB at exact same moment
+        stagger_delay = random.uniform(0, 0.5)
+        time.sleep(stagger_delay)
+        
         exec_id = None
         start_time = datetime.now(timezone.utc)
         
         try:
             # Get deployment config
-            result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+            try:
+                result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+            except Exception as db_error:
+                error_type = type(db_error).__name__
+                print(f"[@deployment_scheduler] Failed to fetch deployment: {error_type}: {db_error}")
+                print(f"[@deployment_scheduler] Raw error: {repr(db_error)}")
+                deployment_logger.error(f"Failed to fetch deployment {deployment_id}: {error_type}: {db_error}")
+                deployment_logger.error(f"Raw error: {repr(db_error)}")
+                if hasattr(db_error, '__dict__'):
+                    deployment_logger.error(f"Error attributes: {db_error.__dict__}")
+                raise
+            
             if not result.data or len(result.data) == 0:
                 print(f"[@deployment_scheduler] Deployment {deployment_id} no longer exists, removing from scheduler")
                 deployment_logger.warning(f"DELETED: {deployment_id} | Deployment no longer exists in database")
@@ -263,14 +282,26 @@ class DeploymentScheduler:
                 return
             
             # Create execution record with UTC timestamp
+            # Note: Supabase auto-generates unique UUID for 'id' field to avoid conflicts
             scheduled_at = start_time.isoformat()
-            exec_record = self.supabase.table('deployment_executions').insert({
-                'deployment_id': deployment_id,
-                'scheduled_at': scheduled_at,
-                'started_at': scheduled_at,
-                'status': 'running'
-            }).execute().data[0]
-            exec_id = exec_record['id']
+            try:
+                exec_record = self.supabase.table('deployment_executions').insert({
+                    'deployment_id': deployment_id,
+                    'scheduled_at': scheduled_at,
+                    'started_at': scheduled_at,
+                    'status': 'running'
+                }).execute().data[0]
+                exec_id = exec_record['id']
+                print(f"[@deployment_scheduler] Created execution record: {exec_id}")
+            except Exception as db_error:
+                error_type = type(db_error).__name__
+                print(f"[@deployment_scheduler] Failed to create execution record: {error_type}: {db_error}")
+                print(f"[@deployment_scheduler] Raw error: {repr(db_error)}")
+                deployment_logger.error(f"Failed to create execution record for {dep_name}: {error_type}: {db_error}")
+                deployment_logger.error(f"Raw error: {repr(db_error)}")
+                if hasattr(db_error, '__dict__'):
+                    deployment_logger.error(f"Error attributes: {db_error.__dict__}")
+                raise
             
             deployment_logger.info(f"▶️  EXECUTING: {dep_name} | Script: {dep['script_name']} | Device: {dep['device_id']}")
             
@@ -308,19 +339,39 @@ class DeploymentScheduler:
                     print(f"[@deployment_scheduler] Extracted script_result_id: {script_result_id}")
             
             # Update execution record with UTC timestamp
-            self.supabase.table('deployment_executions').update({
-                'completed_at': end_time.isoformat(),
-                'status': 'completed' if result.get('script_success') else 'failed',
-                'success': result.get('script_success', False),
-                'script_result_id': script_result_id
-            }).eq('id', exec_id).execute()
+            try:
+                self.supabase.table('deployment_executions').update({
+                    'completed_at': end_time.isoformat(),
+                    'status': 'completed' if result.get('script_success') else 'failed',
+                    'success': result.get('script_success', False),
+                    'script_result_id': script_result_id
+                }).eq('id', exec_id).execute()
+            except Exception as db_error:
+                error_type = type(db_error).__name__
+                print(f"[@deployment_scheduler] Failed to update execution record: {error_type}: {db_error}")
+                print(f"[@deployment_scheduler] Raw error: {repr(db_error)}")
+                deployment_logger.error(f"Failed to update execution {exec_id}: {error_type}: {db_error}")
+                deployment_logger.error(f"Raw error: {repr(db_error)}")
+                if hasattr(db_error, '__dict__'):
+                    deployment_logger.error(f"Error attributes: {db_error.__dict__}")
+                raise
             
             # Update deployment counters
             new_count = dep.get('execution_count', 0) + 1
-            self.supabase.table('deployments').update({
-                'execution_count': new_count,
-                'last_executed_at': end_time.isoformat()
-            }).eq('id', deployment_id).execute()
+            try:
+                self.supabase.table('deployments').update({
+                    'execution_count': new_count,
+                    'last_executed_at': end_time.isoformat()
+                }).eq('id', deployment_id).execute()
+            except Exception as db_error:
+                error_type = type(db_error).__name__
+                print(f"[@deployment_scheduler] Failed to update deployment counters: {error_type}: {db_error}")
+                print(f"[@deployment_scheduler] Raw error: {repr(db_error)}")
+                deployment_logger.error(f"Failed to update deployment {deployment_id} counters: {error_type}: {db_error}")
+                deployment_logger.error(f"Raw error: {repr(db_error)}")
+                if hasattr(db_error, '__dict__'):
+                    deployment_logger.error(f"Error attributes: {db_error.__dict__}")
+                raise
             
             print(f"[@deployment_scheduler] Deployment {deployment_id} completed: {result.get('script_success')}")
             
@@ -342,15 +393,37 @@ class DeploymentScheduler:
                 self._mark_as_completed(deployment_id)
                 
         except Exception as e:
-            print(f"[@deployment_scheduler] Execution error: {e}")
-            deployment_logger.error(f"💥 ERROR: {deployment_id} | {str(e)}")
+            error_type = type(e).__name__
+            error_msg = str(e)
+            print(f"[@deployment_scheduler] Execution error: {error_msg}")
+            print(f"[@deployment_scheduler] Error type: {error_type}")
+            print(f"[@deployment_scheduler] Raw error: {repr(e)}")
+            
+            # Log detailed error info
+            deployment_logger.error(f"💥 ERROR: {deployment_id} | Type: {error_type}")
+            deployment_logger.error(f"💥 ERROR: {deployment_id} | Message: {error_msg}")
+            deployment_logger.error(f"💥 ERROR: {deployment_id} | Raw: {repr(e)}")
+            
+            # Try to extract more details if it's a Supabase error
+            if hasattr(e, 'args') and len(e.args) > 0:
+                deployment_logger.error(f"💥 ERROR: {deployment_id} | Args: {e.args}")
+            if hasattr(e, '__dict__'):
+                deployment_logger.error(f"💥 ERROR: {deployment_id} | Attributes: {e.__dict__}")
+            
             if exec_id:
-                self.supabase.table('deployment_executions').update({
-                    'completed_at': datetime.now(timezone.utc).isoformat(),
-                    'status': 'failed',
-                    'success': False,
-                    'error_message': str(e)
-                }).eq('id', exec_id).execute()
+                try:
+                    self.supabase.table('deployment_executions').update({
+                        'completed_at': datetime.now(timezone.utc).isoformat(),
+                        'status': 'failed',
+                        'success': False,
+                        'error_message': f"{error_type}: {error_msg}"
+                    }).eq('id', exec_id).execute()
+                except Exception as db_error:
+                    db_error_type = type(db_error).__name__
+                    print(f"[@deployment_scheduler] Failed to update execution record: {db_error_type}: {db_error}")
+                    print(f"[@deployment_scheduler] Raw DB error: {repr(db_error)}")
+                    deployment_logger.error(f"Failed to update execution record: {db_error_type}: {db_error}")
+                    deployment_logger.error(f"Raw DB error: {repr(db_error)}")
     
     def add_deployment(self, deployment):
         """Add new deployment (called by API)"""
