@@ -138,6 +138,20 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
     const now = new Date().getTime();
     const end = new Date(logData.estimated_end).getTime();
     const remainingMs = end - now;
+    
+    console.log('[@ScriptRunningOverlay] Time calculation:', {
+      estimated_end: logData.estimated_end,
+      now: new Date(now).toISOString(),
+      end: new Date(end).toISOString(),
+      remainingMs,
+      isNaN: isNaN(end)
+    });
+    
+    if (isNaN(end)) {
+      console.error('[@ScriptRunningOverlay] Invalid estimated_end timestamp:', logData.estimated_end);
+      return null;
+    }
+    
     if (remainingMs <= 0) return 'finishing...';
     
     const minutes = Math.floor(remainingMs / 60000);
