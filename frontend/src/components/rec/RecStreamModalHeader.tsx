@@ -106,10 +106,14 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           fontSize: '1rem', // Reduced from h6 default (1.25rem) to ensure single line
           whiteSpace: 'nowrap', // Prevent wrapping
           overflow: 'hidden',
-          textOverflow: 'ellipsis'
+          textOverflow: 'ellipsis',
+          maxWidth: '300px', // Constrain title area to prevent button wrapping
+          flex: '0 0 auto', // Don't grow, allow shrink if needed
         }}
       >
-        <Box component="span">{device?.device_name || host.host_name}</Box>
+        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {device?.device_name || host.host_name}
+        </Box>
         {device?.has_running_deployment && (
           <LockIcon 
             sx={{ 
@@ -125,7 +129,7 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
         </Box>
       </Typography>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 auto', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
         {/* Screenshot Button - disabled in archive/restart mode */}
         {!restartMode && (
           <IconButton
@@ -218,8 +222,9 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
               backgroundColor: isQualitySwitching ? 'warning.main' : undefined, // Orange during transition
               '& .MuiToggleButton-root': {
                 fontSize: '0.75rem',
-                minWidth: 45,
-                px: 1,
+                minWidth: 38, // Reduced from 45 to save space
+                px: 0.5, // Reduced from 1 to save space
+                py: 0.5, // Reduce vertical padding too
                 border: '1px solid rgba(255, 255, 255, 0.12)',
                 opacity: !isLiveMode ? 0.5 : 1, // Dim when disabled in archive mode
                 '&.Mui-selected': {
