@@ -1,8 +1,8 @@
-import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon, Edit, Save, Cancel } from '@mui/icons-material';
+import { PlayArrow, Pause, Delete, Add, Close, Link as LinkIcon, Edit, Save, Cancel, OpenInNew } from '@mui/icons-material';
 import {
   Box, Typography, Card, CardContent, Button, Grid, TextField, Select, MenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions
+  TableRow, Paper, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
@@ -26,6 +26,9 @@ interface AdditionalDevice {
 }
 
 const Deployments: React.FC = () => {
+  // Get Grafana URL from environment variable
+  const grafanaUrl = (import.meta as any).env?.VITE_GRAFANA_URL || 'http://localhost/grafana';
+  
   const { createDeployment, listDeployments, pauseDeployment, resumeDeployment, deleteDeployment, getRecentExecutions } = useDeployment();
   const { getAllHosts, getDevicesFromHost, getHostByName } = useHostManager();
   const { showSuccess, showError } = useToast();
@@ -399,7 +402,18 @@ const Deployments: React.FC = () => {
         <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 1 }}>Create Deployment</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="h6">Create Deployment</Typography>
+                <Tooltip title="Open Script Results Dashboard">
+                  <IconButton
+                    onClick={() => window.open(`${grafanaUrl}/d/2a3b060a-7820-4a6e-aa2a-adcbf5408bd3/script-results?orgId=1&from=now-30d&to=now&timezone=browser&var-user_interface=$__all&var-host=$__all&var-device_name=$__all&var-script_name=$__all`, '_blank')}
+                    color="primary"
+                    size="small"
+                  >
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
               {!showCreate ? (
                 <Button variant="contained" startIcon={<Add />} onClick={() => setShowCreate(true)}>
                   New Deployment
