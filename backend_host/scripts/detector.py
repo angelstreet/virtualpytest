@@ -248,6 +248,42 @@ _freeze_result_cache = {}  # {device_dir: {'frozen': bool, 'details': dict, 'fra
 # Blackscreen result cache for adaptive sampling (when overloaded)
 _blackscreen_result_cache = {}  # {device_dir: {'blackscreen': bool, 'percentage': float, 'frame_number': int}}
 
+# Cache cleanup tracking
+_cache_last_cleanup = {}  # {device_dir: timestamp}
+CACHE_CLEANUP_INTERVAL = 3600  # Clean cache every hour (1 hour = 3600 seconds)
+
+def cleanup_old_caches(device_key):
+    """
+    Periodic cache cleanup to prevent memory leaks.
+    Called every hour per device to clear stale cache entries.
+    """
+    global _freeze_thumbnail_cache, _freeze_result_cache, _blackscreen_result_cache, _cache_last_cleanup
+    
+    current_time = time.time()
+    last_cleanup = _cache_last_cleanup.get(device_key, 0)
+    
+    # Only cleanup if it's been more than CACHE_CLEANUP_INTERVAL seconds
+    if current_time - last_cleanup < CACHE_CLEANUP_INTERVAL:
+        return
+    
+    # Clear freeze thumbnail cache for this device
+    if device_key in _freeze_thumbnail_cache:
+        old_size = len(_freeze_thumbnail_cache[device_key])
+        _freeze_thumbnail_cache[device_key] = []
+        logger.debug(f"[{device_key}] Cache cleanup: Freed {old_size} freeze thumbnails")
+    
+    # Clear freeze result cache
+    if device_key in _freeze_result_cache:
+        del _freeze_result_cache[device_key]
+    
+    # Clear blackscreen result cache
+    if device_key in _blackscreen_result_cache:
+        del _blackscreen_result_cache[device_key]
+    
+    # Update last cleanup time
+    _cache_last_cleanup[device_key] = current_time
+    logger.info(f"[{device_key}] Memory cache cleanup completed (next cleanup in {CACHE_CLEANUP_INTERVAL/3600:.1f}h)")
+
 def get_zap_state_file(capture_dir):
     """Get path to zap state file for device"""
     return os.path.join(capture_dir, '.zap_state.json')
@@ -456,6 +492,9 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
             logger.warning(f"Zap fast path error: {e}, falling back to full detection")
     
     # === FULL PATH: Normal detection (not zapping) ===
+    
+    # Periodic cache cleanup to prevent memory leaks (every hour per device)
+    cleanup_old_caches(capture_dir)
     
     # Get thumbnails directory (handles both RAM and SD modes)
     try:

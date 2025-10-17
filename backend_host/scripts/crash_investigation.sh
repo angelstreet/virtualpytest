@@ -256,15 +256,30 @@ else
     warn "Crash monitoring is NOT installed"
     log "\nInstalling crash monitoring..."
     
-    # Enable persistent journald
+    # Enable persistent journald with memory limits
     sudo mkdir -p /var/log/journal
     sudo systemd-tmpfiles --create --prefix /var/log/journal 2>/dev/null || true
     
+    # Configure journald with strict limits to prevent memory bloat
     if ! grep -q "^Storage=persistent" /etc/systemd/journald.conf 2>/dev/null; then
-        echo "Storage=persistent" | sudo tee -a /etc/systemd/journald.conf > /dev/null
-        echo "SystemMaxUse=500M" | sudo tee -a /etc/systemd/journald.conf > /dev/null
+        log "Configuring journald with memory limits..."
+        sudo tee -a /etc/systemd/journald.conf > /dev/null << 'EOFJOURNALD'
+# Memory leak prevention - strict journal limits
+Storage=persistent
+SystemMaxUse=500M
+SystemKeepFree=1G
+SystemMaxFileSize=50M
+SystemMaxFiles=10
+RuntimeMaxUse=100M
+MaxRetentionSec=1week
+MaxFileSec=1day
+RateLimitIntervalSec=30s
+RateLimitBurst=10000
+EOFJOURNALD
         sudo systemctl restart systemd-journald
-        success "Persistent journald enabled"
+        success "Persistent journald enabled with memory limits"
+    else
+        log "Journald already configured"
     fi
     
     # Create monitoring service
@@ -296,6 +311,47 @@ for i in 1 2 3 4; do
         fi
     fi
 done
+
+# === MEMORY LEAK MONITORING ===
+echo "${TIMESTAMP} MEMORY LEAK TRACKING:" >> "${LOG_FILE}"
+
+# 1. Python processes (capture_monitor, hot_cold_archiver, etc)
+ps aux | grep -E "capture_monitor|hot_cold_archiver|transcript_accumulator|app.py" | grep -v grep | while read line; do
+    PID=$(echo "$line" | awk '{print $2}')
+    MEM_MB=$(echo "$line" | awk '{print $6/1024}')
+    MEM_PCT=$(echo "$line" | awk '{print $4}')
+    CMD=$(echo "$line" | awk '{print $11}')
+    CMD_SHORT=$(basename "$CMD")
+    echo "${TIMESTAMP}   ${CMD_SHORT}: ${MEM_MB}MB (${MEM_PCT}%)" >> "${LOG_FILE}"
+    
+    # Alert if any Python process exceeds 1GB
+    if (( $(echo "$MEM_MB > 1024" | bc -l) )); then
+        echo "${TIMESTAMP}   ⚠️  ALERT: ${CMD_SHORT} exceeds 1GB! Possible memory leak!" >> "${LOG_FILE}"
+    fi
+done
+
+# 2. Journal log size (systemd logs in RAM)
+if [ -d "/run/log/journal" ]; then
+    JOURNAL_SIZE=$(du -sh /run/log/journal 2>/dev/null | awk '{print $1}' || echo "0")
+    echo "${TIMESTAMP}   Journal RAM: ${JOURNAL_SIZE}" >> "${LOG_FILE}"
+fi
+
+# 3. /tmp usage (temp files like audio_check.ts, concat_list.txt)
+TMP_USAGE=$(du -sh /tmp 2>/dev/null | awk '{print $1}' || echo "0")
+echo "${TIMESTAMP}   /tmp size: ${TMP_USAGE}" >> "${LOG_FILE}"
+
+# Check for leftover temp files from capture_monitor
+TEMP_FILES=$(ls -lh /tmp/*_audio_check.ts /tmp/*_concat_list.txt 2>/dev/null | wc -l || echo "0")
+if [ "$TEMP_FILES" -gt 0 ]; then
+    TEMP_SIZE=$(du -sh /tmp/*_audio_check.ts /tmp/*_concat_list.txt 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
+    echo "${TIMESTAMP}   ⚠️  Found ${TEMP_FILES} temp audio files in /tmp" >> "${LOG_FILE}"
+fi
+
+# 4. Python cache directories
+PYCACHE_SIZE=$(find /home/*/virtualpytest -name __pycache__ -type d -exec du -sh {} + 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo "0")
+if [ ! -z "$PYCACHE_SIZE" ] && [ "$PYCACHE_SIZE" != "0" ]; then
+    echo "${TIMESTAMP}   __pycache__: ${PYCACHE_SIZE}" >> "${LOG_FILE}"
+fi
 
 # Top CPU consumers (compact)
 ps aux --sort=-%cpu | head -5 >> "${LOG_FILE}"

@@ -58,12 +58,41 @@ from detector import detect_issues
 from incident_manager import IncidentManager
 
 # Setup logging (systemd handles file output)
+# Use INFO for important events, DEBUG for repetitive per-frame logs
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.INFO,  # INFO = important events only (incidents, state changes)
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+
+# Log memory usage periodically (every hour)
+_last_memory_log = 0
+MEMORY_LOG_INTERVAL = 3600  # 1 hour
+
+def log_memory_usage():
+    """Log memory usage periodically to help track memory leaks"""
+    global _last_memory_log
+    current_time = time.time()
+    
+    if current_time - _last_memory_log < MEMORY_LOG_INTERVAL:
+        return
+    
+    try:
+        import psutil
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        memory_mb = memory_info.rss / 1024 / 1024
+        
+        logger.info(f"📊 [MEMORY] capture_monitor.py using {memory_mb:.1f}MB RAM")
+        
+        # Alert if memory exceeds 1GB
+        if memory_mb > 1024:
+            logger.warning(f"⚠️  [MEMORY] capture_monitor.py exceeds 1GB ({memory_mb:.1f}MB) - possible memory leak!")
+        
+        _last_memory_log = current_time
+    except Exception as e:
+        logger.warning(f"Failed to log memory usage: {e}")
 
 class InotifyFrameMonitor:
     """Event-driven frame monitor with per-device queue processing"""
@@ -1005,7 +1034,18 @@ class InotifyFrameMonitor:
             finally:
                 # Clean up merged file (frees space immediately instead of waiting for next overwrite)
                 if os.path.exists(merged_path):
-                    os.unlink(merged_path)
+                    try:
+                        os.unlink(merged_path)
+                        logger.debug(f"[{capture_folder}] Cleaned up merged audio file: {merged_path}")
+                    except Exception as e:
+                        logger.warning(f"[{capture_folder}] Failed to delete merged audio file: {e}")
+                
+                # Also clean up concat list if it still exists
+                if os.path.exists(concat_list_path):
+                    try:
+                        os.unlink(concat_list_path)
+                    except:
+                        pass
             
         except Exception as e:
             logger.warning(f"[{capture_folder}] Audio check failed: {e}")
@@ -1139,6 +1179,9 @@ class InotifyFrameMonitor:
     
     def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""
+        
+        # Log memory usage periodically (every hour)
+        log_memory_usage()
         
         # Filter out temporary files and thumbnails
         # FFmpeg atomic_writing creates .tmp files first, then renames

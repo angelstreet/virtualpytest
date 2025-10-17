@@ -74,6 +74,8 @@ class IncidentManager:
     def __init__(self, skip_startup_cleanup=False):
         self.device_states = {}  # {device_id: {state: int, active_incidents: {type: incident_id}, pending_incidents: {type: timestamp}}}
         self.INCIDENT_REPORT_DELAY = 30  # Only report to DB after 30 seconds of continuous detection
+        self._last_states_cleanup = 0  # Track last cleanup time
+        self.STATES_CLEANUP_INTERVAL = 3600  # Clean device_states every hour
         # Start fresh on service restart - resolve any stale incidents from previous run
         # Skip cleanup if called from transcript_accumulator (only report audio, don't manage incident lifecycle)
         if not skip_startup_cleanup:
@@ -87,7 +89,45 @@ class IncidentManager:
                 'active_incidents': {},  # {issue_type: alert_id} - incidents in DB
                 'pending_incidents': {}  # {issue_type: first_detected_timestamp} - not yet in DB
             }
+        
+        # Periodic cleanup to prevent memory leaks
+        self._cleanup_device_states_if_needed()
+        
         return self.device_states[device_id]
+    
+    def _cleanup_device_states_if_needed(self):
+        """Periodic cleanup of device_states to remove stale image paths and old data"""
+        current_time = time.time()
+        
+        # Only cleanup every hour
+        if current_time - self._last_states_cleanup < self.STATES_CLEANUP_INTERVAL:
+            return
+        
+        logger.info("[@incident_manager] 🧹 Starting device_states memory cleanup...")
+        
+        # Clean up stale image paths from device_states (prevent unbounded growth)
+        cleaned_count = 0
+        for device_id, state in self.device_states.items():
+            # Remove all cold storage paths (they're only needed during incident lifecycle)
+            keys_to_remove = []
+            for key in state.keys():
+                # Remove cold storage paths after incidents are resolved
+                if '_cold' in key or '_r2_images' in key:
+                    # Keep if there's an active incident of this type
+                    incident_type = key.split('_')[0]  # e.g., 'blackscreen' from 'blackscreen_start_thumbnail_cold'
+                    if incident_type not in state.get('active_incidents', {}):
+                        keys_to_remove.append(key)
+            
+            for key in keys_to_remove:
+                del state[key]
+                cleaned_count += 1
+        
+        self._last_states_cleanup = current_time
+        
+        if cleaned_count > 0:
+            logger.info(f"[@incident_manager] ✅ Cleaned {cleaned_count} stale paths from device_states")
+        else:
+            logger.debug(f"[@incident_manager] No stale paths found in device_states")
     
     def _resolve_all_incidents_on_startup(self):
         """Resolve all active incidents on service restart - start fresh with no stale state"""
