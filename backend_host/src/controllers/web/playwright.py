@@ -1615,7 +1615,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'command': 'find_element',
                     'action_type': 'web',
                     'params': {},
-                    'description': 'Find an element by CSS selector, text, or aria-label',
+                    'description': 'Find an element by text/selector/aria-label (returns element ID and position like click_element)',
                     'requiresInput': True,
                     'inputLabel': 'Selector or text',
                     'inputPlaceholder': 'TV Guide or #flt-semantic-node-6'
