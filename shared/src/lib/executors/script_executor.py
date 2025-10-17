@@ -395,10 +395,13 @@ class ScriptExecutionContext:
             with open(temp_path, 'w') as f:
                 json.dump(log_data, f, indent=2)
             os.replace(temp_path, self.running_log_path)
+            print(f"[@script_executor] Wrote running log: {self.running_log_path} (step {current_step_number}/{total_steps})")
             
         except Exception as e:
-            # Silent failure - don't break script execution for logging issues
-            pass
+            # Log error but don't break script execution
+            print(f"[@script_executor] ERROR writing running log to {self.running_log_path}: {e}")
+            import traceback
+            traceback.print_exc()
     
     def record_step_dict(self, step_dict: dict):
         """Record a step using dict format (backward compatible with existing reporting)"""

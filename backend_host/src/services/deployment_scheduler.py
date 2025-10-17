@@ -426,24 +426,12 @@ class DeploymentScheduler:
                 running_log_path = get_running_log_path(capture_folder)
                 log_dir = os.path.dirname(running_log_path)
                 
-                # Ensure directory exists with proper permissions
+                # Ensure directory exists (should already exist from setup_ram_hot_storage.sh)
                 os.makedirs(log_dir, exist_ok=True)
                 
-                # Set directory permissions to 777 (like other hot directories)
-                try:
-                    os.chmod(log_dir, 0o777)
-                except Exception as chmod_error:
-                    print(f"[@deployment_scheduler] Warning: Could not set directory permissions: {chmod_error}")
-                
-                # Clear/create file
+                # Clear/create file (no chmod needed - hot folders already have 777 from setup script)
                 with open(running_log_path, 'w') as f:
                     f.write('')  # Clear file
-                
-                # Set file permissions to 644 (readable by nginx/www-data)
-                try:
-                    os.chmod(running_log_path, 0o644)
-                except Exception as chmod_error:
-                    print(f"[@deployment_scheduler] Warning: Could not set file permissions: {chmod_error}")
                 
                 print(f"[@deployment_scheduler] Cleared running log: {running_log_path}")
             except Exception as log_error:
