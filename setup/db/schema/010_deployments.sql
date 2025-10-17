@@ -51,8 +51,8 @@ CREATE TABLE deployment_executions (
     completed_at TIMESTAMP WITH TIME ZONE,
     
     -- Status tracking
-    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'skipped')),
-    skip_reason TEXT, -- 'device_locked' if skipped
+    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'skipped', 'queued')),
+    skip_reason TEXT, -- 'device_locked' if skipped, or reason for queuing
     success BOOLEAN,
     error_message TEXT
 );
@@ -107,6 +107,6 @@ COMMENT ON TABLE deployment_executions IS 'History of deployment executions - sk
 COMMENT ON COLUMN deployment_executions.script_result_id IS 'Link to script_results table for execution details';
 COMMENT ON COLUMN deployment_executions.scheduled_at IS 'When deployment was scheduled to run';
 COMMENT ON COLUMN deployment_executions.started_at IS 'When execution actually started (null if skipped)';
-COMMENT ON COLUMN deployment_executions.status IS 'Execution status: running, completed, failed, or skipped';
+COMMENT ON COLUMN deployment_executions.status IS 'Execution status: running, completed, failed, skipped, or queued';
 COMMENT ON COLUMN deployment_executions.skip_reason IS 'Why execution was skipped (e.g., device_locked)';
 
