@@ -181,11 +181,12 @@ CREATE TABLE test_results (
 CREATE TABLE verifications_references (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name text NOT NULL,
-    device_model text NOT NULL,
+    device_model text NOT NULL,  -- DEPRECATED: Kept for backward compatibility during migration, will be removed
+    userinterface_id uuid REFERENCES userinterfaces(id),  -- NEW: References are now organized by userinterface
     reference_type text NOT NULL CHECK (reference_type = ANY (ARRAY['reference_image'::text, 'reference_text'::text])),
     area jsonb,
-    r2_path text NOT NULL,
-    r2_url text NOT NULL,
+    r2_path text NOT NULL,  -- Path format: reference-images/{userinterface_name}/{filename} or text-references/{userinterface_name}/{filename}
+    r2_url text NOT NULL,   -- URL format: https://.../reference-images/{userinterface_name}/{filename}
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
@@ -491,7 +492,8 @@ CREATE INDEX idx_script_results_discard ON script_results(discard);
 
 -- Verification indexes
 CREATE INDEX idx_verifications_references_team_id ON verifications_references(team_id);
-CREATE INDEX idx_verifications_references_device_model ON verifications_references(device_model);
+CREATE INDEX idx_verifications_references_device_model ON verifications_references(device_model);  -- DEPRECATED: Will be removed after migration
+CREATE INDEX idx_verifications_references_userinterface_id ON verifications_references(userinterface_id);  -- NEW
 CREATE INDEX idx_verifications_references_reference_type ON verifications_references(reference_type);
 
 -- Monitoring indexes
