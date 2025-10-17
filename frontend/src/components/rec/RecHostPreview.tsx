@@ -1,4 +1,4 @@
-import { Error as ErrorIcon } from '@mui/icons-material';
+import { Error as ErrorIcon, Lock as LockIcon } from '@mui/icons-material';
 import { Card, Typography, Box, Chip, CircularProgress, Checkbox } from '@mui/material';
 import React, { useState, useCallback, useMemo, useEffect, memo } from 'react';
 
@@ -227,6 +227,18 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
               size="small"
               variant="outlined"
               sx={{ fontSize: '0.6rem', height: 16, minWidth: 20 }}
+            />
+          )}
+          
+          {/* Deployment running indicator */}
+          {device?.has_running_deployment && (
+            <LockIcon 
+              sx={{ 
+                fontSize: '0.9rem', 
+                color: 'warning.main',
+                ml: 0.5
+              }} 
+              titleAccess="Script running"
             />
           )}
           

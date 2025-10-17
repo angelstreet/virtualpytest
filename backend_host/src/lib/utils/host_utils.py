@@ -294,6 +294,42 @@ def register_host_with_server():
         return False
 
 
+def get_devices_with_running_deployments():
+    """Check which devices have running deployments"""
+    try:
+        from shared.src.lib.utils.supabase_utils import get_supabase_client
+        supabase = get_supabase_client()
+        host = get_host()
+        
+        # Get all deployments for this host
+        deployments_result = supabase.table('deployments').select('id, device_id').eq('host_name', host.host_name).execute()
+        
+        if not deployments_result.data:
+            return set()
+        
+        deployment_ids = [d['id'] for d in deployments_result.data]
+        device_deployment_map = {d['id']: d['device_id'] for d in deployments_result.data}
+        
+        # Check for running executions
+        running_executions = supabase.table('deployment_executions')\
+            .select('deployment_id')\
+            .in_('deployment_id', deployment_ids)\
+            .eq('status', 'running')\
+            .execute()
+        
+        # Return set of device_ids with running deployments
+        running_devices = set()
+        for execution in running_executions.data:
+            deployment_id = execution['deployment_id']
+            device_id = device_deployment_map.get(deployment_id)
+            if device_id:
+                running_devices.add(device_id)
+        
+        return running_devices
+    except Exception as e:
+        print(f"[@host] Error checking running deployments: {e}")
+        return set()
+
 def send_ping_to_server():
     """Send ping to server to maintain registration."""
     global client_registration_state
@@ -361,12 +397,23 @@ def send_ping_to_server():
             # Store device metrics independently on host
             store_device_metrics(host.host_name, device_metric, host_system_stats)
         
+        # Check which devices have running deployments
+        running_deployment_devices = get_devices_with_running_deployments()
+        
+        # Add deployment status to device data
+        devices_with_status = []
+        for device in host.get_devices():
+            device_dict = device.to_dict()
+            device_dict['has_running_deployment'] = device.device_id in running_deployment_devices
+            devices_with_status.append(device_dict)
+        
         ping_data = {
             'host_name': host.host_name,
             'timestamp': time.time(),
             'device_count': host.get_device_count(),
             'system_stats': host_system_stats,  # Include host system stats in ping
-            'per_device_metrics': per_device_metrics  # Only operational status
+            'per_device_metrics': per_device_metrics,  # Only operational status
+            'devices': devices_with_status  # Include device deployment status
         }
         
         ping_url = client_registration_state['urls'].get('ping')

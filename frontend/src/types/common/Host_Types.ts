@@ -69,6 +69,9 @@ export interface Device {
   // === DEVICE-LEVEL VERIFICATION AND ACTIONS ===
   device_verification_types?: Verifications; // Device verification types (simplified naming)
   device_action_types?: Actions; // Device action types (simplified naming)
+  
+  // === DEPLOYMENT STATUS ===
+  has_running_deployment?: boolean; // True if a deployment script is currently running on this device
 }
 
 export interface Host {

@@ -205,6 +205,17 @@ class HostManager:
                     # Update system_stats if provided in ping (for real-time display)
                     if 'system_stats' in ping_data:
                         self._hosts[host_name]['system_stats'] = ping_data['system_stats']
+                    
+                    # Update device deployment status if provided
+                    if 'devices' in ping_data:
+                        for updated_device in ping_data['devices']:
+                            device_id = updated_device.get('device_id')
+                            if device_id and 'devices' in self._hosts[host_name]:
+                                # Find and update device deployment status
+                                for existing_device in self._hosts[host_name]['devices']:
+                                    if existing_device.get('device_id') == device_id:
+                                        existing_device['has_running_deployment'] = updated_device.get('has_running_deployment', False)
+                                        break
                 return True
             return False
     

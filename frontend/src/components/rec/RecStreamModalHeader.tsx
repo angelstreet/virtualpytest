@@ -11,6 +11,7 @@ import {
   CameraAlt as CameraIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { Box, IconButton, Typography, Button, CircularProgress, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import React from 'react';
@@ -97,6 +98,16 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
     >
       <Typography variant="h6" component="h2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Box component="span">{device?.device_name || host.host_name} -</Box>
+        {device?.has_running_deployment && (
+          <LockIcon 
+            sx={{ 
+              fontSize: '1.1rem', 
+              color: 'warning.main',
+              mr: 0.5
+            }} 
+            titleAccess="Script running"
+          />
+        )}
         <Box component="span" sx={{ minWidth: 100, display: 'inline-block' }}>
           {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live' : 'Last 24h'}
         </Box>
