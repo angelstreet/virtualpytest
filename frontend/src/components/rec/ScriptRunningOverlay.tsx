@@ -17,7 +17,6 @@ import { Box, Typography, IconButton, CircularProgress } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  VisibilityOff as VisibilityOffIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 
@@ -71,7 +70,6 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
 }) => {
   const [logData, setLogData] = useState<RunningLogData | null>(null);
   const [isExpanded, setIsExpanded] = useState(false); // Current step expansion
-  const [isVisible, setIsVisible] = useState(true); // Show/hide overlay
   const [isCollapsed, setIsCollapsed] = useState(false); // Collapse entire overlay
 
   // Poll running.log every 2 seconds
@@ -85,13 +83,14 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
         
         if (response.ok) {
           const data = await response.json();
+          console.log('[@ScriptRunningOverlay] Raw JSON data:', data);
           setLogData(data);
         } else {
           // Log file might not exist yet or script finished
           setLogData(null);
         }
       } catch (error) {
-        console.debug('Failed to fetch running.log:', error);
+        console.debug('[@ScriptRunningOverlay] Failed to fetch running.log:', error);
         setLogData(null);
       }
     };
@@ -105,8 +104,8 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
     return () => clearInterval(interval);
   }, [host, device_id]);
 
-  // Don't render if no data or hidden
-  if (!logData || !isVisible) {
+  // Don't render if no data
+  if (!logData) {
     return null;
   }
 
@@ -213,25 +212,15 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
           pointerEvents: 'auto',
         }}
       >
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <LockIcon sx={{ fontSize: '1rem', color: 'warning.main' }} />
-        <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold', flex: 1, fontSize: '0.85rem' }}>
-          {logData.script_name}
-        </Typography>
+      {/* Header - minimized since script name/time shown in top banner */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 1, pb: 0.5, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <IconButton
           size="small"
           onClick={() => setIsCollapsed(true)}
           sx={{ color: '#aaa', p: 0.25 }}
+          title="Minimize"
         >
           <ExpandLessIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={() => setIsVisible(false)}
-          sx={{ color: '#aaa', p: 0.25 }}
-        >
-          <VisibilityOffIcon fontSize="small" />
         </IconButton>
       </Box>
 
@@ -380,18 +369,6 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
         </Box>
       )}
 
-      {/* Footer: Times */}
-      <Box sx={{ pt: 1, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.7rem', display: 'block' }}>
-          Started: {new Date(logData.start_time).toLocaleTimeString('en-US', { hour12: false })}
-        </Typography>
-        {logData.estimated_end && (
-          <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.7rem', display: 'block' }}>
-            Est. End: {new Date(logData.estimated_end).toLocaleTimeString('en-US', { hour12: false })}
-            {getTimeRemaining() && ` (${getTimeRemaining()})`}
-          </Typography>
-        )}
-      </Box>
     </Box>
     </>
   );

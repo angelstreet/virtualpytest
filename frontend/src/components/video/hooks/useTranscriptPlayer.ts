@@ -82,6 +82,23 @@ export const useTranscriptPlayer = ({
   // Prevent duplicate language change requests
   const languageChangeInProgressRef = useRef<string | null>(null);
 
+  // Clear transcript and dubbed audio when switching to live mode
+  useEffect(() => {
+    if (isLiveMode) {
+      console.log(`[@useTranscriptPlayer] Live mode detected - clearing transcript and dubbed audio`);
+      setTranscriptData(null);
+      setRawTranscriptData(null);
+      setCurrentTranscript(null);
+      setCurrentTimedSegment(null);
+      setDubbedAudioUrl(null);
+      setSelectedTranscriptLanguage('original');
+      setAvailableLanguages(['original']);
+      setAvailableDubbedLanguages([]);
+      setHasMp3(false);
+      setMp3Url(null);
+    }
+  }, [isLiveMode]);
+
   useEffect(() => {
     if (!isLiveMode && archiveMetadata && archiveMetadata.manifests.length > 0) {
       const currentManifest = archiveMetadata.manifests[currentManifestIndex];
@@ -318,6 +335,12 @@ export const useTranscriptPlayer = ({
   }, [deviceId, host]);
 
   const handleLanguageChange = useCallback(async (language: string) => {
+    // GUARD: Only allow language changes in archive mode (not live mode)
+    if (isLiveMode) {
+      console.log(`[@useTranscriptPlayer] 🛑 Language change blocked - only available in Last 24h mode`);
+      return;
+    }
+    
     // Prevent duplicate requests for the same language
     if (languageChangeInProgressRef.current === language) {
       console.log(`[@useTranscriptPlayer] 🛑 Language change already in progress for ${language}, skipping duplicate request`);
@@ -444,7 +467,7 @@ export const useTranscriptPlayer = ({
       setIsTranslating(false);
       languageChangeInProgressRef.current = null; // Clear the guard
     }
-  }, [archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, host, deviceId]);
+  }, [isLiveMode, archiveMetadata, currentManifestIndex, loadTranscriptForLanguage, host, deviceId]);
 
   const getCurrentTranscriptText = useCallback(() => {
     if (rawTranscriptData?.segments && rawTranscriptData.segments.length > 0 && currentTimedSegment) {
