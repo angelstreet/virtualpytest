@@ -569,7 +569,7 @@ def cleanup_cold_captures(capture_dir: str, batch_limit: Optional[int] = None) -
         old_files.sort(key=lambda x: x[0], reverse=True)
         if batch_limit and len(old_files) > batch_limit:
             old_files = old_files[:batch_limit]
-            logger.info(f"Cold captures: Batching {batch_limit} of {len(old_files)} old files")
+            logger.info(f"{Colors.BLUE}Cold captures: Batching {batch_limit} of {len(old_files)} old files{Colors.RESET}")
         
         # Delete files
         for _, f in old_files:
@@ -577,10 +577,10 @@ def cleanup_cold_captures(capture_dir: str, batch_limit: Optional[int] = None) -
             deleted += 1
             
     except Exception as e:
-        logger.error(f"Error cleaning cold captures: {e}")
+        logger.error(f"{Colors.BLUE}Error cleaning cold captures: {e}{Colors.RESET}")
     
     if deleted > 0:
-        logger.info(f"Cold captures: Deleted {deleted} files older than 1h")
+        logger.info(f"{Colors.BLUE}Cold captures: Deleted {deleted} files older than 1h{Colors.RESET}")
     
     return deleted
 
@@ -620,7 +620,7 @@ def cleanup_cold_thumbnails(capture_dir: str, batch_limit: Optional[int] = None)
         old_files.sort(key=lambda x: x[0], reverse=True)
         if batch_limit and len(old_files) > batch_limit:
             old_files = old_files[:batch_limit]
-            logger.info(f"Cold thumbnails: Batching {batch_limit} of {len(old_files)} old files")
+            logger.info(f"{Colors.BLUE}Cold thumbnails: Batching {batch_limit} of {len(old_files)} old files{Colors.RESET}")
         
         # Delete files
         for _, f in old_files:
@@ -628,10 +628,10 @@ def cleanup_cold_thumbnails(capture_dir: str, batch_limit: Optional[int] = None)
             deleted += 1
             
     except Exception as e:
-        logger.error(f"Error cleaning cold thumbnails: {e}")
+        logger.error(f"{Colors.BLUE}Error cleaning cold thumbnails: {e}{Colors.RESET}")
     
     if deleted > 0:
-        logger.info(f"Cold thumbnails: Deleted {deleted} files older than 1h")
+        logger.info(f"{Colors.BLUE}Cold thumbnails: Deleted {deleted} files older than 1h{Colors.RESET}")
     
     return deleted
 
@@ -1536,7 +1536,7 @@ def process_cold_storage(capture_dir: str):
     
     This runs in a separate thread to avoid blocking hot storage cleanup.
     """
-    logger.info(f"❄️  COLD: {os.path.basename(capture_dir)}")
+    logger.info(f"{Colors.BLUE}❄️  COLD: {os.path.basename(capture_dir)}{Colors.RESET}")
     
     start_time = time.time()
     
@@ -1555,7 +1555,7 @@ def process_cold_storage(capture_dir: str):
     
     cleanup_info = f"del: {', '.join(cold_deletes)}" if cold_deletes else "del: 0"
     
-    logger.info(f"  ✓ COLD done in {elapsed:.2f}s ({cleanup_info})")
+    logger.info(f"{Colors.BLUE}  ✓ COLD done in {elapsed:.2f}s ({cleanup_info}){Colors.RESET}")
 
 
 def hot_storage_loop():
@@ -1693,10 +1693,10 @@ def cold_storage_loop():
     """
     logger.info("")
     logger.info("=" * 80)
-    logger.info("❄️  COLD STORAGE THREAD STARTED")
+    logger.info(f"{Colors.BLUE}❄️  COLD STORAGE THREAD STARTED{Colors.RESET}")
     logger.info("=" * 80)
-    logger.info(f"Interval: {COLD_THREAD_INTERVAL}s")
-    logger.info(f"Batch limit: {COLD_BATCH_LIMIT} files per device per cycle")
+    logger.info(f"{Colors.BLUE}Interval: {COLD_THREAD_INTERVAL}s{Colors.RESET}")
+    logger.info(f"{Colors.BLUE}Batch limit: {COLD_BATCH_LIMIT} files per device per cycle{Colors.RESET}")
     logger.info("=" * 80)
     
     while True:
@@ -1705,7 +1705,7 @@ def cold_storage_loop():
             
             logger.info("")
             logger.info("=" * 80)
-            logger.info(f"❄️  COLD CYCLE at {datetime.now().strftime('%H:%M:%S')}")
+            logger.info(f"{Colors.BLUE}❄️  COLD CYCLE at {datetime.now().strftime('%H:%M:%S')}{Colors.RESET}")
             logger.info("=" * 80)
             
             # Get active capture directories
@@ -1716,19 +1716,19 @@ def cold_storage_loop():
                 try:
                     process_cold_storage(capture_dir)
                 except Exception as e:
-                    logger.error(f"Error processing cold storage for {capture_dir}: {e}", exc_info=True)
+                    logger.error(f"{Colors.BLUE}Error processing cold storage for {capture_dir}: {e}{Colors.RESET}", exc_info=True)
             
             cycle_elapsed = time.time() - cycle_start
-            logger.info(f"❄️  COLD cycle completed in {cycle_elapsed:.2f}s (next in {COLD_THREAD_INTERVAL}s)")
+            logger.info(f"{Colors.BLUE}❄️  COLD cycle completed in {cycle_elapsed:.2f}s (next in {COLD_THREAD_INTERVAL}s){Colors.RESET}")
             
             # Sleep until next cycle
             time.sleep(COLD_THREAD_INTERVAL)
             
         except KeyboardInterrupt:
-            logger.info("❄️  COLD thread: Received interrupt signal, shutting down...")
+            logger.info(f"{Colors.BLUE}❄️  COLD thread: Received interrupt signal, shutting down...{Colors.RESET}")
             break
         except Exception as e:
-            logger.error(f"Error in cold storage loop: {e}", exc_info=True)
+            logger.error(f"{Colors.BLUE}Error in cold storage loop: {e}{Colors.RESET}", exc_info=True)
             time.sleep(COLD_THREAD_INTERVAL)
 
 
@@ -1746,7 +1746,7 @@ if __name__ == '__main__':
         logger.info("HOT/COLD ARCHIVER - DUAL-THREAD ARCHITECTURE")
         logger.info("=" * 80)
         logger.info("🔥 HOT THREAD: Critical RAM management (every 15s)")
-        logger.info("❄️  COLD THREAD: Batch cleanup (every 60s, max 200 files/device)")
+        logger.info(f"{Colors.BLUE}❄️  COLD THREAD: Batch cleanup (every 60s, max 200 files/device){Colors.RESET}")
         logger.info("=" * 80)
         
         # Create and start both threads
@@ -1768,7 +1768,7 @@ if __name__ == '__main__':
                     hot_thread = threading.Thread(target=hot_storage_loop, name="HotStorageThread", daemon=True)
                     hot_thread.start()
                 if not cold_thread.is_alive():
-                    logger.error("❄️  COLD thread died, restarting...")
+                    logger.error(f"{Colors.BLUE}❄️  COLD thread died, restarting...{Colors.RESET}")
                     cold_thread = threading.Thread(target=cold_storage_loop, name="ColdStorageThread", daemon=True)
                     cold_thread.start()
         except KeyboardInterrupt:
