@@ -29,16 +29,16 @@ from typing import Dict, List, Tuple
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-# Try to load .env file if it exists
-try:
-    from dotenv import load_dotenv
-    env_path = os.path.join(project_root, '.env')
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-        print(f"✅ Loaded environment from: {env_path}")
-except ImportError:
-    # python-dotenv not installed, user must set env vars manually
-    pass
+# Load .env file from project root
+from dotenv import load_dotenv
+env_path = os.path.join(project_root, '.env')
+
+if os.path.exists(env_path):
+    load_dotenv(env_path, override=True)
+    print(f"✅ Loaded environment from: {env_path}\n")
+else:
+    print(f"⚠️  Warning: .env file not found at: {env_path}")
+    print("    Make sure environment variables are set\n")
 
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
