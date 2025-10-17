@@ -124,9 +124,6 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
             titleAccess="Script running"
           />
         )}
-        <Box component="span" sx={{ flexShrink: 0 }}>
-          {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live' : 'Last 24h'}
-        </Box>
       </Typography>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 auto', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
