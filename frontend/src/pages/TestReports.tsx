@@ -13,6 +13,7 @@ import {
   Visibility as DetailsIcon,
   VisibilityOff as HideDetailsIcon,
   CheckCircle as CheckedIcon,
+  OpenInNew,
 } from '@mui/icons-material';
 import {
   Box,
@@ -44,6 +45,9 @@ import { useScriptResults, ScriptResult } from '../hooks/pages/useScriptResults'
 import { formatToLocalTime } from '../utils/dateUtils';
 
 const TestReports: React.FC = () => {
+  // Get Grafana URL from environment variable
+  const grafanaUrl = (import.meta as any).env?.VITE_GRAFANA_URL || 'http://localhost/grafana';
+  
   const { getAllScriptResults, updateCheckedStatus, updateDiscardStatus } = useScriptResults();
   const [scriptResults, setScriptResults] = useState<ScriptResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -319,6 +323,15 @@ const TestReports: React.FC = () => {
               <Box display="flex" alignItems="center" gap={1}>
                 <ReportsIcon color="primary" />
                 <Typography variant="h6" sx={{ my: 0 }}>Quick Stats</Typography>
+                <Tooltip title="Open Script Results Dashboard">
+                  <IconButton
+                    onClick={() => window.open(`${grafanaUrl}/d/2a3b060a-7820-4a6e-aa2a-adcbf5408bd3/script-results?orgId=1&from=now-30d&to=now&timezone=browser&var-user_interface=$__all&var-host=$__all&var-device_name=$__all&var-script_name=$__all`, '_blank')}
+                    color="primary"
+                    size="small"
+                  >
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
 
               <Box display="flex" alignItems="center" gap={4}>
