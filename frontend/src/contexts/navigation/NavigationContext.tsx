@@ -985,7 +985,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             }
             
             // Always update current tree cache
-            cacheTree(navigationConfig.actualTreeId, { nodes, edges });
+            cacheTree(navigationConfig.actualTreeId, { 
+              nodes: nodes as UINavigationNode[], 
+              edges: edges as UINavigationEdge[] 
+            });
             console.log('[@NavigationContext] Updated tree cache after node save');
 
             // Note: Cache refresh removed to prevent tree reload that breaks selectedNode reference
@@ -1114,7 +1117,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                
                // UPDATE TREE CACHE: Keep cache synchronized with current state
                if (navigationConfig?.actualTreeId) {
-                 cacheTree(navigationConfig.actualTreeId, { nodes, edges: updatedEdges });
+                 cacheTree(navigationConfig.actualTreeId, { 
+                   nodes: nodes as UINavigationNode[], 
+                   edges: updatedEdges as UINavigationEdge[] 
+                 });
                  console.log('[@NavigationContext] Updated tree cache after edge save');
                }
              }
@@ -1289,7 +1295,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             
             // UPDATE TREE CACHE: Keep cache synchronized after edge deletion
             if (navigationConfig?.actualTreeId) {
-              cacheTree(navigationConfig.actualTreeId, { nodes, edges: filteredEdges });
+              cacheTree(navigationConfig.actualTreeId, { 
+                nodes: nodes as UINavigationNode[], 
+                edges: filteredEdges as UINavigationEdge[] 
+              });
               console.log('[@NavigationContext] Updated tree cache after edge deletion');
             }
             
@@ -1364,7 +1373,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               
               // UPDATE TREE CACHE: Keep cache synchronized after edge direction deletion
               if (navigationConfig?.actualTreeId) {
-                cacheTree(navigationConfig.actualTreeId, { nodes, edges: updatedEdges });
+                cacheTree(navigationConfig.actualTreeId, { 
+                  nodes: nodes as UINavigationNode[], 
+                  edges: updatedEdges as UINavigationEdge[] 
+                });
                 console.log('[@NavigationContext] Updated tree cache after edge direction deletion');
               }
              }

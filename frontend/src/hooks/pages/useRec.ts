@@ -64,7 +64,7 @@ export const useRec = (): UseRecReturn => {
 
   // Use the HostData context (static data only - no control state)
   // This prevents re-renders when device control state changes (e.g., button presses)
-  const { getDevicesByCapability, isLoading: isHostDataLoading } = useHostData();
+  const { getDevicesByCapability, isLoading: isHostDataLoading, availableHosts } = useHostData();
   
   // Use refs to store latest values and prevent callback recreation
   const getDevicesByCapabilityRef = useRef(getDevicesByCapability);
@@ -72,6 +72,9 @@ export const useRec = (): UseRecReturn => {
   
   getDevicesByCapabilityRef.current = getDevicesByCapability;
   isHostDataLoadingRef.current = isHostDataLoading;
+  
+  // Track host list changes to detect server swaps
+  const prevHostCountRef = useRef(availableHosts.length);
 
   // Get AV-capable devices - only when HostData is ready
   // Stabilized with ref to prevent recreation on every HostData update
@@ -113,17 +116,20 @@ export const useRec = (): UseRecReturn => {
     }
   }, []); // No dependencies - use refs instead to keep callback stable
 
-  // Watch for host data loading state changes (server swap detection)
-  const prevLoadingRef = useRef(isHostDataLoading);
-  
+  // Watch for host list changes (server swap detection)
+  // Server swaps don't trigger loading state changes (data is cached),
+  // so we watch for actual host count changes instead
   useEffect(() => {
-    // Detect transition from loading to ready (new server data available)
-    if (prevLoadingRef.current && !isHostDataLoading) {
-      console.log('[@hook:useRec] Host data ready - refreshing devices immediately');
+    const currentHostCount = availableHosts.length;
+    
+    // Detect host count change (server swap or host availability change)
+    if (prevHostCountRef.current !== currentHostCount && !isHostDataLoading) {
+      console.log(`[@hook:useRec] Host count changed (${prevHostCountRef.current} -> ${currentHostCount}) - refreshing devices immediately`);
       refreshHosts();
     }
-    prevLoadingRef.current = isHostDataLoading;
-  }, [isHostDataLoading, refreshHosts]);
+    
+    prevHostCountRef.current = currentHostCount;
+  }, [availableHosts.length, isHostDataLoading, refreshHosts]);
 
   // Initial load and periodic refresh
   useEffect(() => {
