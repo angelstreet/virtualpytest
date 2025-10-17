@@ -86,31 +86,42 @@ def step1_add_userinterface_column(supabase) -> bool:
     print("\n📝 [Step 1] Adding userinterface_id column...")
     
     try:
-        # Check if column already exists
-        check_query = """
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'verifications_references' AND column_name = 'userinterface_id';
-        """
-        
-        result = supabase.rpc('exec_sql', {'query': check_query}).execute()
-        
-        if result.data and len(result.data) > 0:
+        # Check if column already exists by trying to select it
+        try:
+            test_query = supabase.table('verifications_references').select('userinterface_id').limit(1).execute()
             print("   ℹ️  Column userinterface_id already exists")
             return True
+        except:
+            # Column doesn't exist, need to add it
+            pass
         
-        # Add column
-        alter_query = """
-        ALTER TABLE verifications_references 
-        ADD COLUMN IF NOT EXISTS userinterface_id UUID REFERENCES userinterfaces(id);
-        """
+        # Need to use direct SQL - let user run migration manually
+        print("\n   ⚠️  Need to add userinterface_id column to database")
+        print("\n   Please run this SQL in your Supabase SQL Editor:")
+        print("\n   " + "=" * 70)
+        print("""
+   ALTER TABLE verifications_references 
+   ADD COLUMN IF NOT EXISTS userinterface_id UUID REFERENCES userinterfaces(id);
+   
+   CREATE INDEX IF NOT EXISTS idx_verifications_references_userinterface_id 
+   ON verifications_references(userinterface_id);
+        """)
+        print("   " + "=" * 70)
+        print("\n   After running the SQL, press ENTER to continue...")
+        input()
         
-        supabase.rpc('exec_sql', {'query': alter_query}).execute()
-        print("   ✅ Added userinterface_id column")
-        return True
+        # Verify column was added
+        try:
+            test_query = supabase.table('verifications_references').select('userinterface_id').limit(1).execute()
+            print("   ✅ Column verified successfully")
+            return True
+        except Exception as e:
+            print(f"   ❌ Column still not found. Please ensure SQL was run successfully.")
+            print(f"   Error: {e}")
+            return False
         
     except Exception as e:
-        print(f"   ❌ Failed to add column: {e}")
+        print(f"   ❌ Failed to check/add column: {e}")
         return False
 
 
