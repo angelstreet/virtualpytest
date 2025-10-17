@@ -133,6 +133,27 @@ def get_navigation_preview_with_executor(tree_id, node_id):
                 'error': 'host_name query parameter is required'
             }), 400
         
+        # ✅ CHECK CACHE & AUTO-POPULATE IF MISSING (same as execute route)
+        cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
+        
+        if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
+            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ✅ Cache exists for tree {tree_id}")
+        else:
+            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ⚠️ Cache missing for tree {tree_id} - auto-populating")
+            
+            # Reuse the take control cache population logic
+            from backend_server.src.routes.server_control_routes import populate_navigation_cache_for_control
+            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+            
+            if cache_populated:
+                print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ✅ Cache auto-populated successfully")
+            else:
+                print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ❌ Cache auto-population failed")
+                return jsonify({
+                    'success': False,
+                    'error': 'Navigation cache missing and auto-population failed. Please try taking control again.'
+                }), 400
+        
         # Create minimal host configuration for preview
         host = {'host_name': host_name}
         
