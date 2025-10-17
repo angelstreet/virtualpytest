@@ -170,3 +170,91 @@ CREATE POLICY "ai_analysis_cache_access_policy" ON ai_analysis_cache
 FOR ALL 
 TO public
 USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+
+-- =============================================================================
+-- DEFAULT DATA INSERTIONS
+-- =============================================================================
+
+-- Insert basic device models for each team
+-- This function will be called after teams are created to populate basic device models
+CREATE OR REPLACE FUNCTION create_default_device_models(p_team_id uuid)
+RETURNS void AS $$
+BEGIN
+    -- Only insert if no device models exist for this team
+    IF NOT EXISTS (SELECT 1 FROM device_models WHERE team_id = p_team_id LIMIT 1) THEN
+        
+        -- Web device model
+        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        VALUES (
+            p_team_id,
+            'web',
+            '["safari", "chrome", "firefox", "edge"]'::jsonb,
+            '{"av": "", "web": "playwright", "power": "", "remote": "", "network": ""}'::jsonb,
+            '',
+            'Web browser testing via Playwright'
+        );
+
+        -- Android TV device model
+        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        VALUES (
+            p_team_id,
+            'android_tv',
+            '["Android TV", "Fire TV", "Nvidia Shield"]'::jsonb,
+            '{"av": "hdmi_stream", "power": "", "remote": "android_tv", "network": ""}'::jsonb,
+            '',
+            'Android TV and streaming devices'
+        );
+
+        -- STB (Set-Top Box) device model
+        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        VALUES (
+            p_team_id,
+            'stb',
+            '["STB"]'::jsonb,
+            '{}'::jsonb,
+            '',
+            'Generic Set-Top Box'
+        );
+
+        -- Android Mobile device model
+        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        VALUES (
+            p_team_id,
+            'android_mobile',
+            '["Android Phone", "Android TV"]'::jsonb,
+            '{"av": "hdmi_stream", "power": "", "remote": "android_mobile", "network": ""}'::jsonb,
+            '',
+            'Android mobile devices'
+        );
+
+        -- Apple TV device model
+        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        VALUES (
+            p_team_id,
+            'apple_tv',
+            '["apple_tv"]'::jsonb,
+            '{"av": "hdmi_stream", "power": "", "remote": "apple_tv", "network": ""}'::jsonb,
+            '',
+            'Apple TV devices'
+        );
+
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to automatically create default device models when a new team is created
+CREATE OR REPLACE FUNCTION trigger_create_default_device_models()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM create_default_device_models(NEW.id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER after_team_insert
+    AFTER INSERT ON teams
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_create_default_device_models();
+
+COMMENT ON FUNCTION create_default_device_models(uuid) IS 'Creates default device models for a team';
+COMMENT ON FUNCTION trigger_create_default_device_models() IS 'Trigger function to auto-create device models when a team is created';

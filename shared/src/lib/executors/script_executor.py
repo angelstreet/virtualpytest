@@ -323,15 +323,14 @@ class ScriptExecutionContext:
             if len(self.step_results) >= 1:
                 current_step = self.step_results[-1]
                 
-                # Extract actions and verifications from transitions (if navigation step)
-                actions = []
-                verifications = []
-                if current_step.get('transitions'):
-                    for transition in current_step['transitions']:
-                        if transition.get('actions'):
-                            actions.extend(transition['actions'])
-                        if transition.get('verifications'):
-                            verifications.extend(transition['verifications'])
+                # Extract actions and verifications directly from step_result
+                # Note: step_results store 'actions' and 'verifications' at the top level
+                actions = current_step.get('actions', [])
+                verifications = current_step.get('verifications', [])
+                
+                # Also check if there are retry_actions or failure_actions
+                retry_actions = current_step.get('retry_actions', [])
+                failure_actions = current_step.get('failure_actions', [])
                 
                 log_data["current_step"] = {
                     "step_number": current_step.get('step_number'),
@@ -340,6 +339,8 @@ class ScriptExecutionContext:
                     "status": "current",
                     "actions": actions,
                     "verifications": verifications,
+                    "retry_actions": retry_actions if retry_actions else None,
+                    "failure_actions": failure_actions if failure_actions else None,
                 }
             
             # Calculate estimated end time based on average step duration
@@ -416,9 +417,12 @@ class ScriptExecutor:
         """Set team_id for script execution"""
         self.current_team_id = team_id
     
-    def execute_script(self, script_name: str, parameters: str = "") -> Dict[str, Any]:
+    def execute_script(self, script_name: str, parameters: str = "", estimated_duration_seconds: float = None) -> Dict[str, Any]:
         """Execute a script with parameters and real-time output streaming"""
         start_time = time.time()
+        
+        # Store estimated duration for use in setup_execution_context
+        self.estimated_duration_seconds = estimated_duration_seconds
         
         # Check if this is an AI test case - redirect to ai_testcase_executor.py
         # IMPORTANT: Exclude the executor script itself to prevent infinite recursion
@@ -760,6 +764,11 @@ class ScriptExecutor:
                 capture_folder = os.path.basename(host_capture_path)
             context.set_running_log_path(capture_folder)
             print(f"📝 [{self.script_name}] Running log enabled: {context.running_log_path}")
+            
+            # Set estimated duration from historical data (if available)
+            if hasattr(self, 'estimated_duration_seconds') and self.estimated_duration_seconds:
+                context.estimated_duration_seconds = self.estimated_duration_seconds
+                print(f"⏱️  [{self.script_name}] Estimated duration set: {self.estimated_duration_seconds:.1f}s")
             
             # Try to find the specific device by ID
             context.selected_device = next((d for d in context.host.get_devices() if d.device_id == device_id_to_use), None)

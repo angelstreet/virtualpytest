@@ -485,9 +485,43 @@ class DeploymentScheduler:
             print(f"[@deployment_scheduler] Executing command: python test_scripts/{dep['script_name']} {all_params}")
             deployment_logger.info(f"📋 COMMAND: python test_scripts/{dep['script_name']} {all_params}")
             
+            # Fetch average duration from last 100 executions for estimated end time
+            estimated_duration_seconds = None
+            try:
+                with self.db_lock:
+                    # Query last 100 completed executions for this deployment
+                    history = self.supabase.table('deployment_executions')\
+                        .select('started_at, completed_at')\
+                        .eq('deployment_id', deployment_id)\
+                        .in_('status', ['completed', 'failed'])\
+                        .not_.is_('started_at', 'null')\
+                        .not_.is_('completed_at', 'null')\
+                        .order('completed_at', desc=True)\
+                        .limit(100)\
+                        .execute()
+                    
+                    if history.data and len(history.data) > 0:
+                        # Calculate average duration
+                        durations = []
+                        for exec in history.data:
+                            try:
+                                started = datetime.fromisoformat(exec['started_at'].replace('Z', '+00:00'))
+                                completed = datetime.fromisoformat(exec['completed_at'].replace('Z', '+00:00'))
+                                duration_seconds = (completed - started).total_seconds()
+                                if duration_seconds > 0:  # Only count valid durations
+                                    durations.append(duration_seconds)
+                            except Exception:
+                                continue
+                        
+                        if durations:
+                            estimated_duration_seconds = sum(durations) / len(durations)
+                            print(f"[@deployment_scheduler] Estimated duration based on {len(durations)} executions: {estimated_duration_seconds:.1f}s")
+            except Exception as est_error:
+                print(f"[@deployment_scheduler] Failed to calculate estimated duration: {est_error}")
+            
             # Execute script with complete parameters
             executor = ScriptExecutor(self.host_name, dep['device_id'], 'unknown')
-            result = executor.execute_script(dep['script_name'], all_params)
+            result = executor.execute_script(dep['script_name'], all_params, estimated_duration_seconds=estimated_duration_seconds)
             
             end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()

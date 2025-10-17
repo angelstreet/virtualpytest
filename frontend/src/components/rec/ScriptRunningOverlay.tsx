@@ -69,7 +69,7 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
   device_id,
 }) => {
   const [logData, setLogData] = useState<RunningLogData | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false); // Current step expansion
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set()); // Track which steps are expanded
   const [isCollapsed, setIsCollapsed] = useState(false); // Collapse entire overlay
 
   // Poll running.log every 2 seconds
@@ -84,6 +84,10 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
         if (response.ok) {
           const data = await response.json();
           console.log('[@ScriptRunningOverlay] Raw JSON data:', data);
+          if (data.current_step) {
+            console.log('[@ScriptRunningOverlay] Current step actions:', data.current_step.actions);
+            console.log('[@ScriptRunningOverlay] Current step verifications:', data.current_step.verifications);
+          }
           setLogData(data);
         } else {
           // Log file might not exist yet or script finished
@@ -121,6 +125,31 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
     const seconds = Math.floor((remainingMs % 60000) / 1000);
     return minutes > 0 ? `${minutes}m ${seconds}s left` : `${seconds}s left`;
   };
+
+  // Toggle step expansion
+  const toggleStep = (stepNumber: number) => {
+    setExpandedSteps(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stepNumber)) {
+        newSet.delete(stepNumber);
+      } else {
+        newSet.add(stepNumber);
+      }
+      return newSet;
+    });
+  };
+
+  // Build all steps list (previous + current + next if available)
+  const allSteps: any[] = [];
+  if (logData.previous_step) {
+    allSteps.push({ ...logData.previous_step, isCurrent: false, isPrevious: true });
+  }
+  if (logData.current_step) {
+    allSteps.push({ ...logData.current_step, isCurrent: true, isPrevious: false });
+  }
+  if (logData.next_step) {
+    allSteps.push({ ...logData.next_step, isCurrent: false, isPrevious: false, isNext: true });
+  }
 
   // Simple script info banner at top-left (minimal)
   const scriptInfoBanner = (
@@ -224,151 +253,147 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
         </IconButton>
       </Box>
 
-      {/* Previous Step (faded green) */}
-      {logData.previous_step && (
-        <Box
-          sx={{
-            mb: 1,
-            p: 0.75,
-            backgroundColor: 'rgba(76,175,80,0.15)',
-            borderRadius: 0.5,
-            border: '1px solid rgba(76,175,80,0.3)',
-            opacity: 0.7,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />
-            <Typography variant="caption" sx={{ color: '#fff', fontSize: '0.75rem', fontWeight: 'bold' }}>
-              {logData.previous_step.step_number}. {logData.previous_step.description || logData.previous_step.command}
-            </Typography>
-          </Box>
-        </Box>
-      )}
+      {/* Scrollable Steps Timeline */}
+      <Box sx={{ 
+        maxHeight: '160px', // Show ~2 steps by default
+        overflowY: 'auto',
+        pr: 0.5, // Space for scrollbar
+        '&::-webkit-scrollbar': {
+          width: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: 'rgba(255,255,255,0.3)',
+          borderRadius: '4px',
+        }
+      }}>
+        {allSteps.map((step) => {
+          const isExpanded = expandedSteps.has(step.step_number);
+          const hasDetails = (step.actions && step.actions.length > 0) || (step.verifications && step.verifications.length > 0);
+          
+          return (
+            <Box
+              key={step.step_number}
+              sx={{
+                mb: 1,
+                p: 0.75,
+                backgroundColor: step.isCurrent 
+                  ? 'rgba(33,150,243,0.2)' 
+                  : step.isPrevious 
+                    ? 'rgba(76,175,80,0.15)' 
+                    : 'rgba(158,158,158,0.1)',
+                borderRadius: 0.5,
+                border: step.isCurrent 
+                  ? '1px solid rgba(33,150,243,0.5)' 
+                  : step.isPrevious 
+                    ? '1px solid rgba(76,175,80,0.3)' 
+                    : '1px solid rgba(158,158,158,0.2)',
+                opacity: step.isPrevious ? 0.7 : step.isNext ? 0.6 : 1,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {step.isCurrent ? (
+                  <CircularProgress size={12} sx={{ color: '#2196f3' }} />
+                ) : step.isPrevious ? (
+                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#4caf50' }} />
+                ) : (
+                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />
+                )}
+                <Typography variant="caption" sx={{ 
+                  color: step.isCurrent ? '#fff' : step.isPrevious ? '#fff' : '#aaa', 
+                  fontSize: '0.75rem', 
+                  fontWeight: 'bold', 
+                  flex: 1 
+                }}>
+                  {step.step_number}. {step.description || step.command}
+                </Typography>
+                {hasDetails && (
+                  <IconButton
+                    size="small"
+                    onClick={() => toggleStep(step.step_number)}
+                    sx={{ color: '#aaa', p: 0.25 }}
+                  >
+                    {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                  </IconButton>
+                )}
+              </Box>
 
-      {/* Current Step (bright blue, expandable) */}
-      {logData.current_step && (
-        <Box
-          sx={{
-            mb: 1,
-            p: 0.75,
-            backgroundColor: 'rgba(33,150,243,0.2)',
-            borderRadius: 0.5,
-            border: '1px solid rgba(33,150,243,0.5)',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <CircularProgress size={12} sx={{ color: '#2196f3' }} />
-            <Typography variant="caption" sx={{ color: '#fff', fontSize: '0.75rem', fontWeight: 'bold', flex: 1 }}>
-              {logData.current_step.step_number}. {logData.current_step.description || logData.current_step.command}
-            </Typography>
-            {(logData.current_step.actions || logData.current_step.verifications) && (
-              <IconButton
-                size="small"
-                onClick={() => setIsExpanded(!isExpanded)}
-                sx={{ color: '#aaa', p: 0.25 }}
-              >
-                {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-              </IconButton>
-            )}
-          </Box>
+              {/* Expanded step details */}
+              {isExpanded && hasDetails && (
+                <Box sx={{ ml: 1.5, mt: 0.75, borderLeft: '2px solid #444', pl: 0.75 }}>
+                  {/* Actions */}
+                  {step.actions && step.actions.length > 0 && (
+                    <Box sx={{ mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 'bold', fontSize: '0.7rem' }}>
+                        Actions ({step.current_action_index || 0}/{step.actions.length})
+                      </Typography>
+                      {step.actions.map((action: any, idx: number) => {
+                        const isCurrent = idx === (step.current_action_index || 0) - 1;
+                        const isCompleted = idx < (step.current_action_index || 0) - 1;
+                        return (
+                          <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.75, mt: 0.25 }}>
+                            {isCurrent ? (
+                              <CircularProgress size={8} sx={{ color: '#2196f3' }} />
+                            ) : isCompleted ? (
+                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4caf50' }} />
+                            ) : (
+                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#666' }} />
+                            )}
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: isCurrent ? '#fff' : isCompleted ? '#4caf50' : '#aaa',
+                                fontFamily: 'monospace',
+                                fontSize: '0.65rem',
+                              }}
+                            >
+                              {action.command}
+                              {action.params && `(${Object.values(action.params)[0]})`}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  )}
 
-          {/* Expanded current step details */}
-          {isExpanded && (
-            <Box sx={{ ml: 1.5, mt: 0.75, borderLeft: '2px solid #444', pl: 0.75 }}>
-              {/* Actions */}
-              {logData.current_step.actions && logData.current_step.actions.length > 0 && (
-                <Box sx={{ mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ color: '#2196f3', fontWeight: 'bold', fontSize: '0.7rem' }}>
-                    Actions ({logData.current_step.current_action_index || 0}/{logData.current_step.actions.length})
-                  </Typography>
-                  {logData.current_step.actions.map((action, idx) => {
-                    const isCurrent = idx === (logData.current_step?.current_action_index || 0) - 1;
-                    const isCompleted = idx < (logData.current_step?.current_action_index || 0) - 1;
-                    return (
-                      <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.75, mt: 0.25 }}>
-                        {isCurrent ? (
-                          <CircularProgress size={8} sx={{ color: '#2196f3' }} />
-                        ) : isCompleted ? (
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4caf50' }} />
-                        ) : (
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#666' }} />
-                        )}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: isCurrent ? '#fff' : isCompleted ? '#4caf50' : '#aaa',
-                            fontFamily: 'monospace',
-                            fontSize: '0.65rem',
-                          }}
-                        >
-                          {action.command}
-                          {action.params && `(${Object.values(action.params)[0]})`}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              )}
-
-              {/* Verifications */}
-              {logData.current_step.verifications && logData.current_step.verifications.length > 0 && (
-                <Box>
-                  <Typography variant="caption" sx={{ color: '#888', fontSize: '0.65rem' }}>
-                    Verifications ({logData.current_step.current_verification_index || 0}/{logData.current_step.verifications.length})
-                  </Typography>
-                  {logData.current_step.verifications.map((verification, idx) => {
-                    const isCurrent = idx === (logData.current_step?.current_verification_index || 0) - 1;
-                    const isCompleted = idx < (logData.current_step?.current_verification_index || 0) - 1;
-                    return (
-                      <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.75, mt: 0.25 }}>
-                        {isCurrent ? (
-                          <CircularProgress size={8} sx={{ color: '#2196f3' }} />
-                        ) : isCompleted ? (
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4caf50' }} />
-                        ) : (
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#666' }} />
-                        )}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: isCurrent ? '#fff' : isCompleted ? '#4caf50' : '#888',
-                            fontFamily: 'monospace',
-                            fontSize: '0.6rem',
-                          }}
-                        >
-                          {verification.command} ({verification.verification_type})
-                        </Typography>
-                      </Box>
-                    );
-                  })}
+                  {/* Verifications */}
+                  {step.verifications && step.verifications.length > 0 && (
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#888', fontSize: '0.65rem' }}>
+                        Verifications ({step.current_verification_index || 0}/{step.verifications.length})
+                      </Typography>
+                      {step.verifications.map((verification: any, idx: number) => {
+                        const isCurrent = idx === (step.current_verification_index || 0) - 1;
+                        const isCompleted = idx < (step.current_verification_index || 0) - 1;
+                        return (
+                          <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.75, mt: 0.25 }}>
+                            {isCurrent ? (
+                              <CircularProgress size={8} sx={{ color: '#2196f3' }} />
+                            ) : isCompleted ? (
+                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#4caf50' }} />
+                            ) : (
+                              <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#666' }} />
+                            )}
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: isCurrent ? '#fff' : isCompleted ? '#4caf50' : '#888',
+                                fontFamily: 'monospace',
+                                fontSize: '0.6rem',
+                              }}
+                            >
+                              {verification.command} ({verification.verification_type})
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  )}
                 </Box>
               )}
             </Box>
-          )}
-        </Box>
-      )}
-
-      {/* Next Step (dim gray) */}
-      {logData.next_step && (
-        <Box
-          sx={{
-            mb: 1,
-            p: 0.75,
-            backgroundColor: 'rgba(158,158,158,0.1)',
-            borderRadius: 0.5,
-            border: '1px solid rgba(158,158,158,0.2)',
-            opacity: 0.6,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#666', border: '1px solid #888' }} />
-            <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.75rem' }}>
-              {logData.next_step.step_number}. {logData.next_step.description || logData.next_step.command}
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
+          );
+        })}
+      </Box>
     </Box>
     </>
   );
