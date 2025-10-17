@@ -3,7 +3,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
-from shared.src.lib.utils.storage_path_utils import get_running_log_path
+from shared.src.lib.utils.storage_path_utils import get_running_log_path, get_capture_folder_from_device_id
 from datetime import datetime, timezone
 import logging
 import threading
@@ -410,20 +410,37 @@ class DeploymentScheduler:
             
             deployment_logger.info(f"▶️  EXECUTING: {dep_name} | Script: {dep['script_name']} | Device: {dep['device_id']}")
             
-            # Clear running log before execution (for frontend overlay)
-            capture_folder = dep['device_id'].replace('device', 'capture')  # device1 -> capture1
-            if capture_folder == dep['device_id']:  # Handle 'host' device
-                host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH', '/var/www/html/stream/capture1')
-                capture_folder = os.path.basename(host_capture_path)
+            # Get capture folder from .env (centralized utility function)
+            capture_folder = get_capture_folder_from_device_id(dep['device_id'])
             
             try:
                 running_log_path = get_running_log_path(capture_folder)
-                os.makedirs(os.path.dirname(running_log_path), exist_ok=True)
+                log_dir = os.path.dirname(running_log_path)
+                
+                # Ensure directory exists with proper permissions
+                os.makedirs(log_dir, exist_ok=True)
+                
+                # Set directory permissions to 777 (like other hot directories)
+                try:
+                    os.chmod(log_dir, 0o777)
+                except Exception as chmod_error:
+                    print(f"[@deployment_scheduler] Warning: Could not set directory permissions: {chmod_error}")
+                
+                # Clear/create file
                 with open(running_log_path, 'w') as f:
                     f.write('')  # Clear file
+                
+                # Set file permissions to 644 (readable by nginx/www-data)
+                try:
+                    os.chmod(running_log_path, 0o644)
+                except Exception as chmod_error:
+                    print(f"[@deployment_scheduler] Warning: Could not set file permissions: {chmod_error}")
+                
                 print(f"[@deployment_scheduler] Cleared running log: {running_log_path}")
             except Exception as log_error:
                 print(f"[@deployment_scheduler] Failed to clear running log: {log_error}")
+                import traceback
+                traceback.print_exc()
             
             # Build complete parameters in correct order:
             # 1. userinterface_name (POSITIONAL - MUST BE FIRST)

@@ -54,6 +54,47 @@ def get_active_captures_conf_path():
     """
     return os.path.join(get_stream_base_path(), 'active_captures.conf')
 
+def get_capture_folder_from_device_id(device_id: str) -> str:
+    """
+    Get capture folder name from device_id by reading .env configuration.
+    CENTRALIZED - Single source of truth for device_id → capture_folder mapping!
+    
+    This avoids hardcoding device1 → capture1, as the mapping is defined in .env:
+    - DEVICE1_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
+    - DEVICE2_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture5  # Non-standard!
+    
+    Args:
+        device_id: Device ID (e.g., 'device1', 'device2', 'host')
+    
+    Returns:
+        Capture folder name (e.g., 'capture1', 'capture5')
+    
+    Raises:
+        ValueError: If device_id is not configured in .env
+    
+    Example:
+        >>> get_capture_folder_from_device_id('device1')
+        'capture1'
+        >>> get_capture_folder_from_device_id('host')
+        'capture1'
+    """
+    # Get capture path directly from environment variables
+    if device_id == 'host':
+        capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
+    else:
+        # Extract device number from device_id (e.g., 'device1' -> '1')
+        device_num = device_id.replace('device', '')
+        if device_num.isdigit():
+            capture_path = os.getenv(f'DEVICE{device_num}_VIDEO_CAPTURE_PATH')
+        else:
+            capture_path = None
+    
+    if not capture_path:
+        raise ValueError(f'No capture path configured in .env for device_id: {device_id}')
+    
+    # Extract folder name from full path (e.g., '/var/www/html/stream/capture1' -> 'capture1')
+    return os.path.basename(capture_path)
+
 def get_device_base_path(device_folder):
     """
     Get device base directory path.

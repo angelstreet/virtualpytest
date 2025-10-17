@@ -49,7 +49,14 @@ interface VerificationInfo {
 }
 
 interface RunningLogData {
-  previous_step?: StepInfo;
+  completed_steps?: Array<StepInfo & {
+    actions?: ActionInfo[];
+    verifications?: VerificationInfo[];
+  }>;
+  previous_step?: StepInfo & {
+    actions?: ActionInfo[];
+    verifications?: VerificationInfo[];
+  };
   current_step?: StepInfo & {
     actions?: ActionInfo[];
     verifications?: VerificationInfo[];
@@ -84,6 +91,9 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
         if (response.ok) {
           const data = await response.json();
           console.log('[@ScriptRunningOverlay] Raw JSON data:', data);
+          if (data.completed_steps) {
+            console.log('[@ScriptRunningOverlay] Completed steps count:', data.completed_steps.length);
+          }
           if (data.current_step) {
             console.log('[@ScriptRunningOverlay] Current step actions:', data.current_step.actions);
             console.log('[@ScriptRunningOverlay] Current step verifications:', data.current_step.verifications);
@@ -139,14 +149,26 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
     });
   };
 
-  // Build all steps list (previous + current + next if available)
+  // Build all steps list (completed_steps + current + next if available)
   const allSteps: any[] = [];
-  if (logData.previous_step) {
+  
+  // Use completed_steps if available, otherwise fallback to previous_step for backward compatibility
+  if (logData.completed_steps && logData.completed_steps.length > 0) {
+    // Add all completed steps
+    logData.completed_steps.forEach(step => {
+      allSteps.push({ ...step, isCurrent: false, isPrevious: true });
+    });
+  } else if (logData.previous_step) {
+    // Fallback to legacy previous_step
     allSteps.push({ ...logData.previous_step, isCurrent: false, isPrevious: true });
   }
+  
+  // Add current step
   if (logData.current_step) {
     allSteps.push({ ...logData.current_step, isCurrent: true, isPrevious: false });
   }
+  
+  // Add next step
   if (logData.next_step) {
     allSteps.push({ ...logData.next_step, isCurrent: false, isPrevious: false, isNext: true });
   }

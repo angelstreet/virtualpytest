@@ -309,14 +309,31 @@ class ScriptExecutionContext:
                 # Fallback
                 return 'unknown'
             
-            # Add previous step (from step_results)
+            # Add all completed steps (for scrollable timeline) - user can scroll through all
+            all_completed_steps = []
+            if len(self.step_results) >= 2:
+                # Get ALL completed steps (excluding current step which is the last one)
+                for step in self.step_results[:-1]:  # All except the last (current) step
+                    all_completed_steps.append({
+                        "step_number": step.get('step_number'),
+                        "description": get_step_description(step),
+                        "command": get_step_command(step),
+                        "status": "completed",
+                        "actions": step.get('actions', []),
+                        "verifications": step.get('verifications', []),
+                    })
+                log_data["completed_steps"] = all_completed_steps
+            
+            # LEGACY: Keep previous_step for backward compatibility
             if len(self.step_results) >= 2:
                 prev_step = self.step_results[-2]
                 log_data["previous_step"] = {
                     "step_number": prev_step.get('step_number'),
                     "description": get_step_description(prev_step),
                     "command": get_step_command(prev_step),
-                    "status": "completed"
+                    "status": "completed",
+                    "actions": prev_step.get('actions', []),
+                    "verifications": prev_step.get('verifications', []),
                 }
             
             # Add current step (from step_results - last recorded step)
@@ -345,11 +362,15 @@ class ScriptExecutionContext:
             
             # Calculate estimated end time based on average step duration
             if len(self.step_results) >= 2:
-                # Calculate average duration per step
+                # Calculate average duration per step (execution_time_ms converted to seconds)
                 total_duration = 0
                 step_count = 0
                 for step in self.step_results:
-                    if step.get('duration') is not None:
+                    # Check both 'execution_time_ms' and 'duration' for compatibility
+                    if step.get('execution_time_ms') is not None:
+                        total_duration += step['execution_time_ms'] / 1000.0  # Convert ms to seconds
+                        step_count += 1
+                    elif step.get('duration') is not None:
                         total_duration += step['duration']
                         step_count += 1
                 
@@ -359,12 +380,15 @@ class ScriptExecutionContext:
                     estimated_remaining = remaining_steps * avg_duration
                     estimated_end = datetime.fromtimestamp(time.time() + estimated_remaining, tz=timezone.utc).isoformat()
                     log_data["estimated_end"] = estimated_end
-            elif self.estimated_duration_seconds:
-                # Fallback to manual estimate
+                    print(f"[@script_executor] Estimated end time: avg_duration={avg_duration:.1f}s, remaining_steps={remaining_steps}, estimated_remaining={estimated_remaining:.1f}s")
+            
+            # Fallback to historical average from deployment_scheduler
+            if "estimated_end" not in log_data and self.estimated_duration_seconds:
                 elapsed = time.time() - self.start_time
                 remaining = max(0, self.estimated_duration_seconds - elapsed)
                 estimated_end = datetime.fromtimestamp(time.time() + remaining, tz=timezone.utc).isoformat()
                 log_data["estimated_end"] = estimated_end
+                print(f"[@script_executor] Using historical average: total={self.estimated_duration_seconds:.1f}s, elapsed={elapsed:.1f}s, remaining={remaining:.1f}s")
             
             # Write atomically (write to temp file, then move)
             temp_path = self.running_log_path + '.tmp'

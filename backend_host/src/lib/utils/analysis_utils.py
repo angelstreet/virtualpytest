@@ -31,31 +31,19 @@ def load_recent_analysis_data(device_id: str, timeframe_minutes: int = 5, max_co
         }
     """
     try:
-        # Get capture path directly from environment variables (no host initialization)
-        if device_id == 'host':
-            capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH')
-        else:
-            # Extract device number from device_id (e.g., 'device1' -> '1')
-            device_num = device_id.replace('device', '')
-            if device_num.isdigit():
-                capture_path = os.getenv(f'DEVICE{device_num}_VIDEO_CAPTURE_PATH')
-            else:
-                capture_path = None
+        # Use centralized utility to get capture folder from device_id (no duplication!)
+        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder_from_device_id
         
-        if not capture_path:
+        try:
+            device_folder = get_capture_folder_from_device_id(device_id)
+        except ValueError as e:
             return {
                 'success': False,
-                'error': f'No capture path configured for device {device_id}',
+                'error': str(e),
                 'analysis_data': [],
                 'total': 0,
                 'device_id': device_id
             }
-        
-        # Use centralized storage path resolution (handles hot/cold automatically)
-        from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_capture_folder as get_folder_name
-        
-        # Extract device folder name from capture path
-        device_folder = os.path.basename(capture_path)  # e.g., 'capture1'
         
         capture_folder = get_capture_storage_path(device_folder, 'captures')
         metadata_folder = get_capture_storage_path(device_folder, 'metadata')
