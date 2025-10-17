@@ -32,6 +32,7 @@ import time
 import shutil
 import logging
 import subprocess
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import List, Tuple, Optional, Dict
@@ -55,8 +56,13 @@ logger = logging.getLogger(__name__)
 # Configuration
 # Note: This script doesn't use active_captures.conf - it discovers devices via get_capture_base_directories()
 # which reads the file from the centralized location (/var/www/html/stream/active_captures.conf)
-RAM_RUN_INTERVAL = 15   # 30s for RAM mode (check for 60 TS segments more frequently, max latency 30s)
-SD_RUN_INTERVAL = 15    # 30s (same for consistency)
+
+# DUAL-THREAD ARCHITECTURE:
+# - HOT thread: Critical RAM management (fast, every 15s)
+# - COLD thread: Batch cleanup (slow, every 60s, max 200 files per device)
+HOT_THREAD_INTERVAL = 15    # 15s - hot storage cleanup + MP4 building
+COLD_THREAD_INTERVAL = 60   # 60s - cold storage cleanup (batched)
+COLD_BATCH_LIMIT = 200      # Max files to delete per device per cold cycle (prevents hour-long cycles)
 
 # Hot storage limits
 # LIFECYCLE:
@@ -518,8 +524,16 @@ def clean_old_thumbnails(capture_dir: str) -> int:
     return cleanup_hot_files(capture_dir, 'thumbnails', 'capture_*_thumbnail.jpg')
 
 
-def cleanup_cold_captures(capture_dir: str) -> int:
-    """Delete captures from cold root older than 1 HOUR (for long scripts)"""
+def cleanup_cold_captures(capture_dir: str, batch_limit: Optional[int] = None) -> int:
+    """
+    Delete captures from cold root older than 1 HOUR (for long scripts)
+    
+    Args:
+        capture_dir: Base capture directory
+        batch_limit: Max files to delete (prevents long-running cycles)
+    
+    Returns: Number of files deleted
+    """
     if not is_ram_mode(capture_dir):
         return 0
     
@@ -533,10 +547,25 @@ def cleanup_cold_captures(capture_dir: str) -> int:
         return 0
     
     try:
+        # Collect old files (sorted by age, oldest first)
+        old_files = []
         for f in Path(cold_dir).glob('capture_*.jpg'):
-            if f.parent == Path(cold_dir) and now - f.stat().st_mtime > max_age_seconds:
-                os.remove(str(f))
-                deleted += 1
+            if f.parent == Path(cold_dir):
+                age = now - f.stat().st_mtime
+                if age > max_age_seconds:
+                    old_files.append((age, f))
+        
+        # Sort by age (oldest first) and apply batch limit
+        old_files.sort(key=lambda x: x[0], reverse=True)
+        if batch_limit and len(old_files) > batch_limit:
+            old_files = old_files[:batch_limit]
+            logger.info(f"Cold captures: Batching {batch_limit} of {len(old_files)} old files")
+        
+        # Delete files
+        for _, f in old_files:
+            os.remove(str(f))
+            deleted += 1
+            
     except Exception as e:
         logger.error(f"Error cleaning cold captures: {e}")
     
@@ -546,8 +575,16 @@ def cleanup_cold_captures(capture_dir: str) -> int:
     return deleted
 
 
-def cleanup_cold_thumbnails(capture_dir: str) -> int:
-    """Delete thumbnails from cold root older than 1 HOUR (matches captures retention)"""
+def cleanup_cold_thumbnails(capture_dir: str, batch_limit: Optional[int] = None) -> int:
+    """
+    Delete thumbnails from cold root older than 1 HOUR (matches captures retention)
+    
+    Args:
+        capture_dir: Base capture directory
+        batch_limit: Max files to delete (prevents long-running cycles)
+    
+    Returns: Number of files deleted
+    """
     if not is_ram_mode(capture_dir):
         return 0
     
@@ -561,10 +598,25 @@ def cleanup_cold_thumbnails(capture_dir: str) -> int:
         return 0
     
     try:
+        # Collect old files (sorted by age, oldest first)
+        old_files = []
         for f in Path(cold_dir).glob('capture_*_thumbnail.jpg'):
-            if f.parent == Path(cold_dir) and now - f.stat().st_mtime > max_age_seconds:
-                os.remove(str(f))
-                deleted += 1
+            if f.parent == Path(cold_dir):
+                age = now - f.stat().st_mtime
+                if age > max_age_seconds:
+                    old_files.append((age, f))
+        
+        # Sort by age (oldest first) and apply batch limit
+        old_files.sort(key=lambda x: x[0], reverse=True)
+        if batch_limit and len(old_files) > batch_limit:
+            old_files = old_files[:batch_limit]
+            logger.info(f"Cold thumbnails: Batching {batch_limit} of {len(old_files)} old files")
+        
+        # Delete files
+        for _, f in old_files:
+            os.remove(str(f))
+            deleted += 1
+            
     except Exception as e:
         logger.error(f"Error cleaning cold thumbnails: {e}")
     
@@ -1130,10 +1182,11 @@ def cleanup_temp_files(capture_dir: str) -> Tuple[int, int, int]:
     return segments_deleted, metadata_deleted, mp3_deleted
 
 
-def process_capture_directory(capture_dir: str):
+def process_hot_storage(capture_dir: str):
     """
-    Process single capture directory:
-    1. SAFETY CLEANUP: Delete old files for ALL types (prevent RAM exhaustion)
+    HOT STORAGE PROCESSING (Fast, Critical, Every 15s)
+    
+    1. SAFETY CLEANUP: Delete old files from HOT storage (prevent RAM exhaustion)
        - Segments: Keep 200 newest (safety net - FFmpeg normally auto-deletes @ 150)
        - Captures: Keep 300 newest (deleted, uploaded to R2 when needed)
        - Thumbnails: Keep 100 newest (deleted, local freeze detection only)
@@ -1143,18 +1196,17 @@ def process_capture_directory(capture_dir: str):
     
     Progressive append: Same chunk URL grows from 1min to 10min (no timeline changes)
     """
-    logger.info(f"Processing {capture_dir}")
+    logger.info(f"🔥 HOT: {os.path.basename(capture_dir)}")
     
     start_time = time.time()
     
-    # SAFETY CLEANUP: Keep only newest N files for ALL types (prevent RAM exhaustion)
+    # SAFETY CLEANUP: Keep only newest N files for HOT types (prevent RAM exhaustion)
     # Segments: Let FFmpeg handle cleanup (hls_list_size + delete_segments flag)
     deleted_segments = 0
     deleted_captures = rotate_hot_captures(capture_dir)
     deleted_thumbnails = clean_old_thumbnails(capture_dir)
     deleted_metadata = cleanup_hot_files(capture_dir, 'metadata', 'capture_*.json')
-    deleted_cold_captures = cleanup_cold_captures(capture_dir)      # 1 hour retention (for scripts)
-    deleted_cold_thumbnails = cleanup_cold_thumbnails(capture_dir)  # 1 hour retention (matches captures)
+    # Note: Cold cleanup moved to separate thread
     # Note: Audio extracted directly to COLD - no hot cleanup needed
     
     ram_mode = is_ram_mode(capture_dir)
@@ -1442,7 +1494,7 @@ def process_capture_directory(capture_dir: str):
     else:
         mp4_info = ""
     
-    # Safety cleanup stats
+    # Safety cleanup stats (HOT only)
     safety_deletes = []
     if deleted_segments > 0:
         safety_deletes.append(f"{deleted_segments} seg")
@@ -1452,10 +1504,6 @@ def process_capture_directory(capture_dir: str):
         safety_deletes.append(f"{deleted_thumbnails} thumb")
     if deleted_metadata > 0:
         safety_deletes.append(f"{deleted_metadata} meta")
-    if deleted_cold_captures > 0:
-        safety_deletes.append(f"{deleted_cold_captures} cold_cap")
-    if deleted_cold_thumbnails > 0:
-        safety_deletes.append(f"{deleted_cold_thumbnails} cold_thumb")
     if deleted_temp_segments > 0:
         safety_deletes.append(f"{deleted_temp_segments} temp_seg")
     if deleted_temp_metadata > 0:
@@ -1465,43 +1513,61 @@ def process_capture_directory(capture_dir: str):
     
     cleanup_info = f"del: {', '.join(safety_deletes)}" if safety_deletes else "del: 0"
     
-    logger.info(f"✓ Completed in {elapsed:.2f}s ({cleanup_info}{mp4_info})")
+    logger.info(f"  ✓ HOT done in {elapsed:.2f}s ({cleanup_info}{mp4_info})")
 
 
-def main_loop():
+def process_cold_storage(capture_dir: str):
     """
-    Main service loop - Safety Cleanup + Progressive MP4 Building + Audio Extraction
-    Processes every 1min:
-    - SAFETY CLEANUP: Enforce limits on ALL hot storage types (prevent RAM exhaustion)
+    COLD STORAGE PROCESSING (Slow, Batched, Every 60s)
+    
+    Cleanup old files from COLD storage with batch limits to prevent long-running cycles.
+    - Captures: Delete files older than 1h (max 200 files per cycle)
+    - Thumbnails: Delete files older than 1h (max 200 files per cycle)
+    
+    This runs in a separate thread to avoid blocking hot storage cleanup.
+    """
+    logger.info(f"❄️  COLD: {os.path.basename(capture_dir)}")
+    
+    start_time = time.time()
+    
+    # Batch-limited cold cleanup (prevents hour-long cycles)
+    deleted_cold_captures = cleanup_cold_captures(capture_dir, COLD_BATCH_LIMIT)
+    deleted_cold_thumbnails = cleanup_cold_thumbnails(capture_dir, COLD_BATCH_LIMIT)
+    
+    elapsed = time.time() - start_time
+    
+    # Build status summary
+    cold_deletes = []
+    if deleted_cold_captures > 0:
+        cold_deletes.append(f"{deleted_cold_captures} cap")
+    if deleted_cold_thumbnails > 0:
+        cold_deletes.append(f"{deleted_cold_thumbnails} thumb")
+    
+    cleanup_info = f"del: {', '.join(cold_deletes)}" if cold_deletes else "del: 0"
+    
+    logger.info(f"  ✓ COLD done in {elapsed:.2f}s ({cleanup_info})")
+
+
+def hot_storage_loop():
+    """
+    HOT STORAGE THREAD (Every 15s)
+    
+    Fast, critical RAM management:
+    - SAFETY CLEANUP: Enforce limits on hot storage types (prevent RAM exhaustion)
     - Segments: HOT TS → 1min MP4 → progressively append to 10min chunk in COLD
     - Audio: Extract from 10min chunks → directly to COLD /audio/{hour}/
     
     Progressive append: Each minute appends to growing chunk (no batch-merge-at-end)
     Result: Timeline has no changes, same URL grows from 1min to 10min duration
     """
-    # Kill any existing archiver instances before starting
-    from shared.src.lib.utils.system_utils import kill_existing_script_instances
-    killed = kill_existing_script_instances('hot_cold_archiver.py')
-    if killed:
-        logger.info(f"Killed existing archiver instances: {killed}")
-        time.sleep(1)
-    
-    logger.info("=" * 60)
-    logger.info("HOT/COLD ARCHIVER - SAFETY CLEANUP + PROGRESSIVE MP4 BUILDING")
-    logger.info("=" * 60)
-    
-    # Detect mode from first capture directory
-    capture_dirs = get_capture_base_directories()
-    ram_mode = any(is_ram_mode(d) for d in capture_dirs if os.path.exists(d))
-    run_interval = RAM_RUN_INTERVAL if ram_mode else SD_RUN_INTERVAL
-    
-    mode_name = "RAM MODE" if ram_mode else "SD MODE"
-    logger.info(f"Mode: {mode_name}")
-    logger.info(f"Run interval: {run_interval}s")
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info("🔥 HOT STORAGE THREAD STARTED")
+    logger.info("=" * 80)
+    logger.info(f"Interval: {HOT_THREAD_INTERVAL}s")
     logger.info(f"Hot limits: {HOT_LIMITS}")
     logger.info("Strategy: Safety cleanup + Progressive append (TS→1min→append to 10min chunk)")
-    logger.info("Result: Same chunk URL grows 1→10min (no timeline changes for frontend)")
-    logger.info("=" * 60)
+    logger.info("=" * 80)
     
     # STARTUP ONLY: Rebuild all manifests from disk to discover existing chunks
     logger.info("")
@@ -1567,49 +1633,134 @@ def main_loop():
             cycle_start = time.time()
             
             logger.info("")
-            logger.info("=" * 60)
-            logger.info(f"Starting archival cycle at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info(f"Current hour: {datetime.now().hour}")
-            logger.info("=" * 60)
+            logger.info("=" * 80)
+            logger.info(f"🔥 HOT CYCLE at {datetime.now().strftime('%H:%M:%S')}")
+            logger.info("=" * 80)
             
             # Get active capture directories
             capture_dirs = get_capture_base_directories()
-            logger.info(f"Processing {len(capture_dirs)} capture directories")
             
             # BEFORE CLEANING SUMMARY
-            print_ram_summary(capture_dirs, "📊 BEFORE CLEANING")
+            print_ram_summary(capture_dirs, "📊 BEFORE HOT CLEANUP")
             
-            # Process each directory
+            # Process each directory (hot storage only)
             for capture_dir in capture_dirs:
                 try:
-                    process_capture_directory(capture_dir)
+                    process_hot_storage(capture_dir)
                 except Exception as e:
-                    logger.error(f"Error processing {capture_dir}: {e}", exc_info=True)
+                    logger.error(f"Error processing hot storage for {capture_dir}: {e}", exc_info=True)
             
             # AFTER CLEANING SUMMARY
-            print_ram_summary(capture_dirs, "✅ AFTER CLEANING")
+            print_ram_summary(capture_dirs, "✅ AFTER HOT CLEANUP")
             
             cycle_elapsed = time.time() - cycle_start
-            logger.info("")
-            logger.info("=" * 60)
-            logger.info(f"✓ Cycle completed in {cycle_elapsed:.2f}s")
-            logger.info(f"⏰ Next run in {run_interval}s")
-            logger.info("=" * 60)
+            logger.info(f"🔥 HOT cycle completed in {cycle_elapsed:.2f}s (next in {HOT_THREAD_INTERVAL}s)")
             
             # Sleep until next cycle
-            time.sleep(run_interval)
+            time.sleep(HOT_THREAD_INTERVAL)
             
         except KeyboardInterrupt:
-            logger.info("Received interrupt signal, shutting down...")
+            logger.info("🔥 HOT thread: Received interrupt signal, shutting down...")
             break
         except Exception as e:
-            logger.error(f"Error in main loop: {e}", exc_info=True)
-            time.sleep(run_interval)
+            logger.error(f"Error in hot storage loop: {e}", exc_info=True)
+            time.sleep(HOT_THREAD_INTERVAL)
+
+
+def cold_storage_loop():
+    """
+    COLD STORAGE THREAD (Every 60s)
+    
+    Batch cleanup of cold storage (non-blocking):
+    - Captures: Delete files older than 1h (max 200 files per device per cycle)
+    - Thumbnails: Delete files older than 1h (max 200 files per device per cycle)
+    
+    Batch limits prevent hour-long cycles that block hot storage cleanup.
+    """
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info("❄️  COLD STORAGE THREAD STARTED")
+    logger.info("=" * 80)
+    logger.info(f"Interval: {COLD_THREAD_INTERVAL}s")
+    logger.info(f"Batch limit: {COLD_BATCH_LIMIT} files per device per cycle")
+    logger.info("=" * 80)
+    
+    while True:
+        try:
+            cycle_start = time.time()
+            
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info(f"❄️  COLD CYCLE at {datetime.now().strftime('%H:%M:%S')}")
+            logger.info("=" * 80)
+            
+            # Get active capture directories
+            capture_dirs = get_capture_base_directories()
+            
+            # Process each directory (cold storage only)
+            for capture_dir in capture_dirs:
+                try:
+                    process_cold_storage(capture_dir)
+                except Exception as e:
+                    logger.error(f"Error processing cold storage for {capture_dir}: {e}", exc_info=True)
+            
+            cycle_elapsed = time.time() - cycle_start
+            logger.info(f"❄️  COLD cycle completed in {cycle_elapsed:.2f}s (next in {COLD_THREAD_INTERVAL}s)")
+            
+            # Sleep until next cycle
+            time.sleep(COLD_THREAD_INTERVAL)
+            
+        except KeyboardInterrupt:
+            logger.info("❄️  COLD thread: Received interrupt signal, shutting down...")
+            break
+        except Exception as e:
+            logger.error(f"Error in cold storage loop: {e}", exc_info=True)
+            time.sleep(COLD_THREAD_INTERVAL)
 
 
 if __name__ == '__main__':
     try:
-        main_loop()
+        # Kill any existing archiver instances before starting
+        from shared.src.lib.utils.system_utils import kill_existing_script_instances
+        killed = kill_existing_script_instances('hot_cold_archiver.py')
+        if killed:
+            logger.info(f"Killed existing archiver instances: {killed}")
+            time.sleep(1)
+        
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("HOT/COLD ARCHIVER - DUAL-THREAD ARCHITECTURE")
+        logger.info("=" * 80)
+        logger.info("🔥 HOT THREAD: Critical RAM management (every 15s)")
+        logger.info("❄️  COLD THREAD: Batch cleanup (every 60s, max 200 files/device)")
+        logger.info("=" * 80)
+        
+        # Create and start both threads
+        hot_thread = threading.Thread(target=hot_storage_loop, name="HotStorageThread", daemon=True)
+        cold_thread = threading.Thread(target=cold_storage_loop, name="ColdStorageThread", daemon=True)
+        
+        hot_thread.start()
+        cold_thread.start()
+        
+        logger.info("✓ Both threads started successfully")
+        
+        # Keep main thread alive
+        try:
+            while True:
+                hot_thread.join(timeout=1.0)
+                cold_thread.join(timeout=1.0)
+                if not hot_thread.is_alive():
+                    logger.error("🔥 HOT thread died, restarting...")
+                    hot_thread = threading.Thread(target=hot_storage_loop, name="HotStorageThread", daemon=True)
+                    hot_thread.start()
+                if not cold_thread.is_alive():
+                    logger.error("❄️  COLD thread died, restarting...")
+                    cold_thread = threading.Thread(target=cold_storage_loop, name="ColdStorageThread", daemon=True)
+                    cold_thread.start()
+        except KeyboardInterrupt:
+            logger.info("Received interrupt signal, shutting down both threads...")
+            sys.exit(0)
+        
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)
