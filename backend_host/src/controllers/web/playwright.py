@@ -462,7 +462,10 @@ class PlaywrightWebController(WebControllerInterface):
             center_x = position['x'] + (position.get('width', 0) / 2)
             center_y = position['y'] + (position.get('height', 0) / 2)
             
-            print(f"[PLAYWRIGHT]: Found element, clicking at coordinates ({center_x:.0f}, {center_y:.0f})")
+            # Log with element_id for consistency
+            element_id = element_info.get('element_id', 'unknown')
+            matched_value = element_info.get('matched_value', '')
+            print(f"[PLAYWRIGHT]: Found element (ID={element_id}, value='{matched_value}'), clicking at coordinates ({center_x:.0f}, {center_y:.0f})")
             
             # Step 3: Click using coordinates (reuse tap_x_y logic)
             tap_result = self.tap_x_y(int(center_x), int(center_y))
@@ -589,7 +592,10 @@ class PlaywrightWebController(WebControllerInterface):
                 first_match = matches[0]
                 execution_time = int((time.time() - start_time) * 1000)
                 
-                print(f"[PLAYWRIGHT]: Element found in dump: {first_match['match_reason']}")
+                # Log with element_id like click_element does
+                element_id = first_match.get('element_id', 'unknown')
+                matched_value = first_match.get('matched_value', '')
+                print(f"[PLAYWRIGHT]: Element found in dump: {first_match['match_reason']} (ID={element_id}, value='{matched_value}')")
                 return {
                     'success': True,
                     'error': '',
@@ -703,9 +709,11 @@ class PlaywrightWebController(WebControllerInterface):
             # If matches found, add to results with prioritization
             if element_matches:
                 primary_match = element_matches[0]
+                element_index = element.get('index', 0)
                 
                 match_info = {
-                    "element_index": element.get('index', 0),
+                    "element_id": f"element_{element_index}",  # Add element_id like Android does
+                    "element_index": element_index,
                     "matched_attribute": primary_match["attribute"],
                     "matched_value": primary_match["value"],
                     "match_reason": primary_match["reason"],
