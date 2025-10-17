@@ -17,13 +17,11 @@ import { Box, Typography, IconButton, CircularProgress } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 
 interface ScriptRunningOverlayProps {
-  device_id: string;
   host_name: string;
   capture_folder: string; // e.g., 'capture1'
 }
@@ -65,7 +63,6 @@ interface RunningLogData {
 }
 
 export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
-  device_id,
   host_name,
   capture_folder,
 }) => {
@@ -123,55 +120,96 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
     return minutes > 0 ? `${minutes}m ${seconds}s left` : `${seconds}s left`;
   };
 
-  // Collapsed mini view
-  if (isCollapsed) {
-    return (
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          zIndex: 30,
-          backgroundColor: 'rgba(0, 0, 0, 0.85)',
-          borderRadius: 1,
-          p: 1,
-          minWidth: 200,
-          cursor: 'pointer',
-        }}
-        onClick={() => setIsCollapsed(false)}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <LockIcon sx={{ fontSize: '1rem', color: 'warning.main' }} />
-          <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold', flex: 1 }}>
-            Step {logData.current_step_number}/{logData.total_steps}
-          </Typography>
-          {getTimeRemaining() && (
-            <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.7rem' }}>
-              {getTimeRemaining()}
-            </Typography>
-          )}
-          <ExpandMoreIcon sx={{ fontSize: '1rem', color: '#aaa' }} />
-        </Box>
-      </Box>
-    );
-  }
-
-  // Full overlay view
-  return (
+  // Simple script info banner at top-left (minimal)
+  const scriptInfoBanner = (
     <Box
       sx={{
         position: 'absolute',
-        top: 16,
-        right: 16,
-        zIndex: 30,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        top: 8,
+        left: 8,
+        zIndex: 25,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
         borderRadius: 1,
-        p: 1.5,
-        minWidth: 320,
-        maxWidth: 400,
-        pointerEvents: 'auto',
+        px: 1.5,
+        py: 0.75,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        pointerEvents: 'none',
       }}
     >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <LockIcon sx={{ fontSize: '0.85rem', color: 'warning.main' }} />
+        <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '0.75rem' }}>
+          {logData.script_name}
+        </Typography>
+      </Box>
+      <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.7rem' }}>
+        Started: {new Date(logData.start_time).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+      </Typography>
+      {logData.estimated_end && (
+        <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.7rem' }}>
+          Est. End: {new Date(logData.estimated_end).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+          {getTimeRemaining() && ` (${getTimeRemaining()})`}
+        </Typography>
+      )}
+    </Box>
+  );
+
+  // Collapsed mini view at bottom-left
+  if (isCollapsed) {
+    return (
+      <>
+        {scriptInfoBanner}
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 16,
+            left: 16,
+            zIndex: 30,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            borderRadius: 1,
+            p: 1,
+            minWidth: 200,
+            cursor: 'pointer',
+          }}
+          onClick={() => setIsCollapsed(false)}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LockIcon sx={{ fontSize: '1rem', color: 'warning.main' }} />
+            <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold', flex: 1 }}>
+              Step {logData.current_step_number}/{logData.total_steps}
+            </Typography>
+            {getTimeRemaining() && (
+              <Typography variant="caption" sx={{ color: '#aaa', fontSize: '0.7rem' }}>
+                {getTimeRemaining()}
+              </Typography>
+            )}
+            <ExpandMoreIcon sx={{ fontSize: '1rem', color: '#aaa' }} />
+          </Box>
+        </Box>
+      </>
+    );
+  }
+
+  // Full overlay view at bottom-left
+  return (
+    <>
+      {scriptInfoBanner}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 16,
+          left: 16,
+          zIndex: 30,
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
+          borderRadius: 1,
+          p: 1.5,
+          minWidth: 320,
+          maxWidth: 400,
+          pointerEvents: 'auto',
+        }}
+      >
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <LockIcon sx={{ fontSize: '1rem', color: 'warning.main' }} />
@@ -352,6 +390,7 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
         )}
       </Box>
     </Box>
+    </>
   );
 };
 

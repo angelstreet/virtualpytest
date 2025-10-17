@@ -17,6 +17,7 @@ import { AIImageQueryModal } from '../monitoring';
 import { RecStreamModalHeader } from './RecStreamModalHeader';
 import { RecStreamContainer } from './RecStreamContainer';
 import { RecPanelManager } from './RecPanelManager';
+import { ScriptRunningOverlay } from './ScriptRunningOverlay';
 
 interface RecHostStreamModalProps {
   host: Host;
@@ -789,6 +790,14 @@ const RecHostStreamModalContent: React.FC<{
             isVisible={aiAgentMode && isControlActive}
             onDisambiguationDataChange={handleDisambiguationDataChange}
           />
+
+          {/* Script Running Overlay - Show when script is running */}
+          {device?.has_running_deployment && (
+            <ScriptRunningOverlay
+              host_name={host.host_name}
+              capture_folder={device.device_id.replace('device', 'capture')}
+            />
+          )}
         </Box>
       </Box>
 
