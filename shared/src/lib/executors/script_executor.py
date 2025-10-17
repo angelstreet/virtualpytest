@@ -75,6 +75,12 @@ class ScriptExecutionContext:
         
         # Simple sequential step counter
         self.step_counter = 0
+        
+        # Running log tracking (for frontend overlay)
+        self.running_log_path = None
+        self.total_steps = 0
+        self.planned_steps: List[Dict[str, Any]] = []
+        self.estimated_duration_seconds = None
     
     def get_execution_time_ms(self) -> int:
         """Get current execution time in milliseconds"""
@@ -245,6 +251,103 @@ class ScriptExecutionContext:
     def get_captured_stdout(self) -> str:
         """Get captured stdout as string"""
         return ''.join(self.stdout_buffer)
+    
+    def set_running_log_path(self, capture_folder: str):
+        """Set the running log path for this execution"""
+        from shared.src.lib.utils.storage_path_utils import get_running_log_path
+        self.running_log_path = get_running_log_path(capture_folder)
+    
+    def set_planned_steps(self, steps: List[Dict[str, Any]]):
+        """Store planned steps for display (call at script start)"""
+        self.planned_steps = steps
+        self.total_steps = len(steps)
+    
+    def write_running_log(self):
+        """Write current execution state to running.log for frontend overlay - uses existing step_results"""
+        if not self.running_log_path:
+            return
+        
+        try:
+            import json
+            from datetime import datetime, timezone
+            
+            # Get current step number
+            current_step_number = self.step_counter
+            total_steps = self.total_steps if self.total_steps > 0 else len(self.step_results)
+            
+            # Build log data
+            log_data = {
+                "script_name": self.script_name,
+                "total_steps": total_steps,
+                "current_step_number": current_step_number,
+                "start_time": datetime.fromtimestamp(self.start_time, tz=timezone.utc).isoformat(),
+            }
+            
+            # Add previous step (from step_results)
+            if len(self.step_results) >= 2:
+                prev_step = self.step_results[-2]
+                log_data["previous_step"] = {
+                    "step_number": prev_step.get('step_number'),
+                    "description": prev_step.get('description', prev_step.get('command', 'Unknown step')),
+                    "command": prev_step.get('command', 'unknown'),
+                    "status": "completed"
+                }
+            
+            # Add current step (from step_results - last recorded step)
+            if len(self.step_results) >= 1:
+                current_step = self.step_results[-1]
+                
+                # Extract actions and verifications from transitions (if navigation step)
+                actions = []
+                verifications = []
+                if current_step.get('transitions'):
+                    for transition in current_step['transitions']:
+                        if transition.get('actions'):
+                            actions.extend(transition['actions'])
+                        if transition.get('verifications'):
+                            verifications.extend(transition['verifications'])
+                
+                log_data["current_step"] = {
+                    "step_number": current_step.get('step_number'),
+                    "description": current_step.get('description', current_step.get('command', 'Unknown step')),
+                    "command": current_step.get('command', 'unknown'),
+                    "status": "current",
+                    "actions": actions,
+                    "verifications": verifications,
+                }
+            
+            # Calculate estimated end time based on average step duration
+            if len(self.step_results) >= 2:
+                # Calculate average duration per step
+                total_duration = 0
+                step_count = 0
+                for step in self.step_results:
+                    if step.get('duration') is not None:
+                        total_duration += step['duration']
+                        step_count += 1
+                
+                if step_count > 0 and total_steps > 0:
+                    avg_duration = total_duration / step_count
+                    remaining_steps = max(0, total_steps - current_step_number)
+                    estimated_remaining = remaining_steps * avg_duration
+                    estimated_end = datetime.fromtimestamp(time.time() + estimated_remaining, tz=timezone.utc).isoformat()
+                    log_data["estimated_end"] = estimated_end
+            elif self.estimated_duration_seconds:
+                # Fallback to manual estimate
+                elapsed = time.time() - self.start_time
+                remaining = max(0, self.estimated_duration_seconds - elapsed)
+                estimated_end = datetime.fromtimestamp(time.time() + remaining, tz=timezone.utc).isoformat()
+                log_data["estimated_end"] = estimated_end
+            
+            # Write atomically (write to temp file, then move)
+            temp_path = self.running_log_path + '.tmp'
+            with open(temp_path, 'w') as f:
+                json.dump(log_data, f, indent=2)
+            os.replace(temp_path, self.running_log_path)
+            
+        except Exception as e:
+            # Silent failure - don't break script execution for logging issues
+            pass
     
     def record_step_dict(self, step_dict: dict):
         """Record a step using dict format (backward compatible with existing reporting)"""
@@ -623,6 +726,14 @@ class ScriptExecutor:
             
             available_devices = [d.device_id for d in context.host.get_devices()]
             print(f"📱 [{self.script_name}] Available devices: {available_devices}")
+            
+            # Setup running log path for automatic progress tracking
+            capture_folder = device_id_to_use.replace('device', 'capture')  # device1 -> capture1
+            if capture_folder == device_id_to_use:  # Handle 'host' device
+                host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH', '/var/www/html/stream/capture1')
+                capture_folder = os.path.basename(host_capture_path)
+            context.set_running_log_path(capture_folder)
+            print(f"📝 [{self.script_name}] Running log enabled: {context.running_log_path}")
             
             # Try to find the specific device by ID
             context.selected_device = next((d for d in context.host.get_devices() if d.device_id == device_id_to_use), None)

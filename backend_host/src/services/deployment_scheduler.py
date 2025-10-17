@@ -3,9 +3,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
+from shared.src.lib.utils.storage_path_utils import get_running_log_path
 from datetime import datetime, timezone
 import logging
 import threading
+import os
 
 # Configure deployment logger
 deployment_logger = logging.getLogger('deployment_scheduler')
@@ -407,6 +409,21 @@ class DeploymentScheduler:
                 raise
             
             deployment_logger.info(f"▶️  EXECUTING: {dep_name} | Script: {dep['script_name']} | Device: {dep['device_id']}")
+            
+            # Clear running log before execution (for frontend overlay)
+            capture_folder = dep['device_id'].replace('device', 'capture')  # device1 -> capture1
+            if capture_folder == dep['device_id']:  # Handle 'host' device
+                host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH', '/var/www/html/stream/capture1')
+                capture_folder = os.path.basename(host_capture_path)
+            
+            try:
+                running_log_path = get_running_log_path(capture_folder)
+                os.makedirs(os.path.dirname(running_log_path), exist_ok=True)
+                with open(running_log_path, 'w') as f:
+                    f.write('')  # Clear file
+                print(f"[@deployment_scheduler] Cleared running log: {running_log_path}")
+            except Exception as log_error:
+                print(f"[@deployment_scheduler] Failed to clear running log: {log_error}")
             
             # Build complete parameters in correct order:
             # 1. userinterface_name (POSITIONAL - MUST BE FIRST)

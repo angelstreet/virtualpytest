@@ -473,6 +473,31 @@ def get_metadata_path(device_folder):
     return get_capture_storage_path(device_folder, 'metadata')
 
 
+def get_running_log_path(device_folder):
+    """
+    Get path to running script log file (ALWAYS HOT storage).
+    
+    This file is written by script executor during deployment execution
+    and contains real-time progress updates (JSON format).
+    The frontend polls this file to display script execution overlay.
+    
+    File is cleared at script start and overwritten during execution.
+    
+    Args:
+        device_folder: Device folder name (e.g., 'capture1')
+        
+    Returns:
+        Path to running.log file in hot storage
+        (e.g., '/var/www/html/stream/capture1/hot/running.log')
+        
+    Note:
+        This file is served directly by nginx at:
+        http://<host>:8083/<device_folder>/hot/running.log
+    """
+    device_base = get_device_base_path(device_folder)
+    return os.path.join(device_base, 'hot', 'running.log')
+
+
 def get_transcript_chunk_path(device_folder, hour, chunk_index, language='original'):
     """
     Get path to specific transcript chunk JSON file.

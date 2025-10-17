@@ -7,6 +7,7 @@ import {
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 import { CronHelper } from '../components/common/CronHelper';
+import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useDeployment, Deployment } from '../hooks/useDeployment';
@@ -15,6 +16,7 @@ import { buildServerUrl } from '../utils/buildUrlUtils';
 import { getLogsUrl } from '../utils/executionUtils';
 import { getUserTimezone, formatToLocalTime } from '../utils/dateUtils';
 import { validateCronExpression, cronToHuman } from '../utils/cronUtils';
+import { Host, Device } from '../types/common/Host_Types';
 
 interface AdditionalDevice {
   hostName: string;
@@ -25,7 +27,7 @@ interface AdditionalDevice {
 
 const Deployments: React.FC = () => {
   const { createDeployment, listDeployments, pauseDeployment, resumeDeployment, deleteDeployment, getRecentExecutions } = useDeployment();
-  const { getAllHosts, getDevicesFromHost } = useHostManager();
+  const { getAllHosts, getDevicesFromHost, getHostByName } = useHostManager();
   const { showSuccess, showError } = useToast();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -57,6 +59,11 @@ const Deployments: React.FC = () => {
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
   const [editMaxExecutions, setEditMaxExecutions] = useState('');
+
+  // Stream modal state
+  const [streamModalOpen, setStreamModalOpen] = useState(false);
+  const [streamModalHost, setStreamModalHost] = useState<Host | null>(null);
+  const [streamModalDevice, setStreamModalDevice] = useState<Device | null>(null);
 
   const hosts = getAllHosts();
   const userTimezone = getUserTimezone();
@@ -370,6 +377,19 @@ const Deployments: React.FC = () => {
     }
   };
 
+  const handleDeviceClick = (hostName: string, deviceId: string) => {
+    const realHost = getHostByName(hostName);
+    if (!realHost) return;
+    
+    const hostDevices = getDevicesFromHost(hostName);
+    const realDevice = hostDevices.find(d => d.device_id === deviceId);
+    if (!realDevice) return;
+    
+    setStreamModalHost(realHost);
+    setStreamModalDevice(realDevice);
+    setStreamModalOpen(true);
+  };
+
   return (
     <Box sx={{ p: 1 }}>
       <Typography variant="h5" sx={{ mb: 1 }}>Deployments</Typography>
@@ -656,7 +676,12 @@ const Deployments: React.FC = () => {
                         >
                           <TableCell>{d.name}</TableCell>
                           <TableCell>{d.script_name}</TableCell>
-                          <TableCell>{d.host_name}:{deviceDisplayName}</TableCell>
+                          <TableCell 
+                            sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
+                            onClick={() => handleDeviceClick(d.host_name, d.device_id)}
+                          >
+                            {d.host_name}:{deviceDisplayName}
+                          </TableCell>
                           <TableCell>
                             <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                               {d.parameters && d.parameters.trim() ? d.parameters : '-'}
@@ -764,7 +789,16 @@ const Deployments: React.FC = () => {
                         >
                           <TableCell>{e.deployments?.name}</TableCell>
                           <TableCell>{e.deployments?.script_name}</TableCell>
-                          <TableCell>{hostName && deviceId ? `${hostName}:${deviceDisplayName}` : '-'}</TableCell>
+                          <TableCell 
+                            sx={{ 
+                              cursor: hostName && deviceId ? 'pointer' : 'default', 
+                              color: hostName && deviceId ? 'primary.main' : 'inherit', 
+                              '&:hover': hostName && deviceId ? { textDecoration: 'underline' } : {} 
+                            }}
+                            onClick={() => hostName && deviceId && handleDeviceClick(hostName, deviceId)}
+                          >
+                            {hostName && deviceId ? `${hostName}:${deviceDisplayName}` : '-'}
+                          </TableCell>
                           <TableCell>
                             {formatToLocalTime(e.started_at)}
                             <Typography variant="caption" display="block" color="text.secondary">
@@ -884,6 +918,21 @@ const Deployments: React.FC = () => {
           <Button onClick={handleEditSave} variant="contained" startIcon={<Save />}>Save Changes</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Stream Modal */}
+      {streamModalHost && streamModalDevice && (
+        <RecHostStreamModal
+          host={streamModalHost}
+          device={streamModalDevice}
+          isOpen={streamModalOpen}
+          onClose={() => {
+            setStreamModalOpen(false);
+            setStreamModalHost(null);
+            setStreamModalDevice(null);
+          }}
+          showRemoteByDefault={false}
+        />
+      )}
     </Box>
   );
 };

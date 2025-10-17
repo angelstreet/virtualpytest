@@ -341,6 +341,9 @@ class NavigationExecutor:
                             'screenshot_path': screenshot_path
                         }
                         context.record_step_immediately(dummy_step_result)
+                        # Auto-write to running.log for frontend overlay
+                        if hasattr(context, 'write_running_log'):
+                            context.write_running_log()
                     
                     return self._build_result(
                         True,
@@ -412,6 +415,9 @@ class NavigationExecutor:
                                 'screenshot_path': screenshot_path
                             }
                             context.record_step_immediately(dummy_step_result)
+                            # Auto-write to running.log for frontend overlay
+                            if hasattr(context, 'write_running_log'):
+                                context.write_running_log()
                         
                         return self._build_result(
                             True,
@@ -470,6 +476,9 @@ class NavigationExecutor:
                                 'screenshot_path': screenshot_path
                             }
                             context.record_step_immediately(dummy_step_result)
+                            # Auto-write to running.log for frontend overlay
+                            if hasattr(context, 'write_running_log'):
+                                context.write_running_log()
                         
                         return self._build_result(
                             True,
@@ -627,6 +636,9 @@ class NavigationExecutor:
                     
                     # Record step immediately - step number shown in table
                     context.record_step_immediately(step_result)
+                    # Auto-write to running.log for frontend overlay
+                    if hasattr(context, 'write_running_log'):
+                        context.write_running_log()
                     # Simple message without redundant step number
                     step_result['message'] = f"{from_node} → {to_node}"
                 
