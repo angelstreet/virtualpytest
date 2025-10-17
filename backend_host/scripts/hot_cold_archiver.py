@@ -31,9 +31,10 @@ import sys
 import time
 import shutil
 import logging
+import subprocess
 from pathlib import Path
 from datetime import datetime
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
@@ -100,6 +101,113 @@ FILE_PATTERNS = {
     'segments': 'segment_*.ts',     # Archived to cold (will be grouped as MP4)
 }
 # NOT archived (HOT-only with deletion): captures, thumbnails
+
+def get_directory_size(path: str) -> int:
+    """Get directory size in bytes"""
+    try:
+        result = subprocess.run(
+            ['du', '-sb', path],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return int(result.stdout.split()[0])
+    except:
+        pass
+    return 0
+
+
+def get_ram_disk_usage() -> Dict[str, any]:
+    """Get RAM disk usage statistics for /var/www/html/stream/"""
+    try:
+        result = subprocess.run(
+            ['df', '-h', '/var/www/html/stream/'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            if len(lines) >= 2:
+                parts = lines[1].split()
+                return {
+                    'size': parts[1],
+                    'used': parts[2],
+                    'available': parts[3],
+                    'use_percent': parts[4]
+                }
+    except:
+        pass
+    return {}
+
+
+def get_hot_folder_stats(capture_dir: str) -> Dict[str, int]:
+    """Get file counts and sizes for hot storage folders"""
+    ram_mode = is_ram_mode(capture_dir)
+    hot_base = os.path.join(capture_dir, 'hot') if ram_mode else capture_dir
+    
+    stats = {}
+    for file_type in ['segments', 'captures', 'thumbnails', 'metadata']:
+        hot_dir = os.path.join(hot_base, file_type)
+        if os.path.isdir(hot_dir):
+            # Count files in root only (not subdirs)
+            files = [f for f in Path(hot_dir).iterdir() if f.is_file() and f.parent == Path(hot_dir)]
+            stats[file_type] = {
+                'count': len(files),
+                'size_bytes': sum(f.stat().st_size for f in files if f.exists())
+            }
+        else:
+            stats[file_type] = {'count': 0, 'size_bytes': 0}
+    
+    return stats
+
+
+def format_bytes(bytes_val: int) -> str:
+    """Format bytes to human readable string"""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if bytes_val < 1024.0:
+            return f"{bytes_val:.1f}{unit}"
+        bytes_val /= 1024.0
+    return f"{bytes_val:.1f}TB"
+
+
+def print_ram_summary(capture_dirs: List[str], label: str):
+    """Print comprehensive RAM usage summary"""
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info(f"{label}")
+    logger.info("=" * 80)
+    
+    # Global RAM disk stats
+    ram_stats = get_ram_disk_usage()
+    if ram_stats:
+        logger.info(f"🖴  RAM DISK (/var/www/html/stream/): {ram_stats['used']}/{ram_stats['size']} ({ram_stats['use_percent']}) - Available: {ram_stats['available']}")
+    
+    # Per-capture directory breakdown
+    total_hot_size = 0
+    for capture_dir in capture_dirs:
+        device_name = os.path.basename(capture_dir)
+        stats = get_hot_folder_stats(capture_dir)
+        
+        # Calculate totals
+        total_files = sum(s['count'] for s in stats.values())
+        total_size = sum(s['size_bytes'] for s in stats.values())
+        total_hot_size += total_size
+        
+        # Build breakdown string
+        breakdown = []
+        for file_type, data in stats.items():
+            if data['count'] > 0:
+                limit = HOT_LIMITS.get(file_type, 0)
+                limit_str = f"/{limit}" if limit > 0 else ""
+                breakdown.append(f"{file_type}={data['count']}{limit_str}({format_bytes(data['size_bytes'])})")
+        
+        logger.info(f"  📁 {device_name}/hot: {total_files} files, {format_bytes(total_size)} - [{', '.join(breakdown)}]")
+    
+    logger.info(f"  ∑ Total hot storage: {format_bytes(total_hot_size)}")
+    logger.info("=" * 80)
+
 
 def get_file_hour(filepath: str) -> int:
     """Get hour (0-23) from file modification time"""
@@ -1468,6 +1576,9 @@ def main_loop():
             capture_dirs = get_capture_base_directories()
             logger.info(f"Processing {len(capture_dirs)} capture directories")
             
+            # BEFORE CLEANING SUMMARY
+            print_ram_summary(capture_dirs, "📊 BEFORE CLEANING")
+            
             # Process each directory
             for capture_dir in capture_dirs:
                 try:
@@ -1475,10 +1586,14 @@ def main_loop():
                 except Exception as e:
                     logger.error(f"Error processing {capture_dir}: {e}", exc_info=True)
             
+            # AFTER CLEANING SUMMARY
+            print_ram_summary(capture_dirs, "✅ AFTER CLEANING")
+            
             cycle_elapsed = time.time() - cycle_start
+            logger.info("")
             logger.info("=" * 60)
-            logger.info(f"Cycle completed in {cycle_elapsed:.2f}s")
-            logger.info(f"Next run in {run_interval}s")
+            logger.info(f"✓ Cycle completed in {cycle_elapsed:.2f}s")
+            logger.info(f"⏰ Next run in {run_interval}s")
             logger.info("=" * 60)
             
             # Sleep until next cycle
