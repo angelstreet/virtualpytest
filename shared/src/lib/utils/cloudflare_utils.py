@@ -101,7 +101,7 @@ class CloudflareUtils:
             logger.error(f"Failed to initialize Cloudflare R2 client: {str(e)}")
             raise
     
-    def upload_files(self, file_mappings: List[Dict], max_workers: int = 10) -> Dict:
+    def upload_files(self, file_mappings: List[Dict], max_workers: int = 10, auto_delete_cold: bool = True) -> Dict:
         """
         Upload files concurrently.
         
@@ -109,12 +109,14 @@ class CloudflareUtils:
             file_mappings: List of dicts with 'local_path' and 'remote_path' keys
             Optional 'content_type' key to override auto-detection
             max_workers: Maximum number of concurrent upload threads
+            auto_delete_cold: If True, automatically delete files from cold storage after successful upload
             
         Returns:
             Dict with upload results
         """
         uploaded_files = []
         failed_uploads = []
+        deleted_files = []
         
         def upload_single_file(mapping):
             local_path = mapping['local_path']
@@ -144,6 +146,8 @@ class CloudflareUtils:
                     capture_time = str(int(os.path.getmtime(local_path)))
                     extra_args['Metadata'] = {'capture_time': capture_time}
                 
+                file_size = os.path.getsize(local_path)
+                
                 with open(local_path, 'rb') as f:
                     self.s3_client.upload_fileobj(
                         f,
@@ -154,13 +158,33 @@ class CloudflareUtils:
                 
                 file_url = self.get_public_url(remote_path)
                 
-                return {
+                result = {
                     'success': True,
                     'local_path': local_path,
                     'remote_path': remote_path,
                     'url': file_url,
-                    'size': os.path.getsize(local_path)
+                    'size': file_size,
+                    'deleted': False
                 }
+                
+                # Auto-delete from cold storage after successful upload
+                # Only delete if file is in cold storage (not hot) and contains "capture_" or "thumbnail"
+                if auto_delete_cold:
+                    is_cold_file = (
+                        ('/captures/' in local_path or '/thumbnails/' in local_path) and
+                        '/hot/' not in local_path and
+                        ('capture_' in os.path.basename(local_path) or 'thumbnail' in os.path.basename(local_path))
+                    )
+                    
+                    if is_cold_file:
+                        try:
+                            os.remove(local_path)
+                            result['deleted'] = True
+                            logger.debug(f"Auto-deleted cold file after upload: {local_path}")
+                        except Exception as del_error:
+                            logger.warning(f"Failed to auto-delete cold file {local_path}: {del_error}")
+                
+                return result
                 
             except Exception as e:
                 return {
@@ -178,16 +202,25 @@ class CloudflareUtils:
                 
                 if result['success']:
                     uploaded_files.append(result)
+                    if result.get('deleted'):
+                        deleted_files.append(result['local_path'])
                 else:
                     failed_uploads.append(result)
         
-        return {
+        response = {
             'success': len(failed_uploads) == 0,
             'uploaded_count': len(uploaded_files),
             'failed_count': len(failed_uploads),
             'uploaded_files': uploaded_files,
             'failed_uploads': failed_uploads
         }
+        
+        if deleted_files:
+            response['deleted_count'] = len(deleted_files)
+            response['deleted_files'] = deleted_files
+            logger.info(f"Auto-deleted {len(deleted_files)} cold storage files after upload")
+        
+        return response
     
     def download_file(self, remote_path: str, local_path: str) -> Dict:
         """
