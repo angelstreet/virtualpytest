@@ -29,9 +29,32 @@ from typing import Dict, List, Tuple
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
+# Try to load .env file if it exists
+try:
+    from dotenv import load_dotenv
+    env_path = os.path.join(project_root, '.env')
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        print(f"✅ Loaded environment from: {env_path}")
+except ImportError:
+    # python-dotenv not installed, user must set env vars manually
+    pass
+
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
-from shared.src.lib.utils.app_utils import get_team_id
+
+
+def get_team_id_from_env() -> str:
+    """Get team_id from environment variable or use default."""
+    # Try environment variable first
+    team_id = os.environ.get('TEAM_ID')
+    if team_id:
+        return team_id
+    
+    # Fall back to default team_id
+    DEFAULT_TEAM_ID = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+    print(f"⚠️  [Migration] TEAM_ID not in environment, using default: {DEFAULT_TEAM_ID}")
+    return DEFAULT_TEAM_ID
 
 
 def get_migration_mapping() -> Tuple[Dict[str, Dict], Dict]:
@@ -42,7 +65,7 @@ def get_migration_mapping() -> Tuple[Dict[str, Dict], Dict]:
         Tuple of (migration_map, stats)
     """
     supabase = get_supabase_client()
-    team_id = get_team_id()
+    team_id = get_team_id_from_env()
     
     print("📊 [Migration] Querying database for screenshot mapping...")
     
@@ -235,11 +258,43 @@ def update_database_urls(migration_map: Dict, successful_urls: List[str]) -> Tup
     return successful_count, failed_count
 
 
+def check_environment():
+    """Check required environment variables are set."""
+    required_vars = [
+        'SUPABASE_URL',
+        'SUPABASE_KEY',
+        'CLOUDFLARE_R2_ENDPOINT',
+        'CLOUDFLARE_R2_ACCESS_KEY_ID',
+        'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
+        'CLOUDFLARE_R2_PUBLIC_URL'
+    ]
+    
+    missing_vars = [var for var in required_vars if not os.environ.get(var)]
+    
+    if missing_vars:
+        print("❌ Missing required environment variables:")
+        for var in missing_vars:
+            print(f"   - {var}")
+        print("\nPlease set these environment variables before running the migration.")
+        print("You can use a .env file and load it, or export them directly.")
+        return False
+    
+    print("✅ All required environment variables are set")
+    return True
+
+
 def main():
     """Main migration execution."""
     print("=" * 80)
     print("🚀 Screenshot Migration: device_model → userinterface")
     print("=" * 80)
+    print()
+    
+    # Check environment variables
+    if not check_environment():
+        sys.exit(1)
+    
+    print()
     
     try:
         # Step 1: Build migration mapping
