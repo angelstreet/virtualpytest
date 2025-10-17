@@ -246,10 +246,11 @@ class DeploymentScheduler:
     def _mark_as_expired(self, deployment_id):
         """Mark deployment as expired and remove from scheduler"""
         try:
-            self.supabase.table('deployments')\
-                .update({'status': 'expired'})\
-                .eq('id', deployment_id)\
-                .execute()
+            with self.db_lock:
+                self.supabase.table('deployments')\
+                    .update({'status': 'expired'})\
+                    .eq('id', deployment_id)\
+                    .execute()
             self.scheduler.remove_job(deployment_id)
             print(f"[@deployment_scheduler] Marked as expired: {deployment_id}")
             deployment_logger.warning(f"STATUS: {deployment_id} | EXPIRED - Removed from scheduler")
@@ -260,10 +261,11 @@ class DeploymentScheduler:
     def _mark_as_completed(self, deployment_id):
         """Mark deployment as completed and remove from scheduler"""
         try:
-            self.supabase.table('deployments')\
-                .update({'status': 'completed'})\
-                .eq('id', deployment_id)\
-                .execute()
+            with self.db_lock:
+                self.supabase.table('deployments')\
+                    .update({'status': 'completed'})\
+                    .eq('id', deployment_id)\
+                    .execute()
             self.scheduler.remove_job(deployment_id)
             print(f"[@deployment_scheduler] Marked as completed: {deployment_id}")
             deployment_logger.info(f"STATUS: {deployment_id} | COMPLETED - Removed from scheduler")
@@ -282,7 +284,8 @@ class DeploymentScheduler:
             
             # Get deployment config
             try:
-                result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+                with self.db_lock:
+                    result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
             except Exception as db_error:
                 error_type = type(db_error).__name__
                 print(f"[@deployment_scheduler] Failed to fetch deployment: {error_type}: {db_error}")
@@ -310,20 +313,22 @@ class DeploymentScheduler:
                 print(f"[@deployment_scheduler] Skipping execution: {reason}")
                 deployment_logger.info(f"⏭️  SKIPPED: {dep_name} | Reason: {reason}")
                 # Create skipped execution record
-                self.supabase.table('deployment_executions').insert({
-                    'deployment_id': deployment_id,
-                    'scheduled_at': start_time.isoformat(),
-                    'status': 'skipped',
-                    'skip_reason': reason
-                }).execute()
+                with self.db_lock:
+                    self.supabase.table('deployment_executions').insert({
+                        'deployment_id': deployment_id,
+                        'scheduled_at': start_time.isoformat(),
+                        'status': 'skipped',
+                        'skip_reason': reason
+                    }).execute()
                 return
             
             # Check if previous execution is still running
-            running_check = self.supabase.table('deployment_executions')\
-                .select('id, started_at')\
-                .eq('deployment_id', deployment_id)\
-                .eq('status', 'running')\
-                .execute()
+            with self.db_lock:
+                running_check = self.supabase.table('deployment_executions')\
+                    .select('id, started_at')\
+                    .eq('deployment_id', deployment_id)\
+                    .eq('status', 'running')\
+                    .execute()
             
             if running_check.data and len(running_check.data) > 0:
                 running_exec = running_check.data[0]
@@ -339,12 +344,13 @@ class DeploymentScheduler:
                         deployment_logger.warning(f"Stale execution detected: {running_exec['id']} (age: {age_seconds/3600:.1f} hours) - marking as failed")
                         
                         # Mark stale execution as failed
-                        self.supabase.table('deployment_executions').update({
-                            'completed_at': datetime.now(timezone.utc).isoformat(),
-                            'status': 'failed',
-                            'success': False,
-                            'error_message': f'Execution timed out - ran for {age_seconds/3600:.1f} hours'
-                        }).eq('id', running_exec['id']).execute()
+                        with self.db_lock:
+                            self.supabase.table('deployment_executions').update({
+                                'completed_at': datetime.now(timezone.utc).isoformat(),
+                                'status': 'failed',
+                                'success': False,
+                                'error_message': f'Execution timed out - ran for {age_seconds/3600:.1f} hours'
+                            }).eq('id', running_exec['id']).execute()
                         
                         # Continue with new execution (don't skip)
                         print(f"[@deployment_scheduler] Stale execution cleaned up, proceeding with new execution")
@@ -354,35 +360,38 @@ class DeploymentScheduler:
                             # Already have 1 queued - skip this trigger
                             print(f"[@deployment_scheduler] Already queued, skipping this trigger (age: {age_seconds:.0f}s)")
                             deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Already queued (max 1)")
-                            self.supabase.table('deployment_executions').insert({
-                                'deployment_id': deployment_id,
-                                'scheduled_at': start_time.isoformat(),
-                                'status': 'skipped',
-                                'skip_reason': 'Already queued (max 1)'
-                            }).execute()
+                            with self.db_lock:
+                                self.supabase.table('deployment_executions').insert({
+                                    'deployment_id': deployment_id,
+                                    'scheduled_at': start_time.isoformat(),
+                                    'status': 'skipped',
+                                    'skip_reason': 'Already queued (max 1)'
+                                }).execute()
                             return
                         else:
                             # Queue this execution (max 1 per deployment)
                             self.queued_executions[deployment_id] = start_time
                             print(f"[@deployment_scheduler] Queued for execution after current completes (age: {age_seconds:.0f}s)")
                             deployment_logger.info(f"⏳ QUEUED: {dep_name} | Will run after current execution")
-                            self.supabase.table('deployment_executions').insert({
-                                'deployment_id': deployment_id,
-                                'scheduled_at': start_time.isoformat(),
-                                'status': 'queued',
-                                'skip_reason': None
-                            }).execute()
+                            with self.db_lock:
+                                self.supabase.table('deployment_executions').insert({
+                                    'deployment_id': deployment_id,
+                                    'scheduled_at': start_time.isoformat(),
+                                    'status': 'queued',
+                                    'skip_reason': None
+                                }).execute()
                             return
                 except (ValueError, TypeError) as e:
                     # If we can't parse the date, skip this execution
                     print(f"[@deployment_scheduler] Could not parse started_at date: {e}, skipping execution")
                     deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at_str})")
-                    self.supabase.table('deployment_executions').insert({
-                        'deployment_id': deployment_id,
-                        'scheduled_at': start_time.isoformat(),
-                        'status': 'skipped',
-                        'skip_reason': 'Previous execution still running'
-                    }).execute()
+                    with self.db_lock:
+                        self.supabase.table('deployment_executions').insert({
+                            'deployment_id': deployment_id,
+                            'scheduled_at': start_time.isoformat(),
+                            'status': 'skipped',
+                            'skip_reason': 'Previous execution still running'
+                        }).execute()
                     return
             
             # Create execution record with UTC timestamp
@@ -643,12 +652,13 @@ class DeploymentScheduler:
             
             if exec_id:
                 try:
-                    self.supabase.table('deployment_executions').update({
-                        'completed_at': datetime.now(timezone.utc).isoformat(),
-                        'status': 'failed',
-                        'success': False,
-                        'error_message': f"{error_type}: {error_msg}"
-                    }).eq('id', exec_id).execute()
+                    with self.db_lock:
+                        self.supabase.table('deployment_executions').update({
+                            'completed_at': datetime.now(timezone.utc).isoformat(),
+                            'status': 'failed',
+                            'success': False,
+                            'error_message': f"{error_type}: {error_msg}"
+                        }).eq('id', exec_id).execute()
                 except Exception as db_error:
                     db_error_type = type(db_error).__name__
                     print(f"[@deployment_scheduler] Failed to update execution record: {db_error_type}: {db_error}")
@@ -700,7 +710,8 @@ class DeploymentScheduler:
         """Resume deployment by re-adding to scheduler"""
         try:
             # Fetch deployment from database
-            result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+            with self.db_lock:
+                result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
             if not result.data or len(result.data) == 0:
                 print(f"[@deployment_scheduler] Cannot resume - deployment not found: {deployment_id}")
                 deployment_logger.error(f"Cannot resume - deployment not found: {deployment_id}")
