@@ -102,13 +102,36 @@ ps aux --sort=-%mem | head -6 | tee -a "${REPORT_FILE}"
 # 5. DISK SPACE
 header "DISK SPACE"
 DISK_USAGE=$(df -h / | tail -1 | awk '{print $5}' | tr -d '%')
-log "Disk usage: ${DISK_USAGE}%"
+log "Global disk usage: ${DISK_USAGE}%"
 
 if [ "$DISK_USAGE" -gt 90 ]; then
-    alert "CRITICAL: Disk usage ${DISK_USAGE}% exceeds 90%"
+    alert "CRITICAL: Global disk usage ${DISK_USAGE}% exceeds 90%"
 elif [ "$DISK_USAGE" -gt 80 ]; then
-    warn "WARNING: Disk usage ${DISK_USAGE}% exceeds 80%"
+    warn "WARNING: Global disk usage ${DISK_USAGE}% exceeds 80%"
 fi
+
+# Check HOT FOLDER tmpfs mounts (critical for FFmpeg)
+log "\nHOT FOLDER tmpfs STATUS:"
+for i in 1 2 3 4; do
+    HOT_PATH="/var/www/html/stream/capture${i}/hot"
+    if [ -d "$HOT_PATH" ]; then
+        HOT_LINE=$(df -h "$HOT_PATH" 2>/dev/null | tail -1)
+        HOT_USAGE=$(echo "$HOT_LINE" | awk '{print $5}')
+        HOT_USED=$(echo "$HOT_LINE" | awk '{print $3}')
+        HOT_SIZE=$(echo "$HOT_LINE" | awk '{print $2}')
+        HOT_PERCENT=$(echo "$HOT_USAGE" | tr -d '%')
+        
+        log "  capture${i}/hot: ${HOT_USAGE} (${HOT_USED}/${HOT_SIZE})"
+        
+        if [ "$HOT_PERCENT" -gt 90 ]; then
+            alert "  capture${i}/hot CRITICAL: ${HOT_PERCENT}% - FFmpeg will fail!"
+        elif [ "$HOT_PERCENT" -gt 80 ]; then
+            warn "  capture${i}/hot WARNING: ${HOT_PERCENT}% - approaching limit!"
+        fi
+    else
+        log "  capture${i}/hot: Not found"
+    fi
+done
 
 # 6. CHECK FOR OOM KILLER
 header "OOM KILLER CHECK"
@@ -249,8 +272,35 @@ else
     cat > "${MONITOR_SCRIPT}" << 'EOFMONITOR'
 #!/bin/bash
 LOG_FILE="${HOME}/crash_monitoring/health_$(date +%Y%m%d).log"
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Temp: $(vcgencmd measure_temp) | Load: $(uptime | awk -F'load average:' '{print $2}') | Mem: $(free -h | grep Mem | awk '{print $3"/"$2}') | Disk: $(df -h / | tail -1 | awk '{print $5}')" >> "${LOG_FILE}"
+TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
+
+# System stats
+echo "${TIMESTAMP} Temp: $(vcgencmd measure_temp 2>/dev/null || echo 'N/A') | Load: $(uptime | awk -F'load average:' '{print $2}') | Mem: $(free -h | grep Mem | awk '{print $3"/"$2}')" >> "${LOG_FILE}"
+
+# Global disk space
+GLOBAL_DISK=$(df -h / | tail -1 | awk '{print $5 " used, " $4 " free"}')
+echo "${TIMESTAMP} Global Disk: ${GLOBAL_DISK}" >> "${LOG_FILE}"
+
+# HOT FOLDER tmpfs monitoring (CRITICAL for FFmpeg)
+echo "${TIMESTAMP} HOT FOLDERS:" >> "${LOG_FILE}"
+for i in 1 2 3 4; do
+    HOT_PATH="/var/www/html/stream/capture${i}/hot"
+    if [ -d "$HOT_PATH" ]; then
+        HOT_USAGE=$(df -h "$HOT_PATH" 2>/dev/null | tail -1 | awk '{print $5 " (" $3 "/" $2 ")"}' || echo "N/A")
+        echo "${TIMESTAMP}   capture${i}/hot: ${HOT_USAGE}" >> "${LOG_FILE}"
+        
+        # Alert if any hot folder exceeds 80%
+        HOT_PERCENT=$(df "$HOT_PATH" 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%' || echo "0")
+        if [ "$HOT_PERCENT" -gt 80 ]; then
+            echo "${TIMESTAMP}   ⚠️  ALERT: capture${i}/hot at ${HOT_PERCENT}% - FFmpeg may fail!" >> "${LOG_FILE}"
+        fi
+    fi
+done
+
+# Top CPU consumers (compact)
 ps aux --sort=-%cpu | head -5 >> "${LOG_FILE}"
+
+# OOM check
 dmesg -T | grep -i "oom\|killed" | tail -3 >> "${LOG_FILE}" 2>/dev/null || true
 EOFMONITOR
     chmod +x "${MONITOR_SCRIPT}"
@@ -267,10 +317,10 @@ EOF
 
     sudo tee /etc/systemd/system/crash-monitor.timer > /dev/null << 'EOF'
 [Unit]
-Description=Health Monitor Timer
+Description=Health Monitor Timer (30s interval)
 [Timer]
-OnBootSec=1min
-OnUnitActiveSec=5min
+OnBootSec=30sec
+OnUnitActiveSec=30sec
 [Install]
 WantedBy=timers.target
 EOF
@@ -285,7 +335,26 @@ fi
 # 11. FINAL DIAGNOSIS
 header "DIAGNOSIS SUMMARY"
 
-if [ "$OOM_COUNT" -gt 0 ]; then
+# Check if any hot folder is critical
+HOT_FOLDER_CRITICAL=false
+for i in 1 2 3 4; do
+    HOT_PATH="/var/www/html/stream/capture${i}/hot"
+    if [ -d "$HOT_PATH" ]; then
+        HOT_PERCENT=$(df "$HOT_PATH" 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%' || echo "0")
+        if [ "$HOT_PERCENT" -gt 80 ]; then
+            HOT_FOLDER_CRITICAL=true
+            break
+        fi
+    fi
+done
+
+if [ "$HOT_FOLDER_CRITICAL" = true ]; then
+    alert "LIKELY CAUSE: Hot folder tmpfs exhaustion - FFmpeg 'No space left' errors"
+    log "   → Hot folders are RAM-based tmpfs mounts (200MB each)"
+    log "   → Increase tmpfs size: sudo mount -o remount,size=512M /var/www/html/stream/captureX/hot"
+    log "   → Or reduce FFmpeg segment duration to write more frequently"
+    log "   → Check if cleanup scripts are running properly"
+elif [ "$OOM_COUNT" -gt 0 ]; then
     alert "LIKELY CAUSE: Out of Memory (OOM) - System ran out of RAM"
     log "   → Check which processes were killed in dmesg"
     log "   → Consider reducing video quality or number of streams"
@@ -310,13 +379,15 @@ log "\n${GREEN}=== INVESTIGATION COMPLETE ===${NC}"
 log "Report saved: ${REPORT_FILE}"
 log "\nNext steps:"
 log "  1. Review findings above"
-log "  2. Monitor: tail -f ${LOG_DIR}/health_\$(date +%Y%m%d).log"
+log "  2. Monitor (every 30s): tail -f ${LOG_DIR}/health_\$(date +%Y%m%d).log"
 log "  3. Check timer: systemctl list-timers crash-monitor.timer"
 log "  4. After crash: journalctl --boot=-1 | grep -i error"
 log "\nUseful commands:"
-log "  • systemctl status crash-monitor.timer"
-log "  • journalctl -u crash-monitor.service -f"
-log "  • cat ${LOG_DIR}/health_\$(date +%Y%m%d).log"
+log "  • Hot folders status: df -h /var/www/html/stream/capture*/hot"
+log "  • Monitor logs: tail -f ${LOG_DIR}/health_\$(date +%Y%m%d).log"
+log "  • Timer status: systemctl status crash-monitor.timer"
+log "  • Service logs: journalctl -u crash-monitor.service -f"
+log "  • FFmpeg errors: grep 'No space' /tmp/ffmpeg_output_*.log"
 
 echo ""
 cat "${REPORT_FILE}"

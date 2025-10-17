@@ -166,5 +166,85 @@ COMMENT ON COLUMN system_device_metrics.disk_usage_capture IS 'Disk usage for ca
 
 COMMENT ON TABLE system_incident IS 'System incident management and tracking';
 
--- Note: These tables do not have RLS enabled in the current database
--- This matches the production schema where system monitoring tables are accessible without RLS
+-- Enable Row Level Security on all monitoring tables
+ALTER TABLE system_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_device_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_incident ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies (open access for monitoring data)
+CREATE POLICY system_metrics_access_policy ON system_metrics
+    FOR ALL USING (true);
+
+CREATE POLICY system_device_metrics_access_policy ON system_device_metrics
+    FOR ALL USING (true);
+
+CREATE POLICY system_incident_access_policy ON system_incident
+    FOR ALL USING (true);
+
+-- Create triggers for updated_at timestamp
+CREATE OR REPLACE FUNCTION update_system_incident_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER system_incident_updated_at_trigger
+    BEFORE UPDATE ON system_incident
+    FOR EACH ROW
+    EXECUTE FUNCTION update_system_incident_updated_at();
+
+-- Create summary views with security_invoker for monitoring dashboards
+CREATE OR REPLACE VIEW device_availability_summary
+WITH (security_invoker = true)
+AS
+WITH device_availability AS (
+    SELECT 
+        system_device_metrics.device_name,
+        system_device_metrics.capture_folder,
+        count(*) AS total_minutes,
+        count(
+            CASE
+                WHEN ((system_device_metrics.ffmpeg_status = 'active'::text) AND (system_device_metrics.monitor_status = 'active'::text)) THEN 1
+                ELSE NULL::integer
+            END) AS healthy_minutes
+    FROM system_device_metrics
+    WHERE (system_device_metrics."timestamp" >= (now() - '01:00:00'::interval))
+    GROUP BY system_device_metrics.device_name, system_device_metrics.capture_folder
+)
+SELECT 
+    device_name,
+    capture_folder,
+    round((((healthy_minutes)::numeric * 100.0) / (total_minutes)::numeric), 2) AS availability_percent,
+    CASE
+        WHEN ((((healthy_minutes)::numeric * 100.0) / (total_minutes)::numeric) < (90)::numeric) THEN 1
+        ELSE 0
+    END AS is_low_availability
+FROM device_availability
+WHERE (total_minutes > 10);
+
+CREATE OR REPLACE VIEW active_incidents_summary
+WITH (security_invoker = true)
+AS
+SELECT 
+    count(
+        CASE
+            WHEN ((status)::text = ANY ((ARRAY['open'::character varying, 'in_progress'::character varying])::text[])) THEN 1
+            ELSE NULL::integer
+        END) AS active_incidents,
+    count(
+        CASE
+            WHEN (((status)::text = ANY ((ARRAY['open'::character varying, 'in_progress'::character varying])::text[])) AND ((severity)::text = 'critical'::text)) THEN 1
+            ELSE NULL::integer
+        END) AS critical_incidents,
+    count(
+        CASE
+            WHEN (detected_at >= (now() - '00:05:00'::interval)) THEN 1
+            ELSE NULL::integer
+        END) AS new_incidents_5min,
+    max(detected_at) AS last_incident_time
+FROM system_incident;
+
+COMMENT ON VIEW device_availability_summary IS 'Real-time device availability metrics over the last hour';
+COMMENT ON VIEW active_incidents_summary IS 'Summary of active and recent incidents for dashboard display';
