@@ -358,6 +358,9 @@ class ScriptExecutionContext:
                     "verifications": verifications,
                     "retry_actions": retry_actions if retry_actions else None,
                     "failure_actions": failure_actions if failure_actions else None,
+                    # Set progress to show completed count (e.g., "3/3" for all done)
+                    "current_action_index": len(actions),  # All actions completed
+                    "current_verification_index": len(verifications),  # All verifications completed
                 }
             
             # Calculate estimated end time based on average step duration

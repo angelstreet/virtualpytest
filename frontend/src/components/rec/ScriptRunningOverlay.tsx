@@ -78,6 +78,7 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
   const [logData, setLogData] = useState<RunningLogData | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set()); // Track which steps are expanded
   const [isCollapsed, setIsCollapsed] = useState(false); // Collapse entire overlay
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null); // Ref for auto-scroll
 
   // Poll running.log every 2 seconds
   useEffect(() => {
@@ -117,6 +118,14 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
 
     return () => clearInterval(interval);
   }, [host, device_id]);
+
+  // Auto-scroll to most recent step when log data changes
+  useEffect(() => {
+    if (scrollContainerRef.current && logData) {
+      // Scroll to bottom to show most recent steps
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
+  }, [logData?.current_step_number]); // Scroll when step number changes
 
   // Don't render if no data
   if (!logData) {
@@ -276,18 +285,20 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
       </Box>
 
       {/* Scrollable Steps Timeline */}
-      <Box sx={{ 
-        maxHeight: '160px', // Show ~2 steps by default
-        overflowY: 'auto',
-        pr: 0.5, // Space for scrollbar
-        '&::-webkit-scrollbar': {
-          width: '4px',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: 'rgba(255,255,255,0.3)',
-          borderRadius: '4px',
-        }
-      }}>
+      <Box 
+        ref={scrollContainerRef}
+        sx={{ 
+          maxHeight: '160px', // Show ~2 steps by default
+          overflowY: 'auto',
+          pr: 0.5, // Space for scrollbar
+          '&::-webkit-scrollbar': {
+            width: '4px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(255,255,255,0.3)',
+            borderRadius: '4px',
+          }
+        }}>
         {allSteps.map((step) => {
           const isExpanded = expandedSteps.has(step.step_number);
           const hasDetails = (step.actions && step.actions.length > 0) || (step.verifications && step.verifications.length > 0);
