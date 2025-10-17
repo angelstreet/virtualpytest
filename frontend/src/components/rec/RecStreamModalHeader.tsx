@@ -96,19 +96,31 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
         minHeight: 48,
       }}
     >
-      <Typography variant="h6" component="h2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Box component="span">{device?.device_name || host.host_name} -</Box>
+      <Typography 
+        variant="h6" 
+        component="h2" 
+        sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 0.5,
+          fontSize: '1rem', // Reduced from h6 default (1.25rem) to ensure single line
+          whiteSpace: 'nowrap', // Prevent wrapping
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}
+      >
+        <Box component="span">{device?.device_name || host.host_name}</Box>
         {device?.has_running_deployment && (
           <LockIcon 
             sx={{ 
-              fontSize: '1.1rem', 
+              fontSize: '1rem', 
               color: 'warning.main',
-              mr: 0.5
+              flexShrink: 0
             }} 
             titleAccess="Script running"
           />
         )}
-        <Box component="span" sx={{ minWidth: 100, display: 'inline-block' }}>
+        <Box component="span" sx={{ flexShrink: 0 }}>
           {monitoringMode ? 'Monitoring' : restartMode ? 'Restart Player' : isLiveMode ? 'Live' : 'Last 24h'}
         </Box>
       </Typography>
