@@ -283,13 +283,39 @@ class ScriptExecutionContext:
                 "start_time": datetime.fromtimestamp(self.start_time, tz=timezone.utc).isoformat(),
             }
             
+            # Helper to extract step description from step_result
+            def get_step_description(step):
+                """Extract human-readable description from step_result"""
+                # Try message first (navigation steps have this)
+                if step.get('message'):
+                    return step['message']
+                # Try from_node -> to_node for navigation
+                if step.get('from_node') and step.get('to_node'):
+                    return f"{step['from_node']} → {step['to_node']}"
+                # Try action_name
+                if step.get('action_name'):
+                    return step['action_name']
+                # Fallback
+                return step.get('step_category', 'Unknown step')
+            
+            def get_step_command(step):
+                """Extract command/type from step_result"""
+                # Try action_name first
+                if step.get('action_name'):
+                    return step['action_name']
+                # Try step_category
+                if step.get('step_category'):
+                    return step['step_category']
+                # Fallback
+                return 'unknown'
+            
             # Add previous step (from step_results)
             if len(self.step_results) >= 2:
                 prev_step = self.step_results[-2]
                 log_data["previous_step"] = {
                     "step_number": prev_step.get('step_number'),
-                    "description": prev_step.get('description', prev_step.get('command', 'Unknown step')),
-                    "command": prev_step.get('command', 'unknown'),
+                    "description": get_step_description(prev_step),
+                    "command": get_step_command(prev_step),
                     "status": "completed"
                 }
             
@@ -309,8 +335,8 @@ class ScriptExecutionContext:
                 
                 log_data["current_step"] = {
                     "step_number": current_step.get('step_number'),
-                    "description": current_step.get('description', current_step.get('command', 'Unknown step')),
-                    "command": current_step.get('command', 'unknown'),
+                    "description": get_step_description(current_step),
+                    "command": get_step_command(current_step),
                     "status": "current",
                     "actions": actions,
                     "verifications": verifications,
