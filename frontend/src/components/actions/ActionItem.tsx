@@ -274,6 +274,52 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         }
         break;
 
+      case 'find_element':
+        // Web action: Find element by selector or text (returns element ID and position)
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="selector"
+              label="Selector or Text"
+              size="small"
+              value={getParamValue('selector') || ''}
+              onChange={(e) => safeHandleParamChange('selector', e.target.value)}
+              placeholder="e.g., TV Guide, #element-id, .class-name"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
+      case 'hover_element':
+        // Web action: Hover over element to trigger rollover effects
+        if (currentActionDef?.requiresInput) {
+          fields.push(
+            <TextField
+              key="selector"
+              label="Selector or Text"
+              size="small"
+              value={getParamValue('selector') || ''}
+              onChange={(e) => safeHandleParamChange('selector', e.target.value)}
+              placeholder="e.g., #player-controls, Play Button"
+              sx={{
+                width: 220,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        }
+        break;
+
       case 'click_element_by_id':
         // Only show element_id field if the action requires input
         if (currentActionDef?.requiresInput) {
