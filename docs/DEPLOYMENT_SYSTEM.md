@@ -46,6 +46,12 @@ tail -50 /tmp/deployments.log
 - Link to test reports and logs
 - Automatic status management (active → completed/expired)
 
+### **5. Smart Queuing System**
+- If a deployment triggers while already running, queue it (max 1)
+- When current execution completes, queued execution runs immediately
+- Additional triggers while queued are skipped (prevents buildup)
+- Works for both successful and failed executions
+
 ---
 
 ## 📅 Cron Expression Guide
@@ -221,17 +227,23 @@ active ──[end date]──> expired
    - ❌ Max executions reached? → Mark as completed, stop
    - ✅ All checks pass → Proceed
 
-3. **Script Execution**:
+3. **Queue Check** (if already running):
+   - 🔄 **Not queued yet?** → Queue it (max 1), mark as 'queued'
+   - ⏭️ **Already queued?** → Skip this trigger, mark as 'skipped'
+   - ✅ **Not running?** → Execute immediately
+
+4. **Script Execution**:
    - Create execution record in database
    - Run script using ScriptExecutor
    - Record results (success/failure)
    - Link to script_result and report
 
-4. **Post-Execution**:
+5. **Post-Execution**:
    - Increment execution_count
    - Update last_executed_at
    - Check if limits reached
    - Auto-complete if max reached
+   - **Check queue**: If queued execution exists, run it immediately
 
 ---
 
@@ -278,12 +290,19 @@ CREATE TABLE deployment_executions (
   started_at TIMESTAMP WITH TIME ZONE,
   completed_at TIMESTAMP WITH TIME ZONE,
   
-  status TEXT DEFAULT 'running',
+  status TEXT DEFAULT 'running',  -- 'running' | 'completed' | 'failed' | 'skipped' | 'queued'
   success BOOLEAN,
   skip_reason TEXT,
   error_message TEXT
 );
 ```
+
+**Execution Status Types:**
+- **running**: Currently executing
+- **completed**: Finished successfully
+- **failed**: Execution failed with error
+- **skipped**: Skipped due to constraints or queue full
+- **queued**: Waiting to run after current execution completes
 
 ---
 
@@ -341,6 +360,11 @@ Host adds to APScheduler
     ↓
 Check constraints (start/end/max)
     ↓
+Check if already running
+    ├─ Yes, queued? → Skip (queue full)
+    ├─ Yes, not queued? → Queue it
+    └─ No → Execute
+    ↓
 Execute script if valid
     ↓
 Record results
@@ -348,6 +372,8 @@ Record results
 Update execution_count
     ↓
 Check if should complete
+    ↓
+Check queue → Execute if pending
 ```
 
 ---
@@ -370,6 +396,7 @@ Check if should complete
 - Automatic constraint validation
 - Execution tracking
 - Error handling and retry
+- Smart queuing system (max 1 per deployment)
 - Device lock checking (skips if device busy)
 - Comprehensive logging to `/tmp/deployments.log`
 
@@ -447,6 +474,8 @@ The deployment system logs:
 - ▶️  **Execution start** - Script and device details
 - ✅/❌ **Execution results** - Success/failure, duration, execution count
 - ⏭️  **Skipped executions** - When constraints prevent execution
+- ⏳ **Queued executions** - When execution is queued (max 1)
+- 🔄 **Queue processing** - When queued execution starts after completion
 - ⚠️  **Constraint checks** - Start date, end date, max executions
 - 🔄 **Status changes** - Paused, resumed, completed, expired, removed
 - 💥 **Errors** - Any execution or scheduling errors
@@ -484,6 +513,18 @@ The deployment system logs:
 2025-10-16 14:12:15 [INFO] ✅ COMPLETED: login_test_device1 | Duration: 135.2s | Success: True | Executions: 16/∞
 ```
 
+**With Queue (trigger while running):**
+```
+2025-10-16 14:10:00 [INFO] ⚡ TRIGGERED: login_test_device1 | Time: 2025-10-16 14:10:00 UTC
+2025-10-16 14:10:00 [INFO] ▶️  EXECUTING: login_test_device1 | Script: test_login.py | Device: emulator-5554
+2025-10-16 14:11:00 [INFO] ⚡ TRIGGERED: login_test_device1 | Time: 2025-10-16 14:11:00 UTC
+2025-10-16 14:11:00 [INFO] ⏳ QUEUED: login_test_device1 | Will run after current execution
+2025-10-16 14:12:00 [WARN] ⏭️  SKIPPED: login_test_device1 | Already queued (max 1)
+2025-10-16 14:12:15 [INFO] ✅ COMPLETED: login_test_device1 | Duration: 135.2s | Success: True | Executions: 16/∞
+2025-10-16 14:12:15 [INFO] 🔄 EXECUTING QUEUED: login_test_device1 | Queued at: 2025-10-16 14:11:00
+2025-10-16 14:14:30 [INFO] ✅ COMPLETED: login_test_device1 | Duration: 135.0s | Success: True | Executions: 17/∞
+```
+
 ### **Viewing Logs**
 
 ```bash
@@ -508,6 +549,53 @@ grep "ERROR" /tmp/deployments.log
 # View last deployment summary (host restart/init)
 tail -100 /tmp/deployments.log | grep -A 50 "DEPLOYMENTS"
 ```
+
+---
+
+## 🔄 Queue System
+
+### **How Queuing Works**
+
+When a deployment is scheduled to execute but the previous execution is still running, the system uses a smart queue to handle the conflict:
+
+**Scenario 1: Execution triggers while running**
+```
+14:00:00 → Execution A starts (running)
+14:05:00 → Trigger arrives → Check queue
+         → Queue empty → Add to queue ✅
+         → Status: queued
+```
+
+**Scenario 2: Another trigger arrives while queued**
+```
+14:00:00 → Execution A starts (running)
+14:05:00 → Trigger #1 arrives → Queued ✅
+14:10:00 → Trigger #2 arrives → Check queue
+         → Already has 1 queued → Skip ❌
+         → Status: skipped (reason: "Already queued (max 1)")
+```
+
+**Scenario 3: Execution completes with queued item**
+```
+14:00:00 → Execution A starts (running)
+14:05:00 → Trigger arrives → Queued ✅
+14:15:00 → Execution A completes → Check queue
+         → Found queued execution → Execute immediately 🚀
+14:15:00 → Queued execution starts (no delay)
+```
+
+### **Benefits**
+
+✅ **Never miss executions**: If a trigger comes during execution, it gets queued  
+✅ **No buildup**: Maximum 1 queued per deployment prevents queue overflow  
+✅ **Immediate execution**: Queued runs start instantly after completion  
+✅ **Works with failures**: Queue processes even if previous execution failed  
+
+### **Use Cases**
+
+- **High-frequency schedules**: Every 5 minutes, but execution takes 7 minutes
+- **Variable execution times**: Tests may take 2-10 minutes
+- **Overlapping triggers**: Ensure no execution is missed
 
 ---
 
@@ -545,6 +633,26 @@ tail -100 /tmp/deployments.log | grep -A 50 "DEPLOYMENTS"
 3. Manually stopped by user
 
 **Solution**: Check execution_count and status. Create new deployment if needed.
+
+### **Issue: Executions being skipped frequently**
+
+**Check**:
+1. View logs: `grep "SKIPPED.*Already queued" /tmp/deployments.log`
+2. Check if execution time exceeds schedule interval
+3. Example: Every 5 min schedule, but execution takes 7 minutes
+
+**Solution**: 
+- Increase schedule interval (e.g., every 10 minutes instead of 5)
+- Optimize test script to run faster
+- This is expected behavior - queue prevents buildup
+
+### **Issue: Want to see queued executions**
+
+**Check**:
+1. View logs: `grep "QUEUED" /tmp/deployments.log`
+2. Check database: `SELECT * FROM deployment_executions WHERE status = 'queued'`
+
+**Note**: Queued executions typically run immediately after completion, so they're rarely visible in "queued" state for long.
 
 ---
 
@@ -608,6 +716,22 @@ grep -A 100 "DEPLOYMENTS" /tmp/deployments.log | tail -50
 grep "TRIGGERED.*deployment_name" /tmp/deployments.log | tail -5
 ```
 
+### **Monitor Queue Activity**
+```bash
+# See all queued executions
+grep "QUEUED" /tmp/deployments.log
+
+# See all skipped due to queue full
+grep "Already queued" /tmp/deployments.log
+
+# See queued executions being processed
+grep "EXECUTING QUEUED" /tmp/deployments.log
+
+# Check if execution time exceeds schedule interval
+# (indicator that you might see queue activity)
+grep "Duration:" /tmp/deployments.log | tail -10
+```
+
 ---
 
 ## 📞 Support
@@ -622,5 +746,5 @@ For issues or questions:
 ---
 
 **Last Updated**: October 2025  
-**Version**: 2.0 (Cron-based system)
+**Version**: 2.1 (Cron-based system with smart queuing)
 

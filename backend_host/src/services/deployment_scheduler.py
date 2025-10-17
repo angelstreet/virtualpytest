@@ -23,6 +23,7 @@ class DeploymentScheduler:
         self.scheduler = BackgroundScheduler(timezone='UTC')
         self.supabase = get_supabase_client()
         self.db_lock = threading.Lock()  # Serialize concurrent DB operations
+        self.queued_executions = {}  # Queue for pending executions (max 1 per deployment)
         
     def start(self):
         """Start scheduler and sync from DB"""
@@ -346,19 +347,32 @@ class DeploymentScheduler:
                         # Continue with new execution (don't skip)
                         print(f"[@deployment_scheduler] Stale execution cleaned up, proceeding with new execution")
                     else:
-                        # Execution is recent, skip this scheduled run
-                        print(f"[@deployment_scheduler] Skipping - previous execution still running since {started_at_str} (age: {age_seconds:.0f}s)")
-                        deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at_str}, age: {age_seconds:.0f}s)")
-                        # Create skipped execution record
-                        self.supabase.table('deployment_executions').insert({
-                            'deployment_id': deployment_id,
-                            'scheduled_at': start_time.isoformat(),
-                            'status': 'skipped',
-                            'skip_reason': 'Previous execution still running'
-                        }).execute()
-                        return
+                        # Execution is recent, check queue
+                        if deployment_id in self.queued_executions:
+                            # Already have 1 queued - skip this trigger
+                            print(f"[@deployment_scheduler] Already queued, skipping this trigger (age: {age_seconds:.0f}s)")
+                            deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Already queued (max 1)")
+                            self.supabase.table('deployment_executions').insert({
+                                'deployment_id': deployment_id,
+                                'scheduled_at': start_time.isoformat(),
+                                'status': 'skipped',
+                                'skip_reason': 'Already queued (max 1)'
+                            }).execute()
+                            return
+                        else:
+                            # Queue this execution (max 1 per deployment)
+                            self.queued_executions[deployment_id] = start_time
+                            print(f"[@deployment_scheduler] Queued for execution after current completes (age: {age_seconds:.0f}s)")
+                            deployment_logger.info(f"⏳ QUEUED: {dep_name} | Will run after current execution")
+                            self.supabase.table('deployment_executions').insert({
+                                'deployment_id': deployment_id,
+                                'scheduled_at': start_time.isoformat(),
+                                'status': 'queued',
+                                'skip_reason': None
+                            }).execute()
+                            return
                 except (ValueError, TypeError) as e:
-                    # If we can't parse the date, assume it's stale and skip
+                    # If we can't parse the date, skip this execution
                     print(f"[@deployment_scheduler] Could not parse started_at date: {e}, skipping execution")
                     deployment_logger.warning(f"⏭️  SKIPPED: {dep_name} | Reason: Previous execution still running (started: {started_at_str})")
                     self.supabase.table('deployment_executions').insert({
@@ -525,6 +539,21 @@ class DeploymentScheduler:
             # Check if max executions reached after this run
             if dep.get('max_executions') and new_count >= dep['max_executions']:
                 self._mark_as_completed(deployment_id)
+            
+            # Check if there's a queued execution for this deployment
+            if deployment_id in self.queued_executions:
+                queued_time = self.queued_executions.pop(deployment_id)
+                print(f"[@deployment_scheduler] Found queued execution from {queued_time}, executing immediately")
+                deployment_logger.info(f"🔄 EXECUTING QUEUED: {dep_name} | Queued at: {queued_time}")
+                
+                # Execute immediately using APScheduler's date trigger (runs once, now)
+                self.scheduler.add_job(
+                    func=self._execute_deployment,
+                    args=[deployment_id],
+                    trigger='date',
+                    run_date=datetime.now(timezone.utc),
+                    id=f"{deployment_id}_queued"
+                )
                 
         except Exception as e:
             error_type = type(e).__name__
@@ -558,6 +587,21 @@ class DeploymentScheduler:
                     print(f"[@deployment_scheduler] Raw DB error: {repr(db_error)}")
                     deployment_logger.error(f"Failed to update execution record: {db_error_type}: {db_error}")
                     deployment_logger.error(f"Raw DB error: {repr(db_error)}")
+            
+            # Check if there's a queued execution even after error
+            if deployment_id in self.queued_executions:
+                queued_time = self.queued_executions.pop(deployment_id)
+                print(f"[@deployment_scheduler] Found queued execution from {queued_time}, executing immediately (after error)")
+                deployment_logger.info(f"🔄 EXECUTING QUEUED: {deployment_id} | Queued at: {queued_time} (after error)")
+                
+                # Execute immediately using APScheduler's date trigger
+                self.scheduler.add_job(
+                    func=self._execute_deployment,
+                    args=[deployment_id],
+                    trigger='date',
+                    run_date=datetime.now(timezone.utc),
+                    id=f"{deployment_id}_queued"
+                )
         except Exception as fatal_error:
             # Catch-all for ANY unhandled exception (syntax errors, missing imports, etc.)
             print(f"[@deployment_scheduler] 🔥 FATAL ERROR in deployment execution: {fatal_error}")
