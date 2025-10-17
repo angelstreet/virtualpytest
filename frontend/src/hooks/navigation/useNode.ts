@@ -26,7 +26,7 @@ export const useNode = (props?: UseNodeProps) => {
   console.log('[@useNode] Hook initialized with props:', props);
   
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
-  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, rootTreeId } =
+  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, rootTreeId, userInterface } =
     useNavigation();
   const {
     setNavigationEdgesSuccess,
@@ -112,8 +112,12 @@ export const useNode = (props?: UseNodeProps) => {
         return { success: false, message: 'Screenshots are not allowed for action nodes' };
       }
 
-      // Ensure we have a device model, fallback to android_mobile if not available
-      const currentDeviceModel = deviceModel || 'android_mobile';
+      // Get userinterface name from navigation context
+      const userinterfaceName = userInterface?.name;
+      
+      if (!userinterfaceName) {
+        return { success: false, message: 'User interface not available - cannot determine screenshot path' };
+      }
 
       try {
         // Sanitize filename by removing spaces and special characters
@@ -128,7 +132,7 @@ export const useNode = (props?: UseNodeProps) => {
             host_name: props.selectedHost.host_name,
             device_id: props.selectedDeviceId,
             filename: sanitizedFilename,
-            device_model: currentDeviceModel,
+            userinterface_name: userinterfaceName,
           }),
         });
 
@@ -152,7 +156,7 @@ export const useNode = (props?: UseNodeProps) => {
         };
       }
     },
-    [props?.selectedHost, props?.selectedDeviceId, deviceModel],
+    [props?.selectedHost, props?.selectedDeviceId, userInterface],
   );
 
   /**

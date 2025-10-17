@@ -264,6 +264,52 @@ class CloudflareUtils:
             logger.error(f"Download failed: {str(e)}")
             return {'success': False, 'error': str(e)}
     
+    def copy_file(self, source_path: str, destination_path: str) -> Dict:
+        """
+        Copy a file within R2 storage (server-side copy).
+        
+        Args:
+            source_path: Source path in R2 (e.g., 'navigation/android_mobile/Home.jpg')
+            destination_path: Destination path in R2 (e.g., 'navigation/horizon_android_mobile/Home.jpg')
+            
+        Returns:
+            Dict with success status and new file URL
+        """
+        try:
+            # Use S3 copy_object for efficient server-side copy
+            copy_source = {
+                'Bucket': self.bucket_name,
+                'Key': source_path
+            }
+            
+            self.s3_client.copy_object(
+                CopySource=copy_source,
+                Bucket=self.bucket_name,
+                Key=destination_path
+            )
+            
+            new_url = self.get_public_url(destination_path)
+            
+            logger.info(f"Copied in R2: {source_path} -> {destination_path}")
+            
+            return {
+                'success': True,
+                'source_path': source_path,
+                'destination_path': destination_path,
+                'url': new_url
+            }
+            
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                logger.error(f"Source file not found in R2: {source_path}")
+                return {'success': False, 'error': f"Source file not found: {source_path}"}
+            else:
+                logger.error(f"Copy failed: {str(e)}")
+                return {'success': False, 'error': str(e)}
+        except Exception as e:
+            logger.error(f"Copy failed: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
     def get_public_url(self, remote_path: str) -> str:
         """
         Get a public URL for a file in R2.
@@ -369,10 +415,20 @@ def download_reference_image(model: str, image_name: str, local_path: str) -> Di
     remote_path = f"reference-images/{model}/{image_name}"
     return downloader.download_file(remote_path, local_path)
 
-def upload_navigation_screenshot(local_path: str, model: str, screenshot_name: str) -> Dict:
-    """Upload a navigation screenshot to R2 in the navigation/{model} folder."""
+def upload_navigation_screenshot(local_path: str, userinterface_name: str, screenshot_name: str) -> Dict:
+    """
+    Upload a navigation screenshot to R2 in the navigation/{userinterface_name} folder.
+    
+    Args:
+        local_path: Local path to the screenshot file
+        userinterface_name: Name of the user interface (e.g., 'horizon_android_mobile', 'perseus_360_web')
+        screenshot_name: Filename for the screenshot (e.g., 'Home_Screen.jpg')
+    
+    Returns:
+        Dict with success status, url, remote_path, and size
+    """
     uploader = get_cloudflare_utils()
-    remote_path = f"navigation/{model}/{screenshot_name}"
+    remote_path = f"navigation/{userinterface_name}/{screenshot_name}"
     file_mappings = [{'local_path': local_path, 'remote_path': remote_path}]
     result = uploader.upload_files(file_mappings)
     

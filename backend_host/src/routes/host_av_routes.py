@@ -423,12 +423,18 @@ def save_screenshot():
             }), 404
         
         filename = request_data.get('filename')
-        device_model = request_data.get('device_model', 'android_mobile')
+        userinterface_name = request_data.get('userinterface_name')
         
         if not filename:
             return jsonify({
                 'success': False,
                 'error': 'Filename is required for saving screenshot'
+            }), 400
+        
+        if not userinterface_name:
+            return jsonify({
+                'success': False,
+                'error': 'userinterface_name is required for saving screenshot'
             }), 400
         
         local_screenshot_path = av_controller.save_screenshot(filename)
@@ -449,7 +455,7 @@ def save_screenshot():
             from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
             
             r2_filename = f"{filename}.jpg"
-            upload_result = upload_navigation_screenshot(local_screenshot_path, device_model, r2_filename)
+            upload_result = upload_navigation_screenshot(local_screenshot_path, userinterface_name, r2_filename)
             
             if not upload_result.get('success'):
                 return jsonify({
