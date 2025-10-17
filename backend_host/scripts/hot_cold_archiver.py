@@ -53,6 +53,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ANSI color codes for terminal output
+class Colors:
+    BLUE = '\033[94m'      # Cold storage
+    CYAN = '\033[96m'      # Info/stats
+    GREEN = '\033[92m'     # Success
+    YELLOW = '\033[93m'    # Warning
+    RED = '\033[91m'       # Error
+    BOLD = '\033[1m'
+    RESET = '\033[0m'      # Reset to default
+
 # Configuration
 # Note: This script doesn't use active_captures.conf - it discovers devices via get_capture_base_directories()
 # which reads the file from the centralized location (/var/www/html/stream/active_captures.conf)
@@ -1574,6 +1584,10 @@ def hot_storage_loop():
     logger.info("=" * 60)
     logger.info("STARTUP: Rebuilding archive and transcript manifests from disk...")
     logger.info("=" * 60)
+    
+    # Get capture directories for startup
+    capture_dirs = get_capture_base_directories()
+    
     for capture_dir in capture_dirs:
         try:
             import json
