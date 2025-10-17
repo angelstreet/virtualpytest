@@ -175,6 +175,20 @@ USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 -- DEFAULT DATA INSERTIONS
 -- =============================================================================
 
+-- Insert default team with fixed ID for consistent setup
+INSERT INTO teams (id, name, description, tenant_id, created_by, is_default, created_at, updated_at)
+VALUES (
+    '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
+    'Default Team',
+    'Default team for testing',
+    '00000000-0000-0000-0000-000000000001',
+    NULL,
+    true,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT (id) DO NOTHING;
+
 -- Insert basic device models for each team
 -- This function will be called after teams are created to populate basic device models
 CREATE OR REPLACE FUNCTION create_default_device_models(p_team_id uuid)
@@ -258,3 +272,17 @@ CREATE TRIGGER after_team_insert
 
 COMMENT ON FUNCTION create_default_device_models(uuid) IS 'Creates default device models for a team';
 COMMENT ON FUNCTION trigger_create_default_device_models() IS 'Trigger function to auto-create device models when a team is created';
+
+-- Create device models for the default team (only if they don't exist)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM device_models WHERE team_id = '7fdeb4bb-3639-4ec3-959f-b54769a219ce' LIMIT 1) THEN
+        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        VALUES
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'web', '["safari", "chrome", "firefox", "edge"]'::jsonb, '{"av": "", "web": "playwright", "power": "", "remote": "", "network": ""}'::jsonb, '', 'Web browser testing via Playwright'),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'android_tv', '["Android TV", "Fire TV", "Nvidia Shield"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "android_tv", "network": ""}'::jsonb, '', 'Android TV and streaming devices'),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'stb', '["STB"]'::jsonb, '{}'::jsonb, '', 'Generic Set-Top Box'),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'android_mobile', '["Android Phone", "Android TV"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "android_mobile", "network": ""}'::jsonb, '', 'Android mobile devices'),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'apple_tv', '["apple_tv"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "apple_tv", "network": ""}'::jsonb, '', 'Apple TV devices');
+    END IF;
+END $$;
