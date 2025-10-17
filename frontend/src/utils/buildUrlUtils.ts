@@ -552,6 +552,27 @@ export const buildTranscriptManifestUrl = (
   return internalBuildHostUrl(host, `host${manifestPath}`);
 };
 
+/**
+ * Build URL for script running log file (hot storage)
+ * @param host - Host object
+ * @param deviceId - Device ID
+ * @returns URL to running.log file
+ */
+export const buildRunningLogUrl = (
+  host: any,
+  deviceId: string
+): string => {
+  if (!deviceId) {
+    throw new Error('deviceId is required for buildRunningLogUrl');
+  }
+  
+  // Get device stream path for running log
+  const streamPath = getDeviceStreamUrlPath(host, deviceId);
+  const runningLogPath = `${streamPath}/hot/running.log`;
+  
+  return internalBuildHostUrl(host, `host${runningLogPath}`);
+};
+
 // =====================================================
 // STREAM UTILITIES (Quality Changes & Captures)
 // =====================================================

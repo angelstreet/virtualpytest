@@ -794,8 +794,8 @@ const RecHostStreamModalContent: React.FC<{
           {/* Script Running Overlay - Show when script is running */}
           {device?.has_running_deployment && (
             <ScriptRunningOverlay
-              host_name={host.host_name}
-              capture_folder={device.device_id.replace('device', 'capture')}
+              host={host}
+              device_id={device.device_id}
             />
           )}
         </Box>

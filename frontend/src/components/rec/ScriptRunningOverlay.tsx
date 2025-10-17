@@ -21,9 +21,12 @@ import {
   Lock as LockIcon,
 } from '@mui/icons-material';
 
+import { Host } from '../../types/common/Host_Types';
+import { buildRunningLogUrl } from '../../utils/buildUrlUtils';
+
 interface ScriptRunningOverlayProps {
-  host_name: string;
-  capture_folder: string; // e.g., 'capture1'
+  host: Host;
+  device_id: string;
 }
 
 interface StepInfo {
@@ -63,8 +66,8 @@ interface RunningLogData {
 }
 
 export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
-  host_name,
-  capture_folder,
+  host,
+  device_id,
 }) => {
   const [logData, setLogData] = useState<RunningLogData | null>(null);
   const [isExpanded, setIsExpanded] = useState(false); // Current step expansion
@@ -75,9 +78,9 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
   useEffect(() => {
     const fetchLog = async () => {
       try {
-        // Fetch from nginx served hot storage
-        // URL: http://<host>:8083/<capture_folder>/hot/running.log
-        const url = `http://${host_name}:8083/${capture_folder}/hot/running.log?t=${Date.now()}`;
+        // Fetch from nginx served hot storage using proper URL building utility
+        // This handles HTTPS, multi-device paths, and host configuration properly
+        const url = `${buildRunningLogUrl(host, device_id)}?t=${Date.now()}`;
         const response = await fetch(url);
         
         if (response.ok) {
@@ -100,7 +103,7 @@ export const ScriptRunningOverlay: React.FC<ScriptRunningOverlayProps> = ({
     const interval = setInterval(fetchLog, 2000);
 
     return () => clearInterval(interval);
-  }, [host_name, capture_folder]);
+  }, [host, device_id]);
 
   // Don't render if no data or hidden
   if (!logData || !isVisible) {
