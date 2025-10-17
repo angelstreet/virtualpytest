@@ -113,7 +113,19 @@ export const useRec = (): UseRecReturn => {
     }
   }, []); // No dependencies - use refs instead to keep callback stable
 
-  // Combine effects:
+  // Watch for host data loading state changes (server swap detection)
+  const prevLoadingRef = useRef(isHostDataLoading);
+  
+  useEffect(() => {
+    // Detect transition from loading to ready (new server data available)
+    if (prevLoadingRef.current && !isHostDataLoading) {
+      console.log('[@hook:useRec] Host data ready - refreshing devices immediately');
+      refreshHosts();
+    }
+    prevLoadingRef.current = isHostDataLoading;
+  }, [isHostDataLoading, refreshHosts]);
+
+  // Initial load and periodic refresh
   useEffect(() => {
     const loadData = async () => {
       await refreshHosts();
