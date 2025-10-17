@@ -44,17 +44,29 @@ class ImageHelpers:
             print(f"[@image_helpers] Error downloading image from URL: {e}")
             raise
     
-    def save_image_reference(self, image_path: str, reference_name: str, device_model: str, team_id: str, area: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Save image reference with R2 upload and database save."""
+    def save_image_reference(self, image_path: str, reference_name: str, userinterface_name: str, team_id: str, area: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Save image reference with R2 upload and database save.
+        
+        Args:
+            image_path: Local path to the image file
+            reference_name: Name of the reference
+            userinterface_name: Name of the user interface (e.g., 'horizon_android_mobile')
+            team_id: Team ID
+            area: Optional area definition
+        
+        Returns:
+            Dict with success status and details
+        """
         try:
-            print(f"[@image_helpers] Uploading reference to R2: {reference_name} for model: {device_model}")
+            print(f"[@image_helpers] Uploading reference to R2: {reference_name} for userinterface: {userinterface_name}")
             
             # Upload to R2 using cloudflare utils
             from shared.src.lib.utils.cloudflare_utils import upload_reference_image
             
             # Use reference name with .jpg extension for R2
             r2_filename = f"{reference_name}.jpg"
-            upload_result = upload_reference_image(image_path, device_model, r2_filename)
+            upload_result = upload_reference_image(image_path, userinterface_name, r2_filename)
             
             if not upload_result.get('success'):
                 return {
@@ -75,13 +87,13 @@ class ImageHelpers:
             greyscale_path = f"{base_path}_greyscale{ext}"
             if os.path.exists(greyscale_path):
                 greyscale_filename = f"{reference_name}_greyscale.jpg"
-                upload_reference_image(greyscale_path, device_model, greyscale_filename)
+                upload_reference_image(greyscale_path, userinterface_name, greyscale_filename)
             
             # Upload binary version
             binary_path = f"{base_path}_binary{ext}"
             if os.path.exists(binary_path):
                 binary_filename = f"{reference_name}_binary.jpg"
-                upload_reference_image(binary_path, device_model, binary_filename)
+                upload_reference_image(binary_path, userinterface_name, binary_filename)
             
             # Save reference to database
             from shared.src.lib.supabase.verifications_references_db import save_reference

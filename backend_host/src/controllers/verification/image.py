@@ -490,17 +490,17 @@ class ImageVerificationController:
             # Create filtered versions
             self.helpers.create_filtered_versions(image_saved_path)
             
-            # Get device model from request data (frontend provides it)
-            device_model = data.get('device_model')
+            # Get userinterface name from request data (frontend provides it)
+            userinterface_name = data.get('userinterface_name')
             
-            if not device_model:
-                return {'success': False, 'message': 'device_model is required for saving reference'}
+            if not userinterface_name:
+                return {'success': False, 'message': 'userinterface_name is required for saving reference'}
             
             if not team_id:
                 return {'success': False, 'message': 'team_id is required for saving reference'}
             
             # Save reference using helpers (handles R2 upload and database save)
-            save_result = self.helpers.save_image_reference(image_saved_path, reference_name, device_model, team_id, area)
+            save_result = self.helpers.save_image_reference(image_saved_path, reference_name, userinterface_name, team_id, area)
             
             if not save_result.get('success'):
                 return {

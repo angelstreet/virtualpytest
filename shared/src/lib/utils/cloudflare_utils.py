@@ -6,8 +6,8 @@ Cloudflare R2 Utilities for VirtualPyTest Resources
 Utilities for uploading and downloading files from Cloudflare R2 with public access.
 
 Folder Structure:
-- reference/{model}/{image_name}     # Reference images (public access)
-- navigation/{model}/{screenshot_name} # Navigation screenshots (public access)
+- reference-images/{userinterface_name}/{image_name}     # Reference images (public access)
+- navigation/{userinterface_name}/{screenshot_name} # Navigation screenshots (public access)
 """
 
 import os
@@ -388,10 +388,20 @@ def get_cloudflare_utils() -> CloudflareUtils:
 
 # Utility functions for common upload patterns
 
-def upload_reference_image(local_path: str, model: str, image_name: str) -> Dict:
-    """Upload a reference image to R2 in the reference-images/{model} folder."""
+def upload_reference_image(local_path: str, userinterface_name: str, image_name: str) -> Dict:
+    """
+    Upload a reference image to R2 in the reference-images/{userinterface_name} folder.
+    
+    Args:
+        local_path: Local path to the reference image file
+        userinterface_name: Name of the user interface (e.g., 'horizon_android_mobile', 'perseus_360_web')
+        image_name: Filename for the reference image (e.g., 'logo.jpg', 'button_play.jpg')
+    
+    Returns:
+        Dict with success status, url, remote_path, and size
+    """
     uploader = get_cloudflare_utils()
-    remote_path = f"reference-images/{model}/{image_name}"
+    remote_path = f"reference-images/{userinterface_name}/{image_name}"
     file_mappings = [{'local_path': local_path, 'remote_path': remote_path}]
     result = uploader.upload_files(file_mappings)
     
@@ -409,10 +419,20 @@ def upload_reference_image(local_path: str, model: str, image_name: str) -> Dict
             'error': result['failed_uploads'][0]['error'] if result['failed_uploads'] else 'Upload failed'
         }
 
-def download_reference_image(model: str, image_name: str, local_path: str) -> Dict:
-    """Download a reference image from R2 in the reference-images/{model} folder."""
+def download_reference_image(userinterface_name: str, image_name: str, local_path: str) -> Dict:
+    """
+    Download a reference image from R2 in the reference-images/{userinterface_name} folder.
+    
+    Args:
+        userinterface_name: Name of the user interface (e.g., 'horizon_android_mobile', 'perseus_360_web')
+        image_name: Filename of the reference image
+        local_path: Local path where the file should be saved
+    
+    Returns:
+        Dict with success status and local file path
+    """
     downloader = get_cloudflare_utils()
-    remote_path = f"reference-images/{model}/{image_name}"
+    remote_path = f"reference-images/{userinterface_name}/{image_name}"
     return downloader.download_file(remote_path, local_path)
 
 def upload_navigation_screenshot(local_path: str, userinterface_name: str, screenshot_name: str) -> Dict:
