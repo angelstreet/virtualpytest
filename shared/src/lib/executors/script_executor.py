@@ -784,13 +784,15 @@ class ScriptExecutor:
             available_devices = [d.device_id for d in context.host.get_devices()]
             print(f"📱 [{self.script_name}] Available devices: {available_devices}")
             
-            # Setup running log path for automatic progress tracking
-            capture_folder = device_id_to_use.replace('device', 'capture')  # device1 -> capture1
-            if capture_folder == device_id_to_use:  # Handle 'host' device
-                host_capture_path = os.getenv('HOST_VIDEO_CAPTURE_PATH', '/var/www/html/stream/capture1')
-                capture_folder = os.path.basename(host_capture_path)
-            context.set_running_log_path(capture_folder)
-            print(f"📝 [{self.script_name}] Running log enabled: {context.running_log_path}")
+            # Setup running log path for automatic progress tracking (use centralized function)
+            from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id
+            try:
+                capture_folder = get_capture_folder_from_device_id(device_id_to_use)
+                context.set_running_log_path(capture_folder)
+                print(f"📝 [{self.script_name}] Running log enabled: {context.running_log_path}")
+            except ValueError as e:
+                print(f"⚠️  [{self.script_name}] Could not set running log: {e}")
+                # Continue without running log
             
             # Set estimated duration from historical data (if available)
             if hasattr(self, 'estimated_duration_seconds') and self.estimated_duration_seconds:
