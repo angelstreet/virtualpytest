@@ -31,7 +31,7 @@ sys.path.insert(0, project_root)
 
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
-from shared.src.lib.utils.env_utils import get_team_id
+from shared.src.lib.utils.app_utils import get_team_id
 
 
 def get_migration_mapping() -> Tuple[Dict[str, Dict], Dict]:
