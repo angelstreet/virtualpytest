@@ -261,8 +261,8 @@ def update_database_urls(migration_map: Dict, successful_urls: List[str]) -> Tup
 def check_environment():
     """Check required environment variables are set."""
     required_vars = [
-        'SUPABASE_URL',
-        'SUPABASE_KEY',
+        'NEXT_PUBLIC_SUPABASE_URL',
+        'NEXT_PUBLIC_SUPABASE_ANON_KEY',
         'CLOUDFLARE_R2_ENDPOINT',
         'CLOUDFLARE_R2_ACCESS_KEY_ID',
         'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
