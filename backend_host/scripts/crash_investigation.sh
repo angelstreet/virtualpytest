@@ -162,6 +162,54 @@ if [ "$FFMPEG_COUNT" -lt 4 ]; then
     warn "Only ${FFMPEG_COUNT} ffmpeg processes (expected 4)"
 fi
 
+# Check FFmpeg logs for specific errors (always run)
+header "FFMPEG LOGS CHECK"
+log "Checking FFmpeg logs for errors (last 300 lines)..."
+
+for logfile in /tmp/ffmpeg_output_*.log; do
+    if [ -f "$logfile" ]; then
+        log "\n--- $(basename $logfile) ---"
+        LAST_LINES=$(tail -300 "$logfile" 2>/dev/null || true)
+        ERROR_FOUND=false
+        
+        # Check for disk space error
+        if echo "$LAST_LINES" | grep -q "No space left on device"; then
+            alert "$(basename $logfile): No space left on device!"
+            echo "$LAST_LINES" | grep "No space left on device" | tail -2 | tee -a "${REPORT_FILE}"
+            ERROR_FOUND=true
+        fi
+        
+        # Check for ALSA errors
+        if echo "$LAST_LINES" | grep -qi "alsa"; then
+            alert "$(basename $logfile): ALSA audio codec issue detected!"
+            echo "$LAST_LINES" | grep -i "alsa" | tail -3 | tee -a "${REPORT_FILE}"
+            ERROR_FOUND=true
+        fi
+        
+        # Check for video device errors
+        if echo "$LAST_LINES" | grep -qE "/dev/video[0-9]|Cannot open video device|No such device"; then
+            alert "$(basename $logfile): Video device not found!"
+            echo "$LAST_LINES" | grep -E "/dev/video[0-9]|Cannot open video device|No such device" | tail -2 | tee -a "${REPORT_FILE}"
+            ERROR_FOUND=true
+        fi
+        
+        # Check for audio device (plughw) errors
+        if echo "$LAST_LINES" | grep -qE "plughw:[0-9],0|Cannot open audio device"; then
+            alert "$(basename $logfile): Audio device (plughw) not found!"
+            echo "$LAST_LINES" | grep -E "plughw:[0-9],0|Cannot open audio device" | tail -2 | tee -a "${REPORT_FILE}"
+            ERROR_FOUND=true
+        fi
+        
+        if [ "$ERROR_FOUND" = false ]; then
+            success "$(basename $logfile): No errors detected"
+        fi
+    fi
+done
+
+if ! ls /tmp/ffmpeg_output_*.log >/dev/null 2>&1; then
+    warn "No FFmpeg log files found in /tmp/"
+fi
+
 # 10. CHECK IF MONITORING IS INSTALLED
 header "MONITORING SYSTEM CHECK"
 
