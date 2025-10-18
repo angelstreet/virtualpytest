@@ -86,11 +86,30 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
             r"network\s+access\s*[:\s]+(\w+)",
             r"access\s*[:\s]+(\w+)"
         ],
+        "ipv4_address": [
+            r"ipv4\s+address\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
+            r"wan\s+ip\s*(?:address)?\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
+            r"ip\s*(?:address)?\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
+        ],
+        "default_gateway": [
+            r"default\s+gateway\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
+            r"gateway\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+        ],
+        "dns_servers": [
+            r"ipv4\s+dns\s+servers\s*[:\s]+([\d.,\s]+)",
+            r"dns\s+servers?\s*[:\s]+([\d.,\s]+)",
+            r"primary\s+dns\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+        ],
+        "ipv4_lease_time": [
+            r"ipv4\s+lease\s+time\s*[:\s]+(.+?)(?:\s*$|\s*\n)",
+            r"dhcp\s+lease\s+time\s*[:\s]+(.+?)(?:\s*$|\s*\n)"
+        ],
+        "ipv4_lease_expire": [
+            r"ipv4\s+lease\s+expire\s*[:\s]+(.+?)(?:\s*$|\s*\n)",
+            r"lease\s+expir(?:y|e|ation)\s*[:\s]+(.+?)(?:\s*$|\s*\n)"
+        ],
         "model_number": [
             r"model\s*(?:number|#)?\s*[:\s]+([A-Z0-9-]+)",
-        ],
-        "ip_address": [
-            r"ip\s*(?:address)?\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
         ]
     }
     
