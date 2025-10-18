@@ -86,7 +86,7 @@ interface NavigationConfigContextType {
   // Load operations
   loadTreeMetadata: (treeId: string) => Promise<NavigationTree>;
   loadTreeData: (treeId: string) => Promise<any>;
-  loadTreeByUserInterface: (userInterfaceId: string) => Promise<any>;
+  loadTreeByUserInterface: (userInterfaceId: string, options?: { includeMetrics?: boolean }) => Promise<any>;
   loadTreeNodes: (treeId: string, page?: number, limit?: number) => Promise<NavigationNode[]>;
   loadTreeEdges: (treeId: string, nodeIds?: string[]) => Promise<NavigationEdge[]>;
 
@@ -154,14 +154,29 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const loadTreeByUserInterface = async (userInterfaceId: string): Promise<any> => {
+  const loadTreeByUserInterface = async (userInterfaceId: string, options?: { includeMetrics?: boolean }): Promise<any> => {
     setIsLoading(true);
     try {
-      const response = await fetch(buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`));
+      // Build URL with optional metrics parameter (reduces 2 API calls to 1 when includeMetrics=true)
+      const includeMetrics = options?.includeMetrics || false;
+      const url = buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}${includeMetrics ? '?include_metrics=true' : ''}`);
+      
+      console.log(`[@NavigationConfigContext] Loading tree for interface ${userInterfaceId} (includeMetrics=${includeMetrics})`);
+      
+      const response = await fetch(url);
       const result = await response.json();
       
       if (result.success && result.tree) {
         setActualTreeId(result.tree.id);
+        
+        if (result.metrics) {
+          console.log(`[@NavigationConfigContext] Received metrics in combined call:`, {
+            nodes: Object.keys(result.metrics.nodes || {}).length,
+            edges: Object.keys(result.metrics.edges || {}).length,
+            globalConfidence: result.metrics.global_confidence
+          });
+        }
+        
         return result;
       } else {
         throw new Error(result.error || 'Failed to load tree for user interface');

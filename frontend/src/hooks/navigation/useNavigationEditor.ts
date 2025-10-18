@@ -107,8 +107,8 @@ export const useNavigationEditor = () => {
         navigation.setIsLoading(true);
         navigation.setError(null);
 
-        // Load tree data by user interface using new API
-        const result = await navigationConfig.loadTreeByUserInterface(userInterfaceId);
+        // Load tree data by user interface using new API with metrics included (reduces 2 API calls to 1)
+        const result = await navigationConfig.loadTreeByUserInterface(userInterfaceId, { includeMetrics: true });
         
         if (result.success && result.tree) {
           // Convert tree data to frontend format (same as loadTreeData)
@@ -148,6 +148,15 @@ export const useNavigationEditor = () => {
           navigation.setEdges(frontendEdges);
           navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
           navigation.setHasUnsavedChanges(false);
+
+          // If metrics were included in the response, log them (they will be used by useMetrics hook)
+          if (result.metrics) {
+            console.log(`[@useNavigationEditor:loadTreeByUserInterface] Received metrics in single call:`, {
+              nodeCount: Object.keys(result.metrics.nodes || {}).length,
+              edgeCount: Object.keys(result.metrics.edges || {}).length,
+              globalConfidence: result.metrics.global_confidence
+            });
+          }
 
           return result;
         } else {

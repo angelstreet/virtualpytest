@@ -76,6 +76,59 @@ def invalidate_cached_tree(tree_id: str, team_id: str):
             del _tree_cache[cache_key]
             print(f"[@cache] INVALIDATE: Tree {tree_id}")
 
+def _fetch_tree_metrics(tree_id: str, team_id: str):
+    """
+    Internal helper to fetch metrics for a tree (used by combined endpoint).
+    Uses optimized Supabase function that reads from pre-aggregated metrics tables.
+    Returns metrics data or None on error.
+    
+    Performance: ~5ms (reads from node_metrics and edge_metrics tables)
+    """
+    try:
+        from shared.src.lib.supabase.supabase_client import get_supabase
+        
+        supabase = get_supabase()
+        
+        # Call optimized Supabase function (reads from pre-aggregated metrics tables)
+        # This is MUCH faster than computing from execution_results
+        result = supabase.rpc(
+            'get_tree_metrics_optimized',
+            {'p_tree_id': tree_id, 'p_team_id': team_id}
+        ).execute()
+        
+        if result.data:
+            metrics_data = result.data
+            print(f"[@metrics] ⚡ Fetched pre-aggregated metrics for tree {tree_id}")
+            
+            return {
+                'nodes': metrics_data.get('nodes', {}),
+                'edges': metrics_data.get('edges', {}),
+                'global_confidence': metrics_data.get('global_confidence', 0.0),
+                'confidence_distribution': metrics_data.get('confidence_distribution', {
+                    'high': 0, 'medium': 0, 'low': 0, 'untested': 0
+                }),
+                'hierarchy_info': {
+                    'total_trees': 1,
+                    'max_depth': 0,
+                    'has_nested_trees': False,
+                    'trees': [{
+                        'tree_id': tree_id,
+                        'name': 'Navigation Tree',
+                        'depth': 0,
+                        'is_root': True
+                    }]
+                }
+            }
+        else:
+            print(f"[@metrics] No metrics data returned for tree {tree_id}")
+            return None
+            
+    except Exception as e:
+        print(f"[@metrics] Error fetching metrics: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 # ============================================================================
 # TREE METADATA ENDPOINTS
 # ============================================================================
@@ -726,7 +779,13 @@ def save_tree_data_api(tree_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/getTreeByUserInterfaceId/<userinterface_id>', methods=['GET'])
 def get_tree_by_userinterface_id(userinterface_id):
-    """Get navigation tree for a specific user interface (with 5-min cache)."""
+    """
+    Get navigation tree for a specific user interface (with 5-min cache).
+    
+    Query parameters:
+        include_metrics: boolean (default: false) - Include metrics data with tree data
+                        Set to true to get tree + metrics in a single call (reduces 2 calls to 1)
+    """
     try:
         team_id = request.args.get('team_id') 
         if not team_id:
@@ -734,6 +793,9 @@ def get_tree_by_userinterface_id(userinterface_id):
                 'success': False,
                 'message': 'team_id is required'
             }), 400
+        
+        # Check if we should include metrics (defaults to false for backward compatibility)
+        include_metrics = request.args.get('include_metrics', 'false').lower() == 'true'
         
         # Get the root tree for this user interface
         tree = get_root_tree_for_interface(userinterface_id, team_id)
@@ -744,6 +806,12 @@ def get_tree_by_userinterface_id(userinterface_id):
             # Try cache first (avoids 3 DB queries!)
             cached_result = get_cached_tree(tree_id, team_id)
             if cached_result:
+                # If metrics requested and not in cache, fetch and add them
+                if include_metrics and 'metrics' not in cached_result:
+                    print(f"[@cache] HIT: Tree {tree_id}, fetching metrics...")
+                    metrics_data = _fetch_tree_metrics(tree_id, team_id)
+                    if metrics_data:
+                        cached_result['metrics'] = metrics_data
                 return jsonify(cached_result)
             
             # Cache miss - fetch from database
@@ -767,7 +835,14 @@ def get_tree_by_userinterface_id(userinterface_id):
                     }
                 }
                 
-                # Cache for next time
+                # Fetch metrics if requested (combines 2 API calls into 1)
+                if include_metrics:
+                    print(f"[@cache] Including metrics for tree {tree_id}")
+                    metrics_data = _fetch_tree_metrics(tree_id, team_id)
+                    if metrics_data:
+                        response_data['metrics'] = metrics_data
+                
+                # Cache for next time (note: we cache WITH metrics if requested)
                 set_cached_tree(tree_id, team_id, response_data)
                 
                 return jsonify(response_data)
