@@ -681,6 +681,8 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       } else {
         // Same host - update control state and refresh host object
         // (host object may have been updated with action schemas after takeControl)
+        const wasControlInactive = !state.isControlActive;
+        
         setState((prev) => ({
           ...prev,
           currentHost: host, // Update with potentially refreshed host object
@@ -689,7 +691,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         }));
         
         // Force reload actions/verifications when taking control (host may have been refreshed with schemas)
-        if (isActive && !prev.isControlActive) {
+        if (isActive && wasControlInactive) {
           console.log('[DeviceDataContext] Control activated, forcing reload of action schemas');
           loadedDataRef.current.availableActionsLoaded = false;
           loadedDataRef.current.availableVerificationTypesLoaded = false;
