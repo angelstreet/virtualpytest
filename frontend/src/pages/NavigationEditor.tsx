@@ -457,110 +457,20 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const loadTreeForUserInterface = useCallback(
       async (userInterfaceId: string) => {
         try {
-          // Get the tree directly by user interface ID using the original endpoint
-          const response = await fetch(
-            buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}`),
-            {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            },
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-
-          if (data.success && data.tree) {
-            // Get the tree data
-            const tree = data.tree;
-            const treeData = tree.metadata || {};
-            const rawNodes = treeData.nodes || [];
-            const rawEdges = treeData.edges || [];
-            const treeId = tree.id || null;
-
-            // Convert normalized data to frontend format (same as useNavigationEditor)
-            const frontendNodes = rawNodes.map((node: any) => ({
-              id: node.node_id,
-              type: node.data?.type || node.node_type || 'screen', // Use data.type directly
-              position: { x: node.position_x, y: node.position_y },
-              data: {
-                label: node.label,
-                type: node.data?.type || node.node_type || 'screen',
-                description: node.description,
-                verifications: node.verifications, // Directly embedded
-                kpi_references: node.kpi_references, // KPI measurement references
-                use_verifications_for_kpi: node.use_verifications_for_kpi || false, // KPI checkbox state
-                ...node.data // Additional data
-              }
-            }));
-
-            const frontendEdges = rawEdges.map((edge: any) => ({
-              id: edge.edge_id,
-              source: edge.source_node_id,
-              target: edge.target_node_id,
-              type: 'navigation',
-              label: edge.label, // Move label to top-level (ReactFlow standard)
-              sourceHandle: edge.data?.sourceHandle, // Extract handle info to root level
-              targetHandle: edge.data?.targetHandle, // Extract handle info to root level
-              data: {
-                // Remove label from data - now in top-level field
-                action_sets: edge.action_sets, // NEW: action sets structure - REQUIRED
-                default_action_set_id: edge.default_action_set_id, // NEW: default action set ID - REQUIRED
-                final_wait_time: edge.final_wait_time,
-                ...edge.data // Additional data
-                // NO LEGACY FIELDS: actions, retryActions removed
-              }
-            }));
-
-            console.log(
-              `[@NavigationEditor:loadTreeForUserInterface] Loaded tree for userInterface: ${userInterfaceId} with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
-            );
-
-            // Cache tree data and display it
-            if (treeId) {
-              navigation.cacheAndSwitchToTree(treeId, { nodes: frontendNodes, edges: frontendEdges });
-              navigation.setRootTreeId(treeId); // Store as root tree for breadcrumb navigation
-              setActualTreeId(treeId);
-              console.log(`[@NavigationEditor:loadTreeForUserInterface] Cached and switched to tree: ${treeId}, set as root tree`);
-            }
-            
-            // Set initial state for deletion detection
-            navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
-            setHasUnsavedChanges(false);
-            console.log('[@NavigationEditor:loadTreeForUserInterface] Set initialState with node IDs:', frontendNodes.map((n: any) => n.id));
-
-            console.log(
-              `[@NavigationEditor:loadTreeForUserInterface] Set tree data with ${frontendNodes.length} nodes and ${frontendEdges.length} edges`,
-            );
-
-            // Restore viewport immediately if ReactFlow is ready, otherwise store for later
-            if (tree && tree.viewport_x !== undefined && tree.viewport_y !== undefined && tree.viewport_zoom !== undefined) {
-              const viewport = { x: tree.viewport_x, y: tree.viewport_y, zoom: tree.viewport_zoom };
-              
-              if (navigation.reactFlowInstance) {
-                console.log(`[@NavigationEditor:loadTreeForUserInterface] Restoring viewport immediately:`, viewport);
-                navigation.reactFlowInstance.setViewport(viewport);
-              } else {
-                console.log(`[@NavigationEditor:loadTreeForUserInterface] Storing viewport for later restoration:`, viewport);
-                navigation.setPendingViewport(viewport);
-              }
-            }
-          } else {
-            console.error('Failed to load tree:', data.error || 'Unknown error');
+          // Use the hook's loadTreeByUserInterface which includes metrics
+          const result = await loadTreeByUserInterface(userInterfaceId);
+          
+          // If metrics were included, store them for useMetrics hook
+          if (result?.metrics) {
+            console.log('[@NavigationEditor:loadTreeForUserInterface] ✅ Capturing metrics from combined endpoint');
+            setPreloadedMetrics(result.metrics);
           }
         } catch (error) {
-          console.error('Failed to load tree for user interface:', error);
+          console.error('[@NavigationEditor:loadTreeForUserInterface] Error loading tree:', error);
         }
       },
-      [setNodes, setEdges],
+      [loadTreeByUserInterface, setPreloadedMetrics],
     );
-
-
-
-
 
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(() => {
