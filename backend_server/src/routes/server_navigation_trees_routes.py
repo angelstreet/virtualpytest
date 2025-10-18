@@ -29,8 +29,52 @@ from shared.src.lib.supabase.navigation_trees_db import (
 )
 from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
 from shared.src.lib.utils.app_utils import DEFAULT_USER_ID, check_supabase
+import time
+import threading
 
 server_navigation_trees_bp = Blueprint('server_navigation_trees', __name__, url_prefix='/server')
+
+# ============================================================================
+# IN-MEMORY CACHE FOR NAVIGATION TREES (reduces DB queries from 3 to 0)
+# ============================================================================
+
+_tree_cache = {}  # {tree_id: {'data': {...}, 'timestamp': time.time()}}
+_cache_lock = threading.Lock()
+_cache_ttl = 300  # 5 minutes TTL
+
+def get_cached_tree(tree_id: str, team_id: str):
+    """Get tree from cache if available and not expired."""
+    with _cache_lock:
+        cache_key = f"{team_id}:{tree_id}"
+        if cache_key in _tree_cache:
+            cached = _tree_cache[cache_key]
+            age = time.time() - cached['timestamp']
+            if age < _cache_ttl:
+                print(f"[@cache] HIT: Tree {tree_id} (age: {age:.1f}s)")
+                return cached['data']
+            else:
+                # Expired
+                print(f"[@cache] EXPIRED: Tree {tree_id} (age: {age:.1f}s)")
+                del _tree_cache[cache_key]
+        return None
+
+def set_cached_tree(tree_id: str, team_id: str, data):
+    """Store tree in cache."""
+    with _cache_lock:
+        cache_key = f"{team_id}:{tree_id}"
+        _tree_cache[cache_key] = {
+            'data': data,
+            'timestamp': time.time()
+        }
+        print(f"[@cache] SET: Tree {tree_id} (total cached: {len(_tree_cache)})")
+
+def invalidate_cached_tree(tree_id: str, team_id: str):
+    """Invalidate cached tree when it's modified."""
+    with _cache_lock:
+        cache_key = f"{team_id}:{tree_id}"
+        if cache_key in _tree_cache:
+            del _tree_cache[cache_key]
+            print(f"[@cache] INVALIDATE: Tree {tree_id}")
 
 # ============================================================================
 # TREE METADATA ENDPOINTS
@@ -664,6 +708,8 @@ def save_tree_data_api(tree_id):
         result = save_tree_data(tree_id, nodes, edges, team_id, deleted_node_ids, deleted_edge_ids, viewport)
         
         if result['success']:
+            # Invalidate cache when tree is modified
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -680,7 +726,7 @@ def save_tree_data_api(tree_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/getTreeByUserInterfaceId/<userinterface_id>', methods=['GET'])
 def get_tree_by_userinterface_id(userinterface_id):
-    """Get navigation tree for a specific user interface."""
+    """Get navigation tree for a specific user interface (with 5-min cache)."""
     try:
         team_id = request.args.get('team_id') 
         if not team_id:
@@ -693,15 +739,20 @@ def get_tree_by_userinterface_id(userinterface_id):
         tree = get_root_tree_for_interface(userinterface_id, team_id)
         
         if tree:
-            # Get complete tree data directly from database
             tree_id = tree['id']
+            
+            # Try cache first (avoids 3 DB queries!)
+            cached_result = get_cached_tree(tree_id, team_id)
+            if cached_result:
+                return jsonify(cached_result)
+            
+            # Cache miss - fetch from database
+            print(f"[@cache] MISS: Tree {tree_id} - fetching from DB")
             result = get_full_tree(tree_id, team_id)
             
             if result['success']:
-                # Cache population moved to "Take Control" flow - no longer done during tree loading
-                
-                # Return tree data in the expected format
-                return jsonify({
+                # Build response
+                response_data = {
                     'success': True,
                     'tree': {
                         'id': tree['id'],
@@ -714,7 +765,12 @@ def get_tree_by_userinterface_id(userinterface_id):
                             'edges': result.get('edges', [])
                         }
                     }
-                })
+                }
+                
+                # Cache for next time
+                set_cached_tree(tree_id, team_id, response_data)
+                
+                return jsonify(response_data)
             else:
                 return jsonify({
                     'success': False,
