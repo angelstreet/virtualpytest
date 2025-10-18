@@ -100,7 +100,7 @@ class ImageHelpers:
             
             db_result = save_reference(
                 name=reference_name,
-                device_model=device_model,
+                device_model=userinterface_name,  # Use userinterface_name as device_model for database
                 reference_type='reference_image',
                 team_id=team_id,
                 r2_path=r2_path,

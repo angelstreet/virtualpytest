@@ -42,11 +42,11 @@ class TextHelpers:
             print(f"[@text_helpers] Error downloading image from URL: {e}")
             raise
     
-    def save_text_reference(self, text: str, reference_name: str, device_model: str, team_id: str,
+    def save_text_reference(self, text: str, reference_name: str, userinterface_name: str, team_id: str,
                            area: Dict[str, Any] = None) -> Dict[str, Any]:
         """Save text reference to database."""
         try:
-            print(f"[@text_helpers] Saving text reference to database: {reference_name} for model: {device_model}")
+            print(f"[@text_helpers] Saving text reference to database: {reference_name} for userinterface: {userinterface_name}")
             
             # Save reference to database
             from shared.src.lib.supabase.verifications_references_db import save_reference
@@ -63,10 +63,10 @@ class TextHelpers:
             
             db_result = save_reference(
                 name=reference_name,
-                device_model=device_model,
+                device_model=userinterface_name,  # Use userinterface_name as device_model for database
                 reference_type='reference_text',
                 team_id=team_id,
-                r2_path=f'text-references/{device_model}/{reference_name}',  # Placeholder path (required by schema)
+                r2_path=f'text-references/{userinterface_name}/{reference_name}',  # Use userinterface_name in path
                 r2_url='',  # Empty URL for text references
                 area=extended_area  # Store text data in area field
             )

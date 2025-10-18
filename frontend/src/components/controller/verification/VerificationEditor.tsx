@@ -43,6 +43,7 @@ interface VerificationEditorProps {
   onClearSelection?: () => void;
   isCaptureActive: boolean;
   isControlActive?: boolean;
+  userinterfaceName?: string; // Required for saving references - defines the app/UI context
   layoutConfig?: VerificationEditorLayoutConfig;
   sx?: any;
 }
@@ -58,6 +59,7 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
     onClearSelection,
     isCaptureActive,
     isControlActive = false,
+    userinterfaceName, // Required for saving references
     layoutConfig,
     sx = {},
   }) => {
@@ -96,6 +98,7 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
       onClearSelection,
       isCaptureActive,
       isControlActive,
+      userinterfaceName, // Pass userinterfaceName to hook for reference saving
     });
 
     // Debug logging for component mount/unmount

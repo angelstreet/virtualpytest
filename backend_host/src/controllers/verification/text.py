@@ -351,17 +351,17 @@ class TextVerificationController:
             if not text:
                 return {'success': False, 'message': 'text is required for saving reference'}
             
-            # Get device model from request data (frontend provides it)
-            device_model = data.get('device_model')
+            # Get userinterface_name from request data (frontend provides it)
+            userinterface_name = data.get('userinterface_name')
             
-            if not device_model:
-                return {'success': False, 'message': 'device_model is required for saving reference'}
+            if not userinterface_name:
+                return {'success': False, 'message': 'userinterface_name is required for saving reference'}
             
             if not team_id:
                 return {'success': False, 'message': 'team_id is required for saving reference'}
             
             # Save text reference using helpers (handles database save)
-            save_result = self.helpers.save_text_reference(text, reference_name, device_model, team_id, area)
+            save_result = self.helpers.save_text_reference(text, reference_name, userinterface_name, team_id, area)
             
             if not save_result.get('success'):
                 return {

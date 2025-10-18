@@ -29,6 +29,7 @@ interface VNCStreamProps {
   deviceId: string;
   deviceModel?: string;
   isControlActive?: boolean;
+  userinterfaceName?: string; // Required for saving references - defines the app/UI context
   onCollapsedChange?: (isCollapsed: boolean) => void;
   onExpandedChange?: (isExpanded: boolean) => void;
   onMinimizedChange?: (isMinimized: boolean) => void;
@@ -131,6 +132,7 @@ export const VNCStream = React.memo(
     deviceId,
     deviceModel,
     isControlActive = false,
+    userinterfaceName, // Required for saving references
     onCollapsedChange,
     onMinimizedChange,
     onCaptureModeChange,
@@ -613,6 +615,7 @@ export const VNCStream = React.memo(
               selectedHost={host}
               selectedDeviceId={deviceId}
               isControlActive={isControlActive}
+              userinterfaceName={userinterfaceName} // Pass userinterfaceName for reference saving
               sx={{
                 width: '100%',
                 height: '100%',

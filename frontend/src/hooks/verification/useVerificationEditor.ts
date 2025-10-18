@@ -38,6 +38,7 @@ interface UseVerificationEditorProps {
   onClearSelection?: () => void;
   isCaptureActive?: boolean;
   isControlActive?: boolean; // Add control state to trigger reference fetching
+  userinterfaceName?: string; // Required for saving references - defines the app/UI context
 }
 
 export const useVerificationEditor = ({
@@ -50,6 +51,7 @@ export const useVerificationEditor = ({
   onClearSelection: _onClearSelection,
   isCaptureActive,
   isControlActive: _isControlActive = false, // Default to false if not provided
+  userinterfaceName, // Required for saving references
 }: UseVerificationEditorProps) => {
   // Get the selected device from the host's devices array
   const selectedDevice = useMemo(() => {
@@ -326,7 +328,8 @@ export const useVerificationEditor = ({
             host_name: selectedHost.host_name,
             device_id: selectedDeviceId,
             reference_name: referenceName,
-            device_model: deviceModel, // Changed from 'model' to 'device_model'
+            device_model: deviceModel,
+            userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area: selectedArea,
             text: referenceText,
             image_textdetected_path: detectedTextData?.image_textdetected_path || '', // Use processed image from detectText
@@ -434,6 +437,7 @@ export const useVerificationEditor = ({
             device_id: selectedDeviceId, // MUST include device_id to find file in correct captures folder
             reference_name: referenceName,
             device_model: deviceModel,
+            userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area:
               imageProcessingOptions.autocrop && captureResult.processed_area
                 ? captureResult.processed_area
