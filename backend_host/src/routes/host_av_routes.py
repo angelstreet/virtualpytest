@@ -361,11 +361,23 @@ def take_screenshot():
         
         print(f"[@route:host_av:takeScreenshot] Target cold path: {cold_path}")
         
-        os.makedirs(cold_captures_path, mode=0o777, exist_ok=True)
+        # Ensure directory exists (skip if permission denied - directory should already exist)
+        try:
+            if not os.path.exists(cold_captures_path):
+                os.makedirs(cold_captures_path, exist_ok=True)
+        except PermissionError as e:
+            print(f"[@route:host_av:takeScreenshot] ⚠️ Cannot create directory (already exists): {e}")
+        
         if os.path.exists(screenshot_path):
-            shutil.copy2(screenshot_path, cold_path)
-            screenshot_path = cold_path
-            print(f"[@route:host_av:takeScreenshot] ✅ Copied to COLD: {cold_path}")
+            try:
+                shutil.copy2(screenshot_path, cold_path)
+                screenshot_path = cold_path
+                print(f"[@route:host_av:takeScreenshot] ✅ Copied to COLD: {cold_path}")
+            except PermissionError as e:
+                return jsonify({
+                    'success': False,
+                    'error': f'Permission denied writing to {cold_path}. Flask app user needs write access to www-data folders.'
+                }), 500
         else:
             print(f"[@route:host_av:takeScreenshot] ⚠️ Source not found: {screenshot_path}")
         
