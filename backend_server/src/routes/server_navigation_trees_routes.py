@@ -85,9 +85,9 @@ def _fetch_tree_metrics(tree_id: str, team_id: str):
     Performance: ~5ms (reads from node_metrics and edge_metrics tables)
     """
     try:
-        from shared.src.lib.supabase.supabase_client import get_supabase
+        from shared.src.lib.utils.supabase_utils import get_supabase_client
         
-        supabase = get_supabase()
+        supabase = get_supabase_client()
         
         # Call optimized Supabase function (reads from pre-aggregated metrics tables)
         # This is MUCH faster than computing from execution_results
