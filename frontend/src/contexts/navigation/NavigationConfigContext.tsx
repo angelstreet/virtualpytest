@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
@@ -76,6 +76,67 @@ export interface NavigationEdge {
   metadata: any;
 }
 
+// ========================================
+// TREE CACHE TYPES
+// ========================================
+
+interface TreeCacheEntry {
+  data: any; // Full tree data including metrics
+  timestamp: number;
+}
+
+const TREE_CACHE_STORAGE_KEY = 'nav_tree_cache';
+const TREE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+// Load tree cache from localStorage
+const loadTreeCacheFromStorage = (): Map<string, TreeCacheEntry> => {
+  try {
+    const stored = localStorage.getItem(TREE_CACHE_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const now = Date.now();
+      const cache = new Map<string, TreeCacheEntry>();
+      
+      // Filter out expired entries
+      let validCount = 0;
+      let expiredCount = 0;
+      
+      Object.entries(parsed).forEach(([key, entry]: [string, any]) => {
+        const age = now - entry.timestamp;
+        if (age < TREE_CACHE_TTL_MS) {
+          cache.set(key, entry as TreeCacheEntry);
+          validCount++;
+        } else {
+          expiredCount++;
+        }
+      });
+      
+      console.log(`[@TreeCache] Loaded ${validCount} valid tree entries from localStorage (${expiredCount} expired entries removed)`);
+      return cache;
+    }
+  } catch (error) {
+    console.warn('[@TreeCache] Failed to load tree cache from localStorage:', error);
+  }
+  return new Map();
+};
+
+// Save tree cache to localStorage
+const saveTreeCacheToStorage = (cache: Map<string, TreeCacheEntry>): void => {
+  try {
+    const obj: Record<string, TreeCacheEntry> = {};
+    cache.forEach((value, key) => {
+      obj[key] = value;
+    });
+    localStorage.setItem(TREE_CACHE_STORAGE_KEY, JSON.stringify(obj));
+  } catch (error) {
+    console.warn('[@TreeCache] Failed to save tree cache to localStorage:', error);
+  }
+};
+
+// ========================================
+// CONTEXT TYPES
+// ========================================
+
 interface NavigationConfigContextType {
   // Tree metadata operations
   currentTree: NavigationTree | null;
@@ -102,6 +163,9 @@ interface NavigationConfigContextType {
   createSubTree: (parentTreeId: string, parentNodeId: string, treeData: any) => Promise<any>;
   moveSubTree: (subtreeId: string, newParentTreeId: string, newParentNodeId: string) => Promise<void>;
 
+  // Cache operations
+  invalidateTreeCache: (userInterfaceId: string) => void;
+  
   setActualTreeId: (treeId: string | null) => void;
 }
 
@@ -112,6 +176,30 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actualTreeId, setActualTreeId] = useState<string | null>(null);
+
+  // Initialize tree cache from localStorage
+  const treeCache = useRef<Map<string, TreeCacheEntry>>(loadTreeCacheFromStorage());
+  const saveCacheTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced save to localStorage
+  const scheduleCacheSave = useCallback(() => {
+    if (saveCacheTimeoutRef.current) {
+      clearTimeout(saveCacheTimeoutRef.current);
+    }
+    saveCacheTimeoutRef.current = setTimeout(() => {
+      saveTreeCacheToStorage(treeCache.current);
+    }, 500); // Save 500ms after last update
+  }, []);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveCacheTimeoutRef.current) {
+        clearTimeout(saveCacheTimeoutRef.current);
+        saveTreeCacheToStorage(treeCache.current); // Save immediately on unmount
+      }
+    };
+  }, []);
 
   const loadTreeMetadata = async (treeId: string): Promise<NavigationTree> => {
     setIsLoading(true);
@@ -155,13 +243,37 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const loadTreeByUserInterface = async (userInterfaceId: string, options?: { includeMetrics?: boolean }): Promise<any> => {
+    const includeMetrics = options?.includeMetrics || false;
+    const cacheKey = `${userInterfaceId}|metrics:${includeMetrics}`;
+    
+    // Check cache first
+    const cached = treeCache.current.get(cacheKey);
+    if (cached) {
+      const age = Date.now() - cached.timestamp;
+      if (age < TREE_CACHE_TTL_MS) {
+        const ageSeconds = Math.floor(age / 1000);
+        console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} (age: ${ageSeconds}s, metrics: ${includeMetrics})`);
+        
+        // Still set the tree ID from cache
+        if (cached.data.tree) {
+          setActualTreeId(cached.data.tree.id);
+        }
+        
+        return cached.data;
+      } else {
+        // Entry expired, remove it
+        treeCache.current.delete(cacheKey);
+        scheduleCacheSave();
+        console.log(`[@TreeCache] ⏰ EXPIRED: interface ${userInterfaceId} (removing, will fetch fresh)`);
+      }
+    }
+    
+    // Cache miss or expired - fetch from server
     setIsLoading(true);
     try {
-      // Build URL with optional metrics parameter (reduces 2 API calls to 1 when includeMetrics=true)
-      const includeMetrics = options?.includeMetrics || false;
       const url = buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}${includeMetrics ? '?include_metrics=true' : ''}`);
       
-      console.log(`[@NavigationConfigContext] Loading tree for interface ${userInterfaceId} (includeMetrics=${includeMetrics})`);
+      console.log(`[@TreeCache] 🌐 FETCH: interface ${userInterfaceId} (metrics: ${includeMetrics})`);
       
       const response = await fetch(url);
       const result = await response.json();
@@ -169,12 +281,17 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       if (result.success && result.tree) {
         setActualTreeId(result.tree.id);
         
+        // Cache the result
+        treeCache.current.set(cacheKey, {
+          data: result,
+          timestamp: Date.now(),
+        });
+        scheduleCacheSave();
+        
         if (result.metrics) {
-          console.log(`[@NavigationConfigContext] Received metrics in combined call:`, {
-            nodes: Object.keys(result.metrics.nodes || {}).length,
-            edges: Object.keys(result.metrics.edges || {}).length,
-            globalConfidence: result.metrics.global_confidence
-          });
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} with metrics (nodes: ${Object.keys(result.metrics.nodes || {}).length}, edges: ${Object.keys(result.metrics.edges || {}).length}, TTL: 5min)`);
+        } else {
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} (total: ${treeCache.current.size}, TTL: 5min)`);
         }
         
         return result;
@@ -311,6 +428,14 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
+  // Cache invalidation function
+  const invalidateTreeCache = useCallback((userInterfaceId: string) => {
+    const keysToDelete = Array.from(treeCache.current.keys()).filter(k => k.startsWith(`${userInterfaceId}|`));
+    keysToDelete.forEach(k => treeCache.current.delete(k));
+    scheduleCacheSave();
+    console.log(`[@TreeCache] 🗑️ Invalidated ${keysToDelete.length} cache entries for interface ${userInterfaceId}`);
+  }, [scheduleCacheSave]);
+
   return (
     <NavigationConfigContext.Provider value={{
       loadTreeMetadata,
@@ -324,6 +449,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       createSubTree,
       moveSubTree: moveSubtree,
       saveTreeData,
+      invalidateTreeCache,
       currentTree,
       isLoading,
       error,
