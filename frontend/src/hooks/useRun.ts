@@ -41,15 +41,14 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
   const getDefaultParameterValue = (param: ScriptParameter): string => {
     // userinterface_name should be selected via UserinterfaceSelector component
     // based on device model compatibility - don't auto-populate here
-    if (param.name === 'node') {
-      return 'home';
-    } else if (param.name === 'device') {
+    if (param.name === 'device') {
       return selectedDevice || '';
     } else if (param.name === 'host') {
       return selectedHost || '';
     } else if (param.name === 'goto_live') {
       return 'true';  // Default value for goto_live parameter
     } else if (param.default) {
+      // Use the script's defined default value (e.g., 'info' for get_info.py, 'home' for goto.py)
       return param.default;
     }
     return '';

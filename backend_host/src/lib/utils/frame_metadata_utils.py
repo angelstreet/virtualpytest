@@ -20,10 +20,12 @@ logger = logging.getLogger('capture_monitor')
 
 def write_action_to_frame_json(device, action: Dict[str, Any], action_completion_timestamp: float):
     """
-    Write action metadata to the frame JSON with timestamp closest to action completion.
-    This enables automatic zap measurement by correlating actions with frames.
+    Write action metadata to last_action.json for zapping detection (CRITICAL).
+    Optionally enriches frame JSON files if they exist (NICE-TO-HAVE).
     
-    ✅ NEW: Also stores action in device_state (in-memory) for instant zapping detection.
+    ✅ CRITICAL PATH: Writes last_action.json for capture_monitor to detect zapping
+    ✅ OPTIONAL PATH: Adds action metadata to recent frame JSONs (requires FFmpeg + capture_monitor)
+    
     Non-blocking - failures are logged but don't affect action success.
     
     Args:
@@ -93,6 +95,14 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
             import traceback
             traceback.print_exc()
         
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # OPTIONAL: Enrich frame JSON files (if they exist)
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # This section adds action metadata to recent capture_*.json files for historical
+        # analysis. This is OPTIONAL - zapping detection works via last_action.json above.
+        # Frame JSONs are created by capture_monitor when FFmpeg captures video frames.
+        # ═══════════════════════════════════════════════════════════════════════════════
+        
         # Get last 5 JSON files by mtime (fastest approach - uses cached stat)
         json_files = []
         with os.scandir(metadata_path) as entries:
@@ -101,8 +111,10 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
                     json_files.append((entry.path, entry.stat().st_mtime))
         
         if not json_files:
-            print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ No JSON files found in {metadata_path}")
-            return  # No JSON files yet
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ℹ️  No frame JSON files found for enrichment (last_action.json was written successfully)")
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ℹ️  Frame JSONs are created by capture_monitor when FFmpeg captures frames")
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ℹ️  This is optional - zapping detection will still work via last_action.json")
+            return  # No JSON files yet - but last_action.json was written successfully
         
         # Sort by mtime (newest first) and take top 5
         json_files.sort(key=lambda x: x[1], reverse=True)
@@ -187,10 +199,11 @@ def write_action_to_frame_json(device, action: Dict[str, Any], action_completion
                 print(f"[@frame_metadata_utils:write_action_to_frame_json] ❌ Failed to update: {best_match_file} | error: {e}")
         elif best_match_file:
             # Tolerance exceeded - detailed logging
-            print(f"[@frame_metadata_utils:write_action_to_frame_json] ⚠️ No match within 1500ms | best: {best_match_file} | delta: {int(min_delta*1000)}ms")
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ℹ️  Frame enrichment skipped: best match {int(min_delta*1000)}ms away (tolerance: 1500ms)")
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ℹ️  This is normal if frames are captured slowly - zapping detection still works")
         else:
             # No files found - brief logging
-            print(f"[@frame_metadata_utils:write_action_to_frame_json] ⚠️ No matching frames found")
+            print(f"[@frame_metadata_utils:write_action_to_frame_json] ℹ️  Frame enrichment skipped: no frames in time window")
     
     except Exception as e:
         # Non-blocking - log error but don't fail action execution

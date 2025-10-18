@@ -114,32 +114,63 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
 
 def dump_page_elements(device) -> Dict[str, Any]:
     """
-    Dump all elements from the current page using the device controller.
+    Dump all elements from the current page using the device's action executor.
     
     Args:
-        device: Device object with controller
+        device: Device object with action_executor
         
     Returns:
         Dict with success status and elements list
     """
-    print(f"📋 [get_info:dump] Dumping page elements from controller...")
+    print(f"📋 [get_info:dump] Dumping page elements via action_executor...")
     
     try:
-        # Call dump_elements on the device's controller
-        result = device.controller.dump_elements(element_types='all', include_hidden=False)
+        # Build action list (execute_actions expects a list)
+        actions = [{
+            'command': 'dump_elements',
+            'params': {
+                'element_types': 'all',
+                'include_hidden': False
+            },
+            'action_type': 'web'
+        }]
         
-        if result.get('success'):
-            elements = result.get('elements', [])
-            summary = result.get('summary', {})
-            print(f"📋 [get_info:dump] Found {summary.get('total_count', len(elements))} elements")
-            print(f"📋 [get_info:dump] Page: {summary.get('page_title', 'Unknown')} - {summary.get('page_url', 'Unknown')}")
-            return {
-                'success': True,
-                'elements': elements,
-                'summary': summary
-            }
+        # Execute actions using device's action_executor
+        # execute_actions returns a result dict with 'actions' array
+        result = device.action_executor.execute_actions(
+            actions,
+            execution_order=1,
+            edge_id=None,
+            action_category='main'
+        )
+        
+        # Check if execution was successful
+        if result.get('success') and result.get('actions'):
+            action_result = result['actions'][0]  # Get first action result
+            
+            if action_result.get('success'):
+                # Extract elements from the action result
+                elements = action_result.get('elements', [])
+                summary = action_result.get('summary', {})
+                
+                print(f"📋 [get_info:dump] Found {summary.get('total_count', len(elements))} elements")
+                print(f"📋 [get_info:dump] Page: {summary.get('page_title', 'Unknown')} - {summary.get('page_url', 'Unknown')}")
+                
+                return {
+                    'success': True,
+                    'elements': elements,
+                    'summary': summary
+                }
+            else:
+                error_msg = action_result.get('error', 'Unknown error')
+                print(f"❌ [get_info:dump] Action failed: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'elements': []
+                }
         else:
-            error_msg = result.get('error', 'Unknown error')
+            error_msg = result.get('error', 'Batch execution failed')
             print(f"❌ [get_info:dump] Failed to dump elements: {error_msg}")
             return {
                 'success': False,
@@ -150,6 +181,8 @@ def dump_page_elements(device) -> Dict[str, Any]:
     except Exception as e:
         error_msg = f"Exception during element dump: {str(e)}"
         print(f"❌ [get_info:dump] {error_msg}")
+        import traceback
+        traceback.print_exc()
         return {
             'success': False,
             'error': error_msg,
