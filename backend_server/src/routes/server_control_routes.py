@@ -91,18 +91,27 @@ def take_control():
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
                         # Populate navigation cache for the controlled device (if tree_id provided)
+                        # Run in background thread to avoid blocking takeControl response (was 5.78s!)
                         tree_id = data.get('tree_id')
                         team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
                         if tree_id and team_id:
-                            try:
-                                print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
-                                cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-                                if cache_success:
-                                    print(f"✅ [CONTROL] Navigation cache populated successfully")
-                                else:
-                                    print(f"⚠️ [CONTROL] Navigation cache population failed (non-critical)")
-                            except Exception as cache_error:
-                                print(f"⚠️ [CONTROL] Navigation cache population error: {cache_error}")
+                            import threading
+                            
+                            def populate_cache_async():
+                                """Background task to populate navigation cache"""
+                                try:
+                                    print(f"🗺️ [CONTROL:ASYNC] Populating navigation cache for tree: {tree_id}")
+                                    cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+                                    if cache_success:
+                                        print(f"✅ [CONTROL:ASYNC] Navigation cache populated successfully")
+                                    else:
+                                        print(f"⚠️ [CONTROL:ASYNC] Navigation cache population failed (non-critical)")
+                                except Exception as cache_error:
+                                    print(f"⚠️ [CONTROL:ASYNC] Navigation cache population error: {cache_error}")
+                            
+                            # Start cache population in background (non-blocking)
+                            threading.Thread(target=populate_cache_async, daemon=True).start()
+                            print(f"🗺️ [CONTROL] Navigation cache population started in background")
                         
                         return jsonify({
                             'success': True,
@@ -110,7 +119,8 @@ def take_control():
                             'session_id': session_id,
                             'host_name': host_name,
                             'device_id': device_id,
-                            'host_result': result
+                            'host_result': result,
+                            'cache_status': 'populating' if tree_id and team_id else 'not_applicable'
                         })
                     else:
                         # Host rejected control - unlock and return error
@@ -494,6 +504,11 @@ def get_all_controllers():
 # NAVIGATION CACHE POPULATION HELPER
 # =====================================================
 
+# In-memory cache to track which trees have been populated on which hosts
+# Format: {(tree_id, team_id, host_name): timestamp}
+_navigation_cache_tracker = {}
+_cache_tracker_ttl = 3600  # 1 hour TTL for cache tracker
+
 def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name: str) -> bool:
     """
     Populate navigation cache when taking control of a device
@@ -507,6 +522,20 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
         True if successful, False otherwise
     """
     try:
+        import time
+        cache_key = (tree_id, team_id, host_name)
+        
+        # Check in-memory tracker first (fastest - no network call!)
+        if cache_key in _navigation_cache_tracker:
+            last_populated = _navigation_cache_tracker[cache_key]
+            age = time.time() - last_populated
+            if age < _cache_tracker_ttl:
+                print(f"[@control:cache] ✅ Cache already populated for tree {tree_id} (age: {int(age)}s), skipping")
+                return True
+            else:
+                print(f"[@control:cache] Cache tracker expired (age: {int(age)}s), re-checking host")
+                del _navigation_cache_tracker[cache_key]
+        
         # Get host info
         host_manager = get_host_manager()
         host_info = host_manager.get_host(host_name)
@@ -514,7 +543,7 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             print(f"[@control:cache] Host {host_name} not found")
             return False
         
-        # Check if cache already exists (avoid re-population)
+        # Check if cache exists on host (network call - slower)
         check_result, status_code = proxy_to_host_direct(
             host_info,
             f'/host/navigation/cache/check/{tree_id}?team_id={team_id}',
@@ -522,7 +551,9 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
         )
         
         if check_result and check_result.get('success') and check_result.get('exists'):
-            print(f"[@control:cache] Cache already exists for tree {tree_id}, skipping population")
+            print(f"[@control:cache] Cache already exists on host for tree {tree_id}, tracking and skipping")
+            # Track in memory so we don't check again
+            _navigation_cache_tracker[cache_key] = time.time()
             return True
         
         # Load tree data from database
@@ -570,6 +601,10 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
         
         if cache_result and cache_result.get('success'):
             print(f"[@control:cache] Successfully populated cache on {host_name}: {cache_result.get('nodes_count', 0)} nodes")
+            # Track in memory so subsequent takeControl calls are instant
+            import time
+            _navigation_cache_tracker[cache_key] = time.time()
+            print(f"[@control:cache] Cache tracker updated for tree {tree_id}")
             return True
         else:
             print(f"[@control:cache] Cache population failed: {cache_result.get('error', 'Unknown error') if cache_result else 'No response'}")
