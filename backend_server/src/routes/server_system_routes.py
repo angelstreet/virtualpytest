@@ -218,8 +218,17 @@ def health_check():
 print("[@server_system_routes] Get all hosts route imported")
 @server_system_bp.route('/getAllHosts', methods=['GET'])
 def getAllHosts():
-    """Return all registered hosts - single REST endpoint for host listing"""
+    """
+    Return all registered hosts - single REST endpoint for host listing
+    
+    Query parameters:
+        include_actions: boolean (default: false) - Include device_action_types and device_verification_types
+                        Set to true only when you need action/verification schemas (for control pages)
+    """
     try:
+        # Check if we should include action schemas (defaults to false for performance)
+        include_actions = request.args.get('include_actions', 'false').lower() == 'true'
+        
         host_manager = get_host_manager()
         
         # Clean up stale hosts (not seen for more than 2 minutes)
@@ -248,9 +257,37 @@ def getAllHosts():
                     break
             
             if is_valid:
-                valid_hosts.append(host_info)
+                # Strip bloated fields if not needed (reduces response from ~200KB to ~10KB)
+                if not include_actions and 'devices' in host_info:
+                    # Create a lightweight copy of host_info
+                    host_info_copy = host_info.copy()
+                    host_info_copy['devices'] = []
+                    
+                    # For each device, only include essential fields (strip action schemas)
+                    for device in host_info.get('devices', []):
+                        lightweight_device = {
+                            'device_id': device.get('device_id'),
+                            'device_name': device.get('device_name'),
+                            'device_model': device.get('device_model'),
+                            'device_ip': device.get('device_ip'),
+                            'device_port': device.get('device_port'),
+                            'ir_type': device.get('ir_type'),
+                            'video_stream_path': device.get('video_stream_path'),
+                            'video_capture_path': device.get('video_capture_path'),
+                            'video': device.get('video'),
+                            'device_capabilities': device.get('device_capabilities'),
+                            'has_running_deployment': device.get('has_running_deployment', False),
+                            # STRIPPED: device_action_types (~150KB)
+                            # STRIPPED: device_verification_types (~40KB)
+                        }
+                        host_info_copy['devices'].append(lightweight_device)
+                    
+                    valid_hosts.append(host_info_copy)
+                else:
+                    # Include full data (for control pages that need action schemas)
+                    valid_hosts.append(host_info)
         
-        print(f"🖥️ [HOSTS] Returning {len(valid_hosts)} valid hosts")
+        print(f"🖥️ [HOSTS] Returning {len(valid_hosts)} valid hosts (include_actions={include_actions})")
         for host in valid_hosts:
             device_count = host.get('device_count', 0)
             print(f"   Host: {host['host_name']} ({host['host_url']}) - {device_count} device(s)")

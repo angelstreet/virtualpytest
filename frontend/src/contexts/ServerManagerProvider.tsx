@@ -85,7 +85,9 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     
     availableServers.forEach(async (serverUrl) => {
       try {
-        const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts'), {
+        // Fetch hosts WITHOUT action schemas for performance (reduces response from ~200KB to ~10KB)
+        // Action schemas are only needed when taking control, and will be handled by DeviceDataContext
+        const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts?include_actions=false'), {
           signal: AbortSignal.timeout(10000) // Increased to 10s
         });
         

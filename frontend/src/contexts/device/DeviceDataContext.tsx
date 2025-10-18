@@ -310,8 +310,20 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
 
         console.log(`🔍 [DEBUG] Filtering actions for selected device: ${currentDevice.device_id} (${currentDevice.device_model})`);
 
-        // Process only the current device's action types
-        const deviceActionTypes = currentDevice.device_action_types || {};
+        // Check if device has action types (they might be stripped for performance)
+        const deviceActionTypes = currentDevice.device_action_types;
+        
+        if (!deviceActionTypes || Object.keys(deviceActionTypes).length === 0) {
+          console.warn('[DeviceDataContext] device_action_types not available - may have been stripped for performance');
+          console.warn('[DeviceDataContext] Make sure to call getAllHosts with include_actions=true when taking control');
+          setState((prev) => ({
+            ...prev,
+            availableActions: {},
+            availableActionsLoading: false,
+            availableActionsError: 'Action schemas not loaded. Please refresh the page.',
+          }));
+          return;
+        }
 
         // Process each action category (remote, av, power, desktop, web, etc.)
         Object.keys(deviceActionTypes).forEach((category) => {
@@ -411,9 +423,22 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
 
         console.log(`🔍 [DEBUG] Filtering verifications for selected device: ${currentDevice.device_id} (${currentDevice.device_model})`);
 
-        // Process only the current device's verification types
-        const deviceVerificationTypes = currentDevice.device_verification_types || {};
+        // Check if device has verification types (they might be stripped for performance)
+        const deviceVerificationTypes = currentDevice.device_verification_types;
+        
+        if (!deviceVerificationTypes || Object.keys(deviceVerificationTypes).length === 0) {
+          console.warn('[DeviceDataContext] device_verification_types not available - may have been stripped for performance');
+          console.warn('[DeviceDataContext] Make sure to call getAllHosts with include_actions=true when taking control');
+          setState((prev) => ({
+            ...prev,
+            availableVerificationTypes: {},
+            availableVerificationTypesLoading: false,
+            availableVerificationTypesError: 'Verification schemas not loaded. Please refresh the page.',
+          }));
+          return;
+        }
 
+        // Process only the current device's verification types
         Object.keys(deviceVerificationTypes).forEach((category) => {
           const verifications = deviceVerificationTypes[category];
           if (Array.isArray(verifications)) {
