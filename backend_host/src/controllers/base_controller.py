@@ -400,7 +400,12 @@ class FFmpegCaptureController(AVControllerInterface):
             # Auto-copy to cold storage (capture + thumbnail)
             if '/hot/' in closest_path:
                 cold_path = closest_path.replace('/hot/', '/')
-                os.makedirs(os.path.dirname(cold_path), mode=0o777, exist_ok=True)
+                # Directory MUST exist (pre-created by setup_ram_hot_storage.sh)
+                if not os.path.exists(os.path.dirname(cold_path)):
+                    print(f"[{self.capture_source}]: ERROR - Cold storage directory not found: {os.path.dirname(cold_path)}")
+                    print(f"[{self.capture_source}]: Run setup_ram_hot_storage.sh to create cold storage directories")
+                    return None
+                    
                 if not os.path.exists(cold_path):
                     shutil.copy2(closest_path, cold_path)
                 
@@ -408,9 +413,11 @@ class FFmpegCaptureController(AVControllerInterface):
                 hot_thumb = closest_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
                 if os.path.exists(hot_thumb):
                     cold_thumb = hot_thumb.replace('/hot/', '/')
-                    os.makedirs(os.path.dirname(cold_thumb), mode=0o777, exist_ok=True)
-                    if not os.path.exists(cold_thumb):
-                        shutil.copy2(hot_thumb, cold_thumb)
+                    if os.path.exists(os.path.dirname(cold_thumb)):
+                        if not os.path.exists(cold_thumb):
+                            shutil.copy2(hot_thumb, cold_thumb)
+                    else:
+                        print(f"[{self.capture_source}]: WARNING - Cold thumbnail directory not found: {os.path.dirname(cold_thumb)}")
                 
                 return cold_path
             

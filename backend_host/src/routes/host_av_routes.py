@@ -274,7 +274,12 @@ def get_segment_capture():
         
         # Copy from hot to cold if exists in hot
         if os.path.exists(hot_path):
-            os.makedirs(cold_captures_path, exist_ok=True)
+            # Directory MUST exist (pre-created by setup_ram_hot_storage.sh)
+            if not os.path.exists(cold_captures_path):
+                return jsonify({
+                    'success': False,
+                    'error': f'Cold storage directory not found: {cold_captures_path}. Run setup_ram_hot_storage.sh to create it.'
+                }), 500
             shutil.copy2(hot_path, cold_path)
             print(f"[@route:host_av:getSegmentCapture] Copied from HOT to COLD: {filename}")
         elif not os.path.exists(cold_path):
@@ -361,12 +366,13 @@ def take_screenshot():
         
         print(f"[@route:host_av:takeScreenshot] Target cold path: {cold_path}")
         
-        # Ensure directory exists (skip if permission denied - directory should already exist)
-        try:
-            if not os.path.exists(cold_captures_path):
-                os.makedirs(cold_captures_path, exist_ok=True)
-        except PermissionError as e:
-            print(f"[@route:host_av:takeScreenshot] ⚠️ Cannot create directory (already exists): {e}")
+        # Directory MUST exist (pre-created by setup_ram_hot_storage.sh with www-data ownership)
+        # Flask app does NOT create directories - only writes to existing 777 folders
+        if not os.path.exists(cold_captures_path):
+            return jsonify({
+                'success': False,
+                'error': f'Cold storage directory not found: {cold_captures_path}. Run setup_ram_hot_storage.sh to create it.'
+            }), 500
         
         if os.path.exists(screenshot_path):
             try:
@@ -376,7 +382,7 @@ def take_screenshot():
             except PermissionError as e:
                 return jsonify({
                     'success': False,
-                    'error': f'Permission denied writing to {cold_path}. Flask app user needs write access to www-data folders.'
+                    'error': f'Permission denied writing to {cold_path}. Check folder permissions (should be 777).'
                 }), 500
         else:
             print(f"[@route:host_av:takeScreenshot] ⚠️ Source not found: {screenshot_path}")
