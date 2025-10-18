@@ -326,6 +326,69 @@ def getAllHosts():
         print(f"❌ [HOSTS] Error listing hosts: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+print("[@server_system_routes] Get device actions route imported")
+@server_system_bp.route('/getDeviceActions', methods=['GET'])
+def getDeviceActions():
+    """
+    Return action schemas for a specific device - lightweight endpoint for editing
+    
+    Query parameters:
+    - host_name: Name of the host
+    - device_id: ID of the device
+    - team_id: Team ID (required for multi-tenancy)
+    
+    Returns:
+    {
+        "success": true,
+        "device_action_types": {...},
+        "device_verification_types": {...}
+    }
+    """
+    try:
+        host_name = request.args.get('host_name')
+        device_id = request.args.get('device_id')
+        team_id = request.args.get('team_id')
+        
+        if not host_name or not device_id:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required parameters: host_name and device_id'
+            }), 400
+        
+        host_manager = get_host_manager()
+        
+        # Get host data
+        host_data = host_manager.get_host(host_name)
+        if not host_data:
+            return jsonify({
+                'success': False,
+                'error': f'Host {host_name} not found'
+            }), 404
+        
+        # Find the specific device
+        devices = host_data.get('devices', [])
+        device_data = next((d for d in devices if d.get('device_id') == device_id), None)
+        
+        if not device_data:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found on host {host_name}'
+            }), 404
+        
+        # Return just the action and verification schemas for this device
+        return jsonify({
+            'success': True,
+            'host_name': host_name,
+            'device_id': device_id,
+            'device_model': device_data.get('device_model'),
+            'device_action_types': device_data.get('device_action_types', {}),
+            'device_verification_types': device_data.get('device_verification_types', {})
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ [DEVICE_ACTIONS] Error getting device actions: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 print("[@server_system_routes] Ping route imported")
 @server_system_bp.route('/ping', methods=['POST'])
 def client_ping():

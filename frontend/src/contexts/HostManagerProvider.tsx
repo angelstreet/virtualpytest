@@ -342,28 +342,52 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
             new Map(prev).set(`${host.host_name}:${effectiveDeviceId}`, userId),
           );
           
-          // ✅ Reload host data with action schemas for editing capabilities
-          try {
-            console.log(`[@context:HostManagerProvider] Reloading ${host.host_name} with action schemas...`);
-            const hostResponse = await fetch(
-              buildServerUrl('/server/system/getAllHosts?include_actions=true')
-            );
-            if (hostResponse.ok) {
-              const hostData = await hostResponse.json();
-              if (hostData.hosts && Array.isArray(hostData.hosts)) {
-                // Find the specific host with action schemas
-                const updatedHost = hostData.hosts.find((h: Host) => h.host_name === host.host_name);
-                if (updatedHost) {
-                  // Update the host in availableHosts with the full action schemas
+          // ✅ Reload device action schemas for editing capabilities
+          // Only reload if action schemas are not already present (performance optimization)
+          const deviceWithSchemas = host.devices?.find((d: any) => 
+            d.device_id === effectiveDeviceId && 
+            d.device_action_types && 
+            Object.keys(d.device_action_types).length > 0
+          );
+          
+          if (deviceWithSchemas) {
+            console.log(`[@context:HostManagerProvider] Action schemas already loaded for ${host.host_name}:${effectiveDeviceId}, skipping reload`);
+          } else {
+            try {
+              console.log(`[@context:HostManagerProvider] Loading action schemas for ${host.host_name}:${effectiveDeviceId}...`);
+              const schemaResponse = await fetch(
+                buildServerUrl(`/server/system/getDeviceActions?host_name=${encodeURIComponent(host.host_name)}&device_id=${encodeURIComponent(effectiveDeviceId)}`)
+              );
+              if (schemaResponse.ok) {
+                const schemaData = await schemaResponse.json();
+                if (schemaData.success) {
+                  // Update just this device's action/verification schemas
                   setAvailableHosts((prev) =>
-                    prev.map((h) => (h.host_name === host.host_name ? updatedHost : h))
+                    prev.map((h) => {
+                      if (h.host_name === host.host_name) {
+                        return {
+                          ...h,
+                          devices: h.devices?.map((d: any) => {
+                            if (d.device_id === effectiveDeviceId) {
+                              return {
+                                ...d,
+                                device_action_types: schemaData.device_action_types,
+                                device_verification_types: schemaData.device_verification_types
+                              };
+                            }
+                            return d;
+                          })
+                        };
+                      }
+                      return h;
+                    })
                   );
-                  console.log(`[@context:HostManagerProvider] Host ${host.host_name} reloaded with action schemas`);
+                  console.log(`[@context:HostManagerProvider] Action schemas loaded for ${host.host_name}:${effectiveDeviceId}`);
                 }
               }
+            } catch (error) {
+              console.warn(`[@context:HostManagerProvider] Failed to load device action schemas (non-critical):`, error);
             }
-          } catch (error) {
-            console.warn(`[@context:HostManagerProvider] Failed to reload host with action schemas (non-critical):`, error);
           }
           
           return { success: true };
