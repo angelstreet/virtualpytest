@@ -136,17 +136,12 @@ def dump_page_elements(device) -> Dict[str, Any]:
         }]
         
         # Execute actions using device's action_executor
-        # execute_actions returns a result dict with 'actions' array
-        result = device.action_executor.execute_actions(
-            actions,
-            execution_order=1,
-            edge_id=None,
-            action_category='main'
-        )
+        # execute_actions returns a result dict with 'actions' key containing results array
+        result = device.action_executor.execute_actions(actions)
         
         # Check if execution was successful
-        if result.get('success') and result.get('actions'):
-            action_result = result['actions'][0]  # Get first action result
+        if result.get('success') and result.get('results'):
+            action_result = result['results'][0]  # Get first action result
             
             if action_result.get('success'):
                 # Extract elements from the action result
