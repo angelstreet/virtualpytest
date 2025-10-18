@@ -35,6 +35,7 @@ interface EdgeEditDialogProps {
   selectedEdge?: UINavigationEdge | null;
   isControlActive?: boolean;
   selectedHost?: Host | null;
+  selectedDeviceId?: string | null;
   fromLabel?: string;
   toLabel?: string;
 }
@@ -48,6 +49,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   selectedEdge: _selectedEdge,
   isControlActive = false,
   selectedHost,
+  selectedDeviceId,
   fromLabel = '',
   toLabel = '',
 }) => {
@@ -69,7 +71,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   // Add the same edge hook used by the Edge Selection Panel
   const edgeHook = useEdge({
     selectedHost: selectedHost || null,
-    selectedDeviceId: 'dummy-device-id', // Match EdgeSelectionPanel by providing a non-null value
+    selectedDeviceId: selectedDeviceId || null,
     isControlActive,
   });
 
@@ -129,37 +131,29 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   };
 
   const handleRunActions = async () => {
-    // Use the same execution method as the Edge Selection Panel
-    // Pass the local actions as overrides to executeEdgeActions
-    if (edgeForm && edgeForm.edgeId) {
-      const dummyEdge = {
-        id: edgeForm.edgeId,
-        source: 'unknown',
-        target: 'unknown',
-        type: 'navigation',
-        data: {
-          action_sets: [{
-            id: 'temp',
-            label: 'Temporary Actions',
-            actions: edgeEdit.localActions,
-            retry_actions: edgeEdit.localRetryActions,
-            failure_actions: edgeEdit.localFailureActions,
-            priority: 1,
-            conditions: {},
-            timer: 0
-          }],
-          default_action_set_id: 'temp',
-          final_wait_time: edgeForm.final_wait_time
-        }
-      } as UINavigationEdge;
-      
-      await edgeHook.executeEdgeActions(
-        dummyEdge,
-        edgeEdit.localActions,
-        edgeEdit.localRetryActions,
-        edgeEdit.localFailureActions
-      );
-    }
+    // Use the actual selected edge if available, otherwise create minimal edge structure
+    if (!edgeForm) return;
+    
+    // Prefer using the actual selected edge to preserve source/target metadata
+    const edgeToExecute: UINavigationEdge = _selectedEdge || {
+      id: edgeForm.edgeId,
+      source: 'unknown',
+      target: 'unknown',
+      type: 'navigation',
+      data: {
+        action_sets: [],
+        default_action_set_id: '',
+        final_wait_time: edgeForm.final_wait_time
+      }
+    } as UINavigationEdge;
+    
+    // Execute with local (unsaved) actions as overrides
+    await edgeHook.executeEdgeActions(
+      edgeToExecute,
+      edgeEdit.localActions,
+      edgeEdit.localRetryActions,
+      edgeEdit.localFailureActions
+    );
   };
 
   if (!edgeForm) return null;

@@ -1231,6 +1231,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedEdge={selectedEdge}
             isControlActive={isControlActive}
             selectedHost={selectedHost}
+            selectedDeviceId={selectedDeviceId}
             fromLabel={edgeLabels.fromLabel}
             toLabel={edgeLabels.toLabel}
           />
