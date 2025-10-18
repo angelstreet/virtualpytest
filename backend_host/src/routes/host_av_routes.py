@@ -364,7 +364,6 @@ def take_screenshot():
         os.makedirs(cold_captures_path, mode=0o777, exist_ok=True)
         if os.path.exists(screenshot_path):
             shutil.copy2(screenshot_path, cold_path)
-            os.chmod(cold_path, 0o644)
             screenshot_path = cold_path
             print(f"[@route:host_av:takeScreenshot] ✅ Copied to COLD: {cold_path}")
         else:
