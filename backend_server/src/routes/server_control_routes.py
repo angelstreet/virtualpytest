@@ -178,7 +178,7 @@ def take_control():
 
 @server_control_bp.route('/releaseControl', methods=['POST'])
 def release_control():
-    """Release control of a device"""
+    """Release control of a device (instant response, host notification in background)"""
     try:
         data = request.get_json()
         host_name = data.get('host_name')
@@ -191,59 +191,53 @@ def release_control():
         
         print(f"🔓 [CONTROL] Releasing control of host: {host_name}, device: {device_id} (session: {session_id})")
         
-        # Check if host is registered
+        # 1. Release server lock IMMEDIATELY (critical - must be fast!)
+        unlock_success = unlock_device(host_name, session_id)
+        
+        if not unlock_success:
+            print(f"⚠️ [CONTROL] Failed to unlock device on server")
+        
+        # 2. Notify host in background (non-blocking - we don't wait for host)
         host_manager = get_host_manager()
         host_data = host_manager.get_host(host_name)
-        if not host_data:
-            # If host not found, still try to unlock (cleanup)
-            unlock_device(host_name, session_id)
-            return jsonify({
-                'success': True,
-                'message': f'Host {host_name} not found, but lock released'
-            })
+        if host_data:
+            import threading
+            
+            def notify_host_async():
+                """Background task to notify host of control release"""
+                try:
+                    host_endpoint = '/host/releaseControl'
+                    host_url = buildHostUrl(host_data, host_endpoint)
+                    
+                    print(f"📡 [CONTROL:ASYNC] Notifying host of release: {host_url}")
+                    
+                    response = requests.post(
+                        host_url,
+                        json={'device_id': device_id},
+                        timeout=10  # Reduced timeout for background task
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        print(f"✅ [CONTROL:ASYNC] Host confirmed release of device: {device_id}")
+                    else:
+                        print(f"⚠️ [CONTROL:ASYNC] Host responded with status {response.status_code}")
+                        
+                except Exception as e:
+                    print(f"⚠️ [CONTROL:ASYNC] Host notification error: {e}")
+            
+            # Start host notification in background (non-blocking)
+            threading.Thread(target=notify_host_async, daemon=True).start()
+            print(f"🔓 [CONTROL] Server lock released, host notification in progress")
+        else:
+            print(f"⚠️ [CONTROL] Host {host_name} not found, but server lock released")
         
-        # Forward release-control request to the specific host with device_id
-        try:
-            host_endpoint = '/host/releaseControl'
-            host_url = buildHostUrl(host_data, host_endpoint)
-            
-            print(f"📡 [CONTROL] Forwarding release-control to host: {host_url}")
-            
-            response = requests.post(
-                host_url,
-                json={'device_id': device_id},
-                timeout=30
-            )
-            
-            # Always unlock on server side regardless of host response
-            unlock_success = unlock_device(host_name, session_id)
-            
-            if response.status_code == 200:
-                result = response.json()
-                print(f"✅ [CONTROL] Host confirmed release of device: {device_id}")
-                return jsonify({
-                    'success': True,
-                    'message': f'Successfully released control of host: {host_name}, device: {device_id}',
-                    'host_result': result
-                })
-            else:
-                # Host communication failed but we still unlocked on server side
-                print(f"⚠️ [CONTROL] Host communication failed but server lock released")
-                return jsonify({
-                    'success': unlock_success,
-                    'message': f'Server lock released for host: {host_name}, host communication failed',
-                    'warning': f'Host communication failed: {response.status_code}'
-                })
-                
-        except requests.exceptions.RequestException as e:
-            # Host communication failed but we still unlocked on server side
-            unlock_success = unlock_device(host_name, session_id)
-            print(f"⚠️ [CONTROL] Host communication error but server lock released: {str(e)}")
-            return jsonify({
-                'success': unlock_success,
-                'message': f'Server lock released for host: {host_name}, host communication error',
-                'warning': f'Host communication error: {str(e)}'
-            })
+        # Return IMMEDIATELY after releasing server lock
+        return jsonify({
+            'success': unlock_success,
+            'message': f'Control released for host: {host_name}, device: {device_id}',
+            'host_notification': 'in_progress' if host_data else 'host_not_found'
+        })
         
     except Exception as e:
         print(f"❌ [CONTROL] Error releasing control: {e}")
