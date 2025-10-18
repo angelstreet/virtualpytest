@@ -69,7 +69,6 @@ import {
   UINavigationNode as UINavigationNodeType,
 } from '../types/pages/Navigation_Types';
 import { getZIndex } from '../utils/zIndexUtils';
-import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {

@@ -196,11 +196,15 @@ export const useMetrics = (props?: UseMetricsProps) => {
       setNodeMetrics(processedNodeMetrics);
       setEdgeMetrics(processedEdgeMetrics);
       setTreeMetrics({
+        tree_id: treeId,
         global_confidence: preloadedMetrics.global_confidence || 0,
         confidence_distribution: preloadedMetrics.confidence_distribution || {
           high: 0, medium: 0, low: 0, untested: 0
         },
-        hierarchy_info: preloadedMetrics.hierarchy_info
+        total_nodes: processedNodeMetrics.size,
+        total_edges: processedEdgeMetrics.size,
+        nodes_with_metrics: Array.from(processedNodeMetrics.values()).filter(m => m.volume > 0).length,
+        edges_with_metrics: Array.from(processedEdgeMetrics.values()).filter(m => m.volume > 0).length
       });
       setLastFetchedTreeId(treeId); // Mark as fetched to prevent auto-fetch
       setIsLoading(false);
