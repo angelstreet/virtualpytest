@@ -2,16 +2,17 @@
 """
 Go to Info Node Script for VirtualPyTest
 
-This script navigates to the 'info' node in the navigation tree.
-To change to a different info node (e.g., 'info_settings'), edit the TARGET_NODE constant below.
+This script navigates to the 'info' node in the navigation tree (default).
+You can override with --node to go to info_settings or other info variants.
 
 Usage:
-    python test_scripts/gw_info.py [userinterface_name] [--host <host>] [--device <device>]
+    python test_scripts/gw_info.py [userinterface_name] [--node <node_name>] [--host <host>] [--device <device>]
     
 Examples:
-    python test_scripts/gw_info.py                           # Goes to 'info' node
-    python test_scripts/gw_info.py horizon_android_mobile
-    python test_scripts/gw_info.py horizon_android_tv --device device2
+    python test_scripts/gw_info.py                           # Goes to 'info' node (default)
+    python test_scripts/gw_info.py --node info_settings      # Goes to 'info_settings' node
+    python test_scripts/gw_info.py horizon_android_mobile --node info
+    python test_scripts/gw_info.py horizon_android_tv --node info_settings --device device2
 """
 
 import sys
@@ -24,9 +25,6 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_device
-
-# Hard-coded target node - change this if you need a different info node
-TARGET_NODE = "info"
 
 
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, already_at_destination: bool = False) -> str:
@@ -54,13 +52,14 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("gw_info", f"Navigate to {TARGET_NODE} node")
+@script("gw_info", "Navigate to info node")
 def main():
     """Main navigation function to goto info node"""
     args = get_args()
     context = get_context()
+    target_node = args.node
     device = get_device()
-    print(f"🎯 [gw_info] Target node: {TARGET_NODE}")
+    print(f"🎯 [gw_info] Target node: {target_node}")
     print(f"📱 [gw_info] Device: {device.device_name} ({device.device_model})")
     
     # Load navigation tree
@@ -77,7 +76,7 @@ def main():
     # Execute navigation using NavigationExecutor directly
     result = device.navigation_executor.execute_navigation(
         tree_id=context.tree_id,
-        target_node_label=TARGET_NODE,
+        target_node_label=target_node,
         team_id=context.team_id,
         context=context
     )
@@ -93,13 +92,15 @@ def main():
     already_at_destination = (len(context.step_results) == 0 and success)
     
     # Always capture summary for report (regardless of success/failure)
-    summary_text = capture_navigation_summary(context, args.userinterface_name, TARGET_NODE, already_at_destination)
+    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
     context.execution_summary = summary_text
     
     return success
 
-# No script-specific arguments needed - TARGET_NODE is hard-coded
-main._script_args = []
+# Script arguments (framework params are automatic)
+main._script_args = [
+    '--node:str:info'           # Script-specific param - defaults to 'info'
+]
 
 if __name__ == "__main__":
     main()
