@@ -407,7 +407,8 @@ class FFmpegCaptureController(AVControllerInterface):
                     return None
                     
                 if not os.path.exists(cold_path):
-                    shutil.copy2(closest_path, cold_path)
+                    # Use shutil.copy() instead of copy2() to avoid permission issues with different owners
+                    shutil.copy(closest_path, cold_path)
                 
                 # Also copy thumbnail if exists
                 hot_thumb = closest_path.replace('/captures/', '/thumbnails/').replace('.jpg', '_thumbnail.jpg')
@@ -415,7 +416,8 @@ class FFmpegCaptureController(AVControllerInterface):
                     cold_thumb = hot_thumb.replace('/hot/', '/')
                     if os.path.exists(os.path.dirname(cold_thumb)):
                         if not os.path.exists(cold_thumb):
-                            shutil.copy2(hot_thumb, cold_thumb)
+                            # Use shutil.copy() instead of copy2() to avoid permission issues with different owners
+                            shutil.copy(hot_thumb, cold_thumb)
                     else:
                         print(f"[{self.capture_source}]: WARNING - Cold thumbnail directory not found: {os.path.dirname(cold_thumb)}")
                 

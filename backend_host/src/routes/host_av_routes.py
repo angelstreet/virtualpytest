@@ -280,7 +280,8 @@ def get_segment_capture():
                     'success': False,
                     'error': f'Cold storage directory not found: {cold_captures_path}. Run setup_ram_hot_storage.sh to create it.'
                 }), 500
-            shutil.copy2(hot_path, cold_path)
+            # Use shutil.copy() instead of copy2() to avoid permission issues with different owners
+            shutil.copy(hot_path, cold_path)
             print(f"[@route:host_av:getSegmentCapture] Copied from HOT to COLD: {filename}")
         elif not os.path.exists(cold_path):
             return jsonify({
@@ -376,7 +377,8 @@ def take_screenshot():
         
         if os.path.exists(screenshot_path):
             try:
-                shutil.copy2(screenshot_path, cold_path)
+                # Use shutil.copy() instead of copy2() to avoid permission issues with different owners
+                shutil.copy(screenshot_path, cold_path)
                 screenshot_path = cold_path
                 print(f"[@route:host_av:takeScreenshot] ✅ Copied to COLD: {cold_path}")
             except PermissionError as e:
