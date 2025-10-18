@@ -28,6 +28,12 @@ if project_root not in sys.path:
 
 from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_device
 
+# Script arguments (framework params are automatic)
+# MUST be defined near top of file (within first 300 lines) for script analyzer
+_script_args = [
+    '--node:str:info'           # Script-specific param - defaults to 'info'
+]
+
 
 def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model: str) -> Dict[str, Any]:
     """
@@ -114,58 +120,44 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
 
 def dump_page_elements(device) -> Dict[str, Any]:
     """
-    Dump all elements from the current page using the device's action executor.
+    Dump all elements from the current page using the device's web controller directly.
     
     Args:
-        device: Device object with action_executor
+        device: Device object with web controller
         
     Returns:
         Dict with success status and elements list
     """
-    print(f"📋 [get_info:dump] Dumping page elements via action_executor...")
+    print(f"📋 [get_info:dump] Dumping page elements via web controller...")
     
     try:
-        # Build action list (execute_actions expects a list)
-        actions = [{
-            'command': 'dump_elements',
-            'params': {
-                'element_types': 'all',
-                'include_hidden': False
-            },
-            'action_type': 'web'
-        }]
+        # Get web controller directly from device
+        web_controller = device._get_controller('web')
         
-        # Execute actions using device's action_executor
-        # execute_actions returns a result dict with 'actions' key containing results array
-        result = device.action_executor.execute_actions(actions)
+        if not web_controller:
+            return {
+                'success': False,
+                'error': 'No web controller available on this device',
+                'elements': []
+            }
         
-        # Check if execution was successful
-        if result.get('success') and result.get('results'):
-            action_result = result['results'][0]  # Get first action result
+        # Call dump_elements directly on the web controller
+        result = web_controller.dump_elements(element_types='all', include_hidden=False)
+        
+        if result.get('success'):
+            elements = result.get('elements', [])
+            summary = result.get('summary', {})
             
-            if action_result.get('success'):
-                # Extract elements from the action result
-                elements = action_result.get('elements', [])
-                summary = action_result.get('summary', {})
-                
-                print(f"📋 [get_info:dump] Found {summary.get('total_count', len(elements))} elements")
-                print(f"📋 [get_info:dump] Page: {summary.get('page_title', 'Unknown')} - {summary.get('page_url', 'Unknown')}")
-                
-                return {
-                    'success': True,
-                    'elements': elements,
-                    'summary': summary
-                }
-            else:
-                error_msg = action_result.get('error', 'Unknown error')
-                print(f"❌ [get_info:dump] Action failed: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'elements': []
-                }
+            print(f"📋 [get_info:dump] Found {summary.get('total_count', len(elements))} elements")
+            print(f"📋 [get_info:dump] Page: {summary.get('page_title', 'Unknown')} - {summary.get('page_url', 'Unknown')}")
+            
+            return {
+                'success': True,
+                'elements': elements,
+                'summary': summary
+            }
         else:
-            error_msg = result.get('error', 'Batch execution failed')
+            error_msg = result.get('error', 'Unknown error')
             print(f"❌ [get_info:dump] Failed to dump elements: {error_msg}")
             return {
                 'success': False,
@@ -288,9 +280,13 @@ def main():
     device_info = parse_device_info_from_elements(elements, device.device_model)
     
     # Step 3: Store device info in context.metadata (will be saved to script_results.metadata)
+    # Convert timestamp to ISO format
+    from datetime import datetime
+    extraction_timestamp = datetime.fromtimestamp(context.start_time).isoformat() if hasattr(context, 'start_time') and context.start_time else None
+    
     context.metadata = {
         "device_info": device_info,
-        "extraction_timestamp": context.start_time.isoformat() if hasattr(context, 'start_time') else None,
+        "extraction_timestamp": extraction_timestamp,
         "page_url": dump_result.get('summary', {}).get('page_url'),
         "page_title": dump_result.get('summary', {}).get('page_title'),
         "device_name": device.device_name,
@@ -311,10 +307,8 @@ def main():
     
     return True
 
-# Script arguments (framework params are automatic)
-main._script_args = [
-    '--node:str:info'           # Script-specific param - defaults to 'info'
-]
+# Assign script arguments to main function
+main._script_args = _script_args
 
 if __name__ == "__main__":
     main()
