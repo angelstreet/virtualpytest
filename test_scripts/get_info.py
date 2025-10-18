@@ -6,13 +6,13 @@ This script navigates to the 'info' node in the navigation tree (default).
 You can override with --node to go to info_settings or other info variants.
 
 Usage:
-    python test_scripts/gw_info.py [userinterface_name] [--node <node_name>] [--host <host>] [--device <device>]
+    python test_scripts/get_info.py [userinterface_name] [--node <node_name>] [--host <host>] [--device <device>]
     
 Examples:
-    python test_scripts/gw_info.py                           # Goes to 'info' node (default)
-    python test_scripts/gw_info.py --node info_settings      # Goes to 'info_settings' node
-    python test_scripts/gw_info.py horizon_android_mobile --node info
-    python test_scripts/gw_info.py horizon_android_tv --node info_settings --device device2
+    python test_scripts/get_info.py                           # Goes to 'info' node (default)
+    python test_scripts/get_info.py --node info_settings      # Goes to 'info_settings' node
+    python test_scripts/get_info.py horizon_android_mobile --node info
+    python test_scripts/get_info.py horizon_android_tv --node info_settings --device device2
 """
 
 import sys
@@ -30,7 +30,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 def capture_navigation_summary(context, userinterface_name: str, target_node: str, already_at_destination: bool = False) -> str:
     """Capture navigation summary as text for report"""
     lines = []
-    lines.append(f"🎯 [GW_INFO] EXECUTION SUMMARY")
+    lines.append(f"🎯 [GET_INFO] EXECUTION SUMMARY")
     lines.append(f"📱 Device: {context.selected_device.device_name} ({context.selected_device.device_model})")
     lines.append(f"🖥️  Host: {context.host.host_name}")
     lines.append(f"📋 Interface: {userinterface_name}")
@@ -52,15 +52,15 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("gw_info", "Navigate to info node")
+@script("get_info", "Navigate to info node")
 def main():
     """Main navigation function to goto info node"""
     args = get_args()
     context = get_context()
     target_node = args.node
     device = get_device()
-    print(f"🎯 [gw_info] Target node: {target_node}")
-    print(f"📱 [gw_info] Device: {device.device_name} ({device.device_model})")
+    print(f"🎯 [get_info] Target node: {target_node}")
+    print(f"📱 [get_info] Device: {device.device_name} ({device.device_model})")
     
     # Load navigation tree
     nav_result = device.navigation_executor.load_navigation_tree(
