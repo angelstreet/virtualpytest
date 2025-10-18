@@ -299,11 +299,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     });
 
     // Initialize metrics hook
+    const [preloadedMetrics, setPreloadedMetrics] = useState<any>(null);
     const metricsHook = useMetrics({
       treeId: actualTreeId,
       nodes,
       edges,
       enabled: true, // Always enabled for confidence tracking
+      preloadedMetrics, // Pass metrics from combined endpoint
     });
 
     // Track the last loaded tree ID to prevent unnecessary reloads
@@ -349,8 +351,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           if (userInterface?.id) {
             // Re-fetch tree data after AI generation using navigation hook
             try {
-              await loadTreeByUserInterface(userInterface.id);
+              const result = await loadTreeByUserInterface(userInterface.id);
               // Tree data is automatically updated in the navigation context
+              // If metrics were included, store them for useMetrics hook
+              if (result?.metrics) {
+                console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
+                setPreloadedMetrics(result.metrics);
+              }
             } catch (error) {
               console.error('Failed to refresh tree data after AI generation:', error);
             }

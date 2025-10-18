@@ -24,10 +24,11 @@ export interface UseMetricsProps {
   nodes?: UINavigationNode[];
   edges?: UINavigationEdge[];
   enabled?: boolean; // Allow disabling metrics fetching
+  preloadedMetrics?: any; // Metrics already loaded from combined endpoint
 }
 
 export const useMetrics = (props?: UseMetricsProps) => {
-  const { treeId, nodes = [], edges = [], enabled = true } = props || {};
+  const { treeId, nodes = [], edges = [], enabled = true, preloadedMetrics = null } = props || {};
 
   // State
   const [nodeMetrics, setNodeMetrics] = useState<Map<string, MetricData>>(new Map());
@@ -155,13 +156,66 @@ export const useMetrics = (props?: UseMetricsProps) => {
   }, [enabled]);
 
   /**
-   * Auto-fetch metrics when treeId changes
+   * Process preloaded metrics (from combined tree endpoint)
    */
   useEffect(() => {
-    if (treeId && treeId !== lastFetchedTreeId && enabled) {
+    if (preloadedMetrics && treeId) {
+      console.log(`[@useMetrics] Using preloaded metrics from combined endpoint for tree: ${treeId}`);
+      
+      // Convert backend format to frontend MetricData format
+      const processedNodeMetrics = new Map<string, MetricData>();
+      if (preloadedMetrics.nodes) {
+        for (const [nodeId, nodeMetric] of Object.entries(preloadedMetrics.nodes)) {
+          const metric = nodeMetric as any;
+          processedNodeMetrics.set(nodeId, {
+            id: nodeId,
+            volume: metric.volume,
+            success_rate: metric.success_rate,
+            avg_execution_time: metric.avg_execution_time,
+            confidence: metric.confidence,
+            confidence_level: metric.confidence >= 0.7 ? 'high' : metric.confidence >= 0.49 ? 'medium' : 'low'
+          });
+        }
+      }
+
+      const processedEdgeMetrics = new Map<string, MetricData>();
+      if (preloadedMetrics.edges) {
+        for (const [edgeKey, edgeMetric] of Object.entries(preloadedMetrics.edges)) {
+          const metric = edgeMetric as any;
+          processedEdgeMetrics.set(edgeKey, {
+            id: edgeKey,
+            volume: metric.volume,
+            success_rate: metric.success_rate,
+            avg_execution_time: metric.avg_execution_time,
+            confidence: metric.confidence,
+            confidence_level: metric.confidence >= 0.7 ? 'high' : metric.confidence >= 0.49 ? 'medium' : 'low'
+          });
+        }
+      }
+
+      setNodeMetrics(processedNodeMetrics);
+      setEdgeMetrics(processedEdgeMetrics);
+      setTreeMetrics({
+        global_confidence: preloadedMetrics.global_confidence || 0,
+        confidence_distribution: preloadedMetrics.confidence_distribution || {
+          high: 0, medium: 0, low: 0, untested: 0
+        },
+        hierarchy_info: preloadedMetrics.hierarchy_info
+      });
+      setLastFetchedTreeId(treeId); // Mark as fetched to prevent auto-fetch
+      setIsLoading(false);
+      setError(null);
+    }
+  }, [preloadedMetrics, treeId]);
+
+  /**
+   * Auto-fetch metrics when treeId changes (only if no preloaded metrics)
+   */
+  useEffect(() => {
+    if (treeId && treeId !== lastFetchedTreeId && enabled && !preloadedMetrics) {
       fetchMetrics(treeId);
     }
-  }, [treeId, lastFetchedTreeId, fetchMetrics, enabled]);
+  }, [treeId, lastFetchedTreeId, fetchMetrics, enabled, preloadedMetrics]);
 
   /**
    * Calculate global confidence from current metrics

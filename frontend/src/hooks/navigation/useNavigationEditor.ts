@@ -149,16 +149,16 @@ export const useNavigationEditor = () => {
           navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
           navigation.setHasUnsavedChanges(false);
 
-          // If metrics were included in the response, log them (they will be used by useMetrics hook)
+          // If metrics were included in the response, log them
           if (result.metrics) {
-            console.log(`[@useNavigationEditor:loadTreeByUserInterface] Received metrics in single call:`, {
+            console.log(`[@useNavigationEditor:loadTreeByUserInterface] ✅ Received metrics in combined call - NO separate fetch needed!`, {
               nodeCount: Object.keys(result.metrics.nodes || {}).length,
               edgeCount: Object.keys(result.metrics.edges || {}).length,
               globalConfidence: result.metrics.global_confidence
             });
           }
 
-          return result;
+          return result; // Return full result including metrics
         } else {
           throw new Error(result.error || 'Failed to load tree for user interface');
         }
