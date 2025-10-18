@@ -3,12 +3,21 @@ Server Script Routes - Script management and execution proxy
 """
 import os
 import re
+import time
+import threading
 from flask import Blueprint, request, jsonify
 import requests
 from  backend_server.src.lib.utils.server_utils import get_host_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl
 
 server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
+
+# ============================================================================
+# IN-MEMORY CACHE FOR SCRIPT LIST
+# ============================================================================
+_script_cache = {}  # {team_id: {'data': {...}, 'timestamp': time.time()}}
+_cache_lock = threading.Lock()
+_cache_ttl = 60  # 60 seconds TTL
 
 def analyze_script_parameters(script_path):
     """
@@ -276,6 +285,25 @@ def get_edge_options():
 def list_scripts():
     """List all available Python scripts AND AI test cases"""
     try:
+        # Get team_id from request args (GET request)
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        # Check cache first
+        with _cache_lock:
+            if team_id in _script_cache:
+                cached = _script_cache[team_id]
+                age = time.time() - cached['timestamp']
+                if age < _cache_ttl:
+                    print(f"[@cache] HIT: Script list for team {team_id} (age: {age:.1f}s)")
+                    return jsonify(cached['data'])
+                else:
+                    del _script_cache[team_id]
+        
         # Get regular Python scripts
         from  backend_server.src.lib.utils.script_utils import list_available_scripts, get_scripts_directory
         
@@ -289,13 +317,6 @@ def list_scripts():
         try:
             from shared.src.lib.supabase.testcase_db import get_all_test_cases
             
-            # Get team_id from request args (GET request)
-            team_id = request.args.get('team_id')
-            if not team_id:
-                return jsonify({
-                    'success': False,
-                    'error': 'team_id is required'
-                }), 400
             all_test_cases = get_all_test_cases(team_id)
             
             # Filter for AI-created test cases and format as script names
@@ -329,7 +350,7 @@ def list_scripts():
                 'error': f'No scripts found in directory: {scripts_dir} and no AI test cases'
             }), 404
         
-        return jsonify({
+        response_data = {
             'success': True,
             'scripts': all_scripts,
             'count': len(all_scripts),
@@ -337,7 +358,17 @@ def list_scripts():
             'regular_scripts': regular_scripts,
             'ai_scripts': ai_scripts,
             'ai_test_cases_info': ai_test_cases_info  # Metadata for frontend
-        })
+        }
+        
+        # Store in cache
+        with _cache_lock:
+            _script_cache[team_id] = {
+                'data': response_data,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Script list for team {team_id}")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         return jsonify({

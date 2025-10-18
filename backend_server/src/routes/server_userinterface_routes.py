@@ -6,6 +6,8 @@ This module contains the user interface management API endpoints for:
 - Device compatibility management
 """
 
+import time
+import threading
 from flask import Blueprint, request, jsonify
 
 # Import database functions from src/lib/supabase (uses absolute import)
@@ -27,6 +29,13 @@ from shared.src.lib.utils.app_utils import check_supabase
 # Create blueprint
 server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix='/server/userinterface')
 
+# ============================================================================
+# IN-MEMORY CACHE FOR COMPATIBLE INTERFACES
+# ============================================================================
+_compatible_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
+_cache_lock = threading.Lock()
+_cache_ttl = 86400  # 24 hours TTL
+
 # =====================================================
 # USER INTERFACES ENDPOINTS
 # =====================================================
@@ -44,6 +53,20 @@ def get_compatible_interfaces():
     if not device_model:
         return jsonify({'success': False, 'error': 'device_model parameter required'}), 400
     
+    # Create cache key from device_model and team_id
+    cache_key = f"{team_id}:{device_model}"
+    
+    # Check cache first
+    with _cache_lock:
+        if cache_key in _compatible_cache:
+            cached = _compatible_cache[cache_key]
+            age = time.time() - cached['timestamp']
+            if age < _cache_ttl:
+                print(f"[@cache] HIT: Compatible interfaces for {device_model} (age: {age/3600:.1f}h)")
+                return jsonify(cached['data'])
+            else:
+                del _compatible_cache[cache_key]
+    
     try:
         # Get all interfaces for the team
         all_interfaces = get_all_userinterfaces(team_id)
@@ -60,12 +83,22 @@ def get_compatible_interfaces():
             if any(model in (interface.get('models') or []) for model in compatible_models)
         ]
         
-        return jsonify({
+        response_data = {
             'success': True,
             'interfaces': compatible_interfaces,
             'device_model': device_model,
             'count': len(compatible_interfaces)
-        })
+        }
+        
+        # Store in cache
+        with _cache_lock:
+            _compatible_cache[cache_key] = {
+                'data': response_data,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Compatible interfaces for {device_model} (24h TTL)")
+        
+        return jsonify(response_data)
     except Exception as e:
         print(f"[@server_userinterface] Error getting compatible interfaces: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

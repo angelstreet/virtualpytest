@@ -14,6 +14,9 @@ import { buildServerUrl } from '../../utils/buildUrlUtils';
 const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+// 24-hour cache for compatible interfaces
+const compatibleInterfacesCache = new Map<string, {data: UserInterface[], timestamp: number}>();
+
 function getCachedInterface(name: string) {
   const cached = userInterfaceCache.get(name);
   if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
@@ -27,6 +30,21 @@ function getCachedInterface(name: string) {
 
 function setCachedInterface(name: string, data: Promise<UserInterface>) {
   userInterfaceCache.set(name, {data, timestamp: Date.now()});
+}
+
+function getCachedCompatibleInterfaces(deviceModel: string) {
+  const cached = compatibleInterfacesCache.get(deviceModel);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
+  if (cached) {
+    compatibleInterfacesCache.delete(deviceModel); // Remove expired
+  }
+  return null;
+}
+
+function setCachedCompatibleInterfaces(deviceModel: string, data: UserInterface[]) {
+  compatibleInterfacesCache.set(deviceModel, {data, timestamp: Date.now()});
 }
 
 export const useUserInterface = () => {
@@ -400,6 +418,15 @@ export const useUserInterface = () => {
           return [];
         }
 
+        // Check cache first
+        const cachedData = getCachedCompatibleInterfaces(deviceModel);
+        if (cachedData) {
+          console.log(
+            `[@hook:useUserInterface:getCompatibleInterfaces] Cache HIT for ${deviceModel} (${cachedData.length} interfaces)`,
+          );
+          return cachedData;
+        }
+
         try {
           console.log(
             `[@hook:useUserInterface:getCompatibleInterfaces] Fetching compatible interfaces for device model: ${deviceModel}`,
@@ -419,6 +446,8 @@ export const useUserInterface = () => {
             console.log(
               `[@hook:useUserInterface:getCompatibleInterfaces] Found ${data.interfaces.length} compatible interfaces`,
             );
+            // Store in cache
+            setCachedCompatibleInterfaces(deviceModel, data.interfaces);
             return data.interfaces;
           } else {
             console.log(

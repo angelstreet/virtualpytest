@@ -64,8 +64,8 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
         return;
       }
 
-      // Create analysis key for deduplication
-      const analysisKey = `${selectedScript}-${selectedDevice}-${selectedHost}-${deviceModel}`;
+      // Create analysis key for deduplication (only script matters for analysis)
+      const analysisKey = selectedScript;
       
       // Deduplication protection - prevent duplicate analysis requests
       if (isAnalysisInProgress.current && currentAnalysisKey.current === analysisKey) {
@@ -158,7 +158,7 @@ export const useRun = ({ selectedScript, selectedDevice, selectedHost, deviceMod
     };
 
     analyzeScript();
-  }, [selectedScript, selectedDevice, selectedHost, deviceModel, showWizard]);
+  }, [selectedScript, showWizard]); // Only re-analyze when script or wizard visibility changes
 
   // Update parameter values when device/host changes
   useEffect(() => {
