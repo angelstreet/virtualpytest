@@ -670,7 +670,7 @@ const Dashboard: React.FC = () => {
                             height: 20, 
                             fontSize: '0.7rem',
                             bgcolor: `${getUsageColor(serverData.server_info.system_stats.cpu_percent)}.100`,
-                            color: `${getUsageColor(serverData.server_info.system_stats.cpu_percent)}.dark`
+                            color: 'text.primary'
                           }}
                         />
                         <Chip 
@@ -680,7 +680,7 @@ const Dashboard: React.FC = () => {
                             height: 20, 
                             fontSize: '0.7rem',
                             bgcolor: `${getUsageColor(serverData.server_info.system_stats.memory_percent)}.100`,
-                            color: `${getUsageColor(serverData.server_info.system_stats.memory_percent)}.dark`
+                            color: 'text.primary'
                           }}
                         />
                         <Chip 
@@ -690,7 +690,7 @@ const Dashboard: React.FC = () => {
                             height: 20, 
                             fontSize: '0.7rem',
                             bgcolor: `${getUsageColor(serverData.server_info.system_stats.disk_percent)}.100`,
-                            color: `${getUsageColor(serverData.server_info.system_stats.disk_percent)}.dark`
+                            color: 'text.primary'
                           }}
                         />
                         {serverData.server_info.system_stats.cpu_temperature_celsius && (
