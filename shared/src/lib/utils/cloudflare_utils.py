@@ -118,6 +118,28 @@ class CloudflareUtils:
         failed_uploads = []
         deleted_files = []
         
+        # Deduplicate file_mappings by local_path to prevent race conditions
+        # Keep first occurrence of each unique local_path
+        seen_paths = {}
+        deduplicated_mappings = []
+        duplicate_count = 0
+        
+        for mapping in file_mappings:
+            local_path = mapping['local_path']
+            if local_path not in seen_paths:
+                seen_paths[local_path] = mapping
+                deduplicated_mappings.append(mapping)
+            else:
+                duplicate_count += 1
+                # Log duplicate for debugging - helps identify the source
+                logger.debug(f"Skipping duplicate upload request for {local_path} (remote: {mapping['remote_path']})")
+        
+        if duplicate_count > 0:
+            logger.info(f"Deduplicated {duplicate_count} duplicate file(s) from upload batch (original: {len(file_mappings)}, unique: {len(deduplicated_mappings)})")
+        
+        # Use deduplicated mappings for upload
+        file_mappings = deduplicated_mappings
+        
         def upload_single_file(mapping):
             local_path = mapping['local_path']
             remote_path = mapping['remote_path']
@@ -178,9 +200,16 @@ class CloudflareUtils:
                     
                     if is_cold_file:
                         try:
-                            os.remove(local_path)
-                            result['deleted'] = True
-                            logger.debug(f"Auto-deleted cold file after upload: {local_path}")
+                            # Check if file still exists before attempting deletion (race condition safety)
+                            if os.path.exists(local_path):
+                                os.remove(local_path)
+                                result['deleted'] = True
+                                logger.debug(f"Auto-deleted cold file after upload: {local_path}")
+                            else:
+                                logger.debug(f"Cold file already deleted (likely by another process): {local_path}")
+                        except FileNotFoundError:
+                            # File was deleted between the exists check and remove call
+                            logger.debug(f"Cold file already deleted during removal: {local_path}")
                         except Exception as del_error:
                             logger.warning(f"Failed to auto-delete cold file {local_path}: {del_error}")
                 
