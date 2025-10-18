@@ -314,13 +314,11 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         const deviceActionTypes = currentDevice.device_action_types;
         
         if (!deviceActionTypes || Object.keys(deviceActionTypes).length === 0) {
-          console.warn('[DeviceDataContext] device_action_types not available - may have been stripped for performance');
-          console.warn('[DeviceDataContext] Make sure to call getAllHosts with include_actions=true when taking control');
+          // Schemas not loaded (performance optimization) - this is expected behavior
           setState((prev) => ({
             ...prev,
             availableActions: {},
             availableActionsLoading: false,
-            availableActionsError: 'Action schemas not loaded. Please refresh the page.',
           }));
           return;
         }
@@ -427,13 +425,11 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         const deviceVerificationTypes = currentDevice.device_verification_types;
         
         if (!deviceVerificationTypes || Object.keys(deviceVerificationTypes).length === 0) {
-          console.warn('[DeviceDataContext] device_verification_types not available - may have been stripped for performance');
-          console.warn('[DeviceDataContext] Make sure to call getAllHosts with include_actions=true when taking control');
+          // Schemas not loaded (performance optimization) - this is expected behavior
           setState((prev) => ({
             ...prev,
             availableVerificationTypes: {},
             availableVerificationTypesLoading: false,
-            availableVerificationTypesError: 'Verification schemas not loaded. Please refresh the page.',
           }));
           return;
         }

@@ -16,6 +16,14 @@ export type { ActionsListProps };
 export const ActionsList: React.FC<ActionsListProps> = ({ actions, onActionsUpdate }) => {
   const { getAvailableActions } = useDeviceData();
   const availableActions = getAvailableActions();
+  
+  // DEBUG: Log availableActions state
+  console.log('🔍 [ActionsList] Available actions:', {
+    availableActions,
+    categories: Object.keys(availableActions),
+    totalActions: Object.values(availableActions).flat().length,
+    actions: actions.map(a => ({ command: a.command, action_type: a.action_type }))
+  });
 
   const handleActionSelect = (index: number, actionId: string) => {
     // DEBUG: Log the entire availableActions structure
