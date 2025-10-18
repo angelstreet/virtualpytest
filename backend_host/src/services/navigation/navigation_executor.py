@@ -910,7 +910,7 @@ class NavigationExecutor:
         
         except Exception as e:
             print(f"[@navigation_executor:get_navigation_preview] Unexpected error: {str(e)}")
-            result = {
+            return {
                 'success': False,
                 'error': f'Navigation preview error: {str(e)}',
                 'tree_id': tree_id,
