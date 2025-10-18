@@ -52,6 +52,17 @@ export const useDeviceControl = ({
 
   // Track if we need to cleanup on unmount
   const needsCleanupRef = useRef(false);
+  
+  // Track control parameters at time of taking control for cleanup
+  const controlParamsRef = useRef<{
+    host: Host | null;
+    device_id: string | undefined;
+    sessionId: string | undefined;
+  }>({
+    host: null,
+    device_id: undefined,
+    sessionId: undefined,
+  });
 
   // Get control functions from HostManager
   const { takeControl, releaseControl, hasActiveLock } = useHostManager();
@@ -79,6 +90,12 @@ export const useDeviceControl = ({
       if (result.success) {
         setIsControlActive(true);
         needsCleanupRef.current = true;
+        // Store control parameters for cleanup
+        controlParamsRef.current = {
+          host,
+          device_id,
+          sessionId,
+        };
         console.log(
           `[useDeviceControl] Successfully took control of: ${host.host_name}, device: ${device_id}`,
         );
@@ -132,6 +149,12 @@ export const useDeviceControl = ({
       if (result.success) {
         setIsControlActive(false);
         needsCleanupRef.current = false;
+        // Clear control parameters
+        controlParamsRef.current = {
+          host: null,
+          device_id: undefined,
+          sessionId: undefined,
+        };
         console.log(
           `[useDeviceControl] Successfully released control of: ${host.host_name}, device: ${device_id}`,
         );
@@ -180,20 +203,26 @@ export const useDeviceControl = ({
     }
   }, [host, hasActiveLock, isControlActive]);
 
-  // Auto-cleanup on unmount
+  // Auto-cleanup on unmount - NO dependencies so it only runs on actual unmount
   useEffect(() => {
     return () => {
-      if (autoCleanup && needsCleanupRef.current && host) {
-        console.log(
-          `[useDeviceControl] Auto-cleanup: releasing control of ${host.host_name}, device: ${device_id}`,
-        );
-        // Don't await - this is cleanup
-        releaseControl(host, device_id, sessionId).catch((error) => {
-          console.error(`[useDeviceControl] Cleanup error:`, error);
-        });
+      if (autoCleanup && needsCleanupRef.current) {
+        // Use captured control parameters at time of taking control
+        const { host: cleanupHost, device_id: cleanupDeviceId, sessionId: cleanupSessionId } = controlParamsRef.current;
+        
+        if (cleanupHost) {
+          console.log(
+            `[useDeviceControl] Auto-cleanup: releasing control of ${cleanupHost.host_name}, device: ${cleanupDeviceId}`,
+          );
+          // Don't await - this is cleanup
+          releaseControl(cleanupHost, cleanupDeviceId, cleanupSessionId).catch((error) => {
+            console.error(`[useDeviceControl] Cleanup error:`, error);
+          });
+        }
       }
     };
-  }, [autoCleanup, host, device_id, sessionId, releaseControl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run on mount/unmount
 
   // ========================================
   // RETURN
