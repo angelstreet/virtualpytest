@@ -61,7 +61,8 @@ def register_host():
         devices = host_info.get('devices', [])
         
         print(f"[@route:register_host] Host configuration:")
-        print(f"   Host URL: {host_info['host_url']}")
+        print(f"   Host URL (browser): {host_info['host_url']}")
+        print(f"   Host API URL (server): {host_info.get('host_api_url', 'NOT PROVIDED - will fallback to host_url')}")
         print(f"   Host Port: {host_port}")
         print(f"   Devices: {len(devices)} devices")
         
@@ -118,7 +119,8 @@ def register_host():
             'description': f"Host: {host_info['host_name']} with {len(devices)} device(s)",
             
             # === NETWORK CONFIGURATION ===
-            'host_url': host_info['host_url'],
+            'host_url': host_info['host_url'],  # Required: For browser/frontend (HTTPS via nginx)
+            'host_api_url': host_info.get('host_api_url'),  # Optional: For server-to-server (HTTP direct), fallback to host_url if not provided
             'host_port': int(host_port),
             
             # === MULTI-DEVICE CONFIGURATION ===
