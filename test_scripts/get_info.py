@@ -87,13 +87,19 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
     }
     
     # Extract text content from all elements
-    for element in elements:
+    print(f"📝 [get_info:parse] Checking {len(elements)} elements for device info patterns...")
+    
+    for idx, element in enumerate(elements):
         text_content = element.get('textContent', '').strip()
         if not text_content or len(text_content) < 3:
             continue
             
         # Store raw text for debugging
         device_info["raw_text_elements"].append(text_content)
+        
+        # Log first 10 text elements for debugging
+        if idx < 10:
+            print(f"📝 [get_info:parse] Element {idx}: '{text_content[:100]}'")
         
         # Try to match each pattern
         for field_name, field_patterns in patterns.items():
@@ -104,8 +110,11 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
                 match = re.search(pattern, text_content, re.IGNORECASE)
                 if match:
                     device_info["extracted_fields"][field_name] = match.group(1).strip()
-                    print(f"📝 [get_info:parse] Found {field_name}: {match.group(1).strip()}")
+                    print(f"✅ [get_info:parse] Found {field_name}: {match.group(1).strip()}")
                     break
+    
+    print(f"📊 [get_info:parse] Summary: Checked {len(device_info['raw_text_elements'])} text elements")
+    print(f"📊 [get_info:parse] Extracted {len(device_info['extracted_fields'])} fields: {list(device_info['extracted_fields'].keys())}")
     
     # Add metadata about extraction
     device_info["extraction_summary"] = {
