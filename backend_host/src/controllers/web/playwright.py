@@ -737,7 +737,7 @@ class PlaywrightWebController(WebControllerInterface):
         
         return exact_matches + partial_matches
     
-    def input_text(self, selector: str, text: str, timeout: int = 30000) -> Dict[str, Any]:
+    def input_text(self, selector: str, text: str, timeout: int = 3000) -> Dict[str, Any]:
         """Input text into an element using async CDP connection."""
         async def _async_input_text():
             try:
@@ -1254,7 +1254,7 @@ class PlaywrightWebController(WebControllerInterface):
         elif command == 'input_text':
             selector = params.get('selector')
             text = params.get('text', '')
-            timeout = params.get('timeout', 30000)
+            timeout = params.get('timeout', 3000)
             
             if not selector:
                 return {
