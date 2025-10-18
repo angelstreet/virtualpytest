@@ -226,10 +226,14 @@ def getAllHosts():
     Query parameters:
         include_actions: boolean (default: false) - Include device_action_types and device_verification_types
                         Set to true only when you need action/verification schemas (for control pages)
+        include_system_stats: boolean (default: false) - Include full system stats and device details
+                        Set to true when you need system metrics (CPU, RAM, disk) for dashboard/monitoring
     """
     try:
         # Check if we should include action schemas (defaults to false for performance)
         include_actions = request.args.get('include_actions', 'false').lower() == 'true'
+        # Check if we should include full system stats and device details (defaults to false for performance)
+        include_system_stats = request.args.get('include_system_stats', 'false').lower() == 'true'
         
         host_manager = get_host_manager()
         
@@ -240,7 +244,7 @@ def getAllHosts():
         
         # Get all hosts from manager
         all_hosts = host_manager.get_all_hosts()
-        print(f"🔍 [HOSTS] Raw hosts from manager: {len(all_hosts)} hosts")
+        print(f"🔍 [HOSTS] Raw hosts from manager: {len(all_hosts)} hosts (include_actions={include_actions}, include_system_stats={include_system_stats})")
         for host_name, host_data in all_hosts.items():
             print(f"   Host key: {host_name}, has host_name: {'host_name' in host_data}, has host_url: {'host_url' in host_data}")
         
@@ -259,9 +263,9 @@ def getAllHosts():
                     break
             
             if is_valid:
-                # Strip bloated fields if not needed (reduces response from ~200KB to ~2KB)
-                if not include_actions and 'devices' in host_info:
-                    # Create a minimal copy - only include fields actually used by viewing pages
+                # If both flags are false, create ultra-lightweight response (for Rec page)
+                if not include_actions and not include_system_stats and 'devices' in host_info:
+                    # Create a minimal copy - only include fields actually used by Rec page
                     lightweight_host = {
                         'host_name': host_info.get('host_name'),
                         'host_url': host_info.get('host_url'),
@@ -298,11 +302,48 @@ def getAllHosts():
                         lightweight_host['devices'].append(lightweight_device)
                     
                     valid_hosts.append(lightweight_host)
+                
+                # If include_system_stats is true but include_actions is false (Dashboard use case)
+                elif include_system_stats and not include_actions and 'devices' in host_info:
+                    # Include full system stats and device details, but strip action schemas
+                    dashboard_host = {
+                        'host_name': host_info.get('host_name'),
+                        'host_url': host_info.get('host_url'),
+                        'host_port': host_info.get('host_port'),
+                        'status': host_info.get('status', 'online'),
+                        'device_count': host_info.get('device_count', 0),
+                        'last_seen': host_info.get('last_seen'),
+                        'registered_at': host_info.get('registered_at'),
+                        # Include FULL system_stats for Dashboard
+                        'system_stats': host_info.get('system_stats', {}),
+                        'devices': []
+                    }
+                    
+                    # For each device, include full details except action schemas
+                    for device in host_info.get('devices', []):
+                        dashboard_device = {
+                            'device_id': device.get('device_id'),
+                            'device_name': device.get('device_name'),
+                            'device_model': device.get('device_model'),
+                            'device_ip': device.get('device_ip'),
+                            'device_port': device.get('device_port'),
+                            'device_capabilities': device.get('device_capabilities'),
+                            'video_stream_path': device.get('video_stream_path'),
+                            'has_running_deployment': device.get('has_running_deployment', False),
+                            'ir_type': device.get('ir_type'),
+                            # STRIPPED for performance:
+                            # - device_action_types (~150KB)
+                            # - device_verification_types (~40KB)
+                        }
+                        dashboard_host['devices'].append(dashboard_device)
+                    
+                    valid_hosts.append(dashboard_host)
+                
                 else:
                     # Include full data (for control pages that need action schemas)
                     valid_hosts.append(host_info)
         
-        print(f"🖥️ [HOSTS] Returning {len(valid_hosts)} valid hosts (include_actions={include_actions})")
+        print(f"🖥️ [HOSTS] Returning {len(valid_hosts)} valid hosts (include_actions={include_actions}, include_system_stats={include_system_stats})")
         for host in valid_hosts:
             device_count = host.get('device_count', 0)
             print(f"   Host: {host['host_name']} ({host['host_url']}) - {device_count} device(s)")
@@ -312,13 +353,20 @@ def getAllHosts():
         server_url = os.getenv('SERVER_URL', 'Unknown URL')
         server_port = os.getenv('SERVER_PORT', 'Unknown Port')
         
+        # Build server_info object
+        server_info = {
+            'server_name': server_name,
+            'server_url': server_url,
+            'server_port': server_port
+        }
+        
+        # Include server system stats if requested (for Dashboard monitoring)
+        if include_system_stats:
+            server_info['system_stats'] = get_server_system_stats()
+        
         return jsonify({
             'success': True,
-            'server_info': {
-                'server_name': server_name,
-                'server_url': server_url,
-                'server_port': server_port
-            },
+            'server_info': server_info,
             'hosts': valid_hosts
         }), 200
         

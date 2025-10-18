@@ -85,9 +85,10 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     
     availableServers.forEach(async (serverUrl) => {
       try {
-        // Fetch hosts WITHOUT action schemas for performance (reduces response from ~200KB to ~10KB)
-        // Action schemas are only needed when taking control, and will be handled by DeviceDataContext
-        const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts?include_actions=false'), {
+        // Fetch hosts WITH system stats but WITHOUT action schemas
+        // System stats (~5-10KB) are needed for Dashboard monitoring
+        // Action schemas (~190KB) are only needed when taking control, handled by DeviceDataContext
+        const response = await fetch(buildServerUrlForServer(serverUrl, '/server/system/getAllHosts?include_actions=false&include_system_stats=true'), {
           signal: AbortSignal.timeout(10000) // Increased to 10s
         });
         
@@ -101,7 +102,9 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
               server_name: data.server_info?.server_name || 'Unknown Server',
               server_url: serverUrl,
               server_url_display: cleanUrl,
-              server_port: urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80')
+              server_port: urlParts.port || (urlParts.protocol === 'https:' ? '443' : '80'),
+              // Include server system stats for Dashboard monitoring
+              system_stats: data.server_info?.system_stats || null
             },
             hosts: data.hosts || []
           };

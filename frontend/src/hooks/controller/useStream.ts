@@ -3,6 +3,35 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Host } from '../../types/common/Host_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+
+// ============================================================================
+// 24-HOUR CACHE FOR STREAM URLs
+// ============================================================================
+interface StreamUrlCache {
+  url: string;
+  timestamp: number;
+}
+
+const streamUrlCache = new Map<string, StreamUrlCache>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCachedStreamUrl(host_name: string, device_id: string): string | null {
+  const cacheKey = `${host_name}:${device_id}`;
+  const cached = streamUrlCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.url;
+  }
+  if (cached) {
+    streamUrlCache.delete(cacheKey); // Remove expired
+  }
+  return null;
+}
+
+function setCachedStreamUrl(host_name: string, device_id: string, url: string) {
+  const cacheKey = `${host_name}:${device_id}`;
+  streamUrlCache.set(cacheKey, { url, timestamp: Date.now() });
+}
+
 interface UseStreamProps {
   host: Host;
   device_id: string; // Can be empty string when no device is selected
@@ -47,12 +76,18 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
 
       const deviceKey = `${host.host_name}-${device_id}`;
 
-      // Skip if we already have a stream URL for this device and not forcing
-      if (!force && fetchedDevicesRef.current.has(deviceKey) && streamUrl) {
-        console.log(
-          `[@hook:useStream] Stream URL already cached for device: ${deviceKey}, skipping fetch`,
-        );
-        return;
+      // Check 24h cache first
+      if (!force) {
+        const cachedUrl = getCachedStreamUrl(host.host_name, device_id);
+        if (cachedUrl) {
+          console.log(
+            `[@hook:useStream] Cache HIT: Stream URL for ${host.host_name}/${device_id} (24h cache)`,
+          );
+          setStreamUrl(cachedUrl);
+          setUrlError(null);
+          fetchedDevicesRef.current.add(deviceKey);
+          return;
+        }
       }
 
       setIsLoadingUrl(true);
@@ -87,6 +122,9 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
           setStreamUrl(processedUrl);
           setUrlError(null);
 
+          // Store in 24h cache
+          setCachedStreamUrl(host.host_name, device_id, processedUrl);
+
           // Mark this device as fetched
           fetchedDevicesRef.current.add(deviceKey);
         } else {
@@ -104,7 +142,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
         setIsLoadingUrl(false);
       }
     },
-    [host, device_id, streamUrl],
+    [host, device_id],
   );
 
   // Manual refetch function for force refresh

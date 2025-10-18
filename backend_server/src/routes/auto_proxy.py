@@ -5,10 +5,19 @@ Replaces 12 pure proxy route files with a single handler.
 No legacy code, no backward compatibility - just clean elimination of duplication.
 """
 
+import time
+import threading
 from flask import Blueprint, request, jsonify
 from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 
 auto_proxy_bp = Blueprint('auto_proxy', __name__)
+
+# ============================================================================
+# IN-MEMORY CACHE FOR STREAM URLs
+# ============================================================================
+_stream_url_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
+_cache_lock = threading.Lock()
+_cache_ttl = 86400  # 24 hours TTL
 
 @auto_proxy_bp.route('/server/<path:endpoint>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def auto_proxy(endpoint):
@@ -54,10 +63,43 @@ def auto_proxy(endpoint):
             if request.method == 'POST' and data.get('device_id'):
                 query_params['device_id'] = data.get('device_id')
         
+        # Cache for getStreamUrl endpoint (24h TTL)
+        if endpoint == 'av/getStreamUrl':
+            host_name = data.get('host_name') if data else query_params.get('host_name')
+            device_id = query_params.get('device_id')
+            
+            if host_name and device_id:
+                cache_key = f"{host_name}:{device_id}"
+                
+                # Check cache first
+                with _cache_lock:
+                    if cache_key in _stream_url_cache:
+                        cached = _stream_url_cache[cache_key]
+                        age = time.time() - cached['timestamp']
+                        if age < _cache_ttl:
+                            print(f"[@cache] HIT: Stream URL for {host_name}/{device_id} (age: {age/3600:.1f}h)")
+                            return jsonify(cached['data'])
+                        else:
+                            del _stream_url_cache[cache_key]
+        
         # Proxy to host
         response_data, status_code = proxy_to_host_with_params(
             host_endpoint, target_method, data, query_params, timeout=60
         )
+        
+        # Store in cache if successful getStreamUrl
+        if endpoint == 'av/getStreamUrl' and status_code == 200 and response_data.get('success'):
+            host_name = data.get('host_name') if data else query_params.get('host_name')
+            device_id = query_params.get('device_id')
+            
+            if host_name and device_id:
+                cache_key = f"{host_name}:{device_id}"
+                with _cache_lock:
+                    _stream_url_cache[cache_key] = {
+                        'data': response_data,
+                        'timestamp': time.time()
+                    }
+                    print(f"[@cache] SET: Stream URL for {host_name}/{device_id} (24h TTL)")
         
         return jsonify(response_data), status_code
         
