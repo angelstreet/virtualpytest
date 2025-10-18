@@ -257,32 +257,45 @@ def getAllHosts():
                     break
             
             if is_valid:
-                # Strip bloated fields if not needed (reduces response from ~200KB to ~10KB)
+                # Strip bloated fields if not needed (reduces response from ~200KB to ~2KB)
                 if not include_actions and 'devices' in host_info:
-                    # Create a lightweight copy of host_info
-                    host_info_copy = host_info.copy()
-                    host_info_copy['devices'] = []
+                    # Create a minimal copy - only include fields actually used by viewing pages
+                    lightweight_host = {
+                        'host_name': host_info.get('host_name'),
+                        'host_url': host_info.get('host_url'),
+                        'host_port': host_info.get('host_port'),
+                        'status': host_info.get('status', 'online'),
+                        'device_count': host_info.get('device_count', 0),
+                        # Minimal system_stats - only status indicators for stuck detection
+                        'system_stats': {
+                            'ffmpeg_status': {
+                                'status': host_info.get('system_stats', {}).get('ffmpeg_status', {}).get('status', 'unknown')
+                            },
+                            'monitor_status': {
+                                'status': host_info.get('system_stats', {}).get('monitor_status', {}).get('status', 'unknown')
+                            }
+                        } if host_info.get('system_stats') else {},
+                        'devices': []
+                    }
                     
-                    # For each device, only include essential fields (strip action schemas)
+                    # For each device, only include fields actually used by Rec page
                     for device in host_info.get('devices', []):
                         lightweight_device = {
                             'device_id': device.get('device_id'),
                             'device_name': device.get('device_name'),
                             'device_model': device.get('device_model'),
-                            'device_ip': device.get('device_ip'),
-                            'device_port': device.get('device_port'),
-                            'ir_type': device.get('ir_type'),
-                            'video_stream_path': device.get('video_stream_path'),
-                            'video_capture_path': device.get('video_capture_path'),
-                            'video': device.get('video'),
                             'device_capabilities': device.get('device_capabilities'),
+                            'video_stream_path': device.get('video_stream_path'),
                             'has_running_deployment': device.get('has_running_deployment', False),
-                            # STRIPPED: device_action_types (~150KB)
-                            # STRIPPED: device_verification_types (~40KB)
+                            # STRIPPED for performance:
+                            # - device_action_types (~150KB)
+                            # - device_verification_types (~40KB)
+                            # - device_ip, device_port, ir_type (not displayed)
+                            # - video_capture_path, video (not needed for streaming)
                         }
-                        host_info_copy['devices'].append(lightweight_device)
+                        lightweight_host['devices'].append(lightweight_device)
                     
-                    valid_hosts.append(host_info_copy)
+                    valid_hosts.append(lightweight_host)
                 else:
                     # Include full data (for control pages that need action schemas)
                     valid_hosts.append(host_info)
