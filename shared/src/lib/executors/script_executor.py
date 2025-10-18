@@ -910,6 +910,12 @@ class ScriptExecutor:
                 if context.overall_success:
                     print(f"📝 [{self.script_name}] Recording success in database...")
                     execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
+                    
+                    # Extract metadata from context if available
+                    metadata_to_save = getattr(context, 'metadata', None)
+                    if metadata_to_save:
+                        print(f"📦 [{self.script_name}] Including metadata in database update: {list(metadata_to_save.keys())}")
+                    
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=True,
@@ -918,12 +924,19 @@ class ScriptExecutor:
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
                         logs_r2_url=report_result.get('logs_url') if report_result and report_result.get('success') else None,
-                        error_msg=None
+                        error_msg=None,
+                        metadata=metadata_to_save
                     )
                 else:
                     print(f"📝 [{self.script_name}] Recording failure in database...")
                     # Use baseline execution time if available, otherwise current time
                     execution_time_for_db = getattr(context, 'baseline_execution_time_ms', context.get_execution_time_ms())
+                    
+                    # Extract metadata from context if available (even on failure, metadata might be useful)
+                    metadata_to_save = getattr(context, 'metadata', None)
+                    if metadata_to_save:
+                        print(f"📦 [{self.script_name}] Including metadata in database update: {list(metadata_to_save.keys())}")
+                    
                     update_script_execution_result(
                         script_result_id=context.script_result_id,
                         success=False,
@@ -932,7 +945,8 @@ class ScriptExecutor:
                         html_report_r2_url=report_result.get('report_url') if report_result and report_result.get('success') else None,
                         logs_r2_path=report_result.get('logs_path') if report_result and report_result.get('success') else None,
                         logs_r2_url=report_result.get('logs_url') if report_result and report_result.get('success') else None,
-                        error_msg=context.error_message or 'Script execution failed'
+                        error_msg=context.error_message or 'Script execution failed',
+                        metadata=metadata_to_save
                     )
         except Exception as e:
             print(f"⚠️ [{self.script_name}] Error during report generation: {e}")

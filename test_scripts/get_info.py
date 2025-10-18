@@ -98,7 +98,7 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
     print(f"📝 [get_info:parse] Checking {len(elements)} elements for device info patterns...")
     
     # Optional: Dump full raw JSON for debugging (set to True to see full element structure)
-    DEBUG_RAW_DUMP = True
+    DEBUG_RAW_DUMP = False  # Set to True to see full JSON dump
     if DEBUG_RAW_DUMP:
         import json
         print(f"\n🔍 [get_info:parse] RAW DUMP - Full element JSON:")
