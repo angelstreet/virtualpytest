@@ -75,7 +75,23 @@ class NavigationExecutor:
         self.device_model = device.device_model
         self.device_name = device.device_name
         self.unified_graph = None
+        # Preview cache: (tree_id, current_node, target_node) -> preview_result
+        self._preview_cache = {}
       
+    def clear_preview_cache(self, tree_id: str = None):
+        """Clear preview cache for a specific tree or all trees"""
+        if tree_id:
+            # Clear only cache entries for this tree
+            keys_to_delete = [k for k in self._preview_cache.keys() if k[0] == tree_id]
+            for key in keys_to_delete:
+                del self._preview_cache[key]
+            print(f"[@navigation_executor:clear_preview_cache] Cleared {len(keys_to_delete)} cached previews for tree {tree_id}")
+        else:
+            # Clear entire cache
+            count = len(self._preview_cache)
+            self._preview_cache = {}
+            print(f"[@navigation_executor:clear_preview_cache] Cleared all {count} cached previews")
+    
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """Get available navigation context using cache when possible"""
         # First check if we have a cached unified graph for this interface
@@ -843,6 +859,14 @@ class NavigationExecutor:
                              current_node_id: Optional[str] = None, team_id: str = None) -> Dict[str, Any]:
         """Get navigation preview without executing - expects unified cache to be pre-populated"""
         
+        # Check cache first (pure function: same inputs = same outputs until tree changes)
+        cache_key = (tree_id, current_node_id or 'root', target_node_id)
+        if cache_key in self._preview_cache:
+            print(f"[@navigation_executor:get_navigation_preview] ✅ Cache HIT for {target_node_id} from {current_node_id or 'root'}")
+            return self._preview_cache[cache_key]
+        
+        print(f"[@navigation_executor:get_navigation_preview] ❌ Cache MISS for {target_node_id} from {current_node_id or 'root'} - calculating path")
+        
         try:
             # Get navigation path using unified cache (should be pre-populated by tree loading)
             transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
@@ -850,7 +874,7 @@ class NavigationExecutor:
             success = bool(transitions)
             error_message = 'No navigation path found' if not success else ''
             
-            return {
+            result = {
                 'success': success,
                 'error': error_message if not success else None,
                 'tree_id': tree_id,
@@ -861,11 +885,17 @@ class NavigationExecutor:
                 'total_actions': sum(len(t.get('actions', [])) for t in transitions) if transitions else 0
             }
             
+            # Cache the result (invalidated when tree changes via populate_cache)
+            self._preview_cache[cache_key] = result
+            print(f"[@navigation_executor:get_navigation_preview] Cached preview for {target_node_id}")
+            
+            return result
+            
         except UnifiedCacheError as e:
             # Cache missing - this indicates the tree wasn't loaded properly
             print(f"[@navigation_executor:get_navigation_preview] Unified cache missing for tree {tree_id}")
             print(f"[@navigation_executor:get_navigation_preview] This indicates the NavigationEditor didn't load the tree properly")
-            return {
+            result = {
                 'success': False,
                 'error': f'Navigation tree {tree_id} not loaded. Please reload the NavigationEditor to populate the navigation cache.',
                 'tree_id': tree_id,
@@ -873,13 +903,14 @@ class NavigationExecutor:
                 'current_node_id': current_node_id,
                 'transitions': [],
                 'total_transitions': 0,
-                'total_actions': 0,
-                'cache_missing': True
+                'total_actions': 0
             }
+            # Don't cache errors
+            return result
         
         except Exception as e:
             print(f"[@navigation_executor:get_navigation_preview] Unexpected error: {str(e)}")
-            return {
+            result = {
                 'success': False,
                 'error': f'Navigation preview error: {str(e)}',
                 'tree_id': tree_id,

@@ -75,6 +75,16 @@ def invalidate_cached_tree(tree_id: str, team_id: str):
         if cache_key in _tree_cache:
             del _tree_cache[cache_key]
             print(f"[@cache] INVALIDATE: Tree {tree_id}")
+    
+    # Also invalidate preview cache on all host devices
+    try:
+        from flask import current_app
+        host_devices = getattr(current_app, 'host_devices', {})
+        for device_id, device in host_devices.items():
+            if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                device.navigation_executor.clear_preview_cache(tree_id)
+    except Exception as e:
+        print(f"[@cache] Warning: Could not clear preview cache: {e}")
 
 def _fetch_tree_metrics(tree_id: str, team_id: str):
     """

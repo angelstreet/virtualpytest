@@ -52,6 +52,7 @@ import {
   NavigationConfigProvider,
   useNavigationConfig,
 } from '../contexts/navigation/NavigationConfigContext';
+import { NavigationPreviewCacheProvider } from '../contexts/navigation/NavigationPreviewCacheContext';
 import { useNavigation } from '../contexts/navigation/NavigationContext';
 import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
 import {
@@ -1325,11 +1326,13 @@ const NavigationEditor: React.FC = () => {
   return (
     <ReactFlowProvider>
       <NavigationConfigProvider>
-        <NavigationEditorProvider>
-          <NavigationStackProvider>
-            <NavigationEditorContent treeName={treeName} />
-          </NavigationStackProvider>
-        </NavigationEditorProvider>
+        <NavigationPreviewCacheProvider>
+          <NavigationEditorProvider>
+            <NavigationStackProvider>
+              <NavigationEditorContent treeName={treeName} />
+            </NavigationStackProvider>
+          </NavigationEditorProvider>
+        </NavigationPreviewCacheProvider>
       </NavigationConfigProvider>
     </ReactFlowProvider>
   );

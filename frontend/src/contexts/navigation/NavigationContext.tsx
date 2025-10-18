@@ -18,6 +18,7 @@ import {
 } from '../../types/pages/Navigation_Types';
 import { useDeviceData } from '../device/DeviceDataContext';
 import { useNavigationConfig } from './NavigationConfigContext';
+import { useNavigationPreviewCache } from './NavigationPreviewCacheContext';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 // ========================================
@@ -197,6 +198,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     initializeDevicePosition,
   } = useDeviceData();
   const navigationConfig = useNavigationConfig();
+  const { invalidateTree } = useNavigationPreviewCache();
 
   // console.log('[@context:NavigationProvider] Initializing unified navigation context');
 
@@ -1216,21 +1218,25 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            const deletedNodeIds = initialNodeIds.filter(id => !currentNodeIds.has(id));
            const deletedEdgeIds = initialEdgeIds.filter(id => !currentEdgeIds.has(id));
 
-                     // Capture viewport and save
+                    // Capture viewport and save
           const viewport = reactFlowInstance?.getViewport();
           await navigationConfig?.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds, viewport);
            
-           setInitialState({ 
-             nodes: nodes as UINavigationNode[], 
-             edges: edges as UINavigationEdge[] 
-           });
-           setHasUnsavedChanges(false);
+          // Invalidate preview cache (tree structure changed)
+          invalidateTree(treeId);
+          console.log('[@NavigationContext] Invalidated preview cache for tree:', treeId);
+          
+          setInitialState({ 
+            nodes: nodes as UINavigationNode[], 
+            edges: edges as UINavigationEdge[] 
+          });
+          setHasUnsavedChanges(false);
            
-           // UPDATE TREE CACHE: Keep cache synchronized with current state after full tree save
-           cacheTree(treeId, { nodes: nodes as UINavigationNode[], edges: edges as UINavigationEdge[] });
-           console.log('[@NavigationContext] Updated tree cache after tree save');
+          // UPDATE TREE CACHE: Keep cache synchronized with current state after full tree save
+          cacheTree(treeId, { nodes: nodes as UINavigationNode[], edges: edges as UINavigationEdge[] });
+          console.log('[@NavigationContext] Updated tree cache after tree save');
            
-           setSuccess('Tree saved successfully');
+          setSuccess('Tree saved successfully');
          } catch (error) {
            console.error('Error saving tree:', error);
            setError('Failed to save tree');

@@ -3,6 +3,7 @@ import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { useNavigationPreviewCache } from '../../contexts/navigation/NavigationPreviewCacheContext';
 import { Host } from '../../types/common/Host_Types';
 import {
   UINavigationNode,
@@ -37,6 +38,7 @@ export const useNode = (props?: UseNodeProps) => {
     resetNodeVerificationColors,
   } = useValidationColors();
   const navigationConfig = useNavigationConfig();
+  const { getCachedPreview, cachePreview } = useNavigationPreviewCache();
 
   // Create a ref for the navigation callback to avoid circular dependency
   const navigationCallbackRef = useRef<((nodeId: string) => void) | undefined>();
@@ -270,16 +272,26 @@ export const useNode = (props?: UseNodeProps) => {
         return [];
       }
 
+      // Use only context currentNodeId - no fallbacks
+      const startingNodeId = currentNodeId;
+
+      // Use rootTreeId for pathfinding (unified cache is keyed by root tree)
+      const pathfindingTreeId = rootTreeId || props.treeId;
+      
+      // Check cache first
+      const cached = getCachedPreview(pathfindingTreeId, startingNodeId, selectedNode.id);
+      if (cached) {
+        setNavigationTransitions(cached);
+        if (shouldUpdateMinimap) {
+          updateNodesWithMinimapIndicators(cached);
+        }
+        return cached;
+      }
+
       setIsLoadingPreview(true);
       setNavigationError(null);
 
       try {
-        // Use only context currentNodeId - no fallbacks
-        const startingNodeId = currentNodeId;
-
-        // Use rootTreeId for pathfinding (unified cache is keyed by root tree)
-        const pathfindingTreeId = rootTreeId || props.treeId;
-        
         // Use buildServerUrl to ensure team_id is automatically included
         const baseUrl = buildServerUrl(`/server/navigation/preview/${pathfindingTreeId}/${selectedNode.id}`);
         const url = new URL(baseUrl);
@@ -307,6 +319,9 @@ export const useNode = (props?: UseNodeProps) => {
           // Use the correct property name from server response
           const transitions = result.transitions || [];
           setNavigationTransitions(transitions);
+          
+          // Cache the result
+          cachePreview(pathfindingTreeId, startingNodeId, selectedNode.id, transitions);
 
           // Only update minimap indicators if explicitly requested (during execution)
           if (shouldUpdateMinimap) {
@@ -327,7 +342,7 @@ export const useNode = (props?: UseNodeProps) => {
         setIsLoadingPreview(false);
       }
     },
-    [props?.treeId, currentNodeId, updateNodesWithMinimapIndicators],
+    [props?.treeId, currentNodeId, updateNodesWithMinimapIndicators, rootTreeId, getCachedPreview, cachePreview],
   );
 
   /**
