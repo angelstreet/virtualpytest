@@ -431,6 +431,7 @@ export const useVerificationEditor = ({
           },
           body: JSON.stringify({
             host_name: selectedHost.host_name,
+            device_id: selectedDeviceId, // MUST include device_id to find file in correct captures folder
             reference_name: referenceName,
             device_model: deviceModel,
             area:
