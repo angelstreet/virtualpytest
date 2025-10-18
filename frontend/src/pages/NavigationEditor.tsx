@@ -1169,6 +1169,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceId={selectedDeviceId}
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
+                userinterfaceName={userInterface?.name} // Pass userinterface name for reference saving
                 onCollapsedChange={handleAVPanelCollapsedChange}
                 onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}
@@ -1181,6 +1182,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceId={selectedDeviceId}
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
+                userinterfaceName={userInterface?.name} // Pass userinterface name for reference saving
                 onCollapsedChange={handleAVPanelCollapsedChange}
                 onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}
