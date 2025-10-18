@@ -362,8 +362,8 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
                 const schemaData = await schemaResponse.json();
                 if (schemaData.success) {
                   // Update just this device's action/verification schemas
-                  setAvailableHosts((prev) =>
-                    prev.map((h) => {
+                  setAvailableHosts((prev) => {
+                    const updated = prev.map((h) => {
                       if (h.host_name === host.host_name) {
                         return {
                           ...h,
@@ -380,8 +380,22 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
                         };
                       }
                       return h;
-                    })
-                  );
+                    });
+                    
+                    // Also update selectedHost if it's the same host
+                    setSelectedHost((prevSelectedHost) => {
+                      if (prevSelectedHost && prevSelectedHost.host_name === host.host_name) {
+                        const updatedHost = updated.find(h => h.host_name === host.host_name);
+                        if (updatedHost) {
+                          console.log(`[@context:HostManagerProvider] Updating selectedHost with new schemas`);
+                          return updatedHost;
+                        }
+                      }
+                      return prevSelectedHost;
+                    });
+                    
+                    return updated;
+                  });
                   console.log(`[@context:HostManagerProvider] Action schemas loaded for ${host.host_name}:${effectiveDeviceId}`);
                 }
               }
