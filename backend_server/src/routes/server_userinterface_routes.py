@@ -30,11 +30,26 @@ from shared.src.lib.utils.app_utils import check_supabase
 server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix='/server/userinterface')
 
 # ============================================================================
-# IN-MEMORY CACHE FOR COMPATIBLE INTERFACES
+# IN-MEMORY CACHE FOR COMPATIBLE INTERFACES AND ALL INTERFACES
 # ============================================================================
 _compatible_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
+_interfaces_cache = {}  # {team_id: {'data': [...], 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
 _cache_ttl = 86400  # 24 hours TTL
+
+def _invalidate_interfaces_cache(team_id):
+    """Invalidate all user interface caches for a specific team"""
+    with _cache_lock:
+        # Invalidate the main interfaces cache
+        if team_id in _interfaces_cache:
+            del _interfaces_cache[team_id]
+            print(f"[@cache] INVALIDATE: User interfaces for team {team_id}")
+        
+        # Invalidate all compatible interfaces cache entries for this team
+        keys_to_delete = [key for key in _compatible_cache.keys() if key.startswith(f"{team_id}:")]
+        for key in keys_to_delete:
+            del _compatible_cache[key]
+            print(f"[@cache] INVALIDATE: Compatible interfaces cache key {key}")
 
 # =====================================================
 # USER INTERFACES ENDPOINTS
@@ -112,6 +127,17 @@ def get_userinterfaces():
         
     team_id = request.args.get('team_id')
     
+    # Check cache first
+    with _cache_lock:
+        if team_id in _interfaces_cache:
+            cached = _interfaces_cache[team_id]
+            age = time.time() - cached['timestamp']
+            if age < _cache_ttl:
+                print(f"[@cache] HIT: User interfaces for team {team_id} (age: {age/3600:.1f}h)")
+                return jsonify(cached['data'])
+            else:
+                del _interfaces_cache[team_id]
+    
     try:
         interfaces = get_all_userinterfaces(team_id)
         # Enrich interfaces with root tree information
@@ -124,6 +150,15 @@ def get_userinterfaces():
                 if root_tree:
                     interface['root_tree'] = root_tree
             enriched_interfaces.append(interface)
+        
+        # Store in cache
+        with _cache_lock:
+            _interfaces_cache[team_id] = {
+                'data': enriched_interfaces,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: User interfaces for team {team_id} (24h TTL)")
+        
         return jsonify(enriched_interfaces)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -154,6 +189,8 @@ def create_userinterface_route():
         # Create the user interface
         created_interface = create_userinterface(interface_data, team_id)
         if created_interface:
+            # Invalidate cache after successful creation
+            _invalidate_interfaces_cache(team_id)
             return jsonify({'status': 'success', 'userinterface': created_interface}), 201
         else:
             return jsonify({'error': 'Failed to create user interface'}), 500
@@ -226,6 +263,8 @@ def update_userinterface_route(interface_id):
         # Update the user interface
         updated_interface = update_userinterface(interface_id, interface_data, team_id)
         if updated_interface:
+            # Invalidate cache after successful update
+            _invalidate_interfaces_cache(team_id)
             return jsonify({'status': 'success', 'userinterface': updated_interface})
         else:
             return jsonify({'error': 'User interface not found or failed to update'}), 404
@@ -244,6 +283,8 @@ def delete_userinterface_route(interface_id):
     try:
         success = delete_userinterface(interface_id, team_id)
         if success:
+            # Invalidate cache after successful deletion
+            _invalidate_interfaces_cache(team_id)
             return jsonify({'status': 'success'})
         else:
             return jsonify({'error': 'User interface not found or failed to delete'}), 404

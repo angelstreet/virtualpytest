@@ -14,6 +14,9 @@ import { buildServerUrl } from '../../utils/buildUrlUtils';
 const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+// 24-hour cache for all interfaces
+const allInterfacesCache: {data: UserInterface[] | null, timestamp: number} = {data: null, timestamp: 0};
+
 // 24-hour cache for compatible interfaces
 const compatibleInterfacesCache = new Map<string, {data: UserInterface[], timestamp: number}>();
 
@@ -53,6 +56,14 @@ export const useUserInterface = () => {
    */
   const getAllUserInterfaces = useMemo(
     () => async (): Promise<UserInterface[]> => {
+      // Check 24-hour cache first
+      if (allInterfacesCache.data && (Date.now() - allInterfacesCache.timestamp) < CACHE_TTL) {
+        console.log(
+          `[@hook:useUserInterface:getAllUserInterfaces] Using 24h cached data (age: ${((Date.now() - allInterfacesCache.timestamp) / (1000 * 60 * 60)).toFixed(1)}h)`,
+        );
+        return allInterfacesCache.data;
+      }
+      
       try {
         console.log(
           '[@hook:useUserInterface:getAllUserInterfaces] Fetching all user interfaces from server',
@@ -111,6 +122,12 @@ export const useUserInterface = () => {
         console.log(
           `[@hook:useUserInterface:getAllUserInterfaces] Successfully loaded ${userInterfaces?.length || 0} user interfaces`,
         );
+        
+        // Cache the data for 24 hours
+        allInterfacesCache.data = userInterfaces || [];
+        allInterfacesCache.timestamp = Date.now();
+        console.log('[@hook:useUserInterface:getAllUserInterfaces] Cached data for 24h');
+        
         return userInterfaces || [];
       } catch (error) {
         console.error(

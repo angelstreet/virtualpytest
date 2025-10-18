@@ -6,6 +6,8 @@ API endpoints for device model management operations.
 
 from flask import Blueprint, request, jsonify
 import json
+import time
+import threading
 
 # Import database functions from src/lib/supabase (uses absolute import)
 from shared.src.lib.supabase.device_models_db import (
@@ -22,6 +24,20 @@ from shared.src.lib.utils.app_utils import check_supabase
 # Create blueprint
 server_devicemodel_bp = Blueprint('server_devicemodel', __name__, url_prefix='/server/devicemodel')
 
+# ============================================================================
+# IN-MEMORY CACHE FOR DEVICE MODELS
+# ============================================================================
+_models_cache = {}  # {team_id: {'data': [...], 'timestamp': time.time()}}
+_cache_lock = threading.Lock()
+_cache_ttl = 86400  # 24 hours TTL
+
+def _invalidate_models_cache(team_id):
+    """Invalidate the device models cache for a specific team"""
+    with _cache_lock:
+        if team_id in _models_cache:
+            del _models_cache[team_id]
+            print(f"[@cache] INVALIDATE: Device models for team {team_id}")
+
 # =====================================================
 # DEVICE MODELS ENDPOINTS
 # =====================================================
@@ -35,8 +51,28 @@ def get_device_models():
         
     team_id = request.args.get('team_id')
     
+    # Check cache first
+    with _cache_lock:
+        if team_id in _models_cache:
+            cached = _models_cache[team_id]
+            age = time.time() - cached['timestamp']
+            if age < _cache_ttl:
+                print(f"[@cache] HIT: Device models for team {team_id} (age: {age/3600:.1f}h)")
+                return jsonify(cached['data'])
+            else:
+                del _models_cache[team_id]
+    
     try:
         models = get_all_device_models(team_id)
+        
+        # Store in cache
+        with _cache_lock:
+            _models_cache[team_id] = {
+                'data': models,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Device models for team {team_id} (24h TTL)")
+        
         return jsonify(models)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -67,6 +103,8 @@ def create_device_model_endpoint():
         # Create the device model
         created_model = create_device_model(model_data, team_id)
         if created_model:
+            # Invalidate cache after successful creation
+            _invalidate_models_cache(team_id)
             return jsonify({'status': 'success', 'model': created_model}), 201
         else:
             return jsonify({'error': 'Failed to create device model'}), 500
@@ -117,6 +155,8 @@ def update_device_model_endpoint(model_id):
         # Update the device model
         updated_model = update_device_model(model_id, model_data, team_id)
         if updated_model:
+            # Invalidate cache after successful update
+            _invalidate_models_cache(team_id)
             return jsonify({'status': 'success', 'model': updated_model})
         else:
             return jsonify({'error': 'Device model not found or failed to update'}), 404
@@ -135,6 +175,8 @@ def delete_device_model_endpoint(model_id):
     try:
         success = delete_device_model(model_id, team_id)
         if success:
+            # Invalidate cache after successful deletion
+            _invalidate_models_cache(team_id)
             return jsonify({'status': 'success'})
         else:
             return jsonify({'error': 'Device model not found or failed to delete'}), 404

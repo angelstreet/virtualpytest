@@ -215,7 +215,7 @@ export const useDeviceModels = () => {
   } = useQuery({
     queryKey: QUERY_KEYS.deviceModels,
     queryFn: () => serverService.getAllDeviceModels(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
   // Create device model mutation
@@ -307,6 +307,6 @@ export const useDeviceModel = (id: string) => {
     queryKey: QUERY_KEYS.deviceModel(id),
     queryFn: () => serverService.getDeviceModel(id),
     enabled: !!id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 };
