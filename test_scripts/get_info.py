@@ -54,40 +54,58 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
     }
     
     # Common patterns for device info fields
+    # Order matters: more specific patterns should come before generic ones
     patterns = {
         "serial_number": [
-            r"serial\s*(?:number|#)?[:\s]+([A-Z0-9-]+)",
-            r"s/n[:\s]+([A-Z0-9-]+)",
-            r"serial[:\s]+([A-Z0-9-]+)"
-        ],
-        "build_version": [
-            r"build\s*(?:version)?[:\s]+([\d.]+[a-zA-Z0-9.-]*)",
-            r"version[:\s]+([\d.]+[a-zA-Z0-9.-]*)",
-            r"sw\s*version[:\s]+([\d.]+[a-zA-Z0-9.-]*)"
-        ],
-        "software_version": [
-            r"software\s*(?:version)?[:\s]+([\d.]+[a-zA-Z0-9.-]*)",
-            r"firmware[:\s]+([\d.]+[a-zA-Z0-9.-]*)"
-        ],
-        "hardware_version": [
-            r"hardware\s*(?:version)?[:\s]+([\d.]+[a-zA-Z0-9.-]*)",
-            r"hw\s*version[:\s]+([\d.]+[a-zA-Z0-9.-]*)"
-        ],
-        "model_number": [
-            r"model\s*(?:number|#)?[:\s]+([A-Z0-9-]+)",
-            r"model[:\s]+([A-Z0-9-]+)"
+            r"cable\s+modem\s+serial\s+number\s*[:\s]+([A-Z0-9-]+)",
+            r"serial\s*(?:number|#)?\s*[:\s]+([A-Z0-9-]+)",
+            r"s/n\s*[:\s]+([A-Z0-9-]+)",
         ],
         "mac_address": [
-            r"mac\s*(?:address)?[:\s]+([0-9A-Fa-f:]{17})",
-            r"ethernet[:\s]+([0-9A-Fa-f:]{17})"
+            r"cable\s+mac\s+address\s*[:\s]+([0-9A-Fa-f:]{17})",
+            r"mac\s*(?:address)?\s*[:\s]+([0-9A-Fa-f:]{17})",
+            r"ethernet\s*[:\s]+([0-9A-Fa-f:]{17})"
+        ],
+        "software_version": [
+            r"software\s+version\s*[:\s]+([A-Z0-9._-]+)",
+            r"firmware\s*(?:version)?\s*[:\s]+([A-Z0-9._-]+)"
+        ],
+        "hardware_version": [
+            r"hardware\s+version\s*[:\s]+([\d.]+)",
+            r"hw\s+version\s*[:\s]+([\d.]+)"
+        ],
+        "docsis_version": [
+            r"docsis\s+([\d.]+)",
+            r"standard\s+specification\s+compliant\s*[:\s]+docsis\s+([\d.]+)"
+        ],
+        "system_uptime": [
+            r"system\s+up\s+time\s*[:\s]+(.+?)(?:\s*$|\s*\n)",
+            r"uptime\s*[:\s]+(.+?)(?:\s*$|\s*\n)"
+        ],
+        "network_access": [
+            r"network\s+access\s*[:\s]+(\w+)",
+            r"access\s*[:\s]+(\w+)"
+        ],
+        "model_number": [
+            r"model\s*(?:number|#)?\s*[:\s]+([A-Z0-9-]+)",
         ],
         "ip_address": [
-            r"ip\s*(?:address)?[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
+            r"ip\s*(?:address)?\s*[:\s]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
         ]
     }
     
     # Extract text content from all elements
     print(f"📝 [get_info:parse] Checking {len(elements)} elements for device info patterns...")
+    
+    # Optional: Dump full raw JSON for debugging (set to True to see full element structure)
+    DEBUG_RAW_DUMP = True
+    if DEBUG_RAW_DUMP:
+        import json
+        print(f"\n🔍 [get_info:parse] RAW DUMP - Full element JSON:")
+        print("=" * 80)
+        print(json.dumps(elements, indent=2))
+        print("=" * 80)
+        print()
     
     for idx, element in enumerate(elements):
         text_content = element.get('textContent', '').strip()
