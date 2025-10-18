@@ -209,15 +209,6 @@ export const useMetrics = (props?: UseMetricsProps) => {
   }, [preloadedMetrics, treeId]);
 
   /**
-   * Auto-fetch metrics when treeId changes (only if no preloaded metrics)
-   */
-  useEffect(() => {
-    if (treeId && treeId !== lastFetchedTreeId && enabled && !preloadedMetrics) {
-      fetchMetrics(treeId);
-    }
-  }, [treeId, lastFetchedTreeId, fetchMetrics, enabled, preloadedMetrics]);
-
-  /**
    * Calculate global confidence from current metrics
    */
   const globalConfidence = useMemo(() => {
