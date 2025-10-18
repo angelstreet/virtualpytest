@@ -346,16 +346,20 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           try {
             console.log(`[@context:HostManagerProvider] Reloading ${host.host_name} with action schemas...`);
             const hostResponse = await fetch(
-              buildServerUrl(`/server/system/getHost?host_name=${encodeURIComponent(host.host_name)}&include_actions=true`)
+              buildServerUrl('/server/system/getAllHosts?include_actions=true')
             );
             if (hostResponse.ok) {
               const hostData = await hostResponse.json();
-              if (hostData.success && hostData.host) {
-                // Update the host in availableHosts with the full action schemas
-                setAvailableHosts((prev) =>
-                  prev.map((h) => (h.host_name === host.host_name ? hostData.host : h))
-                );
-                console.log(`[@context:HostManagerProvider] Host ${host.host_name} reloaded with action schemas`);
+              if (hostData.hosts && Array.isArray(hostData.hosts)) {
+                // Find the specific host with action schemas
+                const updatedHost = hostData.hosts.find((h: Host) => h.host_name === host.host_name);
+                if (updatedHost) {
+                  // Update the host in availableHosts with the full action schemas
+                  setAvailableHosts((prev) =>
+                    prev.map((h) => (h.host_name === host.host_name ? updatedHost : h))
+                  );
+                  console.log(`[@context:HostManagerProvider] Host ${host.host_name} reloaded with action schemas`);
+                }
               }
             }
           } catch (error) {
