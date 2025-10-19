@@ -256,6 +256,7 @@ def main():
         print(f"📍 [kpi_measurement] Going to '{from_label}'")
         from_result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
+            userinterface_name=context.userinterface_name,  # MANDATORY parameter
             target_node_label=from_label,
             team_id=context.team_id,
             context=context
@@ -271,6 +272,7 @@ def main():
         print(f"⏱️  [kpi_measurement] Navigating to '{to_label}' (KPI will be measured)")
         to_result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
+            userinterface_name=context.userinterface_name,  # MANDATORY parameter
             target_node_label=to_label,
             team_id=context.team_id,
             context=context

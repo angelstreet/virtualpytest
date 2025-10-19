@@ -183,6 +183,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         device = context.selected_device
         result = device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
+            userinterface_name=context.userinterface_name,  # MANDATORY parameter
             navigation_path=[step],  # ✅ Pass pre-computed path - no pathfinding!
             team_id=context.team_id,
             context=context

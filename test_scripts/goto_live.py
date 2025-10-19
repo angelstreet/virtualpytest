@@ -82,6 +82,7 @@ def main():
     # Execute navigation using NavigationExecutor directly
     result = device.navigation_executor.execute_navigation(
         tree_id=context.tree_id,
+        userinterface_name=context.userinterface_name,  # MANDATORY parameter
         target_node_label=target_node,
         team_id=context.team_id,
         context=context
