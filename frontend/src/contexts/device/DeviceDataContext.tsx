@@ -252,12 +252,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
             });
 
             // References loaded successfully
-            console.log('[DeviceDataContext] Setting new references state:', {
-              oldReferences: state.references,
-              newReferences: references,
-              referenceKeys: Object.keys(references)
-            });
-
             setState((prev) => ({ ...prev, references, referencesLoading: false }));
             loadedDataRef.current.referencesLoaded = true;
           } else {

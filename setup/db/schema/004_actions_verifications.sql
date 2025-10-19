@@ -30,9 +30,6 @@ CREATE TABLE verifications_references (
 COMMENT ON COLUMN verifications_references.userinterface_name IS 
 'PRIMARY: Userinterface name string (e.g., ''horizon_android_tv''). Used for grouping and filtering references.';
 
-COMMENT ON COLUMN verifications_references.device_model IS 
-'DEPRECATED: Legacy column kept in sync with userinterface_name for backward compatibility. Will be removed after full migration.';
-
 COMMENT ON COLUMN verifications_references.userinterface_id IS 
 'OPTIONAL: Foreign key to userinterfaces table. References are organized by userinterface_name (text) for simplicity.';
 
