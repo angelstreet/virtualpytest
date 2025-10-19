@@ -17,6 +17,7 @@ import React from 'react';
 import type { Actions } from '../../types/controller/Action_Types';
 import type { Action } from '../../types/pages/Navigation_Types';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
 
 interface ActionItemProps {
   action: Action;
@@ -43,21 +44,21 @@ export const ActionItem: React.FC<ActionItemProps> = ({
   canMoveUp,
   canMoveDown,
 }) => {
-  // Get device data context for model references (needed for verification actions)
-  const { getModelReferences, currentHost, currentDeviceId, references } = useDeviceData();
+  // Get device data context for model references
+  const { getModelReferences, references } = useDeviceData();
+  
+  // Get userInterface from navigation context - this is the ONLY source of truth
+  const { userInterface } = useNavigation();
 
-  // Get device model from current host and device
-  const deviceModel = React.useMemo(() => {
-    if (!currentHost || !currentDeviceId) return 'android_mobile'; // fallback
-    const device = currentHost.devices?.find((d: any) => d.device_id === currentDeviceId);
-    return device?.device_model || 'android_mobile';
-  }, [currentHost, currentDeviceId]);
+  // Use userinterface name for reference lookup
+  const referenceKey = userInterface?.name;
 
-  // Get model references for the current device model
+  // Get model references using the userinterface name
   // IMPORTANT: Must depend on references state to re-render when references are added
   const modelReferences = React.useMemo(() => {
-    return getModelReferences(deviceModel);
-  }, [getModelReferences, deviceModel, references]);
+    if (!referenceKey) return {};
+    return getModelReferences(referenceKey);
+  }, [getModelReferences, referenceKey, references]);
   const handleParamChange = (paramName: string, value: string | number) => {
     const newParams = {
       ...(action.params as any),

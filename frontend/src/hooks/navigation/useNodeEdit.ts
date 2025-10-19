@@ -5,6 +5,7 @@ import { NodeForm, UINavigationNode } from '../../types/pages/Navigation_Types';
 import { Verification } from '../../types/verification/Verification_Types';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useVerification } from '../verification/useVerification';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
 
 export interface UseNodeEditProps {
   isOpen: boolean;
@@ -22,22 +23,20 @@ export const useNodeEdit = ({
   isControlActive = false,
 }: UseNodeEditProps) => {
   // Get device data context for model references
-  const { getModelReferences, referencesLoading, currentDeviceId, references } = useDeviceData();
+  const { getModelReferences, referencesLoading, references } = useDeviceData();
+  
+  // Get userInterface from navigation context - this is the ONLY source of truth
+  const { userInterface } = useNavigation();
 
-  // Get device model from selected host and current device
-  const deviceModel = useMemo(() => {
-    if (!selectedHost || !currentDeviceId) return 'android_mobile'; // fallback
-    const device = selectedHost.devices?.find((d: any) => d.device_id === currentDeviceId);
-    return device?.device_model || 'android_mobile';
-  }, [selectedHost, currentDeviceId]);
+  // Use userinterface name for reference lookup
+  const referenceKey = userInterface?.name;
 
-  // Get model references for the current device model
+  // Get model references using the userinterface name
   // IMPORTANT: Must depend on references state to re-render when references are added
   const modelReferences = useMemo(() => {
-    const refs = getModelReferences(deviceModel);
-    console.log('[useNodeEdit] Model references for', deviceModel, ':', refs);
-    return refs;
-  }, [getModelReferences, deviceModel, references]);
+    if (!referenceKey) return {};
+    return getModelReferences(referenceKey);
+  }, [getModelReferences, referenceKey, references]);
 
   // Verification hook for managing verifications
   const verification = useVerification({
@@ -159,7 +158,6 @@ export const useNodeEdit = ({
     // Model references for verification dropdown
     modelReferences,
     referencesLoading,
-    deviceModel,
 
     // Form validation and actions
     handleSave,
