@@ -16,6 +16,7 @@ import {
   Verifications,
   ModelReferences,
 } from '../../types/verification/Verification_Types';
+import { buildVerificationResultUrl } from '../../utils/buildUrlUtils';
 
 import { VerificationImageComparisonDialog } from './VerificationImageComparisonDialog';
 import { VerificationItem } from './VerificationItem';
@@ -171,10 +172,22 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
         return url;
       }
 
+      // Handle local file paths from backend (e.g., /var/www/html/stream/capture4/captures/verification_results/source_image_0.png)
+      if (url.startsWith('/var/www/html/')) {
+        console.log('[@component:VerificationsList] Local file path detected, converting to URL');
+        if (_selectedHost) {
+          const hostUrl = buildVerificationResultUrl(_selectedHost, url);
+          console.log(`[@component:VerificationsList] Converted to: ${hostUrl}`);
+          return hostUrl;
+        } else {
+          console.warn('[@component:VerificationsList] No selected host, cannot convert local path to URL');
+        }
+      }
+
       // For relative paths or other formats, use directly
       console.log('[@component:VerificationsList] Using URL directly');
       return url;
-    }, []);
+    }, [_selectedHost]);
 
     const getCacheBustedUrl = useCallback((url: string): string => {
       if (!url) return '';
