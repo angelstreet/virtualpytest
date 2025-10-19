@@ -506,19 +506,6 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
             </Box>
           )}
 
-          {/* 5. Detected Text Info (only for text type with detected data) */}
-          {referenceType === 'text' && detectedTextData && (
-            <Box sx={{ mb: 0.5 }}>
-              <Typography variant="caption" sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-                Detected: Font Size {detectedTextData.fontSize}px, Confidence{' '}
-                {(detectedTextData.confidence * 100).toFixed(1)}%
-                {detectedTextData.detectedLanguageName && (
-                  <>, Language: {detectedTextData.detectedLanguageName}</>
-                )}
-              </Typography>
-            </Box>
-          )}
-
           {/* 6. Reference Name + Action Buttons */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', mb: 0.5 }}>
             {/* Reference Name Input */}
