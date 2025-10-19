@@ -134,9 +134,9 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
                 >
                   {category.replace(/_/g, ' ').toUpperCase()}
                 </MenuItem>,
-                ...verifications.map((verification) => (
+                ...verifications.map((verification, vIndex) => (
                   <MenuItem
-                    key={`${category}-${verification.command}`}
+                    key={`${category}-${verification.command}-${vIndex}`}
                     value={verification.command}
                     sx={{ pl: 3, fontSize: '0.7rem', minHeight: '24px' }}
                   >
