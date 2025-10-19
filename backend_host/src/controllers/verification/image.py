@@ -103,7 +103,7 @@ class ImageVerificationController:
         if image_filter and image_filter != 'none':
             print(f"[@controller:ImageVerification] Using image filter: {image_filter}")
         
-        # Resolve reference image path and area using provided device model and team_id
+        # Resolve reference image path and area using userinterface_name and team_id
         resolved_image_path, resolved_area = self._resolve_reference_image(image_path, model, team_id)
         if not resolved_image_path:
             error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
@@ -812,7 +812,7 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Error creating pixel difference overlay: {e}")
             return None
 
-    def _resolve_reference_image(self, image_path: str, model: str = 'default', team_id: str = None) -> Tuple[Optional[str], Optional[dict]]:
+    def _resolve_reference_image(self, image_path: str, userinterface_name: str, team_id: str = None) -> Tuple[Optional[str], Optional[dict]]:
         """
         Resolve reference image path and area from R2 and database.
         
@@ -823,7 +823,7 @@ class ImageVerificationController:
         
         Args:
             image_path: Reference image name or path
-            model: Device model (e.g., 'android_tv')
+            userinterface_name: User interface name (e.g., 'horizon_android_tv')
             team_id: Team ID for database area resolution (REQUIRED)
             
         Returns:
@@ -839,10 +839,10 @@ class ImageVerificationController:
             # Remove extension if present to get base name for database lookup
             base_name = reference_name.split('.')[0]
             
-            print(f"[@controller:ImageVerification] Resolving reference: {reference_name} for model: {model}, team_id: {team_id}")
+            print(f"[@controller:ImageVerification] Resolving reference: {reference_name} for userinterface: {userinterface_name}, team_id: {team_id}")
             
-            # Use provided device model
-            local_dir = os.path.join(self.references_dir, model)
+            # Use userinterface name for directory structure
+            local_dir = os.path.join(self.references_dir, userinterface_name)
             os.makedirs(local_dir, exist_ok=True)
             
             # Use the reference name with proper extension
@@ -870,8 +870,8 @@ class ImageVerificationController:
                 
                 from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
                 
-                # Construct R2 object key using provided device model
-                r2_object_key = f"reference-images/{model}/{reference_name}"
+                # Construct R2 object key using userinterface name
+                r2_object_key = f"reference-images/{userinterface_name}/{reference_name}"
                 
                 print(f"[@controller:ImageVerification] R2 object key: {r2_object_key}")
                 
@@ -893,10 +893,10 @@ class ImageVerificationController:
                 return None, None
             
             from shared.src.lib.utils.reference_utils import resolve_reference_area_backend
-            resolved_area = resolve_reference_area_backend(base_name, model, team_id)
+            resolved_area = resolve_reference_area_backend(base_name, userinterface_name, team_id)
             
             if not resolved_area:
-                error_msg = f"No area found in database for reference: {base_name} (model: {model})"
+                error_msg = f"No area found in database for reference: {base_name} (userinterface: {userinterface_name})"
                 print(f"[@controller:ImageVerification] {error_msg}")
                 return None, None
             

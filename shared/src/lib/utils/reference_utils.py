@@ -7,13 +7,13 @@ Centralized logic to avoid duplication across frontend and backend.
 from typing import Dict, Optional, Any
 
 
-def resolve_reference_area_backend(reference_name: str, device_model: str, team_id: str) -> Optional[Dict[str, Any]]:
+def resolve_reference_area_backend(reference_name: str, userinterface_name: str, team_id: str) -> Optional[Dict[str, Any]]:
     """
     Resolve reference area from database (backend version).
     
     Args:
         reference_name: Name of the reference
-        device_model: Device model (e.g., 'android_tv')
+        userinterface_name: User interface name (e.g., 'horizon_android_tv')
         team_id: Team ID (required)
         
     Returns:
@@ -26,7 +26,7 @@ def resolve_reference_area_backend(reference_name: str, device_model: str, team_
             
         from shared.src.lib.supabase.verifications_references_db import get_references
         
-        result = get_references(team_id, device_model=device_model, name=reference_name)
+        result = get_references(team_id, userinterface_name=userinterface_name, name=reference_name)
         if result.get('success') and result.get('references'):
             references = result['references']
             reference_data = next((ref for ref in references if ref['name'] == reference_name), None)
