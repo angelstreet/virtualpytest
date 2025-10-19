@@ -62,6 +62,8 @@ class VerificationService:
     def get_all_references(self, team_id: str) -> Dict[str, Any]:
         """
         Get all reference images/data for a team.
+        Only returns references where device_model matches actual userinterface names.
+        NO LEGACY references.
         
         Args:
             team_id: The team ID to get references for
@@ -77,26 +79,49 @@ class VerificationService:
                     'status_code': 400
                 }
             
-            # Database operation moved from route to service
+            # Get all references from database
             from shared.src.lib.supabase.verifications_references_db import get_references
             
             print(f'[VerificationService] Getting all references for team: {team_id}')
             
             result = get_references(team_id=team_id)
             
-            if result['success']:
-                print(f'[VerificationService] Found {result["count"]} references')
-                return {
-                    'success': True,
-                    'references': result['references']
-                }
-            else:
+            if not result['success']:
                 print(f'[VerificationService] Error getting references: {result.get("error")}')
                 return {
                     'success': False,
                     'error': result.get('error', 'Failed to get references'),
                     'status_code': 500
                 }
+            
+            # Get valid userinterface names from database
+            from shared.src.lib.supabase.userinterfaces_db import get_all_user_interfaces
+            ui_result = get_all_user_interfaces(team_id)
+            
+            if not ui_result['success']:
+                print(f'[VerificationService] Error getting userinterfaces: {ui_result.get("error")}')
+                # If can't get userinterfaces, return empty list (no legacy fallback)
+                return {
+                    'success': True,
+                    'references': []
+                }
+            
+            # Extract valid userinterface names
+            valid_ui_names = {ui['name'] for ui in ui_result['user_interfaces']}
+            print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
+            
+            # Filter references to ONLY include those matching valid userinterfaces
+            filtered_references = [
+                ref for ref in result['references']
+                if ref.get('device_model') in valid_ui_names
+            ]
+            
+            print(f'[VerificationService] Filtered {len(result["references"])} references down to {len(filtered_references)} (removed legacy)')
+            
+            return {
+                'success': True,
+                'references': filtered_references
+            }
                 
         except Exception as e:
             print(f'[VerificationService] ERROR: {e}')
