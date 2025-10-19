@@ -221,20 +221,21 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
             const references: { [deviceModel: string]: ModelReferences } = {};
 
             result.references.forEach((ref: any) => {
-              const deviceModel = ref.device_model || 'unknown';
+              // Use userinterface_name (primary), fallback to device_model for migration
+              const userinterfaceName = ref.userinterface_name || ref.device_model || 'unknown';
               const baseName = ref.name || ref.filename || 'unknown';
               const refType = ref.reference_type === 'reference_text' ? 'text' : 'image';
 
-              // Initialize model references if not exists
-              if (!references[deviceModel]) {
-                references[deviceModel] = {};
+              // Initialize userinterface references if not exists
+              if (!references[userinterfaceName]) {
+                references[userinterfaceName] = {};
               }
 
               // Create internal key with type suffix to avoid conflicts
               // But preserve original name for display in UI
               const internalKey = `${baseName}_${refType}`;
 
-              references[deviceModel][internalKey] = {
+              references[userinterfaceName][internalKey] = {
                 name: baseName, // Store original name for display
                 type: refType,
                 url: ref.r2_url || ref.url,

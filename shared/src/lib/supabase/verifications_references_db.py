@@ -12,13 +12,13 @@ def get_supabase():
     """Get the Supabase client instance."""
     return get_supabase_client()
 
-def save_reference(name: str, device_model: str, reference_type: str, team_id: str, r2_path: str = None, r2_url: str = None, area: Dict = None) -> Dict:
+def save_reference(name: str, userinterface_name: str, reference_type: str, team_id: str, r2_path: str = None, r2_url: str = None, area: Dict = None) -> Dict:
     """
     Save reference asset to verifications_references table.
     
     Args:
         name: Reference name/identifier
-        device_model: Device model (e.g., 'android_mobile')
+        userinterface_name: Userinterface name (e.g., 'horizon_android_tv')
         reference_type: Reference type ('reference_image' or 'reference_text')
         team_id: Team ID for RLS
         r2_path: Path in R2 storage
@@ -41,7 +41,8 @@ def save_reference(name: str, device_model: str, reference_type: str, team_id: s
         # Prepare reference data
         reference_data = {
             'name': name,
-            'device_model': device_model,
+            'userinterface_name': userinterface_name,
+            'device_model': userinterface_name,  # Keep device_model in sync for now
             'reference_type': reference_type,
             'team_id': team_id,
             'r2_path': r2_path,
@@ -50,12 +51,12 @@ def save_reference(name: str, device_model: str, reference_type: str, team_id: s
             'updated_at': datetime.now(timezone.utc).isoformat()
         }
         
-        print(f"[@db:verifications_references:save_reference] Saving reference: {name} ({reference_type}) for model: {device_model}")
+        print(f"[@db:verifications_references:save_reference] Saving reference: {name} for userinterface: {userinterface_name}")
         
         # Use upsert to handle duplicates (INSERT or UPDATE)
         result = supabase.table('verifications_references').upsert(
             reference_data,
-            on_conflict='team_id,name,device_model,reference_type'
+            on_conflict='team_id,name,userinterface_name,reference_type'
         ).execute()
         
         if result.data:
@@ -80,14 +81,14 @@ def save_reference(name: str, device_model: str, reference_type: str, team_id: s
             'error': str(e)
         }
 
-def get_references(team_id: str, reference_type: str = None, device_model: str = None, name: str = None) -> Dict:
+def get_references(team_id: str, reference_type: str = None, userinterface_name: str = None, name: str = None) -> Dict:
     """
     Get references with optional filtering.
     
     Args:
         team_id: Team ID for RLS
         reference_type: Filter by type ('reference_image' or 'reference_text')
-        device_model: Filter by device model
+        userinterface_name: Filter by userinterface name
         name: Filter by name (partial match)
         
     Returns:
@@ -96,7 +97,7 @@ def get_references(team_id: str, reference_type: str = None, device_model: str =
     try:
         supabase = get_supabase()
         
-        print(f"[@db:verifications_references:get_references] Getting references with filters: type={reference_type}, model={device_model}, name={name}")
+        print(f"[@db:verifications_references:get_references] Getting references with filters: type={reference_type}, userinterface={userinterface_name}, name={name}")
         print(f"[@db:verifications_references:get_references] Using team_id: {team_id}")
         
         # Start with base query
@@ -105,8 +106,8 @@ def get_references(team_id: str, reference_type: str = None, device_model: str =
         # Add filters
         if reference_type:
             query = query.eq('reference_type', reference_type)
-        if device_model:
-            query = query.eq('device_model', device_model)
+        if userinterface_name:
+            query = query.eq('userinterface_name', userinterface_name)
         if name:
             query = query.ilike('name', f'%{name}%')
         
@@ -162,7 +163,7 @@ def get_all_references(team_id: str) -> Dict:
             'count': 0
         }
 
-def delete_reference(team_id: str, reference_id: str = None, name: str = None, device_model: str = None, reference_type: str = None) -> Dict:
+def delete_reference(team_id: str, reference_id: str = None, name: str = None, userinterface_name: str = None, reference_type: str = None) -> Dict:
     """
     Delete reference by ID or by identifiers.
     
@@ -170,7 +171,7 @@ def delete_reference(team_id: str, reference_id: str = None, name: str = None, d
         team_id: Team ID for RLS
         reference_id: Reference ID (if deleting by ID)
         name: Reference name (if deleting by identifiers)
-        device_model: Device model (if deleting by identifiers)
+        userinterface_name: Userinterface name (if deleting by identifiers)
         reference_type: Reference type (if deleting by identifiers)
         
     Returns:
@@ -182,13 +183,13 @@ def delete_reference(team_id: str, reference_id: str = None, name: str = None, d
         if reference_id:
             print(f"[@db:verifications_references:delete_reference] Deleting reference by ID: {reference_id}")
             result = supabase.table('verifications_references').delete().eq('id', reference_id).eq('team_id', team_id).execute()
-        elif name and device_model and reference_type:
-            print(f"[@db:verifications_references:delete_reference] Deleting reference: {name} ({reference_type}) for model: {device_model}")
-            result = supabase.table('verifications_references').delete().eq('name', name).eq('device_model', device_model).eq('reference_type', reference_type).eq('team_id', team_id).execute()
+        elif name and userinterface_name and reference_type:
+            print(f"[@db:verifications_references:delete_reference] Deleting reference: {name} ({reference_type}) for userinterface: {userinterface_name}")
+            result = supabase.table('verifications_references').delete().eq('name', name).eq('userinterface_name', userinterface_name).eq('reference_type', reference_type).eq('team_id', team_id).execute()
         else:
             return {
                 'success': False,
-                'error': 'Must provide either reference_id or name/device_model/reference_type'
+                'error': 'Must provide either reference_id or name/userinterface_name/reference_type'
             }
         
         success = len(result.data) > 0

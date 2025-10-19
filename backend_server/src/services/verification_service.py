@@ -95,25 +95,26 @@ class VerificationService:
                 }
             
             # Get valid userinterface names from database
-            from shared.src.lib.supabase.userinterfaces_db import get_all_user_interfaces
-            ui_result = get_all_user_interfaces(team_id)
+            from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
+            userinterfaces = get_all_userinterfaces(team_id)
             
-            if not ui_result['success']:
-                print(f'[VerificationService] Error getting userinterfaces: {ui_result.get("error")}')
-                # If can't get userinterfaces, return empty list (no legacy fallback)
+            if not userinterfaces:
+                print(f'[VerificationService] No userinterfaces found for team')
+                # If no userinterfaces, return empty list (no legacy fallback)
                 return {
                     'success': True,
                     'references': []
                 }
             
             # Extract valid userinterface names
-            valid_ui_names = {ui['name'] for ui in ui_result['user_interfaces']}
+            valid_ui_names = {ui['name'] for ui in userinterfaces}
             print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
             
             # Filter references to ONLY include those matching valid userinterfaces
+            # Use userinterface_name column (primary), fallback to device_model for migration
             filtered_references = [
                 ref for ref in result['references']
-                if ref.get('device_model') in valid_ui_names
+                if (ref.get('userinterface_name') or ref.get('device_model')) in valid_ui_names
             ]
             
             print(f'[VerificationService] Filtered {len(result["references"])} references down to {len(filtered_references)} (removed legacy)')
