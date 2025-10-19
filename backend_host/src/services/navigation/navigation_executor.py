@@ -320,7 +320,12 @@ class NavigationExecutor:
                 print(f"[@navigation_executor:execute_navigation] 🔍 Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
                 
                 # Always verify we're actually at this node (context may be stale or corrupted)
-                verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
+                verification_result = self.device.verification_executor.verify_node(
+                    node_id=target_node_id,
+                    userinterface_name=userinterface_name,  # MANDATORY parameter
+                    team_id=team_id,
+                    tree_id=tree_id
+                )
                 
                 # Only trust verification if verifications are defined AND passed
                 if verification_result.get('success') and verification_result.get('has_verifications', True):
@@ -397,7 +402,12 @@ class NavigationExecutor:
                 
                 if is_home_target:
                     print(f"[@navigation_executor:execute_navigation] 🏠 No current position + target is HOME - verifying if already at home to avoid expensive entry flow")
-                    verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
+                    verification_result = self.device.verification_executor.verify_node(
+                        node_id=target_node_id,
+                        userinterface_name=userinterface_name,  # MANDATORY parameter
+                        team_id=team_id,
+                        tree_id=tree_id
+                    )
                     
                     # Only skip entry flow if verifications exist AND passed
                     if verification_result.get('success') and verification_result.get('has_verifications', True):
@@ -458,7 +468,12 @@ class NavigationExecutor:
                 else:
                     # Not home target - quick check if already at destination
                     print(f"[@navigation_executor:execute_navigation] No current position - checking if already at target '{target_node_label or target_node_id}'")
-                    verification_result = self.device.verification_executor.verify_node(target_node_id, team_id, tree_id)
+                    verification_result = self.device.verification_executor.verify_node(
+                        node_id=target_node_id,
+                        userinterface_name=userinterface_name,  # MANDATORY parameter
+                        team_id=team_id,
+                        tree_id=tree_id
+                    )
                     
                     # Only skip navigation if verifications exist AND passed
                     if verification_result.get('success') and verification_result.get('has_verifications', True):
@@ -768,7 +783,13 @@ class NavigationExecutor:
             # ✅ VERIFY FINAL DESTINATION
             print(f"[@navigation_executor] 🔍 Verifying final destination: {target_node_label or target_node_id}")
             verification_start_time = time.time()
-            verification_result = self.device.verification_executor.verify_node(final_node_id, team_id, final_tree_id, image_source_url)
+            verification_result = self.device.verification_executor.verify_node(
+                node_id=final_node_id,
+                userinterface_name=userinterface_name,  # MANDATORY parameter
+                team_id=team_id,
+                tree_id=final_tree_id,
+                image_source_url=image_source_url
+            )
             verification_timestamp = time.time()
             
             # Only fail if verifications exist and they failed
