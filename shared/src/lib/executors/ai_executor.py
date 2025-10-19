@@ -1080,7 +1080,11 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
             'params': step_data.get('params', {})
         }
         
-        return self.device.verification_executor.execute_verifications([verification], team_id=context.get('team_id'))
+        return self.device.verification_executor.execute_verifications(
+            verifications=[verification],
+            userinterface_name=context.get('userinterface_name'),  # MANDATORY parameter
+            team_id=context.get('team_id')
+        )
     
     def _execute_wait_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
         """Execute wait step - simple timing operation"""

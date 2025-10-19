@@ -59,6 +59,7 @@ class KPIMeasurementRequest:
         self.kpi_references = data['kpi_references']
         self.timeout_ms = data['timeout_ms']
         self.device_id = data['device_id']
+        self.userinterface_name = data['userinterface_name']  # MANDATORY for reference resolution
         self.device_model = data.get('device_model')
         self.kpi_timestamp = data.get('kpi_timestamp')
         self.request_file = data.get('_request_file')  # Track source file
@@ -321,6 +322,7 @@ class KPIExecutorService:
             logger.info(f"🔍 Quick check - {label}: {os.path.basename(capture['path'])}")
             result = verif_executor.execute_verifications(
                 verifications=verifications,
+                userinterface_name=request.userinterface_name,  # MANDATORY parameter
                 image_source_url=capture['path'],
                 team_id=request.team_id
             )
@@ -380,6 +382,7 @@ class KPIExecutorService:
             
             result = verif_executor.execute_verifications(
                 verifications=verifications,
+                userinterface_name=request.userinterface_name,  # MANDATORY parameter
                 image_source_url=capture['path'],
                 team_id=request.team_id
             )

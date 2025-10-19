@@ -63,10 +63,10 @@ class TextHelpers:
             
             db_result = save_reference(
                 name=reference_name,
-                device_model=userinterface_name,  # Use userinterface_name as device_model for database
+                userinterface_name=userinterface_name,
                 reference_type='reference_text',
                 team_id=team_id,
-                r2_path=f'text-references/{userinterface_name}/{reference_name}',  # Use userinterface_name in path
+                r2_path=f'text-references/{userinterface_name}/{reference_name}',
                 r2_url='',  # Empty URL for text references
                 area=extended_area  # Store text data in area field
             )

@@ -113,8 +113,13 @@ class MockMCPServer:
             tree_id = params.get("tree_id", "default_tree")
             target_node_id = params.get("target_node_id", "home")
             team_id = params.get("team_id")
+            userinterface_name = params.get("userinterface_name")  # MANDATORY for reference resolution
+            
             if not team_id:
                 raise ValueError("team_id is required for MCP navigation operations")
+            if not userinterface_name:
+                raise ValueError("userinterface_name is required for reference resolution")
+            
             current_node_id = params.get("current_node_id")
             
             # Create minimal host configuration for MCP execution
@@ -122,7 +127,12 @@ class MockMCPServer:
             
             # Use the new NavigationExecutor
             executor = NavigationExecutor(host, None, team_id)
-            result = executor.execute_navigation(tree_id, target_node_id=target_node_id, current_node_id=current_node_id)
+            result = executor.execute_navigation(
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,  # MANDATORY parameter
+                target_node_id=target_node_id,
+                current_node_id=current_node_id
+            )
             
             success = result.get('success', False)
             message = result.get('message', f"Navigation to {target_node_id} {'completed' if success else 'failed'}")
