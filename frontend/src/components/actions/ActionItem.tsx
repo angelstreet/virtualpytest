@@ -44,7 +44,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
   canMoveDown,
 }) => {
   // Get device data context for model references (needed for verification actions)
-  const { getModelReferences, currentHost, currentDeviceId } = useDeviceData();
+  const { getModelReferences, currentHost, currentDeviceId, references } = useDeviceData();
 
   // Get device model from current host and device
   const deviceModel = React.useMemo(() => {
@@ -54,9 +54,10 @@ export const ActionItem: React.FC<ActionItemProps> = ({
   }, [currentHost, currentDeviceId]);
 
   // Get model references for the current device model
+  // IMPORTANT: Must depend on references state to re-render when references are added
   const modelReferences = React.useMemo(() => {
     return getModelReferences(deviceModel);
-  }, [getModelReferences, deviceModel]);
+  }, [getModelReferences, deviceModel, references]);
   const handleParamChange = (paramName: string, value: string | number) => {
     const newParams = {
       ...(action.params as any),

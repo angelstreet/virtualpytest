@@ -22,7 +22,7 @@ export const useNodeEdit = ({
   isControlActive = false,
 }: UseNodeEditProps) => {
   // Get device data context for model references
-  const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
+  const { getModelReferences, referencesLoading, currentDeviceId, references } = useDeviceData();
 
   // Get device model from selected host and current device
   const deviceModel = useMemo(() => {
@@ -32,11 +32,12 @@ export const useNodeEdit = ({
   }, [selectedHost, currentDeviceId]);
 
   // Get model references for the current device model
+  // IMPORTANT: Must depend on references state to re-render when references are added
   const modelReferences = useMemo(() => {
-    const references = getModelReferences(deviceModel);
-    console.log('[useNodeEdit] Model references for', deviceModel, ':', references);
-    return references;
-  }, [getModelReferences, deviceModel]);
+    const refs = getModelReferences(deviceModel);
+    console.log('[useNodeEdit] Model references for', deviceModel, ':', refs);
+    return refs;
+  }, [getModelReferences, deviceModel, references]);
 
   // Verification hook for managing verifications
   const verification = useVerification({
