@@ -582,8 +582,11 @@ class TextVerificationController:
             from .image_helpers import ImageHelpers
             image_helpers = ImageHelpers(self.captures_path, self.av_controller)
             
-            # Create results directory using device-specific captures path + verification_results
-            results_dir = os.path.join(self.captures_path, 'verification_results')
+            # Create results directory in COLD storage (persistent) - use same path as image controller
+            from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
+            capture_folder = get_capture_folder(self.av_controller.video_capture_path)
+            cold_captures_path = get_cold_storage_path(capture_folder, 'captures')
+            results_dir = os.path.join(cold_captures_path, 'verification_results')
             os.makedirs(results_dir, exist_ok=True)
             
             # Create result file path
