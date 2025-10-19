@@ -22,8 +22,9 @@ def navigation_execute(tree_id, target_node_id):
         team_id = request.args.get('team_id')
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
+        userinterface_name = data.get('userinterface_name')  # MANDATORY for reference resolution
         
-        print(f"[@route:host_navigation:navigation_execute] Device: {device_id}, Tree: {tree_id}, Team: {team_id}")
+        print(f"[@route:host_navigation:navigation_execute] Device: {device_id}, Tree: {tree_id}, Team: {team_id}, Userinterface: {userinterface_name}")
         
         # Validate
         if not device_id:
@@ -31,6 +32,9 @@ def navigation_execute(tree_id, target_node_id):
             
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        if not userinterface_name:
+            return jsonify({'success': False, 'error': 'userinterface_name is required for reference resolution'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -52,6 +56,7 @@ def navigation_execute(tree_id, target_node_id):
         # Execute navigation using device's NavigationExecutor
         result = device.navigation_executor.execute_navigation(
             tree_id=tree_id,
+            userinterface_name=userinterface_name,  # MANDATORY parameter
             target_node_id=target_node_id,
             current_node_id=current_node_id,
             image_source_url=image_source_url,

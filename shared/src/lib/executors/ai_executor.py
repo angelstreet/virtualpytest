@@ -778,6 +778,7 @@ class AIExecutor:
         # Pass as target_node_label for proper resolution
         result = self.device.navigation_executor.execute_navigation(
             tree_id=context.get('tree_id'),
+            userinterface_name=context.get('userinterface_name'),  # MANDATORY parameter
             target_node_label=params.get('target_node'),  # AI uses labels, not IDs
             current_node_id=context.get('current_node_id'),
             team_id=context.get('team_id')

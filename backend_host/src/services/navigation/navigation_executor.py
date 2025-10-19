@@ -192,7 +192,8 @@ class NavigationExecutor:
     
     
     def execute_navigation(self, 
-                          tree_id: str, 
+                          tree_id: str,
+                          userinterface_name: str,  # MANDATORY for reference resolution
                           target_node_id: str = None,
                           target_node_label: str = None,
                           navigation_path: List[Dict] = None,
@@ -206,6 +207,7 @@ class NavigationExecutor:
         
         Args:
             tree_id: Navigation tree ID
+            userinterface_name: User interface name (REQUIRED for reference resolution, e.g., 'horizon_android_tv')
             target_node_id: ID of the target node to navigate to (mutually exclusive with target_node_label)
             target_node_label: Label of the target node to navigate to (mutually exclusive with target_node_id)
             navigation_path: Optional pre-computed navigation path (for validation scripts)
@@ -602,8 +604,10 @@ class NavigationExecutor:
                 step_verifications = step.get('verifications', [])
                 if step_verifications:
                     print(f"[@navigation_executor:execute_navigation] Executing {len(step_verifications)} verifications for step")
+                    
                     verification_result = self.device.verification_executor.execute_verifications(
                         verifications=step_verifications,
+                        userinterface_name=userinterface_name,  # Pass as mandatory parameter
                         team_id=team_id,
                         tree_id=tree_id,
                         node_id=step.get('to_node_id'),
@@ -626,6 +630,15 @@ class NavigationExecutor:
                             step_end_screenshot_path = context.screenshot_paths[-1]
                         print(f"📸 [@navigation_executor:execute_navigation] Step-end screenshot captured: {screenshot_id}")
                 
+                # Determine final error message - verification error takes precedence over action error
+                final_error = None
+                if not verification_result.get('success', True):
+                    # Verification failed - use verification error
+                    final_error = verification_result.get('error', 'Verification failed')
+                elif not result.get('success', False):
+                    # Actions failed - use action error
+                    final_error = result.get('error', 'Action failed')
+                
                 # If context is provided, record the step result (like old goto_node)
                 if context:
                     from datetime import datetime
@@ -641,7 +654,7 @@ class NavigationExecutor:
                             action_name = first_action.get('command')
                     
                     step_result = {
-                        'success': result.get('success', False) and verification_result.get('success', True),  # Actions AND verifications must succeed
+                        'success': result.get('success', False) and verification_result.get('success', True),  # Both actions AND verifications must succeed
                         'screenshot_path': step_end_screenshot_path,  # Use step end screenshot since ActionExecutor handles action screenshots
                         'screenshot_url': result.get('screenshot_url'),
                         'step_start_screenshot_path': step_start_screenshot_path,
@@ -660,7 +673,7 @@ class NavigationExecutor:
                         'action_screenshots': result.get('action_screenshots', []),  # All action screenshots
                         'verifications': step.get('verifications', []),
                         'verification_results': verification_result.get('results', []),  # From verification execution
-                        'error': result.get('error'),  # Store actual error message from action execution
+                        'error': final_error,  # Verification error takes precedence over action error
                         'step_category': 'navigation'
                     }
                     

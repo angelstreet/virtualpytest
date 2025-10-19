@@ -393,6 +393,7 @@ export const useNode = (props?: UseNodeProps) => {
               host_name: props.selectedHost?.host_name,
               device_id: currentDeviceId,
               current_node_id: currentNodeId,
+              userinterface_name: userInterface?.userinterface_name,  // MANDATORY for reference resolution
             }),
           },
         );

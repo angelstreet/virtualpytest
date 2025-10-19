@@ -44,6 +44,7 @@ class ScriptExecutionContext:
         self.host = None
         self.team_id = None
         self.selected_device = None
+        self.userinterface_name = None  # MANDATORY for reference resolution
         
         # Navigation objects
         self.tree_data = None
@@ -740,6 +741,9 @@ class ScriptExecutor:
         """Setup execution context with infrastructure components - NO DEVICE LOCKING"""
         context = ScriptExecutionContext(self.script_name)
         
+        # Store userinterface_name for reference resolution
+        context.userinterface_name = args.userinterface_name
+        
         # Start capturing stdout for log upload
         context.start_stdout_capture()
         
@@ -1164,6 +1168,7 @@ class ScriptExecutor:
             
             navigation_result = context.selected_device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
+                userinterface_name=context.userinterface_name,  # MANDATORY parameter
                 target_node_id=target_node_id,
                 team_id=context.team_id,
                 context=context

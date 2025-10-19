@@ -35,6 +35,7 @@ class KPIMeasurementRequest:
         kpi_references: List[Dict[str, Any]],
         timeout_ms: int,
         device_id: str,
+        userinterface_name: str,  # MANDATORY for reference resolution
         device_model: str = None,
         **kwargs
     ):
@@ -53,6 +54,8 @@ class KPIMeasurementRequest:
             raise ValueError(f"timeout_ms must be > 0, got {timeout_ms}")
         if not device_id:
             raise ValueError("device_id required")
+        if not userinterface_name:
+            raise ValueError("userinterface_name required")
         if not verification_timestamp:
             raise ValueError("verification_timestamp required")
         if verification_timestamp < action_timestamp:
@@ -66,6 +69,7 @@ class KPIMeasurementRequest:
         self.kpi_references = kpi_references
         self.timeout_ms = timeout_ms
         self.device_id = device_id
+        self.userinterface_name = userinterface_name
         self.device_model = device_model
         self.kpi_timestamp = kwargs.get('kpi_timestamp')  # Pre-calculated KPI timestamp from verification
 
@@ -342,6 +346,7 @@ class KPIExecutor:
             print(f"🔍 [KPIExecutor] Quick check - {label}: {os.path.basename(capture['path'])}")
             result = verif_executor.execute_verifications(
                 verifications=verifications,
+                userinterface_name=request.userinterface_name,  # MANDATORY parameter
                 image_source_url=capture['path'],
                 team_id=request.team_id
             )
@@ -410,6 +415,7 @@ class KPIExecutor:
             
             result = verif_executor.execute_verifications(
                 verifications=verifications,
+                userinterface_name=request.userinterface_name,  # MANDATORY parameter
                 image_source_url=capture['path'],
                 team_id=request.team_id
             )

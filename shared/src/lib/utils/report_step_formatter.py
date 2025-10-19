@@ -130,8 +130,8 @@ def format_single_step(step: Dict, step_index: int, screenshots: Dict) -> str:
     
     # Format step content
     actions_html = format_step_actions(step)
-    error_html = format_step_error(step)  # Add error formatting
     verifications_html = format_step_verifications(step)
+    error_html = format_step_error(step)  # Error shown AFTER verifications
     script_output_html = format_script_output(step)
     analysis_html = format_analysis_results(step)
     screenshot_html = format_step_screenshots(step, step_index)
@@ -153,8 +153,8 @@ def format_single_step(step: Dict, step_index: int, screenshots: Dict) -> str:
          <div class="step-details-content">
              <div class="step-info">
                  {actions_html}
-                 {error_html}
                  {verifications_html}
+                 {error_html}
                  {script_output_html}
                  {analysis_html}
              </div>

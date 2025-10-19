@@ -272,6 +272,7 @@ class ZapExecutor:
             # Use NavigationExecutor directly
             result = self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
+                userinterface_name=self.userinterface_name,  # MANDATORY parameter
                 target_node_label=live_node,
                 team_id=context.team_id,
                 context=context
@@ -308,6 +309,7 @@ class ZapExecutor:
             # Use NavigationExecutor directly
             result = self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
+                userinterface_name=self.userinterface_name,  # MANDATORY parameter
                 target_node_label=action_node,
                 team_id=context.team_id,
                 context=context
@@ -459,6 +461,7 @@ class ZapExecutor:
             # Navigate to audio menu
             result = self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
+                userinterface_name=self.userinterface_name,  # MANDATORY parameter
                 target_node_label=audio_menu_action,
                 team_id=context.team_id,
                 context=context

@@ -192,7 +192,8 @@ class VerificationExecutor:
             }
     
     def execute_verifications(self, 
-                            verifications: List[Dict[str, Any]], 
+                            verifications: List[Dict[str, Any]],
+                            userinterface_name: str,  # MANDATORY for reference resolution
                             image_source_url: Optional[str] = None,
                             team_id: str = None,
                             context = None,
@@ -204,6 +205,7 @@ class VerificationExecutor:
         
         Args:
             verifications: List of verification dictionaries
+            userinterface_name: User interface name (REQUIRED for reference resolution, e.g., 'horizon_android_tv')
             image_source_url: Optional source image URL for image/text verifications
             team_id: Team ID for database recording
             context: Optional execution context
@@ -253,7 +255,7 @@ class VerificationExecutor:
             print(f"[@lib:verification_executor:execute_verifications] Processing verification {i+1}/{len(valid_verifications)}: {verification_type}")
             
             start_time = time.time()
-            result = self._execute_single_verification(verification, image_source_url, context, team_id)
+            result = self._execute_single_verification(verification, userinterface_name, image_source_url, context, team_id)
             execution_time = int((time.time() - start_time) * 1000)
             
                         # Add execution time to result
@@ -307,12 +309,13 @@ class VerificationExecutor:
             
         return result
     
-    def verify_node(self, node_id: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
+    def verify_node(self, node_id: str, userinterface_name: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute verifications for a specific node during navigation.
         
         Args:
             node_id: Node ID to verify
+            userinterface_name: User interface name (REQUIRED for reference resolution)
             team_id: Team ID
             tree_id: Optional tree ID (will fall back to navigation context if not provided)
             image_source_url: Optional image source URL
@@ -320,7 +323,7 @@ class VerificationExecutor:
         Returns:
             Dict with success status and verification results
         """
-        print(f"[@lib:verification_executor:verify_node] 🔍 Called with node_id={node_id}, tree_id={tree_id}, team_id={team_id}")
+        print(f"[@lib:verification_executor:verify_node] 🔍 Called with node_id={node_id}, userinterface_name={userinterface_name}, tree_id={tree_id}, team_id={team_id}")
         
         try:
             # Get tree_id from navigation context if not provided
@@ -352,6 +355,7 @@ class VerificationExecutor:
             # Execute verifications with proper tree_id and node_id for database recording
             return self.execute_verifications(
                 verifications=verifications,
+                userinterface_name=userinterface_name,  # MANDATORY parameter
                 image_source_url=image_source_url,
                 team_id=team_id,
                 tree_id=tree_id,
@@ -393,7 +397,7 @@ class VerificationExecutor:
         
         return valid_verifications
     
-    def _execute_single_verification(self, verification: Dict[str, Any], image_source_url: Optional[str], context = None, team_id: str = None) -> Dict[str, Any]:
+    def _execute_single_verification(self, verification: Dict[str, Any], userinterface_name: str, image_source_url: Optional[str], context = None, team_id: str = None) -> Dict[str, Any]:
         """Execute a single verification and return standardized result"""
         try:
             verification_type = verification.get('verification_type', 'text')
@@ -414,7 +418,7 @@ class VerificationExecutor:
                 'params': verification.get('params', {}),
                 'verification_type': verification_type,
                 'team_id': team_id,  # Pass team_id for database operations
-                'userinterface_name': verification.get('userinterface_name') or self.device_model  # Pass userinterface_name for reference resolution
+                'userinterface_name': userinterface_name  # Use mandatory parameter (no fallback)
             }
             
             # Add source_image_path to config if provided (for offline/post-processing)

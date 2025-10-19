@@ -89,7 +89,10 @@ def verification_execute_batch():
         tree_id = data.get('tree_id')
         node_id = data.get('node_id')
         
-        print(f"[@route:host_verification:verification_execute_batch] Processing {len(verifications)} verifications for device: {device_id}, team: {team_id}")
+        # Extract userinterface_name (MANDATORY for reference resolution)
+        userinterface_name = verifications[0].get('userinterface_name') if verifications else None
+        
+        print(f"[@route:host_verification:verification_execute_batch] Processing {len(verifications)} verifications for device: {device_id}, team: {team_id}, userinterface: {userinterface_name}")
         
         # Validate
         if not verifications:
@@ -100,6 +103,9 @@ def verification_execute_batch():
             
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        if not userinterface_name:
+            return jsonify({'success': False, 'error': 'userinterface_name is required for reference resolution'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
@@ -121,6 +127,7 @@ def verification_execute_batch():
         # Execute verifications using device's VerificationExecutor
         result = device.verification_executor.execute_verifications(
             verifications=verifications,
+            userinterface_name=userinterface_name,  # MANDATORY parameter
             image_source_url=image_source_url,
             team_id=team_id,
             tree_id=tree_id,
