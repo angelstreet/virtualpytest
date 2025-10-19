@@ -24,7 +24,7 @@ from ..base_controller import VerificationControllerInterface
 class AppiumVerificationController(VerificationControllerInterface):
     """Appium verification controller that uses Appium WebDriver to verify UI elements across platforms."""
     
-    def __init__(self, appium_platform_name: str, appium_device_id: str, appium_server_url: str = "http://localhost:4723", av_controller=None, device_model=None, **kwargs):
+    def __init__(self, appium_platform_name: str, appium_device_id: str, appium_server_url: str = "http://localhost:4723", av_controller=None, **kwargs):
         """
         Initialize the Appium Verification controller.
         
@@ -33,7 +33,6 @@ class AppiumVerificationController(VerificationControllerInterface):
             appium_device_id: Device UDID/ID - MANDATORY  
             appium_server_url: Appium server URL - MANDATORY
             av_controller: AV controller for capturing screenshots (optional, not used by Appium)
-            device_model: Device model for reference (e.g., 'ios_mobile', 'android_mobile')
         """
         super().__init__("Appium Verification", "appium")
         
@@ -49,7 +48,6 @@ class AppiumVerificationController(VerificationControllerInterface):
         self.platform_name = appium_platform_name
         self.appium_device_id = appium_device_id  # This is the actual iOS/Android UDID
         self.appium_server_url = appium_server_url
-        self.device_model = device_model
         
         # Set verification type for controller lookup
         self.verification_type = 'appium'

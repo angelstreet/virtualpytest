@@ -207,7 +207,7 @@ export const useVerificationEditor = ({
             area: selectedArea,
             image_source_url: captureSourcePath,
             reference_name: referenceName || 'temp_capture',
-            device_model: userinterfaceName,
+            userinterface_name: userinterfaceName,
             autocrop: imageProcessingOptions.autocrop,
             remove_background: imageProcessingOptions.removeBackground,
           }),
@@ -225,7 +225,7 @@ export const useVerificationEditor = ({
             area: selectedArea,
             image_source_url: captureSourcePath,
             reference_name: referenceName || 'temp_capture',
-            device_model: userinterfaceName,
+            userinterface_name: userinterfaceName,
           }),
         });
       }
@@ -303,7 +303,7 @@ export const useVerificationEditor = ({
     try {
       console.log('[@hook:useVerificationEditor] Saving reference with data:', {
         name: referenceName,
-        device_model: userinterfaceName,
+        userinterface_name: userinterfaceName,
         area: selectedArea,
         captureSourcePath: captureSourcePath,
         referenceType: referenceType,
@@ -325,7 +325,6 @@ export const useVerificationEditor = ({
             host_name: selectedHost.host_name,
             device_id: selectedDeviceId,
             reference_name: referenceName,
-            device_model: userinterfaceName,
             userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area: selectedArea,
             text: referenceText,
@@ -394,7 +393,7 @@ export const useVerificationEditor = ({
               area: selectedArea,
               image_source_url: captureSourcePath,
               reference_name: referenceName,
-              device_model: userinterfaceName,
+              userinterface_name: userinterfaceName,
               autocrop: imageProcessingOptions.autocrop,
               remove_background: imageProcessingOptions.removeBackground,
             }),
@@ -412,7 +411,7 @@ export const useVerificationEditor = ({
               area: selectedArea,
               image_source_url: captureSourcePath,
               reference_name: referenceName,
-              device_model: userinterfaceName,
+              userinterface_name: userinterfaceName,
             }),
           });
         }
@@ -433,7 +432,6 @@ export const useVerificationEditor = ({
             host_name: selectedHost.host_name,
             device_id: selectedDeviceId, // MUST include device_id to find file in correct captures folder
             reference_name: referenceName,
-            device_model: userinterfaceName,
             userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area:
               imageProcessingOptions.autocrop && captureResult.processed_area
@@ -541,7 +539,7 @@ export const useVerificationEditor = ({
         body: JSON.stringify({
           host_name: selectedHost.host_name, // Send full host object
           device_id: selectedDeviceId, // Add missing device_id parameter
-          device_model: userinterfaceName,
+          userinterface_name: userinterfaceName,
           area: selectedArea,
           image_source_url: sourceFilename,
           image_filter: textImageFilter,

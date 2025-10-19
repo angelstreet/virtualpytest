@@ -14,19 +14,17 @@ from .text_helpers import TextHelpers
 class TextVerificationController:
     """Pure text verification controller that uses OCR to detect text on screen."""
     
-    def __init__(self, av_controller, device_model=None, **kwargs):
+    def __init__(self, av_controller, **kwargs):
         """
         Initialize the Text Verification controller.
         
         Args:
             av_controller: AV controller for capturing images (dependency injection)
-            device_model: Device model for reference image resolution (e.g., 'android_tv')
         """
         # Dependency injection
         from shared.src.lib.utils.storage_path_utils import get_capture_storage_path
         
         self.av_controller = av_controller
-        self.device_model = device_model
         
         # Use centralized path resolution (handles hot/cold storage automatically)
         self.captures_path = get_capture_storage_path(av_controller.video_capture_path, 'captures')
@@ -427,11 +425,15 @@ class TextVerificationController:
             threshold = float(params.get('threshold', 0.8))  # Text matching sensitivity
             confidence = float(params.get('confidence', 0.8))  # OCR language detection confidence
             
+            # Extract userinterface_name and team_id for reference resolution (NO LEGACY device_model)
+            userinterface_name = verification_config.get('userinterface_name')
+            team_id = verification_config.get('team_id')
+            
             # Resolve area from database if reference_name is provided
             reference_name = params.get('reference_name')
             if reference_name:
-                from  backend_host.src.lib.utils.reference_utils import resolve_reference_area_backend
-                resolved_area = resolve_reference_area_backend(reference_name, self.device_model)
+                from shared.src.lib.utils.reference_utils import resolve_reference_area_backend
+                resolved_area = resolve_reference_area_backend(reference_name, userinterface_name, team_id)
                 if resolved_area:
                     area = resolved_area
                     print(f"[@controller:TextVerification] Using database area for reference {reference_name}: {resolved_area}")

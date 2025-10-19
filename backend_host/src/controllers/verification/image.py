@@ -20,18 +20,16 @@ import logging
 class ImageVerificationController:
     """Pure image verification controller that uses template matching to detect images on screen."""
     
-    def __init__(self, av_controller, device_model=None, **kwargs):
+    def __init__(self, av_controller, **kwargs):
         """
         Initialize the Image Verification controller.
         
         Args:
             av_controller: AV controller for capturing images (dependency injection)
-            device_model: Device model for reference image resolution (e.g., 'android_tv')
         """
         from shared.src.lib.utils.storage_path_utils import get_capture_storage_path, get_cold_storage_path, get_capture_folder
         
         self.av_controller = av_controller
-        self.device_model = device_model
         # Use centralized path resolution (handles hot/cold storage automatically)
         self.captures_path = get_capture_storage_path(av_controller.video_capture_path, 'captures')
         self.verification_type = 'image'
