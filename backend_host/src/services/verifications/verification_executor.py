@@ -435,6 +435,21 @@ class VerificationExecutor:
             # Direct controller execution
             verification_result = controller.execute_verification(verification_config)
             
+            # Build URLs from file paths if verification generated images
+            details = verification_result.get('details', {})
+            if 'source_image_path' in details:
+                from shared.src.lib.utils.build_url_utils import buildVerificationResultUrl
+                import os
+                host_info = self.device.get_host_info() if hasattr(self.device, 'get_host_info') else None
+                device_id = self.device.device_id if hasattr(self.device, 'device_id') else 'device1'
+                
+                if details.get('source_image_path'):
+                    verification_result['sourceUrl'] = buildVerificationResultUrl(host_info, os.path.basename(details['source_image_path']), device_id)
+                if details.get('reference_image_url'):
+                    verification_result['referenceUrl'] = details['reference_image_url']
+                if details.get('result_overlay_path'):
+                    verification_result['overlayUrl'] = buildVerificationResultUrl(host_info, os.path.basename(details['result_overlay_path']), device_id)
+            
             # Capture screenshot (no upload)
             from shared.src.lib.utils.device_utils import capture_screenshot
             screenshot_path = capture_screenshot(self.device, context) or ""

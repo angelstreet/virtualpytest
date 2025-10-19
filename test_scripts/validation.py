@@ -172,15 +172,11 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         print(f"🔢 [validation] Limited to {max_iteration} steps")
     
     # Execute each transition using pre-computed path (no re-pathfinding!)
-    successful = 0
     for i, step in enumerate(validation_sequence):
         target = step.get('to_node_label', 'unknown')
         from_node = step.get('from_node_label', 'unknown')
         
         print(f"⚡ [validation] Step {i+1}/{len(validation_sequence)}: {from_node} → {target}")
-        
-        # Record step start time
-        step_start_time = time.time()
         
         # Use NavigationExecutor with pre-computed path (validation mode)
         # This skips pathfinding and executes the exact transition from the validation plan
@@ -196,18 +192,22 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         # No need to manually record steps here - it would create duplicates in the report
         
         if result.get('success', False):
-            successful += 1
             print(f"✅ [validation] Step {i+1} successful")
         else:
             print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
     
-    # Calculate success and store stats for summary generation
-    context.overall_success = successful == len(validation_sequence)
-    context.validation_successful_steps = successful
-    context.validation_total_steps = len(validation_sequence)
-    coverage = (successful / len(validation_sequence) * 100) if validation_sequence else 0
+    # Calculate success directly from context.step_results (matches summary logic)
+    total_steps = len(context.step_results)
+    successful_steps = sum(1 for step in context.step_results if step.get('success', False))
     
-    print(f"🎉 [validation] Results: {successful}/{len(validation_sequence)} successful ({coverage:.1f}%)")
+    context.validation_successful_steps = successful_steps
+    context.validation_total_steps = len(validation_sequence)
+    
+    # Set overall success based on actual recorded steps
+    context.overall_success = (successful_steps == total_steps and total_steps > 0)
+    
+    coverage = (successful_steps / total_steps * 100) if total_steps else 0
+    print(f"🎉 [validation] Results: {successful_steps}/{total_steps} steps successful ({coverage:.1f}%)")
     return context.overall_success
 
 
