@@ -597,6 +597,20 @@ class NavigationExecutor:
                     # No actions to execute, just mark as successful
                     result = {'success': True, 'main_actions_succeeded': True}
                 
+                # Execute verifications after actions (if any)
+                verification_result = {'success': True, 'results': []}
+                step_verifications = step.get('verifications', [])
+                if step_verifications:
+                    print(f"[@navigation_executor:execute_navigation] Executing {len(step_verifications)} verifications for step")
+                    verification_result = self.device.verification_executor.execute_verifications(
+                        verifications=step_verifications,
+                        team_id=team_id,
+                        tree_id=tree_id,
+                        node_id=step.get('to_node_id'),
+                        context=context
+                    )
+                    print(f"[@navigation_executor:execute_navigation] Verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
+                
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
                 # Note: ActionExecutor now handles screenshots during action execution
@@ -627,7 +641,7 @@ class NavigationExecutor:
                             action_name = first_action.get('command')
                     
                     step_result = {
-                        'success': result.get('success', False),
+                        'success': result.get('success', False) and verification_result.get('success', True),  # Actions AND verifications must succeed
                         'screenshot_path': step_end_screenshot_path,  # Use step end screenshot since ActionExecutor handles action screenshots
                         'screenshot_url': result.get('screenshot_url'),
                         'step_start_screenshot_path': step_start_screenshot_path,
@@ -645,7 +659,7 @@ class NavigationExecutor:
                         'action_results': result.get('results', []),  # Individual action results with categories and screenshots
                         'action_screenshots': result.get('action_screenshots', []),  # All action screenshots
                         'verifications': step.get('verifications', []),
-                        'verification_results': result.get('verification_results', []),
+                        'verification_results': verification_result.get('results', []),  # From verification execution
                         'error': result.get('error'),  # Store actual error message from action execution
                         'step_category': 'navigation'
                     }

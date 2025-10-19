@@ -439,8 +439,10 @@ class VerificationExecutor:
             details = verification_result.get('details', {})
             if 'source_image_path' in details:
                 from shared.src.lib.utils.build_url_utils import buildVerificationResultUrl
+                from backend_host.src.lib.utils.host_utils import get_host
                 import os
-                host_info = self.device.get_host_info() if hasattr(self.device, 'get_host_info') else None
+                host = get_host()
+                host_info = host.to_dict() if host else None
                 device_id = self.device.device_id if hasattr(self.device, 'device_id') else 'device1'
                 
                 if details.get('source_image_path'):

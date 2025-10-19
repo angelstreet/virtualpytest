@@ -308,8 +308,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
           return;
         }
 
-        console.log(`🔍 [DEBUG] Filtering actions for selected device: ${currentDevice.device_id} (${currentDevice.device_model})`);
-
         // Check if device has action types (they might be stripped for performance)
         const deviceActionTypes = currentDevice.device_action_types;
         
@@ -332,9 +330,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
             }
 
             actions.forEach((action: any) => {
-              // DEBUG: Log each raw action from backend
-              console.log(`🔍 [DEBUG] Raw action from device ${currentDevice.device_model}:`, action);
-              
               const processedAction = {
                 id: action.id || `${action.command}_${category}`,
                 label: action.label || action.command,
@@ -347,9 +342,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
                 inputPlaceholder: action.inputPlaceholder,
                 verification_type: action.verification_type,
               };
-              
-              // DEBUG: Log processed action
-              console.log(`🔍 [DEBUG] Processed action for ${currentDevice.device_model}:`, processedAction);
               
               categorizedActions[category].push(processedAction);
             });
@@ -418,8 +410,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
           }));
           return;
         }
-
-        console.log(`🔍 [DEBUG] Filtering verifications for selected device: ${currentDevice.device_id} (${currentDevice.device_model})`);
 
         // Check if device has verification types (they might be stripped for performance)
         const deviceVerificationTypes = currentDevice.device_verification_types;
@@ -692,7 +682,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         
         // Force reload actions/verifications when taking control (host may have been refreshed with schemas)
         if (isActive && wasControlInactive) {
-          console.log('[DeviceDataContext] Control activated, forcing reload of action schemas');
           loadedDataRef.current.availableActionsLoaded = false;
           loadedDataRef.current.availableVerificationTypesLoaded = false;
         }

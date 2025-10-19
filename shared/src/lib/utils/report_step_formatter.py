@@ -432,8 +432,8 @@ def format_verification_result(result: Dict, step: Dict) -> str:
     """Format verification result with badges and extras."""
     result_success = result.get('success', False)
     
-    # Add percentage right after PASS/FAIL for image verifications
-    badge_text = "PASS" if result_success else "FAIL"
+    # Use tick marks like actions (✓/✗) with percentage for image verifications
+    badge_text = "✓" if result_success else "✗"
     if result.get('verification_type') == 'image':
         details = result.get('details', {})
         match_score = details.get('match_score') or details.get('matching_result')
