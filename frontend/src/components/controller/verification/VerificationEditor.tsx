@@ -68,15 +68,17 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
       return selectedHost?.devices?.find((device) => device.device_id === selectedDeviceId);
     }, [selectedHost, selectedDeviceId]);
 
-    // Extract model from the selected device
-    const model = selectedDevice?.device_model;
+    // Use device_model only for layout configuration (UI presentation)
+    // But use userinterfaceName for all data lookups (references, verifications)
+    const deviceModelForLayout = selectedDevice?.device_model;
 
     // Use the provided layout config or get it from the model type
     const finalLayoutConfig = React.useMemo(() => {
-      const config = layoutConfig || getVerificationEditorLayout(model || 'unknown');
+      const config = layoutConfig || getVerificationEditorLayout(deviceModelForLayout || 'unknown');
       console.log('[@component:VerificationEditor] Layout config recalculated:', {
         selectedDeviceId,
-        model,
+        deviceModelForLayout,
+        userinterfaceName,
         providedLayoutConfig: layoutConfig,
         calculatedConfig: config,
         isMobileModel: config.isMobileModel,
@@ -85,7 +87,7 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
         captureHeight: config.captureHeight,
       });
       return config;
-    }, [model, layoutConfig, selectedDeviceId]);
+    }, [deviceModelForLayout, layoutConfig, selectedDeviceId, userinterfaceName]);
 
     // Use the verification editor hook to handle all verification logic
     const verification = useVerificationEditor({
@@ -106,7 +108,8 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
       console.log('[@component:VerificationEditor] Component mounted with props:', {
         isVisible,
         selectedDeviceId,
-        model,
+        deviceModelForLayout,
+        userinterfaceName,
         isCaptureActive,
         layoutConfig: finalLayoutConfig,
         selectedDevice: !!selectedDevice,
@@ -115,7 +118,7 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
       return () => {
         console.log('[@component:VerificationEditor] Component unmounting');
       };
-    }, [isVisible, selectedDeviceId, model, isCaptureActive, finalLayoutConfig, selectedDevice]);
+    }, [isVisible, selectedDeviceId, deviceModelForLayout, userinterfaceName, isCaptureActive, finalLayoutConfig, selectedDevice]);
 
     if (!isVisible) return null;
 
@@ -210,13 +213,13 @@ export const VerificationEditor: React.FC<VerificationEditorProps> = React.memo(
                 },
               }}
             >
-              {model && (
+              {userinterfaceName && (
                 <VerificationsList
                   verifications={verification.verifications}
                   availableVerifications={verification.availableVerificationTypes}
                   onVerificationsChange={verification.handleVerificationsChange}
                   loading={verification.loading}
-                  model={model}
+                  model={userinterfaceName}
                   onTest={verification.handleTest}
                   testResults={verification.testResults}
                   onReferenceSelected={verification.handleReferenceSelected}

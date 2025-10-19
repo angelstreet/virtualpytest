@@ -53,14 +53,6 @@ export const useVerificationEditor = ({
   isControlActive: _isControlActive = false, // Default to false if not provided
   userinterfaceName, // Required for saving references
 }: UseVerificationEditorProps) => {
-  // Get the selected device from the host's devices array
-  const selectedDevice = useMemo(() => {
-    return selectedHost?.devices?.find((device) => device.device_id === selectedDeviceId);
-  }, [selectedHost, selectedDeviceId]);
-
-  // Get the device model from the selected device
-  const deviceModel = selectedDevice?.device_model;
-
   // Get references from centralized context
   const {
     references: availableReferences,
@@ -86,13 +78,17 @@ export const useVerificationEditor = ({
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
   const [referenceSaveCounter, setReferenceSaveCounter] = useState<number>(0);
 
-  // Get model references using the device model
+  // Get model references using userinterface_name (not device_model)
   const modelReferences = useMemo(() => {
-    if (!deviceModel) {
-      return {}; // Return empty object without calling getModelReferences when deviceModel is undefined
+    if (!userinterfaceName) {
+      console.warn('[@hook:useVerificationEditor] No userinterfaceName provided, returning empty references');
+      return {};
     }
-    return getModelReferences(deviceModel);
-  }, [getModelReferences, deviceModel]);
+    console.log('[@hook:useVerificationEditor] Getting references for userinterface:', userinterfaceName);
+    const refs = getModelReferences(userinterfaceName);
+    console.log('[@hook:useVerificationEditor] Retrieved references:', Object.keys(refs).length, 'items');
+    return refs;
+  }, [getModelReferences, userinterfaceName]);
 
   // State for reference type and details
   const [referenceText, setReferenceText] = useState<string>('');
@@ -186,7 +182,7 @@ export const useVerificationEditor = ({
       referenceName,
       referenceType,
       imageProcessingOptions,
-      deviceModel,
+      userinterfaceName,
     });
 
     try {
@@ -210,7 +206,7 @@ export const useVerificationEditor = ({
             area: selectedArea,
             image_source_url: captureSourcePath,
             reference_name: referenceName || 'temp_capture',
-            device_model: deviceModel,
+            device_model: userinterfaceName,
             autocrop: imageProcessingOptions.autocrop,
             remove_background: imageProcessingOptions.removeBackground,
           }),
@@ -228,7 +224,7 @@ export const useVerificationEditor = ({
             area: selectedArea,
             image_source_url: captureSourcePath,
             reference_name: referenceName || 'temp_capture',
-            device_model: deviceModel,
+            device_model: userinterfaceName,
           }),
         });
       }
@@ -286,7 +282,7 @@ export const useVerificationEditor = ({
     referenceType,
     imageProcessingOptions,
     _onAreaSelected,
-    deviceModel,
+    userinterfaceName,
   ]);
 
   // Handle save reference
@@ -306,7 +302,7 @@ export const useVerificationEditor = ({
     try {
       console.log('[@hook:useVerificationEditor] Saving reference with data:', {
         name: referenceName,
-        device_model: deviceModel,
+        device_model: userinterfaceName,
         area: selectedArea,
         captureSourcePath: captureSourcePath,
         referenceType: referenceType,
@@ -328,7 +324,7 @@ export const useVerificationEditor = ({
             host_name: selectedHost.host_name,
             device_id: selectedDeviceId,
             reference_name: referenceName,
-            device_model: deviceModel,
+            device_model: userinterfaceName,
             userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area: selectedArea,
             text: referenceText,
@@ -347,8 +343,8 @@ export const useVerificationEditor = ({
           setSaveSuccess(true);
 
           // Add text reference to cache immediately for instant availability in verification dropdown
-          if (addReferenceToCache && deviceModel) {
-            addReferenceToCache(deviceModel, {
+          if (addReferenceToCache && userinterfaceName) {
+            addReferenceToCache(userinterfaceName, {
               name: referenceName,
               type: 'text',
               url: '', // Text references don't have URLs
@@ -397,7 +393,7 @@ export const useVerificationEditor = ({
               area: selectedArea,
               image_source_url: captureSourcePath,
               reference_name: referenceName,
-              device_model: deviceModel,
+              device_model: userinterfaceName,
               autocrop: imageProcessingOptions.autocrop,
               remove_background: imageProcessingOptions.removeBackground,
             }),
@@ -415,7 +411,7 @@ export const useVerificationEditor = ({
               area: selectedArea,
               image_source_url: captureSourcePath,
               reference_name: referenceName,
-              device_model: deviceModel,
+              device_model: userinterfaceName,
             }),
           });
         }
@@ -436,7 +432,7 @@ export const useVerificationEditor = ({
             host_name: selectedHost.host_name,
             device_id: selectedDeviceId, // MUST include device_id to find file in correct captures folder
             reference_name: referenceName,
-            device_model: deviceModel,
+            device_model: userinterfaceName,
             userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area:
               imageProcessingOptions.autocrop && captureResult.processed_area
@@ -459,12 +455,12 @@ export const useVerificationEditor = ({
           setSaveSuccess(true);
 
           // Add reference to cache immediately for instant availability in verification dropdown
-          if (addReferenceToCache && deviceModel && result.r2_url) {
+          if (addReferenceToCache && userinterfaceName && result.r2_url) {
             const savedArea = imageProcessingOptions.autocrop && captureResult.processed_area
               ? captureResult.processed_area
               : selectedArea;
 
-            addReferenceToCache(deviceModel, {
+            addReferenceToCache(userinterfaceName, {
               name: referenceName,
               type: 'image',
               url: result.r2_url,
@@ -508,7 +504,7 @@ export const useVerificationEditor = ({
     referenceType,
     referenceText,
     imageProcessingOptions,
-    deviceModel,
+    userinterfaceName,
     detectedTextData,
     addReferenceToCache,
     reloadReferences,
@@ -544,7 +540,7 @@ export const useVerificationEditor = ({
         body: JSON.stringify({
           host_name: selectedHost.host_name, // Send full host object
           device_id: selectedDeviceId, // Add missing device_id parameter
-          device_model: deviceModel,
+          device_model: userinterfaceName,
           area: selectedArea,
           image_source_url: sourceFilename,
           image_filter: textImageFilter,
@@ -625,7 +621,7 @@ export const useVerificationEditor = ({
     selectedHost,
     captureSourcePath,
     textImageFilter,
-    deviceModel,
+    userinterfaceName,
     selectedDeviceId,
   ]);
 
