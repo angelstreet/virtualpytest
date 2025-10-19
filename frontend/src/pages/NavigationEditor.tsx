@@ -726,8 +726,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       <Box
         sx={{
           width: '100%',
-          height: 'calc(100vh - 100px)',
-          minHeight: '500px',
+          height: '100vh',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -774,7 +773,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           sx={{
             flex: 1,
             display: 'flex',
-            minHeight: '500px',
             overflow: 'hidden',
           }}
         >
@@ -783,7 +781,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             sx={{
               flex: 1,
               position: 'relative',
-              minHeight: '500px',
               overflow: 'hidden',
               transition: 'margin-right',
               marginRight: '0px', // Remote panel managed by header
@@ -795,7 +792,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 style={{
                   width: '100%',
                   height: '100%',
-                  minHeight: '500px',
                   position: 'relative',
                 }}
               >
