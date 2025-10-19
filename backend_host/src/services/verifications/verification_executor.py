@@ -436,21 +436,14 @@ class VerificationExecutor:
             verification_result = controller.execute_verification(verification_config)
             
             # Build URLs from file paths if verification generated images
+            # Frontend will process these paths using buildVerificationResultUrl from buildUrlUtils.ts
             details = verification_result.get('details', {})
-            if 'source_image_path' in details:
-                from shared.src.lib.utils.build_url_utils import buildVerificationResultUrl
-                from backend_host.src.lib.utils.host_utils import get_host
-                import os
-                host = get_host()
-                host_info = host.to_dict() if host else None
-                device_id = self.device.device_id if hasattr(self.device, 'device_id') else 'device1'
-                
-                if details.get('source_image_path'):
-                    verification_result['sourceUrl'] = buildVerificationResultUrl(host_info, os.path.basename(details['source_image_path']), device_id)
-                if details.get('reference_image_url'):
-                    verification_result['referenceUrl'] = details['reference_image_url']
-                if details.get('result_overlay_path'):
-                    verification_result['overlayUrl'] = buildVerificationResultUrl(host_info, os.path.basename(details['result_overlay_path']), device_id)
+            if details.get('source_image_path'):
+                verification_result['sourceUrl'] = details['source_image_path']  # Local path - frontend converts to URL
+            if details.get('reference_image_url'):
+                verification_result['referenceUrl'] = details['reference_image_url']  # Already R2 URL
+            if details.get('result_overlay_path'):
+                verification_result['overlayUrl'] = details['result_overlay_path']  # Local path - frontend converts to URL
             
             # Capture screenshot (no upload)
             from shared.src.lib.utils.device_utils import capture_screenshot
