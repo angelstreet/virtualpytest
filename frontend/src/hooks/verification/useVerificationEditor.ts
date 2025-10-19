@@ -67,6 +67,7 @@ export const useVerificationEditor = ({
     captureSourcePath,
     nodeId: null,
     treeId: null,
+    userinterfaceName,  // Pass userinterface name for reference resolution
   });
 
   // State for reference capture

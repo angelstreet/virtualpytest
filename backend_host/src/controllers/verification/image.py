@@ -533,6 +533,15 @@ class ImageVerificationController:
             # Extract team_id for database operations (reference area resolution)
             team_id = verification_config.get('team_id')
             
+            # Extract userinterface_name for reference resolution (NO LEGACY device_model)
+            userinterface_name = verification_config.get('userinterface_name')
+            if not userinterface_name:
+                return {
+                    'success': False,
+                    'message': 'userinterface_name is required for reference resolution',
+                    'screenshot_path': None
+                }
+            
             # Check if a source image path is provided in the config
             source_path = verification_config.get('source_image_path')
             
@@ -575,7 +584,6 @@ class ImageVerificationController:
             timeout = int(params.get('timeout', 1))
             area = params.get('area')
             image_filter = params.get('image_filter', 'none')
-            model = params.get('model', self.device_model)  # Use controller's device_model as fallback
             verification_index = verification_config.get('verification_index', 0)  # Get index from config
             
             # Keep area as dict - different functions expect different formats
@@ -585,8 +593,9 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
             print(f"[@controller:ImageVerification] Using source image: {source_path}")
             print(f"[@controller:ImageVerification] Verification index: {verification_index} (source_image_{verification_index}.png)")
+            print(f"[@controller:ImageVerification] Using userinterface: {userinterface_name}")
             
-            # Execute verification based on command using provided device model
+            # Execute verification based on command using userinterface_name
             if command == 'waitForImageToAppear':
                 success, message, details = self.waitForImageToAppear(
                     image_path=image_path,
@@ -596,7 +605,7 @@ class ImageVerificationController:
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
-                    model=model,
+                    model=userinterface_name,  # Use userinterface_name for reference resolution
                     team_id=team_id
                 )
             elif command == 'waitForImageToDisappear':
@@ -608,7 +617,7 @@ class ImageVerificationController:
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
-                    model=model,
+                    model=userinterface_name,  # Use userinterface_name for reference resolution
                     team_id=team_id
                 )
             else:

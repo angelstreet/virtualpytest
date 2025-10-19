@@ -20,10 +20,12 @@ export const useVerification = ({
   captureSourcePath,
   nodeId,
   treeId,
+  userinterfaceName,  // Add userinterface name for reference resolution
 }: {
   captureSourcePath?: string;
   nodeId?: string | null;
   treeId?: string | null;
+  userinterfaceName?: string;  // Optional but recommended for proper reference resolution
 }) => {
   // Get verification data from centralized context
   const { getAvailableVerificationTypes, currentDeviceId, currentHost } = useDeviceData();
@@ -219,9 +221,15 @@ export const useVerification = ({
         console.log('[useVerification] Valid verifications count:', validVerifications.length);
 
         // Device info no longer needed - using single source of truth
+        
+        // Add userinterface_name to each verification for proper reference resolution
+        const verificationsWithUserInterface = validVerifications.map(v => ({
+          ...v,
+          userinterface_name: userinterfaceName  // Add userinterface_name for R2 reference download
+        }));
 
         const batchPayload = {
-          verifications: validVerifications,
+          verifications: verificationsWithUserInterface,
           node_id: nodeId ,        // Use actual node_id or fallback
           tree_id: treeId,          // Use actual tree_id or fallback
           image_source_url: image_source_url,
@@ -269,7 +277,7 @@ export const useVerification = ({
         setLoading(false);
       }
     },
-    [verifications, currentHost, currentDeviceId, captureSourcePath],
+    [verifications, currentHost, currentDeviceId, captureSourcePath, nodeId, treeId, userinterfaceName],
   );
 
   return {

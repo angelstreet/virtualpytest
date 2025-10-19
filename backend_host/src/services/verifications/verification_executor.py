@@ -413,7 +413,8 @@ class VerificationExecutor:
                 'command': verification.get('command'),
                 'params': verification.get('params', {}),
                 'verification_type': verification_type,
-                'team_id': team_id  # Pass team_id for database operations
+                'team_id': team_id,  # Pass team_id for database operations
+                'userinterface_name': verification.get('userinterface_name') or self.device_model  # Pass userinterface_name for reference resolution
             }
             
             # Add source_image_path to config if provided (for offline/post-processing)
