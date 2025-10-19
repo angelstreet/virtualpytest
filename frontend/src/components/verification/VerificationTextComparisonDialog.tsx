@@ -9,6 +9,9 @@ import {
 } from '@mui/material';
 import React from 'react';
 
+import { useHostManager } from '../../hooks/useHostManager';
+import { buildVerificationResultUrl } from '../../utils/buildUrlUtils';
+
 interface VerificationTextComparisonDialogProps {
   open: boolean;
   searchedText: string;
@@ -32,6 +35,9 @@ export const VerificationTextComparisonDialog: React.FC<VerificationTextComparis
   imageFilter,
   onClose,
 }) => {
+  // Use registration context to get selected host
+  const { selectedHost } = useHostManager();
+
   const getResultColor = () => {
     switch (resultType) {
       case 'PASS':
@@ -78,6 +84,18 @@ export const VerificationTextComparisonDialog: React.FC<VerificationTextComparis
     if (url.startsWith('https:')) {
       console.log('[@component:VerificationTextComparisonDialog] Using HTTPS URL directly');
       return url;
+    }
+
+    // Handle local file paths from backend (e.g., /var/www/html/stream/capture4/captures/verification_results/text_source_image_0.png)
+    if (url.startsWith('/var/www/html/')) {
+      console.log('[@component:VerificationTextComparisonDialog] Local file path detected, converting to URL');
+      if (selectedHost) {
+        const hostUrl = buildVerificationResultUrl(selectedHost, url);
+        console.log(`[@component:VerificationTextComparisonDialog] Converted to: ${hostUrl}`);
+        return hostUrl;
+      } else {
+        console.warn('[@component:VerificationTextComparisonDialog] No selected host, cannot convert local path to URL');
+      }
     }
 
     // For relative paths or other formats, use directly
