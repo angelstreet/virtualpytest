@@ -710,12 +710,23 @@ class NavigationExecutor:
                     nav_context['kpi_action_timestamp'] = action_completion_timestamp
                     print(f"[@navigation_executor:execute_navigation] Main actions succeeded for step {step_num}/{len(navigation_path)} - KPI will be queued after final verification")
                 
-                if not result.get('success', False):
-                    error_msg = result.get('error', 'Unknown error')
-                    error_details = result.get('error_details', {})
+                # Check if EITHER actions OR verifications failed - both must succeed for step to continue
+                step_failed = not result.get('success', False) or not verification_result.get('success', True)
+                
+                if step_failed:
+                    # Determine which component failed
+                    if not verification_result.get('success', True):
+                        error_msg = verification_result.get('error', 'Verification failed')
+                        error_details = verification_result.get('error_details', {})
+                        failure_type = "verification"
+                    else:
+                        error_msg = result.get('error', 'Unknown error')
+                        error_details = result.get('error_details', {})
+                        failure_type = "action"
                     
                     print(f"[@navigation_executor:execute_navigation] NAVIGATION STEP FAILED:")
                     print(f"[@navigation_executor:execute_navigation]   Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
+                    print(f"[@navigation_executor:execute_navigation]   Failure type: {failure_type}")
                     print(f"[@navigation_executor:execute_navigation]   Error: {error_msg}")
                     print(f"[@navigation_executor:execute_navigation]   Execution time: {step_execution_time}ms")
                     
@@ -745,7 +756,7 @@ class NavigationExecutor:
                     # Mark navigation as failed
                     nav_context['current_node_navigation_success'] = False
                     
-                    detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {error_msg}"
+                    detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {failure_type} failed - {error_msg}"
                     return self._build_result(
                         False, 
                         detailed_error_msg,
