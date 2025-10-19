@@ -418,9 +418,13 @@ class VerificationExecutor:
             
             # Add source_image_path to config if provided (for offline/post-processing)
             if image_source_url:
-                verification_config['source_image_path'] = image_source_url
+                # Convert HTTPS URL to local file path
+                from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
+                source_image_path = convertHostUrlToLocalPath(image_source_url)
+                verification_config['source_image_path'] = source_image_path
+                print(f"[@lib:verification_executor:_execute_single_verification] Converted URL to local path: {image_source_url} -> {source_image_path}")
             
-            print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing image_source_url to controller: {image_source_url}")
+            print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing source_image_path to controller: {verification_config.get('source_image_path')}")
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
             
             # Set context on controller so helpers can access it (for motion image collection)
