@@ -207,7 +207,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                   }}
                 >
                   {options.map((option: string) => (
-                    <MenuItem key={option} value={option}>
+                    <MenuItem key={option} value={option} sx={{ fontSize: '0.75rem' }}>
                       {option}
                     </MenuItem>
                   ))}
