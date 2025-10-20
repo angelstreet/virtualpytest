@@ -188,11 +188,11 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           if (options && Array.isArray(options) && options.length > 0) {
             // Render dropdown/select
             fields.push(
-              <FormControl key="key" size="small" sx={{ width: 180 }}>
+              <FormControl key="key" size="small" sx={{ width: 150 }}>
                 <InputLabel>Key</InputLabel>
                 <Select
-                  value={params?.key || ''}
-                  onChange={(e) => handleParamChange('key', e.target.value)}
+                  value={getParamValue('key') || ''}
+                  onChange={(e) => safeHandleParamChange('key', e.target.value)}
                   label="Key"
                   sx={{
                     '& .MuiSelect-select': {
@@ -216,11 +216,11 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 key="key"
                 label="Key"
                 size="small"
-                value={params?.key || ''}
-                onChange={(e) => handleParamChange('key', e.target.value)}
+                value={getParamValue('key') || ''}
+                onChange={(e) => safeHandleParamChange('key', e.target.value)}
                 placeholder={placeholder}
                 sx={{
-                  width: 180,
+                  width: 150,
                   '& .MuiInputBase-input': {
                     padding: '3px 6px',
                     fontSize: '0.75rem',

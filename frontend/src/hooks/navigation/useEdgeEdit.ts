@@ -44,8 +44,18 @@ export const useEdgeEdit = ({
 
   // Initialize actions when dialog opens - FIXED: Support both unidirectional (1 action set) and bidirectional (2 action sets)
   useEffect(() => {
+    console.log('[@useEdgeEdit] useEffect triggered:', { 
+      isOpen, 
+      isUserEdit: isUserEditRef.current,
+      edgeId: edgeForm?.edgeId,
+      prevEdgeId: prevEdgeIdRef.current,
+      direction: edgeForm?.direction,
+      actionSetsLength: edgeForm?.action_sets?.length
+    });
+    
     // Skip reload if this is a user edit (not a new edge or direction change)
     if (isUserEditRef.current) {
+      console.log('[@useEdgeEdit] Skipping reload - user edit in progress');
       isUserEditRef.current = false;
       return;
     }
@@ -53,6 +63,7 @@ export const useEdgeEdit = ({
     // Detect edge change
     const currentEdgeId = edgeForm?.edgeId;
     if (currentEdgeId && prevEdgeIdRef.current !== currentEdgeId) {
+      console.log('[@useEdgeEdit] Edge changed:', { from: prevEdgeIdRef.current, to: currentEdgeId });
       prevEdgeIdRef.current = currentEdgeId;
       // Continue to load - new edge selected
     }
@@ -124,11 +135,13 @@ export const useEdgeEdit = ({
   // Handle actions change - SIMPLIFIED DIRECTION-BASED
   const handleActionsChange = useCallback(
     (newActions: Action[]) => {
+      console.log('[@useEdgeEdit:handleActionsChange] Called with actions:', newActions.length);
       if (!edgeForm) return;
 
       setLocalActions(newActions);
       
       // Mark as user edit to prevent reload loop
+      console.log('[@useEdgeEdit:handleActionsChange] Setting isUserEditRef = true');
       isUserEditRef.current = true;
       
       // Simple direction-based index selection
@@ -143,6 +156,7 @@ export const useEdgeEdit = ({
         };
       }
       
+      console.log('[@useEdgeEdit:handleActionsChange] Updating edgeForm, isUserEditRef =', isUserEditRef.current);
       setEdgeForm({
         ...edgeForm,
         action_sets: updatedActionSets,

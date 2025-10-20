@@ -84,6 +84,7 @@ const RunTests: React.FC = () => {
   const [selectedUserinterface, setSelectedUserinterface] = useState<string>(''); // Framework-level parameter
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
+  const [scriptInfo, setScriptInfo] = useState<{ [key: string]: { requires_ui: boolean } }>({});
 
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
@@ -247,6 +248,11 @@ const RunTests: React.FC = () => {
             setSelectedScript(data.scripts[0]);
           }
           
+          // Store script info
+          if (data.script_info) {
+            setScriptInfo(data.script_info);
+          }
+
           console.log('[@RunTests] Scripts loaded successfully:', data.scripts.length);
         } else {
           showError('Failed to load available scripts');
@@ -749,17 +755,19 @@ const RunTests: React.FC = () => {
                       </FormControl>
                     </Box>
 
-                    {/* Userinterface - Framework parameter (like host/device) */}
-                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
-                      <UserinterfaceSelector
-                        deviceModel={getPrimaryDeviceModel()}
-                        value={selectedUserinterface}
-                        onChange={setSelectedUserinterface}
-                        label="Userinterface"
-                        size="small"
-                        fullWidth
-                      />
-                    </Box>
+                    {/* Conditional Userinterface */}
+                    {scriptInfo[selectedScript]?.requires_ui && (
+                      <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
+                        <UserinterfaceSelector
+                          deviceModel={getPrimaryDeviceModel()}
+                          value={selectedUserinterface}
+                          onChange={setSelectedUserinterface}
+                          label="Userinterface"
+                          size="small"
+                          fullWidth
+                        />
+                      </Box>
+                    )}
 
                     {/* Parameters on the same row */}
                     {displayParameters.length > 0 &&
@@ -928,7 +936,7 @@ const RunTests: React.FC = () => {
                         isExecuting ||  // EXECUTION LOCK: Prevent new executions while any are running
                         ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||  // Need at least one device
                         !selectedScript ||
-                        !selectedUserinterface ||  // Framework parameter required
+                        (scriptInfo[selectedScript]?.requires_ui && !selectedUserinterface) ||  // Require userinterface only if needed
                         loadingScripts ||
                         !validateParameters().valid
                       }
