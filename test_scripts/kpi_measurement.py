@@ -170,7 +170,7 @@ def capture_kpi_summary(context, userinterface_name: str, edge_label: str, from_
     return "\n".join(lines)
 
 
-@script("kpi_measurement", "Measure KPIs for specific navigation edge")
+@script("kpi_measurement", "Measure KPIs for specific navigation edge", requires_ui=True)
 def main():
     """Main KPI measurement function - simple navigation + DB fetch"""
     args = get_args()

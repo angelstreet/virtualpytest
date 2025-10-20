@@ -39,7 +39,7 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
     zap_executor = ZapExecutor(device, args.userinterface_name)
     return zap_executor.execute_zap_iterations(action, max_iteration, goto_live, audio_analysis)
 
-@script("fullzap", "Execute zap iterations with analysis")
+@script("fullzap", "Execute zap iterations with analysis", requires_ui=True)
 def main():
     args = get_args()
     context = get_context()

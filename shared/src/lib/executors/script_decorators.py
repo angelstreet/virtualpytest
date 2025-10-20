@@ -12,11 +12,20 @@ from .script_executor import ScriptExecutor, handle_keyboard_interrupt, handle_u
 _current_context = None
 _current_executor = None
 
-def script(name: str, description: str):
+def script(name: str, description: str, requires_ui: bool = False):
     """
     Decorator that handles all script infrastructure automatically
     
-    @script("goto_live", "Navigate to live node")
+    Args:
+        name: Script name
+        description: Script description
+        requires_ui: Whether script needs UI/navigation (default: False)
+    
+    @script("dns_lookuptime", "Perform DNS lookup")
+    def main():
+        perform_dns_lookup()
+    
+    @script("goto_live", "Navigate to live node", requires_ui=True)
     def main():
         navigate_to("live")
     """
@@ -27,7 +36,7 @@ def script(name: str, description: str):
             
             # Setup everything automatically
             executor = ScriptExecutor(name, description)
-            parser = executor.create_argument_parser()
+            parser = executor.create_argument_parser(requires_ui=requires_ui)
             
             # Add script-specific arguments from function attribute
             # Check both the original function and the wrapper (since _script_args is set after decoration)
@@ -69,10 +78,11 @@ def script(name: str, description: str):
                                            help=f'{arg_name.replace("--", "").replace("_", " ").title()} (default: {default_value})')
             
             args = parser.parse_args()
-            context = executor.setup_execution_context(args, enable_db_tracking=True)
+            context = executor.setup_execution_context(args, enable_db_tracking=True, requires_ui=requires_ui)
             
             if context.error_message:
-                executor.cleanup_and_exit(context, args.userinterface_name)
+                userinterface = args.userinterface_name if requires_ui else None
+                executor.cleanup_and_exit(context, userinterface)
                 return
             
             # Set global context for helper functions
@@ -93,7 +103,8 @@ def script(name: str, description: str):
             except Exception as e:
                 handle_unexpected_error(name, e)
             finally:
-                executor.cleanup_and_exit(context, args.userinterface_name)
+                userinterface = args.userinterface_name if requires_ui else None
+                executor.cleanup_and_exit(context, userinterface)
                 _current_context = None
                 _current_executor = None
         

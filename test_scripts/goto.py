@@ -52,7 +52,7 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("goto", "Navigate to specified node")
+@script("goto", "Navigate to specified node", requires_ui=True)
 def main():
     """Main navigation function to goto specified node"""
     args = get_args()

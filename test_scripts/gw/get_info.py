@@ -268,7 +268,7 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("get_info", "Navigate to info node and extract device information")
+@script("get_info", "Navigate to info node and extract device information", requires_ui=True)
 def main():
     """Main function: navigate to info node, extract device info, and store in metadata"""
     args = get_args()

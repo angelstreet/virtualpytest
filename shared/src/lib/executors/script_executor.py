@@ -720,13 +720,14 @@ class ScriptExecutor:
     # CONTEXT PREPARATION METHODS (from script_utils.py)
     # =====================================================
     
-    def create_argument_parser(self, additional_args: List[Dict] = None) -> argparse.ArgumentParser:
+    def create_argument_parser(self, additional_args: List[Dict] = None, requires_ui: bool = False) -> argparse.ArgumentParser:
         """Create standard argument parser with optional additional arguments"""
         parser = argparse.ArgumentParser(description=self.description)
         
-        # Standard arguments for all scripts
-        parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile',
-                          help='Name of the userinterface to use (default: horizon_android_mobile)')
+        # Standard arguments - userinterface only for UI scripts
+        if requires_ui:
+            parser.add_argument('userinterface_name', nargs='?', default='horizon_android_mobile',
+                              help='Name of the userinterface to use (default: horizon_android_mobile)')
         parser.add_argument('--host', help='Specific host to use (default: sunri-pi1)')
         parser.add_argument('--device', help='Specific device to use (default: device1)')
         
@@ -737,17 +738,20 @@ class ScriptExecutor:
         
         return parser
     
-    def setup_execution_context(self, args, enable_db_tracking: bool = False) -> ScriptExecutionContext:
+    def setup_execution_context(self, args, enable_db_tracking: bool = False, requires_ui: bool = False) -> ScriptExecutionContext:
         """Setup execution context with infrastructure components - NO DEVICE LOCKING"""
         context = ScriptExecutionContext(self.script_name)
         
-        # Store userinterface_name for reference resolution
-        context.userinterface_name = args.userinterface_name
+        # Store userinterface_name for reference resolution (only if UI is required)
+        context.userinterface_name = getattr(args, 'userinterface_name', None) if requires_ui else None
         
         # Start capturing stdout for log upload
         context.start_stdout_capture()
         
-        print(f"🎯 [{self.script_name}] Starting execution for: {args.userinterface_name}")
+        if context.userinterface_name:
+            print(f"🎯 [{self.script_name}] Starting execution for: {context.userinterface_name}")
+        else:
+            print(f"🎯 [{self.script_name}] Starting execution (no UI required)")
         
         try:
             # 1. Load environment variables first

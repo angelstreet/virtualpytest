@@ -212,7 +212,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
     return context.overall_success
 
 
-@script("validation", "Validate navigation tree transitions")
+@script("validation", "Validate navigation tree transitions", requires_ui=True)
 def main():
     """Main validation function - simple and clean"""
     context = get_context()

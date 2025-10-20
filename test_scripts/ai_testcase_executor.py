@@ -113,7 +113,7 @@ def execute_ai_test_case(test_case_id: str, team_id: str) -> bool:
         print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
         return False
 
-@script("ai_testcase", "Execute AI-generated test case")
+@script("ai_testcase", "Execute AI-generated test case", requires_ui=True)
 def main():
     """Main execution function"""
     # Extract test case ID from script name (passed via environment)

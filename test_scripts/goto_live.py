@@ -55,7 +55,7 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("goto_live", "Navigate to live node")
+@script("goto_live", "Navigate to live node", requires_ui=True)
 def main():
     """Main navigation function to goto live"""
     context = get_context()
