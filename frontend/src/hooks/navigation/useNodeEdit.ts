@@ -41,6 +41,7 @@ export const useNodeEdit = ({
   // Verification hook for managing verifications
   const verification = useVerification({
     captureSourcePath: undefined,
+    userinterfaceName: referenceKey,  // Pass userinterface name for reference resolution
   });
 
   // Local state for dialog-specific concerns
