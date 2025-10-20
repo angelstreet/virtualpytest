@@ -425,9 +425,30 @@ class VerificationExecutor:
             if image_source_url:
                 # Convert HTTPS URL to local file path
                 from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
-                source_image_path = convertHostUrlToLocalPath(image_source_url)
-                verification_config['source_image_path'] = source_image_path
-                print(f"[@lib:verification_executor:_execute_single_verification] Converted URL to local path: {image_source_url} -> {source_image_path}")
+                
+                # Handle comma-separated paths (for multiple images in subtitle/audio detection)
+                if isinstance(image_source_url, str) and ',' in image_source_url:
+                    # Split comma-separated paths and convert each
+                    paths = [path.strip() for path in image_source_url.split(',')]
+                    converted_paths = []
+                    for path in paths:
+                        try:
+                            converted_path = convertHostUrlToLocalPath(path)
+                            converted_paths.append(converted_path)
+                        except Exception as e:
+                            print(f"[@lib:verification_executor:_execute_single_verification] Warning: Failed to convert path {path}: {e}")
+                    
+                    if converted_paths:
+                        source_image_path = ','.join(converted_paths)
+                        verification_config['source_image_path'] = source_image_path
+                        print(f"[@lib:verification_executor:_execute_single_verification] Converted {len(converted_paths)} paths to local paths")
+                    else:
+                        print(f"[@lib:verification_executor:_execute_single_verification] Warning: No paths could be converted")
+                else:
+                    # Single path
+                    source_image_path = convertHostUrlToLocalPath(image_source_url)
+                    verification_config['source_image_path'] = source_image_path
+                    print(f"[@lib:verification_executor:_execute_single_verification] Converted URL to local path: {image_source_url} -> {source_image_path}")
             
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing source_image_path to controller: {verification_config.get('source_image_path')}")
             print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
