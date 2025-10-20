@@ -206,8 +206,8 @@ export const RecStreamModalHeader: React.FC<RecStreamModalHeaderProps> = ({
           </ToggleButtonGroup>
         )}
 
-        {/* Quality Toggle Button Group */}
-        {!restartMode && (
+        {/* Quality Toggle Button Group - Hidden for VNC/Desktop devices */}
+        {!restartMode && !isDesktopDevice && (
           <ToggleButtonGroup
             value={currentQuality}
             exclusive
