@@ -341,6 +341,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
                 inputLabel: action.inputLabel,
                 inputPlaceholder: action.inputPlaceholder,
                 verification_type: action.verification_type,
+                options: action.options, // Include options array for combobox support
               };
               
               categorizedActions[category].push(processedAction);
