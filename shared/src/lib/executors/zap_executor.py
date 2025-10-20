@@ -118,13 +118,21 @@ class ZapExecutor:
     def _get_sequential_images(self, latest_path: str, count: int) -> str:
         """Get sequential capture images: current, -1, -2, etc."""
         import re
+        import os
         match = re.search(r'capture_(\d+)\.jpg', latest_path)
         if not match:
             return latest_path
         
         num = int(match.group(1))
-        base = latest_path.replace(f'capture_{num}.jpg', '')
-        paths = [f"{base}capture_{num-i}.jpg" for i in range(count)]
+        # Extract directory and filename pattern correctly
+        dir_path = os.path.dirname(latest_path)
+        # Get the zero-padded width from the matched string
+        matched_str = match.group(0)  # e.g., 'capture_000939633.jpg'
+        num_str = match.group(1)  # e.g., '000939633'
+        zero_padding = len(num_str)
+        
+        # Generate paths with proper zero padding
+        paths = [os.path.join(dir_path, f"capture_{(num-i):0{zero_padding}d}.jpg") for i in range(count)]
         return ','.join(paths)
     
     def _detect_motion_from_json(self, context) -> Dict[str, Any]:
