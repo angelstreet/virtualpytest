@@ -1798,10 +1798,11 @@ class PlaywrightWebController(WebControllerInterface):
                     'command': 'press_key',
                     'action_type': 'web',
                     'params': {},
-                    'description': 'Press keyboard key - Valid keys: BACK, ESC, OK, ENTER, HOME, END, UP, DOWN, LEFT, RIGHT, TAB, SPACE, DELETE, BACKSPACE, F1-F12',
+                    'description': 'Press keyboard key',
                     'requiresInput': True,
-                    'inputLabel': 'Key (BACK/ESC/OK/ENTER/UP/DOWN/LEFT/RIGHT/HOME/END/TAB/SPACE/DELETE/F1-F12)',
-                    'inputPlaceholder': 'UP'
+                    'inputLabel': 'Key',
+                    'inputPlaceholder': 'UP',
+                    'options': ['BACK', 'ESC', 'ESCAPE', 'OK', 'ENTER', 'HOME', 'END', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'TAB', 'SPACE', 'DELETE', 'BACKSPACE', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12']
                 },
                 {
                     'id': 'press_key_back',

@@ -173,23 +173,53 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             ? "e.g., BACK, OK, ESCAPE" 
             : "e.g., UP, DOWN, HOME, BACK";
           
-          fields.push(
-            <TextField
-              key="key"
-              label="Key"
-              size="small"
-              value={params?.key || ''}
-              onChange={(e) => handleParamChange('key', e.target.value)}
-              placeholder={placeholder}
-              sx={{
-                width: 180,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
-          );
+          // Check if action definition has options array for dropdown
+          const options = (currentActionDef as any)?.options;
+          
+          if (options && Array.isArray(options) && options.length > 0) {
+            // Render dropdown/select
+            fields.push(
+              <FormControl key="key" size="small" sx={{ width: 180 }}>
+                <InputLabel>Key</InputLabel>
+                <Select
+                  value={params?.key || ''}
+                  onChange={(e) => handleParamChange('key', e.target.value)}
+                  label="Key"
+                  sx={{
+                    '& .MuiSelect-select': {
+                      padding: '3px 6px',
+                      fontSize: '0.75rem',
+                    },
+                  }}
+                >
+                  {options.map((option: string) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            );
+          } else {
+            // Render text input (fallback)
+            fields.push(
+              <TextField
+                key="key"
+                label="Key"
+                size="small"
+                value={params?.key || ''}
+                onChange={(e) => handleParamChange('key', e.target.value)}
+                placeholder={placeholder}
+                sx={{
+                  width: 180,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />,
+            );
+          }
         }
         break;
 
@@ -1144,23 +1174,53 @@ export const ActionItem: React.FC<ActionItemProps> = ({
 
       case 'execute_pyautogui_keypress':
         if (currentActionDef?.requiresInput) {
-          fields.push(
-            <TextField
-              key="key"
-              label="Key"
-              size="small"
-              value={getParamValue('key') || ''}
-              onChange={(e) => safeHandleParamChange('key', e.target.value)}
-              placeholder="enter, space, tab, ctrl"
-              sx={{
-                width: 150,
-                '& .MuiInputBase-input': {
-                  padding: '3px 6px',
-                  fontSize: '0.75rem',
-                },
-              }}
-            />,
-          );
+          // Check if action definition has options array for dropdown
+          const options = (currentActionDef as any)?.options;
+          
+          if (options && Array.isArray(options) && options.length > 0) {
+            // Render dropdown/select
+            fields.push(
+              <FormControl key="key" size="small" sx={{ width: 150 }}>
+                <InputLabel>Key</InputLabel>
+                <Select
+                  value={getParamValue('key') || ''}
+                  onChange={(e) => safeHandleParamChange('key', e.target.value)}
+                  label="Key"
+                  sx={{
+                    '& .MuiSelect-select': {
+                      padding: '3px 6px',
+                      fontSize: '0.75rem',
+                    },
+                  }}
+                >
+                  {options.map((option: string) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            );
+          } else {
+            // Render text input (fallback)
+            fields.push(
+              <TextField
+                key="key"
+                label="Key"
+                size="small"
+                value={getParamValue('key') || ''}
+                onChange={(e) => safeHandleParamChange('key', e.target.value)}
+                placeholder="enter, space, tab, ctrl"
+                sx={{
+                  width: 150,
+                  '& .MuiInputBase-input': {
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                  },
+                }}
+              />
+            );
+          }
         }
         break;
 
