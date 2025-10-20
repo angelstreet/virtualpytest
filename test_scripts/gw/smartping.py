@@ -252,13 +252,33 @@ def run_udp_ping(host: str, port: int, count: int, timeout: int = 3) -> Dict:
 def run_traceroute(host: str, protocol: str, max_hops: int = 30) -> Dict:
     """Run traceroute to map network path"""
     try:
+        # Find traceroute command (may be in /usr/sbin or /usr/bin)
+        traceroute_cmd = None
+        for path in ['/usr/sbin/traceroute', '/usr/bin/traceroute', 'traceroute']:
+            try:
+                result = subprocess.run(['which', path] if path == 'traceroute' else ['test', '-f', path], 
+                                       capture_output=True, timeout=1)
+                if result.returncode == 0 or os.path.exists(path):
+                    traceroute_cmd = path
+                    break
+            except:
+                continue
+        
+        if not traceroute_cmd:
+            return {
+                'success': False,
+                'error': 'traceroute command not found. Install with: sudo apt-get install traceroute',
+                'hops': [],
+                'hop_count': 0
+            }
+        
         # Build traceroute command based on protocol
         if protocol == 'tcp':
-            cmd = ['traceroute', '-T', '-m', str(max_hops), '-q', '1', host]
+            cmd = [traceroute_cmd, '-T', '-m', str(max_hops), '-q', '1', host]
         elif protocol == 'udp':
-            cmd = ['traceroute', '-U', '-m', str(max_hops), '-q', '1', host]
+            cmd = [traceroute_cmd, '-U', '-m', str(max_hops), '-q', '1', host]
         else:  # icmp (default)
-            cmd = ['traceroute', '-I', '-m', str(max_hops), '-q', '1', host]
+            cmd = [traceroute_cmd, '-I', '-m', str(max_hops), '-q', '1', host]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=max_hops * 2 + 10)
         output = result.stdout

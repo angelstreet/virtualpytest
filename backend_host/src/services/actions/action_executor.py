@@ -486,10 +486,13 @@ class ActionExecutor:
                     command = action.get('command', '')
                     bash_commands = {'execute_bash_command'}
                     
+                    # Get all desktop controllers and find the right one by implementation
+                    desktop_controllers = self.device.get_controllers('desktop')
+                    
                     if command in bash_commands:
-                        # Use bash desktop controller
-                        bash_controller = self.device._get_controller('desktop')  # Gets first desktop controller
-                        if bash_controller and hasattr(bash_controller, 'execute_bash_command'):
+                        # Use bash desktop controller - find it by desktop_type attribute
+                        bash_controller = next((c for c in desktop_controllers if hasattr(c, 'desktop_type') and c.desktop_type == 'bash'), None)
+                        if bash_controller:
                             response_data = bash_controller.execute_command(
                                 command=request_data['command'],
                                 params=request_data['params']
@@ -499,16 +502,16 @@ class ActionExecutor:
                             response_data = {'success': False, 'error': 'Bash desktop controller not available'}
                             status_code = 500
                     else:
-                        # Use pyautogui desktop controller (default)
-                        desktop_controller = self.device._get_controller('desktop')
-                        if desktop_controller:
-                            response_data = desktop_controller.execute_command(
+                        # Use pyautogui desktop controller (default) - find it by desktop_type attribute
+                        pyautogui_controller = next((c for c in desktop_controllers if hasattr(c, 'desktop_type') and c.desktop_type == 'pyautogui'), None)
+                        if pyautogui_controller:
+                            response_data = pyautogui_controller.execute_command(
                                 command=request_data['command'],
                                 params=request_data['params']
                             )
                             status_code = 200 if response_data.get('success', False) else 500
                         else:
-                            response_data = {'success': False, 'error': 'Desktop controller not available'}
+                            response_data = {'success': False, 'error': 'PyAutoGUI desktop controller not available'}
                             status_code = 500
                             
                 else:

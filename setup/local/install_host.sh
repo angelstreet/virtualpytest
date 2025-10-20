@@ -38,12 +38,13 @@ echo "📚 Shared library will be used via direct imports..."
 # Skip backend_host installation - using direct imports instead
 echo "⚙️ Backend_core will be used via direct imports..."
 
-# Install system dependencies for IR remote control and desktop environment
-echo "🔧 Installing IR remote control tools and XFCE4 desktop environment..."
+# Install system dependencies for IR remote control, network tools, and desktop environment
+echo "🔧 Installing IR remote control tools, network utilities, and XFCE4 desktop environment..."
 sudo apt-get update
-sudo apt-get install -y lirc v4l-utils xfce4 xfce4-goodies
+sudo apt-get install -y lirc v4l-utils xfce4 xfce4-goodies traceroute
 echo "✅ IR tools installed - ir-ctl and lircd commands available"
 echo "💡 Commands: ir-ctl --send <file>, ir-ctl --read, and lircd"
+echo "✅ Network tools installed - traceroute command available"
 echo "✅ XFCE4 desktop environment installed"
 
 # Configure LIRC for IR remote control

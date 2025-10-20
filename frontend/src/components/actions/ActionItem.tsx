@@ -1464,14 +1464,19 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           <InputLabel>Action</InputLabel>
           <Select
             value={
-              // Match by command and params for press_key actions, or just command for others
+              // Match by command only for actions with options (combobox), or by command+params for predefined actions
               action.command &&
               Object.values(availableActions)
                 .flat()
                 .find((act) => {
                   if (act.command !== action.command) return false;
                   
-                  // For press_key actions, also match the key parameter
+                  // If action has options (combobox), match by command only - params are user-filled
+                  if ((act as any).options && Array.isArray((act as any).options) && (act as any).options.length > 0) {
+                    return true;
+                  }
+                  
+                  // For press_key actions without options (predefined), match the key parameter
                   if (action.command === 'press_key' && action.params && act.params) {
                     return (action.params as any).key === (act.params as any).key;
                   }
