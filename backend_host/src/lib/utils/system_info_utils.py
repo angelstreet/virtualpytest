@@ -224,13 +224,25 @@ def get_network_speed_cached(skip_if_no_cache=False):
                 
                 age = time.time() - cache['timestamp']
                 if age < CACHE_DURATION:
-                    # Cache valid - reuse
-                    return {
-                        'download_mbps': cache['download_mbps'],
-                        'upload_mbps': cache['upload_mbps'],
-                        'speedtest_last_run': datetime.fromtimestamp(cache['timestamp'], tz=timezone.utc).isoformat(),
-                        'speedtest_age_seconds': int(age)
-                    }
+                    # Validate cached data - skip if invalid
+                    download = cache.get('download_mbps')
+                    upload = cache.get('upload_mbps')
+                    
+                    if download is None or download == 0 or upload is None or upload == 0:
+                        print("⚠️ [SPEEDTEST] Cached data is invalid (0 or None) - will rerun test")
+                        try:
+                            os.remove(SPEEDTEST_CACHE)
+                        except:
+                            pass
+                        # Continue to run new test below
+                    else:
+                        # Cache valid with good data - reuse
+                        return {
+                            'download_mbps': download,
+                            'upload_mbps': upload,
+                            'speedtest_last_run': datetime.fromtimestamp(cache['timestamp'], tz=timezone.utc).isoformat(),
+                            'speedtest_age_seconds': int(age)
+                        }
             except (json.JSONDecodeError, KeyError) as cache_error:
                 # Cache corrupted - delete and regenerate
                 print(f"⚠️ [SPEEDTEST] Corrupted cache detected: {cache_error} - regenerating...")
@@ -246,6 +258,11 @@ def get_network_speed_cached(skip_if_no_cache=False):
         
         # Cache expired, missing, or corrupted - run test
         result = measure_network_speed()
+        
+        # Skip saving/returning if speedtest failed (returns None/0 values)
+        if not result or result.get('download_mbps') is None or result.get('download_mbps') == 0:
+            print("⚠️ [SPEEDTEST] Test failed - skipping cache and metrics storage")
+            return {}
         
         # Save to shared cache with file locking
         with open(SPEEDTEST_CACHE, 'w') as f:
@@ -308,8 +325,8 @@ def measure_network_speed():
         else:
             print(f"❌ [SPEEDTEST] Failed: {e}")
         
-        # Return zeros on failure (graceful degradation)
-        return {'download_mbps': 0, 'upload_mbps': 0}
+        # Return None on failure to avoid polluting metrics with false zeros
+        return {'download_mbps': None, 'upload_mbps': None}
 
 def get_capture_folder_size(capture_folder: str) -> str:
     """Get disk usage for a single capture folder"""
