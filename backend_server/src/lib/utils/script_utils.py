@@ -39,7 +39,7 @@ def get_scripts_directory() -> str:
 
 
 def get_script_path(script_name: str) -> str:
-    """Get full path to a script file"""
+    """Get full path to a script file (supports subfolder paths like 'gw/get_info')"""
     scripts_dir = get_scripts_directory()
     
     # Handle script names that already have .py extension
@@ -55,24 +55,42 @@ def get_script_path(script_name: str) -> str:
 
 
 def list_available_scripts() -> list:
-    """List all available Python scripts in the scripts directory"""
+    """List all available Python scripts in the scripts directory (supports depth 1 subfolders)"""
     scripts_dir = get_scripts_directory()
     
     if not os.path.exists(scripts_dir):
         return []
     
-    # Find all Python files in the scripts directory
-    script_pattern = os.path.join(scripts_dir, '*.py')
-    script_files = glob.glob(script_pattern)
-    
-    # Extract just the filenames without path and extension
     available_scripts = []
-    for script_file in script_files:
+    
+    # Find all Python files in the root scripts directory
+    root_pattern = os.path.join(scripts_dir, '*.py')
+    root_files = glob.glob(root_pattern)
+    
+    for script_file in root_files:
         filename = os.path.basename(script_file)
         script_name = os.path.splitext(filename)[0]  # Remove .py extension
         
         # Hide internal AI executor script from user interface
         if script_name == 'ai_testcase_executor':
+            continue
+            
+        available_scripts.append(script_name)
+    
+    # Find all Python files in subdirectories (depth 1 only)
+    subfolder_pattern = os.path.join(scripts_dir, '*', '*.py')
+    subfolder_files = glob.glob(subfolder_pattern)
+    
+    for script_file in subfolder_files:
+        # Get relative path from scripts_dir
+        rel_path = os.path.relpath(script_file, scripts_dir)
+        # Remove .py extension
+        script_name = os.path.splitext(rel_path)[0]
+        # Replace backslashes with forward slashes for Windows compatibility
+        script_name = script_name.replace('\\', '/')
+        
+        # Hide __pycache__ and other special directories
+        if '__pycache__' in script_name or script_name.startswith('.'):
             continue
             
         available_scripts.append(script_name)

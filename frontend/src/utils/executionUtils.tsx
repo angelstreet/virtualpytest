@@ -13,7 +13,7 @@ export const getLogsUrl = (reportUrl: string): string => {
   return reportUrl.replace('script-reports', 'script-logs').replace('report.html', 'execution.txt');
 };
 
-// Helper function to get display name for scripts (especially AI test cases)
+// Helper function to get display name for scripts (especially AI test cases and subfolder scripts)
 export const getScriptDisplayName = (scriptName: string, aiTestCasesInfo?: any[]): string => {
   if (scriptName.startsWith('ai_testcase_')) {
     const aiInfo = aiTestCasesInfo?.find(info => info.script_name === scriptName);
@@ -24,6 +24,7 @@ export const getScriptDisplayName = (scriptName: string, aiTestCasesInfo?: any[]
     }
     return scriptName.replace('ai_testcase_', '').substring(0, 8) + '...';
   }
+  // For subfolder scripts (e.g., "gw/get_info"), keep the path as-is for clarity
   return scriptName;
 };
 
