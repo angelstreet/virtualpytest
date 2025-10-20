@@ -185,6 +185,9 @@ const Deployments: React.FC = () => {
   // userinterface_name is shown inline if script declares it
   const FRAMEWORK_PARAMS = ['host', 'device'];
   const displayParameters = scriptAnalysis?.parameters.filter(p => !FRAMEWORK_PARAMS.includes(p.name)) || [];
+  
+  // Check if script declares userinterface_name parameter
+  const scriptDeclaresUserinterface = scriptAnalysis?.parameters.some(p => p.name === 'userinterface_name');
 
   useEffect(() => {
     loadScripts();
@@ -235,7 +238,11 @@ const Deployments: React.FC = () => {
     const allDevices: AdditionalDevice[] = [];
     
     // Add primary device if selected
-    if (selectedHost && selectedDevice && userinterfaceValue) {
+    // Only require userinterface if script declares it
+    const canAddPrimaryDevice = selectedHost && selectedDevice && 
+      (!scriptDeclaresUserinterface || userinterfaceValue);
+    
+    if (canAddPrimaryDevice) {
       allDevices.push({ 
         hostName: selectedHost, 
         deviceId: selectedDevice,
@@ -568,7 +575,7 @@ const Deployments: React.FC = () => {
                   {/* Add Device button - only show if more devices are available */}
                   {hasMoreDevicesAvailable() && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                      {selectedHost && selectedDevice && parameterValues['userinterface_name'] && (
+                      {selectedHost && selectedDevice && (!scriptDeclaresUserinterface || parameterValues['userinterface_name']) && (
                         <Button
                           variant="outlined"
                           startIcon={<Add />}
@@ -579,13 +586,13 @@ const Deployments: React.FC = () => {
                                 hostName: selectedHost, 
                                 deviceId: selectedDevice,
                                 deviceModel: deviceModel,
-                                userinterface: parameterValues['userinterface_name']
+                                userinterface: parameterValues['userinterface_name'] || ''
                               }]);
                               setSelectedHost('');
                               setSelectedDevice('');
                             }
                           }}
-                          disabled={!selectedHost || !selectedDevice || !parameterValues['userinterface_name']}
+                          disabled={!selectedHost || !selectedDevice || (scriptDeclaresUserinterface && !parameterValues['userinterface_name'])}
                           size="small"
                         >
                           Add Device
