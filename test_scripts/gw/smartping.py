@@ -552,6 +552,35 @@ def main():
     print(f"⏱️  Total Time: {ping_duration + trace_duration:.2f}s")
     print(f"{'='*80}\n")
     
+    # Build traceroute path summary for execution summary
+    path_summary = ""
+    hops = trace_data.get('hops', [])
+    if hops and len(hops) > 0:
+        path_summary = "\n🛤️  Network Path:\n"
+        
+        # Show first hop (gateway)
+        if len(hops) > 0:
+            first_hop = hops[0]
+            delay_str = f"{first_hop.get('delay_ms', 0):.1f}ms" if first_hop.get('delay_ms') else "* ms"
+            path_summary += f"   1. {first_hop.get('hostname', 'unknown'):20s} {delay_str:>8s}\n"
+        
+        # Show middle hops if path is long (condensed)
+        if len(hops) > 3:
+            path_summary += f"   ... ({len(hops) - 2} intermediate hops)\n"
+        elif len(hops) == 3:
+            # Show middle hop for 3-hop paths
+            mid_hop = hops[1]
+            delay_str = f"{mid_hop.get('delay_ms', 0):.1f}ms" if mid_hop.get('delay_ms') else "* ms"
+            path_summary += f"   {mid_hop.get('ttl', 2)}. {mid_hop.get('hostname', 'unknown'):20s} {delay_str:>8s}\n"
+        
+        # Show last hop (destination)
+        if len(hops) > 1:
+            last_hop = hops[-1]
+            delay_str = f"{last_hop.get('delay_ms', 0):.1f}ms" if last_hop.get('delay_ms') else "* ms"
+            path_summary += f"   {last_hop.get('ttl', len(hops))}. {last_hop.get('hostname', 'unknown'):20s} {delay_str:>8s}\n"
+    else:
+        path_summary = f"\n🛤️  Network Path: {trace_data.get('hop_count', 0)} hops\n"
+    
     # Set execution summary
     context.execution_summary = f"""🌐 SMARTPING ANALYSIS SUMMARY
 📱 Device: {device.device_name} ({device.device_model})
@@ -563,9 +592,7 @@ def main():
 📊 Status: {status_label}
 
 ⏱️  RTT: {rtt_stats.get('avg', 0):.2f} ms (±{rtt_stats.get('stddev', 0):.2f} ms jitter)
-📦 Packets: {ping_data.get('packets_received', 0)}/{ping_data.get('packets_transmitted', 0)} ({100 - ping_data.get('packet_loss_percent', 0):.1f}% success)
-🛤️  Network Path: {trace_data.get('hop_count', 0)} hops
-
+📦 Packets: {ping_data.get('packets_received', 0)}/{ping_data.get('packets_transmitted', 0)} ({100 - ping_data.get('packet_loss_percent', 0):.1f}% success){path_summary}
 🎯 Result: {status}"""
     
     context.overall_success = True
