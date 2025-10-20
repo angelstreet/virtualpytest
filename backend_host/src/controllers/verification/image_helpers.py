@@ -134,64 +134,33 @@ class ImageHelpers:
     
     def match_template_in_area(self, image_source_path: str, template_path: str, 
                               area: Dict[str, Any] = None, threshold: float = 0.8) -> Dict[str, Any]:
-        """
-        Template matching within a specific area of source image.
-        
-        Args:
-            image_source_path: Path to source image
-            template_path: Path to template image
-            area: Area to search within (optional, searches full image if None)
-            threshold: Matching threshold (0.0 to 1.0)
-            
-        Returns:
-            Dict with matching results
-        """
         try:
-            # Load images
             source_img = cv2.imread(image_source_path)
             template_img = cv2.imread(template_path)
             
             if source_img is None or template_img is None:
-                return {
-                    'found': False,
-                    'error': 'Failed to load images',
-                    'confidence': 0.0
-                }
+                return {'found': False, 'error': 'Failed to load images', 'confidence': 0.0}
             
-            # Use full image if no area specified
             if area:
-                x = int(area['x'])
-                y = int(area['y'])
-                width = int(area['width'])
-                height = int(area['height'])
+                x, y = int(area['x']), int(area['y'])
+                width, height = int(area['width']), int(area['height'])
                 
-                # Validate bounds
                 src_height, src_width = source_img.shape[:2]
                 if x < 0 or y < 0 or x + width > src_width or y + height > src_height:
-                    return {
-                        'found': False,
-                        'error': 'Search area out of bounds',
-                        'confidence': 0.0
-                    }
+                    return {'found': False, 'error': 'Search area out of bounds', 'confidence': 0.0}
                 
-                # Crop search area
                 search_area = source_img[y:y+height, x:x+width]
                 offset_x, offset_y = x, y
             else:
                 search_area = source_img
                 offset_x, offset_y = 0, 0
             
-            # Perform template matching
             result = cv2.matchTemplate(search_area, template_img, cv2.TM_CCOEFF_NORMED)
-            
-            # Find best match location
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
             
-            # Check if match exceeds threshold
             found = max_val >= threshold
             
             if found:
-                # Calculate absolute coordinates
                 match_x = offset_x + max_loc[0]
                 match_y = offset_y + max_loc[1]
                 template_height, template_width = template_img.shape[:2]
@@ -211,18 +180,76 @@ class ImageHelpers:
                     }
                 }
             else:
-                return {
-                    'found': False,
-                    'confidence': float(max_val),
-                    'threshold': threshold
-                }
+                return {'found': False, 'confidence': float(max_val), 'threshold': threshold}
                 
         except Exception as e:
-            return {
-                'found': False,
-                'error': f'Matching error: {str(e)}',
-                'confidence': 0.0
-            }
+            return {'found': False, 'error': f'Matching error: {str(e)}', 'confidence': 0.0}
+
+    def smart_fuzzy_search(self, source_img: np.ndarray, reference_img: np.ndarray, 
+                          exact_area: Dict[str, Any], fuzzy_area: Dict[str, Any], 
+                          threshold: float = 0.8) -> Tuple[bool, float, Optional[Dict[str, int]]]:
+        ref_h, ref_w = reference_img.shape[:2]
+        ex, ey = int(exact_area['x']), int(exact_area['y'])
+        ew, eh = int(exact_area['width']), int(exact_area['height'])
+        
+        # Step 1: Try exact position first
+        exact_region = source_img[ey:ey+eh, ex:ex+ew]
+        if exact_region.shape[:2] == (ref_h, ref_w):
+            result = cv2.matchTemplate(exact_region, reference_img, cv2.TM_CCOEFF_NORMED)
+            confidence = float(result[0][0])
+            if confidence >= threshold:
+                print(f"[@fuzzy] Exact match: {confidence:.3f}")
+                return True, confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
+        
+        # Step 2: Smart expanding search
+        exact_cx = ex + ew / 2
+        exact_cy = ey + eh / 2
+        
+        fx, fy = int(fuzzy_area['fx']), int(fuzzy_area['fy'])
+        fw, fh = int(fuzzy_area['fwidth']), int(fuzzy_area['fheight'])
+        
+        max_expansion = min(
+            exact_cx - fx,
+            (fx + fw) - exact_cx,
+            exact_cy - fy,
+            (fy + fh) - exact_cy
+        )
+        
+        best_confidence = confidence if 'confidence' in locals() else 0.0
+        best_location = None
+        
+        for expansion in [10, 20, 30, 40, 50, 75, 100, 150, 200]:
+            if expansion > max_expansion:
+                break
+            
+            roi_x1 = max(int(exact_cx - ref_w/2 - expansion), fx)
+            roi_y1 = max(int(exact_cy - ref_h/2 - expansion), fy)
+            roi_x2 = min(int(exact_cx + ref_w/2 + expansion), fx + fw)
+            roi_y2 = min(int(exact_cy + ref_h/2 + expansion), fy + fh)
+            
+            search_region = source_img[roi_y1:roi_y2, roi_x1:roi_x2]
+            
+            if search_region.shape[0] < ref_h or search_region.shape[1] < ref_w:
+                continue
+            
+            result = cv2.matchTemplate(search_region, reference_img, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            
+            if max_val > best_confidence:
+                best_confidence = max_val
+                best_location = {
+                    'x': roi_x1 + max_loc[0],
+                    'y': roi_y1 + max_loc[1],
+                    'width': ref_w,
+                    'height': ref_h
+                }
+            
+            if max_val >= threshold:
+                print(f"[@fuzzy] Match at +{expansion}px: {max_val:.3f}")
+                return True, max_val, best_location
+        
+        print(f"[@fuzzy] No match. Best: {best_confidence:.3f}")
+        return False, best_confidence, best_location
 
 
     # =============================================================================

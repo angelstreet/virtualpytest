@@ -911,19 +911,17 @@ class ImageVerificationController:
             return None, None
 
     def _match_template(self, ref_img, source_img, area: dict = None) -> float:
-        """
-        Perform template matching between reference and source images.
-        
-        Returns:
-            Threshold score (0.0 to 1.0)
-        """
         try:
-            # Crop source image to area if specified
+            if area and 'fx' in area and area.get('fx') is not None:
+                exact_area = {'x': area['x'], 'y': area['y'], 'width': area['width'], 'height': area['height']}
+                fuzzy_area = {'fx': area['fx'], 'fy': area['fy'], 'fwidth': area['fwidth'], 'fheight': area['fheight']}
+                found, confidence, location = self.helpers.smart_fuzzy_search(source_img, ref_img, exact_area, fuzzy_area, 0.0)
+                return confidence
+            
             if area:
                 x, y, w, h = int(area['x']), int(area['y']), int(area['width']), int(area['height'])
                 source_img = source_img[y:y+h, x:x+w]
             
-            # Perform standard template matching
             result = cv2.matchTemplate(source_img, ref_img, cv2.TM_CCOEFF_NORMED)
             _, max_val, _, _ = cv2.minMaxLoc(result)
             
