@@ -1,13 +1,15 @@
 """Deployment Scheduler - Manages periodic script execution with cron expressions"""
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from croniter import croniter
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 from shared.src.lib.executors.script_executor import ScriptExecutor
 from shared.src.lib.utils.storage_path_utils import get_running_log_path, get_capture_folder_from_device_id
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 import threading
 import os
+import json
 
 # Configure deployment logger
 deployment_logger = logging.getLogger('deployment_scheduler')
@@ -167,6 +169,155 @@ class DeploymentScheduler:
             print(f"[@deployment_scheduler] {error_msg}")
             deployment_logger.error(error_msg)
     
+    def _get_estimated_duration(self, script_name, device_id, deployment_id=None):
+        """Get estimated duration from deployment history or script_results
+        
+        Args:
+            script_name: Name of the script
+            device_id: Device identifier
+            deployment_id: Optional deployment ID to check its execution history first
+            
+        Returns:
+            float: Estimated duration in seconds
+        """
+        # Try deployment_executions first (more accurate per deployment)
+        if deployment_id:
+            try:
+                with self.db_lock:
+                    history = self.supabase.table('deployment_executions')\
+                        .select('started_at, completed_at')\
+                        .eq('deployment_id', deployment_id)\
+                        .in_('status', ['completed', 'failed'])\
+                        .not_.is_('started_at', 'null')\
+                        .not_.is_('completed_at', 'null')\
+                        .order('completed_at', desc=True)\
+                        .limit(100)\
+                        .execute()
+                    
+                    if history.data:
+                        durations = []
+                        for exec in history.data:
+                            try:
+                                started = datetime.fromisoformat(exec['started_at'].replace('Z', '+00:00'))
+                                completed = datetime.fromisoformat(exec['completed_at'].replace('Z', '+00:00'))
+                                duration_seconds = (completed - started).total_seconds()
+                                if duration_seconds > 0:
+                                    durations.append(duration_seconds)
+                            except Exception:
+                                continue
+                        
+                        if durations:
+                            avg = sum(durations) / len(durations)
+                            print(f"[@deployment_scheduler] Estimated duration from deployment history: {avg:.1f}s")
+                            return avg
+            except Exception as e:
+                print(f"[@deployment_scheduler] Failed to get deployment history: {e}")
+        
+        # Fallback: script_results for this script+device
+        try:
+            with self.db_lock:
+                results = self.supabase.table('script_results')\
+                    .select('execution_time_ms')\
+                    .eq('script_name', script_name)\
+                    .eq('device_name', device_id)\
+                    .gt('execution_time_ms', 0)\
+                    .order('started_at', desc=True)\
+                    .limit(100)\
+                    .execute()
+                
+                if results.data:
+                    avg_ms = sum(r['execution_time_ms'] for r in results.data) / len(results.data)
+                    avg_seconds = avg_ms / 1000.0
+                    print(f"[@deployment_scheduler] Estimated duration from script_results: {avg_seconds:.1f}s")
+                    return avg_seconds
+        except Exception as e:
+            print(f"[@deployment_scheduler] Failed to get script_results: {e}")
+        
+        # Default: 60 seconds
+        print(f"[@deployment_scheduler] No history found, using default duration: 60s")
+        return 60.0
+    
+    def _calculate_scheduled_today(self, deployment):
+        """Calculate today's scheduled execution times with estimated durations
+        
+        Args:
+            deployment: Deployment record with cron_expression, script_name, device_id
+            
+        Returns:
+            list: Array of dicts with 'start' and 'end' timestamps in ISO format
+        """
+        try:
+            cron_expr = deployment.get('cron_expression')
+            if not cron_expr:
+                return []
+            
+            # Get estimated duration
+            duration_seconds = self._get_estimated_duration(
+                deployment['script_name'],
+                deployment['device_id'],
+                deployment.get('id')
+            )
+            
+            # Generate today's scheduled times
+            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+            
+            schedule = []
+            iter = croniter(cron_expr, today_start)
+            
+            # Limit to reasonable number of executions per day
+            max_executions = 300  # Safety limit
+            count = 0
+            
+            while count < max_executions:
+                try:
+                    next_time = iter.get_next(datetime)
+                    if next_time >= today_end:
+                        break
+                    
+                    end_time = next_time + timedelta(seconds=duration_seconds)
+                    schedule.append({
+                        'start': next_time.isoformat(),
+                        'end': end_time.isoformat()
+                    })
+                    count += 1
+                except Exception as e:
+                    print(f"[@deployment_scheduler] Error generating schedule iteration: {e}")
+                    break
+            
+            print(f"[@deployment_scheduler] Generated {len(schedule)} scheduled times for today")
+            return schedule
+            
+        except Exception as e:
+            print(f"[@deployment_scheduler] Failed to calculate scheduled_today: {e}")
+            deployment_logger.error(f"Failed to calculate scheduled_today for {deployment.get('name', 'unknown')}: {e}")
+            return []
+    
+    def _update_scheduled_today(self, deployment_id):
+        """Update scheduled_today for a specific deployment"""
+        try:
+            # Fetch deployment
+            with self.db_lock:
+                result = self.supabase.table('deployments').select('*').eq('id', deployment_id).execute()
+            
+            if not result.data:
+                return
+            
+            deployment = result.data[0]
+            scheduled_today = self._calculate_scheduled_today(deployment)
+            
+            # Update deployment
+            with self.db_lock:
+                self.supabase.table('deployments').update({
+                    'scheduled_today': json.dumps(scheduled_today) if scheduled_today else None
+                }).eq('id', deployment_id).execute()
+            
+            print(f"[@deployment_scheduler] Updated scheduled_today for {deployment.get('name')}")
+            
+        except Exception as e:
+            print(f"[@deployment_scheduler] Failed to update scheduled_today: {e}")
+            deployment_logger.error(f"Failed to update scheduled_today for {deployment_id}: {e}")
+    
     def _add_job(self, deployment, log_details=False):
         """Add deployment to scheduler using cron expression"""
         cron_expr = deployment.get('cron_expression')
@@ -201,6 +352,9 @@ class DeploymentScheduler:
             id=deployment['id'],
             replace_existing=True
         )
+        
+        # Update scheduled_today when adding job
+        self._update_scheduled_today(deployment['id'])
         
         # Only log detailed info when adding individual deployments (not during sync)
         if log_details:
