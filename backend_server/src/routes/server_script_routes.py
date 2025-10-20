@@ -305,11 +305,11 @@ def list_scripts():
                     del _script_cache[team_id]
         
         # Get regular Python scripts
-        from  backend_server.src.lib.utils.script_utils import list_available_scripts, get_scripts_directory
+        from  backend_server.src.lib.utils.script_utils import list_available_scripts, get_scripts_directory, get_script_path
         
         regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
-
+ 
         # Analyze each regular script for requires_ui
         script_info = {}
         for script in regular_scripts:

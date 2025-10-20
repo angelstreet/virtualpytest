@@ -81,6 +81,7 @@ speedtest-cli>=2.1.3
 
 # Task scheduling for deployments
 APScheduler>=3.10.0
+croniter>=2.0.0  # Cron expression parsing for scheduled_today calculation
 
 networkx
 tapo
