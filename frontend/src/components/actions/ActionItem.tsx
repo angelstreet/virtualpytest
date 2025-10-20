@@ -864,38 +864,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         break;
 
       case 'scroll':
-        fields.push(
-          <TextField
-            key="direction"
-            label="Direction"
-            size="small"
-            value={getParamValue('direction') || ''}
-            onChange={(e) => safeHandleParamChange('direction', e.target.value)}
-            placeholder="e.g., up, down"
-            sx={{
-              width: 130,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-          <TextField
-            key="amount"
-            label="Amount"
-            type="number"
-            size="small"
-            value={getParamValue('amount') || 1}
-            onChange={(e) => safeHandleParamChange('amount', parseInt(e.target.value) || 1)}
-            sx={{
-              width: 80,
-              '& .MuiInputBase-input': {
-                padding: '3px 6px',
-                fontSize: '0.75rem',
-              },
-            }}
-          />,
-        );
+        // Scroll actions have hardcoded direction and amount in backend params
+        // No user input required - scroll_up/down/left/right are predefined actions
         break;
 
       case 'auto_return':

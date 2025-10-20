@@ -148,19 +148,72 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                 keys = params.get('keys')  # For key combinations
                 
                 if key:
-                    print(f"Desktop[{self.desktop_type.upper()}]: Pressing key: {key}")
+                    # Map user-friendly key names to PyAutoGUI format (lowercase)
+                    # PyAutoGUI expects lowercase key names
+                    key_mapping = {
+                        'BACK': 'esc',
+                        'ESC': 'esc',
+                        'ESCAPE': 'esc',
+                        'OK': 'enter',
+                        'ENTER': 'enter',
+                        'RETURN': 'enter',
+                        'HOME': 'home',
+                        'END': 'end',
+                        'UP': 'up',
+                        'DOWN': 'down',
+                        'LEFT': 'left',
+                        'RIGHT': 'right',
+                        'TAB': 'tab',
+                        'SPACE': 'space',
+                        'DELETE': 'delete',
+                        'DEL': 'delete',
+                        'BACKSPACE': 'backspace',
+                        'PAGEUP': 'pageup',
+                        'PAGEDOWN': 'pagedown',
+                        'PGUP': 'pageup',
+                        'PGDN': 'pagedown',
+                        'INSERT': 'insert',
+                        'PAUSE': 'pause',
+                        'PRINTSCREEN': 'printscreen',
+                        'PRTSC': 'printscreen',
+                        'CTRL': 'ctrl',
+                        'ALT': 'alt',
+                        'SHIFT': 'shift',
+                        'WIN': 'win',
+                        'WINLEFT': 'winleft',
+                        'WINRIGHT': 'winright',
+                        'COMMAND': 'command',
+                        'CMD': 'command',
+                        'CAPSLOCK': 'capslock',
+                        'NUMLOCK': 'numlock',
+                        'SCROLLLOCK': 'scrolllock',
+                        'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4',
+                        'F5': 'f5', 'F6': 'f6', 'F7': 'f7', 'F8': 'f8',
+                        'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12'
+                    }
+                    
+                    # Normalize key to PyAutoGUI format
+                    pyautogui_key = key_mapping.get(key.upper(), key.lower())
+                    
+                    print(f"Desktop[{self.desktop_type.upper()}]: Pressing key: {key} -> {pyautogui_key}")
                     try:
-                        pyautogui.press(key)
-                        return self._success_result(f"Key pressed: {key}", start_time)
+                        pyautogui.press(pyautogui_key)
+                        return self._success_result(f"Key pressed: {key} -> {pyautogui_key}", start_time)
                     except Exception as e:
-                        error_msg = f"Failed to press key '{key}': {str(e)}"
+                        error_msg = f"Failed to press key '{key}' (mapped to '{pyautogui_key}'): {str(e)}"
                         print(f"Desktop[{self.desktop_type.upper()}]: ERROR - {error_msg}")
                         return self._error_result(error_msg, start_time)
                 elif keys:
                     print(f"Desktop[{self.desktop_type.upper()}]: Pressing key combination: {keys}")
                     try:
-                        pyautogui.hotkey(*keys)
-                        return self._success_result(f"Key combination pressed: {keys}", start_time)
+                        # Map each key in combination
+                        key_mapping = {
+                            'CTRL': 'ctrl', 'ALT': 'alt', 'SHIFT': 'shift',
+                            'WIN': 'win', 'COMMAND': 'command', 'CMD': 'command'
+                        }
+                        mapped_keys = [key_mapping.get(k.upper(), k.lower()) for k in keys]
+                        pyautogui.hotkey(*mapped_keys)
+                        return self._success_result(f"Key combination pressed: {keys} -> {mapped_keys}", start_time)
                     except Exception as e:
                         error_msg = f"Failed to press key combination '{keys}': {str(e)}"
                         print(f"Desktop[{self.desktop_type.upper()}]: ERROR - {error_msg}")
