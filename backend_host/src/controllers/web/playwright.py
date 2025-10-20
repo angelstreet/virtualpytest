@@ -1769,7 +1769,8 @@ class PlaywrightWebController(WebControllerInterface):
         terms = [t.strip() for t in search_term.split('|')] if '|' in search_term else [search_term]
         start_time = time.time()
         
-        while time.time() - start_time < timeout:
+        # For timeout=0, do at least one check (single-shot mode)
+        while True:
             # Try each term until one succeeds
             for term in terms:
                 result = self.find_element(term)
@@ -1781,6 +1782,11 @@ class PlaywrightWebController(WebControllerInterface):
                         'wait_time': elapsed,
                         'element_info': result.get('element_info', {})
                     }
+            
+            # Check if we should continue polling
+            elapsed = time.time() - start_time
+            if timeout == 0 or elapsed >= timeout:
+                break  # Single check mode or timeout reached
             
             if check_interval > 0:
                 time.sleep(check_interval)
