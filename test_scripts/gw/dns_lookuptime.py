@@ -5,12 +5,13 @@ DNS Lookup Time Script for VirtualPyTest
 Performs DNS lookup and measures response time, storing results in metadata.
 
 Usage:
-    python test_scripts/gw/dns_lookuptime.py [userinterface_name] [--dns <domain>] [--host <host>] [--device <device>]
+    python test_scripts/gw/dns_lookuptime.py [--dns <domain>] [--host <host>] [--device <device>]
     
 Examples:
     python test_scripts/gw/dns_lookuptime.py                                    # Default: epg.prod.ch.dmdsdp.com
     python test_scripts/gw/dns_lookuptime.py --dns google.com                   # Custom domain
-    python test_scripts/gw/dns_lookuptime.py horizon_android_mobile --dns epg.prod.ch.dmdsdp.com
+    python test_scripts/gw/dns_lookuptime.py --dns epg.prod.ch.dmdsdp.com --host sunri-pi1
+    
 """
 
 import sys
@@ -107,6 +108,13 @@ def main():
             context.overall_success = False
             return False
         
+        # Print raw output first
+        print(f"\n{'='*80}")
+        print(f"✅ DNS LOOKUP RAW OUTPUT")
+        print(f"{'='*80}")
+        print(output)
+        print(f"{'='*80}\n")
+        
         # Parse output
         parsed_data = parse_nslookup_output(output)
         
@@ -126,9 +134,9 @@ def main():
             'raw_output': output
         }
         
-        # Print summary
-        print(f"\n{'='*80}")
-        print(f"✅ DNS LOOKUP RESULTS")
+        # Print parsed summary
+        print(f"{'='*80}")
+        print(f"✅ DNS LOOKUP PARSED RESULTS")
         print(f"{'='*80}")
         print(f"🌐 Domain: {domain}")
         print(f"⏱️  Lookup Time: {elapsed_time*1000:.1f}ms ({elapsed_time:.3f}s)")
