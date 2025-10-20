@@ -200,7 +200,8 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                         pyautogui.press(pyautogui_key)
                         return self._success_result(f"Key pressed: {key} -> {pyautogui_key}", start_time)
                     except Exception as e:
-                        error_msg = f"Failed to press key '{key}' (mapped to '{pyautogui_key}'): {str(e)}"
+                        # Return raw PyAutoGUI error for easier debugging
+                        error_msg = f"PyAutoGUI error for key '{pyautogui_key}': {str(e)}"
                         print(f"Desktop[{self.desktop_type.upper()}]: ERROR - {error_msg}")
                         return self._error_result(error_msg, start_time)
                 elif keys:
@@ -215,7 +216,8 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                         pyautogui.hotkey(*mapped_keys)
                         return self._success_result(f"Key combination pressed: {keys} -> {mapped_keys}", start_time)
                     except Exception as e:
-                        error_msg = f"Failed to press key combination '{keys}': {str(e)}"
+                        # Return raw PyAutoGUI error for easier debugging
+                        error_msg = f"PyAutoGUI error for keys {keys}: {str(e)}"
                         print(f"Desktop[{self.desktop_type.upper()}]: ERROR - {error_msg}")
                         return self._error_result(error_msg, start_time)
                 else:
