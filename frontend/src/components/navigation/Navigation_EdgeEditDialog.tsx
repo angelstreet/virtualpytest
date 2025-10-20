@@ -131,7 +131,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   };
 
   const handleRunActions = async () => {
-    // Use the actual selected edge if available, otherwise create minimal edge structure
+    // Use the actual selected edge if available, otherwise create edge structure from form data
     if (!edgeForm) return;
     
     // Prefer using the actual selected edge to preserve source/target metadata
@@ -141,8 +141,8 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
       target: 'unknown',
       type: 'navigation',
       data: {
-        action_sets: [],
-        default_action_set_id: '',
+        action_sets: edgeForm.action_sets,  // Use form data, not empty array
+        default_action_set_id: edgeForm.default_action_set_id,  // Use form data, not empty string
         final_wait_time: edgeForm.final_wait_time
       }
     } as UINavigationEdge;
