@@ -835,7 +835,7 @@ class ScriptExecutor:
                     team_id=context.team_id,
                     script_name=self.script_name,
                     script_type=self.script_name,
-                    userinterface_name=args.userinterface_name,
+                    userinterface_name=getattr(args, 'userinterface_name', None),
                     host_name=context.host.host_name,
                     device_name=context.selected_device.device_name,
                     metadata={
