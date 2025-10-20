@@ -362,7 +362,9 @@ def getAllHosts():
         
         # Include server system stats if requested (for Dashboard monitoring)
         if include_system_stats:
-            server_info['system_stats'] = get_server_system_stats()
+            # Skip speedtest if cache doesn't exist - avoid blocking the getAllHosts response
+            # Speedtest will run in background thread and be cached for next request
+            server_info['system_stats'] = get_server_system_stats(skip_speedtest=True)
         
         return jsonify({
             'success': True,
