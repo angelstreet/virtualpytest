@@ -240,6 +240,17 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
         return navigation_transitions
         
     except nx.NetworkXNoPath:
+        # FALLBACK: Try from entry point to target
+        print(f"[@navigation:pathfinding:find_shortest_path_unified] No direct path - trying from entry")
+        entry_points = get_entry_points(unified_graph)
+        if entry_points:
+            try:
+                path = nx.shortest_path(unified_graph, entry_points[0], actual_target_node)
+                print(f"[@navigation:pathfinding:find_shortest_path_unified] ✅ Using entry fallback")
+                return find_shortest_path_unified(root_tree_id, actual_target_node, team_id, entry_points[0])
+            except nx.NetworkXNoPath:
+                pass
+        
         # Enhanced error logging with node labels
         start_label = "unknown"
         target_label = "unknown"

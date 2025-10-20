@@ -688,6 +688,7 @@ class NavigationExecutor:
                         'action_screenshots': result.get('action_screenshots', []),  # All action screenshots
                         'verifications': step.get('verifications', []),
                         'verification_results': verification_result.get('results', []),  # From verification execution
+                        'verification_screenshots': verification_result.get('verification_screenshots', []),  # All verification screenshots
                         'error': final_error,  # Verification error takes precedence over action error
                         'step_category': 'navigation'
                     }

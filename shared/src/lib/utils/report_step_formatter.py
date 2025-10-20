@@ -955,6 +955,7 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
     print(f"  screenshot_url: {step.get('screenshot_url')}")
     print(f"  screenshot_path: {step.get('screenshot_path')}")
     print(f"  action_screenshots: {step.get('action_screenshots', [])}")
+    print(f"  verification_screenshots: {step.get('verification_screenshots', [])}")
     
     # Collect all screenshots in chronological order
     if step.get('step_start_screenshot_path'):
@@ -1006,6 +1007,29 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
             # Use enhanced formatting for action screenshots
             action_formatted_display = format_screenshot_display_name(screenshot_path)
             screenshots_for_step.append((f'{action_formatted_display}_action_{i+1}', screenshot_path, action_cmd, action_params))
+    
+    # Verification screenshots - use verification_results to get correct command and type
+    verification_screenshots = step.get('verification_screenshots', [])
+    verification_results = step.get('verification_results', [])
+    verifications = step.get('verifications', [])
+    
+    if verification_screenshots:
+        for i, screenshot_path in enumerate(verification_screenshots):
+            if i < len(verification_results):
+                result = verification_results[i]
+                verification_cmd = result.get('verification_type', 'unknown')
+                if i < len(verifications):
+                    verification = verifications[i]
+                    verification_cmd = verification.get('command', verification_cmd)
+                verification_params = {}
+                
+                # Use enhanced formatting for verification screenshots
+                verification_formatted_display = format_screenshot_display_name(screenshot_path)
+                screenshots_for_step.append((f'{verification_formatted_display}_verification_{i+1}', screenshot_path, verification_cmd, verification_params))
+            else:
+                # Fallback if screenshot has no matching result
+                verification_formatted_display = format_screenshot_display_name(screenshot_path)
+                screenshots_for_step.append((f'{verification_formatted_display}_verification_{i+1}', screenshot_path, 'unknown', {}))
     
     # Check if this is a dummy "Script Start → Script End" step (no actual navigation)
     is_dummy_step = (step.get('from_node') == 'Script Start' and step.get('to_node') == 'Script End')
