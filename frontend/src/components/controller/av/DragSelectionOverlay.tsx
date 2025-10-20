@@ -8,6 +8,11 @@ interface DragArea {
   y: number;
   width: number;
   height: number;
+  // Fuzzy search area (optional)
+  fx?: number;
+  fy?: number;
+  fwidth?: number;
+  fheight?: number;
 }
 
 interface DragSelectionOverlayProps {
@@ -27,6 +32,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [currentDrag, setCurrentDrag] = useState<DragArea | null>(null);
   const [isHoveringImage, setIsHoveringImage] = useState(false);
+  const [isFuzzyMode, setIsFuzzyMode] = useState(false); // Track if Shift key is held
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const getImageBounds = useCallback(() => {
@@ -80,6 +86,10 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
+
+      // Detect if Shift key is pressed for fuzzy mode
+      const isFuzzy = e.shiftKey;
+      setIsFuzzyMode(isFuzzy);
 
       // Check if click is within image bounds
       if (
@@ -145,6 +155,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
       setIsDragging(false);
       setDragStart(null);
       setCurrentDrag(null);
+      setIsFuzzyMode(false);
       return;
     }
 
@@ -153,33 +164,81 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
       setIsDragging(false);
       setDragStart(null);
       setCurrentDrag(null);
+      setIsFuzzyMode(false);
       return;
     }
 
     // Convert to original image coordinates
-    const originalArea = {
+    const draggedArea = {
       x: currentDrag.x * bounds.scaleX,
       y: currentDrag.y * bounds.scaleY,
       width: currentDrag.width * bounds.scaleX,
       height: currentDrag.height * bounds.scaleY,
     };
 
-    onAreaSelected(originalArea);
+    // If fuzzy mode, save to fuzzy area fields; otherwise save to exact area fields
+    let updatedArea: DragArea;
+    if (isFuzzyMode) {
+      // Save as fuzzy area, preserve existing exact area
+      updatedArea = {
+        ...(selectedArea || { x: 0, y: 0, width: 0, height: 0 }),
+        fx: draggedArea.x,
+        fy: draggedArea.y,
+        fwidth: draggedArea.width,
+        fheight: draggedArea.height,
+      };
+      console.log('[@DragSelectionOverlay] Saved fuzzy area:', {
+        fx: draggedArea.x,
+        fy: draggedArea.y,
+        fwidth: draggedArea.width,
+        fheight: draggedArea.height,
+      });
+    } else {
+      // Save as exact area, preserve existing fuzzy area
+      updatedArea = {
+        ...draggedArea,
+        ...(selectedArea?.fx !== undefined && {
+          fx: selectedArea.fx,
+          fy: selectedArea.fy,
+          fwidth: selectedArea.fwidth,
+          fheight: selectedArea.fheight,
+        }),
+      };
+      console.log('[@DragSelectionOverlay] Saved exact area:', draggedArea);
+    }
+
+    onAreaSelected(updatedArea);
     setIsDragging(false);
     setDragStart(null);
     setCurrentDrag(null);
-  }, [isDragging, currentDrag, imageRef, getImageBounds, onAreaSelected]);
+    setIsFuzzyMode(false);
+  }, [isDragging, currentDrag, imageRef, getImageBounds, onAreaSelected, isFuzzyMode, selectedArea]);
 
-  const displayArea =
-    currentDrag ||
-    (selectedArea && getImageBounds()
+  // Display area for exact selection (white box)
+  const displayExactArea =
+    (!isDragging || !isFuzzyMode) && currentDrag
+      ? currentDrag
+      : selectedArea && getImageBounds()
       ? {
           x: selectedArea.x / getImageBounds()!.scaleX,
           y: selectedArea.y / getImageBounds()!.scaleY,
           width: selectedArea.width / getImageBounds()!.scaleX,
           height: selectedArea.height / getImageBounds()!.scaleY,
         }
-      : null);
+      : null;
+
+  // Display area for fuzzy selection (yellow box)
+  const displayFuzzyArea =
+    (isDragging && isFuzzyMode && currentDrag)
+      ? currentDrag
+      : selectedArea?.fx !== undefined && getImageBounds()
+      ? {
+          x: selectedArea.fx / getImageBounds()!.scaleX,
+          y: selectedArea.fy! / getImageBounds()!.scaleY,
+          width: selectedArea.fwidth! / getImageBounds()!.scaleX,
+          height: selectedArea.fheight! / getImageBounds()!.scaleY,
+        }
+      : null;
 
   return (
     <Box
@@ -200,17 +259,35 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {/* Selection rectangle */}
-      {displayArea && getImageBounds() && (
+      {/* Fuzzy area rectangle (yellow) - render first so exact area is on top */}
+      {displayFuzzyArea && getImageBounds() && (
         <Box
           sx={{
             position: 'absolute',
-            left: getImageBounds()!.left + displayArea.x,
-            top: getImageBounds()!.top + displayArea.y,
-            width: displayArea.width,
-            height: displayArea.height,
+            left: getImageBounds()!.left + displayFuzzyArea.x,
+            top: getImageBounds()!.top + displayFuzzyArea.y,
+            width: displayFuzzyArea.width,
+            height: displayFuzzyArea.height,
+            border: '2px solid #FFD700',
+            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+            pointerEvents: 'none',
+            boxSizing: 'border-box',
+            zIndex: 1,
+          }}
+        />
+      )}
+
+      {/* Exact area rectangle (white) */}
+      {displayExactArea && getImageBounds() && (
+        <Box
+          sx={{
+            position: 'absolute',
+            left: getImageBounds()!.left + displayExactArea.x,
+            top: getImageBounds()!.top + displayExactArea.y,
+            width: displayExactArea.width,
+            height: displayExactArea.height,
             border: '2px solid white',
-            backgroundColor: 'transparent',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
             pointerEvents: 'none',
             boxSizing: 'border-box',
             zIndex: 2,
@@ -219,25 +296,30 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
       )}
 
       {/* Coordinates display */}
-      {displayArea && getImageBounds() && (
+      {(displayExactArea || displayFuzzyArea) && getImageBounds() && (
         <Box
           sx={{
             position: 'absolute',
-            left: getImageBounds()!.left + displayArea.x,
-            top: getImageBounds()!.top + displayArea.y - 25,
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            color: 'white',
+            left: getImageBounds()!.left + (displayExactArea?.x || displayFuzzyArea?.x || 0),
+            top: getImageBounds()!.top + (displayExactArea?.y || displayFuzzyArea?.y || 0) - 25,
+            backgroundColor: isDragging && isFuzzyMode ? 'rgba(255, 215, 0, 0.9)' : 'rgba(0, 0, 0, 0.8)',
+            color: isDragging && isFuzzyMode ? 'black' : 'white',
             padding: '2px 6px',
             borderRadius: '4px',
             fontSize: '0.7rem',
             pointerEvents: 'none',
             whiteSpace: 'nowrap',
-            zIndex: 2,
+            zIndex: 3,
+            fontWeight: isDragging && isFuzzyMode ? 600 : 400,
           }}
         >
-          {selectedArea
-            ? `x: ${Math.round(selectedArea.x)}, y: ${Math.round(selectedArea.y)}, w: ${Math.round(selectedArea.width)}, h: ${Math.round(selectedArea.height)}`
-            : 'Drag to select area'}
+          {isDragging && isFuzzyMode
+            ? '🔍 Fuzzy Search Area'
+            : isDragging
+            ? 'Exact Reference Area'
+            : selectedArea?.fx !== undefined
+            ? '⬜ Exact | 🟨 Fuzzy'
+            : 'Drag to select area (hold Shift for fuzzy)'}
         </Box>
       )}
     </Box>

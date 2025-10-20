@@ -23,6 +23,11 @@ interface DragArea {
   y: number;
   width: number;
   height: number;
+  // Fuzzy search area (optional)
+  fx?: number;
+  fy?: number;
+  fwidth?: number;
+  fheight?: number;
 }
 
 interface VerificationCaptureProps {
@@ -222,163 +227,359 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
             </Box>
           </Box>
 
-          {/* 2. Drag Area Info (Selection Info) */}
-          <Box sx={{ mb: 0 }}>
+          {/* 2. Drag Area Info (Selection Info) - Exact and Fuzzy Areas */}
+          <Box sx={{ mb: 0.5 }}>
             {selectedArea ? (
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 0.5 }}>
-                <TextField
-                  size="small"
-                  label="X"
-                  type="number"
-                  value={Math.round(selectedArea.x)}
-                  autoComplete="off"
-                  onChange={(e) => {
-                    const newX = parseFloat(e.target.value) || 0;
-                    if (onAreaSelected) {
-                      onAreaSelected({
-                        ...selectedArea,
-                        x: newX,
-                      });
-                    }
-                  }}
+              <>
+                {/* Exact Area Label */}
+                <Typography
+                  variant="caption"
                   sx={{
-                    height: '28px',
-                    '& .MuiInputBase-root': {
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.9)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    mb: 0.3,
+                  }}
+                >
+                  ⬜ Exact Reference Area
+                </Typography>
+
+                {/* Exact Area Fields - Row 1 */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 0.5, mb: 0.5 }}>
+                  <TextField
+                    size="small"
+                    label="X"
+                    type="number"
+                    value={Math.round(selectedArea.x)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newX = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          x: newX,
+                        });
+                      }
+                    }}
+                    sx={{
                       height: '28px',
-                      minHeight: '28px',
-                      maxHeight: '28px',
-                      overflow: 'hidden',
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: '0.7rem',
-                      padding: '2px 8px',
-                      height: '100%',
-                      boxSizing: 'border-box',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.7rem',
-                      transform: 'translate(14px, 6px) scale(1)',
-                      '&.Mui-focused, &.MuiFormLabel-filled': {
-                        transform: 'translate(14px, -9px) scale(0.75)',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
                       },
-                    },
-                  }}
-                />
-                <TextField
-                  size="small"
-                  label="Y"
-                  type="number"
-                  value={Math.round(selectedArea.y)}
-                  autoComplete="off"
-                  onChange={(e) => {
-                    const newY = parseFloat(e.target.value) || 0;
-                    if (onAreaSelected) {
-                      onAreaSelected({
-                        ...selectedArea,
-                        y: newY,
-                      });
-                    }
-                  }}
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="Y"
+                    type="number"
+                    value={Math.round(selectedArea.y)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newY = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          y: newY,
+                        });
+                      }
+                    }}
+                    sx={{
+                      height: '28px',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="W"
+                    type="number"
+                    value={Math.round(selectedArea.width)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newWidth = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          width: newWidth,
+                        });
+                      }
+                    }}
+                    sx={{
+                      height: '28px',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="H"
+                    type="number"
+                    value={Math.round(selectedArea.height)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newHeight = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          height: newHeight,
+                        });
+                      }
+                    }}
+                    sx={{
+                      height: '28px',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* Fuzzy Search Area Label */}
+                <Typography
+                  variant="caption"
                   sx={{
-                    height: '28px',
-                    '& .MuiInputBase-root': {
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    color: '#FFD700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    mb: 0.3,
+                  }}
+                >
+                  🟨 Fuzzy Search Area (hold Shift to drag)
+                </Typography>
+
+                {/* Fuzzy Area Fields - Row 2 */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 0.5 }}>
+                  <TextField
+                    size="small"
+                    label="FX"
+                    type="number"
+                    value={Math.round(selectedArea.fx || 0)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newFX = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          fx: newFX,
+                        });
+                      }
+                    }}
+                    sx={{
                       height: '28px',
-                      minHeight: '28px',
-                      maxHeight: '28px',
-                      overflow: 'hidden',
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: '0.7rem',
-                      padding: '2px 8px',
-                      height: '100%',
-                      boxSizing: 'border-box',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.7rem',
-                      transform: 'translate(14px, 6px) scale(1)',
-                      '&.Mui-focused, &.MuiFormLabel-filled': {
-                        transform: 'translate(14px, -9px) scale(0.75)',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
+                        borderColor: selectedArea.fx !== undefined ? '#FFD700' : undefined,
                       },
-                    },
-                  }}
-                />
-                <TextField
-                  size="small"
-                  label="Width"
-                  type="number"
-                  value={Math.round(selectedArea.width)}
-                  autoComplete="off"
-                  onChange={(e) => {
-                    const newWidth = parseFloat(e.target.value) || 0;
-                    if (onAreaSelected) {
-                      onAreaSelected({
-                        ...selectedArea,
-                        width: newWidth,
-                      });
-                    }
-                  }}
-                  sx={{
-                    height: '28px',
-                    '& .MuiInputBase-root': {
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        color: selectedArea.fx !== undefined ? '#FFD700' : undefined,
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="FY"
+                    type="number"
+                    value={Math.round(selectedArea.fy || 0)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newFY = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          fy: newFY,
+                        });
+                      }
+                    }}
+                    sx={{
                       height: '28px',
-                      minHeight: '28px',
-                      maxHeight: '28px',
-                      overflow: 'hidden',
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: '0.7rem',
-                      padding: '2px 8px',
-                      height: '100%',
-                      boxSizing: 'border-box',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.7rem',
-                      transform: 'translate(14px, 6px) scale(1)',
-                      '&.Mui-focused, &.MuiFormLabel-filled': {
-                        transform: 'translate(14px, -9px) scale(0.75)',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
                       },
-                    },
-                  }}
-                />
-                <TextField
-                  size="small"
-                  label="Height"
-                  type="number"
-                  value={Math.round(selectedArea.height)}
-                  autoComplete="off"
-                  onChange={(e) => {
-                    const newHeight = parseFloat(e.target.value) || 0;
-                    if (onAreaSelected) {
-                      onAreaSelected({
-                        ...selectedArea,
-                        height: newHeight,
-                      });
-                    }
-                  }}
-                  sx={{
-                    height: '28px',
-                    '& .MuiInputBase-root': {
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        color: selectedArea.fy !== undefined ? '#FFD700' : undefined,
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="FW"
+                    type="number"
+                    value={Math.round(selectedArea.fwidth || 0)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newFWidth = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          fwidth: newFWidth,
+                        });
+                      }
+                    }}
+                    sx={{
                       height: '28px',
-                      minHeight: '28px',
-                      maxHeight: '28px',
-                      overflow: 'hidden',
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: '0.7rem',
-                      padding: '2px 8px',
-                      height: '100%',
-                      boxSizing: 'border-box',
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '0.7rem',
-                      transform: 'translate(14px, 6px) scale(1)',
-                      '&.Mui-focused, &.MuiFormLabel-filled': {
-                        transform: 'translate(14px, -9px) scale(0.75)',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
                       },
-                    },
-                  }}
-                />
-              </Box>
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        color: selectedArea.fwidth !== undefined ? '#FFD700' : undefined,
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    label="FH"
+                    type="number"
+                    value={Math.round(selectedArea.fheight || 0)}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      const newFHeight = parseFloat(e.target.value) || 0;
+                      if (onAreaSelected) {
+                        onAreaSelected({
+                          ...selectedArea,
+                          fheight: newFHeight,
+                        });
+                      }
+                    }}
+                    sx={{
+                      height: '28px',
+                      '& .MuiInputBase-root': {
+                        height: '28px',
+                        minHeight: '28px',
+                        maxHeight: '28px',
+                        overflow: 'hidden',
+                      },
+                      '& .MuiInputBase-input': {
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        height: '100%',
+                        boxSizing: 'border-box',
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontSize: '0.65rem',
+                        color: selectedArea.fheight !== undefined ? '#FFD700' : undefined,
+                        transform: 'translate(10px, 6px) scale(1)',
+                        '&.Mui-focused, &.MuiFormLabel-filled': {
+                          transform: 'translate(10px, -9px) scale(0.75)',
+                        },
+                      },
+                    }}
+                  />
+                </Box>
+              </>
             ) : (
               <Typography
                 variant="caption"

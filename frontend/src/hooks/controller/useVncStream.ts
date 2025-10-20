@@ -138,10 +138,10 @@ export function useVncStream({
 
       const result = await response.json();
 
-      if (result.success && result.screenshot_path) {
-        console.log(`[@hook:useVncStream] Screenshot captured: ${result.screenshot_path}`);
-        setScreenshotPath(result.screenshot_path);
-        setCaptureSourcePath(result.screenshot_path);
+      if (result.success && result.screenshot_url) {
+        console.log(`[@hook:useVncStream] Screenshot captured: ${result.screenshot_url}`);
+        setScreenshotPath(result.screenshot_url);
+        setCaptureSourcePath(result.screenshot_url);
         setHasCaptured(true);
         setSuccessMessage('VNC screenshot captured successfully');
 
