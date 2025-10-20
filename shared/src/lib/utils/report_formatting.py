@@ -146,8 +146,8 @@ def update_step_results_with_r2_urls(step_results: List[Dict], url_mapping: Dict
     for step in step_results:
         updated_step = step.copy()
         
-        # Update various screenshot fields
-        for field in ['action_screenshots', 'verification_images']:
+        # Update various screenshot fields (step-level screenshot arrays)
+        for field in ['action_screenshots', 'verification_screenshots']:
             if field in updated_step and updated_step[field]:
                 updated_list = []
                 for path in updated_step[field]:

@@ -116,15 +116,18 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
     # Extract text content from all elements
     print(f"📝 [get_info:parse] Checking {len(elements)} elements for device info patterns...")
     
-    # Optional: Dump full raw JSON for debugging (set to True to see full element structure)
-    DEBUG_RAW_DUMP = False  # Set to True to see full JSON dump
-    if DEBUG_RAW_DUMP:
-        import json
-        print(f"\n🔍 [get_info:parse] RAW DUMP - Full element JSON:")
-        print("=" * 80)
-        print(json.dumps(elements, indent=2))
-        print("=" * 80)
-        print()
+    # STEP 1: Full raw dump
+    import json
+    print(f"\n{'=' * 100}")
+    print(f"🔍 STEP 1: FULL RAW DUMP (Complete JSON)")
+    print(f"{'=' * 100}")
+    print(json.dumps(elements, indent=2))
+    print(f"{'=' * 100}\n")
+    
+    # STEP 2: Pattern matching (silent, only show matches)
+    print(f"{'=' * 100}")
+    print(f"✅ STEP 2: MATCHED FIELDS")
+    print(f"{'=' * 100}")
     
     for idx, element in enumerate(elements):
         text_content = element.get('textContent', '').strip()
@@ -134,10 +137,7 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
         # Store raw text for debugging
         device_info["raw_text_elements"].append(text_content)
         
-        # Log ALL text elements for debugging (show first 150 chars)
-        print(f"📝 [{idx:2d}] '{text_content[:150]}'" + ('...' if len(text_content) > 150 else ''))
-        
-        # Try to match each pattern
+        # Try to match each pattern (silent)
         for field_name, field_patterns in patterns.items():
             if field_name in device_info["extracted_fields"]:
                 continue  # Already found this field
@@ -146,10 +146,11 @@ def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model
                 match = re.search(pattern, text_content, re.IGNORECASE)
                 if match:
                     device_info["extracted_fields"][field_name] = match.group(1).strip()
-                    print(f"✅ [get_info:parse] Found {field_name}: {match.group(1).strip()}")
+                    print(f"✅ {field_name}: {match.group(1).strip()}")
                     break
     
-    print(f"\n📊 [get_info:parse] Summary: Checked {len(device_info['raw_text_elements'])} text elements")
+    print(f"{'=' * 100}")
+    print(f"\n📊 Summary: Checked {len(device_info['raw_text_elements'])} text elements")
     print(f"📊 [get_info:parse] Extracted {len(device_info['extracted_fields'])} fields: {list(device_info['extracted_fields'].keys())}")
     
     # Add metadata about extraction
