@@ -14,6 +14,7 @@ alwaysApply: true
 3. **Fail Fast**: If the new implementation doesn't work, fix the root cause - don't add fallbacks
 4. **Delete Legacy**: When refactoring, delete old code completely rather than keeping it as backup
 5. **Single Source of Truth**: Use only one implementation approach, not multiple for "compatibility"
+6. **No documentation**: Never write documentation .md except if asked
 
 ## Examples of FORBIDDEN patterns:
 ```python
