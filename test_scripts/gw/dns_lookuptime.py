@@ -78,7 +78,7 @@ def parse_nslookup_output(output: str) -> dict:
     return data
 
 
-@script("dns_lookuptime", "Perform DNS lookup and measure response time", requires_ui=False)
+@script("dns_lookuptime", "Perform DNS lookup and measure response time")
 def main():
     """Execute nslookup, measure time, and store results in metadata"""
     args = get_args()
