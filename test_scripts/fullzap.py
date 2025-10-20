@@ -39,7 +39,7 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
     zap_executor = ZapExecutor(device, args.userinterface_name)
     return zap_executor.execute_zap_iterations(action, max_iteration, goto_live, audio_analysis)
 
-@script("fullzap", "Execute zap iterations with analysis", requires_ui=True)
+@script("fullzap", "Execute zap iterations with analysis")
 def main():
     args = get_args()
     context = get_context()
@@ -73,7 +73,13 @@ def main():
     return success
 
 # Define script-specific arguments
-main._script_args = ['--max-iteration:int:3', '--action:str:live_chup', '--goto-live:bool:true', '--audio-analysis:bool:false']
+main._script_args = [
+    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--max-iteration:int:3', 
+    '--action:str:live_chup', 
+    '--goto-live:bool:true', 
+    '--audio-analysis:bool:false'
+]
 
 if __name__ == "__main__":
     main() 

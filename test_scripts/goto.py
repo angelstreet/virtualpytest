@@ -52,7 +52,7 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("goto", "Navigate to specified node", requires_ui=True)
+@script("goto", "Navigate to specified node")
 def main():
     """Main navigation function to goto specified node"""
     args = get_args()
@@ -98,9 +98,10 @@ def main():
     
     return success
 
-# Script arguments (framework params are automatic)
+# Script arguments
 main._script_args = [
-    '--node:str:home'           # Script-specific param only
+    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--node:str:home'                                    # Target node
 ]
 
 if __name__ == "__main__":

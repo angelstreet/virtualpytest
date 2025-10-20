@@ -37,7 +37,6 @@ const Deployments: React.FC = () => {
   const [selectedScript, setSelectedScript] = useState('');
   const [selectedHost, setSelectedHost] = useState('');
   const [selectedDevice, setSelectedDevice] = useState('');
-  const [selectedUserinterface, setSelectedUserinterface] = useState('');
   
   // Cron-based scheduling
   const [cronExpression, setCronExpression] = useState('*/10 * * * *'); // Default: every 10 min
@@ -152,7 +151,7 @@ const Deployments: React.FC = () => {
         hostName: selectedHost, 
         deviceId: selectedDevice,
         deviceModel: deviceModel,
-        userinterface: selectedUserinterface
+        userinterface: parameterValues['userinterface_name'] || ''
       });
     }
     
@@ -182,7 +181,9 @@ const Deployments: React.FC = () => {
     showWizard: showCreate
   });
 
-  const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
+  // Framework parameters with dedicated UI widgets at the top (host, device only)
+  // userinterface_name is shown inline if script declares it
+  const FRAMEWORK_PARAMS = ['host', 'device'];
   const displayParameters = scriptAnalysis?.parameters.filter(p => !FRAMEWORK_PARAMS.includes(p.name)) || [];
 
   useEffect(() => {
@@ -227,16 +228,19 @@ const Deployments: React.FC = () => {
       return;
     }
     
+    // Get userinterface from parameters (if script declares it)
+    const userinterfaceValue = parameterValues['userinterface_name'] || '';
+    
     // Build complete device list: primary device + additional devices
     const allDevices: AdditionalDevice[] = [];
     
     // Add primary device if selected
-    if (selectedHost && selectedDevice && selectedUserinterface) {
+    if (selectedHost && selectedDevice && userinterfaceValue) {
       allDevices.push({ 
         hostName: selectedHost, 
         deviceId: selectedDevice,
         deviceModel: deviceModel,
-        userinterface: selectedUserinterface
+        userinterface: userinterfaceValue
       });
     }
     
@@ -248,7 +252,11 @@ const Deployments: React.FC = () => {
       return;
     }
 
-    const params = displayParameters.map(p => `--${p.name} ${parameterValues[p.name] || ''}`).join(' ');
+    // Build params string, excluding userinterface_name (sent separately to API)
+    const params = displayParameters
+      .filter(p => p.name !== 'userinterface_name')
+      .map(p => `--${p.name} ${parameterValues[p.name] || ''}`)
+      .join(' ');
     
     // Prepare optional constraints using helper functions
     const deploymentData: any = {
@@ -298,7 +306,6 @@ const Deployments: React.FC = () => {
       setShowCreate(false);
       setSelectedHost('');
       setSelectedDevice('');
-      setSelectedUserinterface('');
       setAdditionalDevices([]);
       setCronExpression('*/10 * * * *');
       setStartDateOption('now');
@@ -443,12 +450,33 @@ const Deployments: React.FC = () => {
                             {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
                           </Select>
                         </FormControl>
-                        <Box sx={{ minWidth: 150 }}>
-                          <UserinterfaceSelector deviceModel={deviceModel} value={selectedUserinterface} onChange={setSelectedUserinterface} label="Userinterface" size="small" fullWidth />
-                        </Box>
-                        {displayParameters.map(p => (
-                          <TextField key={p.name} label={p.name} value={parameterValues[p.name] || ''} onChange={e => handleParameterChange(p.name, e.target.value)} size="small" />
-                        ))}
+                        {displayParameters.map(p => {
+                          // Special rendering for userinterface_name parameter
+                          if (p.name === 'userinterface_name') {
+                            return (
+                              <Box key={p.name} sx={{ minWidth: 150 }}>
+                                <UserinterfaceSelector 
+                                  deviceModel={deviceModel} 
+                                  value={parameterValues[p.name] || ''} 
+                                  onChange={(value) => handleParameterChange(p.name, value)} 
+                                  label="Userinterface" 
+                                  size="small" 
+                                  fullWidth 
+                                />
+                              </Box>
+                            );
+                          }
+                          // Regular text field for other parameters
+                          return (
+                            <TextField 
+                              key={p.name} 
+                              label={p.name} 
+                              value={parameterValues[p.name] || ''} 
+                              onChange={e => handleParameterChange(p.name, e.target.value)} 
+                              size="small" 
+                            />
+                          );
+                        })}
                       </Box>
                     </Box>
 
@@ -540,7 +568,7 @@ const Deployments: React.FC = () => {
                   {/* Add Device button - only show if more devices are available */}
                   {hasMoreDevicesAvailable() && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                      {selectedHost && selectedDevice && selectedUserinterface && (
+                      {selectedHost && selectedDevice && parameterValues['userinterface_name'] && (
                         <Button
                           variant="outlined"
                           startIcon={<Add />}
@@ -551,14 +579,13 @@ const Deployments: React.FC = () => {
                                 hostName: selectedHost, 
                                 deviceId: selectedDevice,
                                 deviceModel: deviceModel,
-                                userinterface: selectedUserinterface
+                                userinterface: parameterValues['userinterface_name']
                               }]);
                               setSelectedHost('');
                               setSelectedDevice('');
-                              setSelectedUserinterface('');
                             }
                           }}
-                          disabled={!selectedHost || !selectedDevice || !selectedUserinterface}
+                          disabled={!selectedHost || !selectedDevice || !parameterValues['userinterface_name']}
                           size="small"
                         >
                           Add Device
@@ -639,7 +666,6 @@ const Deployments: React.FC = () => {
                       setShowCreate(false);
                       setSelectedHost('');
                       setSelectedDevice('');
-                      setSelectedUserinterface('');
                       setAdditionalDevices([]);
                       setCronExpression('*/10 * * * *');
                       setStartDateOption('now');

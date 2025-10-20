@@ -112,8 +112,8 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
       );
     }
 
-    // Framework parameters are shown at campaign level (not per-script)
-    // All other parameters are shown inline (no whitelist needed!)
+    // Framework parameters are configured at campaign level, not per-script
+    // Filter them out to avoid duplicate UI (host/device/userinterface already set for whole campaign)
     const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
     
     const displayParameters = analysis.parameters.filter((param: any) => 

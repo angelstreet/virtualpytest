@@ -84,7 +84,6 @@ const RunTests: React.FC = () => {
   const [selectedUserinterface, setSelectedUserinterface] = useState<string>(''); // Framework-level parameter
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
-  const [scriptInfo, setScriptInfo] = useState<{ [key: string]: { requires_ui: boolean } }>({});
 
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
@@ -248,11 +247,6 @@ const RunTests: React.FC = () => {
             setSelectedScript(data.scripts[0]);
           }
           
-          // Store script info
-          if (data.script_info) {
-            setScriptInfo(data.script_info);
-          }
-
           console.log('[@RunTests] Scripts loaded successfully:', data.scripts.length);
         } else {
           showError('Failed to load available scripts');
@@ -333,26 +327,20 @@ const RunTests: React.FC = () => {
     return value;
   };
 
-  const buildParameterString = (deviceHost?: string, deviceId?: string, deviceUserinterface?: string) => {
+  const buildParameterString = (deviceHost?: string, deviceId?: string) => {
     const paramStrings: string[] = [];
 
     // Use provided device info or fall back to selected values
     const targetHost = deviceHost || selectedHost;
     const targetDevice = deviceId || selectedDevice;
-    const targetUserinterface = deviceUserinterface || selectedUserinterface;
 
-    // FIRST: Add userinterface_name as positional argument (framework requirement)
-    if (targetUserinterface) {
-      paramStrings.push(quoteIfNeeded(targetUserinterface));
-    }
-
-    // Add parameters from script analysis
+    // Add parameters from script analysis (includes userinterface_name if script declares it)
     if (scriptAnalysis) {
       scriptAnalysis.parameters.forEach((param) => {
         const value = parameterValues[param.name]?.trim();
         
-        // Skip host, device, and userinterface_name - they're framework parameters
-        if (param.name === 'host' || param.name === 'device' || param.name === 'userinterface_name') {
+        // Skip host and device - they're added at the end as --host and --device
+        if (param.name === 'host' || param.name === 'device') {
           return;
         }
         
@@ -366,7 +354,7 @@ const RunTests: React.FC = () => {
       });
     }
 
-    // Always add --host and --device parameters
+    // Always add --host and --device parameters at the end
     if (targetHost) {
       paramStrings.push(`--host ${quoteIfNeeded(targetHost)}`);
     }
@@ -434,7 +422,7 @@ const RunTests: React.FC = () => {
       scriptName: selectedScript,
       hostName: hostDevice.hostName,
       deviceId: hostDevice.deviceId,
-      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId, hostDevice.userinterface), // Device-specific parameters including userinterface
+      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId), // Device-specific parameters
     }));
 
     // Initialize completion stats
@@ -586,7 +574,20 @@ const RunTests: React.FC = () => {
   const renderParameterInput = (param: ScriptParameter) => {
     const value = parameterValues[param.name] || '';
 
-    // Note: userinterface_name is a framework parameter shown at top level, not here
+    // Special handling for userinterface_name parameter
+    if (param.name === 'userinterface_name') {
+      return (
+        <UserinterfaceSelector
+          key={param.name}
+          deviceModel={getPrimaryDeviceModel()}
+          value={value}
+          onChange={(newValue) => handleParameterChange(param.name, newValue)}
+          label="Userinterface"
+          size="small"
+          fullWidth
+        />
+      );
+    }
 
     // Special handling for goto-live boolean parameter
     if (param.name === 'goto-live') {
@@ -637,12 +638,12 @@ const RunTests: React.FC = () => {
     );
   };
 
-  // Framework parameters are shown in dedicated selectors at the top
-  // All other parameters are shown inline (no whitelist needed!)
-  const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
+  // Framework parameters with dedicated selectors at the top (host, device)
+  // All other parameters (including userinterface_name if declared) show inline
+  const FRAMEWORK_PARAMS = ['host', 'device'];
   
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
-    // Show all parameters EXCEPT framework ones (which have dedicated UI elements)
+    // Show all parameters EXCEPT host/device (which have dedicated UI elements)
     !FRAMEWORK_PARAMS.includes(param.name)
   ) || [];
 
@@ -754,20 +755,6 @@ const RunTests: React.FC = () => {
                         </Select>
                       </FormControl>
                     </Box>
-
-                    {/* Conditional Userinterface */}
-                    {scriptInfo[selectedScript]?.requires_ui && (
-                      <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
-                        <UserinterfaceSelector
-                          deviceModel={getPrimaryDeviceModel()}
-                          value={selectedUserinterface}
-                          onChange={setSelectedUserinterface}
-                          label="Userinterface"
-                          size="small"
-                          fullWidth
-                        />
-                      </Box>
-                    )}
 
                     {/* Parameters on the same row */}
                     {displayParameters.length > 0 &&
@@ -936,7 +923,6 @@ const RunTests: React.FC = () => {
                         isExecuting ||  // EXECUTION LOCK: Prevent new executions while any are running
                         ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||  // Need at least one device
                         !selectedScript ||
-                        (scriptInfo[selectedScript]?.requires_ui && !selectedUserinterface) ||  // Require userinterface only if needed
                         loadingScripts ||
                         !validateParameters().valid
                       }

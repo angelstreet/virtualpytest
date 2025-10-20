@@ -305,22 +305,10 @@ def list_scripts():
                     del _script_cache[team_id]
         
         # Get regular Python scripts
-        from  backend_server.src.lib.utils.script_utils import list_available_scripts, get_scripts_directory, get_script_path
+        from  backend_server.src.lib.utils.script_utils import list_available_scripts, get_scripts_directory
         
         regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
- 
-        # Analyze each regular script for requires_ui
-        script_info = {}
-        for script in regular_scripts:
-            script_path = get_script_path(script)
-            analysis = analyze_script_parameters(script_path)
-            if analysis['success']:
-                params = [p['name'] for p in analysis['parameters']]
-                requires_ui = 'userinterface_name' in params
-                script_info[script] = {'requires_ui': requires_ui}
-            else:
-                script_info[script] = {'requires_ui': False}  # Default to false on error
         
         # Get AI test cases from database
         ai_scripts = []
@@ -336,9 +324,6 @@ def list_scripts():
                 if tc.get('creator') == 'ai':
                     script_name = f"ai_testcase_{tc['test_id']}"
                     ai_scripts.append(script_name)
-                    
-                    # Set requires_ui for AI scripts
-                    script_info[script_name] = {'requires_ui': True}
                     
                     # Store metadata for frontend display
                     ai_test_cases_info.append({
@@ -368,7 +353,6 @@ def list_scripts():
         response_data = {
             'success': True,
             'scripts': all_scripts,
-            'script_info': script_info,  # NEW: Add script_info with requires_ui
             'count': len(all_scripts),
             'scripts_directory': scripts_dir,
             'regular_scripts': regular_scripts,

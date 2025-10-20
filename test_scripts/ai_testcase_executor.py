@@ -113,7 +113,7 @@ def execute_ai_test_case(test_case_id: str, team_id: str) -> bool:
         print(f"[@ai_testcase_executor] ERROR: {context.error_message}")
         return False
 
-@script("ai_testcase", "Execute AI-generated test case", requires_ui=True)
+@script("ai_testcase", "Execute AI-generated test case")
 def main():
     """Main execution function"""
     # Extract test case ID from script name (passed via environment)
@@ -153,7 +153,9 @@ def main():
     return success
 
 # Define script-specific arguments (none needed for this script)
-main._script_args = []
+main._script_args = [
+    '--userinterface_name:str:horizon_android_mobile'  # UI navigation required
+]
 
 if __name__ == "__main__":
     main()

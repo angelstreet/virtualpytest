@@ -212,7 +212,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
     return context.overall_success
 
 
-@script("validation", "Validate navigation tree transitions", requires_ui=True)
+@script("validation", "Validate navigation tree transitions")
 def main():
     """Main validation function - simple and clean"""
     context = get_context()
@@ -230,8 +230,9 @@ def main():
 
 # Script arguments (framework params are automatic)
 main._script_args = [
-    '--max-iteration:int:0',     # Script-specific param
-    '--edges:str:'               # Script-specific param - Comma-separated list of edge IDs
+    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--max-iteration:int:0',                             # Max iterations
+    '--edges:str:'                                       # Comma-separated list of edge IDs
 ]
 
 if __name__ == "__main__":

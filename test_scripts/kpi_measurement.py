@@ -38,10 +38,10 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
-# NOTE: Framework params (userinterface_name, --host, --device) are automatic - don't declare them!
 _script_args = [
-    '--edge:str:',               # Script-specific param - Action set label
-    '--iterations:int:3'         # Script-specific param - Number of iterations
+    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--edge:str:',                                       # Action set label
+    '--iterations:int:3'                                 # Number of iterations
 ]
 
 
@@ -170,7 +170,7 @@ def capture_kpi_summary(context, userinterface_name: str, edge_label: str, from_
     return "\n".join(lines)
 
 
-@script("kpi_measurement", "Measure KPIs for specific navigation edge", requires_ui=True)
+@script("kpi_measurement", "Measure KPIs for specific navigation edge")
 def main():
     """Main KPI measurement function - simple navigation + DB fetch"""
     args = get_args()

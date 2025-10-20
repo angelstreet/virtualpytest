@@ -292,9 +292,9 @@ class CampaignExecutor:
             # Build parameters string for script executor
             param_parts = []
             
-            # Add userinterface_name as positional argument
+            # Add userinterface_name as optional parameter (scripts declare if they need it)
             if campaign_config.get("userinterface_name"):
-                param_parts.append(campaign_config["userinterface_name"])
+                param_parts.extend(["--userinterface_name", campaign_config["userinterface_name"]])
             
             # Add host and device if specified
             if campaign_config.get("host") and campaign_config["host"] != "auto":

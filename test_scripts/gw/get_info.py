@@ -30,10 +30,11 @@ if project_root not in sys.path:
 
 from shared.src.lib.executors.script_decorators import script, get_context, get_args, get_device
 
-# Script arguments (framework params are automatic)
+# Script arguments
 # MUST be defined near top of file (within first 300 lines) for script analyzer
 _script_args = [
-    '--node:str:info'           # Script-specific param - defaults to 'info'
+    '--userinterface_name:str:iad_gui',  # UI navigation required
+    '--node:str:info'                     # Target node - defaults to 'info'
 ]
 
 
@@ -268,7 +269,7 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("get_info", "Navigate to info node and extract device information", requires_ui=True)
+@script("get_info", "Navigate to info node and extract device information")
 def main():
     """Main function: navigate to info node, extract device info, and store in metadata"""
     args = get_args()

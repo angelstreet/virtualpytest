@@ -55,7 +55,7 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     return "\n".join(lines)
 
 
-@script("goto_live", "Navigate to live node", requires_ui=True)
+@script("goto_live", "Navigate to live node")
 def main():
     """Main navigation function to goto live"""
     context = get_context()
@@ -105,7 +105,9 @@ def main():
     return success
 
 # Define script-specific arguments (none needed for this script)
-main._script_args = []
+main._script_args = [
+    '--userinterface_name:str:horizon_android_mobile'  # UI navigation required
+]
 
 if __name__ == "__main__":
     main() 
