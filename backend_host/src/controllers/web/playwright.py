@@ -1122,6 +1122,69 @@ class PlaywrightWebController(WebControllerInterface):
         # Assume Chrome is running - no connection checks
         return self.utils.run_async(_async_press_key())
     
+    def scroll(self, direction: str, amount: int = 300) -> Dict[str, Any]:
+        """Scroll the page in a specific direction.
+        
+        Args:
+            direction: Direction to scroll ('up', 'down', 'left', 'right')
+            amount: Number of pixels to scroll (default 300)
+        """
+        async def _async_scroll():
+            try:
+                print(f"[PLAYWRIGHT]: Scrolling {direction} by {amount}px")
+                start_time = time.time()
+                
+                # Get persistent page from browser+context
+                page = await self._get_persistent_page()
+                
+                # Map direction to scroll deltas
+                direction_map = {
+                    'up': (0, -amount),
+                    'down': (0, amount),
+                    'left': (-amount, 0),
+                    'right': (amount, 0)
+                }
+                
+                if direction.lower() not in direction_map:
+                    return {
+                        'success': False,
+                        'error': f"Invalid direction '{direction}'. Use 'up', 'down', 'left', or 'right'",
+                        'execution_time': 0
+                    }
+                
+                delta_x, delta_y = direction_map[direction.lower()]
+                
+                # Execute scroll using mouse wheel
+                await page.mouse.wheel(delta_x, delta_y)
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                
+                result = {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'direction': direction,
+                    'amount': amount,
+                    'delta_x': delta_x,
+                    'delta_y': delta_y
+                }
+                
+                print(f"[PLAYWRIGHT]: Scroll successful: {direction} {amount}px")
+                return result
+                
+            except Exception as e:
+                error_msg = f"Scroll error: {e}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time': 0,
+                    'direction': direction,
+                    'amount': amount
+                }
+        
+        return self.utils.run_async(_async_scroll())
+    
     def get_status(self) -> Dict[str, Any]:
         """Get controller status."""
         try:
@@ -1341,6 +1404,19 @@ class PlaywrightWebController(WebControllerInterface):
                 }
             
             return self.press_key(key)
+        
+        elif command == 'scroll':
+            direction = params.get('direction')
+            amount = params.get('amount', 300)
+            
+            if not direction:
+                return {
+                    'success': False,
+                    'error': 'Direction parameter is required (up, down, left, right)',
+                    'execution_time': 0
+                }
+            
+            return self.scroll(direction, amount)
         
         elif command == 'set_viewport_size':
             width = params.get('width')
@@ -1741,6 +1817,43 @@ class PlaywrightWebController(WebControllerInterface):
                     'action_type': 'web',
                     'params': {'key': 'ESCAPE'},
                     'description': 'Press Escape key (cancel)',
+                    'requiresInput': False
+                },
+                # Scroll controls
+                {
+                    'id': 'scroll_up',
+                    'label': 'Scroll Up',
+                    'command': 'scroll',
+                    'action_type': 'web',
+                    'params': {'direction': 'up', 'amount': 300},
+                    'description': 'Scroll page up by 300 pixels',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'scroll_down',
+                    'label': 'Scroll Down',
+                    'command': 'scroll',
+                    'action_type': 'web',
+                    'params': {'direction': 'down', 'amount': 300},
+                    'description': 'Scroll page down by 300 pixels',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'scroll_left',
+                    'label': 'Scroll Left',
+                    'command': 'scroll',
+                    'action_type': 'web',
+                    'params': {'direction': 'left', 'amount': 300},
+                    'description': 'Scroll page left by 300 pixels',
+                    'requiresInput': False
+                },
+                {
+                    'id': 'scroll_right',
+                    'label': 'Scroll Right',
+                    'command': 'scroll',
+                    'action_type': 'web',
+                    'params': {'direction': 'right', 'amount': 300},
+                    'description': 'Scroll page right by 300 pixels',
                     'requiresInput': False
                 }
             ]

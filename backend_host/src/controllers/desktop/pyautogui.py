@@ -149,12 +149,22 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                 
                 if key:
                     print(f"Desktop[{self.desktop_type.upper()}]: Pressing key: {key}")
-                    pyautogui.press(key)
-                    return self._success_result(f"Key pressed: {key}", start_time)
+                    try:
+                        pyautogui.press(key)
+                        return self._success_result(f"Key pressed: {key}", start_time)
+                    except Exception as e:
+                        error_msg = f"Failed to press key '{key}': {str(e)}"
+                        print(f"Desktop[{self.desktop_type.upper()}]: ERROR - {error_msg}")
+                        return self._error_result(error_msg, start_time)
                 elif keys:
                     print(f"Desktop[{self.desktop_type.upper()}]: Pressing key combination: {keys}")
-                    pyautogui.hotkey(*keys)
-                    return self._success_result(f"Key combination pressed: {keys}", start_time)
+                    try:
+                        pyautogui.hotkey(*keys)
+                        return self._success_result(f"Key combination pressed: {keys}", start_time)
+                    except Exception as e:
+                        error_msg = f"Failed to press key combination '{keys}': {str(e)}"
+                        print(f"Desktop[{self.desktop_type.upper()}]: ERROR - {error_msg}")
+                        return self._error_result(error_msg, start_time)
                 else:
                     return self._error_result('Missing key or keys for keypress', start_time)
                 
