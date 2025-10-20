@@ -41,6 +41,7 @@ def execute_navigation(tree_id, node_id):
         team_id = request.args.get('team_id')
         current_node_id = data.get('current_node_id')
         image_source_url = data.get('image_source_url')
+        userinterface_name = data.get('userinterface_name')  # MANDATORY for reference resolution
         
         # Validate required parameters
         if not host_name:
@@ -53,6 +54,12 @@ def execute_navigation(tree_id, node_id):
             return jsonify({
                 'success': False,
                 'error': 'team_id is required'
+            }), 400
+        
+        if not userinterface_name:
+            return jsonify({
+                'success': False,
+                'error': 'userinterface_name is required for reference resolution'
             }), 400
         
         # Handle cache miss resilience - reuse take control cache population logic
@@ -85,7 +92,8 @@ def execute_navigation(tree_id, node_id):
             'device_id': device_id,
             'current_node_id': current_node_id,
             'image_source_url': image_source_url,
-            'host_name': host_name
+            'host_name': host_name,
+            'userinterface_name': userinterface_name  # MANDATORY for reference resolution
         }
         
         # Pass team_id as query parameter to host

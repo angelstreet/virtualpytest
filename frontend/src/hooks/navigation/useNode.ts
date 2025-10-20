@@ -342,7 +342,7 @@ export const useNode = (props?: UseNodeProps) => {
         setIsLoadingPreview(false);
       }
     },
-    [props?.treeId, currentNodeId, updateNodesWithMinimapIndicators, rootTreeId, getCachedPreview, cachePreview],
+    [props?.treeId, props?.selectedHost, currentNodeId, updateNodesWithMinimapIndicators, rootTreeId, getCachedPreview, cachePreview],
   );
 
   /**
@@ -452,6 +452,9 @@ export const useNode = (props?: UseNodeProps) => {
       setNodeVerificationFailure,
       navigationConfig.actualTreeId,
       isExecuting,
+      userInterface,
+      currentDeviceId,
+      rootTreeId,
     ],
   );
 
