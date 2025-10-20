@@ -266,7 +266,8 @@ class DeploymentScheduler:
             iter = croniter(cron_expr, today_start)
             
             # Limit to reasonable number of executions per day
-            max_executions = 300  # Safety limit
+            # 1440 = max possible (every minute for 24h)
+            max_executions = 1500  # Safety limit slightly above 24h of every-minute executions
             count = 0
             
             while count < max_executions:
