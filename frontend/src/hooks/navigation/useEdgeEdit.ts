@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { EdgeForm, UINavigationEdge } from '../../types/pages/Navigation_Types';
@@ -35,9 +35,27 @@ export const useEdgeEdit = ({
   const [localRetryActions, setLocalRetryActions] = useState<Action[]>([]);
   const [localFailureActions, setLocalFailureActions] = useState<Action[]>([]);
   const [dependencyCheckResult, setDependencyCheckResult] = useState<any>(null);
+  
+  // Track if we're currently updating from user edits to prevent reload loop
+  const isUserEditRef = useRef(false);
+  
+  // Track the edge ID to detect when we switch to a different edge
+  const prevEdgeIdRef = useRef<string | null>(null);
 
   // Initialize actions when dialog opens - FIXED: Support both unidirectional (1 action set) and bidirectional (2 action sets)
   useEffect(() => {
+    // Skip reload if this is a user edit (not a new edge or direction change)
+    if (isUserEditRef.current) {
+      isUserEditRef.current = false;
+      return;
+    }
+    
+    // Detect edge change
+    const currentEdgeId = edgeForm?.edgeId;
+    if (currentEdgeId && prevEdgeIdRef.current !== currentEdgeId) {
+      prevEdgeIdRef.current = currentEdgeId;
+      // Continue to load - new edge selected
+    }
     if (isOpen && edgeForm?.action_sets && edgeForm.action_sets.length >= 1) {
       // Direction-based action set selection
       const direction = edgeForm.direction || 'forward';
@@ -85,7 +103,7 @@ export const useEdgeEdit = ({
         // The form will be updated when saving, not during initialization
       }
     }
-  }, [isOpen, edgeForm?.direction, edgeForm?.action_sets]);
+  }, [isOpen, edgeForm?.direction, edgeForm?.action_sets, edgeForm?.edgeId]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -109,6 +127,9 @@ export const useEdgeEdit = ({
       if (!edgeForm) return;
 
       setLocalActions(newActions);
+      
+      // Mark as user edit to prevent reload loop
+      isUserEditRef.current = true;
       
       // Simple direction-based index selection
       const direction = edgeForm.direction || 'forward';
@@ -137,6 +158,9 @@ export const useEdgeEdit = ({
 
       setLocalRetryActions(newRetryActions);
       
+      // Mark as user edit to prevent reload loop
+      isUserEditRef.current = true;
+      
       // Simple direction-based index selection
       const direction = edgeForm.direction || 'forward';
       const targetIndex = direction === 'forward' ? 0 : 1;
@@ -163,6 +187,9 @@ export const useEdgeEdit = ({
       if (!edgeForm) return;
 
       setLocalFailureActions(newFailureActions);
+      
+      // Mark as user edit to prevent reload loop
+      isUserEditRef.current = true;
       
       // Simple direction-based index selection
       const direction = edgeForm.direction || 'forward';
