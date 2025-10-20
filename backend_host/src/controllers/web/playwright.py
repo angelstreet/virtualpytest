@@ -1793,6 +1793,17 @@ class PlaywrightWebController(WebControllerInterface):
                 },
                 # Keyboard controls
                 {
+                    'id': 'press_key',
+                    'label': 'Press Key',
+                    'command': 'press_key',
+                    'action_type': 'web',
+                    'params': {},
+                    'description': 'Press keyboard key - Valid keys: BACK, ESC, OK, ENTER, HOME, END, UP, DOWN, LEFT, RIGHT, TAB, SPACE, DELETE, BACKSPACE, F1-F12',
+                    'requiresInput': True,
+                    'inputLabel': 'Key (BACK/ESC/OK/ENTER/UP/DOWN/LEFT/RIGHT/HOME/END/TAB/SPACE/DELETE/F1-F12)',
+                    'inputPlaceholder': 'UP'
+                },
+                {
                     'id': 'press_key_back',
                     'label': 'Back',
                     'command': 'press_key',
