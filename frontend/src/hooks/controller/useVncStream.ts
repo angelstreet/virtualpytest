@@ -124,7 +124,7 @@ export function useVncStream({
     try {
       console.log(`[@hook:useVncStream] Taking VNC screenshot for host: ${host.host_name}`);
 
-      // Call screenshot API for VNC (will use host_vnc device)
+      // Call screenshot API for VNC (will use host device)
       const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
         method: 'POST',
         headers: {
@@ -132,7 +132,7 @@ export function useVncStream({
         },
         body: JSON.stringify({
           host_name: host.host_name,
-          device_id: 'host_vnc', // Use the VNC device ID
+          device_id: 'host', // Use the correct VNC device ID (host_vnc is the model, 'host' is the device_id)
         }),
       });
 
