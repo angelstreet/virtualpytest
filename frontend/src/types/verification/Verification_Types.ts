@@ -210,8 +210,6 @@ export interface Reference {
   name?: string; // Original name for display (added to support UI)
   // Text reference specific fields
   text?: string;
-  font_size?: number;
-  confidence?: number;
 }
 
 // References organized by filename within a model

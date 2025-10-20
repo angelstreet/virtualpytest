@@ -53,9 +53,7 @@ class TextHelpers:
             
             # Create text data structure and merge with area
             text_data = {
-                'text': text,
-                'font_size': 12.0,  # Default font size
-                'confidence': 0.8   # Default confidence
+                'text': text
             }
             
             # Merge text data with existing area data
@@ -140,7 +138,7 @@ class TextHelpers:
             
             # Step 3: OCR text extraction
             result = subprocess.run(
-                ['tesseract', ocr_temp_path, 'stdout', '-l', 'eng'],
+                ['tesseract', ocr_temp_path, 'stdout'],
                 capture_output=True, text=True, timeout=30
             )
             

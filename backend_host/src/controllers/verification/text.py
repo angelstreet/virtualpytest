@@ -7,6 +7,7 @@ Provides route interfaces and core domain logic.
 
 import os
 import re
+import time
 from typing import Dict, Any, Optional, Tuple, List
 from .text_helpers import TextHelpers
 
@@ -50,8 +51,7 @@ class TextVerificationController:
 
     def waitForTextToAppear(self, text: str, timeout: float = 10.0, area: dict = None, 
                            image_list: List[str] = None, 
-                           verification_index: int = 0, image_filter: str = 'none',
-                           threshold: float = 0.8, confidence: float = 0.8) -> Tuple[bool, str, dict]:
+                           verification_index: int = 0, image_filter: str = 'none') -> Tuple[bool, str, dict]:
         """
         Wait for specific text to appear either in provided image list or by capturing new frames.
         
@@ -62,8 +62,6 @@ class TextVerificationController:
             image_list: Optional list of source image paths to search
             verification_index: Index of verification for naming
             image_filter: Optional image filter to apply
-            threshold: Text matching sensitivity (0.0 to 1.0) - for fuzzy text matching
-            confidence: OCR language detection confidence (0.0 to 1.0) - minimum confidence for OCR results
             
         Returns:
             Tuple of (success, message, additional_data)
@@ -72,7 +70,7 @@ class TextVerificationController:
         if not text or text.strip() == '':
             error_msg = "No text specified. Please provide text to search for."
             print(f"[@controller:TextVerification] {error_msg}")
-            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter, "matching_result": 0.0, "user_threshold": threshold}
+            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter}
         
         print(f"[@controller:TextVerification] Looking for text pattern: '{text}'")
         if image_filter and image_filter != 'none':
@@ -80,8 +78,7 @@ class TextVerificationController:
         
         additional_data = {
             "searchedText": text,  # Frontend-expected property name
-            "image_filter": image_filter,
-            "user_threshold": threshold  # Default threshold for consistency with image verification
+            "image_filter": image_filter
         }
         
         if image_list:
@@ -105,7 +102,6 @@ class TextVerificationController:
             closest_text = ""
             best_source_path = None
             text_found = False
-            best_ocr_confidence = 0.0
             wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
             
             for idx, source_path in enumerate(images_to_check):
@@ -118,13 +114,12 @@ class TextVerificationController:
                     continue
                     
                 # Extract text from area
-                extracted_text, detected_language, language_confidence, ocr_confidence = self._extract_text_from_area(source_path, area, image_filter)
+                extracted_text = self._extract_text_from_area(source_path, area, image_filter)
                 
-                # Keep track of the longest extracted text as "closest" and best OCR confidence
+                # Keep track of the longest extracted text as "closest"
                 if len(extracted_text.strip()) > len(closest_text):
                     closest_text = extracted_text.strip()
                     best_source_path = source_path
-                    best_ocr_confidence = ocr_confidence
                 
                 if self._text_matches(extracted_text, text):
                     print(f"[@controller:TextVerification] Text found in {source_path}: '{extracted_text.strip()}'")
@@ -144,9 +139,6 @@ class TextVerificationController:
                         print(f"[@controller:TextVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
                     
                     additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
-                    additional_data["detected_language"] = detected_language
-                    additional_data["language_confidence"] = language_confidence
-                    additional_data["matching_result"] = ocr_confidence  # Use OCR confidence as matching result
                     return True, f"Text pattern '{text}' found: '{extracted_text.strip()}'", additional_data
             
             # If no match found, still save the best source for comparison
@@ -157,7 +149,6 @@ class TextVerificationController:
             
             # Set failure data
             additional_data["extractedText"] = closest_text  # Frontend-expected property name
-            additional_data["matching_result"] = best_ocr_confidence  # Use OCR confidence as matching result
             return False, f"Text pattern '{text}' not found", additional_data
         
         else:
@@ -170,7 +161,7 @@ class TextVerificationController:
                 return False, "Failed to capture screen for text verification", additional_data
             
             # Extract text from area
-            extracted_text, detected_language, language_confidence, ocr_confidence = self._extract_text_from_area(capture_path, area, image_filter)
+            extracted_text = self._extract_text_from_area(capture_path, area, image_filter)
             
             if self._text_matches(extracted_text, text):
                 print(f"[@controller:TextVerification] Text found in captured frame: '{extracted_text.strip()}'")
@@ -182,9 +173,6 @@ class TextVerificationController:
                         additional_data["source_image_path"] = cropped_source_path
                 
                 additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
-                additional_data["detected_language"] = detected_language
-                additional_data["language_confidence"] = language_confidence
-                additional_data["matching_result"] = ocr_confidence  # Use OCR confidence as matching result
                 return True, f"Text pattern '{text}' found: '{extracted_text.strip()}'", additional_data
             else:
                 # Save cropped source for comparison even on failure
@@ -194,20 +182,16 @@ class TextVerificationController:
                         additional_data["source_image_path"] = cropped_source_path
                 
                 additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
-                additional_data["detected_language"] = detected_language
-                additional_data["language_confidence"] = language_confidence
-                additional_data["matching_result"] = ocr_confidence  # Use OCR confidence as matching result
                 return False, f"Text pattern '{text}' not found", additional_data
 
     def waitForTextToDisappear(self, text: str, timeout: float = 10.0, area: dict = None, 
                               image_list: List[str] = None,
-                              verification_index: int = 0, image_filter: str = 'none',
-                              threshold: float = 0.8, confidence: float = 0.8) -> Tuple[bool, str, dict]:
+                              verification_index: int = 0, image_filter: str = 'none') -> Tuple[bool, str, dict]:
         """Wait for text to disappear - checks all images"""
         if not text or text.strip() == '':
             error_msg = "No text specified. Please provide text to search for."
             print(f"[@controller:TextVerification] {error_msg}")
-            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter, "matching_result": 0.0, "user_threshold": threshold}
+            return False, error_msg, {"searchedText": text or "", "image_filter": image_filter}
             
         print(f"[@controller:TextVerification] Looking for text pattern to disappear: '{text}'")
         
@@ -228,7 +212,7 @@ class TextVerificationController:
         found_in_any = False
         last_found_idx = -1
         wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
-        additional_data = {"searchedText": text, "image_filter": image_filter, "user_threshold": threshold}
+        additional_data = {"searchedText": text, "image_filter": image_filter}
         
         for idx, source_path in enumerate(images_to_check):
             if idx > 0 and not os.path.exists(source_path):
@@ -240,7 +224,7 @@ class TextVerificationController:
             
             found, message, check_data = self.waitForTextToAppear(
                 text, 0, area, [source_path], verification_index, 
-                image_filter, threshold, confidence
+                image_filter
             )
             
             additional_data.update(check_data)
@@ -250,12 +234,6 @@ class TextVerificationController:
                 last_found_idx = idx
         
         success = not found_in_any
-        
-        if 'matching_result' in additional_data and additional_data['matching_result'] is not None:
-            original_confidence = additional_data['matching_result']
-            inverted_confidence = 1.0 - original_confidence
-            additional_data['matching_result'] = inverted_confidence
-            additional_data['original_confidence'] = original_confidence
         
         # KPI: If disappeared after first check
         if success and last_found_idx >= 0 and last_found_idx < len(images_to_check) - 1:
@@ -422,26 +400,26 @@ class TextVerificationController:
             timeout = int(params.get('timeout', 0))
             area = params.get('area')
             image_filter = params.get('image_filter', 'none')
-            threshold = float(params.get('threshold', 0.8))  # Text matching sensitivity
-            confidence = float(params.get('confidence', 0.8))  # OCR language detection confidence
             
             # Extract userinterface_name and team_id for reference resolution (NO LEGACY device_model)
             userinterface_name = verification_config.get('userinterface_name')
             team_id = verification_config.get('team_id')
             
-            # Resolve area from database if reference_name is provided
+            # Resolve area from database if reference_name is provided AND area is not already present
             reference_name = params.get('reference_name')
-            if reference_name:
+            if reference_name and not area:
                 from shared.src.lib.utils.reference_utils import resolve_reference_area_backend
                 resolved_area = resolve_reference_area_backend(reference_name, userinterface_name, team_id)
                 if resolved_area:
                     area = resolved_area
-                    print(f"[@controller:TextVerification] Using database area for reference {reference_name}: {resolved_area}")
+                    print(f"[@controller:TextVerification] Resolved area from reference {reference_name}: {resolved_area}")
                 else:
-                    print(f"[@controller:TextVerification] No area found for reference {reference_name}")
+                    print(f"[@controller:TextVerification] Warning: No area found for reference {reference_name}")
+            elif area:
+                print(f"[@controller:TextVerification] Using pre-resolved area: {area}")
             
             print(f"[@controller:TextVerification] Executing {command} with text: '{text}'")
-            print(f"[@controller:TextVerification] Parameters: timeout={timeout}, threshold={threshold}, confidence={confidence}, area={area}, filter={image_filter}")
+            print(f"[@controller:TextVerification] Parameters: timeout={timeout}, area={area}, filter={image_filter}")
             print(f"[@controller:TextVerification] Using source image: {source_path}")
             
             # Execute verification based on command
@@ -452,9 +430,7 @@ class TextVerificationController:
                     area=area,
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=0,
-                    image_filter=image_filter,
-                    threshold=threshold,
-                    confidence=confidence
+                    image_filter=image_filter
                 )
             elif command == 'waitForTextToDisappear':
                 success, message, details = self.waitForTextToDisappear(
@@ -463,9 +439,7 @@ class TextVerificationController:
                     area=area,
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=0,
-                    image_filter=image_filter,
-                    threshold=threshold,
-                    confidence=confidence
+                    image_filter=image_filter
                 )
             else:
                 return {'success': False, 'message': f'Unsupported verification command: {command}'}
@@ -475,8 +449,6 @@ class TextVerificationController:
                 'success': success,
                 'message': message,
                 'screenshot_path': source_path,
-                'matching_result': details.get('matching_result', 0.0),  # OCR confidence
-                'user_threshold': details.get('user_threshold', 0.8),    # User's threshold setting
                 'image_filter': details.get('image_filter', image_filter),  # Applied filter
                 'extractedText': details.get('extractedText', ''),       # Frontend-expected property name
                 'searchedText': details.get('searchedText', text),       # Frontend-expected property name
@@ -499,8 +471,6 @@ class TextVerificationController:
                 "params": {
                     "text": "",             # Empty string for user input
                     "timeout": 0,           # Default: single check, no polling
-                    "threshold": 0.8,       # Text matching sensitivity (0.0 to 1.0)
-                    "confidence": 0.8,      # OCR language detection confidence (0.0 to 1.0)
                     "area": None            # Optional area
                 },
                 "verification_type": "text",
@@ -511,8 +481,6 @@ class TextVerificationController:
                 "params": {
                     "text": "",             # Empty string for user input
                     "timeout": 0,           # Default: single check, no polling
-                    "threshold": 0.8,       # Text matching sensitivity (0.0 to 1.0)
-                    "confidence": 0.8,      # OCR language detection confidence (0.0 to 1.0)
                     "area": None            # Optional area
                 },
                 "verification_type": "text",
@@ -520,7 +488,7 @@ class TextVerificationController:
             }
         ] 
 
-    def _extract_text_from_area(self, image_path: str, area: dict = None, image_filter: str = None) -> tuple:
+    def _extract_text_from_area(self, image_path: str, area: dict = None, image_filter: str = None) -> str:
         """
         Extract text from image area using TextHelpers.
         
@@ -530,24 +498,21 @@ class TextVerificationController:
             image_filter: Optional filter to apply to the image before OCR
             
         Returns:
-            Tuple of (extracted_text, detected_language, language_confidence, ocr_confidence)
+            str: extracted text
         """
         try:
             # Use TextHelpers to extract text (handles cropping, filtering, and OCR)
             result = self.helpers.detect_text_in_area(image_path, area)
             
             extracted_text = result.get('extracted_text', '')
-            detected_language = result.get('language', 'eng')
-            language_confidence = 0.8 if extracted_text else 0.0  # Simple confidence
-            ocr_confidence = 0.8 if extracted_text else 0.0  # Simple confidence
             
             print(f"[@controller:TextVerification] OCR extracted: '{extracted_text.strip()}'")
             
-            return extracted_text, detected_language, language_confidence, ocr_confidence
+            return extracted_text
             
         except Exception as e:
             print(f"[@controller:TextVerification] Error extracting text from area: {e}")
-            return "", "eng", 0.0, 0.0
+            return ""
 
     def _text_matches(self, extracted_text: str, target_text: str) -> bool:
         """
