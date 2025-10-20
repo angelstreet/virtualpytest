@@ -306,10 +306,10 @@ class DeploymentScheduler:
             deployment = result.data[0]
             scheduled_today = self._calculate_scheduled_today(deployment)
             
-            # Update deployment
+            # Update deployment (pass list directly, Supabase handles JSONB conversion)
             with self.db_lock:
                 self.supabase.table('deployments').update({
-                    'scheduled_today': json.dumps(scheduled_today) if scheduled_today else None
+                    'scheduled_today': scheduled_today if scheduled_today else None
                 }).eq('id', deployment_id).execute()
             
             print(f"[@deployment_scheduler] Updated scheduled_today for {deployment.get('name')}")
