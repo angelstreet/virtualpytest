@@ -1850,3 +1850,116 @@ class PlaywrightWebController(WebControllerInterface):
                 'description': 'Wait for web element to disappear'
             }
         ]
+    
+    def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute verification and return frontend-expected format (consistent with ADB/image/text).
+        
+        Args:
+            verification_config: {
+                'command': 'waitForElementToAppear',
+                'params': {
+                    'search_term': 'Submit',
+                    'timeout': 10.0,
+                    'check_interval': 1.0
+                }
+            }
+            
+        Returns:
+            Frontend-expected format matching ADB verification
+        """
+        try:
+            # Extract parameters
+            params = verification_config.get('params', {})
+            command = verification_config.get('command', 'waitForElementToAppear')
+            
+            # Required parameters
+            search_term = params.get('search_term', '')
+            if not search_term:
+                return {
+                    'success': False,
+                    'message': 'No search term specified for web verification',
+                    'matching_result': 0.0,
+                    'user_threshold': 0.8,
+                    'image_filter': 'none',
+                    'searchedText': search_term,
+                    'extractedText': '',
+                    'details': {'error': 'Missing search_term parameter'}
+                }
+            
+            # Optional parameters with defaults
+            timeout_ms = float(params.get('timeout', 10000))  # Default 10 seconds in ms
+            check_interval_ms = float(params.get('check_interval', 1000))  # Default 1 second in ms
+            
+            # Convert milliseconds to seconds (system passes timeout in ms)
+            timeout = timeout_ms / 1000.0
+            check_interval = check_interval_ms / 1000.0
+            
+            print(f"[@controller:PlaywrightWeb] Timeout conversion: {timeout_ms}ms -> {timeout}s")
+            
+            # Validate timeout (prevent unreasonably large values)
+            if timeout > 60:  # 1 minute max
+                print(f"[@controller:PlaywrightWeb] WARNING: Large timeout value {timeout}s detected, capping at 60s")
+                timeout = 60
+            
+            print(f"[@controller:PlaywrightWeb] Executing {command} with search term: '{search_term}'")
+            print(f"[@controller:PlaywrightWeb] Parameters: timeout={timeout}, check_interval={check_interval}")
+            
+            # Execute verification based on command
+            if command == 'waitForElementToAppear':
+                success, message, details = self.waitForElementToAppear(
+                    search_term=search_term,
+                    timeout=timeout,
+                    check_interval=check_interval
+                )
+            elif command == 'waitForElementToDisappear':
+                success, message, details = self.waitForElementToDisappear(
+                    search_term=search_term,
+                    timeout=timeout,
+                    check_interval=check_interval
+                )
+            else:
+                return {
+                    'success': False,
+                    'message': f'Unknown web verification command: {command}',
+                    'matching_result': 0.0,
+                    'user_threshold': 0.8,
+                    'image_filter': 'none',
+                    'searchedText': search_term,
+                    'extractedText': '',
+                    'details': {'error': f'Unsupported command: {command}'}
+                }
+            
+            # Return frontend-expected format (consistent with ADB verification)
+            response = {
+                'success': success,
+                'message': message,
+                'matching_result': 1.0 if success else 0.0,  # Binary for web (found/not found)
+                'user_threshold': 0.8,                       # Default for consistency
+                'image_filter': 'none',                      # Not applicable for web
+                'searchedText': search_term,                 # What we searched for
+                'extractedText': message,                    # Verification result message
+                
+                # Web-specific properties for frontend compatibility
+                'search_term': search_term,                  # Frontend expects this
+                'wait_time': details.get('wait_time', 0.0),  # Frontend expects this
+                
+                'details': details  # Keep for route processing, will be removed by route
+            }
+            
+            return response
+            
+        except Exception as e:
+            print(f"[@controller:PlaywrightWeb] Execution error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False,
+                'message': f'Web verification execution error: {str(e)}',
+                'matching_result': 0.0,
+                'user_threshold': 0.8,
+                'image_filter': 'none',
+                'searchedText': params.get('search_term', ''),
+                'extractedText': '',
+                'details': {'error': str(e)}
+            }
