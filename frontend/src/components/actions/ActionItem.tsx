@@ -1065,6 +1065,42 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         }
         break;
 
+      case 'waitForElementToAppear':
+      case 'waitForElementToDisappear':
+        // Debug verification action properties
+        console.log('[ActionItem] Web element verification action debug:', {
+          command: action.command,
+          action_type: action.action_type,
+          verification_type: action.verification_type,
+          full_action: action
+        });
+        
+        // Check if this is a verification action with web type
+        if (action.action_type === 'verification' && action.verification_type === 'web') {
+          console.log('[ActionItem] Rendering web element verification UI (text input like ADB)');
+          // Simple text input for element ID/text (like ADB verifications)
+          fields.push(
+            <TextField
+              key="element_id"
+              label="Element Text/ID"
+              size="small"
+              value={getParamValue('element_id') || ''}
+              onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
+              placeholder="e.g., Submit, Login Button, #element-id"
+              sx={{
+                width: 250,
+                '& .MuiInputBase-input': {
+                  padding: '3px 6px',
+                  fontSize: '0.75rem',
+                },
+              }}
+            />,
+          );
+        } else {
+          console.log('[ActionItem] NOT rendering web element verification UI - check failed');
+        }
+        break;
+
       // Desktop actions (PyAutoGUI and Bash)
       case 'execute_pyautogui_click':
       case 'execute_pyautogui_rightclick':

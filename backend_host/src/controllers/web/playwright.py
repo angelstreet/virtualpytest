@@ -1823,11 +1823,5 @@ class PlaywrightWebController(WebControllerInterface):
                 'params': {'element_id': '', 'timeout': 10.0, 'check_interval': 1.0},
                 'verification_type': 'web',
                 'description': 'Wait for web element to disappear'
-            },
-            {
-                'command': 'checkElementExists',
-                'params': {'element_id': ''},
-                'verification_type': 'web',
-                'description': 'Check if web element exists (single check, no waiting)'
             }
         ]

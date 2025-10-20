@@ -269,7 +269,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
             width: displayFuzzyArea.width,
             height: displayFuzzyArea.height,
             border: '2px solid #FFD700',
-            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+            backgroundColor: 'rgba(200, 200, 200, 0.2)',
             pointerEvents: 'none',
             boxSizing: 'border-box',
             zIndex: 1,
@@ -277,7 +277,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
         />
       )}
 
-      {/* Exact area rectangle (white) */}
+      {/* Exact area rectangle (black) */}
       {displayExactArea && getImageBounds() && (
         <Box
           sx={{
@@ -286,41 +286,13 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
             top: getImageBounds()!.top + displayExactArea.y,
             width: displayExactArea.width,
             height: displayExactArea.height,
-            border: '2px solid white',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            border: '2px solid black',
+            backgroundColor: 'rgba(200, 200, 200, 0.2)',
             pointerEvents: 'none',
             boxSizing: 'border-box',
             zIndex: 2,
           }}
         />
-      )}
-
-      {/* Coordinates display */}
-      {(displayExactArea || displayFuzzyArea) && getImageBounds() && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: getImageBounds()!.left + (displayExactArea?.x || displayFuzzyArea?.x || 0),
-            top: getImageBounds()!.top + (displayExactArea?.y || displayFuzzyArea?.y || 0) - 25,
-            backgroundColor: isDragging && isFuzzyMode ? 'rgba(255, 215, 0, 0.9)' : 'rgba(0, 0, 0, 0.8)',
-            color: isDragging && isFuzzyMode ? 'black' : 'white',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontSize: '0.7rem',
-            pointerEvents: 'none',
-            whiteSpace: 'nowrap',
-            zIndex: 3,
-            fontWeight: isDragging && isFuzzyMode ? 600 : 400,
-          }}
-        >
-          {isDragging && isFuzzyMode
-            ? '🔍 Fuzzy Search Area'
-            : isDragging
-            ? 'Exact Reference Area'
-            : selectedArea?.fx !== undefined
-            ? '⬜ Exact | 🟨 Fuzzy'
-            : 'Drag to select area (hold Shift for fuzzy)'}
-        </Box>
       )}
     </Box>
   );
