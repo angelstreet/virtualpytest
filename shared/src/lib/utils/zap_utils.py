@@ -461,6 +461,19 @@ def print_zap_summary_table(context):
         for i, result in enumerate(analysis_results, 1):
             result_dict = result.to_dict() if hasattr(result, 'to_dict') else result
             
+            # Extract zap timing from analysis result
+            zap_start_timestamp = result_dict.get('zap_start_timestamp')
+            zap_end_timestamp = result_dict.get('zap_end_timestamp')
+            total_zap_duration = result_dict.get('total_zap_duration', 0.0)
+            
+            # Convert timestamps to ISO format for table display
+            started_at_iso = None
+            completed_at_iso = None
+            if zap_start_timestamp:
+                started_at_iso = datetime.fromtimestamp(zap_start_timestamp).isoformat()
+            if zap_end_timestamp:
+                completed_at_iso = datetime.fromtimestamp(zap_end_timestamp).isoformat()
+            
             # Convert to format expected by generate_zap_summary_text
             iteration_data = {
                 'iteration_index': i,
@@ -469,9 +482,9 @@ def print_zap_summary_table(context):
                 'device_name': context.selected_device.device_name,
                 'device_model': context.selected_device.device_model,
                 'action_command': context.custom_data.get('action_command', 'unknown'),
-                'started_at': None,  # Not tracked per iteration in memory
-                'completed_at': None,  # Not tracked per iteration in memory
-                'duration_seconds': 0,  # Not tracked per iteration in memory
+                'started_at': started_at_iso,
+                'completed_at': completed_at_iso,
+                'duration_seconds': total_zap_duration,
                 'motion_detected': result_dict.get('motion_detected', False),
                 'subtitles_detected': result_dict.get('subtitles_detected', False),
                 'subtitle_language': result_dict.get('detected_language'),
