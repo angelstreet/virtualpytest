@@ -81,7 +81,6 @@ const RunTests: React.FC = () => {
   const [selectedHost, setSelectedHost] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedScript, setSelectedScript] = useState<string>('');
-  const [selectedUserinterface, setSelectedUserinterface] = useState<string>(''); // Framework-level parameter
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
 
@@ -170,7 +169,7 @@ const RunTests: React.FC = () => {
         hostName: selectedHost, 
         deviceId: selectedDevice,
         deviceModel: deviceModel,
-        userinterface: selectedUserinterface
+        userinterface: parameterValues['userinterface_name'] || ''
       });
     }
     
@@ -207,7 +206,7 @@ const RunTests: React.FC = () => {
       allDevices.push({ 
         hostName: selectedHost, 
         deviceId: selectedDevice,
-        userinterface: selectedUserinterface 
+        userinterface: parameterValues['userinterface_name'] || ''
       });
     }
     
@@ -392,12 +391,19 @@ const RunTests: React.FC = () => {
     }
     const allDevices: DeviceExecution[] = [];
     
+    // Get userinterface from parameters (if script declares it)
+    const userinterfaceValue = parameterValues['userinterface_name'] || '';
+    
     // Add primary device if selected
-    if (selectedHost && selectedDevice && selectedUserinterface) {
+    // Only require userinterface if script declares it
+    const canAddPrimaryDevice = selectedHost && selectedDevice && 
+      (!scriptDeclaresUserinterface || userinterfaceValue);
+    
+    if (canAddPrimaryDevice) {
       allDevices.push({ 
         hostName: selectedHost, 
         deviceId: selectedDevice,
-        userinterface: selectedUserinterface
+        userinterface: userinterfaceValue
       });
     }
     
@@ -632,7 +638,7 @@ const RunTests: React.FC = () => {
         onChange={handleParameterChange}
         error={param.required && !value.trim()}
         deviceModel={getPrimaryDeviceModel()}
-        userinterfaceName={selectedUserinterface}
+        userinterfaceName={parameterValues['userinterface_name'] || ''}
         hostName={selectedHost}
       />
     );
@@ -646,6 +652,9 @@ const RunTests: React.FC = () => {
     // Show all parameters EXCEPT host/device (which have dedicated UI elements)
     !FRAMEWORK_PARAMS.includes(param.name)
   ) || [];
+  
+  // Check if script declares userinterface_name parameter
+  const scriptDeclaresUserinterface = scriptAnalysis?.parameters.some(p => p.name === 'userinterface_name');
 
 
   return (
@@ -768,7 +777,7 @@ const RunTests: React.FC = () => {
                   {/* Second row: Add Device button aligned right - only show if more devices are available */}
                   {hasMoreDevicesAvailable() && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                      {selectedHost && selectedDevice && selectedUserinterface && (
+                      {selectedHost && selectedDevice && (!scriptDeclaresUserinterface || parameterValues['userinterface_name']) && (
                         <Button
                           variant="outlined"
                           startIcon={<AddIcon />}
@@ -784,15 +793,14 @@ const RunTests: React.FC = () => {
                                 hostName: selectedHost, 
                                 deviceId: selectedDevice,
                                 deviceModel: deviceModel,
-                                userinterface: selectedUserinterface // Use currently selected userinterface
+                                userinterface: parameterValues['userinterface_name'] || ''
                               }]);
                               // Reset current selection to allow adding different device
                               setSelectedHost('');
                               setSelectedDevice('');
-                              setSelectedUserinterface('');
                             }
                           }}
-                          disabled={!selectedHost || !selectedDevice || !selectedUserinterface}
+                          disabled={!selectedHost || !selectedDevice || (scriptDeclaresUserinterface && !parameterValues['userinterface_name'])}
                           size="small"
                         >
                           Add Device
@@ -941,7 +949,6 @@ const RunTests: React.FC = () => {
                         setShowWizard(false);
                         setSelectedHost('');
                         setSelectedDevice('');
-                        setSelectedUserinterface('');
                         setAdditionalDevices([]);
                       }}
                       size="small"
