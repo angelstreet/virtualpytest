@@ -584,6 +584,14 @@ class PlaywrightWebController(WebControllerInterface):
             elements = dump_result.get('elements', [])
             print(f"[PLAYWRIGHT]: Searching within {len(elements)} dumped elements")
             
+            # DEBUG: Log first 20 elements for verification
+            print(f"[PLAYWRIGHT]: === DUMPED ELEMENTS (first 20 of {len(elements)}) ===")
+            for i, el in enumerate(elements[:20]):
+                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{el.get('textContent', '')}' - aria: '{el.get('attributes', {}).get('aria-label', '')}' - selector: '{el.get('selector', '')}'")
+            if len(elements) > 20:
+                print(f"[PLAYWRIGHT]:   ... and {len(elements) - 20} more elements")
+            print(f"[PLAYWRIGHT]: === END DUMPED ELEMENTS ===")
+            
             # Step 2: Search within dumped elements (same logic as Android mobile)
             matches = self._search_dumped_elements(selector, elements)
             
