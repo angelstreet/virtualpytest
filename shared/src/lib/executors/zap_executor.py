@@ -796,23 +796,37 @@ class ZapExecutor:
                                 print(f"🗑️  [ZapExecutor] STALE marker detected (age: {age_seconds:.0f}s > {timeout_seconds}s) - treating as failed")
                                 print(f"    Marker was likely left by crashed/stuck detection process")
                                 return {'success': False, 'zapping_detected': False, 'error': f'Stale in_progress marker ({age_seconds:.0f}s old)'}
+                            
+                            print(f"⏳ [ZapExecutor] Zapping detection IN PROGRESS - started {age_seconds:.1f}s ago")
+                            print(f"    Detection file: {last_zapping_path}")
+                            print(f"    Polling every 1s for up to 15s...")
+                        else:
+                            print(f"⏳ [ZapExecutor] Zapping detection in progress (no timestamp) - polling...")
                         
-                        print(f"⏳ [ZapExecutor] Zapping detection in progress - polling every 5s (max 60s)...")
+                        # Poll more frequently and for less time: every 1s for up to 15s
+                        # Zapping detection should be nearly instant since capture_monitor writes the JSON immediately
+                        max_polls = 15
+                        poll_interval = 1.0
                         
-                        # Poll for up to 60 seconds (12 attempts x 5 seconds)
-                        max_polls = 12
                         for poll_attempt in range(1, max_polls + 1):
-                            time.sleep(5)
+                            time.sleep(poll_interval)
                             
                             # Read again
                             try:
                                 with open(last_zapping_path, 'r') as f:
                                     zapping_data = json.load(f)
                                 
+                                current_status = zapping_data.get('status')
+                                print(f"    Poll #{poll_attempt}: status={current_status}")
+                                
                                 # Check if completed
-                                if zapping_data.get('status') != 'in_progress':
-                                    print(f"✅ [ZapExecutor] Detection completed after {poll_attempt * 5}s")
+                                if current_status != 'in_progress':
+                                    print(f"✅ [ZapExecutor] Detection completed after {poll_attempt}s - status: {current_status}")
                                     break
+                                
+                                # Show progress during polling
+                                if poll_attempt % 5 == 0:
+                                    print(f"    Still waiting... ({poll_attempt}s elapsed)")
                                 
                                 # ✅ RE-CHECK: Marker may have become stale during polling
                                 if started_at_unix:
@@ -821,12 +835,14 @@ class ZapExecutor:
                                         print(f"🗑️  [ZapExecutor] Marker became STALE during polling (age: {age_seconds:.0f}s)")
                                         return {'success': False, 'zapping_detected': False, 'error': f'Detection timeout (marker stale)'}
                             except Exception as e:
-                                print(f"⚠️ [ZapExecutor] Error during poll: {e}")
+                                print(f"⚠️ [ZapExecutor] Error during poll attempt {poll_attempt}: {e}")
                                 break
                         else:
                             # Timeout after max_polls
-                            print(f"⏰ [ZapExecutor] Timeout after 60s - detection may have failed")
-                            return {'success': False, 'zapping_detected': False, 'error': 'Detection timeout (60s)'}
+                            print(f"⏰ [ZapExecutor] Timeout after {max_polls}s - detection still in progress")
+                            print(f"    This indicates capture_monitor may not be running or is stuck")
+                            print(f"    Last status: {zapping_data.get('status')}")
+                            return {'success': False, 'zapping_detected': False, 'error': f'Detection timeout ({max_polls}s) - likely capture_monitor issue'}
                     
                     # ✅ ONLY CHECK: Does action_timestamp match THIS action?
                     zapping_action_timestamp = zapping_data.get('action_timestamp')
