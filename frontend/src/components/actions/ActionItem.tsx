@@ -176,6 +176,15 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           // Check if action definition has options array for dropdown
           const options = (currentActionDef as any)?.options;
           
+          console.log('🔍 [ActionItem] press_key options check:', {
+            command: action.command,
+            action_type: action.action_type,
+            currentActionDef,
+            hasOptions: !!options,
+            optionsLength: options?.length,
+            options
+          });
+          
           if (options && Array.isArray(options) && options.length > 0) {
             // Render dropdown/select
             fields.push(
