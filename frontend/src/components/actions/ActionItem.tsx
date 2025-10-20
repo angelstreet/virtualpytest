@@ -106,7 +106,12 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       .find((act) => {
         if (act.command !== action.command) return false;
         
-        // For press_key actions, also match the key parameter
+        // If action has options (combobox), match by command only - params are user-filled
+        if ((act as any).options && Array.isArray((act as any).options) && (act as any).options.length > 0) {
+          return true;
+        }
+        
+        // For press_key actions without options (predefined), match the key parameter
         if (action.command === 'press_key' && action.params && act.params) {
           return (action.params as any).key === (act.params as any).key;
         }
