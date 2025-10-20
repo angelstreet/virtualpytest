@@ -1742,18 +1742,23 @@ class PlaywrightWebController(WebControllerInterface):
     # VERIFICATION METHODS (Reuse find_element)
     # ========================================
     
-    def waitForElementToAppear(self, element_id: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
+    def waitForElementToAppear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Wait for element to appear (polls find_element with timeout).
         Supports pipe-separated fallback: "Submit|OK|Confirm"
+        
+        Args:
+            search_term: Element text, selector, or aria-label to search for (same as ADB parameter name)
+            timeout: Maximum time to wait in seconds
+            check_interval: Time between checks in seconds
         """
         import time
         from typing import Tuple
         
-        print(f"[@controller:Playwright:waitForElementToAppear] Waiting for '{element_id}' (timeout: {timeout}s)")
+        print(f"[@controller:Playwright:waitForElementToAppear] Waiting for '{search_term}' (timeout: {timeout}s)")
         
         # Parse pipe-separated terms
-        terms = [t.strip() for t in element_id.split('|')] if '|' in element_id else [element_id]
+        terms = [t.strip() for t in search_term.split('|')] if '|' in search_term else [search_term]
         start_time = time.time()
         
         while time.time() - start_time < timeout:
@@ -1763,7 +1768,7 @@ class PlaywrightWebController(WebControllerInterface):
                 if result.get('success'):
                     elapsed = time.time() - start_time
                     return True, f"Element found after {elapsed:.1f}s", {
-                        'search_term': element_id,
+                        'search_term': search_term,
                         'successful_term': term,
                         'wait_time': elapsed,
                         'element_info': result.get('element_info', {})
@@ -1776,20 +1781,27 @@ class PlaywrightWebController(WebControllerInterface):
         
         # Timeout
         elapsed = time.time() - start_time
-        return False, f"Element not found after {elapsed:.1f}s", {'search_term': element_id, 'wait_time': elapsed}
+        return False, f"Element not found after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
     
-    def waitForElementToDisappear(self, element_id: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
-        """Wait for element to disappear (polls find_element until fails)."""
+    def waitForElementToDisappear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
+        """
+        Wait for element to disappear (polls find_element until fails).
+        
+        Args:
+            search_term: Element text, selector, or aria-label to search for (same as ADB parameter name)
+            timeout: Maximum time to wait in seconds
+            check_interval: Time between checks in seconds
+        """
         import time
         from typing import Tuple
         
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            result = self.find_element(element_id)
+            result = self.find_element(search_term)
             if not result.get('success'):
                 elapsed = time.time() - start_time
-                return True, f"Element disappeared after {elapsed:.1f}s", {'search_term': element_id, 'wait_time': elapsed}
+                return True, f"Element disappeared after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
             
             if check_interval > 0:
                 time.sleep(check_interval)
@@ -1797,30 +1809,35 @@ class PlaywrightWebController(WebControllerInterface):
                 break
         
         elapsed = time.time() - start_time
-        return False, f"Element still present after {elapsed:.1f}s", {'search_term': element_id, 'wait_time': elapsed}
+        return False, f"Element still present after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
     
-    def checkElementExists(self, element_id: str) -> Tuple[bool, str, Dict[str, Any]]:
-        """Check if element exists (single find_element call, no polling)."""
+    def checkElementExists(self, search_term: str) -> Tuple[bool, str, Dict[str, Any]]:
+        """
+        Check if element exists (single find_element call, no polling).
+        
+        Args:
+            search_term: Element text, selector, or aria-label to search for (same as ADB parameter name)
+        """
         from typing import Tuple
         
-        result = self.find_element(element_id)
+        result = self.find_element(search_term)
         if result.get('success'):
-            return True, f"Element '{element_id}' exists", {'search_term': element_id, 'element_info': result.get('element_info', {})}
+            return True, f"Element '{search_term}' exists", {'search_term': search_term, 'element_info': result.get('element_info', {})}
         else:
-            return False, f"Element '{element_id}' not found", {'search_term': element_id, 'error': result.get('error', '')}
+            return False, f"Element '{search_term}' not found", {'search_term': search_term, 'error': result.get('error', '')}
     
     def get_available_verifications(self) -> List[Dict[str, Any]]:
         """Get available verifications for Playwright (web element checks)."""
         return [
             {
                 'command': 'waitForElementToAppear',
-                'params': {'element_id': '', 'timeout': 10.0, 'check_interval': 1.0},
+                'params': {'search_term': '', 'timeout': 10.0, 'check_interval': 1.0},
                 'verification_type': 'web',
                 'description': 'Wait for web element to appear (by text, selector, or aria-label)'
             },
             {
                 'command': 'waitForElementToDisappear',
-                'params': {'element_id': '', 'timeout': 10.0, 'check_interval': 1.0},
+                'params': {'search_term': '', 'timeout': 10.0, 'check_interval': 1.0},
                 'verification_type': 'web',
                 'description': 'Wait for web element to disappear'
             }

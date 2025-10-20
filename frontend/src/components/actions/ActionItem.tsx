@@ -1078,14 +1078,14 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         // Check if this is a verification action with web type
         if (action.action_type === 'verification' && action.verification_type === 'web') {
           console.log('[ActionItem] Rendering web element verification UI (text input like ADB)');
-          // Simple text input for element ID/text (like ADB verifications)
+          // Simple text input for search term (like ADB verifications - consistent parameter name)
           fields.push(
             <TextField
-              key="element_id"
+              key="search_term"
               label="Element Text/ID"
               size="small"
-              value={getParamValue('element_id') || ''}
-              onChange={(e) => safeHandleParamChange('element_id', e.target.value)}
+              value={getParamValue('search_term') || ''}
+              onChange={(e) => safeHandleParamChange('search_term', e.target.value)}
               placeholder="e.g., Submit, Login Button, #element-id"
               sx={{
                 width: 250,
