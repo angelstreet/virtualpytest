@@ -400,10 +400,10 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                     'command': 'execute_pyautogui_keypress',
                     'action_type': 'desktop',
                     'params': {},
-                    'description': 'Press a single key',
+                    'description': 'Press keyboard key - Valid keys: enter, space, tab, esc, backspace, delete, up, down, left, right, home, end, pageup, pagedown, f1-f12, ctrl, alt, shift',
                     'requiresInput': True,
-                    'inputLabel': 'Key name',
-                    'inputPlaceholder': 'enter, space, tab, ctrl, alt'
+                    'inputLabel': 'Key (enter/space/tab/esc/up/down/left/right/home/end/ctrl/alt/shift/f1-f12)',
+                    'inputPlaceholder': 'down'
                 },
                 {
                     'id': 'pyautogui_type',
