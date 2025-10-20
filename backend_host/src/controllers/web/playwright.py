@@ -18,7 +18,7 @@ BROWSER_ENGINE = "chromium"  # <-- Change this line to switch browsers
 import os
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from ..base_controller import WebControllerInterface
 
 # Use absolute import for utils from shared library

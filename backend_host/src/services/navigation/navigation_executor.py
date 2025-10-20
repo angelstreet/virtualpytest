@@ -1501,7 +1501,8 @@ class NavigationExecutor:
                 'kpi_references': kpi_references,
                 'timeout_ms': timeout_ms,
                 'device_id': self.device_id,
-                'device_model': self.device_model
+                'device_model': self.device_model,
+                'userinterface_name': userinterface_name  # MANDATORY for reference resolution
             }
             
             # Write to JSON file queue for standalone KPI executor service (atomic write for inotify)
