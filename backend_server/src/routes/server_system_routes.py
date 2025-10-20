@@ -329,6 +329,8 @@ def getAllHosts():
                             'device_port': device.get('device_port'),
                             'device_capabilities': device.get('device_capabilities'),
                             'video_stream_path': device.get('video_stream_path'),
+                            'video_capture_path': device.get('video_capture_path'),  # Required for monitoring capture URLs
+                            'video_fps': device.get('video_fps'),  # Required for monitoring capture alignment
                             'has_running_deployment': device.get('has_running_deployment', False),
                             'ir_type': device.get('ir_type'),
                             # STRIPPED for performance:
