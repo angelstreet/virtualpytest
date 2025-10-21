@@ -1164,6 +1164,35 @@ class InotifyFrameMonitor:
                 logger.error(f"[{capture_folder}] ❌ Cannot merge: {len(missing_segments)}/{len(segment_files)} segments missing")
                 for missing in missing_segments:
                     logger.error(f"[{capture_folder}]   - {missing}")
+                
+                # 🔍 DIAGNOSTIC: Show what segments actually exist in directory
+                logger.info(f"[{capture_folder}] 📂 DIAGNOSTIC: Last 20 segments in directory:")
+                try:
+                    # List last 20 segment files by modification time
+                    import subprocess
+                    ls_result = subprocess.run(
+                        ['ls', '-lt', segments_dir],
+                        capture_output=True,
+                        text=True,
+                        timeout=2
+                    )
+                    
+                    if ls_result.returncode == 0:
+                        lines = ls_result.stdout.strip().split('\n')
+                        # Skip first line (total) and show next 20
+                        segment_lines = [l for l in lines[1:21] if 'segment_' in l]
+                        
+                        if segment_lines:
+                            for line in segment_lines:
+                                logger.info(f"[{capture_folder}]   {line}")
+                        else:
+                            logger.warning(f"[{capture_folder}]   No segment files found in directory!")
+                    else:
+                        logger.warning(f"[{capture_folder}]   Could not list directory (ls failed)")
+                        
+                except Exception as e:
+                    logger.warning(f"[{capture_folder}]   Could not list segments: {e}")
+                
                 return {
                     'has_continuous_audio': False,
                     'silence_duration': 0.0,
