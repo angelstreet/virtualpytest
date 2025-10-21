@@ -1001,6 +1001,12 @@ class InotifyFrameMonitor:
             
             logger.info(f"[{capture_folder}] 📸 Transition thumbnails ready: {images_found}/3" + (f", missing: {missing}" if missing else "") + " (AFTER added during banner analysis)")
             
+            # 🔍 DEBUG: Show action_info being passed to zapping detector
+            logger.info(f"[{capture_folder}] 📝 Action info being passed to zapping detector:")
+            logger.info(f"[{capture_folder}]    last_action_executed: {action_info.get('last_action_executed')}")
+            logger.info(f"[{capture_folder}]    last_action_timestamp: {action_info.get('last_action_timestamp')}")
+            logger.info(f"[{capture_folder}]    time_since_action_ms: {action_info.get('time_since_action_ms')}ms")
+            
             # Call shared zapping detection function (reuses existing video controller)
             # This is the expensive operation (~5s for AI analysis)
             result = detect_and_record_zapping(
@@ -1527,6 +1533,10 @@ class InotifyFrameMonitor:
             # Read JSON
             with open(last_action_path, 'r') as f:
                 action_data = json.load(f)
+            
+            # 🔍 DEBUG: Show full file content
+            logger.info(f"[{capture_folder}] 📄 last_action.json content:")
+            logger.info(f"[{capture_folder}]    {json.dumps(action_data, indent=2)}")
             
             action_timestamp = action_data.get('timestamp')
             if not action_timestamp:
