@@ -14,8 +14,6 @@ import {
   Typography,
   IconButton,
   LinearProgress,
-  Checkbox,
-  FormControlLabel,
 } from '@mui/material';
 import React from 'react';
 
@@ -77,32 +75,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     const message = result.message || result.error || 'No details';
     return `${prefix} ${result.verification_type}: ${message}`;
   };
-
-  // Filter available verifications for KPI - only show wait functions
-  const kpiAvailableVerifications = React.useMemo(() => {
-    const allowedKpiCommands = [
-      'waitForImageToAppear',
-      'waitForImageToDisappear',
-      'waitForTextToAppear',
-      'waitForTextToDisappear'
-    ];
-
-    const filtered: Record<string, any> = {};
-
-    Object.entries(nodeEdit.verification.availableVerificationTypes || {}).forEach(([category, verifications]) => {
-      if (Array.isArray(verifications)) {
-        const filteredVerifications = verifications.filter((v: any) => 
-          allowedKpiCommands.includes(v.command)
-        );
-        
-        if (filteredVerifications.length > 0) {
-          filtered[category] = filteredVerifications;
-        }
-      }
-    });
-
-    return filtered;
-  }, [nodeEdit.verification.availableVerificationTypes]);
 
   return (
     <Dialog
@@ -233,7 +205,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             availableVerifications={nodeEdit.verification.availableVerificationTypes}
             onVerificationsChange={nodeEdit.handleVerificationsChange}
             loading={nodeEdit.verification.loading}
-            model={nodeEdit.deviceModel || model || 'android_mobile'}
+            model={model || 'android_mobile'}
             selectedHost={selectedHost}
             testResults={[]} // Don't show individual results, only show consolidated results below
             onReferenceSelected={() => {}}
@@ -281,71 +253,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             </Typography>
           </Box>
         )}
-
-        {/* KPI Measurement Section */}
-        <Box
-          sx={{
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 1,
-            p: 1,
-            mb: 1,
-          }}
-        >
-          {/* Title and Checkbox on same line */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="h6" sx={{ fontSize: '1rem', m: 0 }}>
-              📊 KPI Measurement
-            </Typography>
-            
-            {/* Checkbox to use verifications for KPI */}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={nodeForm?.use_verifications_for_kpi || false}
-                  onChange={(e) => setNodeForm({ ...nodeForm, use_verifications_for_kpi: e.target.checked })}
-                  size="small"
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                  Use verifications
-                </Typography>
-              }
-              sx={{ m: 0 }}
-            />
-          </Box>
-          
-          {/* Helper text */}
-          <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 0.5, display: 'block' }}>
-            Measure time from action to visual confirmation (timeout: 1-60 seconds)
-          </Typography>
-          
-          {/* KPI References List - disabled when checkbox is checked */}
-          <Box
-            sx={{
-              opacity: nodeForm?.use_verifications_for_kpi ? 0.5 : 1,
-              pointerEvents: nodeForm?.use_verifications_for_kpi ? 'none' : 'auto',
-              transition: 'opacity 0.2s',
-            }}
-          >
-            <VerificationsList
-              verifications={nodeForm?.kpi_references || []}
-              availableVerifications={kpiAvailableVerifications}
-              onVerificationsChange={(newRefs) => setNodeForm({ ...nodeForm, kpi_references: newRefs })}
-              loading={false}
-              model={nodeEdit.deviceModel || model || 'android_mobile'}
-              selectedHost={selectedHost}
-              testResults={[]}
-              onReferenceSelected={() => {}}
-              modelReferences={nodeEdit.modelReferences}
-              referencesLoading={nodeEdit.referencesLoading}
-              showCollapsible={false}
-              title=""
-              onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time
-            />
-          </Box>
-        </Box>
       </DialogContent>
 
       <DialogActions sx={{ pt: 0.5, display: 'flex', gap: 1 }}>

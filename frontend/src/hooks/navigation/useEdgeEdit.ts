@@ -229,6 +229,54 @@ export const useEdgeEdit = ({
     [edgeForm, setEdgeForm],
   );
 
+  // Handle KPI reference change for specific action set
+  const handleKpiReferencesChange = useCallback(
+    (actionSetIndex: number, newKpiReferences: any[]) => {
+      if (!edgeForm) return;
+
+      // Mark as user edit to prevent reload loop
+      isUserEditRef.current = true;
+
+      const updatedActionSets = [...(edgeForm.action_sets || [])];
+      if (updatedActionSets[actionSetIndex]) {
+        updatedActionSets[actionSetIndex] = {
+          ...updatedActionSets[actionSetIndex],
+          kpi_references: newKpiReferences
+        };
+      }
+
+      setEdgeForm({
+        ...edgeForm,
+        action_sets: updatedActionSets,
+      });
+    },
+    [edgeForm, setEdgeForm],
+  );
+
+  // Handle use_verifications_for_kpi flag change for specific action set
+  const handleUseVerificationsForKpiChange = useCallback(
+    (actionSetIndex: number, useVerifications: boolean) => {
+      if (!edgeForm) return;
+
+      // Mark as user edit to prevent reload loop
+      isUserEditRef.current = true;
+
+      const updatedActionSets = [...(edgeForm.action_sets || [])];
+      if (updatedActionSets[actionSetIndex]) {
+        updatedActionSets[actionSetIndex] = {
+          ...updatedActionSets[actionSetIndex],
+          use_verifications_for_kpi: useVerifications
+        };
+      }
+
+      setEdgeForm({
+        ...edgeForm,
+        action_sets: updatedActionSets,
+      });
+    },
+    [edgeForm, setEdgeForm],
+  );
+
   // Execute local actions - simple wrapper around edge hook
   const executeLocalActions = useCallback(async () => {
     if (!selectedEdge) return;
@@ -316,6 +364,8 @@ export const useEdgeEdit = ({
     handleActionsChange,
     handleRetryActionsChange,
     handleFailureActionsChange,
+    handleKpiReferencesChange,
+    handleUseVerificationsForKpiChange,
 
     // Validation & Save (aligned with useNodeEdit)
     isFormValid,

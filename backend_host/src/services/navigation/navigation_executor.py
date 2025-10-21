@@ -716,6 +716,7 @@ class NavigationExecutor:
                     # Store for KPI queueing after final verification
                     nav_context['kpi_step'] = step
                     nav_context['kpi_action_timestamp'] = action_completion_timestamp
+                    nav_context['kpi_userinterface_name'] = userinterface_name  # Store for reference resolution
                     print(f"[@navigation_executor:execute_navigation] Main actions succeeded for step {step_num}/{len(navigation_path)} - KPI will be queued after final verification")
                 
                 # Check if EITHER actions OR verifications failed - both must succeed for step to continue
@@ -842,15 +843,17 @@ class NavigationExecutor:
             # IMPORTANT: KPI queueing must NEVER block navigation - it's observability, not critical path
             kpi_step = nav_context.get('kpi_step')
             kpi_action_timestamp = nav_context.get('kpi_action_timestamp')
+            kpi_userinterface_name = nav_context.get('kpi_userinterface_name')
             
-            if kpi_step and kpi_action_timestamp:
+            if kpi_step and kpi_action_timestamp and kpi_userinterface_name:
                 try:
                     print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
                     self._queue_kpi_measurement(
                         step=kpi_step,
                         action_timestamp=kpi_action_timestamp,
                         verification_timestamp=verification_timestamp,
-                        team_id=team_id
+                        team_id=team_id,
+                        userinterface_name=kpi_userinterface_name
                     )
                 except Exception as e:
                     # KPI queueing failed - log but DO NOT block navigation
@@ -859,6 +862,7 @@ class NavigationExecutor:
                     # Always clear KPI context regardless of success/failure
                     nav_context['kpi_step'] = None
                     nav_context['kpi_action_timestamp'] = None
+                    nav_context['kpi_userinterface_name'] = None
             else:
                 print(f"[@navigation_executor] No KPI to queue (no actions were executed or actions failed)")
             
@@ -1424,10 +1428,11 @@ class NavigationExecutor:
         step: Dict[str, Any],
         action_timestamp: float,
         verification_timestamp: float,
-        team_id: str
+        team_id: str,
+        userinterface_name: str
     ):
         """
-        Queue KPI measurement for target node.
+        Queue KPI measurement for action_set.
         Writes JSON request file for standalone KPI executor service.
         """
         try:
@@ -1435,37 +1440,53 @@ class NavigationExecutor:
             target_node_id = step.get('to_node_id')
             target_tree_id = step.get('to_tree_id')  # For fetching target node data
             edge_id = step.get('edge_id')
+            action_set_id = step.get('action_set_id')  # NEW: Get action_set_id from step
             
             # Get edge's actual tree_id from original_edge_data (where the edge lives)
             original_edge_data = step.get('original_edge_data', {})
             edge_tree_id = original_edge_data.get('tree_id', target_tree_id)  # Fallback to target_tree_id if not found
             
-            if not target_node_id or not target_tree_id or not edge_id:
+            if not target_node_id or not target_tree_id or not edge_id or not action_set_id:
                 return
             
-            # Get target node's KPI references
-            from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
-            node_result = get_node_by_id(target_tree_id, target_node_id, team_id)
+            # Get edge data to fetch action_set KPI configuration
+            from shared.src.lib.supabase.navigation_trees_db import get_edge_by_id, get_node_by_id
+            edge_result = get_edge_by_id(edge_tree_id, edge_id, team_id)
             
-            if not node_result.get('success'):
+            if not edge_result.get('success'):
                 return
             
-            node_data = node_result['node']
-            node_label = node_data.get('label', target_node_id)
+            edge_data = edge_result['edge']
+            action_sets = edge_data.get('action_sets', [])
             
-            # Check if node uses verifications for KPI measurement
-            use_verifications_for_kpi = node_data.get('use_verifications_for_kpi', False)
+            # Find the specific action_set that was executed
+            action_set = next((a for a in action_sets if a.get('id') == action_set_id), None)
+            
+            if not action_set:
+                print(f"[@navigation_executor] Action set '{action_set_id}' not found in edge '{edge_id}' - skipping KPI")
+                return
+            
+            action_set_label = action_set.get('label', action_set_id)
+            
+            # Check if action_set uses verifications of target node for KPI measurement
+            use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)
             
             if use_verifications_for_kpi:
-                # Use verifications[] for KPI measurement
+                # Fetch target node's verifications
+                node_result = get_node_by_id(target_tree_id, target_node_id, team_id)
+                
+                if not node_result.get('success'):
+                    return
+                
+                node_data = node_result['node']
                 kpi_references = node_data.get('verifications', [])
             else:
-                # Use kpi_references[] for KPI measurement (default behavior)
-                kpi_references = node_data.get('kpi_references', [])
+                # Use action_set's kpi_references (default behavior)
+                kpi_references = action_set.get('kpi_references', [])
             
             # Early exit if no KPI configured - single log line
             if not kpi_references:
-                print(f"[@navigation_executor] No KPI configured for '{node_label}' - skipping measurement")
+                print(f"[@navigation_executor] No KPI configured for action_set '{action_set_label}' - skipping measurement")
                 return
             
             # Get capture directory from device (MANDATORY)

@@ -20,6 +20,10 @@ export interface ActionSet {
   priority?: number; // Priority for action set execution
   conditions?: Record<string, any>; // Conditions for action set execution
   timer?: number; // Timer in milliseconds
+  
+  // KPI Measurement fields (action_set-level)
+  use_verifications_for_kpi?: boolean; // Use target node verifications for KPI
+  kpi_references?: Verification[]; // OR separate KPI references
 }
 import { Verification } from '../verification/Verification_Types';
 
@@ -58,12 +62,6 @@ export interface UINavigationNodeData {
 
   // Verification support (embedded directly - no ID resolution needed)
   verifications?: Verification[]; // Array of embedded verification objects
-  
-  // KPI measurement references
-  kpi_references?: Verification[]; // Array of KPI measurement verification objects
-  
-  // Use verifications for KPI measurement instead of kpi_references
-  use_verifications_for_kpi?: boolean;
 
   // Nested tree properties
   has_subtree?: boolean; // True if this node has associated subtrees
@@ -243,12 +241,6 @@ export interface NodeForm {
 
   // Verifications field (embedded directly)
   verifications?: Verification[];
-  
-  // KPI measurement references
-  kpi_references?: Verification[];
-  
-  // Use verifications for KPI measurement instead of kpi_references
-  use_verifications_for_kpi?: boolean;
 }
 
 // EdgeForm interface for bidirectional edge structure

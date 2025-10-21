@@ -1233,6 +1233,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedDeviceId={selectedDeviceId}
             fromLabel={edgeLabels.fromLabel}
             toLabel={edgeLabels.toLabel}
+            model={userInterface?.models?.[0] || 'android_mobile'}
           />
         )}
 

@@ -71,8 +71,6 @@ CREATE TABLE navigation_nodes (
     style jsonb DEFAULT '{}',
     data jsonb DEFAULT '{}',
     verifications jsonb DEFAULT '[]', -- ✅ Embedded verification objects
-    kpi_references jsonb DEFAULT '[]', -- ✅ KPI measurement references (same format as verifications)
-    use_verifications_for_kpi boolean DEFAULT false NOT NULL, -- ✅ When TRUE, use verifications[] for KPI instead of kpi_references[]
     
     -- Nested tree metadata
     has_subtree boolean DEFAULT false, -- True if this node has associated subtrees
@@ -90,14 +88,16 @@ CREATE TABLE navigation_nodes (
 --
 -- ACTION SET STRUCTURE:
 -- {
---   "id": "home_to_movies_1",           -- Unique ID within edge
---   "label": "Click Movies Tab",        -- Descriptive label for UI
---   "actions": [...],                   -- Array of actions to execute
---   "retry_actions": [...],             -- Array of retry actions if main fails
---   "failure_actions": [...],           -- Array of failure actions if retry fails
---   "priority": 1,                      -- Priority (1 = default/primary)
---   "conditions": {},                   -- Optional conditions for execution
---   "timer": 0                          -- Timer for auto-return (milliseconds)
+--   "id": "home_to_movies_1",                    -- Unique ID within edge
+--   "label": "Click Movies Tab",                 -- Descriptive label for UI
+--   "actions": [...],                            -- Array of actions to execute
+--   "retry_actions": [...],                      -- Array of retry actions if main fails
+--   "failure_actions": [...],                    -- Array of failure actions if retry fails
+--   "priority": 1,                               -- Priority (1 = default/primary)
+--   "conditions": {},                            -- Optional conditions for execution
+--   "timer": 0,                                  -- Timer for auto-return (milliseconds)
+--   "kpi_references": [...],                     -- KPI measurement verifications (same format as node verifications)
+--   "use_verifications_for_kpi": false           -- When TRUE, use target node's verifications for KPI instead of kpi_references
 -- }
 --
 -- EXAMPLES:
@@ -168,8 +168,6 @@ CREATE INDEX idx_navigation_nodes_node_id ON navigation_nodes(node_id);
 CREATE INDEX idx_navigation_nodes_team ON navigation_nodes(team_id);
 CREATE INDEX idx_navigation_nodes_position ON navigation_nodes(position_x, position_y);
 CREATE INDEX idx_navigation_nodes_has_subtree ON navigation_nodes(has_subtree);
-CREATE INDEX idx_navigation_nodes_kpi_references ON navigation_nodes USING GIN (kpi_references);
-CREATE INDEX idx_navigation_nodes_use_verifications_for_kpi ON navigation_nodes(use_verifications_for_kpi) WHERE use_verifications_for_kpi = TRUE;
 
 CREATE INDEX idx_navigation_edges_tree ON navigation_edges(tree_id);
 CREATE INDEX idx_navigation_edges_edge_id ON navigation_edges(edge_id);
@@ -188,8 +186,7 @@ CREATE INDEX idx_navigation_trees_history_team ON navigation_trees_history(team_
 CREATE INDEX idx_navigation_trees_viewport ON navigation_trees(viewport_x, viewport_y, viewport_zoom);
 
 -- Add column comments
-COMMENT ON COLUMN navigation_nodes.kpi_references IS 'KPI measurement references - same format as verifications, used to measure navigation performance timing';
-COMMENT ON COLUMN navigation_nodes.use_verifications_for_kpi IS 'When TRUE, uses verifications[] for KPI measurement instead of kpi_references[]. Allows reusing existing verifications for performance measurement without duplication.';
+COMMENT ON COLUMN navigation_edges.action_sets IS 'Array of action sets. Each action set can include kpi_references (verification objects) and use_verifications_for_kpi flag for per-transition performance measurement.';
 
 -- Nested Tree Helper Functions
 -- Function to get all descendant trees
@@ -250,9 +247,7 @@ BEGIN
                     team_id,
                     has_subtree,
                     subtree_count,
-                    kpi_references,
                     verifications,
-                    use_verifications_for_kpi,
                     created_at,
                     updated_at
                 FROM navigation_nodes
@@ -525,9 +520,7 @@ SELECT
                     team_id,
                     has_subtree,
                     subtree_count,
-                    kpi_references,
                     verifications,
-                    use_verifications_for_kpi,
                     created_at,
                     updated_at
                 FROM navigation_nodes
