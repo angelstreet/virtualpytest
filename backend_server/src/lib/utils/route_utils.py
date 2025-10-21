@@ -120,20 +120,30 @@ def proxy_to_host(endpoint, method='GET', data=None, timeout=30, headers=None):
         
         return response_data, response.status_code
         
-    except requests.exceptions.Timeout:
+    except requests.exceptions.Timeout as e:
+        error_msg = f'Request to host timed out (timeout={timeout}s)'
+        print(f"[@utils:routeUtils:proxy_to_host] ⚠️ TIMEOUT: {full_url}")
+        print(f"[@utils:routeUtils:proxy_to_host] ⚠️ Error: {str(e)}")
         return {
             'success': False,
-            'error': 'Request to host timed out'
+            'error': error_msg
         }, 504
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f'Could not connect to host: {str(e)}'
+        print(f"[@utils:routeUtils:proxy_to_host] ❌ CONNECTION ERROR: {full_url}")
+        print(f"[@utils:routeUtils:proxy_to_host] ❌ Error details: {str(e)}")
         return {
             'success': False,
-            'error': 'Could not connect to host'
+            'error': error_msg
         }, 503
     except Exception as e:
+        error_msg = f'Proxy error: {str(e)}'
+        print(f"[@utils:routeUtils:proxy_to_host] 💥 UNEXPECTED ERROR: {full_url}")
+        print(f"[@utils:routeUtils:proxy_to_host] 💥 Error type: {type(e).__name__}")
+        print(f"[@utils:routeUtils:proxy_to_host] 💥 Error details: {str(e)}")
         return {
             'success': False,
-            'error': f'Proxy error: {str(e)}'
+            'error': error_msg
         }, 500
 
 
@@ -224,20 +234,33 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
         
         return response_data, response.status_code
         
-    except requests.exceptions.Timeout:
+    except requests.exceptions.Timeout as e:
+        error_msg = f'Request to host timed out (timeout={timeout}s)'
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] ⚠️ TIMEOUT: {full_url}")
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] ⚠️ Error: {str(e)}")
         return {
             'success': False,
-            'error': 'Request to host timed out'
+            'error': error_msg
         }, 504
-    except requests.exceptions.ConnectionError:
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f'Could not connect to host: {str(e)}'
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] ❌ CONNECTION ERROR: {full_url}")
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] ❌ Error details: {str(e)}")
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] ❌ Host info: {host_info.get('host_name', 'unknown')}")
         return {
             'success': False,
-            'error': 'Could not connect to host'
+            'error': error_msg
         }, 503
     except Exception as e:
+        error_msg = f'Proxy error: {str(e)}'
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] 💥 UNEXPECTED ERROR: {full_url}")
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] 💥 Error type: {type(e).__name__}")
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] 💥 Error details: {str(e)}")
+        import traceback
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] 💥 Traceback: {traceback.format_exc()}")
         return {
             'success': False,
-            'error': f'Proxy error: {str(e)}'
+            'error': error_msg
         }, 500 
 
 
