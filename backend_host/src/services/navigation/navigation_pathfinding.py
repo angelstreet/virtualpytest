@@ -95,6 +95,10 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
                         actual_start_node = node_id
                         start_resolved_by_label = True
                         break
+                else:
+                    # If start_node_id couldn't be resolved, treat it as None (fallback to entry)
+                    print(f"[@navigation:pathfinding:find_shortest_path_unified] Warning: start_node_id '{start_node_id}' not found in graph, falling back to entry point")
+                    actual_start_node = None
     
     if not actual_start_node:
         entry_points = get_entry_points(unified_graph)
