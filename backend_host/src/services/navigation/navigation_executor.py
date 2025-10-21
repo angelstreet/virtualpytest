@@ -847,7 +847,12 @@ class NavigationExecutor:
             
             if kpi_step and kpi_action_timestamp and kpi_userinterface_name:
                 try:
-                    print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
+                    # Log accurate message based on verification status
+                    if verification_result.get('has_verifications', True):
+                        print(f"[@navigation_executor] Final verification passed - queueing KPI measurement")
+                    else:
+                        print(f"[@navigation_executor] Navigation completed (no verifications) - queueing KPI measurement")
+                    
                     self._queue_kpi_measurement(
                         step=kpi_step,
                         action_timestamp=kpi_action_timestamp,
