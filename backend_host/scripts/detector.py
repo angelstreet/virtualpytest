@@ -544,15 +544,15 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
     # ADAPTIVE: When overloaded, only detect every N frames (1 second)
     start = time.perf_counter()
     
+    # Threshold = 10 (matches production - accounts for compression artifacts)
+    threshold = 10
+    
     # ✅ SKIP: If freeze incident is ongoing, don't waste CPU checking blackscreen
     if skip_blackscreen:
         blackscreen = False
         dark_percentage = 0.0
         timings['blackscreen'] = 0.0  # Skipped - incident priority
     else:
-        # Threshold = 10 (matches production - accounts for compression artifacts)
-        threshold = 10
-        
         # Check if we should use cached result (adaptive sampling when overloaded)
         if queue_size > 50 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
             # Return cached blackscreen result
