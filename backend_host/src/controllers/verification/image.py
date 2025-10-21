@@ -169,6 +169,7 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Searching in {len(images_to_check)} images")
             max_threshold_score = 0.0
             best_source_path = None
+            best_match_location = None  # Store actual match location
             wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
             
             for idx, source_path in enumerate(images_to_check):
@@ -188,15 +189,20 @@ class ImageVerificationController:
                     print(f"[@controller:ImageVerification] WARNING: Source image corrupted/invalid: {os.path.basename(source_path)}")
                     continue
                 
-                threshold_score = self._match_template(ref_img, source_img, area)
+                threshold_score, match_location = self._match_template(ref_img, source_img, area)
                 
                 # Always set first valid source as best_source_path, then update if better threshold score found
                 if best_source_path is None or threshold_score > max_threshold_score:
                     max_threshold_score = threshold_score
                     best_source_path = source_path
+                    best_match_location = match_location
                 
                 if threshold_score >= threshold:
                     print(f"[@controller:ImageVerification] Match found in {source_path} with threshold score {threshold_score:.3f}")
+                    
+                    # Log actual match location for debugging
+                    if match_location:
+                        print(f"[@controller:ImageVerification] Match location: x={match_location['x']}, y={match_location['y']}, w={match_location['width']}, h={match_location['height']}")
                     
                     # Save actual threshold score (separate from user threshold)
                     additional_data["matching_result"] = threshold_score  # Actual threshold score
@@ -208,8 +214,8 @@ class ImageVerificationController:
                         additional_data["kpi_match_index"] = idx
                         print(f"[@controller:ImageVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
                     
-                    # Generate comparison images for successful match
-                    image_urls = self._generate_comparison_images(source_path, resolved_image_path, area, verification_index, image_filter)
+                    # Generate comparison images using ACTUAL match location (not search area)
+                    image_urls = self._generate_comparison_images(source_path, resolved_image_path, match_location, verification_index, image_filter)
                     additional_data.update(image_urls)
                     
                     # Create consistent message format for success (same as failure format)
@@ -221,7 +227,8 @@ class ImageVerificationController:
             # ALWAYS generate comparison images for debugging (especially important for failures)
             if best_source_path:
                 print(f"[@controller:ImageVerification] Generating debug comparison images for failed match (best score: {max_threshold_score:.3f})")
-                image_urls = self._generate_comparison_images(best_source_path, resolved_image_path, area, verification_index, image_filter)
+                # Use best match location (even if it didn't meet threshold)
+                image_urls = self._generate_comparison_images(best_source_path, resolved_image_path, best_match_location, verification_index, image_filter)
                 additional_data.update(image_urls)
             else:
                 print(f"[@controller:ImageVerification] WARNING: No valid source images found for comparison")
@@ -910,26 +917,42 @@ class ImageVerificationController:
             traceback.print_exc()
             return None, None
 
-    def _match_template(self, ref_img, source_img, area: dict = None) -> float:
+    def _match_template(self, ref_img, source_img, area: dict = None) -> Tuple[float, Optional[dict]]:
+        """
+        Match template and return confidence + actual match location.
+        
+        Returns:
+            Tuple of (confidence, location) where location is the actual match area in source image
+        """
         try:
             if area and 'fx' in area and area.get('fx') is not None:
                 exact_area = {'x': area['x'], 'y': area['y'], 'width': area['width'], 'height': area['height']}
                 fuzzy_area = {'fx': area['fx'], 'fy': area['fy'], 'fwidth': area['fwidth'], 'fheight': area['fheight']}
                 found, confidence, location = self.helpers.smart_fuzzy_search(source_img, ref_img, exact_area, fuzzy_area, 0.0)
-                return confidence
+                return confidence, location
             
             if area:
                 x, y, w, h = int(area['x']), int(area['y']), int(area['width']), int(area['height'])
-                source_img = source_img[y:y+h, x:x+w]
+                cropped_source = source_img[y:y+h, x:x+w]
+                
+                result = cv2.matchTemplate(cropped_source, ref_img, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, max_loc = cv2.minMaxLoc(result)
+                
+                # For exact match, location is the search area itself
+                location = {'x': x, 'y': y, 'width': w, 'height': h}
+                return max_val, location
             
+            # No area specified - full image search
             result = cv2.matchTemplate(source_img, ref_img, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(result)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
             
-            return max_val
+            ref_h, ref_w = ref_img.shape[:2]
+            location = {'x': max_loc[0], 'y': max_loc[1], 'width': ref_w, 'height': ref_h}
+            return max_val, location
             
         except Exception as e:
             print(f"[@controller:ImageVerification] Template matching error: {e}")
-            return 0.0
+            return 0.0, None
     
     def _get_next_capture(self, filepath: str, offset: int) -> str:
         """Get next sequential capture filename"""
