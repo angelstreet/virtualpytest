@@ -20,16 +20,52 @@ SELECT
         'tree', row_to_json(t.*),
         'nodes', COALESCE(
             (SELECT json_agg(n ORDER BY n.created_at)
-             FROM navigation_nodes n
-             WHERE n.tree_id = t.id
-             AND n.team_id = t.team_id),
+             FROM (
+                SELECT 
+                    id,
+                    tree_id,
+                    node_id,
+                    node_type,
+                    label,
+                    position_x,
+                    position_y,
+                    data,
+                    style,
+                    team_id,
+                    has_subtree,
+                    subtree_count,
+                    kpi_references,
+                    verifications,
+                    use_verifications_for_kpi,
+                    created_at,
+                    updated_at
+                FROM navigation_nodes
+                WHERE tree_id = t.id
+                AND team_id = t.team_id
+             ) n),
             '[]'::json
         ),
         'edges', COALESCE(
             (SELECT json_agg(e ORDER BY e.created_at)
-             FROM navigation_edges e
-             WHERE e.tree_id = t.id
-             AND e.team_id = t.team_id),
+             FROM (
+                SELECT 
+                    id,
+                    tree_id,
+                    edge_id,
+                    source_node_id,
+                    target_node_id,
+                    label,
+                    data,
+                    team_id,
+                    action_sets,
+                    default_action_set_id,
+                    final_wait_time,
+                    created_at,
+                    updated_at
+                FROM navigation_edges
+                WHERE tree_id = t.id
+                AND team_id = t.team_id
+             ) e),
             '[]'::json
         )
     ) as full_tree_data,
