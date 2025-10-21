@@ -131,16 +131,36 @@ def get_tree_hierarchy_metadata(root_tree_id: str, team_id: str) -> Optional[Dic
     return _tree_hierarchy_cache.get(hierarchy_cache_key)
 
 def clear_unified_cache(root_tree_id: str = None, team_id: str = None):
-    """Clear cached files"""
+    """Clear both in-memory and file caches"""
     if root_tree_id and team_id:
-        cache_file = f"{CACHE_DIR}/unified_{root_tree_id}_{team_id}.pkl"
+        cache_key = f"unified_{root_tree_id}_{team_id}"
+        
+        # Clear in-memory cache
+        if cache_key in _unified_graphs_cache:
+            del _unified_graphs_cache[cache_key]
+        if cache_key in _unified_cache_timestamps:
+            del _unified_cache_timestamps[cache_key]
+        if cache_key in _tree_hierarchy_cache:
+            del _tree_hierarchy_cache[cache_key]
+        
+        # Clear file cache
+        cache_file = f"{CACHE_DIR}/{cache_key}.pkl"
         if os.path.exists(cache_file):
             os.remove(cache_file)
-            print(f"[@navigation:cache:clear_unified_cache] Cleared cache for tree: {root_tree_id}")
+        
+        print(f"[@navigation:cache:clear_unified_cache] Cleared in-memory + file cache for tree: {root_tree_id}")
     else:
+        # Clear all in-memory caches
+        _unified_graphs_cache.clear()
+        _unified_cache_timestamps.clear()
+        _tree_hierarchy_cache.clear()
+        _node_location_cache.clear()
+        
+        # Clear all file caches
         for f in os.listdir(CACHE_DIR):
             os.remove(os.path.join(CACHE_DIR, f))
-        print(f"[@navigation:cache:clear_unified_cache] Cleared all caches")
+        
+        print(f"[@navigation:cache:clear_unified_cache] Cleared ALL in-memory + file caches")
 
 def get_cache_stats() -> Dict[str, int]:
     """Get cache statistics from files"""
