@@ -1126,11 +1126,12 @@ class InotifyFrameMonitor:
             logger.info(f"[{capture_folder}]     start_segment: {start_segment} (frame {start_frame})")
             logger.info(f"[{capture_folder}]     end_segment: {end_segment} (frame {end_frame})")
             
-            # Add 1 extra segment after to check if audio comes back
-            segments_to_check = list(range(start_segment, end_segment + 2))  # +2 because range is exclusive
+            # ✅ NO EXTRA SEGMENTS: Event segments are sufficient to detect audio dropout
+            # Short freeze/blackscreen (0.1-0.5s) already captured in start→end range
+            segments_to_check = list(range(start_segment, end_segment + 1))  # +1 because range is exclusive
             
-            logger.info(f"[{capture_folder}] Event: frames {start_frame}-{end_frame} → segments {start_segment}-{end_segment} + 1 extra")
-            logger.info(f"[{capture_folder}] Will merge and analyze {len(segments_to_check)} segments: {segments_to_check}")
+            logger.info(f"[{capture_folder}] Event: frames {start_frame}-{end_frame} → segments {start_segment}-{end_segment}")
+            logger.info(f"[{capture_folder}] Will analyze {len(segments_to_check)} segment(s): {segments_to_check}")
             
             # Find all segment files
             segments_dir = get_segments_path(capture_folder)
@@ -1171,7 +1172,8 @@ class InotifyFrameMonitor:
                     logger.error(f"[{capture_folder}]   - {missing}")
                 
                 # 🔍 DIAGNOSTIC: Show what segments actually exist in directory
-                logger.info(f"[{capture_folder}] 📂 DIAGNOSTIC: Last 20 segments in directory:")
+                logger.info(f"[{capture_folder}] 📂 DIAGNOSTIC: Last 5 segments in directory:")
+                fallback_segments = []
                 try:
                     # List last 20 segment files by modification time
                     import subprocess
@@ -1190,6 +1192,17 @@ class InotifyFrameMonitor:
                         if segment_lines:
                             for line in segment_lines:
                                 logger.info(f"[{capture_folder}]   {line}")
+                                # Extract segment number and path for fallback
+                                try:
+                                    # Parse: segment_000000862.ts
+                                    parts = line.split()
+                                    filename = parts[-1]  # Last part is filename
+                                    if 'segment_' in filename and filename.endswith('.ts'):
+                                        seg_num = int(filename.split('_')[1].split('.')[0])
+                                        seg_path = os.path.join(segments_dir, filename)
+                                        fallback_segments.append((seg_num, seg_path))
+                                except:
+                                    pass
                         else:
                             logger.warning(f"[{capture_folder}]   No segment files found in directory!")
                     else:
@@ -1198,23 +1211,44 @@ class InotifyFrameMonitor:
                 except Exception as e:
                     logger.warning(f"[{capture_folder}]   Could not list segments: {e}")
                 
-                return {
-                    'has_continuous_audio': False,
-                    'silence_duration': 0.0,
-                    'mean_volume_db': -100.0,
-                    'segment_duration': 0.0,
-                    'segments_checked': []  # ✅ EMPTY = no segments available
-                }
+                # ✅ RACE CONDITION FALLBACK: Use most recent available segments
+                if fallback_segments and len(fallback_segments) >= 1:
+                    # ✅ LIMIT: Max 2 segments for short events (0.1-0.5s freeze/blackscreen)
+                    num_fallback = min(2, len(fallback_segments))
+                    fallback_to_use = fallback_segments[:num_fallback]
+                    
+                    logger.warning(f"[{capture_folder}] 🔄 RACE CONDITION FALLBACK:")
+                    logger.warning(f"[{capture_folder}]     Expected segments {segments_to_check} not written yet")
+                    logger.warning(f"[{capture_folder}]     Using {num_fallback} most recent segment(s): {[seg for seg, _ in fallback_to_use]}")
+                    logger.warning(f"[{capture_folder}]     This covers typical short event timeframe (0.1-0.5s)")
+                    
+                    # Update available_segments with fallback
+                    available_segments = fallback_to_use
+                    segment_files_to_use = [seg_file for _, seg_file in available_segments]
+                    segments_used = [seg_num for seg_num, _ in available_segments]
+                    
+                    # Continue with fallback segments (skip the abort)
+                    logger.info(f"[{capture_folder}] 🔊 Analyzing {len(segment_files_to_use)} fallback segment(s): {segments_used}")
+                else:
+                    # No fallback possible - truly no segments
+                    logger.error(f"[{capture_folder}] ❌ No fallback segments available - directory is empty")
+                    return {
+                        'has_continuous_audio': False,
+                        'silence_duration': 0.0,
+                        'mean_volume_db': -100.0,
+                        'segment_duration': 0.0,
+                        'segments_checked': []  # ✅ EMPTY = no segments available
+                    }
+            else:
+                # Some expected segments found - use them
+                segment_files_to_use = [seg_file for _, seg_file in available_segments]
+                segments_used = [seg_num for seg_num, _ in available_segments]
             
             # ✅ PARTIAL ANALYSIS: Use whatever segments we have
-            if missing_segments:
+            if missing_segments and len(available_segments) < len(segment_files):
                 logger.warning(f"[{capture_folder}] ⚠️  Partial analysis: {len(available_segments)}/{len(segment_files)} segments available")
                 logger.warning(f"[{capture_folder}]     Missing: {[os.path.basename(m) for m in missing_segments]}")
                 logger.info(f"[{capture_folder}]     Proceeding with available segments (better than aborting)")
-            
-            # Build segment file list from available segments only
-            segment_files_to_use = [seg_file for _, seg_file in available_segments]
-            segments_used = [seg_num for seg_num, _ in available_segments]
             
             logger.info(f"[{capture_folder}] 🔊 Analyzing {len(segment_files_to_use)} segment(s): {segments_used}")
             
