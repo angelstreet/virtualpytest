@@ -1236,7 +1236,15 @@ class InotifyFrameMonitor:
                     context=capture_folder
                 )
                 
-                if has_continuous_audio:
+                # ✅ DISTINGUISH: Constant silence vs dropout
+                # If silence_duration ≈ segment_duration → constant silence (no audio at all)
+                # If silence_duration < segment_duration → true dropout (audio cut out temporarily)
+                if abs(silence_duration - segment_duration) < 0.05:  # Within 50ms tolerance
+                    logger.info(f"[{capture_folder}] 🔇 CONSTANT SILENCE: {silence_duration:.2f}s silence in {segment_duration:.1f}s total (mean: {mean_volume:.1f}dB)")
+                    logger.info(f"[{capture_folder}]     This is NOT a dropout - no audio present at all")
+                    # Treat constant silence as "continuous" (i.e., no dropout occurred)
+                    has_continuous_audio = True
+                elif has_continuous_audio:
                     logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (single segment)")
                 else:
                     logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT: {silence_duration:.2f}s silence in {segment_duration:.1f}s (mean: {mean_volume:.1f}dB)")
@@ -1325,7 +1333,15 @@ class InotifyFrameMonitor:
                     context=capture_folder
                 )
                 
-                if has_continuous_audio:
+                # ✅ DISTINGUISH: Constant silence vs dropout
+                # If silence_duration ≈ segment_duration → constant silence (no audio at all)
+                # If silence_duration < segment_duration → true dropout (audio cut out temporarily)
+                if abs(silence_duration - segment_duration) < 0.05:  # Within 50ms tolerance
+                    logger.info(f"[{capture_folder}] 🔇 CONSTANT SILENCE: {silence_duration:.2f}s silence in {segment_duration:.1f}s total (mean: {mean_volume:.1f}dB)")
+                    logger.info(f"[{capture_folder}]     This is NOT a dropout - no audio present at all")
+                    # Treat constant silence as "continuous" (i.e., no dropout occurred)
+                    has_continuous_audio = True
+                elif has_continuous_audio:
                     logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (no dropouts across {len(segment_files_to_use)} segments)")
                 else:
                     logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT detected: {silence_duration:.2f}s silence in {segment_duration:.1f}s total (mean: {mean_volume:.1f}dB)")
