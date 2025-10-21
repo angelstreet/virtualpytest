@@ -7,6 +7,15 @@ interface ServerManagerProviderProps {
   children: React.ReactNode;
 }
 
+// Cache configuration
+const CACHE_KEY = 'serverHostsData_cache';
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+
+interface CachedData {
+  data: ServerHostData[];
+  timestamp: number;
+}
+
 /**
  * Server Manager Provider
  * 
@@ -17,6 +26,7 @@ interface ServerManagerProviderProps {
  * - Server selection with localStorage persistence
  * - Fetches server info and hosts from all configured servers
  * - Provides centralized server state management
+ * - Caches server data for 1 hour to reduce unnecessary API calls
  */
 export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ children }) => {
   // ========================================
@@ -36,9 +46,40 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     }
   });
 
-  // Server data state
-  const [serverHostsData, setServerHostsData] = useState<ServerHostData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Server data state - Initialize from cache if available and valid
+  const [serverHostsData, setServerHostsData] = useState<ServerHostData[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, timestamp }: CachedData = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+        if (age < CACHE_TTL) {
+          console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000 / 60)}min)`);
+          return data;
+        }
+      }
+    } catch (error) {
+      console.warn('[@ServerManager] Failed to load cached data:', error);
+    }
+    return [];
+  });
+
+  // Check if we have cached data on initial load
+  const hasCachedData = useMemo(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { timestamp }: CachedData = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+        return age < CACHE_TTL;
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }, []);
+
+  const [isLoading, setIsLoading] = useState(!hasCachedData);
   const [error, setError] = useState<string | null>(null);
   const [pendingServers, setPendingServers] = useState<Set<string>>(new Set());
   const [failedServers, setFailedServers] = useState<Set<string>>(new Set());
@@ -69,7 +110,27 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
    * Fetch server information and hosts from all configured servers
    * Non-blocking: Shows partial data if some servers fail
    */
-  const fetchServerData = useCallback(async () => {
+  const fetchServerData = useCallback(async (forceRefresh = false) => {
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data, timestamp }: CachedData = JSON.parse(cached);
+          const age = Date.now() - timestamp;
+          if (age < CACHE_TTL) {
+            console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000 / 60)}min)`);
+            setServerHostsData(data);
+            setIsLoading(false);
+            isRequestInProgress.current = false;
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('[@ServerManager] Failed to load cached data:', error);
+      }
+    }
+
     // Prevent duplicate calls
     if (isRequestInProgress.current) {
       console.log('[@ServerManager] Request already in progress, skipping duplicate call');
@@ -82,8 +143,9 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     setServerHostsData([]); // Reset to empty
     setPendingServers(new Set(availableServers));
     setFailedServers(new Set()); // Reset failed servers
-    
-    availableServers.forEach(async (serverUrl) => {
+
+    // Fetch from all servers in parallel
+    const promises = availableServers.map(async (serverUrl) => {
       try {
         // Fetch hosts WITH system stats but WITHOUT action schemas
         // System stats (~5-10KB) are needed for Dashboard monitoring
@@ -116,34 +178,59 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
           if (serverUrl === selectedServer) {
             setIsLoading(false);
           }
+
+          return { success: true, serverUrl, data: serverData };
         } else {
           console.warn(`[@ServerManager] Failed response from ${serverUrl}: ${response.status}`);
-          // Mark as failed
           setFailedServers(prev => new Set(prev).add(serverUrl));
+          return { success: false, serverUrl, data: null };
         }
       } catch (error: any) {
         console.warn(`[@ServerManager] Error from ${serverUrl}: ${error.message}`);
-        // Mark as failed
         setFailedServers(prev => new Set(prev).add(serverUrl));
+        return { success: false, serverUrl, data: null };
       } finally {
         // Remove from pending
         setPendingServers(prev => {
           const newSet = new Set(prev);
           newSet.delete(serverUrl);
-          if (newSet.size === 0) {
-            setIsLoading(false); // All done
-          }
           return newSet;
         });
       }
     });
+
+    // Wait for all requests to complete
+    const results = await Promise.all(promises);
+    
+    // Extract successful server data
+    const allServerData = results
+      .filter(result => result.success && result.data)
+      .map(result => result.data!);
+
+    // Cache the data if we have any
+    if (allServerData.length > 0) {
+      try {
+        const cacheData: CachedData = {
+          data: allServerData,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+        console.log('[@ServerManager] Data cached successfully');
+      } catch (error) {
+        console.warn('[@ServerManager] Failed to cache data:', error);
+      }
+    }
+
+    setIsLoading(false);
+    isRequestInProgress.current = false;
   }, [availableServers, selectedServer]);
 
   /**
-   * Manual refresh function
+   * Manual refresh function - forces a fresh fetch bypassing cache
    */
   const refreshServerData = useCallback(async () => {
-    await fetchServerData();
+    console.log('[@ServerManager] Manual refresh requested - bypassing cache');
+    await fetchServerData(true);
   }, [fetchServerData]);
 
   // ========================================
