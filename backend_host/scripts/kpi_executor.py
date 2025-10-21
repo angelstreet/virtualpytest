@@ -62,6 +62,7 @@ class KPIMeasurementRequest:
         self.userinterface_name = data['userinterface_name']  # MANDATORY for reference resolution
         self.device_model = data.get('device_model')
         self.kpi_timestamp = data.get('kpi_timestamp')
+        self.last_action_wait_ms = data.get('last_action_wait_ms', 0)
         self.request_file = data.get('_request_file')  # Track source file
 
 
@@ -217,14 +218,17 @@ class KPIExecutorService:
         pattern = os.path.join(request.capture_dir, "capture_*.jpg")
         copied_count = 0
         
+        # Determine scan end timestamp
+        scan_end = request.verification_timestamp if request.verification_timestamp else (request.action_timestamp + request.last_action_wait_ms / 1000)
+        
         for source_path in glob.glob(pattern):
             if "_thumbnail" in source_path:
                 continue
             
             try:
                 ts = os.path.getmtime(source_path)
-                # Copy images in time window: action → verification
-                if request.action_timestamp <= ts <= request.verification_timestamp:
+                # Copy images in time window: action → scan_end (verification or action + wait)
+                if request.action_timestamp <= ts <= scan_end:
                     filename = os.path.basename(source_path)
                     dest_path = os.path.join(working_dir, filename)
                     shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
@@ -287,12 +291,15 @@ class KPIExecutorService:
         pattern = os.path.join(capture_dir, "capture_*.jpg")
         all_captures = []
         
+        # Determine scan end timestamp (same logic as copy)
+        scan_end = verification_timestamp if verification_timestamp else (action_timestamp + request.last_action_wait_ms / 1000)
+        
         for path in glob.glob(pattern):
             if "_thumbnail" in path:
                 continue
             try:
                 ts = os.path.getmtime(path)
-                if action_timestamp <= ts <= verification_timestamp:
+                if action_timestamp <= ts <= scan_end:
                     all_captures.append({'path': path, 'timestamp': ts})
             except OSError:
                 continue

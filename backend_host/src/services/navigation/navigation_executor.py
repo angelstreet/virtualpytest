@@ -1479,6 +1479,14 @@ class NavigationExecutor:
             
             action_set_label = action_set.get('label', action_set_id)
             
+            # Get last action's wait time (for KPI scan window when no verification)
+            actions = step.get('actions', [])
+            last_action_wait_ms = 0
+            if actions:
+                last_action = actions[-1]
+                if last_action.get('command') == 'wait':
+                    last_action_wait_ms = int(last_action.get('params', {}).get('duration', 0) * 1000)
+            
             # Check if action_set uses verifications of target node for KPI measurement
             use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)
             
@@ -1541,7 +1549,8 @@ class NavigationExecutor:
                 'timeout_ms': timeout_ms,
                 'device_id': self.device_id,
                 'device_model': self.device_model,
-                'userinterface_name': userinterface_name  # MANDATORY for reference resolution
+                'userinterface_name': userinterface_name,  # MANDATORY for reference resolution
+                'last_action_wait_ms': last_action_wait_ms
             }
             
             # Write to JSON file queue for standalone KPI executor service (atomic write for inotify)
