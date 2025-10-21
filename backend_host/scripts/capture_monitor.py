@@ -1627,20 +1627,29 @@ class InotifyFrameMonitor:
             
             skip_freeze = False
             skip_blackscreen = False
+            skip_macroblocks = False
             
             if needs_detection:
-                # Check if blackscreen is ongoing → skip freeze detection
+                # Check if blackscreen is ongoing → skip freeze and macroblocks detection
                 if device_state.get('blackscreen_event_start'):
                     skip_freeze = True
-                    logger.debug(f"[{capture_folder}] ⏩ Skipping freeze detection (blackscreen ongoing)")
+                    skip_macroblocks = True
+                    logger.debug(f"[{capture_folder}] ⏩ Skipping freeze/macroblocks detection (blackscreen ongoing)")
                 
-                # Check if freeze is ongoing → skip blackscreen detection
+                # Check if freeze is ongoing → skip blackscreen and macroblocks detection
                 elif device_state.get('freeze_event_start'):
                     skip_blackscreen = True
-                    logger.debug(f"[{capture_folder}] ⏩ Skipping blackscreen detection (freeze ongoing)")
+                    skip_macroblocks = True
+                    logger.debug(f"[{capture_folder}] ⏩ Skipping blackscreen/macroblocks detection (freeze ongoing)")
                 
                 # Run detection with skip flags (avoids wasting CPU on lower-priority checks)
-                detection_result = detect_issues(frame_path, queue_size=queue_size, skip_freeze=skip_freeze, skip_blackscreen=skip_blackscreen)
+                detection_result = detect_issues(
+                    frame_path, 
+                    queue_size=queue_size, 
+                    skip_freeze=skip_freeze, 
+                    skip_blackscreen=skip_blackscreen,
+                    skip_macroblocks=skip_macroblocks
+                )
             else:
                 # JSON exists without audio - just add audio from cache (no detection needed)
                 detection_result = {}  # Empty dict to merge with existing data

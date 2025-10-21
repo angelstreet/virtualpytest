@@ -358,7 +358,7 @@ def quick_blackscreen_check(img, threshold=10):
 
 # analyze_subtitles() removed - now handled by subtitle_monitor.py
 
-def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=False, skip_blackscreen=False):
+def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=False, skip_blackscreen=False, skip_macroblocks=False):
     """
     Main detection function - OPTIMIZED WORKFLOW with zap state tracking
     
@@ -381,6 +381,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
     INCIDENT PRIORITY OPTIMIZATION:
     - skip_freeze: Skip freeze detection (when blackscreen is ongoing)
     - skip_blackscreen: Skip blackscreen detection (when freeze is ongoing)
+    - skip_macroblocks: Skip macroblocks detection (when blackscreen/freeze is ongoing)
     - Saves CPU by only checking the ONGOING incident type
     
     NOTE: Subtitle OCR is handled by subtitle_monitor.py (separate process)
@@ -392,6 +393,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
         debug: Enable debug output (unused, kept for compatibility)
         skip_freeze: Skip freeze detection (incident priority optimization)
         skip_blackscreen: Skip blackscreen detection (incident priority optimization)
+        skip_macroblocks: Skip macroblocks detection (incident priority optimization)
     """
     # Performance timing storage
     timings = {}
@@ -660,8 +662,12 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
         # Macroblocks detection disabled by configuration
         macroblocks, quality_score = False, 0.0
         timings['macroblocks'] = 0.0  # Disabled
+    elif skip_macroblocks:
+        # ✅ SKIP: Incident ongoing (blackscreen/freeze) - don't waste CPU checking macroblocks
+        macroblocks, quality_score = False, 0.0
+        timings['macroblocks'] = 0.0  # Skipped - incident priority
     elif blackscreen or frozen:
-        # Skip if blackscreen/freeze already detected (priority rules)
+        # Skip if blackscreen/freeze already detected in current frame (priority rules)
         macroblocks, quality_score = False, 0.0
         timings['macroblocks'] = 0.0  # Skipped
     elif queue_size > 50:
