@@ -94,21 +94,17 @@ done
 echo "🔍 DEBUG: Cleaning stale temp files..."
 rm -f /var/www/html/stream/active_captures.conf.tmp* 2>/dev/null || true
 
-# Single device restart: kill only the specific device's process
+# Single device restart: kill ALL FFmpeg processes for this device
 if [ "$SINGLE_DEVICE_MODE" = true ]; then
-    echo "🔍 DEBUG: Killing process for $TARGET_DEVICE..."
+    echo "🔍 DEBUG: Killing ALL processes for $TARGET_DEVICE..."
     for index in "${!GRABBERS[@]}"; do
         if [ "$index" = "$TARGET_DEVICE" ]; then
             IFS='|' read -r _ _ capture_dir _ <<< "${GRABBERS[$index]}"
-            OLD_PID=$(get_device_info "$capture_dir" "pid")
-            if [ -n "$OLD_PID" ]; then
-                kill -9 "$OLD_PID" 2>/dev/null || true
-                echo "✅ Killed old process PID: $OLD_PID"
-            fi
+            kill_all_ffmpeg_for_device "$capture_dir" "$index"
             break
         fi
     done
-    sleep 1
+    sleep 2  # Extra wait to ensure processes are fully cleaned up
 fi
 
 # Note: For "all devices" mode, systemd ExecStartPre handles cleanup
@@ -187,6 +183,51 @@ reset_video_device() {
   sleep 1
 }
 
+# Kill ALL FFmpeg processes for a specific device (prevents process accumulation)
+kill_all_ffmpeg_for_device() {
+  local capture_dir="$1"
+  local index="$2"
+  
+  echo "🔪 Killing FFmpeg for $index..."
+  
+  # Count processes BEFORE kill (for logging)
+  local before_count=$(pgrep -f "$capture_dir/hot/captures" 2>/dev/null | wc -l)
+  
+  if [ "$before_count" -eq 0 ]; then
+    echo "✅ No FFmpeg processes found for $index"
+    return 0
+  fi
+  
+  echo "   Found $before_count process(es) to kill"
+  
+  # Kill ONLY this device's FFmpeg processes (won't affect other devices)
+  pkill -9 -f "$capture_dir/hot/captures" 2>/dev/null || true
+  
+  # Wait for cleanup
+  sleep 1
+  
+  # Verify kill succeeded
+  local after_count=$(pgrep -f "$capture_dir/hot/captures" 2>/dev/null | wc -l)
+  
+  if [ "$after_count" -eq 0 ]; then
+    echo "✅ Successfully killed $before_count FFmpeg process(es) for $index"
+  else
+    echo "❌ ERROR: $after_count process(es) still alive for $index after kill!"
+    echo "   Stuck PIDs:"
+    pgrep -f "$capture_dir/hot/captures" 2>/dev/null || true
+    
+    # Try one more time with broader match
+    pkill -9 -f "$capture_dir" 2>/dev/null || true
+    sleep 1
+    
+    # Final check
+    local final_count=$(pgrep -f "$capture_dir/hot/captures" 2>/dev/null | wc -l)
+    if [ "$final_count" -gt 0 ]; then
+      echo "❌ CRITICAL: Could not kill all processes! Manual intervention needed."
+    fi
+  fi
+}
+
 # Clean up playlist files for a specific capture directory
 clean_playlist_files() {
   local capture_dir=$1
@@ -253,9 +294,12 @@ check_quality_changes() {
     local running_quality="${RUNNING_QUALITY[$device_id]}"
     
     if [ "$config_quality" != "$running_quality" ]; then
-      echo "🔄 Quality change: $device_id ($running_quality → $config_quality)"
-      kill -9 "$pid" 2>/dev/null || true
-      sleep 1
+      echo "🔄 Quality change detected: $device_id ($running_quality → $config_quality)"
+      
+      # Kill ALL FFmpeg processes for this device (not just the PID from config)
+      kill_all_ffmpeg_for_device "$capture_dir" "$device_id"
+      
+      sleep 2  # Ensure cleanup complete before restart
       
       # Restart with new quality
       IFS='|' read -r source audio_device capture_dir input_fps <<< "${GRABBERS[$device_id]}"
