@@ -840,14 +840,21 @@ class InotifyFrameMonitor:
                 return
             
             if audio_info['has_continuous_audio']:
-                # Continuous audio → ABORT (likely dark content, not zapping)
-                # Example: Movie scene with dark screen but continuous audio
-                logger.info(f"[{capture_folder}] ⏭️  ABORT: Continuous audio detected - likely dark content, not zapping")
+                # Continuous audio OR constant silence → ABORT (not a dropout = not zapping)
+                mean_volume = audio_info.get('mean_volume_db', 0)
+                silence_duration = audio_info.get('silence_duration', 0)
+                
+                if mean_volume <= -90:  # Essentially silence
+                    logger.info(f"[{capture_folder}] ⏭️  ABORT: Constant silence detected (no audio throughout) - not zapping")
+                else:
+                    logger.info(f"[{capture_folder}] ⏭️  ABORT: Continuous audio detected - likely dark content, not zapping")
+                
                 logger.info(f"[{capture_folder}]     Checked {len(segments_checked)} segments: {segments_checked}")
-                logger.info(f"[{capture_folder}]     mean_volume={audio_info.get('mean_volume_db', 0):.1f}dB, silence={audio_info.get('silence_duration', 0):.1f}s")
+                logger.info(f"[{capture_folder}]     mean_volume={mean_volume:.1f}dB, silence={silence_duration:.1f}s")
                 
                 # ✅ Write "aborted" status so zap_executor doesn't timeout
-                self._write_zapping_aborted(capture_folder, current_filename, 'Continuous audio detected')
+                abort_reason = 'Constant silence detected (no audio)' if mean_volume <= -90 else 'Continuous audio detected'
+                self._write_zapping_aborted(capture_folder, current_filename, abort_reason)
                 return
             else:
                 # Audio dropout detected → PROCEED with banner detection (likely zapping)
@@ -1252,6 +1259,9 @@ class InotifyFrameMonitor:
                     timeout=10,
                     context=capture_folder
                 )
+                
+                # ✅ LOG: Immediately log the raw result
+                logger.info(f"[{capture_folder}] 🔊 Audio check returned: continuous={has_continuous_audio}, silence={silence_duration:.2f}s, volume={mean_volume:.1f}dB")
                 
                 # ✅ DISTINGUISH: Constant silence vs dropout
                 # If silence_duration ≈ segment_duration → constant silence (no audio at all)
